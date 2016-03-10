@@ -35,6 +35,7 @@ import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpSession;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteClientDisconnectedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteTransactions;
@@ -193,6 +194,12 @@ public class WebSessionFilter implements Filter {
     /** Transactions enabled flag. */
     private boolean txEnabled;
 
+    /** Node. */
+    private Ignite webSesIgnite;
+
+    /** Cache name. */
+    private String cacheName;
+
     /** */
     private int retries;
 
@@ -204,7 +211,7 @@ public class WebSessionFilter implements Filter {
             cfg.getInitParameter(WEB_SES_NAME_PARAM),
             ctx.getInitParameter(WEB_SES_NAME_PARAM));
 
-        String cacheName = U.firstNotNull(
+        cacheName = U.firstNotNull(
             cfg.getInitParameter(WEB_SES_CACHE_NAME_PARAM),
             ctx.getInitParameter(WEB_SES_CACHE_NAME_PARAM));
 
@@ -219,7 +226,7 @@ public class WebSessionFilter implements Filter {
             throw new IgniteException("Maximum number of retries parameter is invalid: " + retriesStr, e);
         }
 
-        Ignite webSesIgnite = G.ignite(gridName);
+        webSesIgnite = G.ignite(gridName);
 
         if (webSesIgnite == null)
             throw new IgniteException("Grid for web sessions caching is not started (is it configured?): " +
@@ -257,7 +264,7 @@ public class WebSessionFilter implements Filter {
 
         txEnabled = cacheCfg.getAtomicityMode() == TRANSACTIONAL;
 
-        lsnr = new WebSessionListener(webSesIgnite, cache, retries);
+        lsnr = new WebSessionListener(webSesIgnite, this, retries);
 
         String srvInfo = ctx.getServerInfo();
 
@@ -286,6 +293,20 @@ public class WebSessionFilter implements Filter {
                 }
             };
         }
+    }
+
+    /**
+     * @return Cache.
+     */
+    IgniteCache<String, WebSession> getCache(){
+        return cache;
+    }
+
+    /**
+     * Reinits cache.
+     */
+    void reinitCache() {
+        cache = webSesIgnite.cache(cacheName);
     }
 
     /** {@inheritDoc} */
@@ -333,7 +354,7 @@ public class WebSessionFilter implements Filter {
      */
     private String doFilter0(HttpServletRequest httpReq, ServletResponse res, FilterChain chain) throws IOException,
         ServletException, CacheException {
-        WebSession cached;
+        WebSession cached = null;
 
         String sesId = httpReq.getRequestedSessionId();
 
@@ -341,7 +362,24 @@ public class WebSessionFilter implements Filter {
             if (sesIdTransformer != null)
                 sesId = sesIdTransformer.apply(sesId);
 
-            cached = cache.get(sesId);
+            for (int i = 0; i < retries; i++) {
+                try {
+                    cached = cache.get(sesId);
+                }
+                catch (CacheException | IgniteException | IllegalStateException e) {
+                    if (log.isDebugEnabled())
+                        log.debug(e.getMessage());
+
+                    if (i == retries - 1)
+                        throw new IgniteException("Failed to handle request [session= " + sesId + "]", e);
+                    else {
+                        if (log.isDebugEnabled())
+                            log.debug("Failed to handle request (will retry): " + sesId);
+
+                        handleCacheOperationException(e);
+                    }
+                }
+            }
 
             if (cached != null) {
                 if (log.isDebugEnabled())
@@ -438,7 +476,7 @@ public class WebSessionFilter implements Filter {
 
                 break;
             }
-            catch (CacheException | IgniteException e) {
+            catch (CacheException | IgniteException | IllegalStateException e) {
                 if (log.isDebugEnabled())
                     log.debug(e.getMessage());
 
@@ -448,29 +486,49 @@ public class WebSessionFilter implements Filter {
                     if (log.isDebugEnabled())
                         log.debug("Failed to save session (will retry): " + sesId);
 
-                    IgniteFuture<?> retryFut = null;
-
-                    if (X.hasCause(e, ClusterTopologyException.class)) {
-                        ClusterTopologyException cause = X.cause(e, ClusterTopologyException.class);
-
-                        assert cause != null : e;
-
-                        retryFut = cause.retryReadyFuture();
-                    }
-
-                    if (retryFut != null) {
-                        try {
-                            retryFut.get();
-                        }
-                        catch (IgniteException retryErr) {
-                            throw new IgniteException("Failed to save session: " + sesId, retryErr);
-                        }
-                    }
+                    handleCacheOperationException(e);
                 }
             }
         }
 
         return cached;
+    }
+
+    /**
+     * Handles cache operation exception.
+     * @param e Exception
+     */
+    void handleCacheOperationException(Exception e){
+        IgniteFuture<?> retryFut = null;
+
+        if (e instanceof IllegalStateException) {
+            reinitCache();
+
+            return;
+        }
+        else if (X.hasCause(e, IgniteClientDisconnectedException.class)) {
+            IgniteClientDisconnectedException cause = X.cause(e, IgniteClientDisconnectedException.class);
+
+            assert cause != null : e;
+
+            retryFut = cause.reconnectFuture();
+        }
+        else if (X.hasCause(e, ClusterTopologyException.class)) {
+            ClusterTopologyException cause = X.cause(e, ClusterTopologyException.class);
+
+            assert cause != null : e;
+
+            retryFut = cause.retryReadyFuture();
+        }
+
+        if (retryFut != null) {
+            try {
+                retryFut.get();
+            }
+            catch (IgniteException retryErr) {
+                throw new IgniteException("Failed to wait for retry: " + retryErr);
+            }
+        }
     }
 
     /** {@inheritDoc} */
