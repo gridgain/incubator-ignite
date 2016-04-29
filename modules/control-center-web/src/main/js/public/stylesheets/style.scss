@@ -1905,7 +1905,12 @@ treecontrol.tree-classic {
 
 .grid {
     .ui-grid-header-cell .ui-grid-cell-contents {
-        text-align: center
+        text-align: center;
+
+        > span:not(.ui-grid-header-cell-label) {
+            position: absolute;
+            right: -3px;
+        }
     }
 
     .ui-grid-cell .ui-grid-cell-contents {
@@ -1913,7 +1918,7 @@ treecontrol.tree-classic {
     }
 
     .ui-grid-column-menu-button {
-        right: -5px;
+        right: -3px;
     }
 
     .ui-grid-menu-button {
