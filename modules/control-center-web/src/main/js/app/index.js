@@ -81,10 +81,12 @@ import './modules/dialog/dialog.module';
 import './modules/Version/Version.provider';
 import './modules/ace.module';
 import './modules/socket.module';
+import './modules/progress-overlay/progress-overlay.module';
 // endignite
 
 // Directives.
 import igniteLoading from './directives/loading/loading.directive';
+import igniteAppLoading from './directives/hide-on-state-change/hide-on-state-change.directive';
 import igniteInformation from './directives/information/information.directive';
 import igniteUiAceTabs from './directives/ui-ace-tabs.directive';
 import igniteUiAceXml from './directives/ui-ace-xml/ui-ace-xml.directive';
@@ -171,6 +173,7 @@ angular
     'ignite-console.configuration',
     'ignite-console.getting-started',
     'ignite-console.version',
+    'ignite-console.progress-overlay',
     // Ignite legacy module.
     'ignite-console.legacy',
     // Ignite modules.
@@ -178,6 +181,7 @@ angular
 ])
 // Directives.
 .directive(...igniteLoading)
+.directive(...igniteAppLoading)
 .directive(...igniteInformation)
 .directive(...igniteUiAceTabs)
 .directive(...igniteUiAceXml)
@@ -240,4 +244,7 @@ angular
     $root.$on('$stateChangeStart', () => {
         _.forEach(angular.element('.modal'), (m) => angular.element(m).scope().$hide());
     });
+}])
+.run(['$animate', ($animate) => {
+    $animate.enabled(true);
 }]);
