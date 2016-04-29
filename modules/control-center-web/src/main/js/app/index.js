@@ -30,7 +30,6 @@ import 'angular-animate';
 import 'angular-sanitize';
 import 'angular-strap';
 import 'angular-socket-io';
-import 'angular-loading';
 import 'angular-retina';
 import 'angular-ui-router';
 import 'angular-ui-router-metatags';
@@ -52,7 +51,6 @@ import 'angular-gridster/dist/angular-gridster.min.css!';
 import 'angular-tree-control/css/tree-control-attribute.css!';
 import 'angular-tree-control/css/tree-control.css!';
 import 'angular-ui-grid/ui-grid.css!';
-import 'angular-loading/angular-loading.css!';
 import 'angular-motion/dist/angular-motion.css!';
 
 import './decorator/select';
@@ -85,8 +83,7 @@ import './modules/progress-overlay/progress-overlay.module';
 // endignite
 
 // Directives.
-import igniteLoading from './directives/loading/loading.directive';
-import igniteAppLoading from './directives/hide-on-state-change/hide-on-state-change.directive';
+import igniteHideOnStateChange from './directives/hide-on-state-change/hide-on-state-change.directive';
 import igniteInformation from './directives/information/information.directive';
 import igniteUiAceTabs from './directives/ui-ace-tabs.directive';
 import igniteUiAceXml from './directives/ui-ace-xml/ui-ace-xml.directive';
@@ -180,8 +177,7 @@ angular
     'ignite-console.modules'
 ])
 // Directives.
-.directive(...igniteLoading)
-.directive(...igniteAppLoading)
+.directive(...igniteHideOnStateChange)
 .directive(...igniteInformation)
 .directive(...igniteUiAceTabs)
 .directive(...igniteUiAceXml)

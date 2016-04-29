@@ -17,7 +17,6 @@
 
 const consoleModule = angular.module('ignite-console.legacy',
     [
-        'darthwade.dwLoading',
         'smart-table',
         'treeControl',
         'ui.grid',
