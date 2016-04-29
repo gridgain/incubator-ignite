@@ -73,7 +73,7 @@ mixin chart-settings(mdl)
             h2 Failed to load notebook
             label.col-sm-12 Notebook not accessible any more. Go back to configuration or open to another notebook.
             button.h3.btn.btn-primary(ui-sref='base.configuration.clusters') Back to configuration
-        div(ng-if='notebook' ignite-progress-overlay="sqlLoading" ignite-progress-overlay-text='Loading...')
+        div(ng-if='notebook' ignite-progress-overlay="sqlLoading" ignite-progress-overlay-text='{{ loadingText }}')
             .docs-body.paragraphs
                 .panel-group(bs-collapse ng-model='notebook.expandedParagraphs' data-allow-multiple='true' data-start-collapsed='false')
                     .panel.panel-default(ng-repeat='paragraph in notebook.paragraphs')

@@ -23,7 +23,7 @@ export default [
     function($scope, $http, $common, $loading, $table, $filter, $timeout, Resource, JavaTypes, IgniteVersion, docker, pom) {
         const ctrl = this;
 
-        $loading.start('loading');
+        $loading.start('summaryPage');
 
         Resource.read().then(({clusters}) => {
             $scope.clusters = clusters;
@@ -36,7 +36,7 @@ export default [
                 return { _id, name };
             });
 
-            $loading.finish('loading');
+            $loading.finish('summaryPage');
 
             if (!_.isEmpty(clusters)) {
                 const idx = sessionStorage.summarySelectedId || 0;

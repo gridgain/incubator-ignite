@@ -19,8 +19,8 @@
 import consoleModule from 'controllers/common-module';
 
 consoleModule.controller('sqlController', [
-    '$scope', '$http', '$q', '$timeout', '$interval', '$animate', '$location', '$anchorScroll', '$state', '$modal', '$popover', '$progress', '$common', '$confirm', 'IgniteAgentMonitor', 'IgniteChartColors', 'QueryNotebooks', 'uiGridExporterConstants',
-    function ($scope, $http, $q, $timeout, $interval, $animate, $location, $anchorScroll, $state, $modal, $popover, $loading, $common, $confirm, agentMonitor, IgniteChartColors, QueryNotebooks, uiGridExporterConstants) {
+    '$scope', '$rootScope', '$http', '$q', '$timeout', '$interval', '$animate', '$location', '$anchorScroll', '$state', '$modal', '$popover', '$progress', '$common', '$confirm', 'IgniteAgentMonitor', 'IgniteChartColors', 'QueryNotebooks', 'uiGridExporterConstants',
+    function ($scope, $rootScope, $http, $q, $timeout, $interval, $animate, $location, $anchorScroll, $state, $modal, $popover, $loading, $common, $confirm, agentMonitor, IgniteChartColors, QueryNotebooks, uiGridExporterConstants) {
 
         var stopTopology = null;
 
@@ -44,6 +44,8 @@ consoleModule.controller('sqlController', [
         $scope.aggregateFxs = ['FIRST', 'LAST', 'MIN', 'MAX', 'SUM', 'AVG', 'COUNT'];
 
         $scope.modes = $common.mkOptions(['PARTITIONED', 'REPLICATED', 'LOCAL']);
+
+        $scope.loadingText = $rootScope.IgniteDemoMode ? 'Enable SQL...' : 'Loading notebook screen...';
 
         $scope.timeUnit = [
             {value: 1000, label: 'seconds', short: 's'},
