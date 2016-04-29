@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-import template from './progress-overlay.jade!';
 import './progress-overlay.css!';
 
 export default ['igniteProgressOverlay', ['$progress', '$compile', ($progress, $compile) => {
