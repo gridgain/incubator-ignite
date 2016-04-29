@@ -19,7 +19,7 @@
 import consoleModule from 'controllers/common-module';
 
 consoleModule.controller('clustersController', [
-    '$scope', '$http', '$state', '$timeout', '$common', '$confirm', '$clone', '$loading', '$cleanup', '$unsavedChangesGuard', 'igniteEventGroups', 'DemoInfo',
+    '$scope', '$http', '$state', '$timeout', '$common', '$confirm', '$clone', '$progress', '$cleanup', '$unsavedChangesGuard', 'igniteEventGroups', 'DemoInfo',
     function ($scope, $http, $state, $timeout, $common, $confirm, $clone, $loading, $cleanup, $unsavedChangesGuard, igniteEventGroups, DemoInfo) {
         $unsavedChangesGuard.install($scope);
 

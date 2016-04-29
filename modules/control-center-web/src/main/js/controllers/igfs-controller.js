@@ -19,7 +19,7 @@
 import consoleModule from 'controllers/common-module';
 
 consoleModule.controller('igfsController', [
-    '$scope', '$http', '$state', '$filter', '$timeout', '$common', '$confirm', '$clone', '$loading', '$cleanup', '$unsavedChangesGuard', '$table',
+    '$scope', '$http', '$state', '$filter', '$timeout', '$common', '$confirm', '$clone', '$progress', '$cleanup', '$unsavedChangesGuard', '$table',
     function ($scope, $http, $state, $filter, $timeout, $common, $confirm, $clone, $loading, $cleanup, $unsavedChangesGuard, $table) {
         $unsavedChangesGuard.install($scope);
 

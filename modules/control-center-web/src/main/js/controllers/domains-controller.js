@@ -19,7 +19,7 @@
 import consoleModule from 'controllers/common-module';
 
 consoleModule.controller('domainsController', [
-    '$scope', '$http', '$state', '$filter', '$timeout', '$modal', '$common', '$focus', '$confirm', '$confirmBatch', '$clone', '$loading', '$cleanup', '$unsavedChangesGuard', 'IgniteAgentMonitor', '$table',
+    '$scope', '$http', '$state', '$filter', '$timeout', '$modal', '$common', '$focus', '$confirm', '$confirmBatch', '$clone', '$progress', '$cleanup', '$unsavedChangesGuard', 'IgniteAgentMonitor', '$table',
     function ($scope, $http, $state, $filter, $timeout, $modal, $common, $focus, $confirm, $confirmBatch, $clone, $loading, $cleanup, $unsavedChangesGuard, IgniteAgentMonitor, $table) {
         $unsavedChangesGuard.install($scope);
 

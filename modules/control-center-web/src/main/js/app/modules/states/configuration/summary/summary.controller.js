@@ -19,7 +19,7 @@ import _ from 'lodash';
 import JSZip from 'jszip';
 
 export default [
-    '$scope', '$http', '$common', '$loading', '$table', '$filter', '$timeout', 'ConfigurationSummaryResource', 'JavaTypes', 'IgniteVersion', 'GeneratorDocker', 'GeneratorPom',
+    '$scope', '$http', '$common', '$progress', '$table', '$filter', '$timeout', 'ConfigurationSummaryResource', 'JavaTypes', 'IgniteVersion', 'GeneratorDocker', 'GeneratorPom',
     function($scope, $http, $common, $loading, $table, $filter, $timeout, Resource, JavaTypes, IgniteVersion, docker, pom) {
         const ctrl = this;
 

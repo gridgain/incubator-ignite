@@ -19,7 +19,7 @@
 import consoleModule from 'controllers/common-module';
 
 consoleModule.controller('cachesController', [
-    '$scope', '$http', '$state', '$filter', '$timeout', '$common', '$confirm', '$clone', '$loading', '$cleanup', '$unsavedChangesGuard',
+    '$scope', '$http', '$state', '$filter', '$timeout', '$common', '$confirm', '$clone', '$progress', '$cleanup', '$unsavedChangesGuard',
     function ($scope, $http, $state, $filter, $timeout, $common, $confirm, $clone, $loading, $cleanup, $unsavedChangesGuard) {
         $unsavedChangesGuard.install($scope);
 

@@ -19,7 +19,7 @@
 import consoleModule from 'controllers/common-module';
 
 consoleModule.controller('sqlController', [
-    '$scope', '$http', '$q', '$timeout', '$interval', '$animate', '$location', '$anchorScroll', '$state', '$modal', '$popover', '$loading', '$common', '$confirm', 'IgniteAgentMonitor', 'IgniteChartColors', 'QueryNotebooks', 'uiGridExporterConstants',
+    '$scope', '$http', '$q', '$timeout', '$interval', '$animate', '$location', '$anchorScroll', '$state', '$modal', '$popover', '$progress', '$common', '$confirm', 'IgniteAgentMonitor', 'IgniteChartColors', 'QueryNotebooks', 'uiGridExporterConstants',
     function ($scope, $http, $q, $timeout, $interval, $animate, $location, $anchorScroll, $state, $modal, $popover, $loading, $common, $confirm, agentMonitor, IgniteChartColors, QueryNotebooks, uiGridExporterConstants) {
 
         var stopTopology = null;
@@ -295,14 +295,14 @@ consoleModule.controller('sqlController', [
                     if ($scope.$root.IgniteDemoMode)
                         $state.current.data.loading = 'Demo grid is starting. Please wait...';
 
-                    $loading.start('loading');
+                    $loading.start('sqlLoading');
 
                     _refreshFn()
                         .finally(() => {
                             if ($scope.$root.IgniteDemoMode)
                                 _.forEach($scope.notebook.paragraphs, $scope.execute);
 
-                            $loading.finish('loading');
+                            $loading.finish('sqlLoading');
 
                             stopTopology = $interval(_refreshFn, 5000, 0, false);
                         });
@@ -314,7 +314,7 @@ consoleModule.controller('sqlController', [
             .catch(function() {
                 $scope.notebookLoadFailed = true;
 
-                $loading.finish('loading');
+                $loading.finish('sqlLoading');
             });
 
         $scope.renameNotebook = function (name) {

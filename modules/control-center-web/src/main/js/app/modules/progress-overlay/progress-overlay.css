@@ -1,0 +1,56 @@
+[ignite-progress-overlay] {
+    position: relative;
+}
+
+.progress-overlay {
+    position: absolute;
+    bottom: 0px;
+    left: 0px;
+    right: 0px;
+    top: 0px;
+    z-index: 1002;
+    opacity: 0;
+    visibility: hidden;
+    background-color: white;
+    transition: visibility 0s 0.5s, opacity 0.5s linear;
+}
+
+.progress-overlay_active {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.5s linear;
+}
+
+.progress-overlay:before {
+    content: '';
+    display: inline-block;
+    height: 100%;
+    vertical-align: middle;
+}
+
+.progress-overlay .progress-overlay__wrapper {
+    display: inline-block;
+    vertical-align: middle;
+    position: relative;
+    width: 100%;
+}
+
+.progress-overlay.progress-overlay_message-top .progress-overlay__wrapper{
+    position: absolute;
+    top: 100px;
+    display: block;
+}
+
+.progress-overlay .progress-overlay__wellcome {
+    font-size: 18px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+.progress-overlay_opacity-80 {
+    opacity: 0.8;
+}
+
+.progress-overlay_max-foreground {
+    z-index: 99999;
+}
