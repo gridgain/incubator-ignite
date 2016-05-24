@@ -790,12 +790,25 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter {
         if (fut == null) {
             // Future must be created before any exception can be thrown.
             if (optimistic()) {
-                fut = serializable() ?
-                    new GridNearOptimisticSerializableTxPrepareFuture(cctx, this) :
-                    new GridNearOptimisticTxPrepareFuture(cctx, this);
+                if (serializable())
+                    fut = new GridNearOptimisticSerializableTxPrepareFuture(cctx, this);
+                else {
+                    long timeout = remainingTime();
+
+                    if (timeout == -1)
+                        return new GridFinishedFuture<>(timeoutException());
+
+                    fut = new GridNearOptimisticTxPrepareFuture(cctx, this, timeout);
+                }
             }
-            else
+            else {
+                long timeout = remainingTime();
+
+                if (timeout == -1)
+                    return new GridFinishedFuture<>(timeoutException());
+
                 fut = new GridNearPessimisticTxPrepareFuture(cctx, this);
+            }
 
             if (!prepFut.compareAndSet(null, fut))
                 return prepFut.get();
@@ -966,11 +979,17 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter {
                 new IgniteCheckedException("Invalid transaction state for prepare [state=" + state() + ", tx=" + this + ']'));
         }
 
+        long timeout = remainingTime();
+
+        if (timeout == -1)
+            return new GridFinishedFuture<>(timeoutException());
+
         init();
 
         GridDhtTxPrepareFuture fut = new GridDhtTxPrepareFuture(
             cctx,
             this,
+            timeout,
             IgniteUuid.randomUuid(),
             Collections.<IgniteTxKey, GridCacheVersion>emptyMap(),
             last,
@@ -1155,7 +1174,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter {
         assert pessimistic();
 
         try {
-            checkValid();
+            checkValid(false);
         }
         catch (IgniteCheckedException e) {
             return new GridFinishedFuture<>(e);

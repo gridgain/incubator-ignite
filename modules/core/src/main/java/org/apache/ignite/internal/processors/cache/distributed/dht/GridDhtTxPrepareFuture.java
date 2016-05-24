@@ -58,8 +58,11 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.dr.GridDrType;
+import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
+import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
 import org.apache.ignite.internal.transactions.IgniteTxHeuristicCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException;
+import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.F0;
 import org.apache.ignite.internal.util.GridLeanSet;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
@@ -185,6 +188,15 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
     /** */
     private boolean invoke;
 
+    /** Timeout. */
+    private long timeout;
+
+    /** Timed out flag. */
+    private volatile boolean timedOut;
+
+    /** Timeout object. */
+    private GridTimeoutObject timeoutObj;
+
     /**
      * @param cctx Context.
      * @param tx Transaction.
@@ -196,6 +208,7 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
     public GridDhtTxPrepareFuture(
         GridCacheSharedContext cctx,
         final GridDhtTxLocalAdapter tx,
+        long timeout,
         IgniteUuid nearMiniId,
         Map<IgniteTxKey, GridCacheVersion> dhtVerMap,
         boolean last,
@@ -222,6 +235,14 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
 
         assert dhtMap != null;
         assert nearMap != null;
+
+        this.timeout = timeout;
+
+        if (timeout > 0) {
+            timeoutObj = new PrepareTimeoutObject();
+
+            cctx.time().addTimeoutObject(timeoutObj);
+        }
     }
 
     /** {@inheritDoc} */
@@ -243,16 +264,24 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
 
     /** {@inheritDoc} */
     @Override public boolean onOwnerChanged(GridCacheEntryEx entry, GridCacheMvccCandidate owner) {
+        if (isDone())
+            return false;
+
         if (log.isDebugEnabled())
             log.debug("Transaction future received owner changed callback: " + entry);
 
-        boolean rmv;
+        synchronized (this) {
+            if (timedOut)
+                return false;
 
-        synchronized (lockKeys) {
-            rmv = lockKeys.remove(entry.txKey());
+            boolean rmv;
+
+            synchronized (lockKeys) {
+                rmv = lockKeys.remove(entry.txKey());
+            }
+
+            return rmv && mapIfLocked();
         }
-
-        return rmv && mapIfLocked();
     }
 
     /** {@inheritDoc} */
@@ -463,7 +492,7 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
      * @param res Result.
      */
     public void onResult(UUID nodeId, GridDhtTxPrepareResponse res) {
-        if (!isDone()) {
+        if (!isDone() || !timedOut) {
             MiniFuture mini = miniFuture(res.miniId());
 
             if (mini != null) {
@@ -859,6 +888,9 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
             // Don't forget to clean up.
             cctx.mvcc().removeMvccFuture(this);
 
+            if (timeoutObj != null)
+                cctx.time().removeTimeoutObject(timeoutObj);
+
             return true;
         }
 
@@ -1103,6 +1135,9 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
                     if (F.isEmpty(dhtWrites) && F.isEmpty(nearWrites))
                         continue;
 
+                    if (timedOut)
+                        return;
+
                     MiniFuture fut = new MiniFuture(n.id(), dhtMapping, nearMapping);
 
                     add(fut); // Append new future.
@@ -1114,6 +1149,7 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
                         fut.futureId(),
                         tx.topologyVersion(),
                         tx,
+                        timeout,
                         dhtWrites,
                         nearWrites,
                         txNodes,
@@ -1148,6 +1184,8 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
                             break;
                         }
                         catch (GridCacheEntryRemovedException ignore) {
+                            U.error(log, "!!! GridCacheEntryRemovedException \n" + tx(), ignore);
+
                             assert false : "Got removed exception on entry with dht local candidate: " + entry;
                         }
 
@@ -1178,6 +1216,8 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
                     assert req.transactionNodes() != null;
 
                     try {
+                        log.info("!!! dht tx prepare send request \n" + tx.xidVersion() + "\n" + tx.nearXidVersion());
+
                         cctx.io().send(n, req, tx.ioPolicy());
                     }
                     catch (ClusterTopologyCheckedException e) {
@@ -1193,6 +1233,9 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
                     if (!tx.dhtMap().containsKey(nearMapping.node().id())) {
                         assert nearMapping.writes() != null;
 
+                        if (timedOut)
+                            return;
+
                         MiniFuture fut = new MiniFuture(nearMapping.node().id(), null, nearMapping);
 
                         add(fut); // Append new future.
@@ -1202,6 +1245,7 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
                             fut.futureId(),
                             tx.topologyVersion(),
                             tx,
+                            timeout,
                             null,
                             nearMapping.writes(),
                             tx.transactionNodes(),
@@ -1594,6 +1638,35 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
         /** {@inheritDoc} */
         @Override public String toString() {
             return S.toString(MiniFuture.class, this, "done", isDone(), "cancelled", isCancelled(), "err", error());
+        }
+    }
+
+    /**
+     *
+     */
+    private class PrepareTimeoutObject extends GridTimeoutObjectAdapter {
+        /**
+         * Default constructor.
+         */
+        PrepareTimeoutObject() {
+            super(timeout);
+        }
+
+        /** {@inheritDoc} */
+        @Override public void onTimeout() {
+            synchronized (GridDhtTxPrepareFuture.this) {
+                timedOut = true;
+
+                err.compareAndSet(null, new IgniteTxTimeoutCheckedException("Failed to acquire lock within " +
+                        "provided timeout for transaction [timeout=" + tx.timeout() + ", tx=" + tx + ']'));
+
+                onComplete(null);
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return S.toString(PrepareTimeoutObject.class, this);
         }
     }
 }
