@@ -94,4 +94,9 @@ public class GridH2Row extends Row implements GridSearchRowPointer, CacheDataRow
     @Override public void link(long link) {
         this.link = link;
     }
+
+    /** {@inheritDoc} */
+    @Override public long expireTime() {
+        return 0;
+    }
 }

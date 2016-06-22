@@ -28,7 +28,7 @@ import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.lang.GridCursor;
 import org.apache.ignite.internal.util.lang.GridIterator;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  *
@@ -63,10 +63,10 @@ public interface IgniteCacheOffheapManager extends GridCacheManager {
 
     /**
      * @param entry Cache entry.
-     * @return Value tuple, if available.
+     * @return Cached object entry, if available, null otherwise.
      * @throws IgniteCheckedException If failed.
      */
-    public IgniteBiTuple<CacheObject, GridCacheVersion> read(GridCacheMapEntry entry) throws IgniteCheckedException;
+    public CacheObjectEntry read(GridCacheMapEntry entry) throws IgniteCheckedException;
 
     /**
      * @param p Partition.
@@ -87,9 +87,11 @@ public interface IgniteCacheOffheapManager extends GridCacheManager {
      * @param ver  Version.
      * @param expireTime Expire time.
      * @param part Partition.
+     * @return UpdateInfo object that contains the info about the old entry and the offheap link to new
+     *          entry.
      * @throws IgniteCheckedException If failed.
      */
-    public void update(
+    public UpdateInfo update(
             KeyCacheObject key,
             CacheObject val,
             GridCacheVersion ver,
@@ -103,9 +105,10 @@ public interface IgniteCacheOffheapManager extends GridCacheManager {
      * @param prevVal Previous value.
      * @param prevVer Previous version.
      * @param part Partition.
+     * @return removed entry info
      * @throws IgniteCheckedException If failed.
      */
-    public void remove(
+    public CacheObjectEntry remove(
             KeyCacheObject key,
             CacheObject prevVal,
             GridCacheVersion prevVer,
@@ -188,6 +191,12 @@ public interface IgniteCacheOffheapManager extends GridCacheManager {
     void writeAll(Iterable<GridCacheBatchSwapEntry> swapped) throws IgniteCheckedException;
 
     /**
+     * @return PendingEntries container that is used by TTL manager.
+     * @throws IgniteCheckedException If failed.
+     */
+    PendingEntries createPendingEntries() throws IgniteCheckedException;
+
+    /**
      *
      */
     interface CacheDataStore {
@@ -197,9 +206,11 @@ public interface IgniteCacheOffheapManager extends GridCacheManager {
          * @param val Value.
          * @param ver Version.
          * @param expireTime Expire time.
+         * @return UpdateInfo object that contains the info about the old entry and the offheap link to new
+         *          entry.
          * @throws IgniteCheckedException If failed.
          */
-        void update(KeyCacheObject key,
+        UpdateInfo update(KeyCacheObject key,
             int part,
             CacheObject val,
             GridCacheVersion ver,
@@ -207,16 +218,17 @@ public interface IgniteCacheOffheapManager extends GridCacheManager {
 
         /**
          * @param key Key.
+         * @return removed entry
          * @throws IgniteCheckedException If failed.
          */
-        public void remove(KeyCacheObject key) throws IgniteCheckedException;
+        public CacheObjectEntry remove(KeyCacheObject key) throws IgniteCheckedException;
 
         /**
          * @param key Key.
-         * @return Value/version tuple.
+         * @return Cached object entry.
          * @throws IgniteCheckedException If failed.
          */
-        public IgniteBiTuple<CacheObject, GridCacheVersion> find(KeyCacheObject key) throws IgniteCheckedException;
+        public CacheObjectEntry find(KeyCacheObject key) throws IgniteCheckedException;
 
         /**
          * @return Data cursor.
@@ -239,4 +251,146 @@ public interface IgniteCacheOffheapManager extends GridCacheManager {
             void onRemove();
         }
     }
+
+    /**
+     * The wrapper to return data loaded from paged memory
+     */
+    class CacheObjectEntry {
+        /** Key object. */
+        private final KeyCacheObject key;
+
+        /** Value object. */
+        private final CacheObject val;
+
+        /** Version. */
+        private final GridCacheVersion ver;
+
+        /** Expire time. */
+        private final long expireTime;
+
+        /** Offheap row link. */
+        private final long link;
+
+        /**
+         * @param val Object.
+         * @param ver Version.
+         * @param expireTime Expire time.
+         * @param link
+         */
+        public CacheObjectEntry(KeyCacheObject key, CacheObject val, GridCacheVersion ver, long expireTime, long link) {
+            this.key = key;
+            this.val = val;
+            this.ver = ver;
+            this.expireTime = expireTime;
+            this.link = link;
+        }
+
+        /**
+         *
+         */
+        public CacheObject value() {
+            return val;
+        }
+
+        /**
+         *
+         */
+        public GridCacheVersion version() {
+            return ver;
+        }
+
+        /**
+         *
+         */
+        public long expireTime() {
+            return expireTime;
+        }
+
+        /**
+         *
+         */
+        public long link() {
+            return link;
+        }
+
+        /**
+         *
+         */
+        public KeyCacheObject key() {
+            return key;
+        }
+
+        @Override public String toString() {
+            return S.toString(CacheObjectEntry.class, this);
+        }
+    }
+
+    /**
+     * The container to store entries with expiration time.
+     * It is used by TTL manager but implemented on the offhep manager because B+tree is
+     * used to store entries. Also the implementation uses features of paged memory
+     * storage of entries
+     */
+    interface PendingEntries {
+
+        /**
+         * @param entry Entry.
+         */
+        void addTrackedEntry(GridCacheMapEntry entry);
+
+        /**
+         * @param entry Entry.
+         */
+        void removeTrackedEntry(GridCacheMapEntry entry);
+
+        /**
+         * @param entry Entry.
+         */
+        void removeTrackedEntry(IgniteCacheOffheapManager.CacheObjectEntry entry);
+
+        /**
+         *
+         */
+        ExpiredEntriesCursor expired(long time);
+
+        /**
+         *
+         */
+        int pendingSize();
+
+        /**
+         *
+         */
+        long firstExpired();
+    }
+
+    /**
+     *
+     */
+    interface ExpiredEntriesCursor extends GridCursor<GridCacheEntryEx> {
+        /**
+         * Remove all items that
+         */
+        void removeAll();
+    }
+
+    class UpdateInfo {
+
+        private final long newLink;
+        private final CacheObjectEntry oldEntry;
+
+        public UpdateInfo(long link, CacheObjectEntry entry) {
+            newLink = link;
+            oldEntry = entry;
+        }
+
+        public long newLink() {
+            return newLink;
+        }
+
+        public CacheObjectEntry oldEntry() {
+            return oldEntry;
+        }
+    }
+
 }

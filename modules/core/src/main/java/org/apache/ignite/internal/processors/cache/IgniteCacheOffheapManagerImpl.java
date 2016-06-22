@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.processors.cache;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import javax.cache.Cache;
 import org.apache.ignite.IgniteCheckedException;
@@ -56,7 +58,6 @@ import org.apache.ignite.internal.util.lang.GridIterator;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.jetbrains.annotations.Nullable;
@@ -227,7 +228,7 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
     }
 
     /** {@inheritDoc} */
-    @Override public void update(
+    @Override public UpdateInfo update(
             KeyCacheObject key,
             CacheObject val,
             GridCacheVersion ver,
@@ -235,7 +236,7 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
             int partId,
             GridDhtLocalPartition part
     ) throws IgniteCheckedException {
-        dataStore(part).update(key, partId, val, ver, expireTime);
+        UpdateInfo updInfo = dataStore(part).update(key, partId, val, ver, expireTime);
 
         if (indexingEnabled) {
             GridCacheQueryManager qryMgr = cctx.queries();
@@ -244,17 +245,18 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
 
             qryMgr.store(key, partId, val, ver, expireTime);
         }
+        return updInfo;
     }
 
     /** {@inheritDoc} */
-    @Override public void remove(
+    @Override public CacheObjectEntry remove(
             KeyCacheObject key,
             CacheObject prevVal,
             GridCacheVersion prevVer,
             int partId,
             GridDhtLocalPartition part
     ) throws IgniteCheckedException {
-        dataStore(part).remove(key);
+        CacheObjectEntry removed = dataStore(part).remove(key);
 
         if (indexingEnabled) {
             GridCacheQueryManager qryMgr = cctx.queries();
@@ -263,11 +265,12 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
 
             qryMgr.remove(key, partId, prevVal, prevVer);
         }
+        return removed;
     }
 
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
-    @Nullable public IgniteBiTuple<CacheObject, GridCacheVersion> read(GridCacheMapEntry entry)
+    @Nullable public CacheObjectEntry read(GridCacheMapEntry entry)
         throws IgniteCheckedException {
         try {
             KeyCacheObject key = entry.key();
@@ -570,6 +573,27 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
         return BPlusTree.treeName("p-" + p, cctx.cacheId(), "CacheData");
     }
 
+    /** {@inheritDoc} */
+    @Override public PendingEntries createPendingEntries() throws IgniteCheckedException {
+        IgniteCacheDatabaseSharedManager dbMgr = cctx.shared().database();
+        String btname = BPlusTree.treeName("pending", cctx.cacheId(), "PendingEntries");
+        final RootPage rootPage = dbMgr.meta().getOrAllocateForTree(cctx.cacheId(), btname);
+
+        return new PendingEntriesImpl(
+            btname,
+            cctx.cacheId(),
+            dbMgr.pageMemory(),
+            rootPage.pageId(),
+            reuseList,
+            rootPage.isAllocated());
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(IgniteCacheOffheapManagerImpl.class, this);
+    }
+
+
     /**
      *
      */
@@ -597,45 +621,69 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
         }
 
         /** {@inheritDoc} */
-        @Override public void update(KeyCacheObject key,
+        @Override public UpdateInfo update(KeyCacheObject key,
             int p,
             CacheObject val,
             GridCacheVersion ver,
             long expireTime) throws IgniteCheckedException {
-            DataRow dataRow = new DataRow(key.hashCode(), key, val, ver, p);
+            DataRow dataRow = new DataRow(key.hashCode(), key, val, ver, p, expireTime);
 
             rowStore.addRow(dataRow);
 
             DataRow old = dataTree.put(dataRow);
+            CacheObjectEntry oldEntry = null;
 
             if (old == null)
                 lsnr.onInsert();
+            else {
+                assert old.link != 0 : old;
+                oldEntry = createEntry(key, old);
+                rowStore.removeRow(old.link);
+            }
+
+            DataRow dr = new DataRow(0, dataRow.link);
+            dr.initData();
+
+            return new UpdateInfo(dataRow.link(), oldEntry);
         }
 
         /** {@inheritDoc} */
-        @Override public void remove(KeyCacheObject key) throws IgniteCheckedException {
+        @Override public CacheObjectEntry remove(KeyCacheObject key) throws IgniteCheckedException {
             DataRow dataRow = dataTree.remove(new KeySearchRow(key.hashCode(), key, 0));
+            CacheObjectEntry removed = null;
 
             if (dataRow != null) {
                 assert dataRow.link != 0 : dataRow;
+
+                removed = new CacheObjectEntry(key, null, dataRow.version(), dataRow.expireTime(),
+                    dataRow.link());
 
                 rowStore.removeRow(dataRow.link);
 
                 lsnr.onRemove();
             }
+            return removed;
         }
 
         /** {@inheritDoc} */
-        @Override public IgniteBiTuple<CacheObject, GridCacheVersion> find(KeyCacheObject key)
+        @Override public CacheObjectEntry find(KeyCacheObject key)
             throws IgniteCheckedException {
             DataRow dataRow = dataTree.findOne(new KeySearchRow(key.hashCode(), key, 0));
 
-            return dataRow != null ? F.t(dataRow.value(), dataRow.version()) : null;
+            return dataRow != null ?
+                new CacheObjectEntry(key, dataRow.value(), dataRow.version(), dataRow.expireTime(), dataRow.link())
+                : null;
         }
 
         /** {@inheritDoc} */
         @Override public GridCursor<? extends CacheDataRow> cursor() throws IgniteCheckedException {
             return dataTree.find(null, null);
+        }
+
+        private CacheObjectEntry createEntry(KeyCacheObject key, DataRow dataRow) {
+            return dataRow != null && dataRow.link() != 0 ?
+                new CacheObjectEntry(key, dataRow.value(), dataRow.version(), dataRow.expireTime(), dataRow.link())
+                : null;
         }
     }
 
@@ -722,7 +770,7 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
     /**
      *
      */
-    private class DataRow extends KeySearchRow implements CacheDataRow {
+    class DataRow extends KeySearchRow implements CacheDataRow {
         /** */
         private CacheObject val;
 
@@ -731,6 +779,9 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
 
         /** */
         private int part = -1;
+
+        /** */
+        private long expTime;
 
         /**
          * @param hash Hash code.
@@ -750,11 +801,23 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
          * @param part Partition.
          */
         DataRow(int hash, KeyCacheObject key, CacheObject val, GridCacheVersion ver, int part) {
+            this(hash, key, val, ver, part, 0);
+        }
+
+        /**
+         * @param hash Hash code.
+         * @param key Key.
+         * @param val Value.
+         * @param ver Version.
+         * @param part Partition.
+         */
+        DataRow(int hash, KeyCacheObject key, CacheObject val, GridCacheVersion ver, int part, long expTime) {
             super(hash, key, 0);
 
             this.val = val;
             this.ver = ver;
             this.part = part;
+            this.expTime = expTime;
         }
 
         /** {@inheritDoc} */
@@ -768,6 +831,7 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
             long order = buf.getLong();
 
             ver = new GridCacheVersion(topVer, nodeOrderDrId, globalTime, order);
+            expTime = buf.getLong();
         }
 
         /** {@inheritDoc} */
@@ -799,6 +863,12 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
         /** {@inheritDoc} */
         @Override public void link(long link) {
             this.link = link;
+        }
+
+        /** {@inheritDoc} */
+        @Override public long expireTime() {
+            initData();
+            return expTime;
         }
 
         /** {@inheritDoc} */
@@ -1095,6 +1165,386 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
          */
         private void setHash(ByteBuffer buf, int idx, int hash) {
             buf.putInt(offset(idx) + 8, hash);
+        }
+    }
+
+
+    /**
+     * The class to store tracked entry on the paged memory.
+     * We have to store only link and expireTime because entry could be loaded from swap
+     * by link.
+     */
+    class PendingRow {
+        private static final int SIZE = 8 + 8;
+
+        /** Expire time. */
+        long expireTime;
+
+        /** Link. */
+        long link;
+
+        /**
+         * @param entry Entry.
+         */
+        PendingRow(GridCacheMapEntry entry) {
+            link = entry.link();
+            expireTime = entry.expireTimeExtras();
+
+            assert link != 0;
+            assert expireTime > 0;
+        }
+
+        /**
+         * @param entry Entry.
+         */
+        PendingRow(CacheObjectEntry entry) {
+            link = entry.link();
+            expireTime = entry.expireTime();
+
+            assert link != 0;
+            assert expireTime > 0;
+        }
+
+        /**
+         * @param time Time.
+         */
+        PendingRow(long time) {
+            expireTime = time;
+        }
+
+        /**
+         * @param expireTime Expire time.
+         * @param link Link.
+         */
+        PendingRow(long expireTime, long link) {
+            this.expireTime = expireTime;
+            this.link= link;
+        }
+
+        /**
+         *
+         */
+        GridCacheEntryEx entryEx() {
+            DataRow dr = new DataRow(0, link);
+            dr.initData();
+            return cctx.cache().entryEx(dr.key());
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return "PendingRow{" +
+                "expireTime=" + expireTime +
+                ", link=" + link +
+                '}';
+        }
+    }
+
+    /**
+     * Implementation of tracked entries collection based on B+tree.
+     */
+    class PendingEntriesImpl extends BPlusTree<PendingRow, PendingRow> implements PendingEntries {
+
+        /**
+         * @param name Tree name.
+         * @param cacheId Cache ID.
+         * @param pageMem Page memory.
+         * @param metaPageId Meta page ID.
+         * @param reuseList Reuse list.
+         */
+        public PendingEntriesImpl(String name, int cacheId, PageMemory pageMem, FullPageId metaPageId,
+            ReuseList reuseList, boolean initNew) throws IgniteCheckedException {
+            super(name, cacheId, pageMem, metaPageId, reuseList,
+                PendingEntryInnerIO.VERSIONS, PendingEntryLeafIO.VERSIONS);
+
+            if(initNew)
+                initNew();
+        }
+
+        /** {@inheritDoc} */
+        @Override protected int compare(BPlusIO<PendingRow> io, ByteBuffer buf, int idx,
+            PendingRow row) throws IgniteCheckedException {
+            PendingRow row0 = io.getLookupRow(this, buf, idx);
+            int cmp = Long.compare(row0.expireTime, row.expireTime);
+            return (cmp != 0) ? cmp : Long.compare(row0.link, row.link);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected PendingRow getRow(BPlusIO<PendingRow> io,
+            ByteBuffer buf, int idx) throws IgniteCheckedException {
+            return io.getLookupRow(this, buf, idx);
+        }
+
+        /** {@inheritDoc} */
+        @Override public void addTrackedEntry(GridCacheMapEntry entry) {
+            try {
+                PendingRow r = new PendingRow(entry);
+                put(r);
+            }
+            catch (IgniteCheckedException e) {
+                log.error("Unexpected exception", e);
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public void removeTrackedEntry(GridCacheMapEntry entry) {
+            removeTrackedEntry(new PendingRow(entry));
+        }
+
+        /** {@inheritDoc} */
+        @Override public void removeTrackedEntry(CacheObjectEntry entry) {
+            removeTrackedEntry(new PendingRow(entry));
+        }
+
+        /** {@inheritDoc} */
+        private void removeTrackedEntry(PendingRow r) {
+            try {
+                remove(r);
+            }
+            catch (IgniteCheckedException e) {
+                log.error("Unexpected exception", e);
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public ExpiredEntriesCursor expired(final long time) {
+            final GridCursor<PendingRow> cur;
+            try {
+                cur = find(new PendingRow(0), new PendingRow(time));
+                return new ExpiredEntriesCursor() {
+                    List<PendingRow> rows = new ArrayList<>();
+
+                    @Override public void removeAll() {
+                        try {
+                            while (cur.next()) {
+                                PendingRow r = cur.get();
+                                if(r.expireTime < time)
+                                    rows.add(r);
+                            }
+
+                            for (PendingRow r : rows)
+                                remove(r);
+                        }
+                        catch (IgniteCheckedException e) {
+                            log.error("Unexpected exception", e);
+                        }
+                    }
+
+                    @Override public boolean next() throws IgniteCheckedException {
+                        if (!cur.next())
+                            return false;
+                        return cur.get().expireTime < time;
+                    }
+
+                    @Override public GridCacheEntryEx get() throws IgniteCheckedException {
+                        PendingRow r = cur.get();
+                        if ((r == null) || (r.expireTime >= time))
+                            return null;
+                        rows.add(r);
+                        return r.entryEx();
+                    }
+                };
+            }
+            catch (IgniteCheckedException e) {
+                log.error("Unexpected exception", e);
+                return new ExpiredEntriesCursor() {
+                    @Override public void removeAll() {
+                        // No-op.
+                    }
+
+                    @Override public boolean next() throws IgniteCheckedException {
+                        return false;
+                    }
+
+                    @Override public GridCacheEntryEx get() throws IgniteCheckedException {
+                        return null;
+                    }
+                };
+            }
+        }
+
+        /**
+         * @param expireTime Expire time.
+         * @param link Link.
+         */
+        PendingRow createPendingRow(long expireTime, long link) {
+            return new PendingRow(expireTime, link);
+        }
+
+        /** {@inheritDoc} */
+        @Override public int pendingSize() {
+            try {
+                return (int)size();
+            }
+            catch (IgniteCheckedException e) {
+                log.error("Unexpected exception", e);
+                return -1;
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public long firstExpired() {
+            try {
+                GridCursor<PendingRow> cur = find(null, null);
+                if (cur.next())
+                    return cur.get().expireTime;
+            }
+            catch (IgniteCheckedException e) {
+                log.error("Unexpected exception", e);
+            }
+            return 0;
+        }
+    }
+
+    /**
+     *
+     */
+    private interface PendingRowIO {
+        /**
+         * @param buf Buffer.
+         * @param idx Index.
+         */
+        long getExpireTime(ByteBuffer buf, int idx);
+        /**
+         * @param buf Buffer.
+         * @param idx Index.
+         */
+        long getLink(ByteBuffer buf, int idx);
+    }
+
+    /**
+     *
+     */
+    private static class PendingEntryInnerIO extends BPlusInnerIO<PendingRow> implements PendingRowIO {
+        /** */
+        public static final IOVersions<PendingEntryInnerIO> VERSIONS = new IOVersions<>(
+            new PendingEntryInnerIO(1)
+        );
+
+        /**
+         * @param ver Page format version.
+         */
+        PendingEntryInnerIO(int ver) {
+            super(T_PENDING_REF_INNER, ver, true, PendingRow.SIZE);
+        }
+
+        /** {@inheritDoc} */
+        @Override public void store(ByteBuffer buf, int idx,
+            PendingRow row) throws IgniteCheckedException {
+            setExpireTime(row.expireTime, buf, idx);
+            setLink(row.link, buf, idx);
+        }
+
+        /** {@inheritDoc} */
+        @Override public void store(ByteBuffer dst, int dstIdx, BPlusIO<PendingRow> srcIo,
+            ByteBuffer src, int srcIdx) throws IgniteCheckedException {
+            setExpireTime(((PendingRowIO)srcIo).getExpireTime(src, srcIdx), dst, dstIdx);
+            setLink(((PendingRowIO)srcIo).getLink(src, srcIdx), dst, dstIdx);
+        }
+
+        /** {@inheritDoc} */
+        @Override public PendingRow getLookupRow(
+            BPlusTree<PendingRow, ?> tree, ByteBuffer buf,
+            int idx) throws IgniteCheckedException {
+            return ((PendingEntriesImpl)tree).createPendingRow(
+                getExpireTime(buf, idx),
+                getLink(buf, idx));
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getExpireTime(ByteBuffer buf, int idx) {
+            return buf.getLong(offset(idx));
+        }
+
+        /**
+         * @param expireTime Expire time.
+         * @param buf Buffer.
+         * @param idx Index.
+         */
+        private void setExpireTime(long expireTime, ByteBuffer buf, int idx) {
+            buf.putLong(offset(idx), expireTime);
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getLink(ByteBuffer buf, int idx) {
+            return buf.getLong(offset(idx) + 8);
+        }
+
+        /**
+         * @param link Link.
+         * @param buf Buffer.
+         * @param idx Index.
+         */
+        private void setLink(long link, ByteBuffer buf, int idx) {
+            buf.putLong(offset(idx) + 8, link);
+        }
+    }
+
+    /**
+     *
+     */
+    private static class PendingEntryLeafIO extends BPlusLeafIO<PendingRow> implements PendingRowIO {
+        /** */
+        public static final IOVersions<PendingEntryLeafIO> VERSIONS = new IOVersions<>(
+            new PendingEntryLeafIO(1)
+        );
+
+        /**
+         * @param ver Page format version.
+         */
+        PendingEntryLeafIO(int ver) {
+            super(T_PENDING_REF_LEAF, ver, PendingRow.SIZE);
+        }
+
+        /** {@inheritDoc} */
+        @Override public void store(ByteBuffer buf, int idx,
+            PendingRow row) throws IgniteCheckedException {
+            setExpireTime(row.expireTime, buf, idx);
+            setLink(row.link, buf, idx);
+        }
+
+        /** {@inheritDoc} */
+        @Override public void store(ByteBuffer dst, int dstIdx, BPlusIO<PendingRow> srcIo,
+            ByteBuffer src, int srcIdx) throws IgniteCheckedException {
+            setExpireTime(((PendingRowIO)srcIo).getExpireTime(src, srcIdx), dst, dstIdx);
+            setLink(((PendingRowIO)srcIo).getLink(src, srcIdx), dst, dstIdx);
+        }
+
+        /** {@inheritDoc} */
+        @Override public PendingRow getLookupRow(
+            BPlusTree<PendingRow, ?> tree, ByteBuffer buf,
+            int idx) throws IgniteCheckedException {
+            return ((PendingEntriesImpl)tree).createPendingRow(
+                getExpireTime(buf, idx),
+                getLink(buf, idx));
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getExpireTime(ByteBuffer buf, int idx) {
+            return buf.getLong(offset(idx));
+        }
+
+        /**
+         * @param expireTime Expire time.
+         * @param buf Buffer.
+         * @param idx Index.
+         */
+        private void setExpireTime(long expireTime, ByteBuffer buf, int idx) {
+            buf.putLong(offset(idx), expireTime);
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getLink(ByteBuffer buf, int idx) {
+            return buf.getLong(offset(idx) + 8);
+        }
+
+        /**
+         * @param link Link.
+         * @param buf Buffer.
+         * @param idx Index.
+         */
+        private void setLink(long link, ByteBuffer buf, int idx) {
+            buf.putLong(offset(idx) + 8, link);
         }
     }
 }
