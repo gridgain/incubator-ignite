@@ -28,7 +28,6 @@ import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.database.tree.util.PageHandler;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.typedef.internal.SB;
-import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Data pages IO.
@@ -589,25 +588,11 @@ public class DataPageIO extends PageIO {
         int indirectCnt = getIndirectCount(buf);
         int dataOff = getFirstEntryOffset(buf);
 
-        boolean skipFirstEntryOffset = false;
-
         // Compact if we do not have enough space for entry.
         if (!isEnoughSpace(entrySizeWithItem, dataOff, directCnt, indirectCnt)) {
-            if (ITEMS_OFF + ITEM_SIZE * (directCnt + indirectCnt + 1) <= dataOff)
-                dataOff = findFreeSpace(buf, dataOff, directCnt, entrySizeWithItem - ITEM_SIZE);
-            else
-                dataOff = -1;
+            dataOff = compactDataEntries(buf, directCnt);
 
-            if (dataOff == -1) {
-                dataOff = compactDataEntries(buf, directCnt);
-
-                assert isEnoughSpace(entrySizeWithItem, dataOff, directCnt, indirectCnt);
-            }
-            else {
-                skipFirstEntryOffset = true;
-
-//                U.debug("Data off: " + dataOff); // TODO
-            }
+            assert isEnoughSpace(entrySizeWithItem, dataOff, directCnt, indirectCnt);
         }
 
         // Write data right before the first entry.
@@ -615,8 +600,7 @@ public class DataPageIO extends PageIO {
 
         writeRowData(coctx, buf, dataOff, entrySizeWithItem, key, val, ver);
 
-        if (!skipFirstEntryOffset)
-            setFirstEntryOffset(buf, dataOff);
+        setFirstEntryOffset(buf, dataOff);
 
         int itemId = insertItem(buf, dataOff, directCnt, indirectCnt);
 
@@ -630,31 +614,6 @@ public class DataPageIO extends PageIO {
         assert (itemId & ~0xFF) == 0;
 
         return itemId;
-    }
-
-    private int findFreeSpace(ByteBuffer buf, int dataOff, int directCnt, int entrySize) {
-        int freeStart = dataOff;
-        int freeEnd = buf.capacity();
-
-        for (int i = 0; i < directCnt; i++) {
-            int off = toOffset(getItem(buf, i));
-
-            int size = getEntrySize(buf, off, false);
-
-            if (off - freeStart > freeEnd - off - size)
-                freeEnd = off;
-            else
-                freeStart = off + size;
-
-            if (freeStart < 0)
-                System.out.println("shit");
-
-        }
-
-        if (freeEnd - freeStart >= entrySize)
-            return freeStart;
-
-        return -1;
     }
 
     /**
@@ -701,8 +660,6 @@ public class DataPageIO extends PageIO {
     private int compactDataEntries(ByteBuffer buf, int directCnt) {
         assert check(directCnt): directCnt;
 
-//        String l1 = printPageLayout(buf);
-
         int[] offs = new int[directCnt];
 
         for (int i = 0; i < directCnt; i++) {
@@ -711,11 +668,7 @@ public class DataPageIO extends PageIO {
             offs[i] = (off << 8) | i; // This way we'll be able to sort by offset using Arrays.sort(...).
         }
 
-//        U.debug(Arrays.toString(offs));
-
         Arrays.sort(offs);
-
-//        U.debug(Arrays.toString(offs));
 
         // Move right all of the entries if possible to make the page as compact as possible to its tail.
         int prevOff = buf.capacity();
@@ -743,17 +696,6 @@ public class DataPageIO extends PageIO {
 
             prevOff = off;
         }
-
-//        String l2 = printPageLayout(buf);
-//
-//        try {
-//            Thread.sleep(1000);
-//        }
-//        catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-//
-//        U.debug("l1=" + l1 + "\nl2=" + l2);
 
         return prevOff;
     }
@@ -830,11 +772,6 @@ public class DataPageIO extends PageIO {
             buf.putInt(ver.nodeOrderAndDrIdRaw());
             buf.putLong(ver.globalTime());
             buf.putLong(ver.order());
-        }
-        catch (RuntimeException e) {
-            U.debug("dataOff: " + dataOff);
-
-            throw e;
         }
         finally {
             buf.position(0);

@@ -1423,8 +1423,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             if (ttl == CU.TTL_ZERO)
                 op = GridCacheOperation.DELETE;
 
-            boolean hasValPtr = false;
-
             // Try write-through.
             if (op == GridCacheOperation.UPDATE) {
                 // Detach value before index update.
@@ -2013,8 +2011,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             assert newExpireTime != CU.EXPIRE_TIME_CALCULATE && newExpireTime >= 0;
 
             IgniteBiTuple<Boolean, Object> interceptRes = null;
-
-            boolean hasValPtr = false;
 
             // Actual update.
             if (op == GridCacheOperation.UPDATE) {

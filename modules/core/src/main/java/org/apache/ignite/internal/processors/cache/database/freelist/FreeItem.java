@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.cache.database.freelist;
 
 import org.apache.ignite.internal.pagemem.FullPageId;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Free list item.
@@ -44,5 +45,10 @@ public class FreeItem extends FullPageId {
      */
     public short freeSpace() {
         return freeSpace;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(FreeItem.class, this, super.toString());
     }
 }

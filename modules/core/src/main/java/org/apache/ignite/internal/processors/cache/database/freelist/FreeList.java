@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.processors.cache.database.freelist;
 
 import java.nio.ByteBuffer;
+import java.util.Map;
+import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.Page;
 import org.apache.ignite.internal.pagemem.PageIdAllocator;
@@ -34,6 +36,8 @@ import org.apache.ignite.internal.processors.cache.database.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.database.tree.reuse.ReuseList;
 import org.apache.ignite.internal.processors.cache.database.tree.util.PageHandler;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.NotNull;
 import org.jsr166.ConcurrentHashMap8;
 
 import static org.apache.ignite.internal.processors.cache.database.tree.util.PageHandler.writePage;
@@ -57,28 +61,36 @@ public class FreeList {
     /** */
     private final ConcurrentHashMap8<Integer,GridFutureAdapter<FreeTree>> trees = new ConcurrentHashMap8<>();
 
+    private ConcurrentSkipListMap<Key, FreeItem>[] itemsArr = new ConcurrentSkipListMap[1024];
+
     /** */
     private final PageHandler<CacheDataRow, Void> writeRow = new PageHandler<CacheDataRow, Void>() {
         @Override public Void run(long pageId, Page page, ByteBuffer buf, CacheDataRow row, int entrySize)
             throws IgniteCheckedException {
             DataPageIO io = DataPageIO.VERSIONS.forPage(buf);
 
-            int idx = io.addRow(cctx.cacheObjectContext(), buf, row.key(), row.value(), row.version(), entrySize);
+            int itemId = io.addRow(cctx.cacheObjectContext(), buf, row.key(), row.value(), row.version(), entrySize);
 
-            assert idx >= 0 : idx;
+            assert itemId >= 0 : itemId;
 
             FreeTree tree = tree(row.partition());
 
             if (tree.needWalDeltaRecord(page))
                 wal.log(new DataPageInsertRecord(cctx.cacheId(), page.id(), row.key(), row.value(),
-                    row.version(), idx, entrySize));
+                    row.version(), itemId, entrySize));
 
-            row.link(PageIdUtils.linkFromDwordOffset(pageId, idx));
+            row.link(PageIdUtils.linkFromDwordOffset(pageId, itemId));
 
             int freeSpace = io.getFreeSpace(buf);
 
+            ConcurrentSkipListMap<Key, FreeItem> items0 = itemsArr[PageIdUtils.partId(pageId)];
+
+            FreeItem old = items0.put(new Key(pageId, freeSpace), new FreeItem(freeSpace, pageId, cctx.cacheId()));
+
+            assert old == null;
+
             // Put our free item.
-            tree.put(new FreeItem(freeSpace, pageId, cctx.cacheId()));
+//            tree.put(new FreeItem(freeSpace, pageId, cctx.cacheId()));
 
             return null;
         }
@@ -102,14 +114,20 @@ public class FreeList {
 
             int newFreeSpace = io.getFreeSpace(buf);
 
+            ConcurrentSkipListMap<Key, FreeItem> items0 = itemsArr[PageIdUtils.partId(pageId)];
+
+            FreeItem item = items0.remove(new Key(pageId, oldFreeSpace));
+
             // Move page to the new position with respect to the new free space.
-            FreeItem item = tree.remove(new FreeItem(oldFreeSpace, pageId, cctx.cacheId()));
+//            FreeItem item = tree.remove(new FreeItem(oldFreeSpace, pageId, cctx.cacheId()));
 
             // If item is null, then it was removed concurrently by insertRow, because
             // in removeRow we own the write lock on this page. Thus we can be sure that
             // insertRow will update position correctly after us.
             if (item != null) {
-                FreeItem old = tree.put(new FreeItem(newFreeSpace, pageId, cctx.cacheId()));
+//                FreeItem old = tree.put(new FreeItem(newFreeSpace, pageId, cctx.cacheId()));
+
+                FreeItem old = items0.put(new Key(pageId, newFreeSpace), new FreeItem(newFreeSpace, pageId, cctx.cacheId()));
 
                 assert old == null;
             }
@@ -134,6 +152,9 @@ public class FreeList {
         assert pageMem != null;
 
         this.reuseList = reuseList;
+
+        for (int i = 0; i < 1024; i++)
+            itemsArr[i] = new ConcurrentSkipListMap<>();
     }
 
     /**
@@ -145,7 +166,7 @@ public class FreeList {
     private FreeItem take(FreeTree tree, FreeItem lookupItem) throws IgniteCheckedException {
         FreeItem res = tree.removeCeil(lookupItem, null);
 
-        assert res == null || (res.pageId() != 0 && res.cacheId() == cctx.cacheId()): res;
+        assert res == null || (res.pageId() != 0 && res.cacheId() == cctx.cacheId()) : res;
 
         return res;
     }
@@ -203,16 +224,22 @@ public class FreeList {
      * @throws IgniteCheckedException If failed.
      */
     public void insertRow(CacheDataRow row) throws IgniteCheckedException {
-        assert row.link() == 0: row.link();
+        assert row.link() == 0 : row.link();
 
         int entrySize = DataPageIO.getEntrySize(cctx.cacheObjectContext(), row.key(), row.value());
 
         assert entrySize > 0 && entrySize < Short.MAX_VALUE: entrySize;
 
-        FreeTree tree = tree(row.partition());
+//        FreeTree tree = tree(row.partition());
+//
+//        // TODO add random pageIndex here for lower contention?
+//        FreeItem item = take(tree, new FreeItem(entrySize, 0, cctx.cacheId()));
 
-        // TODO add random pageIndex here for lower contention?
-        FreeItem item = take(tree, new FreeItem(entrySize, 0, cctx.cacheId()));
+        ConcurrentSkipListMap<Key, FreeItem> items0 = itemsArr[row.partition()];
+
+        Map.Entry<Key, FreeItem> entry = items0.ceilingEntry(new Key(0, entrySize));
+
+        FreeItem item = entry == null ? null : items0.remove(entry.getKey());
 
         try (Page page = item == null ?
             allocateDataPage(row.partition()) :
@@ -249,5 +276,40 @@ public class FreeList {
         long pageId = pageMem.allocatePage(cctx.cacheId(), part, PageIdAllocator.FLAG_DATA);
 
         return pageMem.page(cctx.cacheId(), pageId);
+    }
+
+    private static class Key implements Comparable<Key> {
+        long pageId;
+
+        int freeSpace;
+
+        public Key(
+            long pageId,
+            int freeSpace
+        ) {
+            this.pageId = pageId;
+            this.freeSpace = freeSpace;
+        }
+
+        @Override public int compareTo(@NotNull Key o) {
+            if (o.freeSpace == freeSpace) {
+                if (o.pageId == pageId)
+                    return 0;
+
+                if (pageId > o.pageId)
+                    return 1;
+                else
+                    return -1;
+            }
+
+            return freeSpace > o.freeSpace ? 1 : -1;
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return "key [pageId=" + U.hexLong(pageId) +
+                ", free=" + freeSpace +
+                ", hash=" + System.identityHashCode(this) + ']';
+        }
     }
 }
