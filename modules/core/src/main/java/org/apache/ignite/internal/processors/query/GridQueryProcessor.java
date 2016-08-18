@@ -878,7 +878,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                             sqlQry,
                             F.asList(params),
                             typeDesc,
-                            idx.backupFilter(requestTopVer.get(), null));
+                            idx.backupFilter(null, null));
 
                         sendQueryExecutedEvent(
                             sqlQry,
@@ -964,7 +964,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                     Object[] args = qry.getArgs();
 
                     final GridQueryFieldsResult res = idx.queryLocalSqlFields(space, sql, F.asList(args),
-                        idx.backupFilter(requestTopVer.get(), null), qry.isEnforceJoinOrder());
+                        idx.backupFilter(null, null), qry.isEnforceJoinOrder());
 
                     sendQueryExecutedEvent(sql, args);
 
