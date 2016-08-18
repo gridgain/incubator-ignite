@@ -38,7 +38,6 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.binary.BinaryMarshaller;
 import org.apache.ignite.internal.binary.BinaryObjectEx;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
-import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheEntryImpl;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
@@ -145,9 +144,6 @@ public class GridQueryProcessor extends GridProcessorAdapter {
 
     /** */
     private final GridQueryIndexing idx;
-
-    /** */
-    private static final ThreadLocal<AffinityTopologyVersion> requestTopVer = new ThreadLocal<>();
 
     /**
      * @param ctx Kernal context.
@@ -882,7 +878,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                             sqlQry,
                             F.asList(params),
                             typeDesc,
-                            idx.backupFilter(null, requestTopVer.get(), null));
+                            idx.backupFilter(null, null));
 
                         sendQueryExecutedEvent(
                             sqlQry,
@@ -967,8 +963,8 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                     String sql = qry.getSql();
                     Object[] args = qry.getArgs();
 
-                    final GridQueryFieldsResult res = idx.queryFields(space, sql, F.asList(args),
-                        idx.backupFilter(null, requestTopVer.get(), null));
+                    final GridQueryFieldsResult res = idx.queryLocalSqlFields(space, sql, F.asList(args),
+                        idx.backupFilter(null, null), qry.isEnforceJoinOrder());
 
                     sendQueryExecutedEvent(sql, args);
 
@@ -1816,20 +1812,6 @@ public class GridQueryProcessor extends GridProcessorAdapter {
         if (log.isTraceEnabled())
             log.trace("Query execution completed [startTime=" + startTime +
                 ", duration=" + duration + ", fail=" + fail + ", res=" + res + ']');
-    }
-
-    /**
-     * @param ver Version.
-     */
-    public static void setRequestAffinityTopologyVersion(AffinityTopologyVersion ver) {
-        requestTopVer.set(ver);
-    }
-
-    /**
-     * @return Affinity topology version of the current request.
-     */
-    public static AffinityTopologyVersion getRequestAffinityTopologyVersion() {
-        return requestTopVer.get();
     }
 
     /**
