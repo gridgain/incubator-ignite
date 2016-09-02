@@ -23,15 +23,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.IgniteException;
-import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.query.GridCacheSqlQuery;
 import org.apache.ignite.internal.processors.cache.query.GridCacheTwoStepQuery;
-import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.h2.command.Prepared;
 import org.h2.jdbc.JdbcPreparedStatement;
-import org.h2.table.Column;
-import org.h2.table.IndexColumn;
 import org.h2.util.IntArray;
 import org.jetbrains.annotations.Nullable;
 
@@ -188,89 +184,6 @@ public class GridSqlQuerySplitter {
     }
 
     /**
-     * @param el Either {@link GridSqlSelect#from()} or {@link GridSqlSelect#where()} elements.
-     */
-    private static void findAffinityColumnConditions(GridSqlElement el) {
-        if (el == null)
-            return;
-
-        el = GridSqlAlias.unwrap(el);
-
-        if (el instanceof GridSqlJoin) {
-            GridSqlJoin join = (GridSqlJoin)el;
-
-            findAffinityColumnConditions(join.leftTable());
-            findAffinityColumnConditions(join.rightTable());
-            findAffinityColumnConditions(join.on());
-        }
-        else if (el instanceof GridSqlOperation) {
-            GridSqlOperationType type = ((GridSqlOperation)el).operationType();
-
-            switch(type) {
-                case AND:
-                    findAffinityColumnConditions(el.child(0));
-                    findAffinityColumnConditions(el.child(1));
-
-                    break;
-
-                case EQUAL:
-                    findAffinityColumn(el.child(0));
-                    findAffinityColumn(el.child(1));
-            }
-        }
-    }
-
-    /**
-     * @param exp Possible affinity column expression.
-     */
-    private static void findAffinityColumn(GridSqlElement exp) {
-        if (exp instanceof GridSqlColumn) {
-            GridSqlColumn col = (GridSqlColumn)exp;
-
-            GridSqlElement from = col.expressionInFrom();
-
-            if (from instanceof GridSqlTable) {
-                GridSqlTable fromTbl = (GridSqlTable)from;
-
-                GridH2Table tbl = fromTbl.dataTable();
-
-                if (tbl != null) {
-                    IndexColumn affKeyCol = tbl.getAffinityKeyColumn();
-                    Column expCol = col.column();
-
-                    if (affKeyCol != null && expCol != null &&
-                        affKeyCol.column.getColumnId() == expCol.getColumnId()) {
-                        // Mark that table lookup will use affinity key.
-                        fromTbl.affinityKeyCondition(true);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * @param qry Select.
-     * @return {@code true} If there is at least one partitioned table in FROM clause.
-     */
-    private static boolean hasPartitionedTableInFrom(GridSqlSelect qry) {
-        return findTablesInFrom(qry.from(), new IgnitePredicate<GridSqlElement>() {
-            @Override public boolean apply(GridSqlElement el) {
-                if (el instanceof GridSqlTable) {
-                    GridH2Table tbl = ((GridSqlTable)el).dataTable();
-
-                    assert tbl != null : el;
-
-                    GridCacheContext<?,?> cctx = tbl.rowDescriptor().context();
-
-                    return !cctx.isLocal() && !cctx.isReplicated();
-                }
-
-                return false;
-            }
-        });
-    }
-
-    /**
      * @param res Resulting two step query.
      * @param splitIdx Split index.
      * @param mapQry Map query to be split.
@@ -318,11 +231,11 @@ public class GridSqlQuerySplitter {
         for (int i = rdcExps.size(); i < mapExps.size(); i++)  // Add all extra map columns as invisible reduce columns.
             rdcQry.addColumn(column(((GridSqlAlias)mapExps.get(i)).alias()), false);
 
-        // -- FROM
-        findAffinityColumnConditions(mapQry.from());
+        // -- FROM TODO
+        mapQry.from();
 
-        // -- WHERE
-        findAffinityColumnConditions(mapQry.where());
+        // -- WHERE TODO
+        mapQry.where();
 
         // -- GROUP BY
         if (mapQry.groupColumns() != null && !collocatedGroupBy)
