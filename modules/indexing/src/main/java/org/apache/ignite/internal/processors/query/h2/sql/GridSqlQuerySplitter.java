@@ -179,27 +179,27 @@ public class GridSqlQuerySplitter {
 
         final Prepared prepared = prepared(stmt);
 
-        GridSqlQuery qryAst = new GridSqlQueryParser().parse(prepared);
+        GridSqlQuery qry = new GridSqlQueryParser().parse(prepared);
 
-        final boolean explain = qryAst.explain();
+        final boolean explain = qry.explain();
 
-        qryAst.explain(false);
+        qry.explain(false);
 
-        collectAllTables(qryAst, schemas, tbls);
+        collectAllTables(qry, schemas, tbls);
 
-        GridSqlQuerySplitter sp = new GridSqlQuerySplitter();
+        GridSqlQuerySplitter splitter = new GridSqlQuerySplitter();
 
         // Map query will be direct reference to the original query AST.
         // Thus all the modifications will be performed on the original AST, so we should be careful when
         // nullifying or updating things, have to make sure that we will not need them in the original form later.
-        sp.splitSelect(wrapUnion(qryAst), params, collocatedGrpBy);
+        splitter.splitSelect(wrapUnion(qry), params, collocatedGrpBy);
 
         // Build resulting two step query.
         GridCacheTwoStepQuery twoStepQry = new GridCacheTwoStepQuery(schemas, tbls);
 
-        twoStepQry.addMapQuery(sp.mapSqlQry);
-        twoStepQry.reduceQuery(sp.rdcSqlQry);
-        twoStepQry.skipMergeTable(sp.rdcQrySimple);
+        twoStepQry.addMapQuery(splitter.mapSqlQry);
+        twoStepQry.reduceQuery(splitter.rdcSqlQry);
+        twoStepQry.skipMergeTable(splitter.rdcQrySimple);
         twoStepQry.explain(explain);
 
         // We do not have to look at each map query separately here, because if
@@ -211,7 +211,9 @@ public class GridSqlQuerySplitter {
     }
 
     /**
-     * @param mapQry Original query to be split.
+     * !!! Notice that here we will modify the original query AST.
+     *
+     * @param mapQry The original query AST to be split. It will be used as a base for map query.
      * @param params Query parameters.
      * @param collocatedGroupBy Whether the query has collocated GROUP BY keys.
      */
@@ -220,24 +222,26 @@ public class GridSqlQuerySplitter {
         Object[] params,
         boolean collocatedGroupBy
     ) {
-        GridSqlSelect rdcQry = new GridSqlSelect().from(table(nextTblIdx++));
+        final int visibleCols = mapQry.visibleColumns();
 
-        // Split all select expressions into map-reduce parts.
+        List<GridSqlElement> rdcExps = new ArrayList<>(visibleCols);
         List<GridSqlElement> mapExps = new ArrayList<>(mapQry.allColumns());
 
         mapExps.addAll(mapQry.columns(false));
 
-        final int visibleCols = mapQry.visibleColumns();
-        final int havingCol = mapQry.havingColumn();
-
-        List<GridSqlElement> rdcExps = new ArrayList<>(visibleCols);
-
         Set<String> colNames = new HashSet<>();
+        final int havingCol = mapQry.havingColumn();
 
         boolean aggregateFound = false;
 
+        // Split all select expressions into map-reduce parts.
         for (int i = 0, len = mapExps.size(); i < len; i++) // Remember len because mapExps list can grow.
             aggregateFound |= splitSelectExpression(mapExps, rdcExps, colNames, i, collocatedGroupBy, i == havingCol);
+
+        assert !(collocatedGroupBy && aggregateFound); // We do not split aggregates when collocatedGroupBy is true.
+
+        // Create reduce query AST.
+        GridSqlSelect rdcQry = new GridSqlSelect().from(table(nextTblIdx++));
 
         // -- SELECT
         mapQry.clearColumns();
@@ -295,6 +299,8 @@ public class GridSqlQuerySplitter {
         if (mapQry.limit() != null) {
             rdcQry.limit(mapQry.limit());
 
+            // Will keep limits on map side when collocatedGroupBy is true,
+            // because in this case aggregateFound is always false.
             if (aggregateFound)
                 mapQry.limit(null);
         }
@@ -330,6 +336,7 @@ public class GridSqlQuerySplitter {
 
         rdc.parameterIndexes(toArray(paramIdxs));
 
+        // Setup result fields.
         mapSqlQry = map;
         rdcSqlQry = rdc;
         rdcQrySimple = rdcQry.simpleQuery();
@@ -566,14 +573,19 @@ public class GridSqlQuerySplitter {
      * @param rdcSelect Selects for reduce query.
      * @param colNames Set of unique top level column names.
      * @param idx Index.
-     * @param collocated If it is a collocated query.
+     * @param collocatedGroupBy If it is a collocated GROUP BY query.
      * @param isHaving If it is a HAVING expression.
      * @return {@code true} If aggregate was found.
      */
-    private static boolean splitSelectExpression(List<GridSqlElement> mapSelect, List<GridSqlElement> rdcSelect,
-        Set<String> colNames, final int idx, boolean collocated, boolean isHaving) {
+    private static boolean splitSelectExpression(
+        List<GridSqlElement> mapSelect,
+        List<GridSqlElement> rdcSelect,
+        Set<String> colNames,
+        final int idx,
+        boolean collocatedGroupBy,
+        boolean isHaving
+    ) {
         GridSqlElement el = mapSelect.get(idx);
-
         GridSqlAlias alias = null;
 
         boolean aggregateFound = false;
@@ -583,7 +595,7 @@ public class GridSqlQuerySplitter {
             el = alias.child();
         }
 
-        if (!collocated && hasAggregates(el)) {
+        if (!collocatedGroupBy && hasAggregates(el)) {
             aggregateFound = true;
 
             if (alias == null)
