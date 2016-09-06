@@ -58,6 +58,9 @@ public class GridSqlQuerySplitter {
     private static final String HAVING_COLUMN = "__H";
 
     /** */
+    private int nextTblIdx;
+
+    /** */
     private GridCacheSqlQuery mapSqlQry;
 
     /** */
@@ -70,8 +73,16 @@ public class GridSqlQuerySplitter {
      * @param idx Index of table.
      * @return Table.
      */
-    public static GridSqlTable table(int idx) {
+    private static GridSqlTable table(int idx) {
         return new GridSqlTable(TABLE_SCHEMA, TABLE_PREFIX + idx);
+    }
+
+    /**
+     * @param idx Table index.
+     * @return Table name.
+     */
+    public static String tableIdentifier(int idx) {
+        return table(idx).getSQL();
     }
 
     /**
@@ -181,7 +192,7 @@ public class GridSqlQuerySplitter {
         // Map query will be direct reference to the original query AST.
         // Thus all the modifications will be performed on the original AST, so we should be careful when
         // nullifying or updating things, have to make sure that we will not need them in the original form later.
-        sp.splitSelect(0, wrapUnion(qryAst), params, collocatedGrpBy);
+        sp.splitSelect(wrapUnion(qryAst), params, collocatedGrpBy);
 
         // Build resulting two step query.
         GridCacheTwoStepQuery twoStepQry = new GridCacheTwoStepQuery(schemas, tbls);
@@ -200,18 +211,16 @@ public class GridSqlQuerySplitter {
     }
 
     /**
-     * @param splitIdx Split index.
-     * @param mapQry Map query to be split.
+     * @param mapQry Original query to be split.
      * @param params Query parameters.
      * @param collocatedGroupBy Whether the query has collocated GROUP BY keys.
      */
     private void splitSelect(
-        int splitIdx,
         final GridSqlSelect mapQry,
         Object[] params,
         boolean collocatedGroupBy
     ) {
-        GridSqlSelect rdcQry = new GridSqlSelect().from(table(splitIdx));
+        GridSqlSelect rdcQry = new GridSqlSelect().from(table(nextTblIdx++));
 
         // Split all select expressions into map-reduce parts.
         List<GridSqlElement> mapExps = new ArrayList<>(mapQry.allColumns());
