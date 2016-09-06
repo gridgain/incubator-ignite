@@ -176,15 +176,15 @@ public class GridSqlQuerySplitter {
 
         collectAllTables(qryAst, schemas, tbls);
 
-        // Build resulting two step query.
-        GridCacheTwoStepQuery twoStepQry = new GridCacheTwoStepQuery(schemas, tbls);
-
         GridSqlQuerySplitter sp = new GridSqlQuerySplitter();
 
         // Map query will be direct reference to the original query AST.
         // Thus all the modifications will be performed on the original AST, so we should be careful when
         // nullifying or updating things, have to make sure that we will not need them in the original form later.
         sp.splitSelect(0, wrapUnion(qryAst), params, collocatedGrpBy);
+
+        // Build resulting two step query.
+        GridCacheTwoStepQuery twoStepQry = new GridCacheTwoStepQuery(schemas, tbls);
 
         twoStepQry.addMapQuery(sp.mapSqlQry);
         twoStepQry.reduceQuery(sp.rdcSqlQry);
