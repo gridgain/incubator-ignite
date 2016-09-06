@@ -215,12 +215,12 @@ public class GridSqlQuerySplitter {
      *
      * @param mapQry The original query AST to be split. It will be used as a base for map query.
      * @param params Query parameters.
-     * @param collocatedGroupBy Whether the query has collocated GROUP BY keys.
+     * @param collocatedGrpBy Whether the query has collocated GROUP BY keys.
      */
     private void splitSelect(
         final GridSqlSelect mapQry,
         Object[] params,
-        boolean collocatedGroupBy
+        boolean collocatedGrpBy
     ) {
         final int visibleCols = mapQry.visibleColumns();
 
@@ -236,9 +236,9 @@ public class GridSqlQuerySplitter {
 
         // Split all select expressions into map-reduce parts.
         for (int i = 0, len = mapExps.size(); i < len; i++) // Remember len because mapExps list can grow.
-            aggregateFound |= splitSelectExpression(mapExps, rdcExps, colNames, i, collocatedGroupBy, i == havingCol);
+            aggregateFound |= splitSelectExpression(mapExps, rdcExps, colNames, i, collocatedGrpBy, i == havingCol);
 
-        assert !(collocatedGroupBy && aggregateFound); // We do not split aggregates when collocatedGroupBy is true.
+        assert !(collocatedGrpBy && aggregateFound); // We do not split aggregates when collocatedGrpBy is true.
 
         // Create reduce query AST.
         GridSqlSelect rdcQry = new GridSqlSelect().from(table(nextTblIdx++));
@@ -265,11 +265,11 @@ public class GridSqlQuerySplitter {
         mapQry.where();
 
         // -- GROUP BY
-        if (mapQry.groupColumns() != null && !collocatedGroupBy)
+        if (mapQry.groupColumns() != null && !collocatedGrpBy)
             rdcQry.groupColumns(mapQry.groupColumns());
 
         // -- HAVING
-        if (havingCol >= 0 && !collocatedGroupBy) {
+        if (havingCol >= 0 && !collocatedGrpBy) {
             // TODO IGNITE-1140 - Find aggregate functions in HAVING clause or rewrite query to put all aggregates to SELECT clause.
             // We need to find HAVING column in reduce query.
             for (int i = visibleCols; i < rdcQry.allColumns(); i++) {
@@ -290,6 +290,7 @@ public class GridSqlQuerySplitter {
             for (GridSqlSortColumn sortCol : mapQry.sort())
                 rdcQry.addSort(sortCol);
 
+            // If collocatedGrpBy is true, then aggregateFound is always false.
             if (aggregateFound) // Ordering over aggregates does not make sense.
                 mapQry.clearSort(); // Otherwise map sort will be used by offset-limit.
             // TODO IGNITE-1141 - Check if sorting is done over aggregated expression, otherwise we can sort and use offset-limit.
@@ -299,7 +300,7 @@ public class GridSqlQuerySplitter {
         if (mapQry.limit() != null) {
             rdcQry.limit(mapQry.limit());
 
-            // Will keep limits on map side when collocatedGroupBy is true,
+            // Will keep limits on map side when collocatedGrpBy is true,
             // because in this case aggregateFound is always false.
             if (aggregateFound)
                 mapQry.limit(null);
@@ -573,7 +574,7 @@ public class GridSqlQuerySplitter {
      * @param rdcSelect Selects for reduce query.
      * @param colNames Set of unique top level column names.
      * @param idx Index.
-     * @param collocatedGroupBy If it is a collocated GROUP BY query.
+     * @param collocatedGrpBy If it is a collocated GROUP BY query.
      * @param isHaving If it is a HAVING expression.
      * @return {@code true} If aggregate was found.
      */
@@ -582,7 +583,7 @@ public class GridSqlQuerySplitter {
         List<GridSqlElement> rdcSelect,
         Set<String> colNames,
         final int idx,
-        boolean collocatedGroupBy,
+        boolean collocatedGrpBy,
         boolean isHaving
     ) {
         GridSqlElement el = mapSelect.get(idx);
@@ -595,7 +596,7 @@ public class GridSqlQuerySplitter {
             el = alias.child();
         }
 
-        if (!collocatedGroupBy && hasAggregates(el)) {
+        if (!collocatedGrpBy && hasAggregates(el)) {
             aggregateFound = true;
 
             if (alias == null)
