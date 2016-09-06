@@ -57,6 +57,15 @@ public class GridSqlQuerySplitter {
     /** */
     private static final String HAVING_COLUMN = "__H";
 
+    /** */
+    private GridCacheSqlQuery mapSqlQry;
+
+    /** */
+    private GridCacheSqlQuery rdcSqlQry;
+
+    /** */
+    private boolean rdcQrySimple;
+
     /**
      * @param idx Index of table.
      * @return Table.
@@ -159,44 +168,49 @@ public class GridSqlQuerySplitter {
 
         final Prepared prepared = prepared(stmt);
 
-        GridSqlQuery qry = new GridSqlQueryParser().parse(prepared);
+        GridSqlQuery qryAst = new GridSqlQueryParser().parse(prepared);
 
-        qry = collectAllTables(qry, schemas, tbls);
+        final boolean explain = qryAst.explain();
+
+        qryAst.explain(false);
+
+        collectAllTables(qryAst, schemas, tbls);
 
         // Build resulting two step query.
-        GridCacheTwoStepQuery res = new GridCacheTwoStepQuery(schemas, tbls);
+        GridCacheTwoStepQuery twoStepQry = new GridCacheTwoStepQuery(schemas, tbls);
+
+        GridSqlQuerySplitter sp = new GridSqlQuerySplitter();
 
         // Map query will be direct reference to the original query AST.
         // Thus all the modifications will be performed on the original AST, so we should be careful when
         // nullifying or updating things, have to make sure that we will not need them in the original form later.
-        final GridSqlSelect mapQry = wrapUnion(qry);
+        sp.splitSelect(0, wrapUnion(qryAst), params, collocatedGrpBy);
 
-        GridCacheSqlQuery rdc = split(res, 0, mapQry, params, collocatedGrpBy);
-
-        res.reduceQuery(rdc);
+        twoStepQry.addMapQuery(sp.mapSqlQry);
+        twoStepQry.reduceQuery(sp.rdcSqlQry);
+        twoStepQry.skipMergeTable(sp.rdcQrySimple);
+        twoStepQry.explain(explain);
 
         // We do not have to look at each map query separately here, because if
         // the whole initial query is collocated, then all the map sub-queries
         // will be collocated as well.
-        res.distributedJoins(distributedJoins && !isCollocated(query(prepared)));
+        twoStepQry.distributedJoins(distributedJoins && !isCollocated(query(prepared)));
 
-        return res;
+        return twoStepQry;
     }
 
     /**
-     * @param res Resulting two step query.
      * @param splitIdx Split index.
      * @param mapQry Map query to be split.
      * @param params Query parameters.
      * @param collocatedGroupBy Whether the query has collocated GROUP BY keys.
-     * @return Reduce query for the given map query.
      */
-    private static GridCacheSqlQuery split(GridCacheTwoStepQuery res, int splitIdx, final GridSqlSelect mapQry,
-        Object[] params, boolean collocatedGroupBy) {
-        final boolean explain = mapQry.explain();
-
-        mapQry.explain(false);
-
+    private void splitSelect(
+        int splitIdx,
+        final GridSqlSelect mapQry,
+        Object[] params,
+        boolean collocatedGroupBy
+    ) {
         GridSqlSelect rdcQry = new GridSqlSelect().from(table(splitIdx));
 
         // Split all select expressions into map-reduce parts.
@@ -300,19 +314,16 @@ public class GridSqlQuerySplitter {
         map.columns(collectColumns(mapExps));
         map.parameterIndexes(toArray(paramIdxs));
 
-        res.addMapQuery(map);
-
-        res.explain(explain);
-
         paramIdxs = new IntArray(params.length);
 
         GridCacheSqlQuery rdc = new GridCacheSqlQuery(rdcQry.getSQL(),
             findParams(rdcQry, params, new ArrayList<>(), paramIdxs).toArray());
 
         rdc.parameterIndexes(toArray(paramIdxs));
-        res.skipMergeTable(rdcQry.simpleQuery());
 
-        return rdc;
+        mapSqlQry = map;
+        rdcSqlQry = rdc;
+        rdcQrySimple = rdcQry.simpleQuery();
     }
 
     /**
@@ -350,9 +361,8 @@ public class GridSqlQuerySplitter {
      * @param qry Query.
      * @param schemas Schema names.
      * @param tbls Tables.
-     * @return Query.
      */
-    private static GridSqlQuery collectAllTables(GridSqlQuery qry, Set<String> schemas, Set<String> tbls) {
+    private static void collectAllTables(GridSqlQuery qry, Set<String> schemas, Set<String> tbls) {
         if (qry instanceof GridSqlUnion) {
             GridSqlUnion union = (GridSqlUnion)qry;
 
@@ -369,8 +379,6 @@ public class GridSqlQuerySplitter {
 
             collectAllTablesInSubqueries(select.where(), schemas, tbls);
         }
-
-        return qry;
     }
 
     /**
