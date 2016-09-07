@@ -21,7 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Abstract SQL element.
+ * Base class for all SQL AST nodes.
  */
 public abstract class GridSqlElement implements Iterable<GridSqlElement> {
     /** */

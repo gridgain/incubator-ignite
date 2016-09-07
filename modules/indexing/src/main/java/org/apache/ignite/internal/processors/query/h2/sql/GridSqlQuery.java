@@ -23,7 +23,7 @@ import org.h2.util.StatementBuilder;
 import org.h2.util.StringUtils;
 
 /**
- * Select query.
+ * SQL Query AST.
  */
 public abstract class GridSqlQuery {
     /** */

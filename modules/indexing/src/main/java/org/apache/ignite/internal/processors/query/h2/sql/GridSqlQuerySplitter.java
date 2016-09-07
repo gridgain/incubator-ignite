@@ -420,7 +420,7 @@ public class GridSqlQuerySplitter {
                         schemas.add(schema);
                 }
                 else if (el instanceof GridSqlSubquery)
-                    collectAllTables(((GridSqlSubquery)el).select(), schemas, tbls);
+                    collectAllTables(((GridSqlSubquery)el).subquery(), schemas, tbls);
 
                 return false;
             }
@@ -478,7 +478,7 @@ public class GridSqlQuerySplitter {
                 collectAllTablesInSubqueries(child, schemas, tbls);
         }
         else if (el instanceof GridSqlSubquery)
-            collectAllTables(((GridSqlSubquery)el).select(), schemas, tbls);
+            collectAllTables(((GridSqlSubquery)el).subquery(), schemas, tbls);
     }
 
     /**
@@ -563,7 +563,7 @@ public class GridSqlQuerySplitter {
             paramIdxs.add(idx);
         }
         else if (el instanceof GridSqlSubquery)
-            findParams(((GridSqlSubquery)el).select(), params, target, paramIdxs);
+            findParams(((GridSqlSubquery)el).subquery(), params, target, paramIdxs);
         else
             for (GridSqlElement child : el)
                 findParams(child, params, target, paramIdxs);
