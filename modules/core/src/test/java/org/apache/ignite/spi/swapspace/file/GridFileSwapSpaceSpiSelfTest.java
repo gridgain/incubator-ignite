@@ -27,9 +27,11 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.KeyCacheObjectImpl;
+import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.typedef.CIX1;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiInClosure;
@@ -37,6 +39,7 @@ import org.apache.ignite.spi.IgniteSpiCloseableIterator;
 import org.apache.ignite.spi.swapspace.GridSwapSpaceSpiAbstractSelfTest;
 import org.apache.ignite.spi.swapspace.SwapKey;
 import org.apache.ignite.spi.swapspace.SwapSpaceSpi;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jsr166.ConcurrentHashMap8;
 
@@ -363,5 +366,44 @@ public class GridFileSwapSpaceSpiSelfTest extends GridSwapSpaceSpiAbstractSelfTe
         }
 
         assertEquals(hash0, hash1);
+    }
+
+    /**
+     * @throws IgniteCheckedException If failed.
+     */
+    public void testCheckLockingWhenSaveFileWithMoreSizeWhichQueue() throws IgniteCheckedException {
+        final String spaceName = "myScape";
+        final SwapKey key = new SwapKey("key");
+        final String msg = "Message text";
+
+        IgniteInternalFuture<byte[]> fut = GridTestUtils.runAsync(new Callable<byte[]>() {
+            @Override public byte[] call() throws Exception {
+                byte[] val = msg.getBytes();
+
+                // Min queue size in byte, for write to swap file.
+                ((FileSwapSpaceSpi)spi).setWriteBufferSize(1);
+
+                // Max queue size in byte.
+                ((FileSwapSpaceSpi)spi).setMaxWriteQueueSize(5);
+
+                spi.store(spaceName, key, val, context());
+
+                GridTestUtils.waitForCondition(new GridAbsPredicate() {
+                    @Override public boolean apply() {
+                        return spi.read(spaceName, key, context()) != null;
+                    }
+                }, 10_000);
+
+                byte[] res = spi.read(spaceName, key, context());
+
+                assertNotNull(res);
+
+                return res;
+            }
+        });
+
+        byte[] bytes = fut.get(10_000);
+
+        assertEquals(msg, new String(bytes));
     }
 }
