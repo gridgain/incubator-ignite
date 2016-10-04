@@ -179,6 +179,7 @@ public abstract class BinaryFieldsAbstractSelfTest extends GridCommonAbstractTes
      */
     public void testInt() throws Exception {
         check("fInt");
+        check("fIntZero");
     }
 
     /**
@@ -197,6 +198,7 @@ public abstract class BinaryFieldsAbstractSelfTest extends GridCommonAbstractTes
      */
     public void testLong() throws Exception {
         check("fLong");
+        check("fLongZero");
     }
 
     /**
@@ -573,7 +575,9 @@ public abstract class BinaryFieldsAbstractSelfTest extends GridCommonAbstractTes
         public short fShort;
         public char fChar;
         public int fInt;
+        public int fIntZero;
         public long fLong;
+        public long fLongZero;
         public float fFloat;
         public double fDouble;
 
@@ -625,7 +629,9 @@ public abstract class BinaryFieldsAbstractSelfTest extends GridCommonAbstractTes
             fShort = 2;
             fChar = 3;
             fInt = 4;
+            fIntZero = 0;
             fLong = 5;
+            fLongZero = 0;
             fFloat = 6.6f;
             fDouble = 7.7;
 

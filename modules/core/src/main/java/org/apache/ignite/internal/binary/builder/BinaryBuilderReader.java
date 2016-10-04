@@ -223,6 +223,8 @@ public class BinaryBuilderReader implements BinaryPositionReadable {
 
         switch (type) {
             case GridBinaryMarshaller.NULL:
+            case GridBinaryMarshaller.ZERO_INT:
+            case GridBinaryMarshaller.ZERO_LONG:
                 return;
 
             case GridBinaryMarshaller.OBJ:
@@ -410,6 +412,12 @@ public class BinaryBuilderReader implements BinaryPositionReadable {
             case GridBinaryMarshaller.LONG:
                 return BinaryPrimitives.readLong(arr, pos + 1);
 
+            case GridBinaryMarshaller.ZERO_INT:
+                return 0;
+
+            case GridBinaryMarshaller.ZERO_LONG:
+                return 0L;
+
             case GridBinaryMarshaller.FLOAT:
                 return BinaryPrimitives.readFloat(arr, pos + 1);
 
@@ -543,6 +551,16 @@ public class BinaryBuilderReader implements BinaryPositionReadable {
 
                 break;
 
+            case GridBinaryMarshaller.ZERO_INT:
+                plainLazyValLen = 0;
+
+                break;
+
+            case GridBinaryMarshaller.ZERO_LONG:
+                plainLazyValLen = 0;
+
+                break;
+
             case GridBinaryMarshaller.FLOAT:
                 plainLazyValLen = 4;
 
@@ -645,7 +663,8 @@ public class BinaryBuilderReader implements BinaryPositionReadable {
                 for (int i = 0; i < res.length; i++) {
                     byte flag = arr[pos++];
 
-                    if (flag == GridBinaryMarshaller.NULL) continue;
+                    if (flag == GridBinaryMarshaller.NULL)
+                        continue;
 
                     if (flag != GridBinaryMarshaller.DATE)
                         throw new BinaryObjectException("Invalid flag value: " + flag);

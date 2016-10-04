@@ -18,19 +18,22 @@
 package org.apache.ignite.testsuites;
 
 import junit.framework.TestSuite;
-import org.apache.ignite.testframework.config.GridTestProperties;
+import org.apache.ignite.IgniteSystemProperties;
 
 /**
- * Cache query suite with binary marshaller.
+ * Test for binary objects stored in cache using {@link IgniteSystemProperties#IGNITE_BINARY_COMPACT_ZEROES}
+ *
+ * @deprecated IGNITE_BINARY_COMPACT_ZEROES should be default mode in Apache Ignite 2.0, so this test will be redundant.
  */
-public class IgniteBinarySimpleNameMapperCacheQueryTestSuite extends TestSuite {
+@Deprecated
+public class IgniteBinaryObjectsTestSuite2 extends TestSuite {
     /**
      * @return Suite.
-     * @throws Exception In case of error.
+     * @throws Exception If failed.
      */
     public static TestSuite suite() throws Exception {
-        GridTestProperties.setProperty(GridTestProperties.BINARY_MARSHALLER_USE_SIMPLE_NAME_MAPPER, "true");
+        System.setProperty(IgniteSystemProperties.IGNITE_BINARY_COMPACT_ZEROES, "true");
 
-        return IgniteBinaryCacheQueryTestSuite.suite();
+        return IgniteBinaryObjectsTestSuite.suite();
     }
 }

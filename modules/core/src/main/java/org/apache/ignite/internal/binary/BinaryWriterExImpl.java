@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryRawWriter;
 import org.apache.ignite.binary.BinaryWriter;
@@ -49,6 +50,13 @@ public class BinaryWriterExImpl implements BinaryWriter, BinaryRawWriterEx, Obje
 
     /** Initial capacity. */
     private static final int INIT_CAP = 1024;
+
+    /** Compress zeroes feature flag.
+     * See {@link IgniteSystemProperties#IGNITE_BINARY_COMPACT_ZEROES}
+     *  @deprecated This mode should be default mode in Apache Ignite 2.0 and option should be removed.
+     * */
+    private static final boolean IGNITE_BINARY_COMPACT_ZEROES =
+        IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_BINARY_COMPACT_ZEROES);
 
     /** */
     private final BinaryContext ctx;
@@ -433,7 +441,7 @@ public class BinaryWriterExImpl implements BinaryWriter, BinaryRawWriterEx, Obje
      * @param ts Timestamp.
      */
     public void doWriteTimestamp(@Nullable Timestamp ts) {
-        if (ts== null)
+        if (ts == null)
             out.writeByte(GridBinaryMarshaller.NULL);
         else {
             out.unsafeEnsure(1 + 8 + 4);
@@ -643,21 +651,21 @@ public class BinaryWriterExImpl implements BinaryWriter, BinaryRawWriterEx, Obje
         }
     }
 
-     /**
-      * @param val Array of timestamps.
-      */
-     void doWriteTimestampArray(@Nullable Timestamp[] val) {
-         if (val == null)
-             out.writeByte(GridBinaryMarshaller.NULL);
-         else {
-             out.unsafeEnsure(1 + 4);
-             out.unsafeWriteByte(GridBinaryMarshaller.TIMESTAMP_ARR);
-             out.unsafeWriteInt(val.length);
+    /**
+     * @param val Array of timestamps.
+     */
+    void doWriteTimestampArray(@Nullable Timestamp[] val) {
+        if (val == null)
+            out.writeByte(GridBinaryMarshaller.NULL);
+        else {
+            out.unsafeEnsure(1 + 4);
+            out.unsafeWriteByte(GridBinaryMarshaller.TIMESTAMP_ARR);
+            out.unsafeWriteInt(val.length);
 
-             for (Timestamp ts : val)
-                 doWriteTimestamp(ts);
-         }
-     }
+            for (Timestamp ts : val)
+                doWriteTimestamp(ts);
+        }
+    }
 
     /**
      * @param val Array of objects.
@@ -932,10 +940,17 @@ public class BinaryWriterExImpl implements BinaryWriter, BinaryRawWriterEx, Obje
      * @param val Value.
      */
     void writeIntFieldPrimitive(int val) {
-        out.unsafeEnsure(1 + 4);
+        if (val == 0 && IGNITE_BINARY_COMPACT_ZEROES) {
+            out.unsafeEnsure(1);
 
-        out.unsafeWriteByte(GridBinaryMarshaller.INT);
-        out.unsafeWriteInt(val);
+            out.unsafeWriteByte(GridBinaryMarshaller.ZERO_INT);
+        }
+        else {
+            out.unsafeEnsure(1 + 4);
+
+            out.unsafeWriteByte(GridBinaryMarshaller.INT);
+            out.unsafeWriteInt(val);
+        }
     }
 
     /**
@@ -952,10 +967,17 @@ public class BinaryWriterExImpl implements BinaryWriter, BinaryRawWriterEx, Obje
      * @param val Value.
      */
     void writeLongFieldPrimitive(long val) {
-        out.unsafeEnsure(1 + 8);
+        if (val == 0L && IGNITE_BINARY_COMPACT_ZEROES) {
+            out.unsafeEnsure(1);
 
-        out.unsafeWriteByte(GridBinaryMarshaller.LONG);
-        out.unsafeWriteLong(val);
+            out.unsafeWriteByte(GridBinaryMarshaller.ZERO_LONG);
+        }
+        else {
+            out.unsafeEnsure(1 + 8);
+
+            out.unsafeWriteByte(GridBinaryMarshaller.LONG);
+            out.unsafeWriteLong(val);
+        }
     }
 
     /**
@@ -1530,7 +1552,8 @@ public class BinaryWriterExImpl implements BinaryWriter, BinaryRawWriterEx, Obje
     }
 
     /** {@inheritDoc} */
-    @Override public void writeTimestampArray(String fieldName, @Nullable Timestamp[] val) throws BinaryObjectException {
+    @Override public void writeTimestampArray(String fieldName,
+        @Nullable Timestamp[] val) throws BinaryObjectException {
         writeFieldId(fieldName);
         writeTimestampArrayField(val);
     }
@@ -1540,7 +1563,7 @@ public class BinaryWriterExImpl implements BinaryWriter, BinaryRawWriterEx, Obje
         doWriteTimestampArray(val);
     }
 
-     /** {@inheritDoc} */
+    /** {@inheritDoc} */
     @Override public void writeObjectArray(String fieldName, @Nullable Object[] val) throws BinaryObjectException {
         writeFieldId(fieldName);
         writeObjectArrayField(val);
@@ -1640,22 +1663,22 @@ public class BinaryWriterExImpl implements BinaryWriter, BinaryRawWriterEx, Obje
 
     /** {@inheritDoc} */
     @Override public void writeByte(int v) throws IOException {
-        out.writeByte((byte) v);
+        out.writeByte((byte)v);
     }
 
     /** {@inheritDoc} */
     @Override public void writeShort(int v) throws IOException {
-        out.writeShort((short) v);
+        out.writeShort((short)v);
     }
 
     /** {@inheritDoc} */
     @Override public void writeChar(int v) throws IOException {
-        out.writeChar((char) v);
+        out.writeChar((char)v);
     }
 
     /** {@inheritDoc} */
     @Override public void write(int b) throws IOException {
-        out.writeByte((byte) b);
+        out.writeByte((byte)b);
     }
 
     /** {@inheritDoc} */
@@ -1699,6 +1722,7 @@ public class BinaryWriterExImpl implements BinaryWriter, BinaryRawWriterEx, Obje
 
     /**
      * Write field ID.
+     *
      * @param fieldId Field ID.
      */
     public void writeFieldId(int fieldId) {
