@@ -1566,7 +1566,21 @@ public class GridOffHeapSnapTreeMap<K extends GridOffHeapSmartPointer,V extends 
                     return SpecialRetry;
                 }
 
-                assert(vo != null);
+                // Node value can become null if node had both childs (could not be unlinked in-place)
+                // while it were deleting. See attemptNodeUpdate method.
+                // So, we need to try to unlink this node and retry attempt.
+                if (vo == null) {
+                    LongArray unlinked = new LongArray();
+
+                    try {
+                        fixHeightAndRebalance(node, unlinked);
+                    }
+                    finally {
+                        deallocate(unlinked);
+                    }
+
+                    return SpecialRetry;
+                }
 
                 return returnKey ? key(node) : new SimpleImmutableEntry<K,V>(key(node), vo);
             }

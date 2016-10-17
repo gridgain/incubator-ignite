@@ -17,47 +17,55 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
-
+import java.util.Map;
+import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheAdapter;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
-import org.apache.ignite.internal.util.GridConcurrentSkipListSet;
+import org.apache.ignite.internal.util.offheap.unsafe.GridOffHeapSmartPointer;
+import org.apache.ignite.internal.util.offheap.unsafe.GridOffHeapSmartPointerFactory;
+import org.apache.ignite.internal.util.offheap.unsafe.GridOffHeapSnapTreeMap;
+import org.apache.ignite.internal.util.offheap.unsafe.GridUnsafeGuard;
+import org.apache.ignite.internal.util.offheap.unsafe.GridUnsafeMemory;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.internal.util.worker.GridWorker;
-import org.apache.ignite.thread.IgniteThread;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 import org.jsr166.LongAdder8;
 
 /**
- * Eagerly removes expired entries from cache when
+ * Eagerly removes expired m from cache when
  * {@link CacheConfiguration#isEagerTtl()} flag is set.
  */
-@SuppressWarnings("NakedNotify")
 public class GridCacheTtlManager extends GridCacheManagerAdapter {
     /** Entries pending removal. */
-    private final GridConcurrentSkipListSetEx pendingEntries = new GridConcurrentSkipListSetEx();
+    private PendingEntriesQueue pendingEntries;
 
-    /** Cleanup worker. */
-    private CleanupWorker cleanupWorker;
-
-    /** Mutex. */
-    private final Object mux = new Object();
-
-    /** Next expire time. */
-    private volatile long nextExpireTime;
-
-    /** Next expire time updater. */
-    private static final AtomicLongFieldUpdater<GridCacheTtlManager> nextExpireTimeUpdater =
-        AtomicLongFieldUpdater.newUpdater(GridCacheTtlManager.class, "nextExpireTime");
+    /** */
+    private GridUnsafeMemory unsafeMemory;
 
     /** {@inheritDoc} */
     @Override protected void start0() throws IgniteCheckedException {
+
+        if (cctx.isSwapOrOffheapEnabled()) {
+            unsafeMemory = new GridUnsafeMemory(0);
+
+            pendingEntries = new OffHeapPendingEntriesSet(unsafeMemory, new GridUnsafeGuard());
+
+            if (log.isDebugEnabled())
+                log.trace("Use OffHeap structure for ttl entries for cache: " + cctx.namex());
+        }
+        else {
+            pendingEntries = new OnHeapPendingEntriesQueue();
+
+            if (log.isDebugEnabled())
+                log.trace("Use OnHeap structure for ttl entries for cache: " + cctx.namex());
+        }
+
         boolean cleanupDisabled = cctx.kernalContext().isDaemon() ||
             !cctx.config().isEagerTtl() ||
             CU.isAtomicsCache(cctx.name()) ||
@@ -68,19 +76,15 @@ public class GridCacheTtlManager extends GridCacheManagerAdapter {
         if (cleanupDisabled)
             return;
 
-        cleanupWorker = new CleanupWorker();
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void onKernalStart0() throws IgniteCheckedException {
-        if (cleanupWorker != null)
-            new IgniteThread(cleanupWorker).start();
+        cctx.shared().ttl().register(this);
     }
 
     /** {@inheritDoc} */
     @Override protected void onKernalStop0(boolean cancel) {
-        U.cancel(cleanupWorker);
-        U.join(cleanupWorker, log);
+        if (pendingEntries != null)
+            pendingEntries.clear();
+
+        cctx.shared().ttl().unregister(this);
     }
 
     /**
@@ -90,27 +94,12 @@ public class GridCacheTtlManager extends GridCacheManagerAdapter {
      */
     public void addTrackedEntry(GridCacheMapEntry entry) {
         assert Thread.holdsLock(entry);
-        assert cleanupWorker != null;
 
-        EntryWrapper e = new EntryWrapper(entry);
+        assert pendingEntries != null;
+
+        PendingEntry e = new PendingEntry(entry);
 
         pendingEntries.add(e);
-
-        while (true) {
-            long nextExpireTime = this.nextExpireTime;
-
-            if (e.expireTime < nextExpireTime) {
-                if (nextExpireTimeUpdater.compareAndSet(this, nextExpireTime, e.expireTime)) {
-                    synchronized (mux) {
-                        mux.notifyAll();
-                    }
-
-                    break;
-                }
-            }
-            else
-                break;
-        }
     }
 
     /**
@@ -118,16 +107,19 @@ public class GridCacheTtlManager extends GridCacheManagerAdapter {
      */
     public void removeTrackedEntry(GridCacheMapEntry entry) {
         assert Thread.holdsLock(entry);
-        assert cleanupWorker != null;
 
-        pendingEntries.remove(new EntryWrapper(entry));
+        assert pendingEntries != null;
+
+        PendingEntry e = new PendingEntry(entry);
+
+        pendingEntries.remove(e);
     }
 
     /**
-     * @return The size of pending entries.
+     * @return The size of pending m.
      */
     public int pendingSize() {
-        return pendingEntries.sizex();
+        return pendingEntries.size();
     }
 
     /** {@inheritDoc} */
@@ -135,33 +127,50 @@ public class GridCacheTtlManager extends GridCacheManagerAdapter {
         X.println(">>>");
         X.println(">>> TTL processor memory stats [grid=" + cctx.gridName() + ", cache=" + cctx.name() + ']');
         X.println(">>>   pendingEntriesSize: " + pendingEntries.size());
+        if (unsafeMemory != null)
+            X.println(">>>   OffHeap memory allocated size: " + unsafeMemory.allocatedSize());
     }
 
     /**
-     * Expires entries by TTL.
+     * Expires m by TTL.
      */
     public void expire() {
+        expire(-1);
+    }
+
+    /**
+     * Processes specified amount of expired m.
+     *
+     * @param amount Limit of processed m by single call, {@code -1} for no limit.
+     * @return {@code True} if unprocessed expired m remains.
+     */
+    public boolean expire(int amount) {
+        if (pendingEntries == null)
+            return false;
+
         long now = U.currentTimeMillis();
 
         GridCacheVersion obsoleteVer = null;
 
-        for (int size = pendingEntries.sizex(); size > 0; size--) {
-            EntryWrapper e = pendingEntries.firstx();
+        int limit = (-1 != amount) ? amount : pendingEntries.size();
 
-            if (e == null || e.expireTime > now)
-                return;
+        for (int cnt = limit; cnt > 0; cnt--) {
+            PendingEntry pendingEntry = pendingEntries.pollExpiredFor(now);
 
-            if (pendingEntries.remove(e)) {
-                if (obsoleteVer == null)
-                    obsoleteVer = cctx.versions().next();
+            if (pendingEntry == null)
+                return false;
 
+            if (obsoleteVer == null)
+                obsoleteVer = cctx.versions().next();
+
+            // Offheap pendingEntry is deserialized already
+            GridCacheEntryEx entry = unwrapEntry(pendingEntry);
+
+            if (entry != null) {
                 if (log.isTraceEnabled())
-                    log.trace("Trying to remove expired entry from cache: " + e);
+                    log.trace("Trying to remove expired entry from cache: " + entry);
 
-
-                boolean touch = false;
-
-                GridCacheEntryEx entry = e.ctx.cache().entryEx(e.key);
+                boolean touch = entry.context().isSwapOrOffheapEnabled();
 
                 while (true) {
                     try {
@@ -181,130 +190,120 @@ public class GridCacheTtlManager extends GridCacheManagerAdapter {
                     entry.context().evicts().touch(entry, null);
             }
         }
+
+        return amount != -1 && pendingEntries.hasExpiredFor(now);
+
     }
 
     /**
-     * Entry cleanup worker.
-     */
-    private class CleanupWorker extends GridWorker {
-        /**
-         * Creates cleanup worker.
-         */
-        CleanupWorker() {
-            super(cctx.gridName(), "ttl-cleanup-worker-" + cctx.name(), cctx.logger(GridCacheTtlManager.class));
-        }
-
-        /** {@inheritDoc} */
-        @Override protected void body() throws InterruptedException, IgniteInterruptedCheckedException {
-            while (!isCancelled()) {
-                expire();
-
-                long waitTime;
-
-                while (true) {
-                    long curTime = U.currentTimeMillis();
-
-                    GridCacheTtlManager.EntryWrapper first = pendingEntries.firstx();
-
-                    if (first == null) {
-                        waitTime = 500;
-                        nextExpireTime = curTime + 500;
-                    }
-                    else {
-                        long expireTime = first.expireTime;
-
-                        waitTime = expireTime - curTime;
-                        nextExpireTime = expireTime;
-                    }
-
-                    synchronized (mux) {
-                        if (pendingEntries.firstx() == first) {
-                            if (waitTime > 0)
-                                mux.wait(waitTime);
-
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * @param cctx1 First cache context.
-     * @param key1 Left key to compare.
-     * @param cctx2 Second cache context.
-     * @param key2 Right key to compare.
+     * @param arr1 first array
+     * @param arr2 second array
      * @return Comparison result.
      */
-    private static int compareKeys(GridCacheContext cctx1, CacheObject key1, GridCacheContext cctx2, CacheObject key2) {
-        int key1Hash = key1.hashCode();
-        int key2Hash = key2.hashCode();
-
-        int res = Integer.compare(key1Hash, key2Hash);
+    private static int compareArrays(byte[] arr1, byte[] arr2) {
+        // Must not do fair array comparison.
+        int res = Integer.compare(arr1.length, arr2.length);
 
         if (res == 0) {
-            key1 = (CacheObject)cctx1.unwrapTemporary(key1);
-            key2 = (CacheObject)cctx2.unwrapTemporary(key2);
+            for (int i = 0; i < arr1.length; i++) {
+                res = Byte.compare(arr1[i], arr2[i]);
+
+                if (res != 0)
+                    break;
+            }
+        }
+        return res;
+    }
+
+    /**
+     * @return GridCacheEntry
+     */
+    private GridCacheEntryEx unwrapEntry(PendingEntry e) {
+        GridCacheAdapter cache = cctx.cache();
+
+        //Here we need to assign appropriate context to entry
+        if (e.isNear)
+            cache = cache.isDht() ? ((GridDhtCacheAdapter)cache).near() : cache;
+        else
+            cache = cache.isNear() ? ((GridNearCacheAdapter)cache).dht() : cache;
+
+        KeyCacheObject key;
+        try {
+            key = cache.context().toCacheKeyObject(e.keyBytes);
+        }
+        catch (IgniteCheckedException ex) {
+            throw new IgniteException(ex);
+        }
+
+        return cache.ctx.isSwapOrOffheapEnabled() ? cache.entryEx(key) : cache.peekEx(key);
+    }
+
+    /**
+     * Pending entry.
+     */
+    private static final class PendingEntry implements Comparable<PendingEntry> {
+        /** Entry expire time. */
+        private final long expireTime;
+
+        /** Cache Object Serialized Key */
+        private final byte[] keyBytes;
+
+        /** Cached hash code */
+        private final int hashCode;
+
+        /** Is near cache entry flag */
+        private final boolean isNear;
+
+        /**
+         * Constructor
+         */
+        PendingEntry(long expireTime, int hashCode, boolean isNear, byte[] keyBytes) {
+            this.expireTime = expireTime;
+            this.keyBytes = keyBytes;
+            this.hashCode = hashCode;
+            this.isNear = isNear;
+        }
+
+        /**
+         * @param entry Cache entry to create wrapper for.
+         */
+        PendingEntry(GridCacheEntryEx entry) {
+            expireTime = entry.expireTimeUnlocked();
+
+            assert expireTime != 0;
+
+            GridCacheContext ctx = entry.context();
+
+            isNear = entry.isNear();
+
+            CacheObject key = entry.key();
+
+            hashCode = key.hashCode();
+
+            key = (CacheObject)ctx.unwrapTemporary(key);
+
+            assert key != null;
 
             try {
-                byte[] key1ValBytes = key1.valueBytes(cctx1.cacheObjectContext());
-                byte[] key2ValBytes = key2.valueBytes(cctx2.cacheObjectContext());
-
-                // Must not do fair array comparison.
-                res = Integer.compare(key1ValBytes.length, key2ValBytes.length);
-
-                if (res == 0) {
-                    for (int i = 0; i < key1ValBytes.length; i++) {
-                        res = Byte.compare(key1ValBytes[i], key2ValBytes[i]);
-
-                        if (res != 0)
-                            break;
-                    }
-                }
-
-                if (res == 0)
-                    res = Boolean.compare(cctx1.isNear(), cctx2.isNear());
+                keyBytes = key.valueBytes(ctx.cacheObjectContext());
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteException(e);
             }
         }
 
-        return res;
-    }
-
-    /**
-     * Entry wrapper.
-     */
-    private static class EntryWrapper implements Comparable<EntryWrapper> {
-        /** Entry expire time. */
-        private final long expireTime;
-
-        /** Cache Object Context */
-        private final GridCacheContext ctx;
-
-        /** Cache Object Key */
-        private final CacheObject key;
-
-        /**
-         * @param entry Cache entry to create wrapper for.
-         */
-        private EntryWrapper(GridCacheMapEntry entry) {
-            expireTime = entry.expireTimeUnlocked();
-
-            assert expireTime != 0;
-
-            this.ctx = entry.context();
-            this.key = entry.key();
-        }
-
         /** {@inheritDoc} */
-        @Override public int compareTo(EntryWrapper o) {
+        @Override public int compareTo(@NotNull PendingEntry o) {
             int res = Long.compare(expireTime, o.expireTime);
 
             if (res == 0)
-                res = compareKeys(ctx, key, o.ctx, o.key);
+                res = Integer.compare(hashCode, o.hashCode);
+
+            if (res == 0)
+                res = Boolean.compare(isNear, o.isNear);
+
+            if (res == 0)
+                res = compareArrays(keyBytes, o.keyBytes);
 
             return res;
         }
@@ -314,79 +313,522 @@ public class GridCacheTtlManager extends GridCacheManagerAdapter {
             if (this == o)
                 return true;
 
-            if (!(o instanceof EntryWrapper))
+            if (!(o instanceof PendingEntry))
                 return false;
 
-            EntryWrapper that = (EntryWrapper)o;
+            PendingEntry that = (PendingEntry)o;
 
-            return expireTime == that.expireTime && compareKeys(ctx, key, that.ctx, that.key) == 0;
+            return compareTo(that) == 0;
         }
 
         /** {@inheritDoc} */
         @Override public int hashCode() {
-            int res = (int)(expireTime ^ (expireTime >>> 32));
-
-            res = 31 * res + key.hashCode();
-
-            return res;
+            return hashCode;
         }
 
         /** {@inheritDoc} */
         @Override public String toString() {
-            return S.toString(EntryWrapper.class, this);
+            return S.toString(PendingEntry.class, this);
         }
     }
 
     /**
-     * Provides additional method {@code #sizex()}. NOTE: Only the following methods supports this addition:
-     * <ul>
-     *     <li>{@code #add()}</li>
-     *     <li>{@code #remove()}</li>
-     *     <li>{@code #pollFirst()}</li>
-     * <ul/>
+     * Key SmartPointer factory
      */
-    private static class GridConcurrentSkipListSetEx extends GridConcurrentSkipListSet<EntryWrapper> {
+    private static class PendingEntrySmartPointerFactory
+        implements GridOffHeapSmartPointerFactory<PendingEntrySmartPointer> {
         /** */
-        private static final long serialVersionUID = 0L;
+        private final GridUnsafeMemory mem;
 
-        /** Size. */
-        private final LongAdder8 size = new LongAdder8();
+        /**
+         * @param mem Unsafe Memory.
+         */
+        PendingEntrySmartPointerFactory(GridUnsafeMemory mem) {
+            this.mem = mem;
+        }
+
+        /** {@inheritDoc} */
+        @Override public PendingEntrySmartPointer createPointer(final long ptr) {
+            return new PendingEntrySmartPointer(mem, ptr);
+        }
+
+        /**  */
+        PendingEntrySmartPointer createPointer(PendingEntry entry) {
+            return new PendingEntrySmartPointer(mem, entry);
+        }
+    }
+
+    /** */
+    private static class PendingEntrySmartPointer implements GridOffHeapSmartPointer,
+        Comparable<PendingEntrySmartPointer> {
+        /** empty value */
+        private static final byte[] EMPTY_BYTES = new byte[0];
+
+        /** */
+        private static final int OFFSET_REF_COUNT = 4;
+
+        /** */
+        private static final int OFFSET_EXPIRE_TIME = OFFSET_REF_COUNT + 4;
+
+        /** */
+        private static final int OFFSET_HASHCODE = OFFSET_EXPIRE_TIME + 8;
+
+        /** */
+        private static final int OFFSET_IS_NEAR = OFFSET_HASHCODE + 4;
+
+        /** */
+        private static final int OFFSET_KEY_BYTES = OFFSET_IS_NEAR + 1;
+
+        /** */
+        private final GridUnsafeMemory mem;
+
+        /** */
+        private long ptr;
+
+        /** Hot field, actively accessed by comparator in tree operations */
+        private long expiretime = 0L;
+
+        /** */
+        private PendingEntry entry;
+
+        /** Constructor */
+        PendingEntrySmartPointer(GridUnsafeMemory mem, PendingEntry entry) {
+            this.mem = mem;
+            this.entry = entry;
+        }
+
+        /** Constructor */
+        PendingEntrySmartPointer(GridUnsafeMemory mem, long ptr) {
+            this.mem = mem;
+            this.ptr = ptr;
+        }
+
+        /** */
+        public long expireTime() {
+            if (entry != null)
+                return entry.expireTime;
+
+            if (expiretime != 0L)
+                return expiretime;
+
+            if (ptr > 0) {
+                expiretime = mem.readLong(ptr + OFFSET_EXPIRE_TIME);
+                return expiretime;
+            }
+
+            throw new IllegalStateException();
+        }
+
+        /** */
+        public byte[] keyBytes() {
+            if (entry != null)
+                return entry.keyBytes;
+
+            if (ptr > 0) {
+                int recordSize = mem.readInt(ptr);
+
+                return recordSize > OFFSET_KEY_BYTES ?
+                    mem.readBytes(ptr + OFFSET_KEY_BYTES, recordSize - OFFSET_KEY_BYTES) : EMPTY_BYTES;
+            }
+
+            throw new IllegalStateException();
+        }
+
+        /** */
+        public boolean isNear() {
+            if (entry != null)
+                return entry.isNear;
+
+            if (ptr > 0)
+                return mem.readByte(ptr + OFFSET_IS_NEAR) == 1;
+
+            throw new IllegalStateException();
+        }
+
+        /** Deserialize full entry */
+        public PendingEntry entry() {
+            if (entry != null)
+                return entry;
+
+            if (ptr > 0) {
+                int recordSize = mem.readIntVolatile(ptr);
+
+                long expireTime = mem.readLong(ptr + OFFSET_EXPIRE_TIME);
+
+                int hash = mem.readInt(ptr + OFFSET_HASHCODE);
+
+                boolean isNear = mem.readByte(ptr + OFFSET_IS_NEAR) == 1;
+
+                byte[] bytes = recordSize > OFFSET_KEY_BYTES ?
+                    mem.readBytes(ptr + OFFSET_KEY_BYTES, recordSize - OFFSET_KEY_BYTES) : EMPTY_BYTES;
+
+                entry = new PendingEntry(expireTime, hash, isNear, bytes);
+            }
+            return entry;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int compareTo(@NotNull PendingEntrySmartPointer o) {
+            assert o != null;
+
+            if (ptr > 0 && ptr == o.ptr)
+                return 0;
+
+            int res = Long.compare(expireTime(), o.expireTime());
+
+            if (res == 0)
+                res = Integer.compare(hashCode(), o.hashCode());
+
+            if (res == 0)
+                res = Boolean.compare(isNear(), o.isNear());
+
+            if (res == 0)
+                res = compareArrays(keyBytes(), o.keyBytes());
+
+            return res;
+        }
+
+        /** {@inheritDoc} */
+        @Override public long pointer() {
+            return ptr;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void incrementRefCount() {
+            final long p = ptr;
+
+            if (p == 0) {
+                int recordSize = OFFSET_KEY_BYTES + entry.keyBytes.length;
+
+                assert recordSize > OFFSET_KEY_BYTES;
+
+                final long res = mem.allocate(recordSize, true);
+
+                mem.writeInt(res + OFFSET_REF_COUNT, 1); // Initial ref count
+
+                mem.writeLong(res + OFFSET_EXPIRE_TIME, entry.expireTime);
+
+                mem.writeInt(res + OFFSET_HASHCODE, entry.hashCode);
+
+                mem.writeByte(res + OFFSET_IS_NEAR, (byte)(entry.isNear ? 1 : 0));
+
+                mem.writeBytes(res + OFFSET_KEY_BYTES, entry.keyBytes);
+
+                mem.writeIntVolatile(res, recordSize);
+
+                ptr = res;
+            }
+            else {
+                final long refCountPtr = this.ptr + OFFSET_REF_COUNT;
+
+                int refCount;
+
+                do {
+                    refCount = mem.readIntVolatile(refCountPtr);
+
+                    assert refCount > 0;
+                }
+                while (!mem.casInt(refCountPtr, refCount, refCount + 1));
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public void decrementRefCount() {
+            assert ptr > 0;
+
+            final long refCountPtr = ptr + OFFSET_REF_COUNT;
+
+            int refCount;
+
+            for (; ; ) {
+                refCount = mem.readIntVolatile(refCountPtr);
+
+                assert refCount > 0;
+
+                if (refCount == 1) // no other pointers exists
+                    break;
+
+                if (mem.casInt(refCountPtr, refCount, refCount - 1))
+                    return;
+            }
+
+            int size = mem.readInt(ptr);
+
+            mem.release(ptr, size);
+
+            ptr = 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean equals(Object o) {
+            throw new IllegalStateException();
+        }
+
+        /** {@inheritDoc} */
+        @Override public int hashCode() {
+            if (entry != null)
+                return entry.hashCode;
+
+            if (ptr > 0)
+                return mem.readInt(ptr + OFFSET_HASHCODE);
+
+            throw new IllegalStateException();
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return "PendingEntrySmartPointer [ptr=" + ptr + ']';
+        }
+    }
+
+    /** Pending m collection facade */
+    private interface PendingEntriesQueue {
+        /**
+         * Add entry to queue
+         *
+         * @param e pending entry
+         */
+        void add(PendingEntry e);
+
+        /**
+         * Remove entry from queue
+         *
+         * @param e pending entry
+         */
+        void remove(PendingEntry e);
+
+        /** Clear queue */
+        void clear();
 
         /**
          * @return Size based on performed operations.
          */
-        public int sizex() {
+        int size();
+
+        /**
+         * @return @{true} if there is expired entry in collection, otherwise @{false}.
+         */
+        boolean hasExpiredFor(long now);
+
+        /**
+         * @return first expired entry end remove it from collection.
+         */
+        PendingEntry pollExpiredFor(long now);
+    }
+
+    /** */
+    private static class OnHeapPendingEntriesQueue implements PendingEntriesQueue {
+        /** */
+        private final ConcurrentSkipListMap<PendingEntry, Boolean> m;
+
+        /** Size. */
+        private final LongAdder8 size = new LongAdder8();
+
+        OnHeapPendingEntriesQueue() {
+            this.m = new ConcurrentSkipListMap<>();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int size() {
             return size.intValue();
         }
 
         /** {@inheritDoc} */
-        @Override public boolean add(EntryWrapper e) {
-            boolean res = super.add(e);
+        @Override public void clear() {
+            m.clear();
+            size.reset();
+        }
+
+        /** {@inheritDoc} */
+        @Override public void add(PendingEntry e) {
+            boolean res = m.put(e, Boolean.TRUE) == null;
 
             if (res)
                 size.increment();
-
-            return res;
         }
 
         /** {@inheritDoc} */
-        @Override public boolean remove(Object o) {
-            boolean res = super.remove(o);
+        @Override public void remove(PendingEntry o) {
+            boolean res = m.remove(o) != null;
 
             if (res)
                 size.decrement();
-
-            return res;
         }
 
         /** {@inheritDoc} */
-        @Nullable @Override public EntryWrapper pollFirst() {
-            EntryWrapper e = super.pollFirst();
+        @Override public boolean hasExpiredFor(long now) {
+            Map.Entry<PendingEntry, Boolean> entry = m.firstEntry();
 
-            if (e != null)
+            return entry != null && now >= entry.getKey().expireTime;
+        }
+
+        /** {@inheritDoc} */
+        @Override public PendingEntry pollExpiredFor(long now) {
+            Map.Entry<PendingEntry, Boolean> firstEntry;
+
+            while ((firstEntry = m.firstEntry()) != null) {
+                if (firstEntry.getValue() == null)
+                    continue; // Entry is removing by another thread
+
+                PendingEntry pendingEntry = firstEntry.getKey();
+
+                if (pendingEntry.expireTime > now)
+                    return null; // entry is not expired
+
+                if (m.remove(pendingEntry) == null)
+                    continue; // Entry was polled by another thread
+
                 size.decrement();
 
-            return e;
+                return pendingEntry;
+            }
+
+            return null;
         }
     }
+
+    /** */
+    private static class OffHeapPendingEntriesSet implements PendingEntriesQueue {
+        /** */
+        private static final DummySmartPointer DUMMY_SMART_POINTER = new DummySmartPointer(Long.MAX_VALUE);
+
+        /** */
+        private final GridOffHeapSnapTreeMap<PendingEntrySmartPointer, DummySmartPointer> m;
+
+        /** */
+        private PendingEntrySmartPointerFactory pointerFactory;
+
+        /** */
+        private GridUnsafeGuard guard;
+
+        /**
+         * Default constructor.
+         */
+        OffHeapPendingEntriesSet(GridUnsafeMemory mem, GridUnsafeGuard guard) {
+            this.pointerFactory = new PendingEntrySmartPointerFactory(mem);
+
+            this.guard = guard;
+
+            m = new GridOffHeapSnapTreeMap<>(this.pointerFactory, new ValueSmartPointerFactory(), mem, this.guard);
+        }
+
+        /** {@inheritDoc} */
+        @Override public int size() {
+            return m.size();
+        }
+
+        /** {@inheritDoc} */
+        @Override public void clear() {
+            guard.begin();
+
+            try {
+                /* GridOffHeapSnapTreeMap does not support clear operation */
+                for (PendingEntrySmartPointer ptr : m.keySet())
+                    m.remove(ptr);
+            }
+            finally {
+                guard.end();
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public void add(PendingEntry e) {
+            guard.begin();
+
+            try {
+                m.put(pointerFactory.createPointer(e), DUMMY_SMART_POINTER);
+            }
+            finally {
+                guard.end();
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public void remove(PendingEntry e) {
+            guard.begin();
+
+            try {
+                m.remove(pointerFactory.createPointer(e));
+            }
+            finally {
+                guard.end();
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean hasExpiredFor(long now) {
+            Map.Entry<PendingEntrySmartPointer, DummySmartPointer> e = m.firstEntry();
+
+            return e != null && now >= e.getKey().expireTime();
+        }
+
+        /** {@inheritDoc} */
+        @Override public PendingEntry pollExpiredFor(long now) {
+            guard.begin();
+
+            try {
+                Map.Entry<PendingEntrySmartPointer, DummySmartPointer> entry;
+
+                while ((entry = m.firstEntry()) != null) {
+
+                    if (entry.getValue() == null)
+                        continue; // Entry is removing by another thread
+
+                    PendingEntrySmartPointer firstKey = entry.getKey();
+
+                    if (firstKey.expireTime() > now)
+                        return null; // entry is not expired
+
+                    if (m.remove(firstKey) == null)
+                        continue; // Entry was polled by another thread
+
+                    // deserialize removed entry, it's possible under guard
+                    return firstKey.entry();
+                }
+            }
+            finally {
+                guard.end();
+            }
+
+            return null;
+        }
+
+        /** Value SmartPointer factory */
+        private static class ValueSmartPointerFactory implements GridOffHeapSmartPointerFactory {
+            /** {@inheritDoc} */
+            @Override public GridOffHeapSmartPointer createPointer(final long ptr) {
+                assert ptr == Long.MAX_VALUE;
+                return DUMMY_SMART_POINTER;
+            }
+        }
+
+        /** Dummy smart pointer */
+        private static class DummySmartPointer implements GridOffHeapSmartPointer {
+            /** */
+            private final long ptr;
+
+            /**
+             * @param ptr Unsafe memory pointer.
+             */
+            DummySmartPointer(long ptr) {
+                this.ptr = ptr;
+            }
+
+            /** {@inheritDoc} */
+            @Override public long pointer() {
+                return ptr;
+            }
+
+            /** {@inheritDoc} */
+            @Override public void incrementRefCount() {
+            }
+
+            /** {@inheritDoc} */
+            @Override public void decrementRefCount() {
+            }
+        }
+    }
+
 }
