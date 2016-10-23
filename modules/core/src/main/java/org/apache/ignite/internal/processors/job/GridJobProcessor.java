@@ -972,13 +972,13 @@ public class GridJobProcessor extends GridProcessorAdapter {
             return;
         }
 
+        long endTime = req.getCreateTime() + req.getTimeout();
+
+        // Account for overflow.
+        if (endTime < 0)
+            endTime = Long.MAX_VALUE;
+
         try {
-            long endTime = req.getCreateTime() + req.getTimeout();
-
-            // Account for overflow.
-            if (endTime < 0)
-                endTime = Long.MAX_VALUE;
-
             GridDeployment tmpDep = req.isForceLocalDeployment() ?
                 ctx.deploy().getLocalDeployment(req.getTaskClassName()) :
                 ctx.deploy().getGlobalDeployment(
@@ -1171,6 +1171,16 @@ public class GridJobProcessor extends GridProcessorAdapter {
                 if (dep != null && releaseDep)
                     release(dep);
             }
+        }
+        // Try to handle unexpected error and send feedback to prevent remote node infinite waiting.
+        catch (Throwable t) {
+            IgniteException ex = new IgniteException("Job execution failed due to unexpected exception.", t);
+
+            U.error(log, ex.getMessage(), ex);
+
+            handleException(node, req, ex, endTime);
+
+            return;
         }
         finally {
             rwLock.readUnlock();
