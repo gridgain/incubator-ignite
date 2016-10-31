@@ -43,9 +43,6 @@ public class IgniteSemaphoreExample {
     /** Number of consumers. */
     private static final int NUM_CONSUMERS = 10;
 
-    /** Synchronization semaphore name. */
-    private static final String SEM_NAME = IgniteSemaphoreExample.class.getSimpleName();
-
     /**
      * Executes example.
      *
@@ -56,22 +53,21 @@ public class IgniteSemaphoreExample {
             System.out.println();
             System.out.println(">>> Cache atomic semaphore example started.");
 
+            final String syncSemaphoreName = UUID.randomUUID().toString();
+
             // Initialize semaphore.
-            IgniteSemaphore syncSemaphore = ignite.semaphore(SEM_NAME, 0, false, true);
+            IgniteSemaphore syncSemaphore = ignite.semaphore(syncSemaphoreName, 0, false, true);
 
             // Make name of semaphore.
             final String semaphoreName = UUID.randomUUID().toString();
 
-            // Initialize semaphore.
-            IgniteSemaphore semaphore = ignite.semaphore(semaphoreName, 0, false, true);
-
             // Start consumers on all cluster nodes.
             for (int i = 0; i < NUM_CONSUMERS; i++)
-                ignite.compute().withAsync().run(new Consumer(semaphoreName));
+                ignite.compute().withAsync().run(new Consumer(semaphoreName, syncSemaphoreName));
 
             // Start producers on all cluster nodes.
             for (int i = 0; i < NUM_PRODUCERS; i++)
-                ignite.compute().withAsync().run(new Producer(semaphoreName));
+                ignite.compute().withAsync().run(new Producer(semaphoreName, syncSemaphoreName));
 
             System.out.println("Master node is waiting for all other nodes to finish...");
 
@@ -92,11 +88,14 @@ public class IgniteSemaphoreExample {
         /** Semaphore name. */
         protected final String semaphoreName;
 
+        protected final String syncSemaphoreName;
+
         /**
          * @param semaphoreName Semaphore name.
          */
-        SemaphoreExampleClosure(String semaphoreName) {
+        SemaphoreExampleClosure(String semaphoreName, String syncSemaphoreName) {
             this.semaphoreName = semaphoreName;
+            this.syncSemaphoreName = syncSemaphoreName;
         }
     }
 
@@ -107,8 +106,8 @@ public class IgniteSemaphoreExample {
         /**
          * @param semaphoreName Semaphore name.
          */
-        public Producer(String semaphoreName) {
-            super(semaphoreName);
+        public Producer(String semaphoreName, String syncSemaphoreName) {
+            super(semaphoreName, syncSemaphoreName);
         }
 
         /** {@inheritDoc} */
@@ -126,7 +125,7 @@ public class IgniteSemaphoreExample {
             System.out.println("Producer finished [nodeId=" + Ignition.ignite().cluster().localNode().id() + ']');
 
             // Gets the syncing semaphore
-            IgniteSemaphore sem = Ignition.ignite().semaphore(SEM_NAME, 0, true, true);
+            IgniteSemaphore sem = Ignition.ignite().semaphore(syncSemaphoreName, 0, true, true);
 
             // Signals the master thread
             sem.release();
@@ -140,8 +139,8 @@ public class IgniteSemaphoreExample {
         /**
          * @param semaphoreName Semaphore name.
          */
-        public Consumer(String semaphoreName) {
-            super(semaphoreName);
+        public Consumer(String semaphoreName, String syncSemaphoreName) {
+            super(semaphoreName, syncSemaphoreName);
         }
 
         /** {@inheritDoc} */
@@ -159,7 +158,7 @@ public class IgniteSemaphoreExample {
             System.out.println("Consumer finished [nodeId=" + Ignition.ignite().cluster().localNode().id() + ']');
 
             // Gets the syncing semaphore
-            IgniteSemaphore sync = Ignition.ignite().semaphore(SEM_NAME, 3, true, true);
+            IgniteSemaphore sync = Ignition.ignite().semaphore(syncSemaphoreName, 3, true, true);
 
             // Signals the master thread.
             sync.release();
