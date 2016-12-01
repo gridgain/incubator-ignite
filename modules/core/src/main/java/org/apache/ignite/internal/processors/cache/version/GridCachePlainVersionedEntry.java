@@ -26,11 +26,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class GridCachePlainVersionedEntry<K, V> implements GridCacheVersionedEntryEx<K, V> {
     /** Key. */
-    @GridToStringInclude
+    @GridToStringInclude(sensitive = true)
     protected K key;
 
     /** Value. */
-    @GridToStringInclude
+    @GridToStringInclude(sensitive = true)
     protected V val;
 
     /** TTL. */

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.rest.request;
 
 import java.util.Map;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
@@ -28,12 +29,15 @@ public class GridRestCacheRequest extends GridRestRequest {
     private String cacheName;
 
     /** Key. */
+    @GridToStringInclude(sensitive = true)
     private Object key;
 
     /** Value (expected value for CAS). */
+    @GridToStringInclude(sensitive = true)
     private Object val;
 
     /** New value for CAS. */
+    @GridToStringInclude(sensitive = true)
     private Object val2;
 
     /** Keys and values for put all, get all, remove all operations. */
