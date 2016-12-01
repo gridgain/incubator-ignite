@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.util.lang.GridClosureException;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteClosure;
@@ -40,6 +41,7 @@ public class GridFinishedFuture<T> implements IgniteInternalFuture<T> {
     private final byte resFlag;
 
     /** Complete value. */
+    @GridToStringInclude(sensitive = true)
     private final Object res;
 
     /** Start time. */

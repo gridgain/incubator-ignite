@@ -107,7 +107,12 @@ public class GridCacheLazyPlainVersionedEntry<K, V> extends GridCachePlainVersio
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(GridCacheLazyPlainVersionedEntry.class, this,
-            "super", super.toString(), "key", key(), "val", value());
+        return S.INCLUDE_SENSITIVE ?
+            S.toString(GridCacheLazyPlainVersionedEntry.class, this,
+                "super", super.toString(),
+                "key", key(),
+                "val", value()) :
+            S.toString(GridCacheLazyPlainVersionedEntry.class, this,
+                "super", super.toString());
     }
 }
