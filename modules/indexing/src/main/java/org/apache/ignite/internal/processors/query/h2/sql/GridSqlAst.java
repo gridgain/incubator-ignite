@@ -17,34 +17,45 @@
 
 package org.apache.ignite.internal.processors.query.h2.sql;
 
-import java.util.Collections;
-
 /**
- * Placeholder.
+ * AST for SQL.
  */
-public class GridSqlPlaceholder extends GridSqlElement {
-    /** */
-    public static final GridSqlPlaceholder EMPTY = new GridSqlPlaceholder("");
-
-    /** */
-    private final String sql;
+public interface GridSqlAst {
+    /**
+     * @return Generate sql from this AST.
+     */
+    public String getSQL();
 
     /**
-     * @param sql SQL.
+     * @return Number of child nodes.
      */
-    public GridSqlPlaceholder(String sql) {
-        super(Collections.<GridSqlAst>emptyList());
+    public int size();
 
-        this.sql = sql;
-    }
+    /**
+     * Get child by index.
+     *
+     * @param childIdx Index of the requested child.
+     * @return Child element.
+     */
+    public <E extends GridSqlAst> E child(int childIdx);
 
-    /** {@inheritDoc} */
-    @Override public String getSQL() {
-        return sql;
-    }
+    /**
+     * Get the first child.
+     *
+     * @return Child element.
+     */
+    public <E extends GridSqlAst> E child();
 
-    /** {@inheritDoc} */
-    @Override public GridSqlElement resultType(GridSqlType type) {
-        throw new IllegalStateException();
-    }
+    /**
+     * Set child.
+     *
+     * @param childIdx Index of the requested child.
+     * @param child Child element.
+     */
+    public <E extends GridSqlAst> void child(int childIdx, E child);
+
+    /**
+     * @return Optional expression result type (if this is an expression and result type is known).
+     */
+    public GridSqlType resultType();
 }

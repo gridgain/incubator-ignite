@@ -21,10 +21,8 @@ import java.nio.ByteBuffer;
 import java.util.LinkedHashMap;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.GridDirectTransient;
 import org.apache.ignite.internal.GridKernalContext;
-import org.apache.ignite.internal.binary.BinaryMarshaller;
 import org.apache.ignite.internal.binary.BinaryMarshaller;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.F;
@@ -85,22 +83,11 @@ public class GridCacheSqlQuery implements Message, GridCacheQueryMarshallable {
 
     /**
      * @param qry Query.
-     * @param params Query parameters.
      */
-    public GridCacheSqlQuery(String qry, Object[] params) {
+    public GridCacheSqlQuery(String qry) {
         A.ensure(!F.isEmpty(qry), "qry must not be empty");
 
         this.qry = qry;
-
-        this.params = F.isEmpty(params) ? EMPTY_PARAMS : params;
-        paramsSize = this.params.length;
-    }
-
-    /**
-     * @param paramIdxs Parameter indexes.
-     */
-    public void parameterIndexes(int[] paramIdxs) {
-        this.paramIdxs = paramIdxs;
     }
 
     /**
@@ -132,6 +119,28 @@ public class GridCacheSqlQuery implements Message, GridCacheQueryMarshallable {
      */
     public Object[] parameters() {
         return params;
+    }
+
+    /**
+     * @return Parameter indexes.
+     */
+    public int[] parameterIndexes() {
+        return paramIdxs;
+    }
+
+    /**
+     * @param params Parameters.
+     * @param paramIdxs Parameter indexes.
+     * @return {@code this} For chaining.
+     */
+    public GridCacheSqlQuery parameters(Object[] params, int[] paramIdxs) {
+        this.params = F.isEmpty(params) ? EMPTY_PARAMS : params;
+
+        paramsSize = this.params.length;
+
+        this.paramIdxs = paramIdxs;
+
+        return this;
     }
 
     /** {@inheritDoc} */

@@ -23,20 +23,23 @@ import org.h2.util.StatementBuilder;
 import org.h2.util.StringUtils;
 
 /**
- * Select query.
+ * SQL Query AST.
  */
-public abstract class GridSqlQuery {
+public abstract class GridSqlQuery implements GridSqlAst {
     /** */
-    protected boolean distinct;
+    public static final int OFFSET_CHILD = 0;
+
+    /** */
+    public static final int LIMIT_CHILD = 1;
 
     /** */
     protected List<GridSqlSortColumn> sort = new ArrayList<>();
 
     /** */
-    protected GridSqlElement offset;
+    private GridSqlAst offset;
 
     /** */
-    protected GridSqlElement limit;
+    private GridSqlAst limit;
 
     /** */
     private boolean explain;
@@ -61,49 +64,30 @@ public abstract class GridSqlQuery {
     /**
      * @return Offset.
      */
-    public GridSqlElement offset() {
+    public GridSqlAst offset() {
         return offset;
     }
 
     /**
      * @param offset Offset.
      */
-    public void offset(GridSqlElement offset) {
+    public void offset(GridSqlAst offset) {
         this.offset = offset;
     }
 
     /**
      * @param limit Limit.
      */
-    public void limit(GridSqlElement limit) {
+    public void limit(GridSqlAst limit) {
         this.limit = limit;
     }
 
     /**
      * @return Limit.
      */
-    public GridSqlElement limit() {
+    public GridSqlAst limit() {
         return limit;
     }
-
-    /**
-     * @return Distinct.
-     */
-    public boolean distinct() {
-        return distinct;
-    }
-
-    /**
-     * @param distinct New distinct.
-     */
-    public void distinct(boolean distinct) {
-        this.distinct = distinct;
-    }
-
-    /**
-     * @return Generate sql.
-     */
-    public abstract String getSQL();
 
     /**
      * @return Sort.
@@ -135,7 +119,60 @@ public abstract class GridSqlQuery {
      * @param col Column index.
      * @return Expression for column index.
      */
-    protected abstract GridSqlElement column(int col);
+    protected abstract GridSqlAst column(int col);
+
+    /** {@inheritDoc} */
+    @Override public GridSqlType resultType() {
+        return GridSqlType.RESULT_SET;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <E extends GridSqlAst> E child() {
+        return child(0);
+    }
+
+    /** {@inheritDoc} */
+    @Override public <E extends GridSqlAst> E child(int childIdx) {
+        switch (childIdx) {
+            case OFFSET_CHILD:
+                return maskNull(offset, GridSqlPlaceholder.EMPTY);
+
+            case LIMIT_CHILD:
+                return maskNull(limit, GridSqlPlaceholder.EMPTY);
+
+            default:
+                throw new IllegalStateException("Child index: " + childIdx);
+        }
+    }
+
+    /**
+     * @param x Element.
+     * @return Empty placeholder if the element is {@code null}.
+     */
+    @SuppressWarnings("unchecked")
+    protected static <E extends GridSqlAst> E maskNull(GridSqlAst x, GridSqlAst dflt) {
+        return (E)(x == null ? dflt : x);
+    }
+
+    /** {@inheritDoc} */
+    @Override public <E extends GridSqlAst> void child(int childIdx, E child) {
+        switch (childIdx) {
+            case OFFSET_CHILD:
+                offset = child;
+
+                break;
+
+            case LIMIT_CHILD:
+
+            default:
+                throw new IllegalStateException("Child index: " + childIdx);
+        }
+    }
+
+    /**
+     * @return If this is a simple query with no conditions, expressions, sorting, etc...
+     */
+    public abstract boolean simpleQuery();
 
     /**
      * @param buff Statement builder.
@@ -158,13 +195,13 @@ public abstract class GridSqlQuery {
                 if (idx < visibleCols)
                     buff.append(idx + 1);
                 else {
-                    GridSqlElement expr = column(idx);
+                    GridSqlAst expr = column(idx);
 
                     if (expr == null) // For plain select should never be null, for union H2 itself can't parse query.
                         throw new IllegalStateException("Failed to build query: " + buff.toString());
 
                     if (expr instanceof GridSqlAlias)
-                        expr = expr.child();
+                        expr = expr.child(0);
 
                     buff.append('=').append(StringUtils.unEnclose(expr.getSQL()));
                 }
