@@ -110,6 +110,9 @@ public class BinaryClassDescriptor {
     private final boolean registered;
 
     /** */
+    private final int size;
+
+    /** */
     private final boolean useOptMarshaller;
 
     /** */
@@ -250,6 +253,7 @@ public class BinaryClassDescriptor {
                 stableFieldsMeta = null;
                 stableSchema = null;
                 intfs = null;
+                size = -1;
 
                 break;
 
@@ -259,6 +263,7 @@ public class BinaryClassDescriptor {
                 stableFieldsMeta = null;
                 stableSchema = null;
                 intfs = cls.getInterfaces();
+                size = -1;
 
                 break;
 
@@ -268,6 +273,7 @@ public class BinaryClassDescriptor {
                 stableFieldsMeta = null;
                 stableSchema = null;
                 intfs = null;
+                size = -1;
 
                 break;
 
@@ -293,6 +299,9 @@ public class BinaryClassDescriptor {
                 Collection<String> names = new HashSet<>();
                 Collection<Integer> ids = new HashSet<>();
 
+                int fSize = 0;
+                boolean primitivesOnly = true;
+
                 for (Class<?> c = cls; c != null && !c.equals(Object.class); c = c.getSuperclass()) {
                     for (Field f : c.getDeclaredFields()) {
                         if (serializeField(f)) {
@@ -316,8 +325,32 @@ public class BinaryClassDescriptor {
 
                             fields0.put(name, fieldInfo);
 
+                            BinaryWriteMode mode = fieldInfo.mode();
+
+                            switch (mode) {
+                                case P_BYTE:
+                                case P_BOOLEAN:
+                                    fSize += 1 + 1;
+                                    break;
+                                case P_SHORT:
+                                case P_CHAR:
+                                    fSize += 1 + 2;
+                                    break;
+                                case P_INT:
+                                case P_FLOAT:
+                                    fSize += 1 + 4;
+                                    break;
+                                case P_LONG:
+                                case P_DOUBLE:
+                                    fSize += 1 + 8;
+                                    break;
+                                default:
+                                    primitivesOnly = false;
+                                    break;
+                            }
+
                             if (metaDataEnabled)
-                                stableFieldsMeta.put(name, fieldInfo.mode().typeId());
+                                stableFieldsMeta.put(name, mode.typeId());
                         }
                     }
                 }
@@ -332,6 +365,16 @@ public class BinaryClassDescriptor {
                 stableSchema = schemaBuilder.build();
 
                 intfs = null;
+
+                if(registered && primitivesOnly){
+                    byte hdrLen = GridBinaryMarshaller.DFLT_HDR_LEN;
+                    // the footer length in the worst case
+                    int ftrLen = fields.length << 3;
+
+                    this.size =  hdrLen + fSize + ftrLen;
+                } else {
+                    this.size = -1;
+                }
 
                 break;
 
@@ -479,6 +522,13 @@ public class BinaryClassDescriptor {
      */
     public boolean registered() {
         return registered;
+    }
+
+    /**
+     * @return size of an array to marshal if it's predictable, {@code -1} otherwise
+     */
+    public int getSize() {
+        return size;
     }
 
     /**

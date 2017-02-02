@@ -235,7 +235,9 @@ public class GridBinaryMarshaller {
         if (obj == null)
             return new byte[] { NULL };
 
-        try (BinaryWriterExImpl writer = new BinaryWriterExImpl(ctx)) {
+        int size = ctx.descriptorForClass(obj.getClass(), false).getSize();
+
+        try (BinaryWriterExImpl writer = size != -1 ? new BinaryWriterExImpl(ctx, size) : new BinaryWriterExImpl(ctx)) {
             writer.marshal(obj);
 
             return writer.array();

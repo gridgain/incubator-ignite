@@ -91,10 +91,27 @@ public class BinaryWriterExImpl implements BinaryWriter, BinaryRawWriterEx, Obje
 
     /**
      * @param ctx Context.
+     * @param cap Initial capacity
+     */
+    public BinaryWriterExImpl(BinaryContext ctx, int cap) {
+        this(ctx, BinaryThreadLocalContext.get(), cap);
+    }
+
+    /**
+     * @param ctx Context.
      * @param tlsCtx TLS context.
      */
     public BinaryWriterExImpl(BinaryContext ctx, BinaryThreadLocalContext tlsCtx) {
-        this(ctx, new BinaryHeapOutputStream(INIT_CAP, tlsCtx.chunk()), tlsCtx.schemaHolder(), null);
+        this(ctx, tlsCtx, INIT_CAP);
+    }
+
+    /**
+     * @param ctx Context.
+     * @param tlsCtx TLS context.
+     * @param cap Initial capacity
+     */
+    public BinaryWriterExImpl(BinaryContext ctx, BinaryThreadLocalContext tlsCtx, int cap) {
+        this(ctx, new BinaryHeapOutputStream(cap, tlsCtx.chunk()), tlsCtx.schemaHolder(), null);
     }
 
     /**
