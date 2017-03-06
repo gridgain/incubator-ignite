@@ -746,16 +746,27 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
 
                             tx.systemInvalidate(true);
 
-                            fut = tx.rollbackAsync();
+                            try {
+                                fut = tx.rollbackAsync();
 
-                            fut.listen(resClo);
+                                fut.listen(resClo);
+                            }
+                            catch (Throwable e1) {
+                                e.addSuppressed(e1);
+                            }
 
                             throw e;
                         }
 
                     }
                     else if (!cctx.kernalContext().isStopping())
-                        fut = tx.rollbackAsync();
+                        try {
+                            fut = tx.rollbackAsync();
+                        }
+                        catch (Throwable e) {
+                            err.addSuppressed(e);
+                            fut = null;
+                        }
 
                     if (fut != null)
                         fut.listen(resClo);
@@ -1142,11 +1153,40 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
      * @return Optimistic version check error.
      */
     private IgniteTxOptimisticCheckedException versionCheckError(IgniteTxEntry entry) {
+        StringBuilder msg = new StringBuilder("Failed to prepare transaction, read/write conflict [");
+
         GridCacheContext cctx = entry.context();
 
-        return new IgniteTxOptimisticCheckedException("Failed to prepare transaction, " +
-            "read/write conflict [key=" + entry.key().value(cctx.cacheObjectContext(), false) +
-            ", cache=" + cctx.name() + ']');
+        try {
+            Object key = cctx.unwrapBinaryIfNeeded(entry.key(), entry.keepBinary(), false);
+
+            assert key != null : entry.key();
+
+            msg.append("key=").append(key.toString()).append(", keyCls=").append(key.getClass().getName());
+        }
+        catch (Exception e) {
+            msg.append("key=<failed to get key: ").append(e.toString()).append(">");
+        }
+
+        try {
+            GridCacheEntryEx entryEx = entry.cached();
+
+            CacheObject cacheVal = entryEx != null ? entryEx.rawGet() : null;
+
+            Object val = cacheVal != null ? cctx.unwrapBinaryIfNeeded(cacheVal, entry.keepBinary(), false) : null;
+
+            if (val != null)
+                msg.append(", val=").append(val.toString()).append(", valCls=").append(val.getClass().getName());
+            else
+                msg.append(", val=null");
+        }
+        catch (Exception e) {
+            msg.append(", val=<failed to get value: ").append(e.toString()).append(">");
+        }
+
+        msg.append(", cache=").append(cctx.name()).append(", thread=").append(Thread.currentThread()).append("]");
+
+        return new IgniteTxOptimisticCheckedException(msg.toString());
     }
 
     /**
@@ -1172,7 +1212,12 @@ public final class GridDhtTxPrepareFuture extends GridCompoundFuture<IgniteInter
                 if (err0 != null) {
                     ERR_UPD.compareAndSet(this, null, err0);
 
-                    tx.rollbackAsync();
+                    try {
+                        tx.rollbackAsync();
+                    }
+                    catch (Throwable e) {
+                        err0.addSuppressed(e);
+                    }
 
                     final GridNearTxPrepareResponse res = createPrepareResponse(err);
 

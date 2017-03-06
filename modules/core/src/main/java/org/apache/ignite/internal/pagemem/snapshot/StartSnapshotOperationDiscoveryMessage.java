@@ -18,43 +18,32 @@
 
 package org.apache.ignite.internal.pagemem.snapshot;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
 import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Message indicating that a snapshot has been started.
  */
-public class StartFullSnapshotDiscoveryMessage implements DiscoveryCustomMessage {
+public class StartSnapshotOperationDiscoveryMessage implements DiscoveryCustomMessage {
     /** */
     private static final long serialVersionUID = 0L;
 
-    /** Message. */
-    private final String msg;
-
     /** Custom message ID. */
-    private IgniteUuid id = IgniteUuid.randomUuid();
+    private IgniteUuid id;
 
-    /** Snapshot ID. */
-    private long globalSnapshotId;
-
-    /** */
-    private Collection<String> cacheNames;
+    /** Snapshot operation. */
+    private SnapshotOperation snapshotOperation;
 
     /** */
     private UUID initiatorId;
 
     /** Error. */
     private Exception err;
-
-    /** Full snapshot. */
-    private boolean fullSnapshot;
 
     /** Last full snapshot id for cache. */
     private Map<Integer, Long> lastFullSnapshotIdForCache = new HashMap<>();
@@ -63,21 +52,24 @@ public class StartFullSnapshotDiscoveryMessage implements DiscoveryCustomMessage
     private Map<Integer, Long> lastSnapshotIdForCache = new HashMap<>();
 
     /**
-     * @param cacheNames Cache names.
-     * @param msg message to log
+     * @param snapshotOperation Snapshot operation
+     * @param initiatorId initiator node id
      */
-    public StartFullSnapshotDiscoveryMessage(
-        long globalSnapshotId,
-        Collection<String> cacheNames,
-        UUID initiatorId,
-        boolean fullSnapshot,
-        String msg
+    public StartSnapshotOperationDiscoveryMessage(
+        IgniteUuid id,
+        SnapshotOperation snapshotOperation,
+        UUID initiatorId
     ) {
-        this.globalSnapshotId = globalSnapshotId;
-        this.cacheNames = cacheNames;
+        this.id = id;
+        this.snapshotOperation = snapshotOperation;
         this.initiatorId = initiatorId;
-        this.fullSnapshot = fullSnapshot;
-        this.msg = msg;
+    }
+
+    /**
+     *
+     */
+    public SnapshotOperation snapshotOperation() {
+        return snapshotOperation;
     }
 
     /**
@@ -116,27 +108,6 @@ public class StartFullSnapshotDiscoveryMessage implements DiscoveryCustomMessage
     }
 
     /**
-     * @return Backup ID.
-     */
-    public long globalSnapshotId() {
-        return globalSnapshotId;
-    }
-
-    /**
-     * @return Cache names.
-     */
-    public Collection<String> cacheNames() {
-        return cacheNames;
-    }
-
-    /**
-     *
-     */
-    public boolean fullSnapshot() {
-        return fullSnapshot;
-    }
-
-    /**
      * @param cacheId Cache id.
      */
     public Long lastFullSnapshotId(int cacheId) {
@@ -168,15 +139,13 @@ public class StartFullSnapshotDiscoveryMessage implements DiscoveryCustomMessage
 
     /** {@inheritDoc} */
     @Nullable @Override public DiscoveryCustomMessage ackMessage() {
-        return new StartFullSnapshotAckDiscoveryMessage(
-            globalSnapshotId,
-            fullSnapshot,
+        return new StartSnapshotOperationAckDiscoveryMessage(
+            id,
+            snapshotOperation,
             lastFullSnapshotIdForCache,
             lastSnapshotIdForCache,
-            cacheNames,
             err,
-            initiatorId,
-            msg);
+            initiatorId);
     }
 
     /** {@inheritDoc} */
@@ -185,14 +154,14 @@ public class StartFullSnapshotDiscoveryMessage implements DiscoveryCustomMessage
     }
 
     /**
-     * @param full full snapshot.
+     * @param snapshotOperation new snapshot operation
      */
-    public void fullSnapshot(boolean full) {
-        fullSnapshot = full;
+    public void snapshotOperation(SnapshotOperation snapshotOperation) {
+        this.snapshotOperation = snapshotOperation;
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(StartFullSnapshotDiscoveryMessage.class, this);
+        return S.toString(StartSnapshotOperationDiscoveryMessage.class, this);
     }
 }
