@@ -603,13 +603,6 @@ class OptimizedClassDescriptor {
     }
 
     /**
-     * @return {@code True} if descriptor is for {@link OptimizedStub}.
-     */
-    boolean isStub() {
-        return cls == OptimizedStub.class;
-    }
-
-    /**
      * Replaces object.
      *
      * @param obj Object.
@@ -722,22 +715,14 @@ class OptimizedClassDescriptor {
                 break;
 
             case OBJ_ARR:
-                Class<?> arrCls = obj.getClass();
-                Class<?> cmpType = arrCls.getComponentType();
+                OptimizedClassDescriptor compDesc = classDescriptor(clsMap,
+                    obj.getClass().getComponentType(),
+                    ctx,
+                    mapper);
 
-                OptimizedClassDescriptor compDesc = classDescriptor(clsMap, cmpType, ctx, mapper);
+                compDesc.writeTypeData(out);
 
-                if (compDesc.isStub()) {
-                    compDesc.writeTypeData(out);
-
-                    out.writeString("Array serialization failed [cls=" + arrCls.getName() +
-                        ", cmpType=" + cmpType.getName() + "]");
-                }
-                else {
-                    compDesc.writeTypeData(out);
-
-                    out.writeArray((Object[])obj);
-                }
+                out.writeArray((Object[])obj);
 
                 break;
 
@@ -792,14 +777,9 @@ class OptimizedClassDescriptor {
                 break;
 
             case CLS:
-                Class<?> clazz = (Class<?>)obj;
-
-                OptimizedClassDescriptor clsDesc = classDescriptor(clsMap, clazz, ctx, mapper);
+                OptimizedClassDescriptor clsDesc = classDescriptor(clsMap, (Class<?>)obj, ctx, mapper);
 
                 clsDesc.writeTypeData(out);
-
-                if (clsDesc.isStub())
-                    out.writeString("Class serialization failed [cls=" + clazz.getName() + "]");
 
                 break;
 
@@ -810,9 +790,6 @@ class OptimizedClassDescriptor {
                     OptimizedClassDescriptor intfDesc = classDescriptor(clsMap, intf, ctx, mapper);
 
                     intfDesc.writeTypeData(out);
-
-                    if (intfDesc.isStub())
-                        out.writeString("Proxy serialization failed [cls=" + intf.getName() + "]");
                 }
 
                 InvocationHandler ih = Proxy.getInvocationHandler(obj);
@@ -959,8 +936,9 @@ class OptimizedClassDescriptor {
     /**
      * @param checksum Checksum.
      * @throws ClassNotFoundException If checksum is wrong.
+     * @throws IOException In case of error.
      */
-    private void verifyChecksum(short checksum) throws ClassNotFoundException {
+    private void verifyChecksum(short checksum) throws ClassNotFoundException, IOException {
         if (checksum != this.checksum)
             throw new ClassNotFoundException("Optimized stream class checksum mismatch " +
                 "(is same version of marshalled class present on all nodes?) " +

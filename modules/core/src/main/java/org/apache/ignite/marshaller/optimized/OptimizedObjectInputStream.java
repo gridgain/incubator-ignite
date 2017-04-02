@@ -44,7 +44,6 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.io.GridDataInput;
-import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.marshaller.MarshallerContext;
@@ -347,15 +346,8 @@ class OptimizedObjectInputStream extends ObjectInputStream {
     private Class<?> readClass() throws ClassNotFoundException, IOException {
         int compTypeId = readInt();
 
-        if (compTypeId == 0)
-            return U.forName(readUTF(), clsLdr);
-
-        OptimizedClassDescriptor clsDesc = classDescriptor(clsMap, compTypeId, clsLdr, ctx, mapper);
-
-        if (clsDesc.isStub())
-            LT.warn(null, readUTF());
-
-        return clsDesc.describedClass();
+        return compTypeId == 0 ? U.forName(readUTF(), clsLdr) :
+            classDescriptor(clsMap, compTypeId, clsLdr, ctx, mapper).describedClass();
     }
 
     /**

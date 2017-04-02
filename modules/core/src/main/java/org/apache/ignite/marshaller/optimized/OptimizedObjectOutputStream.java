@@ -213,7 +213,7 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
                     ctx,
                     mapper);
 
-                if (desc.isStub() || desc.excluded()) {
+                if (desc.excluded()) {
                     writeByte(NULL);
 
                     return;
