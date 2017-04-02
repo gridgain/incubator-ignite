@@ -205,11 +205,9 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
                 }
             }
             else {
-                Class<?> clazz = obj instanceof Object[] ? Object[].class : obj.getClass();
-
                 OptimizedClassDescriptor desc = classDescriptor(
                     clsMap,
-                    clazz,
+                    obj instanceof Object[] ? Object[].class : obj.getClass(),
                     ctx,
                     mapper);
 
