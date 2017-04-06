@@ -582,9 +582,12 @@ public class DmlStatementsProcessor {
             if (newVal == null)
                 throw new IgniteSQLException("New value for UPDATE must not be null", IgniteQueryErrorCode.NULL_VALUE);
 
-            // Skip key and value - that's why we start off with 2nd column
-            for (int i = 0; i < plan.tbl.getColumns().length - 2; i++) {
-                Column c = plan.tbl.getColumn(i + 2);
+            // Skip key and value - that's why we start off with 3rd column
+            for (int i = 0; i < plan.tbl.getColumns().length - 3; i++) {
+                Column c = plan.tbl.getColumn(i + 3);
+
+                if (desc.isKeyValueOrVersionColumn(c.getColumnId()))
+                    continue;
 
                 GridQueryProperty prop = desc.type().property(c.getName());
 
@@ -960,8 +963,11 @@ public class DmlStatementsProcessor {
         // column order preserves their precedence for correct update of nested properties.
         Column[] cols = plan.tbl.getColumns();
 
-        // First 2 columns are _key and _val, skip 'em.
-        for (int i = 2; i < cols.length; i++) {
+        // First 3 columns are _key, _val and _ver. Skip 'em.
+        for (int i = 3; i < cols.length; i++) {
+            if (plan.tbl.rowDescriptor().isKeyValueOrVersionColumn(i))
+                continue;
+
             String colName = cols[i].getName();
 
             if (!newColVals.containsKey(colName))

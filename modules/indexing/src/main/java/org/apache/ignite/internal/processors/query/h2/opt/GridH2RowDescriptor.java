@@ -172,4 +172,48 @@ public interface GridH2RowDescriptor extends GridOffHeapSmartPointerFactory<Grid
      * @return {@code True} if index should support snapshots.
      */
     public boolean snapshotableIndex();
+
+    /**
+     * Checks if provided column id matches key column or key alias.
+     *
+     * @param colId Column id.
+     * @return Result.
+     */
+    public boolean isKeyColumn(int colId);
+
+    /**
+     * Checks if provided column id matches value column or alias.
+     *
+     * @param colId Column id.
+     * @return Result.
+     */
+    public boolean isValueColumn(int colId);
+
+    /**
+     * Checks if provided column id matches key, key alias,
+     * value, value alias or version column.
+     *
+     * @param colId Column id.
+     * @return Result.
+     */
+    public boolean isKeyValueOrVersionColumn(int colId);
+
+    /**
+     * Checks if provided index condition is allowed for key column or key alias column.
+     *
+     * @param masks Array containing Index Condition masks for each column.
+     * @param mask Index Condition to check.
+     * @return Result.
+     */
+    public boolean checkKeyIndexCondition(int masks[], int mask);
+
+    /**
+     * Initializes value cache with key, val and version.
+     *
+     * @param valCache Value cache.
+     * @param key Key.
+     * @param value Value.
+     * @param version Version.
+     */
+    public void initValueCache(Value valCache[], Value key, Value value, Value version);
 }

@@ -397,6 +397,7 @@ public abstract class GridH2IndexBase extends BaseIndex {
             return null;
 
         IndexColumn affCol = getTable().getAffinityKeyColumn();
+        GridH2RowDescriptor desc = getTable().rowDescriptor();
 
         int affColId = -1;
         boolean ucast = false;
@@ -407,7 +408,7 @@ public abstract class GridH2IndexBase extends BaseIndex {
 
             if (masks != null) {
                 ucast = (masks[affColId] & IndexCondition.EQUALITY) != 0 ||
-                    (masks[KEY_COL] & IndexCondition.EQUALITY) != 0;
+                        desc.checkKeyIndexCondition(masks, IndexCondition.EQUALITY);
             }
         }
 
@@ -1137,7 +1138,7 @@ public abstract class GridH2IndexBase extends BaseIndex {
             if (affKeyFirst != null && equal(affKeyFirst, affKeyLast))
                 return affKeyFirst == ValueNull.INSTANCE ? EXPLICIT_NULL : affKeyFirst.getObject();
 
-            if (affColId == KEY_COL)
+            if (getTable().rowDescriptor().isKeyColumn(affColId))
                 return null;
 
             // Try to extract affinity key from primary key.

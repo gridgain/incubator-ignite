@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -179,7 +180,24 @@ public class IgniteBinaryObjectQueryArgumentsTest extends GridCommonAbstractTest
         cfg.setName(cacheName);
 
         cfg.setMemoryMode(memoryMode());
-        cfg.setIndexedTypes(key, val);
+
+        //setIndexedTypes results in empty 'fields' when
+        //both key and val are non-primitive without annotated fields
+        if (val.equals(SearchValue.class))
+            cfg.setIndexedTypes(key, val);
+        else {
+            QueryEntity qe = new QueryEntity();
+            qe.setKeyType(key.getName());
+            qe.setValueType(val.getName());
+            qe.setKeyFieldName("k");
+            qe.setValueFieldName("v");
+            LinkedHashMap<String, String> fields = new LinkedHashMap<>();
+            fields.put(qe.getKeyFieldName(), qe.getKeyType());
+            fields.put(qe.getValueFieldName(), qe.getValueType());
+            qe.setFields(fields);
+
+            cfg.setQueryEntities(Collections.singletonList(qe));
+        }
 
         return cfg;
     }
@@ -303,7 +321,7 @@ public class IgniteBinaryObjectQueryArgumentsTest extends GridCommonAbstractTest
 
         final SqlQuery<T, Person> qry = new SqlQuery<>(Person.class, "where _key=?");
 
-        final SqlFieldsQuery fieldsQry = new SqlFieldsQuery("select * from Person where _key=?");
+        final SqlFieldsQuery fieldsQry = new SqlFieldsQuery("select _key, _val, * from Person where _key=?");
 
         qry.setLocal(isLocal());
         fieldsQry.setLocal(isLocal());
@@ -346,7 +364,7 @@ public class IgniteBinaryObjectQueryArgumentsTest extends GridCommonAbstractTest
 
         final SqlQuery<Person, T> qry = new SqlQuery<>(valType, "where _val=?");
 
-        final SqlFieldsQuery fieldsQry = new SqlFieldsQuery("select * from " + valType.getSimpleName() + " where _val=?");
+        final SqlFieldsQuery fieldsQry = new SqlFieldsQuery("select _key, _val, * from " + valType.getSimpleName() + " where _val=?");
 
         qry.setLocal(isLocal());
         fieldsQry.setLocal(isLocal());

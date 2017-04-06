@@ -407,6 +407,9 @@ public class GridH2Table extends TableBase {
 
             boolean reuseExisting = s != null;
 
+            if (!(idxs.get(i) instanceof GridH2IndexBase))
+                continue;
+
             s = index(i).takeSnapshot(s, qctx);
 
             if (reuseExisting && s == null) { // Existing snapshot was invalidated before we were able to reserve it.
@@ -415,7 +418,8 @@ public class GridH2Table extends TableBase {
                     qctx.clearSnapshots();
 
                 for (int j = 2; j < i; j++)
-                    index(j).releaseSnapshot();
+                    if ((idxs.get(j) instanceof GridH2IndexBase))
+                        index(j).releaseSnapshot();
 
                 // Drop invalidated snapshot.
                 actualSnapshot.compareAndSet(snapshots, null);
@@ -446,7 +450,8 @@ public class GridH2Table extends TableBase {
             destroyed = true;
 
             for (int i = 1, len = idxs.size(); i < len; i++)
-                index(i).destroy();
+                if (idxs.get(i) instanceof GridH2IndexBase)
+                    index(i).destroy();
         }
         finally {
             unlock(l);
@@ -600,6 +605,8 @@ public class GridH2Table extends TableBase {
                 // Put row if absent to all indexes sequentially.
                 // Start from 3 because 0 - Scan (don't need to update), 1 - PK hash (already updated), 2 - PK (already updated).
                 while (++i < len) {
+                    if (!(idxs.get(i) instanceof GridH2IndexBase))
+                        continue;
                     GridH2IndexBase idx = index(i);
 
                     assert !idx.getIndexType().isUnique() : "Unique indexes are not supported: " + idx;
@@ -630,6 +637,8 @@ public class GridH2Table extends TableBase {
                     // Remove row from all indexes.
                     // Start from 3 because 0 - Scan (don't need to update), 1 - PK hash (already updated), 2 - PK (already updated).
                     for (int i = 3, len = idxs.size(); i < len; i++) {
+                        if (!(idxs.get(i) instanceof GridH2IndexBase))
+                            continue;
                         Row res = index(i).remove(old);
 
                         assert eq(pk, res, old) : "\n" + old + "\n" + res + "\n" + i + " -> " + index(i).getName();
@@ -675,7 +684,8 @@ public class GridH2Table extends TableBase {
         ArrayList<GridH2IndexBase> res = new ArrayList<>(idxs.size() - 2);
 
         for (int i = 2, len = idxs.size(); i < len; i++)
-            res.add(index(i));
+            if (idxs.get(i) instanceof GridH2IndexBase)
+                res.add(index(i));
 
         return res;
     }

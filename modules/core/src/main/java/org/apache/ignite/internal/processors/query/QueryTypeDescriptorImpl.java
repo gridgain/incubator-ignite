@@ -78,6 +78,12 @@ public class QueryTypeDescriptorImpl implements GridQueryTypeDescriptor {
     /** */
     private String affKey;
 
+    /** */
+    private String keyFieldName;
+
+    /** */
+    private String valFieldName;
+
     /** {@inheritDoc} */
     @Override public String name() {
         return name;
@@ -338,5 +344,31 @@ public class QueryTypeDescriptorImpl implements GridQueryTypeDescriptor {
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(QueryTypeDescriptorImpl.class, this);
+    }
+
+    /**
+     * Sets key field name.
+     * @param keyFieldName Key field name.
+     */
+    public void keyFieldName(String keyFieldName) {
+        this.keyFieldName = keyFieldName;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String keyFieldName() {
+        return keyFieldName;
+    }
+
+    /**
+     * Sets value field name.
+     * @param valueFieldName value field name.
+     */
+    public void valueFieldName(String valueFieldName) {
+        this.valFieldName = valueFieldName;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String valueFieldName() {
+        return valFieldName;
     }
 }

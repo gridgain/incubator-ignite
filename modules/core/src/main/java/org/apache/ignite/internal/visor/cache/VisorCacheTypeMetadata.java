@@ -181,8 +181,8 @@ public class VisorCacheTypeMetadata implements Serializable, LessNamingBean {
 
         VisorCacheTypeMetadata metadata = new VisorCacheTypeMetadata();
 
-        metadata.keyType = q.getKeyType();
-        metadata.valType = q.getValueType();
+        metadata.keyType = q.findKeyType();
+        metadata.valType = q.findValueType();
 
         metadata.dbSchema = "";
         metadata.dbTbl = "";
