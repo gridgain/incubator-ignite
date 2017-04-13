@@ -598,6 +598,7 @@ public class PlatformConfigurationUtils {
                     BinaryTypeConfiguration type = new BinaryTypeConfiguration(in.readString());
 
                     type.setEnum(in.readBoolean());
+                    type.setEnumNames(in.readMap());
                     type.setIdentityResolver(readBinaryIdentityResolver(in));
 
                     types.add(type);
@@ -1016,6 +1017,7 @@ public class PlatformConfigurationUtils {
                 for (BinaryTypeConfiguration type : types) {
                     w.writeString(type.getTypeName());
                     w.writeBoolean(type.isEnum());
+                    w.writeMap(type.getEnumNames());
                     writeBinaryIdentityResolver(w, type.getIdentityResolver());
                 }
             }

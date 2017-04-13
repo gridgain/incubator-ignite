@@ -19,6 +19,8 @@ package org.apache.ignite.internal.processors.platform;
 
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.binary.BinaryType;
+import org.apache.ignite.binary.EnumMetadata;
+import org.apache.ignite.binary.EnumMetadataImpl;
 import org.apache.ignite.cluster.ClusterMetrics;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.CacheEvent;
@@ -84,6 +86,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -375,6 +378,15 @@ public class PlatformContextImpl implements PlatformContext {
                         });
 
                     boolean isEnum = reader.readBoolean();
+                    EnumMetadata enumMetadata = null;
+                    if (isEnum && reader.readBoolean()) {
+                        int size = reader.readInt();
+                        Map<Integer, String> map = new LinkedHashMap<>(size);
+                        for (int idx = 0; idx < size; idx++)
+                            map.put(reader.readInt(), reader.readString());
+
+                        enumMetadata = new EnumMetadataImpl(typeName, map);
+                    }
 
                     // Read schemas
                     int schemaCnt = reader.readInt();
@@ -396,7 +408,7 @@ public class PlatformContextImpl implements PlatformContext {
                         }
                     }
 
-                    return new BinaryMetadata(typeId, typeName, fields, affKey, schemas, isEnum);
+                    return new BinaryMetadata(typeId, typeName, fields, affKey, schemas, isEnum, enumMetadata);
                 }
             }
         );
@@ -478,6 +490,20 @@ public class PlatformContextImpl implements PlatformContext {
             }
 
             writer.writeBoolean(meta.isEnum());
+            if (meta.isEnum()) {
+                if (meta.enumMetadata() == null)
+                    writer.writeBoolean(false);
+                else {
+                    writer.writeBoolean(true);
+                    EnumMetadataImpl enumMeta = (EnumMetadataImpl)meta.enumMetadata();
+                    Map<Integer, String> map = enumMeta.map();
+                    writer.writeInt(map.size());
+                    for (Map.Entry<Integer, String> e: map.entrySet()) {
+                        writer.writeInt(e.getKey());
+                        writer.writeString(e.getValue());
+                    }
+                }
+            }
         }
     }
 

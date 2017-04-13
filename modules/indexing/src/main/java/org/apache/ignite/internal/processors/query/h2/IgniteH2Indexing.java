@@ -59,6 +59,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.cache.QueryIndexType;
 import org.apache.ignite.cache.query.QueryCancelledException;
 import org.apache.ignite.cache.query.QueryCursor;
@@ -70,6 +71,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.GridTopic;
 import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.binary.GridBinaryMarshaller;
 import org.apache.ignite.internal.jdbc2.JdbcSqlFieldsQuery;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheEntryImpl;
@@ -149,6 +151,7 @@ import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.spi.indexing.IndexingQueryFilter;
+import org.h2.api.CustomDataTypesHandler;
 import org.h2.api.ErrorCode;
 import org.h2.api.JavaObjectSerializer;
 import org.h2.command.CommandInterface;
@@ -272,6 +275,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
     /** */
     private GridTimeoutProcessor.CancelableTask stmtCacheCleanupTask;
+
+    /** */
+    public GridH2CustomDataTypesHandler h2CustomDataTypesHandler;
 
     /**
      * Command in H2 prepared statement.
@@ -884,7 +890,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             throw new IgniteCheckedException("Cannot prepare query metadata", e);
         }
 
-        final GridH2QueryContext ctx = new GridH2QueryContext(nodeId, nodeId, 0, LOCAL)
+        final GridH2QueryContext ctx = new GridH2QueryContext(nodeId, nodeId, 0, LOCAL, this.ctx)
             .filter(filter).distributedJoinMode(OFF);
 
         return new GridQueryFieldsResultAdapter(meta, null) {
@@ -1271,7 +1277,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         setupConnection(conn, false, false);
 
-        GridH2QueryContext.set(new GridH2QueryContext(nodeId, nodeId, 0, LOCAL).filter(filter)
+        GridH2QueryContext.set(new GridH2QueryContext(nodeId, nodeId, 0, LOCAL, ctx).filter(filter)
             .distributedJoinMode(OFF));
 
         GridRunningQueryInfo run = new GridRunningQueryInfo(qryIdGen.incrementAndGet(), qry, SQL, spaceName,
@@ -1411,7 +1417,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             // Here we will just parse the statement, no need to optimize it at all.
             setupConnection(c, /*distributedJoins*/false, /*enforceJoinOrder*/true);
 
-            GridH2QueryContext.set(new GridH2QueryContext(locNodeId, locNodeId, 0, PREPARE)
+            GridH2QueryContext.set(new GridH2QueryContext(locNodeId, locNodeId, 0, PREPARE, ctx)
                 .distributedJoinMode(distributedJoinMode));
 
             PreparedStatement stmt = null;
@@ -1760,8 +1766,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         boolean escapeAll = schema.escapeAll();
 
-        String keyType = dbTypeFromClass(tbl.type().keyClass());
-        String valTypeStr = dbTypeFromClass(tbl.type().valueClass());
+        String keyType = dbTypeFromClass(tbl.type().keyClass(), tbl.type().keyTypeName());
+        String valTypeStr = dbTypeFromClass(tbl.type().valueClass(), tbl.type().valueTypeName());
 
         SB sql = new SB();
 
@@ -1770,8 +1776,11 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         sql.a(',').a(VAL_FIELD_NAME).a(' ').a(valTypeStr);
 
-        for (Map.Entry<String, Class<?>> e : tbl.type().fields().entrySet())
-            sql.a(',').a(escapeName(e.getKey(), escapeAll)).a(' ').a(dbTypeFromClass(e.getValue()));
+        for (Map.Entry<String, Class<?>> e : tbl.type().fields().entrySet()) {
+            GridQueryProperty prop = tbl.type().property(e.getKey());
+            String userTypeName = (prop == null) ? e.getValue().getTypeName() : prop.userTypeName();
+            sql.a(',').a(escapeName(e.getKey(), escapeAll)).a(' ').a(dbTypeFromClass(e.getValue(), userTypeName));
+        }
 
         sql.a(')');
 
@@ -1798,10 +1807,43 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      * Gets corresponding DB type from java class.
      *
      * @param cls Java class.
+     * @param userTypeName Type name defined by user
      * @return DB type name.
      */
-    private String dbTypeFromClass(Class<?> cls) {
+    private String dbTypeFromClass(Class<?> cls, String userTypeName) {
+        String typeName = cls.equals(Object.class) ? userTypeName : cls.getName();
+
+        int typeId = ctx.cacheObjects().typeId(typeName);
+        if (typeId != GridBinaryMarshaller.UNREGISTERED_TYPE_ID) {
+            BinaryType binType = ctx.cacheObjects().binary().type(typeId);
+            Class<?> userCls = cls.equals(Object.class) ? U.classForName(userTypeName, Object.class) : cls;
+            if (userCls.isEnum() || (binType != null) && binType.isEnum())
+                return h2CustomDataTypesHandler.registerEnum(typeId, typeName);
+        }
+
         return DBTypeEnum.fromClass(cls).dBTypeAsString();
+    }
+
+    /**
+     * Gets corresponding DB type identifier from java class.
+     *
+     * @param cls Java class.
+     * @param userTypeName Type name defined by user
+     * @return DB type name.
+     */
+    private int dataTypeFromClass(Class<?> cls, String userTypeName) {
+        String typeName = cls.equals(Object.class) ? userTypeName : cls.getName();
+
+        int typeId = ctx.cacheObjects().typeId(typeName);
+        if (typeId != GridBinaryMarshaller.UNREGISTERED_TYPE_ID) {
+            BinaryType binType = ctx.cacheObjects().binary().type(typeId);
+            Class<?> userCls = cls.equals(Object.class) ? U.classForName(userTypeName, Object.class) : cls;
+            if (userCls.isEnum() || (binType != null) && binType.isEnum())
+                if (h2CustomDataTypesHandler.registerEnum(typeId, typeName) != null)
+                return typeId;
+        }
+
+        return DataType.getTypeFromClass(cls);
     }
 
     /**
@@ -2094,6 +2136,12 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             U.warn(log, "Custom H2 serialization is already configured, will override.");
 
         JdbcUtils.serializer = h2Serializer();
+
+        if (JdbcUtils.customDataTypesHandler != null)
+            U.warn(log, "Custom H2 data types handler is already configured, will override.");
+
+        h2CustomDataTypesHandler = new GridH2CustomDataTypesHandler();
+        JdbcUtils.customDataTypesHandler = h2CustomDataTypesHandler;
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-2139
         // registerMBean(igniteInstanceName, this, GridH2IndexingSpiMBean.class);
@@ -3325,10 +3373,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             Class[] classes = allFields.values().toArray(new Class[fields.length]);
 
             for (int i = 0; i < fieldTypes.length; i++)
-                fieldTypes[i] = DataType.getTypeFromClass(classes[i]);
+                fieldTypes[i] = dataTypeFromClass(classes[i], type.property(fields[i]).userTypeName());
 
-            keyType = DataType.getTypeFromClass(type.keyClass());
-            valType = DataType.getTypeFromClass(type.valueClass());
+            keyType = dataTypeFromClass(type.keyClass(), type.keyTypeName());
+            valType = dataTypeFromClass(type.valueClass(), type.valueTypeName());
 
             props = new GridQueryProperty[fields.length];
 
@@ -3402,6 +3450,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 if (type == Value.JAVA_OBJECT)
                     return new GridH2ValueCacheObject(cacheContext(schema.spaceName), co);
 
+                Value val = h2CustomDataTypesHandler.wrap(objectContext(schema.spaceName), obj, type, true);
+                if (val != null)
+                    return val;
+
                 obj = co.value(objectContext(schema.spaceName), false);
             }
 
@@ -3455,9 +3507,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
                 case Value.GEOMETRY:
                     return ValueGeometry.getFromGeometry(obj);
-            }
 
-            throw new IgniteCheckedException("Failed to wrap value[type=" + type + ", value=" + obj + "]");
+                default:
+                    return h2CustomDataTypesHandler.wrap(objectContext(schema.spaceName), obj, type, false);
+            }
         }
 
         /** {@inheritDoc} */
