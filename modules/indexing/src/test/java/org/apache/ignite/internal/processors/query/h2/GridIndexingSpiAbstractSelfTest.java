@@ -610,6 +610,11 @@ public abstract class GridIndexingSpiAbstractSelfTest extends GridCommonAbstract
                 @Override public GridQueryProperty parent() {
                     return null;
                 }
+
+                /** */
+                @Override public String userTypeName() {
+                    return null;
+                }
             };
         }
 

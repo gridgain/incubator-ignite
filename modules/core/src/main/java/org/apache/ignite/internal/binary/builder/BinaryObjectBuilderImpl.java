@@ -350,7 +350,7 @@ public class BinaryObjectBuilderImpl implements BinaryObjectBuilder {
                 BinarySchema curSchema = writer.currentSchema();
 
                 ctx.updateMetadata(typeId, new BinaryMetadata(typeId, typeName, fieldsMeta,
-                    ctx.affinityKeyFieldName(typeId), Collections.singleton(curSchema), false));
+                    ctx.affinityKeyFieldName(typeId), Collections.singleton(curSchema), false, null));
 
                 schemaReg.addSchema(curSchema.schemaId(), curSchema);
             }
@@ -385,6 +385,8 @@ public class BinaryObjectBuilderImpl implements BinaryObjectBuilder {
 
             if (((BinaryValueWithType)newVal).value() == null)
                 nullFieldVal = true;
+            else if (((BinaryValueWithType)newVal).value() instanceof BinaryEnumObjectImpl)
+                newFldTypeId = GridBinaryMarshaller.ENUM;
         }
         // Detect Enum and Enum array type.
         else if (newVal instanceof BinaryEnumObjectImpl)

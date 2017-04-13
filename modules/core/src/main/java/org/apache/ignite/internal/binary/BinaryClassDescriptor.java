@@ -40,6 +40,8 @@ import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryReflectiveSerializer;
 import org.apache.ignite.binary.BinarySerializer;
 import org.apache.ignite.binary.Binarylizable;
+import org.apache.ignite.binary.EnumMetadata;
+import org.apache.ignite.binary.EnumMetadataImpl;
 import org.apache.ignite.internal.processors.cache.CacheObjectImpl;
 import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -124,6 +126,9 @@ public class BinaryClassDescriptor {
     /** Whether stable schema was published. */
     private volatile boolean stableSchemaPublished;
 
+    /** Enum metadata */
+    private EnumMetadata enumMetadata;
+
     /**
      * @param ctx Context.
      * @param cls Class.
@@ -196,6 +201,9 @@ public class BinaryClassDescriptor {
                 Binarylizable.class.getSimpleName() + " interface or set explicit serializer using " +
                 "BinaryTypeConfiguration.setSerializer() method.");
         }
+
+        if (cls.isEnum())
+            enumMetadata = new EnumMetadataImpl(cls);
 
         switch (mode) {
             case P_BYTE:
@@ -400,6 +408,13 @@ public class BinaryClassDescriptor {
      */
     boolean isEnum() {
         return mode == BinaryWriteMode.ENUM;
+    }
+
+    /**
+     * @return Enum metadata.
+     */
+    public EnumMetadata enumMetadata() {
+        return enumMetadata;
     }
 
     /**
@@ -757,7 +772,7 @@ public class BinaryClassDescriptor {
                                 BinarySchema newSchema = collector.schema();
 
                                 BinaryMetadata meta = new BinaryMetadata(typeId, typeName, collector.meta(),
-                                    affKeyFieldName, Collections.singleton(newSchema), false);
+                                    affKeyFieldName, Collections.singleton(newSchema), false, null);
 
                                 ctx.updateMetadata(typeId, meta);
 
@@ -778,7 +793,7 @@ public class BinaryClassDescriptor {
                 if (userType && !stableSchemaPublished) {
                     // Update meta before write object with new schema
                     BinaryMetadata meta = new BinaryMetadata(typeId, typeName, stableFieldsMeta,
-                        affKeyFieldName, Collections.singleton(stableSchema), false);
+                        affKeyFieldName, Collections.singleton(stableSchema), false, null);
 
                     ctx.updateMetadata(typeId, meta);
 

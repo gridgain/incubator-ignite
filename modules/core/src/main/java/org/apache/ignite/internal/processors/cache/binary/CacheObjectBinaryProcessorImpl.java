@@ -36,6 +36,7 @@ import org.apache.ignite.binary.BinaryObjectBuilder;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.BinaryTypeConfiguration;
+import org.apache.ignite.binary.EnumMetadata;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.BinaryConfiguration;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -207,7 +208,8 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
                                 Arrays.asList(
                                     c.getIdMapper() != null ? c.getIdMapper().getClass() : null,
                                     c.getSerializer() != null ? c.getSerializer().getClass() : null,
-                                    c.isEnum()
+                                    c.isEnum(),
+                                    c.getEnumNames() != null ? Arrays.asList(c.getEnumNames()) : null
                                 )
                             );
                         }
@@ -402,8 +404,8 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
 
     /** {@inheritDoc} */
     @Override public void updateMetadata(int typeId, String typeName, @Nullable String affKeyFieldName,
-        Map<String, BinaryFieldMetadata> fieldTypeIds, boolean isEnum) throws BinaryObjectException {
-        BinaryMetadata meta = new BinaryMetadata(typeId, typeName, fieldTypeIds, affKeyFieldName, null, isEnum);
+        Map<String, BinaryFieldMetadata> fieldTypeIds, boolean isEnum, EnumMetadata enumMetadata) throws BinaryObjectException {
+        BinaryMetadata meta = new BinaryMetadata(typeId, typeName, fieldTypeIds, affKeyFieldName, null, isEnum, enumMetadata);
 
         binaryCtx.updateMetadata(typeId, meta);
     }
@@ -542,7 +544,7 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
 
         typeName = binaryCtx.userTypeName(typeName);
 
-        updateMetadata(typeId, typeName, null, null, true);
+        updateMetadata(typeId, typeName, null, null, true, null);
 
         return new BinaryEnumObjectImpl(binaryCtx, typeId, null, ord);
     }

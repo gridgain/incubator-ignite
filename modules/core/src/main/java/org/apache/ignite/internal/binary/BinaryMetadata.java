@@ -27,8 +27,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+
+import org.apache.ignite.binary.EnumMetadata;
+import org.apache.ignite.binary.EnumMetadataImpl;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -40,6 +44,9 @@ import org.jetbrains.annotations.Nullable;
 public class BinaryMetadata implements Externalizable {
     /** */
     private static final long serialVersionUID = 0L;
+
+    /** */
+    private static final int VERSION = 1;
 
     /** Type ID. */
     @GridToStringInclude(sensitive = true)
@@ -67,6 +74,9 @@ public class BinaryMetadata implements Externalizable {
     /** Whether this is enum type. */
     private boolean isEnum;
 
+    /** Enum metadata */
+    private EnumMetadata enumMetadata;
+
     /**
      * For {@link Externalizable}.
      */
@@ -83,9 +93,11 @@ public class BinaryMetadata implements Externalizable {
      * @param affKeyFieldName Affinity key field name.
      * @param schemas Schemas.
      * @param isEnum Enum flag.
+     * @param enumMetadata Metadata for enum.
      */
     public BinaryMetadata(int typeId, String typeName, @Nullable Map<String, BinaryFieldMetadata> fields,
-        @Nullable String affKeyFieldName, @Nullable Collection<BinarySchema> schemas, boolean isEnum) {
+                          @Nullable String affKeyFieldName, @Nullable Collection<BinarySchema> schemas,
+                          boolean isEnum, @Nullable EnumMetadata enumMetadata) {
         assert typeName != null;
 
         this.typeId = typeId;
@@ -104,6 +116,7 @@ public class BinaryMetadata implements Externalizable {
             schemaIds = Collections.emptySet();
 
         this.isEnum = isEnum;
+        this.enumMetadata = enumMetadata;
     }
 
     /**
@@ -174,6 +187,13 @@ public class BinaryMetadata implements Externalizable {
     }
 
     /**
+     * @return Enum metadata
+     */
+    public EnumMetadata enumMetadata() {
+        return isEnum()? enumMetadata : null;
+    }
+
+    /**
      * Wrap metadata into binary type.
      *
      * @param ctx Binary context.
@@ -197,6 +217,7 @@ public class BinaryMetadata implements Externalizable {
      * @exception IOException Includes any I/O exceptions that may occur.
      */
     public void writeTo(DataOutput out) throws IOException {
+        out.writeInt(VERSION);
         out.writeInt(typeId);
 
         U.writeString(out, typeName);
@@ -224,6 +245,20 @@ public class BinaryMetadata implements Externalizable {
         }
 
         out.writeBoolean(isEnum);
+
+        if (isEnum) {
+            if (!(enumMetadata instanceof EnumMetadataImpl))
+                out.writeInt(-1);
+            else {
+                Map<Integer, String> map = ((EnumMetadataImpl) enumMetadata).map();
+                int size = map.size();
+                out.writeInt(size);
+                for (Map.Entry<Integer, String> e : map.entrySet()) {
+                    out.writeInt(e.getKey());
+                    U.writeString(out, e.getValue());
+                }
+            }
+        }
     }
 
     /** {@inheritDoc} */
@@ -242,6 +277,7 @@ public class BinaryMetadata implements Externalizable {
      * @exception IOException if I/O errors occur.
      */
     public void readFrom(DataInput in) throws IOException {
+        in.readInt(); //skip version
         typeId = in.readInt();
         typeName = U.readString(in);
 
@@ -285,6 +321,16 @@ public class BinaryMetadata implements Externalizable {
         }
 
         isEnum = in.readBoolean();
+
+        if (isEnum) {
+            int size = in.readInt();
+            if (size >= 0) {
+                Map<Integer, String> map = new LinkedHashMap<>(size);
+                for (int idx = 0; idx < size; idx++)
+                    map.put(in.readInt(), U.readString(in));
+                enumMetadata = new EnumMetadataImpl(typeName, map);
+            }
+        }
     }
 
     /** {@inheritDoc} */

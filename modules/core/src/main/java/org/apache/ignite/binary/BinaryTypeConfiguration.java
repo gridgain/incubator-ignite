@@ -23,6 +23,9 @@ import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
  * Defines configuration properties for a specific binary type. Providing per-type
  * configuration is optional, as it is generally enough, and also optional, to provide global binary
@@ -49,6 +52,9 @@ public class BinaryTypeConfiguration {
     /** Enum flag. */
     private boolean isEnum;
 
+    /** Enum ordinal to names mapping. */
+    private Map<Integer, String> enumNames;
+
     /**
      * Constructor.
      */
@@ -68,6 +74,7 @@ public class BinaryTypeConfiguration {
         idMapper = other.idMapper;
         isEnum = other.isEnum;
         serializer = other.serializer;
+        enumNames = other.enumNames;
         typeName = other.typeName;
     }
 
@@ -202,6 +209,44 @@ public class BinaryTypeConfiguration {
         this.isEnum = isEnum;
 
         return this;
+    }
+
+    /**
+     * Sets enum ordinal to names mapping.
+     *
+     * @param names Array of enum constants names.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTypeConfiguration setEnumNames(String... names) {
+        if (names == null) {
+            this.enumNames = null;
+            return this;
+        }
+
+        Map<Integer, String> enumNames = new LinkedHashMap<>(names.length);
+        for (int idx = 0; idx < names.length; ++idx)
+            enumNames.put(idx, names[idx]);
+
+        return setEnumNames(enumNames);
+    }
+
+    /**
+     * Set enum ordinal to names mapping.
+     *
+     * @param names Map of enum ordinal to name.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTypeConfiguration setEnumNames(Map<Integer, String> names) {
+        this.isEnum = true;
+        this.enumNames = names;
+        return this;
+    }
+
+    /**
+     * @return Enum ordinal to name mapping
+     */
+    public Map<Integer, String> getEnumNames() {
+        return enumNames;
     }
 
     /** {@inheritDoc} */

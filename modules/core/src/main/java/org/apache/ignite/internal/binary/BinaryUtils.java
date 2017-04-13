@@ -57,6 +57,7 @@ import org.apache.ignite.binary.BinaryRawReader;
 import org.apache.ignite.binary.BinaryRawWriter;
 import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.Binarylizable;
+import org.apache.ignite.binary.EnumMetadata;
 import org.apache.ignite.internal.binary.builder.BinaryLazyValue;
 import org.apache.ignite.internal.binary.streams.BinaryInputStream;
 import org.apache.ignite.internal.util.typedef.F;
@@ -963,6 +964,14 @@ public class BinaryUtils {
                         newMeta.typeName());
             }
 
+            EnumMetadata mergedEnumMeta = null;
+            if (newMeta.enumMetadata() != null) {
+                if (oldMeta.enumMetadata() == null)
+                    mergedEnumMeta = newMeta.enumMetadata();
+                else
+                    mergedEnumMeta = oldMeta.enumMetadata().merge(newMeta.enumMetadata());
+            }
+
             // Check and merge fields.
             Map<String, BinaryFieldMetadata> mergedFields;
 
@@ -1005,7 +1014,7 @@ public class BinaryUtils {
 
             // Return either old meta if no changes detected, or new merged meta.
             return changed ? new BinaryMetadata(oldMeta.typeId(), oldMeta.typeName(), mergedFields,
-                oldMeta.affinityKeyFieldName(), mergedSchemas, oldMeta.isEnum()) : oldMeta;
+                oldMeta.affinityKeyFieldName(), mergedSchemas, oldMeta.isEnum(), mergedEnumMeta) : oldMeta;
         }
     }
 
@@ -1106,6 +1115,8 @@ public class BinaryUtils {
             return BinaryWriteMode.MAP;
         else if (cls.isEnum())
             return BinaryWriteMode.ENUM;
+        else if (cls == BinaryEnumObjectImpl.class)
+            return BinaryWriteMode.BINARY_ENUM;
         else if (cls == Class.class)
             return BinaryWriteMode.CLASS;
         else if (Proxy.class.isAssignableFrom(cls))
@@ -1622,6 +1633,18 @@ public class BinaryUtils {
      * @param type Plain type.
      * @return Enum.
      */
+    public static BinaryEnumObjectImpl doReadBinaryEnum(BinaryInputStream in, BinaryContext ctx) {
+        return doReadBinaryEnum(in, ctx, doReadEnumType(in));
+    }
+
+    /**
+     * Read binary enum.
+     *
+     * @param in Input stream.
+     * @param ctx Binary context.
+     * @param type Plain type.
+     * @return Enum.
+     */
     private static BinaryEnumObjectImpl doReadBinaryEnum(BinaryInputStream in, BinaryContext ctx,
         EnumType type) {
         return new BinaryEnumObjectImpl(ctx, type.typeId, type.clsName, in.readInt());
@@ -1895,13 +1918,15 @@ public class BinaryUtils {
                 return doReadBinaryObject(in, ctx);
 
             case GridBinaryMarshaller.ENUM:
-                return doReadBinaryEnum(in, ctx, doReadEnumType(in));
+                return doReadEnum(in, doReadClass(in, ctx, ldr));
 
             case GridBinaryMarshaller.ENUM_ARR:
                 doReadEnumType(in); // Simply skip this part as we do not need it.
 
                 return doReadBinaryEnumArray(in, ctx);
 
+            case GridBinaryMarshaller.BINARY_ENUM:
+                return doReadBinaryEnum(in, ctx, doReadEnumType(in));
             case GridBinaryMarshaller.CLASS:
                 return doReadClass(in, ctx, ldr);
 
