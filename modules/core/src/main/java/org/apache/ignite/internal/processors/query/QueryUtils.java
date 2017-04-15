@@ -63,12 +63,6 @@ public class QueryUtils {
     public static final String _VAL = "_val";
 
     /** */
-    public static final String DEFAULT_KEY_ALIAS = "k";
-
-    /** */
-    public static final String DEFAULT_VAL_ALIAS = "v";
-
-    /** */
     private static final Class<?> GEOMETRY_CLASS = U.classForName("com.vividsolutions.jts.geom.Geometry", null);
 
     /** */

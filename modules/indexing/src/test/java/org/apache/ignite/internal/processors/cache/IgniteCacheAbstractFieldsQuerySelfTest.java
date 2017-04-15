@@ -322,8 +322,8 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
 
                     assert fields != null;
                     assert fields.size() == 2;
-                    assert Integer.class.getName().equals(fields.get("K"));
-                    assert Integer.class.getName().equals(fields.get("V"));
+                    assert Integer.class.getName().equals(fields.get("_KEY"));
+                    assert Integer.class.getName().equals(fields.get("_VAL"));
                 }
                 else if (strCache.getName().equals(meta.cacheName())) {
                     assertEquals("Invalid types size", 1, types.size());
@@ -336,8 +336,8 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
 
                     assert fields != null;
                     assert fields.size() == 2;
-                    assert String.class.getName().equals(fields.get("K"));
-                    assert String.class.getName().equals(fields.get("V"));
+                    assert String.class.getName().equals(fields.get("_KEY"));
+                    assert String.class.getName().equals(fields.get("_VAL"));
                 }
                 else if (meta.cacheName() == null)
                     assertTrue("Invalid types size", types.isEmpty());

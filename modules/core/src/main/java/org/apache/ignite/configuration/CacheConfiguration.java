@@ -2262,17 +2262,6 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
         entity.setKeyType(desc.keyClass().getName());
         entity.setValueType(desc.valueClass().getName());
 
-        if (desc.props.isEmpty()) {
-            entity.setKeyFieldName(desc.keyFieldName());
-            entity.setValueFieldName(desc.valueFieldName());
-
-            if (desc.keyFieldName() != null)
-                entity.addQueryField(desc.keyFieldName(), U.box(desc.keyClass()).getName(), null);
-
-            if (desc.valueFieldName() != null)
-                entity.addQueryField(desc.valueFieldName(), U.box(desc.valueClass()).getName(), null);
-        }
-
         for (ClassProperty prop : desc.props.values())
             entity.addQueryField(prop.fullName(), U.box(prop.type()).getName(), prop.alias());
 
@@ -2366,31 +2355,6 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
         processAnnotationsInClass(true, d.keyCls, d, null);
         processAnnotationsInClass(false, d.valCls, d, null);
 
-        if (d.props.isEmpty()) {
-            if (QueryUtils.isSqlType(d.keyCls))
-                d.keyFieldName(QueryUtils.DEFAULT_KEY_ALIAS);
-
-            if (QueryUtils.isSqlType(d.valCls))
-                d.valueFieldName(QueryUtils.DEFAULT_VAL_ALIAS);
-        }
-
-        if (QueryUtils.isSqlType(d.valCls)) {
-            // We have to index primitive _val.
-            String idxName = QueryUtils._VAL + "_idx";
-
-            QueryIndexType idxType = QueryUtils.isGeometryClass(d.valCls) ?
-                    QueryIndexType.GEOSPATIAL : QueryIndexType.SORTED;
-
-            d.addIndex(idxName, idxType);
-            d.addFieldToIndex(idxName, QueryUtils._VAL, 0, false);
-
-            if (d.valueFieldName() != null) {
-                idxName = QueryUtils.DEFAULT_VAL_ALIAS + "_idx";
-                d.addIndex(idxName, idxType);
-                d.addFieldToIndex(idxName, QueryUtils.DEFAULT_VAL_ALIAS, 0, false);
-            }
-        }
-
         return d;
     }
 
@@ -2404,8 +2368,18 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
      */
     private static void processAnnotationsInClass(boolean key, Class<?> cls, TypeDescriptor type,
         @Nullable ClassProperty parent) {
-        if (U.isJdk(cls) || QueryUtils.isGeometryClass(cls))
+        if (U.isJdk(cls) || QueryUtils.isGeometryClass(cls)) {
+            if (parent == null && !key && QueryUtils.isSqlType(cls)) { // We have to index primitive _val.
+                String idxName = QueryUtils._VAL + "_idx";
+
+                type.addIndex(idxName, QueryUtils.isGeometryClass(cls) ?
+                    QueryIndexType.GEOSPATIAL : QueryIndexType.SORTED);
+
+                type.addFieldToIndex(idxName, QueryUtils._VAL, 0, false);
+            }
+
             return;
+        }
 
         if (parent != null && parent.knowsClass(cls))
             throw new CacheException("Recursive reference found in type: " + cls.getName());
@@ -2638,12 +2612,6 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
         /** */
         private boolean valTextIdx;
 
-        /** */
-        private String keyFieldName;
-
-        /** */
-        private String valueFieldName;
-
         /**
          * @return Indexes.
          */
@@ -2777,36 +2745,6 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
          */
         public void valueTextIndex(boolean valTextIdx) {
             this.valTextIdx = valTextIdx;
-        }
-
-        /**
-         * Sets key field name.
-         * @param keyFieldName Key field name.
-         */
-        public void keyFieldName(String keyFieldName) {
-            this.keyFieldName = keyFieldName;
-        }
-
-        /**
-         * @return Key field name.
-         */
-        public String keyFieldName() {
-            return keyFieldName;
-        }
-
-        /**
-         * Sets value field name.
-         * @param valueFieldName Value field name.
-         */
-        public void valueFieldName(String valueFieldName) {
-            this.valueFieldName = valueFieldName;
-        }
-
-        /**
-         * @return Value field name.
-         */
-        public String valueFieldName() {
-            return valueFieldName;
         }
 
         /** {@inheritDoc} */

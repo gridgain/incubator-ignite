@@ -53,6 +53,8 @@ import org.h2.command.Prepared;
 import org.h2.table.Column;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.internal.processors.query.h2.opt.GridH2AbstractKeyValueRow.DEFAULT_COLUMNS_COUNT;
+
 /**
  * Logic for building update plans performed by {@link DmlStatementsProcessor}.
  */
@@ -491,8 +493,8 @@ public final class UpdatePlanBuilder {
                 return true;
 
             // column ids 0..2 are _key, _val, _ver
-            if (colId > 2) {
-                if (desc.isColumnKeyProperty(colId - 3))
+            if (colId >= DEFAULT_COLUMNS_COUNT) {
+                if (desc.isColumnKeyProperty(colId - DEFAULT_COLUMNS_COUNT))
                     return true;
             }
         }

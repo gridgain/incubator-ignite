@@ -1703,9 +1703,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 throw new IgniteCheckedException(MessageFormat.format(ptrn, name));
         }
 
-        if (type.fields() == null || type.fields().isEmpty())
-            throw new IgniteCheckedException("Fields must not be empty [type=" + type.name() + "]");
-
         if (type.keyFieldName() != null && !type.fields().containsKey(type.keyFieldName())) {
             throw new IgniteCheckedException(
                     MessageFormat.format("Name ''{0}'' must be amongst fields since it is configured as ''keyFieldName'' [type=" +
@@ -1790,10 +1787,12 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         SB sql = new SB();
 
-        sql.a("CREATE TABLE ").a(tbl.fullTableName()).a(" (")
-            .a(KEY_FIELD_NAME).a(' ').a(keyType).a(" INVISIBLE NOT NULL");
+        String keyValVisibility = tbl.type().fields().isEmpty() ? " VISIBLE" : " INVISIBLE";
 
-        sql.a(',').a(VAL_FIELD_NAME).a(' ').a(valTypeStr).a(" INVISIBLE");
+        sql.a("CREATE TABLE ").a(tbl.fullTableName()).a(" (")
+            .a(KEY_FIELD_NAME).a(' ').a(keyType).a(keyValVisibility).a(" NOT NULL");
+
+        sql.a(',').a(VAL_FIELD_NAME).a(' ').a(valTypeStr).a(keyValVisibility);
         sql.a(',').a(VER_FIELD_NAME).a(" OTHER INVISIBLE");
 
         for (Map.Entry<String, Class<?>> e : tbl.type().fields().entrySet())

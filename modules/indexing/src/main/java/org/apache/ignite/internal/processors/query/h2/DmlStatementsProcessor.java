@@ -81,6 +81,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jsr166.ConcurrentHashMap8;
 
 import static org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode.createJdbcSqlException;
+import static org.apache.ignite.internal.processors.query.h2.opt.GridH2AbstractKeyValueRow.DEFAULT_COLUMNS_COUNT;
 
 /**
  *
@@ -583,8 +584,8 @@ public class DmlStatementsProcessor {
                 throw new IgniteSQLException("New value for UPDATE must not be null", IgniteQueryErrorCode.NULL_VALUE);
 
             // Skip key and value - that's why we start off with 3rd column
-            for (int i = 0; i < plan.tbl.getColumns().length - 3; i++) {
-                Column c = plan.tbl.getColumn(i + 3);
+            for (int i = 0; i < plan.tbl.getColumns().length - DEFAULT_COLUMNS_COUNT; i++) {
+                Column c = plan.tbl.getColumn(i + DEFAULT_COLUMNS_COUNT);
 
                 if (desc.isKeyValueOrVersionColumn(c.getColumnId()))
                     continue;
@@ -964,7 +965,7 @@ public class DmlStatementsProcessor {
         Column[] cols = plan.tbl.getColumns();
 
         // First 3 columns are _key, _val and _ver. Skip 'em.
-        for (int i = 3; i < cols.length; i++) {
+        for (int i = DEFAULT_COLUMNS_COUNT; i < cols.length; i++) {
             if (plan.tbl.rowDescriptor().isKeyValueOrVersionColumn(i))
                 continue;
 

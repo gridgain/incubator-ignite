@@ -407,7 +407,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
      */
     public void testUserDefinedFunction() throws IgniteCheckedException {
         // Without alias.
-        final IgniteCache<Integer, Object> cache = jcache(Integer.class, Object.class);
+        final IgniteCache<Object, Object> cache = jcache(Object.class, Object.class);
 
         QueryCursor<List<?>> qry = cache.query(new SqlFieldsQuery("select square(1), square(2)"));
 
