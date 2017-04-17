@@ -151,6 +151,7 @@ import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.spi.indexing.IndexingQueryFilter;
+import org.h2.api.CustomDataTypesHandler;
 import org.h2.api.ErrorCode;
 import org.h2.api.JavaObjectSerializer;
 import org.h2.command.CommandInterface;
@@ -889,7 +890,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             throw new IgniteCheckedException("Cannot prepare query metadata", e);
         }
 
-        final GridH2QueryContext ctx = new GridH2QueryContext(nodeId, nodeId, 0, LOCAL)
+        final GridH2QueryContext ctx = new GridH2QueryContext(nodeId, nodeId, 0, LOCAL, this.ctx)
             .filter(filter).distributedJoinMode(OFF);
 
         return new GridQueryFieldsResultAdapter(meta, null) {
@@ -1276,7 +1277,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         setupConnection(conn, false, false);
 
-        GridH2QueryContext.set(new GridH2QueryContext(nodeId, nodeId, 0, LOCAL).filter(filter)
+        GridH2QueryContext.set(new GridH2QueryContext(nodeId, nodeId, 0, LOCAL, ctx).filter(filter)
             .distributedJoinMode(OFF));
 
         GridRunningQueryInfo run = new GridRunningQueryInfo(qryIdGen.incrementAndGet(), qry, SQL, spaceName,
@@ -1416,7 +1417,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             // Here we will just parse the statement, no need to optimize it at all.
             setupConnection(c, /*distributedJoins*/false, /*enforceJoinOrder*/true);
 
-            GridH2QueryContext.set(new GridH2QueryContext(locNodeId, locNodeId, 0, PREPARE)
+            GridH2QueryContext.set(new GridH2QueryContext(locNodeId, locNodeId, 0, PREPARE, ctx)
                 .distributedJoinMode(distributedJoinMode));
 
             PreparedStatement stmt = null;
@@ -2139,7 +2140,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         if (JdbcUtils.customDataTypesHandler != null)
             U.warn(log, "Custom H2 data types handler is already configured, will override.");
 
-        h2CustomDataTypesHandler = new GridH2CustomDataTypesHandler(ctx);
+        h2CustomDataTypesHandler = new GridH2CustomDataTypesHandler();
         JdbcUtils.customDataTypesHandler = h2CustomDataTypesHandler;
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-2139

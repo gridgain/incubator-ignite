@@ -76,7 +76,8 @@ public class IgniteSqlQueryEnumTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        startGrid("server");
+        startGridsMultiThreaded(4);
+
         startGrid("client");
     }
 
@@ -142,7 +143,12 @@ public class IgniteSqlQueryEnumTest extends GridCommonAbstractTest {
                 name.equals(CACHE_NAME_CFG_ENUM_FIELD_IDX)) {
             QueryEntity entity = new QueryEntity();
             entity.setKeyType(Integer.class.getName());
-            entity.setValueType(Star.class.getName());
+
+            if (name.equals(CACHE_NAME_CFG_ENUM_FIELD) ||
+                name.equals(CACHE_NAME_CFG_ENUM_FIELD_IDX))
+                entity.setValueType(Object.class.getName());
+            else
+                entity.setValueType(Star.class.getName());
 
             LinkedHashMap<String, String> fields = new LinkedHashMap<>();
 
@@ -287,9 +293,9 @@ public class IgniteSqlQueryEnumTest extends GridCommonAbstractTest {
      * Test that SQL table can use enums fields
      */
     public void testSqlQueryEnumFieldUnavailableClass() throws Exception {
-        IgniteCache<Integer, Star> cache = grid("client").cache(CACHE_NAME_CFG_ENUM_FIELD).withKeepBinary();
+        IgniteCache<Integer, Object> cache = grid("client").cache(CACHE_NAME_CFG_ENUM_FIELD).withKeepBinary();
 
-        cache.query(new SqlFieldsQuery("insert into Star (_key, name, color) values (?, ?, ?), (?, ?, ?), (?, ?, ?), (?, ?, ?), (?, ?, ?)")
+        cache.query(new SqlFieldsQuery("insert into Object (_key, name, color) values (?, ?, ?), (?, ?, ?), (?, ?, ?), (?, ?, ?), (?, ?, ?)")
                 .setArgs(Color.BLACK.ordinal(), "Black Hole", Color.BLACK.name(),
                         Color.WHITE.ordinal(), "White Hole", Color.WHITE.ordinal(),
                         Color.RED.ordinal(), "Achenar", Color.RED.name(),
@@ -297,22 +303,22 @@ public class IgniteSqlQueryEnumTest extends GridCommonAbstractTest {
                         Color.BLUE.ordinal(), "Rigel", Color.BLUE.ordinal()
                 ));
 
-        List<List<?>> result = cache.query(new SqlFieldsQuery("select _key from Star where color = ?").setArgs(Color.BLUE.name())).getAll();
+        List<List<?>> result = cache.query(new SqlFieldsQuery("select _key from Object where color = ?").setArgs(Color.BLUE.name())).getAll();
         assertEquals(Color.BLUE.ordinal(), ((Number) result.get(0).get(0)).intValue());
 
-        result = cache.query(new SqlFieldsQuery("select color from Star where name='Antares B'")).getAll();
+        result = cache.query(new SqlFieldsQuery("select color from Object where name='Antares B'")).getAll();
         assertEquals(Color.GREEN.ordinal(), ((BinaryObject)result.get(0).get(0)).enumOrdinal());
 
-        result = cache.query(new SqlFieldsQuery("select _key from Star where color='GREEN'")).getAll();
+        result = cache.query(new SqlFieldsQuery("select _key from Object where color='GREEN'")).getAll();
         assertEquals(Color.GREEN.ordinal(), result.get(0).get(0));
 
 
-        result = cache.query(new SqlFieldsQuery("select _key from Star where color=3")).getAll();
+        result = cache.query(new SqlFieldsQuery("select _key from Object where color=3")).getAll();
         assertEquals(Color.GREEN.ordinal(), result.get(0).get(0));
 
         //update
-        cache.query(new SqlFieldsQuery("update Star set color='RED' where color=3")).getAll();
-        result = cache.query(new SqlFieldsQuery("select color from Star where name='Antares B'")).getAll();
+        cache.query(new SqlFieldsQuery("update Object set color='RED' where color=3")).getAll();
+        result = cache.query(new SqlFieldsQuery("select color from Object where name='Antares B'")).getAll();
         assertEquals(Color.RED.ordinal(), ((BinaryObject)result.get(0).get(0)).enumOrdinal());
 
     }

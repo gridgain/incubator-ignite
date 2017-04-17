@@ -1943,6 +1943,9 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
             case BINARY_ENUM:
                 obj = BinaryUtils.doReadBinaryEnum(in, ctx);
 
+                if (!GridBinaryMarshaller.KEEP_BINARIES.get())
+                    obj = ((BinaryObject)obj).deserialize();
+
                 break;
             case CLASS:
                 obj = BinaryUtils.doReadClass(in, ctx, ldr);

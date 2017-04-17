@@ -24,8 +24,8 @@ import org.apache.ignite.internal.binary.BinaryEnumObjectImpl;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.CacheObjectImpl;
-import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObjectImpl;
+import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2ValueCacheObject;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2ValueEnum;
 import org.h2.api.CustomDataTypesHandler;
@@ -34,7 +34,6 @@ import org.h2.message.DbException;
 import org.h2.store.DataHandler;
 import org.h2.value.DataType;
 import org.h2.value.Value;
-import org.h2.util.JdbcUtils;
 import org.h2.value.ValueJavaObject;
 import org.jsr166.ConcurrentHashMap8;
 
@@ -51,19 +50,13 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
     private static ConcurrentMap<String, EnumDataType> dataTypesByName = new ConcurrentHashMap8<>();
     /** */
     private static ConcurrentMap<String, EnumDataType> dataTypesByClassName = new ConcurrentHashMap8<>();
+
     /** */
     private final static int INVALID_TYPE_ID_RANGE_BEGIN = -1;
     /** */
     private final static int INVALID_TYPE_ID_RANGE_END = 100;
     /** */
     private final static int ENUM_ORDER = 100_000;
-    /** */
-    private GridKernalContext ctx;
-
-    /** */
-    public GridH2CustomDataTypesHandler(GridKernalContext ctx) {
-        this.ctx = ctx;
-    }
 
     /**
      * Register enum type.
@@ -142,18 +135,22 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
         if (typeId == Value.UNKNOWN)
             return ValueJavaObject.getNoCopy(data, null, dataHandler);
 
+        GridH2QueryContext qryCtx = GridH2QueryContext.get();
+        assert qryCtx.get() != null;
+
+        GridKernalContext ctx = qryCtx.get().kernalContext();
         try {
             if (data instanceof Integer)
-                return fromOrdinal(typeId, (Integer) data);
+                return fromOrdinal(ctx, typeId, (Integer) data);
 
             if (data instanceof String)
-                return fromName(typeId, (String) data);
+                return fromName(ctx, typeId, (String) data);
 
             if (data instanceof Enum)
-                return fromEnum(typeId, (Enum)data);
+                return fromEnum(ctx, typeId, (Enum)data);
 
             if (data instanceof BinaryEnumObjectImpl)
-                return fromBinaryEnum(typeId, (BinaryEnumObjectImpl)data);
+                return fromBinaryEnum(ctx, typeId, (BinaryEnumObjectImpl)data);
         } catch (IgniteCheckedException ex) {
             throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, ex);
         }
@@ -177,6 +174,18 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
 
     /** {@inheritDoc} */
     @Override public Value convert(Value source, int targetType) {
+        return convert(GridH2QueryContext.get().kernalContext(), source, targetType);
+    }
+
+    /**
+     * Converts {@link org.h2.value.Value} to specified type.
+     *
+     * @param ctx Kernal context.
+     * @param source Source value.
+     * @param targetType Target value type.
+     * @return Result.
+     */
+    private Value convert(GridKernalContext ctx, Value source, int targetType) {
         if (source.getType() == targetType)
             return source;
 
@@ -187,19 +196,24 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
             try {
                 switch (source.getType()) {
                     case Value.INT:
-                        return fromOrdinal(targetType, source.getInt());
+                        return fromOrdinal(ctx, targetType, source.getInt());
                     case Value.STRING:
-                        return fromName(targetType, source.getString());
+                        return fromName(ctx, targetType, source.getString());
                     case Value.JAVA_OBJECT:
-                            if (source instanceof GridH2ValueCacheObject) {
-                                CacheObject cacheObject = (CacheObject)source.getObject();
-                                if (cacheObject instanceof BinaryEnumObjectImpl)
-                                    return fromBinaryEnum(targetType, (BinaryEnumObjectImpl)cacheObject);
-                            } else {
-                                Object obj = JdbcUtils.deserialize(source.getBytesNoCopy(), null);
-                                if (obj instanceof Enum)
-                                    return fromEnum(targetType, (Enum)obj);
-                            }
+                        if (source instanceof GridH2ValueCacheObject) {
+                            CacheObject cacheObject = (CacheObject)source.getObject();
+                            if (cacheObject instanceof BinaryEnumObjectImpl)
+                                return fromBinaryEnum(ctx, targetType, (BinaryEnumObjectImpl)cacheObject);
+                        }
+                        else {
+                            Object obj = source.getObject();
+
+                            if (obj instanceof BinaryEnumObjectImpl)
+                                return fromBinaryEnum(ctx, targetType, (BinaryEnumObjectImpl)obj);
+
+                            if (obj instanceof Enum)
+                                return fromEnum(ctx, targetType, (Enum)obj);
+                        }
                 }
             }
             catch (IgniteCheckedException ex) {
@@ -208,6 +222,21 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
         }
 
         throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, "type:" + targetType);
+    }
+
+    /**
+     * Converts {@link org.h2.value.Value} to specified type.
+     *
+     * @param ctx Kernal context.
+     * @param source Source value.
+     * @param targetType Target value type.
+     * @return Result.
+     */
+    public Value convertValue(GridKernalContext ctx, Value source, int targetType) {
+        if (dataTypesById.get(targetType) != null)
+            return convert(ctx, source, targetType);
+
+        return source.convertTo(targetType);
     }
 
     /**
@@ -234,10 +263,10 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
             obj = ((CacheObjectImpl)obj).value(cctx, false);
 
         if (obj instanceof BinaryEnumObjectImpl)
-            return fromBinaryEnum(type, (BinaryEnumObjectImpl)obj);
+            return fromBinaryEnum(cctx.kernalContext(), type, (BinaryEnumObjectImpl)obj);
 
         if (obj instanceof Enum)
-            return fromEnum(type, (Enum)obj);
+            return fromEnum(cctx.kernalContext(), type, (Enum)obj);
 
         return getValue(type, obj, null);
     }
@@ -249,7 +278,7 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
      * @param ord Enum ordinal value.
      * @return Enum Value.
      */
-    private Value fromOrdinal(int type, int ord) {
+    private Value fromOrdinal(GridKernalContext ctx, int type, int ord) {
         return new GridH2ValueEnum(ctx, type, ord, null, null);
     }
 
@@ -261,7 +290,7 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
      * @return Enum Value.
      * @throws IgniteCheckedException
      */
-    private Value fromName(int type, String name) throws IgniteCheckedException {
+    private Value fromName(GridKernalContext ctx, int type, String name) throws IgniteCheckedException {
         int ord = ctx.cacheObjects().binary().type(type).enumMetadata().getOrdinalByName(name);
         return new GridH2ValueEnum(ctx, type, ord, name, null);
     }
@@ -273,7 +302,7 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
      * @return Enum Value.
      * @throws IgniteCheckedException
      */
-    private Value fromEnum(int type, Enum obj) throws IgniteCheckedException {
+    private Value fromEnum(GridKernalContext ctx, int type, Enum obj) throws IgniteCheckedException {
         if (ctx.cacheObjects().binary().typeId(obj.getClass().getName()) == type)
             return new GridH2ValueEnum(ctx, type, obj.ordinal(), obj.name(), null);
 
@@ -288,7 +317,7 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
      * @return Enum Value.
      * @throws IgniteCheckedException
      */
-    private Value fromBinaryEnum(int type, BinaryEnumObjectImpl binEnum) throws IgniteCheckedException {
+    private Value fromBinaryEnum(GridKernalContext ctx, int type, BinaryEnumObjectImpl binEnum) throws IgniteCheckedException {
         if (binEnum.typeId() == type)
             return new GridH2ValueEnum(ctx, type, binEnum.enumOrdinal(), null, binEnum);
 

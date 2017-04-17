@@ -267,6 +267,7 @@ public class BinaryUtils {
         FIELD_TYPE_NAMES[GridBinaryMarshaller.TIME_ARR] = "Time[]";
         FIELD_TYPE_NAMES[GridBinaryMarshaller.OBJ_ARR] = "Object[]";
         FIELD_TYPE_NAMES[GridBinaryMarshaller.ENUM_ARR] = "Enum[]";
+        FIELD_TYPE_NAMES[GridBinaryMarshaller.BINARY_ENUM] = "Enum";
 
         if (wrapTrees()) {
             CLS_TO_WRITE_REPLACER.put(TreeMap.class, new BinaryTreeMapWriteReplacer());
@@ -1918,15 +1919,14 @@ public class BinaryUtils {
                 return doReadBinaryObject(in, ctx);
 
             case GridBinaryMarshaller.ENUM:
-                return doReadEnum(in, doReadClass(in, ctx, ldr));
+            case GridBinaryMarshaller.BINARY_ENUM:
+                return doReadBinaryEnum(in, ctx, doReadEnumType(in));
 
             case GridBinaryMarshaller.ENUM_ARR:
                 doReadEnumType(in); // Simply skip this part as we do not need it.
 
                 return doReadBinaryEnumArray(in, ctx);
 
-            case GridBinaryMarshaller.BINARY_ENUM:
-                return doReadBinaryEnum(in, ctx, doReadEnumType(in));
             case GridBinaryMarshaller.CLASS:
                 return doReadClass(in, ctx, ldr);
 
