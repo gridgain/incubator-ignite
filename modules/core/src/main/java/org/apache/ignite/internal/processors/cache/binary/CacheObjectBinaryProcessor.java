@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteBinary;
+import org.apache.ignite.binary.EnumMetadata;
 import org.apache.ignite.internal.binary.BinaryFieldMetadata;
 import org.apache.ignite.internal.processors.cacheobject.IgniteCacheObjectProcessor;
 import org.apache.ignite.binary.BinaryObjectBuilder;
@@ -62,7 +63,7 @@ public interface CacheObjectBinaryProcessor extends IgniteCacheObjectProcessor {
      * @throws IgniteException In case of error.
      */
     public void updateMetadata(int typeId, String typeName, @Nullable String affKeyFieldName,
-        Map<String, BinaryFieldMetadata> fieldTypeIds, boolean isEnum) throws IgniteException;
+        Map<String, BinaryFieldMetadata> fieldTypeIds, boolean isEnum, EnumMetadata enumMetadata) throws IgniteException;
 
     /**
      * @param typeId Type ID.

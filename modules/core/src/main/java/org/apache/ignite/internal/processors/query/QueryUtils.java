@@ -297,7 +297,7 @@ public class QueryUtils {
 
         return new QueryTypeCandidate(typeId, altTypeId, desc);
     }
-    
+
     /**
      * Processes declarative metadata for class.
      *
@@ -365,7 +365,7 @@ public class QueryUtils {
             d.addProperty(prop, false);
         }
     }
-    
+
     /**
      * @param d Type descriptor.
      * @param keyCls Key class.
@@ -425,7 +425,7 @@ public class QueryUtils {
                 d.addFieldToIndex(idxName, propName, idxOrder, 0, idxType == IndexType.DESC);
         }
     }
-    
+
     /**
      * Processes declarative metadata for binary object.
      *
@@ -443,7 +443,7 @@ public class QueryUtils {
             aliases = Collections.emptyMap();
 
         for (Map.Entry<String, Class<?>> entry : meta.getAscendingFields().entrySet()) {
-            QueryBinaryProperty prop = buildBinaryProperty(ctx, entry.getKey(), entry.getValue(), aliases, null);
+            QueryBinaryProperty prop = buildBinaryProperty(ctx, entry.getKey(), entry.getValue().getName(), entry.getValue(), aliases, null);
 
             d.addProperty(prop, false);
 
@@ -455,7 +455,7 @@ public class QueryUtils {
         }
 
         for (Map.Entry<String, Class<?>> entry : meta.getDescendingFields().entrySet()) {
-            QueryBinaryProperty prop = buildBinaryProperty(ctx, entry.getKey(), entry.getValue(), aliases, null);
+            QueryBinaryProperty prop = buildBinaryProperty(ctx, entry.getKey(), entry.getValue().getName(), entry.getValue(), aliases, null);
 
             d.addProperty(prop, false);
 
@@ -467,7 +467,7 @@ public class QueryUtils {
         }
 
         for (String txtIdx : meta.getTextFields()) {
-            QueryBinaryProperty prop = buildBinaryProperty(ctx, txtIdx, String.class, aliases, null);
+            QueryBinaryProperty prop = buildBinaryProperty(ctx, txtIdx, String.class.getName(), String.class, aliases, null);
 
             d.addProperty(prop, false);
 
@@ -485,7 +485,7 @@ public class QueryUtils {
                 int order = 0;
 
                 for (Map.Entry<String, IgniteBiTuple<Class<?>, Boolean>> idxField : idxFields.entrySet()) {
-                    QueryBinaryProperty prop = buildBinaryProperty(ctx, idxField.getKey(), idxField.getValue().get1(),
+                    QueryBinaryProperty prop = buildBinaryProperty(ctx, idxField.getKey(), idxField.getValue().get1().getName(), idxField.getValue().get1(),
                         aliases, null);
 
                     d.addProperty(prop, false);
@@ -500,13 +500,13 @@ public class QueryUtils {
         }
 
         for (Map.Entry<String, Class<?>> entry : meta.getQueryFields().entrySet()) {
-            QueryBinaryProperty prop = buildBinaryProperty(ctx, entry.getKey(), entry.getValue(), aliases, null);
+            QueryBinaryProperty prop = buildBinaryProperty(ctx, entry.getKey(), entry.getValue().getName(), entry.getValue(), aliases, null);
 
             if (!d.properties().containsKey(prop.name()))
                 d.addProperty(prop, false);
         }
     }
-    
+
     /**
      * Processes declarative metadata for binary object.
      *
@@ -549,7 +549,7 @@ public class QueryUtils {
             else
                 isKeyField = (hasKeyFields ? keyFields.contains(entry.getKey()) : null);
 
-            QueryBinaryProperty prop = buildBinaryProperty(ctx, entry.getKey(),
+            QueryBinaryProperty prop = buildBinaryProperty(ctx, entry.getKey(), entry.getValue(),
                 U.classForName(entry.getValue(), Object.class, true), aliases, isKeyField);
 
             d.addProperty(prop, false);
@@ -557,7 +557,7 @@ public class QueryUtils {
 
         processIndexes(qryEntity, d);
     }
-    
+
     /**
      * Processes declarative metadata for binary object.
      *
@@ -586,7 +586,7 @@ public class QueryUtils {
 
         processIndexes(qryEntity, d);
     }
-    
+
     /**
      * Processes indexes based on query entity.
      *
@@ -644,21 +644,22 @@ public class QueryUtils {
             }
         }
     }
-    
+
     /**
      * Builds binary object property.
      *
      * @param ctx Kernal context.
      * @param pathStr String representing path to the property. May contains dots '.' to identify
      *      nested fields.
+     * @param userTypeName Type name.
      * @param resType Result type.
      * @param aliases Aliases.
      * @param isKeyField Key ownership flag, as defined in {@link QueryEntity#keyFields}: {@code true} if field belongs
      *      to key, {@code false} if it belongs to value, {@code null} if QueryEntity#keyFields is null.
      * @return Binary property.
      */
-    public static QueryBinaryProperty buildBinaryProperty(GridKernalContext ctx, String pathStr, Class<?> resType,
-        Map<String, String> aliases, @Nullable Boolean isKeyField) throws IgniteCheckedException {
+    public static QueryBinaryProperty buildBinaryProperty(GridKernalContext ctx, String pathStr, String userTypeName,
+        Class<?> resType, Map<String, String> aliases, @Nullable Boolean isKeyField) throws IgniteCheckedException {
         String[] path = pathStr.split("\\.");
 
         QueryBinaryProperty res = null;
@@ -674,12 +675,12 @@ public class QueryUtils {
             String alias = aliases.get(fullName.toString());
 
             // The key flag that we've found out is valid for the whole path.
-            res = new QueryBinaryProperty(ctx, prop, res, resType, isKeyField, alias);
+            res = new QueryBinaryProperty(ctx, prop, res, userTypeName, resType, isKeyField, alias);
         }
 
         return res;
     }
-    
+
     /**
      * @param keyCls Key class.
      * @param valCls Value class.
@@ -723,7 +724,7 @@ public class QueryUtils {
             resType.getName() + "' for key class '" + keyCls + "' and value class '" + valCls + "'. " +
             "Make sure that one of these classes contains respective getter method or field.";
     }
-    
+
     /**
      * @param key If this is a key property.
      * @param cls Source type class.
@@ -768,7 +769,7 @@ public class QueryUtils {
 
         return res;
     }
-    
+
     /**
      * Find a member (either a getter method or a field) with given name of given class.
      * @param prop Property name.
@@ -999,5 +1000,5 @@ public class QueryUtils {
         /** Text index. */
         TEXT
     }
-    
+
 }

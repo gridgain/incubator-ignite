@@ -79,4 +79,9 @@ public interface BinaryType {
      * @return {@code True} if type is enum.
      */
     public boolean isEnum();
+
+    /**
+     * @return Enum metadata.
+     */
+    public EnumMetadata enumMetadata();
 }
