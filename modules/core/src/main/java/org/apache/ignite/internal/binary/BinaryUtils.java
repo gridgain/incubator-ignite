@@ -57,7 +57,6 @@ import org.apache.ignite.binary.BinaryRawReader;
 import org.apache.ignite.binary.BinaryRawWriter;
 import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.Binarylizable;
-import org.apache.ignite.binary.EnumMetadata;
 import org.apache.ignite.internal.binary.builder.BinaryLazyValue;
 import org.apache.ignite.internal.binary.streams.BinaryInputStream;
 import org.apache.ignite.internal.util.typedef.F;
@@ -965,12 +964,15 @@ public class BinaryUtils {
                         newMeta.typeName());
             }
 
-            EnumMetadata mergedEnumMeta = null;
-            if (newMeta.enumMetadata() != null) {
-                if (oldMeta.enumMetadata() == null)
-                    mergedEnumMeta = newMeta.enumMetadata();
-                else
-                    mergedEnumMeta = oldMeta.enumMetadata().merge(newMeta.enumMetadata());
+            Map<Integer, String> mergedEnumMap = null;
+            if (!F.isEmpty(newMeta.enumMap())) {
+                if (F.isEmpty(oldMeta.enumMap()))
+                    mergedEnumMap = newMeta.enumMap();
+                else {
+                    mergedEnumMap = new LinkedHashMap<>(oldMeta.enumMap());
+                    for (Map.Entry<Integer, String> e: newMeta.enumMap().entrySet())
+                        mergedEnumMap.put(e.getKey(), e.getValue());
+                }
             }
 
             // Check and merge fields.
@@ -1015,7 +1017,7 @@ public class BinaryUtils {
 
             // Return either old meta if no changes detected, or new merged meta.
             return changed ? new BinaryMetadata(oldMeta.typeId(), oldMeta.typeName(), mergedFields,
-                oldMeta.affinityKeyFieldName(), mergedSchemas, oldMeta.isEnum(), mergedEnumMeta) : oldMeta;
+                oldMeta.affinityKeyFieldName(), mergedSchemas, oldMeta.isEnum(), mergedEnumMap) : oldMeta;
         }
     }
 

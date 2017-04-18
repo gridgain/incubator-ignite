@@ -40,8 +40,6 @@ import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryReflectiveSerializer;
 import org.apache.ignite.binary.BinarySerializer;
 import org.apache.ignite.binary.Binarylizable;
-import org.apache.ignite.binary.EnumMetadata;
-import org.apache.ignite.binary.EnumMetadataImpl;
 import org.apache.ignite.internal.processors.cache.CacheObjectImpl;
 import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -126,8 +124,8 @@ public class BinaryClassDescriptor {
     /** Whether stable schema was published. */
     private volatile boolean stableSchemaPublished;
 
-    /** Enum metadata */
-    private EnumMetadata enumMetadata;
+    /** Enum ordinal to name mapping */
+    private Map<Integer, String> enumMap;
 
     /**
      * @param ctx Context.
@@ -202,8 +200,12 @@ public class BinaryClassDescriptor {
                 "BinaryTypeConfiguration.setSerializer() method.");
         }
 
-        if (cls.isEnum())
-            enumMetadata = new EnumMetadataImpl(cls);
+        if (cls.isEnum()) {
+            Object[] constants = cls.getEnumConstants();
+            enumMap = new LinkedHashMap<>(constants.length);
+            for (Object o: constants)
+                enumMap.put(((Enum)o).ordinal(), ((Enum)o).name());
+        }
 
         switch (mode) {
             case P_BYTE:
@@ -411,10 +413,10 @@ public class BinaryClassDescriptor {
     }
 
     /**
-     * @return Enum metadata.
+     * @return Enum ordinal to name mapping.
      */
-    public EnumMetadata enumMetadata() {
-        return enumMetadata;
+    public Map<Integer, String> enumMap() {
+        return enumMap;
     }
 
     /**

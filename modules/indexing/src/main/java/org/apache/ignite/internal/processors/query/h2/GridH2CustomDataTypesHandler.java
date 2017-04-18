@@ -21,10 +21,12 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.binary.BinaryEnumObjectImpl;
+import org.apache.ignite.internal.binary.BinaryMetadata;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.CacheObjectImpl;
 import org.apache.ignite.internal.processors.cache.KeyCacheObjectImpl;
+import org.apache.ignite.internal.processors.cache.binary.CacheObjectBinaryProcessorImpl;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2ValueCacheObject;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2ValueEnum;
@@ -291,7 +293,11 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
      * @throws IgniteCheckedException
      */
     private Value fromName(GridKernalContext ctx, int type, String name) throws IgniteCheckedException {
-        int ord = ctx.cacheObjects().binary().type(type).enumMetadata().getOrdinalByName(name);
+        BinaryMetadata binMeta = ((CacheObjectBinaryProcessorImpl)ctx.cacheObjects()).metadata0(type);
+        Integer ord = binMeta.getEnumOrdinalByName(name);
+        if (ord == null)
+            throw new IgniteCheckedException("Unable to resolve enum constant ordinal [typeId=" +
+                type + ", typeName='" + binMeta.typeName() + "', name='" + name + "']");
         return new GridH2ValueEnum(ctx, type, ord, name, null);
     }
 

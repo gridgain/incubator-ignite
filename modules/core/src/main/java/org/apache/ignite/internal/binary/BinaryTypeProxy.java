@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.binary;
 
 import org.apache.ignite.binary.BinaryField;
+import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryType;
-import org.apache.ignite.binary.EnumMetadata;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
@@ -94,9 +94,11 @@ public class BinaryTypeProxy implements BinaryType {
     }
 
     /** {@inheritDoc} */
-    @Override public EnumMetadata enumMetadata() {
-        return target().enumMetadata();
+    @Override public Collection<BinaryObject> enumValues() {
+        return target().enumValues();
     }
+
+
     /**
      * @return Target type.
      */

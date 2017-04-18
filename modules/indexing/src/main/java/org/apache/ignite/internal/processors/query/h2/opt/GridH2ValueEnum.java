@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.processors.query.h2.opt;
 
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.binary.BinaryMetadata;
 import org.apache.ignite.internal.processors.cache.CacheObject;
-import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.processors.cache.binary.CacheObjectBinaryProcessorImpl;
 import org.h2.api.ErrorCode;
 import org.h2.message.DbException;
 import org.h2.util.JdbcUtils;
@@ -96,17 +96,16 @@ public class GridH2ValueEnum extends Value {
         if (name != null)
             return name;
 
-        BinaryType binaryType = ctx.cacheObjects().binary().type(type);
-        if (binaryType == null || binaryType.enumMetadata() == null)
+        BinaryMetadata binMeta = ((CacheObjectBinaryProcessorImpl)ctx.cacheObjects()).metadata0(type);
+        if (binMeta == null || !binMeta.isEnum())
             throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1,
                     new IgniteCheckedException("Cannot get enum string representation. " +
                             "Unknown enum type " + type));
 
-        try {
-            name = binaryType.enumMetadata().getNameByOrdinal(ordinal);
-        } catch (Exception e) {
-            throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, e);
-        }
+        name = binMeta.getEnumNameByOrdinal(ordinal);
+        if (name == null)
+            throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, "Unable to resolve enum constant name [typeId=" +
+                type + ", typeName='" + binMeta.typeName() + "', ordinal=" + ordinal + "]");
 
         return name;
     }
@@ -116,14 +115,13 @@ public class GridH2ValueEnum extends Value {
         if (obj != null)
             return obj;
 
-        String typeName = ctx.cacheObjects().binary().type(type).typeName();
-        if (F.isEmpty(typeName))
-            throw DbException.get(
-                    ErrorCode.DATA_CONVERSION_ERROR_1,
+        BinaryMetadata binMeta = ((CacheObjectBinaryProcessorImpl)ctx.cacheObjects()).metadata0(type);
+        if (binMeta == null || !binMeta.isEnum())
+            throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1,
                     new IgniteCheckedException("Cannot get enum object representation. " +
-                            "Cannot find typename"));
+                            "Unknown enum type " + type));
 
-        obj = (CacheObject)ctx.cacheObjects().binary().buildEnum(typeName, ordinal);
+        obj = (CacheObject)ctx.cacheObjects().binary().buildEnum(binMeta.typeName(), ordinal);
         return obj;
     }
 

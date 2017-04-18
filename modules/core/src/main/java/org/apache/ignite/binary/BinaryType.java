@@ -81,7 +81,7 @@ public interface BinaryType {
     public boolean isEnum();
 
     /**
-     * @return Enum metadata.
+     * @return Collection of enum values.
      */
-    public EnumMetadata enumMetadata();
+    public Collection<BinaryObject> enumValues();
 }

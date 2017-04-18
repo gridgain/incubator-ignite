@@ -78,6 +78,11 @@ public abstract class BinaryObjectExImpl implements BinaryObjectEx {
         throw new BinaryObjectException("Object is not enum.");
     }
 
+    /** {@inheritDoc} */
+    @Override public String enumName() throws BinaryObjectException {
+        throw new BinaryObjectException("Object is not enum.");
+    }
+
     /**
      * Get offset of data begin.
      *

@@ -32,8 +32,6 @@ import org.apache.ignite.binary.BinaryReflectiveSerializer;
 import org.apache.ignite.binary.BinarySerializer;
 import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.BinaryTypeConfiguration;
-import org.apache.ignite.binary.EnumMetadata;
-import org.apache.ignite.binary.EnumMetadataImpl;
 import org.apache.ignite.cache.CacheKeyConfiguration;
 import org.apache.ignite.cache.affinity.AffinityKey;
 import org.apache.ignite.cache.affinity.AffinityKeyMapped;
@@ -475,7 +473,7 @@ public class BinaryContext {
 
         for (TypeDescriptor desc : descs.descriptors())
             registerUserType(desc.clsName, desc.mapper, desc.serializer, desc.identity, desc.affKeyFieldName,
-                desc.isEnum, desc.enumMetadata);
+                desc.isEnum, desc.enumMap);
 
         BinaryInternalMapper globalMapper = resolveMapper(globalNameMapper, globalIdMapper);
 
@@ -654,7 +652,7 @@ public class BinaryContext {
                         desc0.fieldsMeta(),
                         desc0.affFieldKeyName(),
                         schemas, desc0.isEnum(),
-                        desc0.enumMetadata());
+                        desc0.enumMap());
 
                     metaHnd.addMeta(desc0.typeId(), meta.wrap(this));
 
@@ -805,7 +803,7 @@ public class BinaryContext {
 
         if (!deserialize)
             metaHnd.addMeta(typeId,
-                new BinaryMetadata(typeId, typeName, desc.fieldsMeta(), affFieldName, null, desc.isEnum(), desc.enumMetadata()).wrap(this));
+                new BinaryMetadata(typeId, typeName, desc.fieldsMeta(), affFieldName, null, desc.isEnum(), desc.enumMap()).wrap(this));
 
         descByCls.put(cls, desc);
 
@@ -1100,7 +1098,7 @@ public class BinaryContext {
      * @param identity Type identity.
      * @param affKeyFieldName Affinity key field name.
      * @param isEnum If enum.
-     * @param enumMetadata Metadata for enum.
+     * @param enumMap Enum ordinal to name mapping.
      * @throws BinaryObjectException In case of error.
      */
     @SuppressWarnings("ErrorNotRethrown")
@@ -1110,7 +1108,7 @@ public class BinaryContext {
         @Nullable BinaryIdentityResolver identity,
         @Nullable String affKeyFieldName,
         boolean isEnum,
-        @Nullable EnumMetadata enumMetadata)
+        @Nullable Map<Integer, String> enumMap)
         throws BinaryObjectException {
         assert mapper != null;
 
@@ -1179,7 +1177,7 @@ public class BinaryContext {
             predefinedTypes.put(id, desc);
         }
 
-        metaHnd.addMeta(id, new BinaryMetadata(id, typeName, fieldsMeta, affKeyFieldName, null, isEnum, enumMetadata).wrap(this));
+        metaHnd.addMeta(id, new BinaryMetadata(id, typeName, fieldsMeta, affKeyFieldName, null, isEnum, enumMap).wrap(this));
     }
 
     /**
@@ -1435,8 +1433,8 @@ public class BinaryContext {
         /** Enum flag. */
         private boolean isEnum;
 
-        /** Enum metadata */
-        private EnumMetadata enumMetadata;
+        /** Enum ordinal to name mapping. */
+        private Map<Integer, String> enumMap;
 
         /** Whether this descriptor can be override. */
         private boolean canOverride;
@@ -1461,7 +1459,7 @@ public class BinaryContext {
             this.identity = identity;
             this.affKeyFieldName = affKeyFieldName;
             this.isEnum = isEnum;
-            this.enumMetadata = enumNames != null ? new EnumMetadataImpl(clsName, enumNames) : null;
+            this.enumMap = enumNames;
             this.canOverride = canOverride;
         }
 
@@ -1480,7 +1478,7 @@ public class BinaryContext {
                 identity = other.identity;
                 affKeyFieldName = other.affKeyFieldName;
                 isEnum = other.isEnum;
-                enumMetadata = other.enumMetadata;
+                enumMap = other.enumMap;
                 canOverride = other.canOverride;
             }
             else if (!other.canOverride)

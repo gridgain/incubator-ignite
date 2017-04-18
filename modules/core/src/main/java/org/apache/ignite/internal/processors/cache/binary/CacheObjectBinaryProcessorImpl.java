@@ -36,7 +36,6 @@ import org.apache.ignite.binary.BinaryObjectBuilder;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.BinaryTypeConfiguration;
-import org.apache.ignite.binary.EnumMetadata;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.BinaryConfiguration;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -404,8 +403,8 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
 
     /** {@inheritDoc} */
     @Override public void updateMetadata(int typeId, String typeName, @Nullable String affKeyFieldName,
-        Map<String, BinaryFieldMetadata> fieldTypeIds, boolean isEnum, EnumMetadata enumMetadata) throws BinaryObjectException {
-        BinaryMetadata meta = new BinaryMetadata(typeId, typeName, fieldTypeIds, affKeyFieldName, null, isEnum, enumMetadata);
+        Map<String, BinaryFieldMetadata> fieldTypeIds, boolean isEnum, @Nullable Map<Integer, String> enumMap) throws BinaryObjectException {
+        BinaryMetadata meta = new BinaryMetadata(typeId, typeName, fieldTypeIds, affKeyFieldName, null, isEnum, enumMap);
 
         binaryCtx.updateMetadata(typeId, meta);
     }
@@ -438,6 +437,14 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
 
     /** {@inheritDoc} */
     @Nullable @Override public BinaryType metadata(final int typeId) {
+        BinaryMetadata metadata = metadata0(typeId);
+        if (metadata != null)
+            return metadata.wrap(binaryCtx);
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Nullable public BinaryMetadata metadata0(final int typeId) {
         BinaryMetadataHolder holder = metadataLocCache.get(typeId);
 
         if (holder == null) {
@@ -465,11 +472,13 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
                 }
             }
 
-            return holder.metadata().wrap(binaryCtx);
+            return holder.metadata();
         }
         else
             return null;
     }
+
+
 
     /** {@inheritDoc} */
     @Nullable @Override public BinaryType metadata(final int typeId, final int schemaId) {

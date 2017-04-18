@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.binary;
 
+import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryType;
 
 import java.util.Collection;
 
-import org.apache.ignite.binary.EnumMetadata;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
@@ -82,6 +82,11 @@ public class BinaryTypeImpl implements BinaryType {
         return meta.isEnum();
     }
 
+    /** {@inheritDoc} */
+    @Override public Collection<BinaryObject> enumValues() {
+        return null;
+    }
+
     /**
      * @return Context.
      */
@@ -94,13 +99,6 @@ public class BinaryTypeImpl implements BinaryType {
      */
     public BinaryMetadata metadata() {
         return meta;
-    }
-
-    /**
-     * @return Enum metadata.
-     */
-    public EnumMetadata enumMetadata() {
-        return meta.enumMetadata();
     }
 
     /** {@inheritDoc} */

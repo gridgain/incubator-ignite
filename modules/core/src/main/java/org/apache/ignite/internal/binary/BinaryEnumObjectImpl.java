@@ -186,6 +186,16 @@ public class BinaryEnumObjectImpl implements BinaryObjectEx, Externalizable, Cac
         return ord;
     }
 
+    @Override
+    public String enumName() throws BinaryObjectException {
+        BinaryTypeImpl binTypeImpl = (BinaryTypeImpl)ctx.metadata(typeId);
+        String name = binTypeImpl.metadata().getEnumNameByOrdinal(ord);
+        if (name == null)
+            throw new BinaryObjectException("Unable to resolve enum constant name [typeId=" +
+                    typeId + ", typeName='" + binTypeImpl.typeName() + "', ordinal=" + ord + "]");
+        return name;
+    }
+
     /** {@inheritDoc} */
     @Override public int hashCode() {
         return 31 * typeId + ord;
