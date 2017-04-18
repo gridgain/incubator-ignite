@@ -39,16 +39,16 @@ import java.util.List;
  * Allows to have 'free' index for alias columns
  * Delegates the calls to underlying normal index
  */
-public class GridH2ProxyIndexHandle extends BaseIndex {
+public class GridH2ProxyIndex extends BaseIndex {
 
     /** Underlying normal index */
     private Index idx;
 
     /** */
-    public GridH2ProxyIndexHandle(GridH2Table tbl,
-                                  String name,
-                                  List<IndexColumn> colsList,
-                                  Index idx) {
+    public GridH2ProxyIndex(GridH2Table tbl,
+                            String name,
+                            List<IndexColumn> colsList,
+                            Index idx) {
 
         IndexColumn[] cols = colsList.toArray(new IndexColumn[colsList.size()]);
 
@@ -81,7 +81,8 @@ public class GridH2ProxyIndexHandle extends BaseIndex {
 
     /** {@inheritDoc} */
     @Override public Cursor find(Session session, SearchRow first, SearchRow last) {
-        return idx.find(session, first, last);
+        GridH2RowDescriptor desc = ((GridH2Table)idx.getTable()).rowDescriptor();
+        return idx.find(session, desc.prepareProxyIndexRow(first), desc.prepareProxyIndexRow(last));
     }
 
     /** {@inheritDoc} */

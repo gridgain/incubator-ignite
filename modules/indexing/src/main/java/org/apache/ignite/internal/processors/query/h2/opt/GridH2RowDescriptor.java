@@ -28,6 +28,7 @@ import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
 import org.apache.ignite.internal.util.offheap.unsafe.GridOffHeapSmartPointerFactory;
 import org.apache.ignite.internal.util.offheap.unsafe.GridUnsafeGuard;
 import org.apache.ignite.internal.util.offheap.unsafe.GridUnsafeMemory;
+import org.h2.result.SearchRow;
 import org.h2.value.Value;
 import org.jetbrains.annotations.Nullable;
 
@@ -216,4 +217,13 @@ public interface GridH2RowDescriptor extends GridOffHeapSmartPointerFactory<Grid
      * @param version Version.
      */
     public void initValueCache(Value valCache[], Value key, Value value, Value version);
+
+    /**
+     * Clones provided row and copies values of alias key and val columns
+     * into respective key and val positions.
+     *
+     * @param row Source row.
+     * @return Result.
+     */
+    public SearchRow prepareProxyIndexRow(SearchRow row);
 }

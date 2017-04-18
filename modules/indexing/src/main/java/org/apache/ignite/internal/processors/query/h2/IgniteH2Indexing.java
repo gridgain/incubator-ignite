@@ -113,7 +113,7 @@ import org.apache.ignite.internal.processors.query.h2.opt.GridH2DefaultTableEngi
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2IndexBase;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2KeyValueRowOffheap;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2KeyValueRowOnheap;
-import org.apache.ignite.internal.processors.query.h2.opt.GridH2ProxyIndexHandle;
+import org.apache.ignite.internal.processors.query.h2.opt.GridH2ProxyIndex;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Row;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RowDescriptor;
@@ -166,6 +166,8 @@ import org.h2.jdbc.JdbcPreparedStatement;
 import org.h2.jdbc.JdbcStatement;
 import org.h2.message.DbException;
 import org.h2.mvstore.cache.CacheLongKeyLIRS;
+import org.h2.result.SearchRow;
+import org.h2.result.SimpleRow;
 import org.h2.result.SortOrder;
 import org.h2.server.web.WebServer;
 import org.h2.table.Column;
@@ -2569,15 +2571,32 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     }
 
     /**
+     * Check whether columns list contains key or key alias column.
+     *
+     * @param desc Row descriptor.
+     * @param cols Columns list.
+     * @return Result.
+     */
+    private static boolean containsKeyColumn(GridH2RowDescriptor desc, List<IndexColumn> cols) {
+        for (int i = cols.size() - 1; i >= 0; i--) {
+            if (desc.isKeyColumn(cols.get(i).column.getColumnId()))
+                return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param desc Row descriptor.
      * @param cols Columns list.
      * @param keyCol Primary key column.
      * @param affCol Affinity key column.
      * @return The same list back.
      */
-    private static List<IndexColumn> treeIndexColumns(List<IndexColumn> cols, IndexColumn keyCol, IndexColumn affCol) {
+    private static List<IndexColumn> treeIndexColumns(GridH2RowDescriptor desc, List<IndexColumn> cols, IndexColumn keyCol, IndexColumn affCol) {
         assert keyCol != null;
 
-        if (!containsColumn(cols, keyCol))
+        if (!containsKeyColumn(desc, cols))
             cols.add(keyCol);
 
         if (affCol != null && !containsColumn(cols, affCol))
@@ -2892,11 +2911,13 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             int cacheId = CU.cacheId(schema.ccfg.getName());
 
+            GridH2RowDescriptor desc = tbl.rowDescriptor();
+
             idxs.add(createHashIndex(
                 cacheId,
                 "_key_PK_hash",
                 tbl,
-                treeIndexColumns(new ArrayList<IndexColumn>(2), keyCol, affCol)));
+                treeIndexColumns(desc, new ArrayList<IndexColumn>(2), keyCol, affCol)));
 
             // Add primary key index.
             idxs.add(createSortedIndex(
@@ -2904,7 +2925,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 "_key_PK",
                 tbl,
                 true,
-                treeIndexColumns(new ArrayList<IndexColumn>(2), keyCol, affCol),
+                treeIndexColumns(desc, new ArrayList<IndexColumn>(2), keyCol, affCol),
                 -1));
 
             if (type().valueClass() == String.class) {
@@ -2948,7 +2969,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                         // We don't care about number of fields in affinity index, just affinity key must be the first.
                         affIdxFound |= affCol != null && equal(cols.get(0), affCol);
 
-                        cols = treeIndexColumns(cols, keyCol, affCol);
+                        cols = treeIndexColumns(desc, cols, keyCol, affCol);
 
                         Index clone = findSimilarIndexAndClone(idxs, name, idx.type(), cols);
                         if (clone != null)
@@ -2971,7 +2992,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             // Add explicit affinity key index if nothing alike was found.
             if (affCol != null && !affIdxFound) {
                 idxs.add(createSortedIndex(cacheId, "AFFINITY_KEY", tbl, false,
-                    treeIndexColumns(new ArrayList<IndexColumn>(2), affCol, keyCol), -1));
+                    treeIndexColumns(desc, new ArrayList<IndexColumn>(2), affCol, keyCol), -1));
             }
 
             return idxs;
@@ -3004,7 +3025,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                     continue;
 
                 if (checkIndexColumnsAreSimilar(desc, Arrays.asList(candidate.getIndexColumns()), cols))
-                    return new GridH2ProxyIndexHandle(tbl, name, cols, candidate);
+                    return new GridH2ProxyIndex(tbl, name, cols, candidate);
             }
 
             return null;
@@ -3720,6 +3741,24 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             if (valueAliasColumnId > 0)
                 valCache[valueAliasColumnId] = value;
+        }
+
+        /** {@inheritDoc} */
+        @Override public SearchRow prepareProxyIndexRow(SearchRow row) {
+            if (row == null)
+                return null;
+
+            Value[] data = new Value[row.getColumnCount()];
+            for (int idx = 0; idx < data.length; idx++)
+                data[idx] = row.getValue(idx);
+
+            if (keyAliasColumnId > 0)
+                data[KEY_COL] = row.getValue(keyAliasColumnId);
+
+            if (valueAliasColumnId > 0)
+                data[VAL_COL] = row.getValue(valueAliasColumnId);
+
+            return new SimpleRow(data);
         }
     }
 
