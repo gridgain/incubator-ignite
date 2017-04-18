@@ -46,8 +46,11 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +62,9 @@ import java.util.concurrent.TimeUnit;
  * Utility methods for queries.
  */
 public class QueryUtils {
+    /** */
+    public static final String _KEY = "_key";
+
     /** */
     public static final String _VAL = "_val";
 
@@ -652,11 +658,114 @@ public class QueryUtils {
                     throw new IllegalArgumentException("Index type is not set: " + idx.getName());
             }
         }
-        if (qryEntity.getKeyFieldName() != null) {
-            String idxName = qryEntity.getKeyFieldName() + "_idx";
+
+        //If there are some indexes configured for key or value alias columns,
+        //we need to create similar indexes for original key and val columns.
+        duplicateKeyValFieldsIndexes(qryEntity, d);
+
+        //need to create index for key alias if it wasn't configured yet.
+        if ((qryEntity.getKeyFieldName() != null) &&
+                !hasSimilarIndex(d.indexes().values(), QueryIndexType.SORTED, F.asArray(qryEntity.getKeyFieldName()), new boolean[1])) {
+
+            String idxName = makeUniqueName(d.indexes().keySet(), qryEntity.getKeyFieldName() + "_idx", false);
             d.addIndex(idxName, QueryIndexType.SORTED, -1);
             d.addFieldToIndex(idxName, qryEntity.getKeyFieldName(), 0,-1, false);
         }
+    }
+
+    /**
+     * Create duplicates for indexes which contain key or value alias columns.
+     * The duplicate indexes shall refer to _key and _val columns instead.
+     *
+     * @param qryEntity Query entity.
+     * @param d Type descriptor.
+     * @throws IgniteCheckedException
+     */
+    private static void duplicateKeyValFieldsIndexes(QueryEntity qryEntity, QueryTypeDescriptorImpl d) throws IgniteCheckedException {
+        String keyFieldName = qryEntity.getKeyFieldName();
+        String valueFieldName = qryEntity.getValueFieldName();
+
+        if (F.isEmpty(keyFieldName) && F.isEmpty(valueFieldName))
+            return;
+
+        for (Map.Entry<String, GridQueryIndexDescriptor> e: d.indexes().entrySet()) {
+            GridQueryIndexDescriptor idxDesc = e.getValue();
+            String[] fields = idxDesc.fields().toArray(new String[idxDesc.fields().size()]);
+            boolean[] descendings = new boolean[idxDesc.fields().size()];
+
+            boolean found = false;
+            for (int i = 0; i < fields.length; i++) {
+                descendings[i] = idxDesc.descending(fields[i]);
+                if (!F.isEmpty(keyFieldName) && fields[i].equals(keyFieldName)) {
+                    fields[i] = _KEY;
+                    found = true;
+                }
+                if (!F.isEmpty(valueFieldName) && fields[i].equals(valueFieldName)) {
+                    fields[i] = _VAL;
+                    found = true;
+                }
+            }
+
+            if (found && !hasSimilarIndex(d.indexes().values(), idxDesc.type(), fields, descendings)) {
+                String idxName = makeUniqueName(d.indexes().keySet(), e.getKey() + "_", true);
+                d.addIndex(idxName, idxDesc.type(), idxDesc.inlineSize());
+                for (int i = 0; i < fields.length; i++) {
+                    if (idxDesc.type() == QueryIndexType.FULLTEXT)
+                        d.addFieldToTextIndex(fields[i]);
+                    else
+                        d.addFieldToIndex(idxName, fields[i], i, idxDesc.inlineSize(), descendings[i]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Make unique name with given prefix.
+     *
+     * @param names Set of existing names.
+     * @param prefix Prefix to use for a name.
+     * @param firstNumbered Whether first attempted name must have a number suffix.
+     * @return Result.
+     */
+    private static String makeUniqueName(Set<String> names, String prefix, boolean firstNumbered) {
+        int count = 2;
+        String name = firstNumbered ? prefix + count++ : prefix;
+        while (names.contains(name))
+            name = prefix + count++;
+        return name;
+    }
+
+    /**
+     * Checks if collection of index descriptors contains any indexes
+     * that are of the given type, field order and sorting.
+     *
+     * @param indexes Collection of index descriptors.
+     * @param type Index type.
+     * @param fields Field names.
+     * @param descending Sorting order for each field name.
+     * @return true if index with given properties exists.
+     */
+    private static boolean hasSimilarIndex(Collection<GridQueryIndexDescriptor> indexes, QueryIndexType type, String[] fields, boolean[] descending) {
+        for (GridQueryIndexDescriptor d: indexes) {
+            if (d.type() != type)
+                continue;
+            if (d.fields().size() != fields.length)
+                continue;
+
+            Iterator<String> a = d.fields().iterator();
+            boolean diff = false;
+            int i = 0;
+            while (!diff && a.hasNext() && i < fields.length) {
+                String aField = a.next();
+                String bField = fields[i];
+                diff = (!aField.equals(bField) || d.descending(aField) != descending[i]);
+                i++;
+            }
+
+            if (!diff)
+                return true;
+        }
+        return false;
     }
 
     /**
@@ -672,7 +781,7 @@ public class QueryUtils {
      * @return Binary property.
      */
     public static QueryBinaryProperty buildBinaryProperty(GridKernalContext ctx, String pathStr, Class<?> resType,
-        Map<String, String> aliases, @Nullable Boolean isKeyField) throws IgniteCheckedException {
+                                     Map<String, String> aliases, @Nullable Boolean isKeyField) throws IgniteCheckedException {
         String[] path = pathStr.split("\\.");
 
         QueryBinaryProperty res = null;

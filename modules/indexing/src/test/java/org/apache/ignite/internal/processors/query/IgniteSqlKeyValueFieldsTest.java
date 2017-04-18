@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.query;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.QueryEntity;
+import org.apache.ignite.cache.QueryIndex;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -47,9 +48,6 @@ public class IgniteSqlKeyValueFieldsTest  extends GridCommonAbstractTest {
 
     /** IP finder. */
     private static final TcpDiscoveryVmIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
-
-    /** Name of the cache for test */
-    private static final String CACHE_NAME = "keyvaltest";
 
     /** */
     private static String NODE_BAD_CONF_MISS_KEY_FIELD = "badConf1";

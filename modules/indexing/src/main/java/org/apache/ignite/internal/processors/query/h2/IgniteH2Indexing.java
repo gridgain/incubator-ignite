@@ -3752,11 +3752,21 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             for (int idx = 0; idx < data.length; idx++)
                 data[idx] = row.getValue(idx);
 
-            if (keyAliasColumnId > 0)
-                data[KEY_COL] = row.getValue(keyAliasColumnId);
+            if (keyAliasColumnId > 0) {
+                if (row.getValue(keyAliasColumnId) == null && row.getValue(KEY_COL) != null)
+                    data[keyAliasColumnId] = row.getValue(KEY_COL);
 
-            if (valueAliasColumnId > 0)
-                data[VAL_COL] = row.getValue(valueAliasColumnId);
+                if (row.getValue(KEY_COL) == null && row.getValue(keyAliasColumnId) != null)
+                    data[KEY_COL] = row.getValue(keyAliasColumnId);
+            }
+
+            if (valueAliasColumnId > 0) {
+                if (row.getValue(valueAliasColumnId) == null && row.getValue(VAL_COL) != null)
+                    data[valueAliasColumnId] = row.getValue(VAL_COL);
+
+                if (row.getValue(VAL_COL) == null && row.getValue(valueAliasColumnId) != null)
+                    data[VAL_COL] = row.getValue(valueAliasColumnId);
+            }
 
             return new SimpleRow(data);
         }
