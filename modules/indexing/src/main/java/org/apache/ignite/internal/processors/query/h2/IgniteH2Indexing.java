@@ -3251,64 +3251,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         }
 
         /**
-         * Find index that only differ in its usage of alias columns
-         * instead of original columns and then create a clone for it.
-         *
-         * @param idxs List of indexes in which search is performed.
-         * @param name Name of new index.
-         * @param idxType Index type for new index.
-         * @param cols Columns list for new index.
-         * @return Cloned index or {@code null}.
-         */
-        private Index findSimilarIndexAndClone(ArrayList<Index> idxs, String name, QueryIndexType idxType, List<IndexColumn> cols) {
-            GridH2RowDescriptor desc = tbl.rowDescriptor();
-
-            for (int i = 1, len = idxs.size(); i < len; i++) {
-                Index candidate = idxs.get(i);
-                if (!(candidate instanceof GridH2IndexBase))
-                    continue;
-
-                if ((idxType == QueryIndexType.SORTED) &&
-                   !(candidate instanceof H2TreeIndex))
-                    continue;
-
-                if ((idxType == QueryIndexType.GEOSPATIAL) &&
-                    !(candidate instanceof SpatialIndex))
-                    continue;
-
-                if (checkIndexColumnsAreSimilar(desc, Arrays.asList(candidate.getIndexColumns()), cols))
-                    return new GridH2ProxyIndex(tbl, name, cols, candidate);
-            }
-
-            return null;
-        }
-
-        /**
-         * Check that two provided index columns lists only differ in usage of
-         * alias columns instead of original ones.
-         *
-         * @param desc Row descriptor
-         * @param a First index columns list
-         * @param b Second index columns list
-         * @return Result.
-         */
-        private boolean checkIndexColumnsAreSimilar(GridH2RowDescriptor desc, List<IndexColumn> a, List<IndexColumn> b) {
-            if (a.size() != b.size())
-                return false;
-
-            for (int i = 0; i < a.size(); i++) {
-                int aColId = a.get(i).column.getColumnId();
-                int bColId = b.get(i).column.getColumnId();
-
-                if (!(aColId == bColId ||
-                    (desc.isKeyColumn(aColId) && desc.isKeyColumn(bColId)) ||
-                    (desc.isValueColumn(aColId) && desc.isValueColumn(bColId))))
-                    return false;
-            }
-            return true;
-        }
-
-        /**
          * Get collection of user indexes.
          *
          * @return User indexes.
@@ -3355,19 +3297,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             GridH2RowDescriptor desc = tbl.rowDescriptor();
             if (idxDesc.type() == QueryIndexType.SORTED) {
                 cols = treeIndexColumns(desc, cols, keyCol, affCol);
-
-                Index clone = findSimilarIndexAndClone(tbl.getAllIndexes(), name, idxDesc.type(), cols);
-                if (clone != null)
-                    return /*clone*/null;
-                else
-                    return createSortedIndex(schema, name, tbl, false, cols, idxDesc.inlineSize());
+                return createSortedIndex(schema, name, tbl, false, cols, idxDesc.inlineSize());
             }
             else if (idxDesc.type() == QueryIndexType.GEOSPATIAL) {
-                Index clone = findSimilarIndexAndClone(tbl.getAllIndexes(), name, idxDesc.type(), cols);
-                if (clone != null)
-                    return /*clone*/null;
-                else
-                    return createSpatialIndex(tbl, name, cols.toArray(new IndexColumn[cols.size()]));
+                return createSpatialIndex(tbl, name, cols.toArray(new IndexColumn[cols.size()]));
             }
 
             throw new IllegalStateException("Index type: " + idxDesc.type());
