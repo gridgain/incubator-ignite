@@ -3359,10 +3359,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 Index clone = findSimilarIndexAndClone(tbl.getAllIndexes(), name, idxDesc.type(), cols);
                 if (clone != null)
                     return /*clone*/null;
-                else                
+                else
                     return createSortedIndex(schema, name, tbl, false, cols, idxDesc.inlineSize());
             }
-            else if (idxDesc.type() == QueryIndexType.GEOSPATIAL) {            
+            else if (idxDesc.type() == QueryIndexType.GEOSPATIAL) {
                 Index clone = findSimilarIndexAndClone(tbl.getAllIndexes(), name, idxDesc.type(), cols);
                 if (clone != null)
                     return /*clone*/null;
@@ -4009,6 +4009,24 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             }
 
             return new SimpleRow(data);
+        }
+
+        /** {@inheritDoc} */
+        @Override public int getAlternativeColumnId(int colId) {
+            if (keyAliasColumnId > 0) {
+                if (colId == KEY_COL)
+                    return keyAliasColumnId;
+                else if (colId == keyAliasColumnId)
+                    return KEY_COL;
+            }
+            if (valueAliasColumnId > 0) {
+                if (colId == VAL_COL)
+                    return valueAliasColumnId;
+                else if (colId == valueAliasColumnId)
+                    return VAL_COL;
+            }
+
+            return colId;
         }
     }
 

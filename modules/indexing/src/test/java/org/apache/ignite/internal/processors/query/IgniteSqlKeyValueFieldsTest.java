@@ -325,7 +325,7 @@ public class IgniteSqlKeyValueFieldsTest  extends GridCommonAbstractTest {
         QueryCursor<List<?>> cursor = cache.query(new SqlFieldsQuery("explain select * from Person where id = 1"));
         List<List<?>> results = cursor.getAll();
         assertEquals(2, results.size());
-        assertTrue(((String)results.get(0).get(0)).contains("\"id_idx\""));
+        assertTrue(((String)results.get(0).get(0)).contains("\"_key_PK_proxy\""));
 
         cursor = cache.query(new SqlFieldsQuery("explain select * from Person where _key = 1"));
         results = cursor.getAll();

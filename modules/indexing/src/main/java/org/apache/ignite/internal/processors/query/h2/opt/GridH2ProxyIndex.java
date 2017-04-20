@@ -59,6 +59,13 @@ public class GridH2ProxyIndex extends BaseIndex {
         this.idx = idx;
     }
 
+    /**
+     * @return Underlying index.
+     */
+    public Index underlyingIndex() {
+        return idx;
+    }
+
     /** {@inheritDoc} */
     @Override public void checkRename() {
         throw DbException.getUnsupportedException("rename");

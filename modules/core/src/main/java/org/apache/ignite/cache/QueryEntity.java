@@ -86,6 +86,9 @@ public class QueryEntity implements Serializable {
         keyType = other.keyType;
         valType = other.valType;
 
+        keyFieldName = other.keyFieldName;
+        valueFieldName = other.valueFieldName;
+
         fields = new LinkedHashMap<>(other.fields);
         keyFields = other.keyFields != null ? new HashSet<>(other.keyFields) : null;
 

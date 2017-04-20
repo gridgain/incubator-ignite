@@ -226,4 +226,17 @@ public interface GridH2RowDescriptor extends GridOffHeapSmartPointerFactory<Grid
      * @return Result.
      */
     public SearchRow prepareProxyIndexRow(SearchRow row);
+
+    /**
+     * Gets alternative column id that may substitute the given column id.
+     *
+     * For alias column returns original one.
+     * For original column returns its alias.
+     *
+     * Otherwise, returns the given column id.
+     *
+     * @param colId Column id.
+     * @return Result.
+     */
+    public int getAlternativeColumnId(int colId);
 }
