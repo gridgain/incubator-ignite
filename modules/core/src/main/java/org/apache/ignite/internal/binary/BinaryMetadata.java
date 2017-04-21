@@ -123,7 +123,7 @@ public class BinaryMetadata implements Externalizable {
             this.ordinalToNames = new LinkedHashMap<>(enumMap);
             this.nameToOrdinal = new LinkedHashMap<>(enumMap.size());
             for (Map.Entry<Integer, String> e: ordinalToNames.entrySet())
-                this.nameToOrdinal.put(e.getValue().toUpperCase(), e.getKey());
+                this.nameToOrdinal.put(e.getValue(), e.getKey());
         }
     }
 
@@ -327,7 +327,7 @@ public class BinaryMetadata implements Externalizable {
                     int ord = in.readInt();
                     String name = U.readString(in);
                     ordinalToNames.put(ord, name);
-                    nameToOrdinal.put(name.toUpperCase(), ord);
+                    nameToOrdinal.put(name, ord);
                 }
             }
         }
@@ -359,7 +359,7 @@ public class BinaryMetadata implements Externalizable {
         if (nameToOrdinal == null)
             return null;
 
-        return nameToOrdinal.get(name.toUpperCase());
+        return nameToOrdinal.get(name);
     }
 
     /**

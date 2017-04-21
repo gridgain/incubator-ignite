@@ -200,7 +200,7 @@ public class IgniteSqlQueryEnumTest extends GridCommonAbstractTest {
         assertEquals(Color.GREEN, result.get(0).get(0));
         assertEquals(Color.GREEN.ordinal(), result.get(0).get(1));
 
-        result = cache.query(new SqlFieldsQuery("select * from Integer where _key = 'blaCK'")).getAll();
+        result = cache.query(new SqlFieldsQuery("select * from Integer where _key = 'BLACK'")).getAll();
         assertEquals(1, result.size());
         assertEquals(Color.BLACK, result.get(0).get(0));
         assertEquals(Color.BLACK.ordinal(), result.get(0).get(1));
@@ -260,7 +260,7 @@ public class IgniteSqlQueryEnumTest extends GridCommonAbstractTest {
     public void testSqlQueryEnumValueUnavailableClass() throws Exception {
         IgniteCache cache = grid("client").cache(CACHE_NAME_CFG_ENUM_VAL).withKeepBinary();
 
-        cache.query(new SqlFieldsQuery("insert into Color (_key, _val) values (0, 'BlacK'), (?, ?), (?, ?), (?, ?), (?, ?)")
+        cache.query(new SqlFieldsQuery("insert into Color (_key, _val) values (0, 'BLACK'), (?, ?), (?, ?), (?, ?), (?, ?)")
                 .setArgs(Color.WHITE.ordinal(), Color.WHITE.ordinal(),
                         Color.RED.ordinal(), Color.RED.name(),
                         Color.GREEN.ordinal(), Color.GREEN.ordinal(),

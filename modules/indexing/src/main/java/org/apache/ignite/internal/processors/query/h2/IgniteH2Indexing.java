@@ -290,7 +290,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     private GridTimeoutProcessor.CancelableTask stmtCacheCleanupTask;
 
     /** */
-    public GridH2CustomDataTypesHandler h2CustomDataTypesHandler;
+    private GridH2CustomDataTypesHandler h2CustomDataTypesHandler;
 
     /**
      * Command in H2 prepared statement.
@@ -2551,6 +2551,13 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 return U.unmarshal(marshaller, bytes, clsLdr);
             }
         };
+    }
+
+    /**
+     * @return Custom data types handler.
+     */
+    public GridH2CustomDataTypesHandler h2CustomDataTypesHandler() {
+        return h2CustomDataTypesHandler;
     }
 
     /**

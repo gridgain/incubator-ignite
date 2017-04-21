@@ -38,7 +38,7 @@ public class BinaryTypeImpl implements BinaryType {
     private final BinaryMetadata meta;
 
     /** Enum values cached */
-    Collection<BinaryObject> enumValues;
+    private Collection<BinaryObject> enumValues;
 
     /**
      * Constructor.
