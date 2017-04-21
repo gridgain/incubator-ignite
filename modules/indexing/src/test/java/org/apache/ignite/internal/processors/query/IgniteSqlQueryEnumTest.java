@@ -359,7 +359,7 @@ public class IgniteSqlQueryEnumTest extends GridCommonAbstractTest {
      * @param <T> Enum type parameter.
      * @return Array of enum names.
      */
-    public static <T extends Enum<?>> String[] getEnumNames(Class<T> inEnumClass){
+    private static <T extends Enum<?>> String[] getEnumNames(Class<T> inEnumClass){
         T [] values = inEnumClass.getEnumConstants();
         int len = values.length;
         String[] names = new String[len];

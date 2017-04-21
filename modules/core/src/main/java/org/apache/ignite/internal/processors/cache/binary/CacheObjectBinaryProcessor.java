@@ -97,10 +97,11 @@ public interface CacheObjectBinaryProcessor extends IgniteCacheObjectProcessor {
     /**
      * @param typeName Type name.
      * @param ord ordinal.
+     * @param name Name.
      * @return Enum object.
      * @throws IgniteException If failed.
      */
-    public BinaryObject buildEnum(String typeName, int ord) throws IgniteException;
+    public BinaryObject buildEnum(String typeName, int ord, @Nullable String name) throws IgniteException;
 
     /**
      * @return Binaries interface.

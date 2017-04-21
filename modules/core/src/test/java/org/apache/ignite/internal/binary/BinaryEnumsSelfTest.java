@@ -19,10 +19,15 @@ package org.apache.ignite.internal.binary;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.concurrent.Callable;
+
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.binary.BinaryObjectException;
+import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.BinaryTypeConfiguration;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.configuration.BinaryConfiguration;
@@ -31,7 +36,9 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.processors.cache.binary.CacheObjectBinaryProcessorImpl;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 /**
@@ -318,7 +325,7 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
     public void checkSimpleBuilder(boolean registered) throws Exception {
         startUp(registered);
 
-        BinaryObject binary = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal());
+        BinaryObject binary = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal(), EnumType.ONE.name());
 
         cacheBinary1.put(1, binary);
 
@@ -384,8 +391,8 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
     public void checkSimpleBuilderArray(boolean registered) throws Exception {
         startUp(registered);
 
-        BinaryObject binaryOne = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal());
-        BinaryObject binaryTwo = node1.binary().buildEnum(EnumType.class.getName(), EnumType.TWO.ordinal());
+        BinaryObject binaryOne = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal(), EnumType.ONE.name());
+        BinaryObject binaryTwo = node1.binary().buildEnum(EnumType.class.getName(), EnumType.TWO.ordinal(), EnumType.TWO.name());
 
         cacheBinary1.put(1, new BinaryObject[] { binaryOne, binaryTwo });
 
@@ -407,6 +414,22 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
             new BinaryEnumObjectImpl(ctx, 0, EnumType.class.getName(), EnumType.ONE.ordinal());
 
         assert enumObj.type().isEnum();
+    }
+
+    /**
+     * Checks ability to get a collection of binary enums from binary type
+     *
+     * @throws Exception
+     */
+    public void testBinaryTypeEnumValues() throws Exception {
+        startUp(false);
+
+        BinaryObject binaryOne = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal(), EnumType.ONE.name());
+        BinaryObject binaryTwo = node1.binary().buildEnum(EnumType.class.getName(), EnumType.TWO.ordinal(), EnumType.TWO.name());
+
+        Collection<BinaryObject> vals = binaryOne.type().enumValues();
+
+        assertEqualsCollections(F.asList(binaryOne, binaryTwo), vals);
     }
 
     /**
@@ -473,6 +496,7 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
         assertEquals(node2.binary().typeId(EnumType.class.getName()), obj.type().typeId());
 
         assertEquals(val.ordinal(), obj.enumOrdinal());
+        assertEquals(val.name(), obj.enumName());
     }
 
     /**

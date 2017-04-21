@@ -31,8 +31,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -342,6 +340,9 @@ public class BinaryMetadata implements Externalizable {
      * @return Enum constant name.
      */
     public String getEnumNameByOrdinal(int ord) {
+        if (ordinalToNames == null)
+            return null;
+
         return ordinalToNames.get(ord);
     }
 
@@ -355,6 +356,9 @@ public class BinaryMetadata implements Externalizable {
         if (F.isEmpty(name))
             return null;
 
+        if (nameToOrdinal == null)
+            return null;
+
         return nameToOrdinal.get(name.toUpperCase());
     }
 
@@ -364,7 +368,6 @@ public class BinaryMetadata implements Externalizable {
     public Map<Integer, String> enumMap() {
         return ordinalToNames != null ? ordinalToNames : Collections.emptyMap();
     }
-
 
     /** {@inheritDoc} */
     @Override public String toString() {

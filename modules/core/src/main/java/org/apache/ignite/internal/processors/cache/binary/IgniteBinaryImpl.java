@@ -144,11 +144,11 @@ public class IgniteBinaryImpl implements IgniteBinary {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject buildEnum(String typeName, int ord) {
+    @Override public BinaryObject buildEnum(String typeName, int ord, @Nullable String name) {
         guard();
 
         try {
-            return proc.buildEnum(typeName, ord);
+            return proc.buildEnum(typeName, ord, name);
         }
         finally {
             unguard();

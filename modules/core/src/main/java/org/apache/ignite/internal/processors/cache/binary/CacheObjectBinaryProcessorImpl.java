@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -208,7 +209,7 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
                                     c.getIdMapper() != null ? c.getIdMapper().getClass() : null,
                                     c.getSerializer() != null ? c.getSerializer().getClass() : null,
                                     c.isEnum(),
-                                    c.getEnumNames() != null ? Arrays.asList(c.getEnumNames()) : null
+                                    c.getEnumNames()
                                 )
                             );
                         }
@@ -478,8 +479,6 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
             return null;
     }
 
-
-
     /** {@inheritDoc} */
     @Nullable @Override public BinaryType metadata(final int typeId, final int schemaId) {
         BinaryMetadataHolder holder = metadataLocCache.get(typeId);
@@ -548,12 +547,13 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject buildEnum(String typeName, int ord) throws IgniteException {
+    @Override public BinaryObject buildEnum(String typeName, int ord, @Nullable String name) throws IgniteException {
         int typeId = binaryCtx.typeId(typeName);
 
         typeName = binaryCtx.userTypeName(typeName);
 
-        updateMetadata(typeId, typeName, null, null, true, null);
+        updateMetadata(typeId, typeName, null, null, true,
+                       F.isEmpty(name) ? null : F.asMap(ord, name));
 
         return new BinaryEnumObjectImpl(binaryCtx, typeId, null, ord);
     }

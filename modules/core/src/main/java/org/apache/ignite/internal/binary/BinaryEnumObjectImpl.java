@@ -186,8 +186,8 @@ public class BinaryEnumObjectImpl implements BinaryObjectEx, Externalizable, Cac
         return ord;
     }
 
-    @Override
-    public String enumName() throws BinaryObjectException {
+    /** {@inheritDoc} */
+    @Override public String enumName() throws BinaryObjectException {
         BinaryTypeImpl binTypeImpl = (BinaryTypeImpl)ctx.metadata(typeId);
         String name = binTypeImpl.metadata().getEnumNameByOrdinal(ord);
         if (name == null)

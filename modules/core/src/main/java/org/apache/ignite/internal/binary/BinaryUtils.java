@@ -964,17 +964,6 @@ public class BinaryUtils {
                         newMeta.typeName());
             }
 
-            Map<Integer, String> mergedEnumMap = null;
-            if (!F.isEmpty(newMeta.enumMap())) {
-                if (F.isEmpty(oldMeta.enumMap()))
-                    mergedEnumMap = newMeta.enumMap();
-                else {
-                    mergedEnumMap = new LinkedHashMap<>(oldMeta.enumMap());
-                    for (Map.Entry<Integer, String> e: newMeta.enumMap().entrySet())
-                        mergedEnumMap.put(e.getKey(), e.getValue());
-                }
-            }
-
             // Check and merge fields.
             Map<String, BinaryFieldMetadata> mergedFields;
 
@@ -986,6 +975,18 @@ public class BinaryUtils {
             Map<String, BinaryFieldMetadata> newFields = newMeta.fieldsMap();
 
             boolean changed = false;
+
+            Map<Integer, String> mergedEnumMap = null;
+            if (!F.isEmpty(newMeta.enumMap())) {
+                if (F.isEmpty(oldMeta.enumMap()))
+                    mergedEnumMap = newMeta.enumMap();
+                else {
+                    mergedEnumMap = new LinkedHashMap<>(oldMeta.enumMap());
+                    for (Map.Entry<Integer, String> e: newMeta.enumMap().entrySet())
+                        mergedEnumMap.put(e.getKey(), e.getValue());
+                }
+                changed = true;
+            }
 
             for (Map.Entry<String, BinaryFieldMetadata> newField : newFields.entrySet()) {
                 BinaryFieldMetadata oldFieldMeta = mergedFields.put(newField.getKey(), newField.getValue());

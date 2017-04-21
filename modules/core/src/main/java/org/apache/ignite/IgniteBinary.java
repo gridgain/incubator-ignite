@@ -378,7 +378,8 @@ public interface IgniteBinary {
      *
      * @param typeName Type name.
      * @param ord Ordinal.
+     * @param name Name.
      * @return Enum object.
      */
-    public BinaryObject buildEnum(String typeName, int ord);
+    public BinaryObject buildEnum(String typeName, int ord, @Nullable String name);
 }

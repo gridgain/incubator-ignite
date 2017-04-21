@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.query.h2.opt;
 
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.binary.BinaryEnumObjectImpl;
 import org.apache.ignite.internal.binary.BinaryMetadata;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.binary.CacheObjectBinaryProcessorImpl;
@@ -115,13 +116,15 @@ public class GridH2ValueEnum extends Value {
         if (obj != null)
             return obj;
 
-        BinaryMetadata binMeta = ((CacheObjectBinaryProcessorImpl)ctx.cacheObjects()).metadata0(type);
+        CacheObjectBinaryProcessorImpl binaryProc = (CacheObjectBinaryProcessorImpl)ctx.cacheObjects();
+        BinaryMetadata binMeta = binaryProc.metadata0(type);
         if (binMeta == null || !binMeta.isEnum())
             throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1,
                     new IgniteCheckedException("Cannot get enum object representation. " +
                             "Unknown enum type " + type));
 
-        obj = (CacheObject)ctx.cacheObjects().binary().buildEnum(binMeta.typeName(), ordinal);
+        obj = new BinaryEnumObjectImpl(binaryProc.binaryContext(), type, null, ordinal);
+
         return obj;
     }
 

@@ -69,7 +69,7 @@ public class NoOpBinary implements IgniteBinary {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject buildEnum(String typeName, int ord) {
+    @Override public BinaryObject buildEnum(String typeName, int ord, @Nullable String name) {
         throw unsupported();
     }
 

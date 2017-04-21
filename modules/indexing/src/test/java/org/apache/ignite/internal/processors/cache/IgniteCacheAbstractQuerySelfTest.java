@@ -847,7 +847,7 @@ public abstract class IgniteCacheAbstractQuerySelfTest extends GridCommonAbstrac
      * @return Binary enum.
      */
     private static BinaryObject binaryEnum(IgniteBinary binary, EnumType val) {
-        return binary.buildEnum(EnumType.class.getName(), val.ordinal());
+        return binary.buildEnum(EnumType.class.getName(), val.ordinal(), val.name());
     }
 
     /**
