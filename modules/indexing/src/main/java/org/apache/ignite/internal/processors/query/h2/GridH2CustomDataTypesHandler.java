@@ -65,13 +65,12 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
      *
      * @param typeId Type id.
      * @param typeName Type name.
-     * @return Name of type to be used in SQL CREATE TABLE.
      */
-    public String registerEnum(int typeId, String typeName) {
+    public void registerEnum(int typeId, String typeName) {
         String name = IgniteH2Indexing.escapeName(typeName, false).toUpperCase();
 
-        if (dataTypesByName.containsKey(name))
-            return name;
+        if (dataTypesById.containsKey(typeId))
+            return;
 
         if ((INVALID_TYPE_ID_RANGE_BEGIN <= typeId) && (typeId <= INVALID_TYPE_ID_RANGE_END))
             throw new IgniteException("Enums with type id in range [" + INVALID_TYPE_ID_RANGE_BEGIN +
@@ -81,8 +80,6 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
         dataTypesById.put(typeId, dataType);
         dataTypesByClassName.put(typeName, dataType);
         dataTypesByName.put(name, dataType);
-
-        return name;
     }
 
     /** {@inheritDoc} */
@@ -239,6 +236,30 @@ public class GridH2CustomDataTypesHandler implements CustomDataTypesHandler {
             return convert(ctx, source, targetType);
 
         return source.convertTo(targetType);
+    }
+
+    /**
+     * Checks if type identifier is registered.
+     *
+     * @param typeId Type identifier.
+     * @return
+     */
+    public boolean isRegistered(int typeId) {
+        return dataTypesById.containsKey(typeId);
+    }
+
+    /**
+     * Finds data type name given type id.
+     *
+     * @param typeId
+     * @return Data type name or {@code null} if not registered.
+     */
+    public String findDataTypeName(int typeId) {
+        EnumDataType dataType = dataTypesById.get(typeId);
+        if (dataType == null)
+            return null;
+
+        return dataType.name;
     }
 
     /**

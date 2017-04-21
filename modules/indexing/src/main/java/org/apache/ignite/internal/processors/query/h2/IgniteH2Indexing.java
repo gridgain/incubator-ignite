@@ -156,7 +156,6 @@ import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.spi.indexing.IndexingQueryFilter;
-import org.h2.api.CustomDataTypesHandler;
 import org.h2.api.ErrorCode;
 import org.h2.api.JavaObjectSerializer;
 import org.h2.api.TableEngine;
@@ -1902,6 +1901,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     @Override public boolean registerType(@Nullable String spaceName, GridQueryTypeDescriptor type)
         throws IgniteCheckedException {
         validateTypeDescriptor(type);
+        registerEnumTypes(type);
 
         String schemaName = schema(spaceName);
 
@@ -2087,16 +2087,13 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      */
     private String dbTypeFromClass(Class<?> cls, String userTypeName) {
         String typeName = cls.equals(Object.class) ? userTypeName : cls.getName();
-
         int typeId = ctx.cacheObjects().typeId(typeName);
-        if (typeId != GridBinaryMarshaller.UNREGISTERED_TYPE_ID) {
-            BinaryType binType = ctx.cacheObjects().binary().type(typeId);
-            Class<?> userCls = cls.equals(Object.class) ? U.classForName(userTypeName, Object.class) : cls;
-            if (userCls.isEnum() || (binType != null) && binType.isEnum())
-                return h2CustomDataTypesHandler.registerEnum(typeId, typeName);
-        }
 
-        return DBTypeEnum.fromClass(cls).dBTypeAsString();
+        String result = h2CustomDataTypesHandler.findDataTypeName(typeId);
+        if (result == null)
+            return DBTypeEnum.fromClass(cls).dBTypeAsString();
+
+        return result;
     }
 
     /**
@@ -2108,19 +2105,47 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      */
     private int dataTypeFromClass(Class<?> cls, String userTypeName) {
         String typeName = cls.equals(Object.class) ? userTypeName : cls.getName();
-
         int typeId = ctx.cacheObjects().typeId(typeName);
-        if (typeId != GridBinaryMarshaller.UNREGISTERED_TYPE_ID) {
-            BinaryType binType = ctx.cacheObjects().binary().type(typeId);
-            Class<?> userCls = cls.equals(Object.class) ? U.classForName(userTypeName, Object.class) : cls;
-            if (userCls.isEnum() || (binType != null) && binType.isEnum())
-                if (h2CustomDataTypesHandler.registerEnum(typeId, typeName) != null)
-                    return typeId;
-        }
+
+        if (h2CustomDataTypesHandler.isRegistered(typeId))
+            return typeId;
 
         return DataType.getTypeFromClass(cls);
     }
 
+    /**
+     * Registers all usable enum types with h2 custom data types handler.
+     * @param type Type descriptor.
+     */
+    private void registerEnumTypes(GridQueryTypeDescriptor type) {
+        registerEnumType(type.keyClass(), type.keyTypeName());
+        registerEnumType(type.valueClass(), type.valueTypeName());
+        for (String propName: type.fields().keySet()) {
+            GridQueryProperty prop = type.property(propName);
+            registerEnumType(prop.type(), prop.userTypeName());
+        }
+    }
+
+    /**
+     * Check if type is enum and registers it with h2 custom data types handler.
+     *
+     * @param cls Class.
+     * @param userTypeName Type name.
+     */
+    private void registerEnumType(Class<?> cls, String userTypeName) {
+        String typeName = cls.equals(Object.class) ? userTypeName : cls.getName();
+
+        int typeId = ctx.cacheObjects().typeId(typeName);
+
+        if (typeId == GridBinaryMarshaller.UNREGISTERED_TYPE_ID)
+            return;
+
+        BinaryType binType = ctx.cacheObjects().binary().type(typeId);
+        Class<?> userCls = cls.equals(Object.class) ? U.classForName(userTypeName, Object.class) : cls;
+
+        if (userCls.isEnum() || (binType != null) && binType.isEnum())
+            h2CustomDataTypesHandler.registerEnum(typeId, typeName);
+    }
 
     /**
      * Gets table descriptor by type and space names.
