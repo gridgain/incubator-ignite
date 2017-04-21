@@ -2094,7 +2094,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
          * Number of fields to report when no fields defined.
          * Includes _key and _val columns.
          */
-        private static final int DEFAULT_FIELDS_COUNT = 2;
+        private static final int NO_FIELDS_COLUMNS_COUNT = 2;
 
         /** Grid */
         @IgniteInstanceResource
@@ -2138,7 +2138,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
                         keyClasses.put(type.name(), type.keyClass().getName());
                         valClasses.put(type.name(), type.valueClass().getName());
 
-                        int size = type.fields().isEmpty() ? DEFAULT_FIELDS_COUNT : type.fields().size();
+                        int size = type.fields().isEmpty() ? NO_FIELDS_COLUMNS_COUNT : type.fields().size();
 
                         Map<String, String> fieldsMap = U.newLinkedHashMap(size);
 

@@ -899,7 +899,8 @@ public class GridH2Table extends TableBase {
 
                     idxs.remove(i);
 
-                    if (idx instanceof GridH2ProxyIndex)
+                    if (idx instanceof GridH2ProxyIndex &&
+                        idx.getSchema().findIndex(session, idx.getName()) != null)
                         database.removeSchemaObject(session, idx);
 
                     continue;
