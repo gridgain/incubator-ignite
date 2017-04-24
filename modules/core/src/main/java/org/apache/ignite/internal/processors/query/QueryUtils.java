@@ -103,7 +103,7 @@ public class QueryUtils {
         String res = entity.getTableName();
 
         if (res == null)
-            res = typeName(entity.getValueType());
+            res = typeName(entity.findValueType());
 
         return res;
     }
@@ -168,9 +168,6 @@ public class QueryUtils {
      */
     public static QueryTypeCandidate typeForQueryEntity(String space, GridCacheContext cctx, QueryEntity qryEntity,
         List<Class<?>> mustDeserializeClss) throws IgniteCheckedException {
-        if (F.isEmpty(qryEntity.findValueType()))
-            throw new IgniteCheckedException("Value type is not set: " + qryEntity);
-
         GridKernalContext ctx = cctx.kernalContext();
         CacheConfiguration<?,?> ccfg = cctx.config();
 
@@ -832,6 +829,81 @@ public class QueryUtils {
             return (SchemaOperationException)e;
 
         return new SchemaOperationException("Unexpected exception.", e);
+    }
+
+    /**
+     * Prepare cache configuration.
+     *
+     * @param ccfg Cache configuration.
+     */
+    @SuppressWarnings("unchecked")
+    public static void prepareCacheConfiguration(CacheConfiguration ccfg) {
+        assert ccfg != null;
+
+        Collection<QueryEntity> entities = ccfg.getQueryEntities();
+
+        if (!F.isEmpty(entities)) {
+            for (QueryEntity entity : entities) {
+                if (F.isEmpty(entity.findValueType()))
+                    continue;
+
+                Collection<QueryIndex> idxs = entity.getIndexes();
+
+                if (!F.isEmpty(idxs)) {
+                    for (QueryIndex idx : idxs) {
+                        if (idx.getName() == null) {
+                            String idxName = indexName(entity, idx);
+
+                            idx.setName(idxName);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Prepare cache configuration.
+     *
+     * @param ccfg Cache configuration.
+     * @throws IgniteCheckedException If failed.
+     */
+    @SuppressWarnings("unchecked")
+    public static void validateCacheConfiguration(CacheConfiguration ccfg) throws IgniteCheckedException {
+        assert ccfg != null;
+
+        Collection<QueryEntity> entities = ccfg.getQueryEntities();
+
+        if (!F.isEmpty(entities)) {
+            for (QueryEntity entity : entities) {
+                if (F.isEmpty(entity.findValueType()))
+                    throw new IgniteCheckedException("Value type cannot be null or empty [cacheName=" +
+                        ccfg.getName() + ", queryEntity=" + entity + ']');
+
+                Collection<QueryIndex> idxs = entity.getIndexes();
+
+                if (!F.isEmpty(idxs)) {
+                    Set<String> idxNames = new HashSet<>();
+
+                    for (QueryIndex idx : idxs) {
+                        String idxName = idx.getName();
+
+                        if (idxName == null)
+                            idxName = indexName(entity, idx);
+
+                        assert !F.isEmpty(idxName);
+
+                        if (!idxNames.add(idxName))
+                            throw new IgniteCheckedException("Duplicate index name [cacheName=" + ccfg.getName() +
+                                ", queryEntity=" + entity + ", queryIdx=" + idx + ']');
+
+                        if (idx.getIndexType() == null)
+                            throw new IgniteCheckedException("Index type is not set [cacheName=" + ccfg.getName() +
+                                ", queryEntity=" + entity + ", queryIdx=" + idx + ']');
+                    }
+                }
+            }
+        }
     }
 
     /**

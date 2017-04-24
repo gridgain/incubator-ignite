@@ -81,12 +81,6 @@ public interface GridH2RowDescriptor extends GridOffHeapSmartPointerFactory<Grid
      */
     public GridH2Row cachedRow(long link);
 
-    /**
-     * @param key Cache key.
-     * @return Value.
-     * @throws IgniteCheckedException If failed.
-     */
-    public Object readFromSwap(Object key) throws IgniteCheckedException;
 
     /**
      * @return Value type.
@@ -163,11 +157,6 @@ public interface GridH2RowDescriptor extends GridOffHeapSmartPointerFactory<Grid
      * @throws IgniteCheckedException If failed.
      */
     public Value wrap(Object o, int type) throws IgniteCheckedException;
-
-    /**
-     * @return {@code True} if should check swap value before offheap.
-     */
-    public boolean preferSwapValue();
 
     /**
      * @return {@code True} if index should support snapshots.

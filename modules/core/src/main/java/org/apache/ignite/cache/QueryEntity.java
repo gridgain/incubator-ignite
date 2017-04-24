@@ -18,16 +18,18 @@
 package org.apache.ignite.cache;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.ignite.internal.processors.query.QueryUtils;
-import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Query entity is a description of {@link org.apache.ignite.IgniteCache cache} entry (composed of key and value)
@@ -56,16 +58,20 @@ public class QueryEntity implements Serializable {
     private String valueFieldName;
 
     /** Fields available for query. A map from field name to type name. */
+    @GridToStringInclude
     private LinkedHashMap<String, String> fields = new LinkedHashMap<>();
 
     /** Set of field names that belong to the key. */
+    @GridToStringInclude
     private Set<String> keyFields;
 
     /** Aliases. */
+    @GridToStringInclude
     private Map<String, String> aliases = new HashMap<>();
 
     /** Collection of query indexes. */
-    private Map<String, QueryIndex> idxs = new HashMap<>();
+    @GridToStringInclude
+    private Collection<QueryIndex> idxs;
 
     /** Table name. */
     private String tableName;
@@ -93,7 +99,7 @@ public class QueryEntity implements Serializable {
         keyFields = other.keyFields != null ? new HashSet<>(other.keyFields) : null;
 
         aliases = new HashMap<>(other.aliases);
-        idxs = new HashMap<>(other.idxs);
+        idxs = other.idxs != null ? new ArrayList<>(other.idxs) : null;
 
         tableName = other.tableName;
     }
@@ -269,7 +275,7 @@ public class QueryEntity implements Serializable {
      * @return Collection of index entities.
      */
     public Collection<QueryIndex> getIndexes() {
-        return idxs.values();
+        return idxs == null ? Collections.<QueryIndex>emptyList() : idxs;
     }
 
     /**
@@ -301,29 +307,9 @@ public class QueryEntity implements Serializable {
      * @return {@code this} for chaining.
      */
     public QueryEntity setIndexes(Collection<QueryIndex> idxs) {
-        for (QueryIndex idx : idxs) {
-            if (!F.isEmpty(idx.getFields())) {
-                if (idx.getName() == null)
-                    idx.setName(QueryUtils.indexName(this, idx));
-
-                if (idx.getIndexType() == null)
-                    throw new IllegalArgumentException("Index type is not set " + idx.getName());
-
-                if (!this.idxs.containsKey(idx.getName()))
-                    this.idxs.put(idx.getName(), idx);
-                else
-                    throw new IllegalArgumentException("Duplicate index name: " + idx.getName());
-            }
-        }
+        this.idxs = idxs;
 
         return this;
-    }
-
-    /**
-     * Clear indexes.
-     */
-    public void clearIndexes() {
-        this.idxs.clear();
     }
 
     /**
@@ -360,5 +346,10 @@ public class QueryEntity implements Serializable {
             aliases.put(fullName, alias);
 
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(QueryEntity.class, this);
     }
 }

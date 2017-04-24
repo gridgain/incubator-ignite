@@ -214,7 +214,7 @@ public class IgniteSqlKeyValueFieldsTest  extends GridCommonAbstractTest {
     }
 
     /** */
-    private void checkCacheStartupError(String name) {
+    private void checkCacheStartupError(final String name) {
         GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
                 startGrid(name);
