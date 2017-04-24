@@ -366,7 +366,10 @@ public class BinaryMetadata implements Externalizable {
      * @return Ordinal to name mapping.
      */
     public Map<Integer, String> enumMap() {
-        return ordinalToNames != null ? ordinalToNames : Collections.emptyMap();
+        if (ordinalToNames == null)
+            return Collections.emptyMap();
+
+        return ordinalToNames;
     }
 
     /** {@inheritDoc} */
