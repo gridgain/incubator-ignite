@@ -46,9 +46,14 @@ namespace Apache.Ignite.Core.Cache.Configuration
     public class MemoryConfiguration
     {
         /// <summary>
-        /// The default system cache memory size.
+        /// Default size of a memory chunk reserved for system cache initially.
         /// </summary>
-        public const long DefaultSystemCacheMemorySize = 100 * 1024 * 1024;
+        public const long DefaultSystemCacheInitialSize = 40 * 1024 * 1024;
+
+        /// <summary>
+        /// Default max size of a memory chunk for the system cache.
+        /// </summary>
+        public const long DefaultSystemCacheMaxSize = 100 * 1024 * 1024;
 
         /// <summary>
         /// The default page size.
@@ -56,12 +61,19 @@ namespace Apache.Ignite.Core.Cache.Configuration
         public const int DefaultPageSize = 2 * 1024;
 
         /// <summary>
+        /// The default value for <see cref="DefaultMemoryPolicyName"/>.
+        /// </summary>
+        public const string DefaultDefaultMemoryPolicyName = "default";
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="MemoryConfiguration"/> class.
         /// </summary>
         public MemoryConfiguration()
         {
-            SystemCacheMemorySize = DefaultSystemCacheMemorySize;
+            SystemCacheInitialSize = DefaultSystemCacheInitialSize;
+            SystemCacheMaxSize = DefaultSystemCacheMaxSize;
             PageSize = DefaultPageSize;
+            DefaultMemoryPolicyName = DefaultDefaultMemoryPolicyName;
         }
 
         /// <summary>
@@ -72,7 +84,8 @@ namespace Apache.Ignite.Core.Cache.Configuration
         {
             Debug.Assert(reader != null);
 
-            SystemCacheMemorySize = reader.ReadLong();
+            SystemCacheInitialSize = reader.ReadLong();
+            SystemCacheMaxSize = reader.ReadLong();
             PageSize = reader.ReadInt();
             ConcurrencyLevel = reader.ReadInt();
             DefaultMemoryPolicyName = reader.ReadString();
@@ -95,7 +108,8 @@ namespace Apache.Ignite.Core.Cache.Configuration
         {
             Debug.Assert(writer != null);
 
-            writer.WriteLong(SystemCacheMemorySize);
+            writer.WriteLong(SystemCacheInitialSize);
+            writer.WriteLong(SystemCacheMaxSize);
             writer.WriteInt(PageSize);
             writer.WriteInt(ConcurrencyLevel);
             writer.WriteString(DefaultMemoryPolicyName);
@@ -123,8 +137,14 @@ namespace Apache.Ignite.Core.Cache.Configuration
         /// <summary>
         /// Gets or sets the size of a memory chunk reserved for system cache needs.
         /// </summary>
-        [DefaultValue(DefaultSystemCacheMemorySize)]
-        public long SystemCacheMemorySize { get; set; }
+        [DefaultValue(DefaultSystemCacheInitialSize)]
+        public long SystemCacheInitialSize { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum memory region size reserved for system cache.
+        /// </summary>
+        [DefaultValue(DefaultSystemCacheMaxSize)]
+        public long SystemCacheMaxSize { get; set; }
 
         /// <summary>
         /// Gets or sets the size of the memory page.
@@ -140,6 +160,7 @@ namespace Apache.Ignite.Core.Cache.Configuration
         /// <summary>
         /// Gets or sets the name of the default memory policy in <see cref="MemoryPolicies"/>.
         /// </summary>
+        [DefaultValue(DefaultDefaultMemoryPolicyName)]
         public string DefaultMemoryPolicyName { get; set; }
 
         /// <summary>

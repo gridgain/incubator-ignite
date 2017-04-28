@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,7 +58,6 @@ import org.apache.ignite.internal.binary.builder.BinaryObjectBuilderImpl;
 import org.apache.ignite.internal.binary.streams.BinaryInputStream;
 import org.apache.ignite.internal.binary.streams.BinaryOffheapInputStream;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
-import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
@@ -78,7 +76,6 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgniteFuture;
-import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.marshaller.Marshaller;
 import org.apache.ignite.spi.IgniteNodeValidationResult;
 import org.apache.ignite.spi.discovery.DiscoveryDataBag;
@@ -112,7 +109,7 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
     @GridToStringExclude
     private IgniteBinary binaries;
 
-    /** Listener removes all registred binary schemas after the local client reconnected. */
+    /** Listener removes all registered binary schemas after the local client reconnected. */
     private final GridLocalEventListener clientDisconLsnr = new GridLocalEventListener() {
         @Override public void onEvent(Event evt) {
             binaryContext().unregisterBinarySchemas();
@@ -465,6 +462,12 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
             if (holder.pendingVersion() - holder.acceptedVersion() > 0) {
                 GridFutureAdapter<MetadataUpdateResult> fut = transport.awaitMetadataUpdate(typeId, holder.pendingVersion());
 
+                if (log.isDebugEnabled() && !fut.isDone())
+                    log.debug("Waiting for update for" +
+                            " [typeId=" + typeId +
+                            ", pendingVer=" + holder.pendingVersion() +
+                            ", acceptedVer=" + holder.acceptedVersion() + "]");
+
                 try {
                     fut.get();
                 }
@@ -500,6 +503,13 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
                 GridFutureAdapter<MetadataUpdateResult> fut = transport.awaitMetadataUpdate(
                         typeId,
                         holder.pendingVersion());
+
+                if (log.isDebugEnabled() && !fut.isDone())
+                    log.debug("Waiting for update for" +
+                            " [typeId=" + typeId
+                            + ", schemaId=" + schemaId
+                            + ", pendingVer=" + holder.pendingVersion()
+                            + ", acceptedVer=" + holder.acceptedVersion() + "]");
 
                 try {
                     fut.get();
@@ -866,7 +876,14 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
             for (Map.Entry<Integer, BinaryMetadataHolder> e : receivedData.entrySet()) {
                 BinaryMetadataHolder holder = e.getValue();
 
-                metadataLocCache.put(e.getKey(), new BinaryMetadataHolder(holder.metadata(), holder.pendingVersion(), holder.pendingVersion()));
+                BinaryMetadataHolder localHolder = new BinaryMetadataHolder(holder.metadata(),
+                        holder.pendingVersion(),
+                        holder.pendingVersion());
+
+                if (log.isDebugEnabled())
+                    log.debug("Received metadata on join: " + localHolder);
+
+                metadataLocCache.put(e.getKey(), localHolder);
             }
         }
     }
