@@ -373,12 +373,12 @@ public class PlatformContextImpl implements PlatformContext {
                         });
 
                     boolean isEnum = reader.readBoolean();
-                    Map<Integer, String> enumMap = null;
+                    Map<String, Integer> enumMap = null;
                     if (isEnum) {
                         int size = reader.readInt();
                         enumMap = new LinkedHashMap<>(size);
                         for (int idx = 0; idx < size; idx++)
-                            enumMap.put(reader.readInt(), reader.readString());
+                            enumMap.put(reader.readString(), reader.readInt());
                     }
 
                     // Read schemas
@@ -484,11 +484,11 @@ public class PlatformContextImpl implements PlatformContext {
 
             writer.writeBoolean(meta.isEnum());
             if (meta.isEnum()) {
-                Map<Integer, String> enumMap = meta0.enumMap();
+                Map<String, Integer> enumMap = meta0.enumMap();
                 writer.writeInt(enumMap.size());
-                for (Map.Entry<Integer, String> e: enumMap.entrySet()) {
-                    writer.writeInt(e.getKey());
-                    writer.writeString(e.getValue());
+                for (Map.Entry<String, Integer> e: enumMap.entrySet()) {
+                    writer.writeString(e.getKey());
+                    writer.writeInt(e.getValue());
                 }
             }
         }

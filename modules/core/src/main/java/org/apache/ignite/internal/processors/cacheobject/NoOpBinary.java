@@ -17,6 +17,8 @@
 package org.apache.ignite.internal.processors.cacheobject;
 
 import java.util.Collection;
+import java.util.Map;
+
 import org.apache.ignite.IgniteBinary;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjectBuilder;
@@ -69,7 +71,17 @@ public class NoOpBinary implements IgniteBinary {
     }
 
     /** {@inheritDoc} */
-    @Override public BinaryObject buildEnum(String typeName, int ord, @Nullable String name) {
+    @Override public BinaryObject buildEnum(String typeName, int ord) {
+        throw unsupported();
+    }
+
+    /** {@inheritDoc} */
+    @Override public BinaryObject buildEnum(String typeName, String name) {
+        throw unsupported();
+    }
+
+    /** {@inheritDoc} */
+    @Override public BinaryType defineEnum(String typeName, Map<String, Integer> vals) {
         throw unsupported();
     }
 

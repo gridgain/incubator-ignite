@@ -976,13 +976,13 @@ public class BinaryUtils {
 
             boolean changed = false;
 
-            Map<Integer, String> mergedEnumMap = null;
+            Map<String, Integer> mergedEnumMap = null;
             if (!F.isEmpty(newMeta.enumMap())) {
                 if (F.isEmpty(oldMeta.enumMap()))
                     mergedEnumMap = newMeta.enumMap();
                 else {
                     mergedEnumMap = new LinkedHashMap<>(oldMeta.enumMap());
-                    for (Map.Entry<Integer, String> e: newMeta.enumMap().entrySet())
+                    for (Map.Entry<String, Integer> e: newMeta.enumMap().entrySet())
                         mergedEnumMap.put(e.getKey(), e.getValue());
                 }
                 changed = true;

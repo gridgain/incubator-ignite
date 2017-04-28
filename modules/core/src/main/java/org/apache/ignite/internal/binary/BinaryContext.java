@@ -461,11 +461,11 @@ public class BinaryContext {
 
                     for (String clsName0 : classesInPackage(pkgName))
                         descs.add(clsName0, mapper, serializer, identity, affFields.get(clsName0),
-                            typeCfg.isEnum(), typeCfg.getEnumNames(), true);
+                            typeCfg.isEnum(), typeCfg.getEnumValues(), true);
                 }
                 else
                     descs.add(clsName, mapper, serializer, identity, affFields.get(clsName),
-                        typeCfg.isEnum(), typeCfg.getEnumNames(), false);
+                        typeCfg.isEnum(), typeCfg.getEnumValues(), false);
             }
         }
 
@@ -1096,7 +1096,7 @@ public class BinaryContext {
      * @param identity Type identity.
      * @param affKeyFieldName Affinity key field name.
      * @param isEnum If enum.
-     * @param enumMap Enum ordinal to name mapping.
+     * @param enumMap Enum name to ordinal mapping.
      * @throws BinaryObjectException In case of error.
      */
     @SuppressWarnings("ErrorNotRethrown")
@@ -1106,7 +1106,7 @@ public class BinaryContext {
         @Nullable BinaryIdentityResolver identity,
         @Nullable String affKeyFieldName,
         boolean isEnum,
-        @Nullable Map<Integer, String> enumMap)
+        @Nullable Map<String, Integer> enumMap)
         throws BinaryObjectException {
         assert mapper != null;
 
@@ -1369,7 +1369,7 @@ public class BinaryContext {
          * @param identity Key hashing mode.
          * @param affKeyFieldName Affinity key field name.
          * @param isEnum Enum flag.
-         * @param enumNames Names of enum constants.
+         * @param enumValues Enum constants mapping.
          * @param canOverride Whether this descriptor can be override.
          * @throws BinaryObjectException If failed.
          */
@@ -1379,7 +1379,7 @@ public class BinaryContext {
             BinaryIdentityResolver identity,
             String affKeyFieldName,
             boolean isEnum,
-            Map<Integer, String> enumNames,
+            Map<String, Integer> enumValues,
             boolean canOverride)
             throws BinaryObjectException {
             TypeDescriptor desc = new TypeDescriptor(clsName,
@@ -1388,7 +1388,7 @@ public class BinaryContext {
                 identity,
                 affKeyFieldName,
                 isEnum,
-                enumNames,
+                enumValues,
                 canOverride);
 
             TypeDescriptor oldDesc = descs.get(clsName);
@@ -1432,7 +1432,7 @@ public class BinaryContext {
         private boolean isEnum;
 
         /** Enum ordinal to name mapping. */
-        private Map<Integer, String> enumMap;
+        private Map<String, Integer> enumMap;
 
         /** Whether this descriptor can be override. */
         private boolean canOverride;
@@ -1445,19 +1445,19 @@ public class BinaryContext {
          * @param identity Key hashing mode.
          * @param affKeyFieldName Affinity key field name.
          * @param isEnum Enum type.
-         * @param enumNames Names of enum constants.
+         * @param enumValues Mapping of enum names to ordinals.
          * @param canOverride Whether this descriptor can be override.
          */
         private TypeDescriptor(String clsName, BinaryInternalMapper mapper,
             BinarySerializer serializer, BinaryIdentityResolver identity, String affKeyFieldName, boolean isEnum,
-            Map<Integer, String> enumNames, boolean canOverride) {
+            Map<String, Integer> enumValues, boolean canOverride) {
             this.clsName = clsName;
             this.mapper = mapper;
             this.serializer = serializer;
             this.identity = identity;
             this.affKeyFieldName = affKeyFieldName;
             this.isEnum = isEnum;
-            this.enumMap = enumNames;
+            this.enumMap = enumValues;
             this.canOverride = canOverride;
         }
 

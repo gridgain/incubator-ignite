@@ -95,11 +95,11 @@ public class BinaryMetadata implements Externalizable {
      * @param affKeyFieldName Affinity key field name.
      * @param schemas Schemas.
      * @param isEnum Enum flag.
-     * @param enumMap Enum ordinal to name mapping.
+     * @param enumMap Enum name to ordinal mapping.
      */
     public BinaryMetadata(int typeId, String typeName, @Nullable Map<String, BinaryFieldMetadata> fields,
                           @Nullable String affKeyFieldName, @Nullable Collection<BinarySchema> schemas,
-                          boolean isEnum, @Nullable Map<Integer, String> enumMap) {
+                          boolean isEnum, @Nullable Map<String, Integer> enumMap) {
         assert typeName != null;
 
         this.typeId = typeId;
@@ -120,10 +120,10 @@ public class BinaryMetadata implements Externalizable {
         this.isEnum = isEnum;
 
         if (enumMap != null) {
-            this.ordinalToNames = new LinkedHashMap<>(enumMap);
-            this.nameToOrdinal = new LinkedHashMap<>(enumMap.size());
-            for (Map.Entry<Integer, String> e: ordinalToNames.entrySet())
-                this.nameToOrdinal.put(e.getValue(), e.getKey());
+            this.nameToOrdinal = new LinkedHashMap<>(enumMap);
+            this.ordinalToNames = new LinkedHashMap<>(enumMap.size());
+            for (Map.Entry<String, Integer> e: nameToOrdinal.entrySet())
+                this.ordinalToNames.put(e.getValue(), e.getKey());
         }
     }
 
@@ -248,11 +248,11 @@ public class BinaryMetadata implements Externalizable {
         out.writeBoolean(isEnum);
 
         if (isEnum) {
-            Map<Integer, String> map = enumMap();
+            Map<String, Integer> map = enumMap();
             out.writeInt(map.size());
-            for (Map.Entry<Integer, String> e : map.entrySet()) {
-                out.writeInt(e.getKey());
-                U.writeString(out, e.getValue());
+            for (Map.Entry<String, Integer> e : map.entrySet()) {
+                U.writeString(out, e.getKey());
+                out.writeInt(e.getValue());
             }
         }
     }
@@ -324,8 +324,8 @@ public class BinaryMetadata implements Externalizable {
                 ordinalToNames = new LinkedHashMap<>(size);
                 nameToOrdinal = new LinkedHashMap<>(size);
                 for (int idx = 0; idx < size; idx++) {
-                    int ord = in.readInt();
                     String name = U.readString(in);
+                    int ord = in.readInt();
                     ordinalToNames.put(ord, name);
                     nameToOrdinal.put(name, ord);
                 }
@@ -363,13 +363,13 @@ public class BinaryMetadata implements Externalizable {
     }
 
     /**
-     * @return Ordinal to name mapping.
+     * @return Name to ordinal mapping.
      */
-    public Map<Integer, String> enumMap() {
-        if (ordinalToNames == null)
+    public Map<String, Integer> enumMap() {
+        if (nameToOrdinal == null)
             return Collections.emptyMap();
 
-        return ordinalToNames;
+        return nameToOrdinal;
     }
 
     /** {@inheritDoc} */

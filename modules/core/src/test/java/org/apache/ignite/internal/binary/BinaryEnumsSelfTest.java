@@ -89,7 +89,7 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
 
             BinaryTypeConfiguration enumCfg = new BinaryTypeConfiguration(EnumType.class.getName());
             enumCfg.setEnum(true);
-            enumCfg.setEnumNames(EnumType.ONE.name(), EnumType.TWO.name());
+            enumCfg.setEnumValues(EnumType.ONE.name(), EnumType.TWO.name());
 
             bCfg.setTypeConfigurations(Arrays.asList(enumCfg, new BinaryTypeConfiguration(EnumHolder.class.getName())));
 
@@ -247,6 +247,9 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
     public void checkSimple(boolean registered) throws Exception {
         startUp(registered);
 
+        if (!registered)
+            defineEnum();
+
         cache1.put(1, EnumType.ONE);
 
         validateSimple(1, EnumType.ONE, registered);
@@ -261,6 +264,9 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
     private void checkNested(boolean registered) throws Exception {
         startUp(registered);
 
+        if (!registered)
+            defineEnum();
+
         cache1.put(1, new EnumHolder(EnumType.ONE));
 
         validateNested(1, EnumType.ONE, registered);
@@ -274,6 +280,9 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
      */
     private void checkNestedBuilder(boolean registered) throws Exception {
         startUp(registered);
+
+        if (!registered)
+            defineEnum();
 
         BinaryObject obj = node1.binary().builder(EnumHolder.class.getName()).setField("val", EnumType.ONE).build();
 
@@ -325,11 +334,17 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
     public void checkSimpleBuilder(boolean registered) throws Exception {
         startUp(registered);
 
-        BinaryObject binary = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal(), EnumType.ONE.name());
+        if (!registered)
+            defineEnum();
 
-        cacheBinary1.put(1, binary);
+        BinaryObject binaryOne = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal());
+        BinaryObject binaryTwo = node1.binary().buildEnum(EnumType.class.getName(), EnumType.TWO.name());
 
-        validateSimple(1, EnumType.ONE, registered);
+        cacheBinary1.put(EnumType.ONE.ordinal(), binaryOne);
+        cacheBinary1.put(EnumType.TWO.ordinal(), binaryTwo);
+
+        validateSimple(EnumType.ONE.ordinal(), EnumType.ONE, registered);
+        validateSimple(EnumType.TWO.ordinal(), EnumType.TWO, registered);
     }
 
     /**
@@ -377,6 +392,9 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
     public void checkSimpleArray(boolean registered) throws Exception {
         startUp(registered);
 
+        if (!registered)
+            defineEnum();
+
         cache1.put(1, new EnumType[] { EnumType.ONE, EnumType.TWO });
 
         validateSimpleArray(registered);
@@ -391,8 +409,11 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
     public void checkSimpleBuilderArray(boolean registered) throws Exception {
         startUp(registered);
 
-        BinaryObject binaryOne = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal(), EnumType.ONE.name());
-        BinaryObject binaryTwo = node1.binary().buildEnum(EnumType.class.getName(), EnumType.TWO.ordinal(), EnumType.TWO.name());
+        if (!registered)
+            defineEnum();
+
+        BinaryObject binaryOne = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal());
+        BinaryObject binaryTwo = node1.binary().buildEnum(EnumType.class.getName(), EnumType.TWO.name());
 
         cacheBinary1.put(1, new BinaryObject[] { binaryOne, binaryTwo });
 
@@ -424,8 +445,10 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
     public void testBinaryTypeEnumValues() throws Exception {
         startUp(false);
 
-        BinaryObject binaryOne = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal(), EnumType.ONE.name());
-        BinaryObject binaryTwo = node1.binary().buildEnum(EnumType.class.getName(), EnumType.TWO.ordinal(), EnumType.TWO.name());
+        defineEnum();
+
+        BinaryObject binaryOne = node1.binary().buildEnum(EnumType.class.getName(), EnumType.ONE.ordinal());
+        BinaryObject binaryTwo = node1.binary().buildEnum(EnumType.class.getName(), EnumType.TWO.name());
 
         Collection<BinaryObject> vals = binaryOne.type().enumValues();
 
@@ -497,6 +520,13 @@ public class BinaryEnumsSelfTest extends GridCommonAbstractTest {
 
         assertEquals(val.ordinal(), obj.enumOrdinal());
         assertEquals(val.name(), obj.enumName());
+    }
+
+    /** Register enum */
+    private void defineEnum() {
+        node1.binary().defineEnum(EnumType.class.getName(),
+                F.asMap(EnumType.ONE.name(), EnumType.ONE.ordinal(),
+                        EnumType.TWO.name(), EnumType.TWO.ordinal()));
     }
 
     /**

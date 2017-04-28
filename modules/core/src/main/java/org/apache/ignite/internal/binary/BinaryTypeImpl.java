@@ -91,7 +91,7 @@ public class BinaryTypeImpl implements BinaryType {
         if (enumValues != null)
             return enumValues;
 
-        Collection<Integer> ordinals = meta.enumMap().keySet();
+        Collection<Integer> ordinals = meta.enumMap().values();
         enumValues = new ArrayList<>(ordinals.size());
         for (Integer ord: ordinals)
             enumValues.add(new BinaryEnumObjectImpl(ctx, typeId(), typeName(), ord));

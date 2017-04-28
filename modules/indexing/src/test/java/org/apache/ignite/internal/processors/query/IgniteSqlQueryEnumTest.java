@@ -100,7 +100,7 @@ public class IgniteSqlQueryEnumTest extends GridCommonAbstractTest {
         BinaryConfiguration binCfg = new BinaryConfiguration();
 
         BinaryTypeConfiguration binEnumCfg = new BinaryTypeConfiguration(CFG_ENUM_NAME);
-        binEnumCfg.setEnumNames(Color.NAMES);
+        binEnumCfg.setEnumValues(Color.NAMES);
 
         binCfg.setTypeConfigurations(F.asList(binEnumCfg));
         cfg.setBinaryConfiguration(binCfg);

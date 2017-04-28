@@ -49,8 +49,8 @@ public class BinaryTypeConfiguration {
     /** Enum flag. */
     private boolean isEnum;
 
-    /** Enum ordinal to names mapping. */
-    private Map<Integer, String> enumNames;
+    /** Enum names to ordinals mapping. */
+    private Map<String, Integer> enumValues;
 
     /**
      * Constructor.
@@ -70,7 +70,7 @@ public class BinaryTypeConfiguration {
         idMapper = other.idMapper;
         isEnum = other.isEnum;
         serializer = other.serializer;
-        enumNames = other.enumNames;
+        enumValues = other.enumValues;
         typeName = other.typeName;
     }
 
@@ -187,41 +187,41 @@ public class BinaryTypeConfiguration {
     }
 
     /**
-     * Sets enum ordinal to names mapping.
+     * Sets enum name to ordinal mapping.
      *
-     * @param names Array of enum constants names.
+     * @param values Array of enum constants names.
      * @return {@code this} for chaining.
      */
-    public BinaryTypeConfiguration setEnumNames(String... names) {
-        if (names == null) {
-            this.enumNames = null;
+    public BinaryTypeConfiguration setEnumValues(String... values) {
+        if (values == null) {
+            this.enumValues = null;
             return this;
         }
 
-        Map<Integer, String> enumNames = new LinkedHashMap<>(names.length);
-        for (int idx = 0; idx < names.length; ++idx)
-            enumNames.put(idx, names[idx]);
+        Map<String, Integer> enumValues = new LinkedHashMap<>(values.length);
+        for (int idx = 0; idx < values.length; ++idx)
+            enumValues.put(values[idx], idx);
 
-        return setEnumNames(enumNames);
+        return setEnumValues(enumValues);
     }
 
     /**
      * Set enum ordinal to names mapping.
      *
-     * @param names Map of enum ordinal to name.
+     * @param values Map of enum name to ordinal.
      * @return {@code this} for chaining.
      */
-    public BinaryTypeConfiguration setEnumNames(Map<Integer, String> names) {
+    public BinaryTypeConfiguration setEnumValues(Map<String, Integer> values) {
         this.isEnum = true;
-        this.enumNames = names;
+        this.enumValues = values;
         return this;
     }
 
     /**
-     * @return Enum ordinal to name mapping
+     * @return Enum name to ordinal mapping
      */
-    public Map<Integer, String> getEnumNames() {
-        return enumNames;
+    public Map<String, Integer> getEnumValues() {
+        return enumValues;
     }
 
     /** {@inheritDoc} */
