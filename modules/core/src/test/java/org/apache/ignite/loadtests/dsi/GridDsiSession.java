@@ -17,9 +17,8 @@
 
 package org.apache.ignite.loadtests.dsi;
 
-import org.apache.ignite.cache.affinity.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.cache.affinity.AffinityKeyMapped;
 
 /**
  *
@@ -59,7 +58,7 @@ public class GridDsiSession implements Serializable{
 
         /** */
         @SuppressWarnings("UnusedDeclaration")
-        @CacheAffinityKeyMapped
+        @AffinityKeyMapped
         private String terminalId;
 
         /**

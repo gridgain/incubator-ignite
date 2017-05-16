@@ -17,17 +17,15 @@
 
 package org.apache.ignite.internal.visor.node;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cluster.ClusterGroupEmptyException;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.visor.VisorMultiNodeTask;
+import org.apache.ignite.internal.visor.util.VisorExceptionWrapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Collects current Grid state mostly topology and metrics.
@@ -37,25 +35,6 @@ public class VisorNodeDataCollectorTask extends VisorMultiNodeTask<VisorNodeData
     VisorNodeDataCollectorTaskResult, VisorNodeDataCollectorJobResult> {
     /** */
     private static final long serialVersionUID = 0L;
-
-    /** {@inheritDoc} */
-    @Override protected Map<? extends ComputeJob, ClusterNode> map0(List<ClusterNode> subgrid,
-        VisorTaskArgument<VisorNodeDataCollectorTaskArg> arg) {
-        assert arg != null;
-
-        Map<ComputeJob, ClusterNode> map = U.newHashMap(subgrid.size());
-
-        try {
-            for (ClusterNode node : subgrid)
-                map.put(job(taskArg), node);
-
-            return map;
-        }
-        finally {
-            if (debug)
-                logMapped(ignite.log(), getClass(), map.values());
-        }
-    }
 
     /** {@inheritDoc} */
     @Override protected VisorNodeDataCollectorJob job(VisorNodeDataCollectorTaskArg arg) {
@@ -70,6 +49,7 @@ public class VisorNodeDataCollectorTask extends VisorMultiNodeTask<VisorNodeData
     /**
      * @param taskRes Task result.
      * @param results Results.
+     * @return Data collector task result.
      */
     protected VisorNodeDataCollectorTaskResult reduce(VisorNodeDataCollectorTaskResult taskRes,
         List<ComputeJobResult> results) {
@@ -86,7 +66,7 @@ public class VisorNodeDataCollectorTask extends VisorMultiNodeTask<VisorNodeData
                 else {
                     // Ignore nodes that left topology.
                     if (!(unhandledEx instanceof ClusterGroupEmptyException))
-                        taskRes.unhandledEx().put(nid, unhandledEx);
+                        taskRes.unhandledEx().put(nid, new VisorExceptionWrapper(unhandledEx));
                 }
             }
         }
@@ -115,19 +95,13 @@ public class VisorNodeDataCollectorTask extends VisorMultiNodeTask<VisorNodeData
             taskRes.events().addAll(jobRes.events());
 
         if (jobRes.eventsEx() != null)
-            taskRes.eventsEx().put(nid, jobRes.eventsEx());
+            taskRes.eventsEx().put(nid, new VisorExceptionWrapper(jobRes.eventsEx()));
 
         if (!jobRes.caches().isEmpty())
             taskRes.caches().put(nid, jobRes.caches());
 
         if (jobRes.cachesEx() != null)
-            taskRes.cachesEx().put(nid, jobRes.cachesEx());
-
-        if (!jobRes.streamers().isEmpty())
-            taskRes.streamers().put(nid, jobRes.streamers());
-
-        if (jobRes.streamersEx() != null)
-            taskRes.streamersEx().put(nid, jobRes.streamersEx());
+            taskRes.cachesEx().put(nid, new VisorExceptionWrapper(jobRes.cachesEx()));
 
         if (!jobRes.igfss().isEmpty())
             taskRes.igfss().put(nid, jobRes.igfss());
@@ -136,6 +110,6 @@ public class VisorNodeDataCollectorTask extends VisorMultiNodeTask<VisorNodeData
             taskRes.igfsEndpoints().put(nid, jobRes.igfsEndpoints());
 
         if (jobRes.igfssEx() != null)
-            taskRes.igfssEx().put(nid, jobRes.igfssEx());
+            taskRes.igfssEx().put(nid, new VisorExceptionWrapper(jobRes.igfssEx()));
     }
 }

@@ -17,65 +17,233 @@
 
 package org.apache.ignite.internal.processors.cache.query;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Two step map-reduce style query.
  */
-public class GridCacheTwoStepQuery implements Serializable {
+public class GridCacheTwoStepQuery {
     /** */
-    private static final long serialVersionUID = 0L;
+    public static final int DFLT_PAGE_SIZE = 1000;
 
     /** */
     @GridToStringInclude
-    private Map<String, GridCacheSqlQuery> mapQrys;
+    private List<GridCacheSqlQuery> mapQrys = new ArrayList<>();
 
     /** */
     @GridToStringInclude
-    private GridCacheSqlQuery reduce;
+    private GridCacheSqlQuery rdc;
+
+    /** */
+    private int pageSize = DFLT_PAGE_SIZE;
+
+    /** */
+    private boolean explain;
+
+    /** */
+    private Collection<String> spaces;
+
+    /** */
+    private Set<String> schemas;
+
+    /** */
+    private Set<String> tbls;
+
+    /** */
+    private boolean distributedJoins;
+
+    /** */
+    private boolean skipMergeTbl;
+
+    /** */
+    private List<Integer> caches;
+
+    /** */
+    private List<Integer> extraCaches;
 
     /**
-     * @param qry Reduce query.
-     * @param params Reduce query parameters.
+     * @param schemas Schema names in query.
+     * @param tbls Tables in query.
      */
-    public GridCacheTwoStepQuery(String qry, Object ... params) {
-        reduce = new GridCacheSqlQuery(null, qry, params);
+    public GridCacheTwoStepQuery(Set<String> schemas, Set<String> tbls) {
+        this.schemas = schemas;
+        this.tbls = tbls;
     }
 
     /**
-     * @param alias Alias.
-     * @param qry SQL Query.
-     * @param params Query parameters.
+     * Specify if distributed joins are enabled for this query.
+     *
+     * @param distributedJoins Distributed joins enabled.
      */
-    public void addMapQuery(String alias, String qry, Object ... params) {
-        A.ensure(!F.isEmpty(alias), "alias must not be empty");
+    public void distributedJoins(boolean distributedJoins) {
+        this.distributedJoins = distributedJoins;
+    }
 
-        if (mapQrys == null)
-            mapQrys = new GridLeanMap<>();
+    /**
+     * Check if distributed joins are enabled for this query.
+     *
+     * @return {@code true} If distributed joind enabled.
+     */
+    public boolean distributedJoins() {
+        return distributedJoins;
+    }
 
-        if (mapQrys.put(alias, new GridCacheSqlQuery(alias, qry, params)) != null)
-            throw new IgniteException("Failed to add query, alias already exists: " + alias + ".");
+
+    /**
+     * @return {@code True} if reduce query can skip merge table creation and get data directly from merge index.
+     */
+    public boolean skipMergeTable() {
+        return skipMergeTbl;
+    }
+
+    /**
+     * @param skipMergeTbl Skip merge table.
+     */
+    public void skipMergeTable(boolean skipMergeTbl) {
+        this.skipMergeTbl = skipMergeTbl;
+    }
+
+    /**
+     * @return If this is explain query.
+     */
+    public boolean explain() {
+        return explain;
+    }
+
+    /**
+     * @param explain If this is explain query.
+     */
+    public void explain(boolean explain) {
+        this.explain = explain;
+    }
+
+    /**
+     * @param pageSize Page size.
+     */
+    public void pageSize(int pageSize) {
+        this.pageSize = pageSize;
+    }
+
+    /**
+     * @return Page size.
+     */
+    public int pageSize() {
+        return pageSize;
+    }
+
+    /**
+     * @param qry SQL Query.
+     * @return {@code this}.
+     */
+    public GridCacheTwoStepQuery addMapQuery(GridCacheSqlQuery qry) {
+        mapQrys.add(qry);
+
+        return this;
     }
 
     /**
      * @return Reduce query.
      */
     public GridCacheSqlQuery reduceQuery() {
-        return reduce;
+        return rdc;
+    }
+
+    /**
+     * @param rdc Reduce query.
+     */
+    public void reduceQuery(GridCacheSqlQuery rdc) {
+        this.rdc = rdc;
     }
 
     /**
      * @return Map queries.
      */
-    public Collection<GridCacheSqlQuery> mapQueries() {
-        return new ArrayList<>(mapQrys.values()); // Copy to make it Serializable.
+    public List<GridCacheSqlQuery> mapQueries() {
+        return mapQrys;
+    }
+
+    /**
+     * @return Caches.
+     */
+    public List<Integer> caches() {
+        return caches;
+    }
+
+    /**
+     * @param caches Caches.
+     */
+    public void caches(List<Integer> caches) {
+        this.caches = caches;
+    }
+
+    /**
+     * @return Caches.
+     */
+    public List<Integer> extraCaches() {
+        return extraCaches;
+    }
+
+    /**
+     * @param extraCaches Caches.
+     */
+    public void extraCaches(List<Integer> extraCaches) {
+        this.extraCaches = extraCaches;
+    }
+
+    /**
+     * @return Spaces.
+     */
+    public Collection<String> spaces() {
+        return spaces;
+    }
+
+    /**
+     * @param spaces Spaces.
+     */
+    public void spaces(Collection<String> spaces) {
+        this.spaces = spaces;
+    }
+
+    /**
+     * @return Schemas.
+     */
+    public Set<String> schemas() {
+        return schemas;
+    }
+
+    /**
+     * @param args New arguments to copy with.
+     * @return Copy.
+     */
+    public GridCacheTwoStepQuery copy(Object[] args) {
+        assert !explain;
+
+        GridCacheTwoStepQuery cp = new GridCacheTwoStepQuery(schemas, tbls);
+
+        cp.caches = caches;
+        cp.extraCaches = extraCaches;
+        cp.spaces = spaces;
+        cp.rdc = rdc.copy(args);
+        cp.skipMergeTbl = skipMergeTbl;
+        cp.pageSize = pageSize;
+        cp.distributedJoins = distributedJoins;
+
+        for (int i = 0; i < mapQrys.size(); i++)
+            cp.mapQrys.add(mapQrys.get(i).copy(args));
+
+        return cp;
+    }
+
+    /**
+     * @return Tables.
+     */
+    public Set<String> tables() {
+        return tbls;
     }
 
     /** {@inheritDoc} */

@@ -17,28 +17,30 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.query.*;
-import org.apache.ignite.cache.query.annotations.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.io.Serializable;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.cache.Cache;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.query.QueryCursor;
+import org.apache.ignite.cache.query.SqlFieldsQuery;
+import org.apache.ignite.cache.query.SqlQuery;
+import org.apache.ignite.cache.query.annotations.QuerySqlField;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.util.GridRandom;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import javax.cache.*;
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  *
@@ -60,7 +62,7 @@ public class IgniteCacheSqlQueryMultiThreadedSelfTest extends GridCommonAbstract
         CacheConfiguration<?,?> ccfg = new CacheConfiguration();
 
         ccfg.setCacheMode(PARTITIONED);
-        ccfg.setDistributionMode(PARTITIONED_ONLY);
+        ccfg.setNearConfiguration(null);
         ccfg.setBackups(1);
         ccfg.setAtomicityMode(TRANSACTIONAL);
         ccfg.setIndexedTypes(
@@ -92,7 +94,7 @@ public class IgniteCacheSqlQueryMultiThreadedSelfTest extends GridCommonAbstract
      * @throws Exception If failed.
      */
     public void testQuery() throws Exception {
-        final IgniteCache<Integer, Person> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Person> cache = grid(0).cache(null);
 
         cache.clear();
 
@@ -103,7 +105,7 @@ public class IgniteCacheSqlQueryMultiThreadedSelfTest extends GridCommonAbstract
             @Override public Void call() throws Exception {
                 for (int i = 0; i < 100; i++) {
                     QueryCursor<Cache.Entry<Integer, Person>> qry =
-                        cache.query(new SqlQuery("Person", "age >= 0"));
+                        cache.query(new SqlQuery<Integer, Person>("Person", "age >= 0"));
 
                     int cnt = 0;
 
@@ -123,7 +125,7 @@ public class IgniteCacheSqlQueryMultiThreadedSelfTest extends GridCommonAbstract
      * @throws Exception If failed.
      */
     public void testQueryPut() throws Exception {
-        final IgniteCache<Integer, Person> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Person> cache = grid(0).cache(null);
 
         cache.clear();
 
@@ -134,7 +136,7 @@ public class IgniteCacheSqlQueryMultiThreadedSelfTest extends GridCommonAbstract
                 Random rnd = new GridRandom();
 
                 while (!stop.get()) {
-                    List<List<?>> res = cache.queryFields(
+                    List<List<?>> res = cache.query(
                         new SqlFieldsQuery("select avg(age) from Person where age > 0")).getAll();
 
                     assertEquals(1, res.size());

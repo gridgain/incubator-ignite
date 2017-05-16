@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.processors.cache.query;
 
-import org.apache.ignite.spi.indexing.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.util.Collection;
+import java.util.Map;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.spi.indexing.IndexingSpi;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Metadata for Ignite cache.
@@ -30,7 +31,7 @@ import java.util.*;
  * can be used to gather information about what can
  * be queried using Ignite cache queries feature.
  */
-public interface GridCacheSqlMetadata extends Externalizable {
+public interface GridCacheSqlMetadata extends Externalizable, LessNamingBean {
     /**
      * Cache name.
      *
@@ -76,6 +77,26 @@ public interface GridCacheSqlMetadata extends Externalizable {
      * @return Fields map or {@code null} if type name is unknown.
      */
     @Nullable public Map<String, String> fields(String type);
+
+    /**
+     * @return Key classes.
+     */
+    public Map<String, String> keyClasses();
+
+    /**
+     * @return Value classes.
+     */
+    public Map<String, String> valClasses();
+
+    /**
+     * @return Fields.
+     */
+    public Map<String, Map<String, String>> fields();
+
+    /**
+     * @return Indexes.
+     */
+    public Map<String, Collection<GridCacheSqlIndexMetadata>> indexes();
 
     /**
      * Gets descriptors of indexes created for provided type.

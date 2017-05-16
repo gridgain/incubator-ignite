@@ -17,22 +17,25 @@
 
 package org.apache.ignite.internal.visor.node;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.igfs.secondary.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import org.apache.ignite.configuration.FileSystemConfiguration;
+import org.apache.ignite.igfs.IgfsIpcEndpointConfiguration;
+import org.apache.ignite.igfs.IgfsMode;
+import org.apache.ignite.igfs.secondary.IgfsSecondaryFileSystem;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.processors.igfs.IgfsEx.*;
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactClass;
 
 /**
  * Data transfer object for IGFS configuration properties.
  */
-public class VisorIgfsConfiguration implements Serializable {
+public class VisorIgfsConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -60,11 +63,14 @@ public class VisorIgfsConfiguration implements Serializable {
     /** Number of batches that can be concurrently sent to remote node. */
     private int perNodeParallelBatchCnt;
 
-    /** URI of the secondary Hadoop file system. */
+    /** @deprecated Needed only for backward compatibility. */
     private String secondaryHadoopFileSysUri;
 
-    /** Path for the secondary hadoop file system config. */
+    /** @deprecated Needed only for backward compatibility. */
     private String secondaryHadoopFileSysCfgPath;
+
+    /** @deprecated Needed only for backward compatibility. */
+    private String secondaryHadoopFileSysUserName;
 
     /** IGFS instance mode. */
     private IgfsMode dfltMode;
@@ -133,15 +139,6 @@ public class VisorIgfsConfiguration implements Serializable {
         cfg.perNodeBatchSize = igfs.getPerNodeBatchSize();
         cfg.perNodeParallelBatchCnt = igfs.getPerNodeParallelBatchCount();
 
-        IgfsSecondaryFileSystem secFs = igfs.getSecondaryFileSystem();
-
-        if (secFs != null) {
-            Map<String, String> props = secFs.properties();
-
-            cfg.secondaryHadoopFileSysUri = props.get(SECONDARY_FS_URI);
-            cfg.secondaryHadoopFileSysCfgPath = props.get(SECONDARY_FS_CONFIG_PATH);
-        }
-
         cfg.dfltMode = igfs.getDefaultMode();
         cfg.pathModes = igfs.getPathModes();
         cfg.dualModePutExecutorSrvc = compactClass(igfs.getDualModePutExecutorService());
@@ -154,7 +151,7 @@ public class VisorIgfsConfiguration implements Serializable {
         cfg.fragmentizerThrottlingBlockLen = igfs.getFragmentizerThrottlingBlockLength();
         cfg.fragmentizerThrottlingDelay = igfs.getFragmentizerThrottlingDelay();
 
-        IgfsIpcEndpointConfiguration  endpointCfg = igfs.getIpcEndpointConfiguration();
+        IgfsIpcEndpointConfiguration endpointCfg = igfs.getIpcEndpointConfiguration();
 
         cfg.ipcEndpointCfg = endpointCfg != null ? endpointCfg.toString() : null;
 
@@ -242,14 +239,21 @@ public class VisorIgfsConfiguration implements Serializable {
     }
 
     /**
-     * @return URI of the secondary Hadoop file system.
+     * @deprecated Needed only for backward compatibility.
      */
     @Nullable public String secondaryHadoopFileSystemUri() {
         return secondaryHadoopFileSysUri;
     }
 
     /**
-     * @return Path for the secondary hadoop file system config.
+     * @deprecated Needed only for backward compatibility.
+     */
+    @Nullable public String secondaryHadoopFileSystemUserName() {
+        return secondaryHadoopFileSysUserName;
+    }
+
+    /**
+     * @deprecated Needed only for backward compatibility.
      */
     @Nullable public String secondaryHadoopFileSystemConfigPath() {
         return secondaryHadoopFileSysCfgPath;

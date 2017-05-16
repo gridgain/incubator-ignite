@@ -17,20 +17,23 @@
 
 package org.apache.ignite.internal.processors.query.h2.opt;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.query.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.*;
-import org.h2.message.*;
-import org.h2.result.*;
-import org.h2.value.*;
-import org.jetbrains.annotations.*;
-
-import java.lang.ref.*;
-import java.math.*;
-import java.sql.Date;
-import java.sql.*;
-import java.util.*;
+import java.lang.ref.WeakReference;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteInterruptedException;
+import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.h2.message.DbException;
+import org.h2.result.Row;
+import org.h2.result.SearchRow;
+import org.h2.value.CompareMode;
+import org.h2.value.Value;
+import org.h2.value.ValueNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table row implementation based on {@link GridQueryTypeDescriptor}.
@@ -52,6 +55,15 @@ public abstract class GridH2AbstractKeyValueRow extends GridH2Row {
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
     protected long expirationTime;
 
+    /** */
+    private Value key;
+
+    /** */
+    private volatile Value val;
+
+    /** */
+    private Value[] valCache;
+
     /**
      * Constructor.
      *
@@ -61,15 +73,22 @@ public abstract class GridH2AbstractKeyValueRow extends GridH2Row {
      * @param val Value.
      * @param valType Value type.
      * @param expirationTime Expiration time.
-     * @throws IgniteSpiException If failed.
+     * @throws IgniteCheckedException If failed.
      */
     protected GridH2AbstractKeyValueRow(GridH2RowDescriptor desc, Object key, int keyType, @Nullable Object val,
-        int valType, long expirationTime) throws IgniteSpiException {
-        super(wrap(key, keyType),
-            val == null ? null : wrap(val, valType)); // We remove by key only, so value can be null here.
+        int valType, long expirationTime) throws IgniteCheckedException {
+        setValue(KEY_COL, desc.wrap(key, keyType));
+
+        if (val != null) // We remove by key only, so value can be null here.
+            setValue(VAL_COL, desc.wrap(val, valType));
 
         this.desc = desc;
         this.expirationTime = expirationTime;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Value[] getValueList() {
+        throw new UnsupportedOperationException();
     }
 
     /**
@@ -78,73 +97,7 @@ public abstract class GridH2AbstractKeyValueRow extends GridH2Row {
      * @param desc Row descriptor.
      */
     protected GridH2AbstractKeyValueRow(GridH2RowDescriptor desc) {
-        super(new Value[DEFAULT_COLUMNS_COUNT]);
-
         this.desc = desc;
-    }
-
-    /**
-     * Wraps object to respective {@link Value}.
-     *
-     * @param obj Object.
-     * @param type Value type.
-     * @return Value.
-     * @throws IgniteSpiException If failed.
-     */
-    private static Value wrap(Object obj, int type) throws IgniteSpiException {
-        switch (type) {
-            case Value.BOOLEAN:
-                return ValueBoolean.get((Boolean)obj);
-            case Value.BYTE:
-                return ValueByte.get((Byte)obj);
-            case Value.SHORT:
-                return ValueShort.get((Short)obj);
-            case Value.INT:
-                return ValueInt.get((Integer)obj);
-            case Value.FLOAT:
-                return ValueFloat.get((Float)obj);
-            case Value.LONG:
-                return ValueLong.get((Long)obj);
-            case Value.DOUBLE:
-                return ValueDouble.get((Double)obj);
-            case Value.UUID:
-                UUID uuid = (UUID)obj;
-                return ValueUuid.get(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
-            case Value.DATE:
-                return ValueDate.get((Date)obj);
-            case Value.TIME:
-                return ValueTime.get((Time)obj);
-            case Value.TIMESTAMP:
-                if (obj instanceof java.util.Date && !(obj instanceof Timestamp))
-                    obj = new Timestamp(((java.util.Date) obj).getTime());
-
-                return GridH2Utils.toValueTimestamp((Timestamp)obj);
-            case Value.DECIMAL:
-                return ValueDecimal.get((BigDecimal)obj);
-            case Value.STRING:
-                return ValueString.get(obj.toString());
-            case Value.BYTES:
-                return ValueBytes.get((byte[])obj);
-            case Value.JAVA_OBJECT:
-                return ValueJavaObject.getNoCopy(obj, null, null);
-            case Value.ARRAY:
-                Object[] arr = (Object[])obj;
-
-                Value[] valArr = new Value[arr.length];
-
-                for (int i = 0; i < arr.length; i++) {
-                    Object o = arr[i];
-
-                    valArr[i] = o == null ? ValueNull.INSTANCE : wrap(o, DataType.getTypeFromClass(o.getClass()));
-                }
-
-                return ValueArray.get(valArr);
-
-            case Value.GEOMETRY:
-                return ValueGeometry.getFromGeometry(obj);
-        }
-
-        throw new IgniteSpiException("Failed to wrap value[type=" + type + ", value=" + obj + "]");
     }
 
     /**
@@ -162,7 +115,7 @@ public abstract class GridH2AbstractKeyValueRow extends GridH2Row {
     /**
      * Should be called to remove reference on value.
      *
-     * @throws IgniteSpiException If failed.
+     * @throws IgniteCheckedException If failed.
      */
     public synchronized void onSwap() throws IgniteCheckedException {
         setValue(VAL_COL, null);
@@ -172,94 +125,169 @@ public abstract class GridH2AbstractKeyValueRow extends GridH2Row {
      * Should be called when entry getting unswapped.
      *
      * @param val Value.
+     * @param beforeRmv If this is unswap before remove.
      * @throws IgniteCheckedException If failed.
      */
-    public synchronized void onUnswap(Object val) throws IgniteCheckedException {
-        setValue(VAL_COL, wrap(val, desc.valueType()));
+    public synchronized void onUnswap(Object val, boolean beforeRmv) throws IgniteCheckedException {
+        Value val0 = peekValue(VAL_COL);
+
+        if (val0 != null && !(val0 instanceof WeakValue))
+            return;
+
+        setValue(VAL_COL, desc.wrap(val, desc.valueType()));
+
+        notifyAll();
     }
 
     /**
      * Atomically updates weak value.
      *
-     * @param exp Expected value.
-     * @param upd New value.
-     * @return Expected value if update succeeded, unexpected value otherwise.
+     * @param valObj New value.
+     * @return New value if old value is empty, old value otherwise.
+     * @throws IgniteCheckedException If failed.
      */
-    protected synchronized Value updateWeakValue(Value exp, Value upd) {
-        Value res = super.getValue(VAL_COL);
+    protected synchronized Value updateWeakValue(Object valObj) throws IgniteCheckedException {
+        Value res = peekValue(VAL_COL);
 
-        if (res != exp && !(res instanceof WeakValue))
+        if (res != null && !(res instanceof WeakValue))
             return res;
+
+        Value upd = desc.wrap(valObj, desc.valueType());
 
         setValue(VAL_COL, new WeakValue(upd));
 
-        return exp;
+        notifyAll();
+
+        return upd;
     }
 
     /**
+     * @param waitTime Time to await for value unswap.
      * @return Synchronized value.
      */
-    protected synchronized Value syncValue() {
-        return super.getValue(VAL_COL);
+    protected synchronized Value syncValue(long waitTime) {
+        Value v = peekValue(VAL_COL);
+
+        while (v == null && waitTime > 0) {
+            long start = System.nanoTime(); // This call must be quite rare, so performance is not a concern.
+
+            try {
+                wait(waitTime); // Wait for value arrival to allow other threads to make a progress.
+            }
+            catch (InterruptedException e) {
+                throw new IgniteInterruptedException(e);
+            }
+
+            long t = System.nanoTime() - start;
+
+            if (t > 0)
+                waitTime -= TimeUnit.NANOSECONDS.toMillis(t);
+
+            v = peekValue(VAL_COL);
+        }
+
+        return v;
+    }
+
+    /**
+     * @param col Column index.
+     * @return Value if exists.
+     */
+    protected final Value peekValue(int col) {
+        return col == KEY_COL ? key : val;
     }
 
     /** {@inheritDoc} */
     @Override public Value getValue(int col) {
+        Value[] vCache = valCache;
+
+        if (vCache != null) {
+            Value v = vCache[col];
+
+            if (v != null)
+                return v;
+        }
+
         if (col < DEFAULT_COLUMNS_COUNT) {
-            Value v = super.getValue(col);
+            Value v;
 
             if (col == VAL_COL) {
+                v = peekValue(VAL_COL);
+
+                long start = 0;
+                int attempt = 0;
+
                 while ((v = WeakValue.unwrap(v)) == null) {
-                    v = getOffheapValue(VAL_COL);
+                    if (!desc.preferSwapValue()) {
+                        v = getOffheapValue(VAL_COL);
 
-                    if (v != null) {
-                        setValue(VAL_COL, v);
+                        if (v != null) {
+                            setValue(VAL_COL, v);
 
-                        if (super.getValue(KEY_COL) == null)
-                            cache();
+                            if (peekValue(KEY_COL) == null)
+                                cache();
 
-                        return v;
+                            return v;
+                        }
                     }
 
+                    Object k = getValue(KEY_COL).getObject();
+
                     try {
-                        Object valObj = desc.readFromSwap(getValue(KEY_COL).getObject());
+                        Object valObj = desc.readFromSwap(k);
 
                         if (valObj != null) {
-                            Value upd = wrap(valObj, desc.valueType());
-
-                            Value res = updateWeakValue(null, upd);
-
-                            if (res == null) {
-                                if (super.getValue(KEY_COL) == null)
-                                    cache();
-
-                                return upd;
-                            }
-
-                            v = res;
+                            // Even if we've found valObj in swap, it is may be some new value,
+                            // while the needed value was already unswapped, so we have to recheck it.
+                            if ((v = getOffheapValue(VAL_COL)) == null)
+                                return updateWeakValue(valObj);
                         }
                         else {
                             // If nothing found in swap then we should be already unswapped.
-                            v = syncValue();
+                            if (desc.preferSwapValue()) {
+                                v = getOffheapValue(VAL_COL);
+
+                                if (v != null) {
+                                    setValue(VAL_COL, v);
+
+                                    if (peekValue(KEY_COL) == null)
+                                        cache();
+
+                                    return v;
+                                }
+                            }
+
+                            v = syncValue(attempt);
                         }
                     }
                     catch (IgniteCheckedException e) {
                         throw new IgniteException(e);
                     }
+
+                    attempt++;
+
+                    if (start == 0)
+                        start = U.currentTimeMillis();
+                    else if (U.currentTimeMillis() - start > 60_000) // Loop for at most 60 seconds.
+                        throw new IgniteException("Failed to get value for key: " + k +
+                            ". This can happen due to a long GC pause.");
                 }
             }
-
-            if (v == null) {
+            else {
                 assert col == KEY_COL : col;
 
-                v = getOffheapValue(KEY_COL);
+                v = peekValue(KEY_COL);
 
-                assert v != null : v;
+                if (v == null) {
+                    v = getOffheapValue(KEY_COL);
 
-                setValue(KEY_COL, v);
+                    assert v != null;
 
-                if (super.getValue(VAL_COL) == null)
-                    cache();
+                    setValue(KEY_COL, v);
+
+                    if (peekValue(VAL_COL) == null)
+                        cache();
+                }
             }
 
             assert !(v instanceof WeakValue) : v;
@@ -279,15 +307,35 @@ public abstract class GridH2AbstractKeyValueRow extends GridH2Row {
 
         Object res = desc.columnValue(key.getObject(), val.getObject(), col);
 
-        if (res == null)
-            return ValueNull.INSTANCE;
+        Value v;
 
-        try {
-            return wrap(res, desc.fieldType(col));
+        if (res == null)
+            v = ValueNull.INSTANCE;
+        else {
+            try {
+                v = desc.wrap(res, desc.fieldType(col));
+            }
+            catch (IgniteCheckedException e) {
+                throw DbException.convert(e);
+            }
         }
-        catch (IgniteSpiException e) {
-            throw DbException.convert(e);
+
+        if (vCache != null)
+            vCache[col + DEFAULT_COLUMNS_COUNT] = v;
+
+        return v;
+    }
+
+    /**
+     * @param valCache Value cache.
+     */
+    public void valuesCache(Value[] valCache) {
+        if (valCache != null) {
+            valCache[KEY_COL] = key;
+            valCache[VAL_COL] = val;
         }
+
+        this.valCache = valCache;
     }
 
     /**
@@ -301,16 +349,25 @@ public abstract class GridH2AbstractKeyValueRow extends GridH2Row {
      */
     protected abstract Value getOffheapValue(int col);
 
+    /**
+     * Adds offheap row ID.
+     */
+    protected void addOffheapRowId(SB sb) {
+        // No-op.
+    }
+
     /** {@inheritDoc} */
     @Override public String toString() {
         SB sb = new SB("Row@");
 
         sb.a(Integer.toHexString(System.identityHashCode(this)));
 
-        Value v = super.getValue(KEY_COL);
+        addOffheapRowId(sb);
+
+        Value v = peekValue(KEY_COL);
         sb.a("[ key: ").a(v == null ? "nil" : v.getString());
 
-        v = WeakValue.unwrap(super.getValue(VAL_COL));
+        v = WeakValue.unwrap(peekValue(VAL_COL));
         sb.a(", val: ").a(v == null ? "nil" : v.getString());
 
         sb.a(" ][ ");
@@ -333,41 +390,37 @@ public abstract class GridH2AbstractKeyValueRow extends GridH2Row {
 
     /** {@inheritDoc} */
     @Override public void setKeyAndVersion(SearchRow old) {
-        assert false;
+        throw new IllegalStateException();
     }
 
     /** {@inheritDoc} */
     @Override public void setKey(long key) {
-        assert false;
+        throw new IllegalStateException();
     }
 
     /** {@inheritDoc} */
     @Override public Row getCopy() {
-        assert false;
-
-        return null;
+        throw new IllegalStateException();
     }
 
     /** {@inheritDoc} */
     @Override public void setDeleted(boolean deleted) {
-        assert false;
+        throw new IllegalStateException();
     }
 
     /** {@inheritDoc} */
     @Override public long getKey() {
-        assert false;
-
-        return 0;
+        throw new IllegalStateException();
     }
 
     /** {@inheritDoc} */
     @Override public void setSessionId(int sesId) {
-        assert false;
+        throw new IllegalStateException();
     }
 
     /** {@inheritDoc} */
     @Override public void setVersion(int ver) {
-        assert false;
+        throw new IllegalStateException();
     }
 
     /**
@@ -450,5 +503,21 @@ public abstract class GridH2AbstractKeyValueRow extends GridH2Row {
         @Override public boolean equals(Object o) {
             throw new IllegalStateException();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setValue(int idx, Value v) {
+        if (idx == VAL_COL)
+            val = v;
+        else {
+            assert idx == KEY_COL : idx + " " + v;
+
+            key = v;
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public final int hashCode() {
+        throw new IllegalStateException();
     }
 }

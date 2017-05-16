@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.processors.query.h2.sql;
 
-import org.apache.ignite.internal.util.typedef.*;
-import org.h2.command.*;
-import org.h2.util.*;
-import org.h2.value.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.ignite.internal.util.typedef.F;
+import org.h2.command.Parser;
+import org.h2.util.StatementBuilder;
+import org.h2.value.ValueString;
 
-import java.util.*;
-
-import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlFunctionType.*;
+import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlFunctionType.CASE;
+import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlFunctionType.CAST;
+import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlFunctionType.UNKNOWN_FUNCTION;
 
 /**
  * Function.
@@ -50,9 +53,6 @@ public class GridSqlFunction extends GridSqlElement {
     /** */
     protected final GridSqlFunctionType type;
 
-    /**  */
-    private String castType;
-
     /**
      * @param type Function type.
      */
@@ -66,8 +66,10 @@ public class GridSqlFunction extends GridSqlElement {
      * @param name Name.
      */
     private GridSqlFunction(String schema, GridSqlFunctionType type, String name) {
+        super(new ArrayList<GridSqlElement>());
+
         if (name == null)
-            throw new NullPointerException();
+            throw new NullPointerException("name");
 
         if (type == null)
             type = UNKNOWN_FUNCTION;
@@ -85,16 +87,6 @@ public class GridSqlFunction extends GridSqlElement {
         this(schema, TYPE_MAP.get(name), name);
     }
 
-    /**
-     * @param castType Type for {@link GridSqlFunctionType#CAST} function.
-     * @return {@code this}.
-     */
-    public GridSqlFunction setCastType(String castType) {
-        this.castType = castType;
-
-        return this;
-    }
-
     /** {@inheritDoc} */
     @Override public String getSQL() {
         StatementBuilder buff = new StatementBuilder();
@@ -105,14 +97,14 @@ public class GridSqlFunction extends GridSqlElement {
         buff.append(Parser.quoteIdentifier(name));
 
         if (type == CASE) {
-            if (!children.isEmpty())
-                buff.append(" ").append(child().getSQL());
+            buff.append(' ').append(child().getSQL());
 
             for (int i = 1, len = children.size() - 1; i < len; i += 2) {
                 buff.append(" WHEN ").append(child(i).getSQL());
                 buff.append(" THEN ").append(child(i + 1).getSQL());
             }
-            if (children.size() % 2 == 0)
+
+            if ((children.size() & 1) == 0)
                 buff.append(" ELSE ").append(child(children.size() - 1).getSQL());
 
             return buff.append(" END").toString();
@@ -120,27 +112,46 @@ public class GridSqlFunction extends GridSqlElement {
 
         buff.append('(');
 
-        if (type == CAST) {
-            assert !F.isEmpty(castType) : castType;
-            assert size() == 1;
+        switch (type) {
+            case CAST:
+            case CONVERT:
+                assert size() == 1;
 
-            buff.append(child().getSQL()).append(" AS ").append(castType);
-        }
-        else if (type == CONVERT) {
-            assert !F.isEmpty(castType) : castType;
-            assert size() == 1;
+                String castType = resultType().sql();
 
-            buff.append(child().getSQL()).append(',').append(castType);
-        }
-        else if (type == GridSqlFunctionType.EXTRACT) {
-            ValueString v = (ValueString)((GridSqlConst)child(0)).value();
-            buff.append(v.getString()).append(" FROM ").append(child(1).getSQL());
-        }
-        else {
-            for (GridSqlElement e : children) {
-                buff.appendExceptFirst(", ");
-                buff.append(e.getSQL());
-            }
+                assert !F.isEmpty(castType) : castType;
+
+                buff.append(child().getSQL());
+                buff.append(type == CAST ? " AS " : ",");
+                buff.append(castType);
+
+                break;
+
+            case EXTRACT:
+                ValueString v = (ValueString)((GridSqlConst)child(0)).value();
+                buff.append(v.getString()).append(" FROM ").append(child(1).getSQL());
+
+                break;
+
+            case TABLE:
+                for (GridSqlElement e : children) {
+                    buff.appendExceptFirst(", ");
+
+                    // id int = ?, name varchar = ('aaa', 'bbb')
+                    buff.append(((GridSqlAlias)e).alias())
+                        .append(' ')
+                        .append(e.resultType().sql())
+                        .append('=')
+                        .append(e.child().getSQL());
+                }
+
+                break;
+
+            default:
+                for (GridSqlElement e : children) {
+                    buff.appendExceptFirst(", ");
+                    buff.append(e.getSQL());
+                }
         }
 
         return buff.append(')').toString();

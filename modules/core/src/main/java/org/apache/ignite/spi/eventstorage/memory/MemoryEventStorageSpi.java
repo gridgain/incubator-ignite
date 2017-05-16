@@ -17,19 +17,23 @@
 
 package org.apache.ignite.spi.eventstorage.memory;
 
-import org.apache.ignite.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.eventstorage.*;
-import org.jdk8.backport.*;
+import java.util.Collection;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.IgniteSpiConfiguration;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.IgniteSpiMultipleInstancesSupport;
+import org.apache.ignite.spi.eventstorage.EventStorageSpi;
+import org.jsr166.ConcurrentLinkedDeque8;
 
-import java.util.*;
-
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.events.EventType.EVT_NODE_METRICS_UPDATED;
 
 /**
  * In-memory {@link org.apache.ignite.spi.eventstorage.EventStorageSpi} implementation. All events are
@@ -53,16 +57,16 @@ import static org.apache.ignite.events.EventType.*;
  * <li>{@link #setFilter(org.apache.ignite.lang.IgnitePredicate)} - Event filter that should be used for decision to accept event.</li>
  * </ul>
  * <h2 class="header">Java Example</h2>
- * GridMemoryEventStorageSpi is used by default and should be explicitly configured only
+ * MemoryEventStorageSpi is used by default and should be explicitly configured only
  * if some SPI configuration parameters need to be overridden. Examples below insert own
  * events queue size value that differs from default 10000.
  * <pre name="code" class="java">
- * GridMemoryEventStorageSpi = new GridMemoryEventStorageSpi();
+ * MemoryEventStorageSpi = new MemoryEventStorageSpi();
  *
  * // Init own events size.
  * spi.setExpireCount(2000);
  *
- * GridConfiguration cfg = new GridConfiguration();
+ * IgniteConfiguration cfg = new IgniteConfiguration();
  *
  * // Override default event storage SPI.
  * cfg.setEventStorageSpi(spi);
@@ -71,12 +75,12 @@ import static org.apache.ignite.events.EventType.*;
  * G.start(cfg);
  * </pre>
  * <h2 class="header">Spring Example</h2>
- * GridMemoryEventStorageSpi can be configured from Spring XML configuration file:
+ * MemoryEventStorageSpi can be configured from Spring XML configuration file:
  * <pre name="code" class="xml">
  * &lt;bean id="grid.custom.cfg" class="org.apache.ignite.configuration.IgniteConfiguration" singleton="true"&gt;
  *         ...
  *         &lt;property name="discoverySpi"&gt;
- *             &lt;bean class="org.apache.ignite.spi.eventStorage.memory.GridMemoryEventStorageSpi"&gt;
+ *             &lt;bean class="org.apache.ignite.spi.eventStorage.memory.MemoryEventStorageSpi"&gt;
  *                 &lt;property name="expireCount" value="2000"/&gt;
  *             &lt;/bean&gt;
  *         &lt;/property&gt;
@@ -84,7 +88,7 @@ import static org.apache.ignite.events.EventType.*;
  * &lt;/bean&gt;
  * </pre>
  * <p>
- * <img src="http://ignite.incubator.apache.org/images/spring-small.png">
+ * <img src="http://ignite.apache.org/images/spring-small.png">
  * <br>
  * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
  * @see org.apache.ignite.spi.eventstorage.EventStorageSpi

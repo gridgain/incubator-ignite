@@ -17,25 +17,27 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.Lock;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.store.CacheStoreAdapter;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
-import javax.cache.configuration.*;
-import java.util.concurrent.*;
-import java.util.concurrent.locks.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Single node test for near cache.
@@ -57,8 +59,8 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
 
         jcache().removeAll();
 
-        assertEquals("DHT entries: " + dht().entries(), 0, dht().size());
-        assertEquals("Near entries: " + near().entries(), 0, near().size());
+        assertEquals("DHT entries: " + dht().entrySet(), 0, dht().size());
+        assertEquals("Near entries: " + near().entrySet(), 0, near().size());
         assertEquals(0, jcache().size());
     }
 
@@ -78,11 +80,10 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
         cacheCfg.setCacheMode(PARTITIONED);
         cacheCfg.setBackups(1);
         cacheCfg.setAtomicityMode(TRANSACTIONAL);
-        cacheCfg.setDistributionMode(NEAR_PARTITIONED);
 
         cacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
 
-        cacheCfg.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(store));
+        cacheCfg.setCacheStoreFactory(singletonFactory(store));
         cacheCfg.setReadThrough(true);
         cacheCfg.setWriteThrough(true);
         cacheCfg.setLoadPreviousValue(true);
@@ -124,7 +125,7 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
     public void testReadThrough() throws Exception {
         IgniteCache<Integer, String> near = jcache();
 
-        GridCache<Integer, String> dht = dht();
+        GridCacheAdapter<Integer, String> dht = dht();
 
         String s = near.get(1);
 
@@ -134,7 +135,7 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
         assertEquals(1, near.size());
         assertEquals(1, near.size());
 
-        String d = dht.peek(1);
+        String d = localPeek(dht, 1);
 
         assert d != null;
         assertEquals(d, "1");
@@ -165,7 +166,6 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
             GridCacheEntryEx entry = dht.peekEx(2);
 
             assert entry == null || entry.rawGetOrUnmarshal(false) == null : "Invalid entry: " + entry;
-            assert dht.peek(3) != null;
 
             tx.commit();
         }
@@ -217,13 +217,13 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
             near.put(1, "1");
 
             assertEquals("1", near.localPeek(1, CachePeekMode.ONHEAP));
-            assertEquals("1", dht().peek(1));
+            assertEquals("1", dhtPeek(1));
 
             assertEquals("1", near.get(1));
             assertEquals("1", near.getAndRemove(1));
 
             assertNull(near.localPeek(1, CachePeekMode.ONHEAP));
-            assertNull(dht().peek(1));
+            assertNull(dhtPeek(1));
 
             assertTrue(near.isLocalLocked(1, false));
             assertTrue(near.isLocalLocked(1, true));
@@ -248,7 +248,7 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
             near.put(1, "1");
 
             assertEquals("1", near.localPeek(1, CachePeekMode.ONHEAP));
-            assertEquals("1", dht().peek(1));
+            assertEquals("1", dhtPeek(1));
 
             assertTrue(near.isLocalLocked(1, false));
             assertTrue(near.isLocalLocked(1, true));
@@ -260,7 +260,7 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
                 assertEquals("1", near.getAndRemove(1));
 
                 assertNull(near.localPeek(1, CachePeekMode.ONHEAP));
-                assertNull(dht().peek(1));
+                assertNull(dhtPeek(1));
 
                 assertTrue(near.isLocalLocked(1, false));
                 assertTrue(near.isLocalLocked(1, true));
@@ -286,8 +286,8 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
 
         cache.put(1, "val1");
 
-        assertEquals("val1", dht().peek(1));
-        assertNull(near().peekNearOnly(1));
+        assertEquals("val1", dhtPeek(1));
+        assertNull(near().peekEx(1));
 
         Transaction tx = grid().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
 
@@ -295,8 +295,8 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
 
         tx.commit();
 
-        assertEquals("val1", dht().peek(1));
-        assertNull(near().peekNearOnly(1));
+        assertEquals("val1", dhtPeek(1));
+        assertNull(near().peekEx(1));
     }
 
     /** @throws Exception If failed. */
@@ -305,8 +305,8 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
 
         cache.put(1, "val1");
 
-        assertEquals("val1", dht().peek(1));
-        assertNull(near().peekNearOnly(1));
+        assertEquals("val1", dhtPeek(1));
+        assertNull(near().peekEx(1));
 
         Transaction tx = grid().transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
 
@@ -316,8 +316,8 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
 
         tx.commit();
 
-        assertNull(dht().peek(1));
-        assertNull(near().peekNearOnly(1));
+        assertNull(dhtPeek(1));
+        assertNull(near().peekEx(1));
     }
 
     /**
@@ -337,11 +337,6 @@ public class GridCacheNearOneNodeSelfTest extends GridCommonAbstractTest {
             map.clear();
 
             create = true;
-        }
-
-        /** @param create Create flag. */
-        void create(boolean create) {
-            this.create = create;
         }
 
         /** @return Create flag. */

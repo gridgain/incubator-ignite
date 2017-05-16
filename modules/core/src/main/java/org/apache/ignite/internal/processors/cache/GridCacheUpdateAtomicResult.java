@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.processor.*;
+import javax.cache.processor.EntryProcessor;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersionConflictContext;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cache entry atomic update result.
@@ -57,6 +57,9 @@ public class GridCacheUpdateAtomicResult {
     /** Whether update should be propagated to DHT node. */
     private final boolean sndToDht;
 
+    /** */
+    private final long updateCntr;
+
     /** Value computed by entry processor. */
     private IgniteBiTuple<Object, Exception> res;
 
@@ -72,6 +75,7 @@ public class GridCacheUpdateAtomicResult {
      * @param rmvVer Version for deferred delete.
      * @param conflictRes DR resolution result.
      * @param sndToDht Whether update should be propagated to DHT node.
+     * @param updateCntr Partition update counter.
      */
     public GridCacheUpdateAtomicResult(boolean success,
         @Nullable CacheObject oldVal,
@@ -81,7 +85,8 @@ public class GridCacheUpdateAtomicResult {
         long conflictExpireTime,
         @Nullable GridCacheVersion rmvVer,
         @Nullable GridCacheVersionConflictContext<?, ?> conflictRes,
-        boolean sndToDht) {
+        boolean sndToDht,
+        long updateCntr) {
         this.success = success;
         this.oldVal = oldVal;
         this.newVal = newVal;
@@ -91,6 +96,7 @@ public class GridCacheUpdateAtomicResult {
         this.rmvVer = rmvVer;
         this.conflictRes = conflictRes;
         this.sndToDht = sndToDht;
+        this.updateCntr = updateCntr;
     }
 
     /**
@@ -126,6 +132,13 @@ public class GridCacheUpdateAtomicResult {
      */
     public long newTtl() {
         return newTtl;
+    }
+
+    /**
+     * @return Partition update index.
+     */
+    public long updateCounter() {
+        return updateCntr;
     }
 
     /**

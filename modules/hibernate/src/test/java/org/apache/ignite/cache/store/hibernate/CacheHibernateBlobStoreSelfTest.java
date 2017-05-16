@@ -17,12 +17,13 @@
 
 package org.apache.ignite.cache.store.hibernate;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.testframework.junits.cache.*;
-import org.hibernate.*;
-
-import java.io.*;
-import java.net.*;
+import java.io.File;
+import java.net.URL;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.testframework.junits.cache.GridAbstractCacheStoreSelfTest;
+import org.hibernate.FlushMode;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
 
 /**
  * Cache store test.
@@ -104,5 +105,9 @@ public class CacheHibernateBlobStoreSelfTest extends
 
         // Store will be implicitly initialized.
         store.load("key");
+    }
+
+    @Override public void testSimpleMultithreading() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-1757");
     }
 }

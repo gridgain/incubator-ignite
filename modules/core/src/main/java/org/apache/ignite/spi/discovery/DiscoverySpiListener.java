@@ -17,11 +17,11 @@
 
 package org.apache.ignite.spi.discovery;
 
-import org.apache.ignite.cluster.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Listener for grid node discovery events. See
@@ -31,7 +31,7 @@ public interface DiscoverySpiListener {
     /**
      * Notification for grid node discovery events.
      *
-     * @param type Node discovery event type. See {@link org.apache.ignite.events.DiscoveryEvent}
+     * @param type Node discovery event type. See {@link DiscoveryEvent}
      * @param topVer Topology version or {@code 0} if configured discovery SPI implementation
      *      does not support versioning.
      * @param node Node affected (e.g. newly joined node, left node, failed node or local node).
@@ -46,5 +46,5 @@ public interface DiscoverySpiListener {
         ClusterNode node,
         Collection<ClusterNode> topSnapshot,
         @Nullable Map<Long, Collection<ClusterNode>> topHist,
-        @Nullable Serializable data);
+        @Nullable DiscoverySpiCustomMessage data);
 }

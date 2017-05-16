@@ -17,53 +17,33 @@
 
 package org.apache.ignite.cache.spring;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.springframework.cache.*;
-import org.springframework.cache.support.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.IgniteCache;
+import org.springframework.cache.Cache;
+import org.springframework.cache.support.SimpleValueWrapper;
 
 /**
  * Spring cache implementation.
  */
-class SpringCache implements Cache, Serializable {
+class SpringCache implements Cache {
     /** */
-    private String name;
+    private static final Object NULL = new NullValue();
 
     /** */
-    private Ignite ignite;
-
-    /** */
-    private CacheProjection<Object, Object> cache;
-
-    /** */
-    private IgniteClosure<Object, Object> keyFactory;
+    private final IgniteCache<Object, Object> cache;
 
     /**
-     * @param name Cache name.
-     * @param ignite Ignite instance.
      * @param cache Cache.
-     * @param keyFactory Key factory.
      */
-    SpringCache(String name,
-        Ignite ignite,
-        CacheProjection<?, ?> cache,
-        IgniteClosure<Object, Object> keyFactory)
-    {
+    SpringCache(IgniteCache<Object, Object> cache) {
         assert cache != null;
 
-        this.name = name;
-        this.ignite = ignite;
-        this.cache = (CacheProjection<Object, Object>)cache;
-        this.keyFactory = keyFactory != null ? keyFactory : F.identity();
+        this.cache = cache;
     }
 
     /** {@inheritDoc} */
     @Override public String getName() {
-        return name;
+        return cache.getName();
     }
 
     /** {@inheritDoc} */
@@ -72,117 +52,73 @@ class SpringCache implements Cache, Serializable {
     }
 
     /** {@inheritDoc} */
-    @Override public Cache.ValueWrapper get(Object key) {
-        try {
-            Object val = cache.get(keyFactory.apply(key));
+    @Override public ValueWrapper get(Object key) {
+        Object val = cache.get(key);
 
-            return val != null ? new SimpleValueWrapper(val) : null;
-        }
-        catch (IgniteCheckedException e) {
-            throw new IgniteException("Failed to get value from cache [cacheName=" + cache.name() +
-                ", key=" + key + ']', e);
-        }
+        return val != null ? fromValue(val) : null;
     }
 
     /** {@inheritDoc} */
+    @SuppressWarnings("unchecked")
     @Override public <T> T get(Object key, Class<T> type) {
-        try {
-            Object val = cache.get(keyFactory.apply(key));
+        Object val = cache.get(key);
 
-            if (val != null && type != null && !type.isInstance(val))
-                throw new IllegalStateException("Cached value is not of required type [cacheName=" + cache.name() +
-                    ", key=" + key + ", val=" + val + ", requiredType=" + type + ']');
+        if (NULL.equals(val))
+            val = null;
 
-            return (T)val;
-        }
-        catch (IgniteCheckedException e) {
-            throw new IgniteException("Failed to get value from cache [cacheName=" + cache.name() +
-                ", key=" + key + ']', e);
-        }
+        if (val != null && type != null && !type.isInstance(val))
+            throw new IllegalStateException("Cached value is not of required type [cacheName=" + cache.getName() +
+                ", key=" + key + ", val=" + val + ", requiredType=" + type + ']');
+
+        return (T)val;
     }
 
     /** {@inheritDoc} */
     @Override public void put(Object key, Object val) {
-        try {
-            cache.putx(keyFactory.apply(key), val);
-        }
-        catch (IgniteCheckedException e) {
-            throw new IgniteException("Failed to put value to cache [cacheName=" + cache.name() +
-                ", key=" + key + ", val=" + val + ']', e);
-        }
+        if (val == null)
+            cache.withSkipStore().put(key, NULL);
+        else
+            cache.put(key, val);
     }
 
     /** {@inheritDoc} */
     @Override public ValueWrapper putIfAbsent(Object key, Object val) {
-        try {
-            Object old = cache.putIfAbsent(keyFactory.apply(key), val);
+        Object old;
 
-            return old != null ? new SimpleValueWrapper(old) : null;
-        }
-        catch (IgniteCheckedException e) {
-            throw new IgniteException("Failed to put value to cache [cacheName=" + cache.name() +
-                ", key=" + key + ", val=" + val + ']', e);
-        }
+        if (val == null)
+            old = cache.withSkipStore().putIfAbsent(key, NULL);
+        else
+            old = cache.putIfAbsent(key, val);
+
+        return old != null ? fromValue(old) : null;
     }
 
     /** {@inheritDoc} */
     @Override public void evict(Object key) {
-        try {
-            cache.removex(keyFactory.apply(key));
-        }
-        catch (IgniteCheckedException e) {
-            throw new IgniteException("Failed to remove value from cache [cacheName=" + cache.name() +
-                ", key=" + key + ']', e);
-        }
+        cache.remove(key);
     }
 
     /** {@inheritDoc} */
     @Override public void clear() {
-        try {
-            ignite.compute(cache.gridProjection()).broadcast(new ClearClosure(cache));
-        }
-        catch (IgniteException e) {
-            throw new IgniteException("Failed to clear cache [cacheName=" + cache.name() + ']', e);
-        }
+        cache.removeAll();
     }
 
     /**
-     * Closure that removes all entries from cache.
+     * @param val Cache value.
+     * @return Wrapped value.
      */
-    private static class ClearClosure extends CAX implements Externalizable {
-        /** */
-        private static final long serialVersionUID = 0L;
+    private static ValueWrapper fromValue(Object val) {
+        assert val != null;
 
-        /** Cache projection. */
-        private CacheProjection<Object, Object> cache;
+        return new SimpleValueWrapper(NULL.equals(val) ? null : val);
+    }
 
-        /**
-         * For {@link Externalizable}.
-         */
-        public ClearClosure() {
-            // No-op.
-        }
-
-        /**
-         * @param cache Cache projection.
-         */
-        private ClearClosure(CacheProjection<Object, Object> cache) {
-            this.cache = cache;
-        }
-
+    /**
+     */
+    private static class NullValue implements Serializable {
         /** {@inheritDoc} */
-        @Override public void applyx() throws IgniteCheckedException {
-            cache.localRemoveAll();
-        }
-
-        /** {@inheritDoc} */
-        @Override public void writeExternal(ObjectOutput out) throws IOException {
-            out.writeObject(cache);
-        }
-
-        /** {@inheritDoc} */
-        @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-            cache = (CacheProjection<Object, Object>)in.readObject();
+        @Override public boolean equals(Object o) {
+            return this == o || (o != null && getClass() == o.getClass());
         }
     }
 }

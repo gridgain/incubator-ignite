@@ -17,16 +17,26 @@
 
 package org.apache.ignite.p2p;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Serializable;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeJobAdapter;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.compute.ComputeTask;
+import org.apache.ignite.compute.ComputeTaskAdapter;
+import org.apache.ignite.configuration.DeploymentMode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.testframework.GridTestClassLoader;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
 
 /**
  *
@@ -43,9 +53,9 @@ public class GridP2PRemoteClassLoadersSelfTest extends GridCommonAbstractTest {
 
         // Override P2P configuration to exclude Task and Job classes
         cfg.setPeerClassLoadingLocalClassPathExclude(
-            GridP2PTestTask.class.getName(),
-            GridP2PTestTask1.class.getName(),
-            GridP2PTestJob.class.getName(),
+            GridP2PRemoteTestTask.class.getName(),
+            GridP2PRemoteTestTask1.class.getName(),
+            GridP2PRemoteTestJob.class.getName(),
             GridP2PRemoteClassLoadersSelfTest.class.getName()
         );
 
@@ -73,13 +83,14 @@ public class GridP2PRemoteClassLoadersSelfTest extends GridCommonAbstractTest {
             ClassLoader tstClsLdr =
                 new GridTestClassLoader(
                     Collections.<String, String>emptyMap(), getClass().getClassLoader(),
-                    GridP2PTestTask.class.getName(), GridP2PTestTask1.class.getName(), GridP2PTestJob.class.getName());
+                    GridP2PRemoteTestTask.class.getName(), GridP2PRemoteTestTask1.class.getName(),
+                    GridP2PRemoteTestJob.class.getName());
 
             Class<? extends ComputeTask<?, ?>> task1 =
-                (Class<? extends ComputeTask<?, ?>>) tstClsLdr.loadClass(GridP2PTestTask.class.getName());
+                (Class<? extends ComputeTask<?, ?>>) tstClsLdr.loadClass(GridP2PRemoteTestTask.class.getName());
 
             Class<? extends ComputeTask<?, ?>> task2 =
-                (Class<? extends ComputeTask<?, ?>>) tstClsLdr.loadClass(GridP2PTestTask1.class.getName());
+                (Class<? extends ComputeTask<?, ?>>) tstClsLdr.loadClass(GridP2PRemoteTestTask1.class.getName());
 
             Object res1 = ignite1.compute().execute(task1.newInstance(), null);
 
@@ -124,19 +135,19 @@ public class GridP2PRemoteClassLoadersSelfTest extends GridCommonAbstractTest {
             ClassLoader tstClsLdr1 =
                 new GridTestClassLoader(
                     Collections.EMPTY_MAP, getClass().getClassLoader(),
-                    GridP2PTestTask.class.getName(), GridP2PTestJob.class.getName()
+                    GridP2PRemoteTestTask.class.getName(), GridP2PRemoteTestJob.class.getName()
                 );
 
             ClassLoader tstClsLdr2 =
                 new GridTestClassLoader(
                     Collections.EMPTY_MAP, getClass().getClassLoader(),
-                    GridP2PTestTask1.class.getName(), GridP2PTestJob.class.getName());
+                    GridP2PRemoteTestTask1.class.getName(), GridP2PRemoteTestJob.class.getName());
 
             Class<? extends ComputeTask<?, ?>> task1 =
-                (Class<? extends ComputeTask<?, ?>>) tstClsLdr1.loadClass(GridP2PTestTask.class.getName());
+                (Class<? extends ComputeTask<?, ?>>) tstClsLdr1.loadClass(GridP2PRemoteTestTask.class.getName());
 
             Class<? extends ComputeTask<?, ?>> task2 =
-                (Class<? extends ComputeTask<?, ?>>) tstClsLdr2.loadClass(GridP2PTestTask1.class.getName());
+                (Class<? extends ComputeTask<?, ?>>) tstClsLdr2.loadClass(GridP2PRemoteTestTask1.class.getName());
 
             Object res1 = ignite1.compute().execute(task1.newInstance(), null);
 
@@ -217,11 +228,11 @@ public class GridP2PRemoteClassLoadersSelfTest extends GridCommonAbstractTest {
     /**
      * P2P test job.
      */
-    public static class GridP2PTestJob extends ComputeJobAdapter {
+    public static class GridP2PRemoteTestJob extends ComputeJobAdapter {
         /**
          * @param arg Argument.
          */
-        public GridP2PTestJob(String arg) {
+        public GridP2PRemoteTestJob(String arg) {
             super(arg);
         }
 
@@ -235,7 +246,7 @@ public class GridP2PRemoteClassLoadersSelfTest extends GridCommonAbstractTest {
     /**
      * P2P test task.
      */
-    public static class GridP2PTestTask extends ComputeTaskAdapter<Serializable, Object> {
+    public static class GridP2PRemoteTestTask extends ComputeTaskAdapter<Serializable, Object> {
         /** */
         @LoggerResource
         private IgniteLogger log;
@@ -250,7 +261,7 @@ public class GridP2PRemoteClassLoadersSelfTest extends GridCommonAbstractTest {
 
             for (ClusterNode node : subgrid) {
                 if (!node.id().equals(ignite.configuration().getNodeId()))
-                    map.put(new GridP2PTestJob(null) , node);
+                    map.put(new GridP2PRemoteTestJob(null) , node);
             }
 
             return map;
@@ -275,7 +286,7 @@ public class GridP2PRemoteClassLoadersSelfTest extends GridCommonAbstractTest {
     /**
      * P2p test task.
      */
-    public static class GridP2PTestTask1 extends GridP2PTestTask {
+    public static class GridP2PRemoteTestTask1 extends GridP2PRemoteTestTask {
         // No-op.
     }
 }

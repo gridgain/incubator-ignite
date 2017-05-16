@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.jetbrains.annotations.*;
-
-import java.lang.reflect.*;
+import java.lang.reflect.Constructor;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.plugin.extensions.communication.MessageFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Component type.
@@ -40,6 +41,13 @@ public enum IgniteComponentType {
         "ignite-hadoop"
     ),
 
+    /** Hadoop Helper component. */
+    HADOOP_HELPER(
+        "org.apache.ignite.internal.processors.hadoop.HadoopNoopHelper",
+        "org.apache.ignite.internal.processors.hadoop.HadoopHelperImpl",
+        "ignite-hadoop"
+    ),
+
     /** IGFS helper component. */
     IGFS_HELPER(
         "org.apache.ignite.internal.processors.igfs.IgfsNoopHelper",
@@ -50,7 +58,7 @@ public enum IgniteComponentType {
     /** Spring XML parsing. */
     SPRING(
         null,
-        "org.apache.ignite.internal.processors.spring.IgniteSpringProcessorImpl",
+        "org.apache.ignite.internal.util.spring.IgniteSpringHelperImpl",
         "ignite-spring"
     ),
 
@@ -58,13 +66,14 @@ public enum IgniteComponentType {
     INDEXING(
         null,
         "org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing",
-        "ignite-indexing"
+        "ignite-indexing",
+        "org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2ValueMessageFactory"
     ),
 
     /** Nodes starting using SSH. */
     SSH(
         null,
-        "org.apache.ignite.internal.util.nodestart.IgniteSshProcessorImpl",
+        "org.apache.ignite.internal.util.nodestart.IgniteSshHelperImpl",
         "ignite-ssh"
     ),
 
@@ -91,6 +100,9 @@ public enum IgniteComponentType {
     /** Module name. */
     private final String module;
 
+    /** Optional message factory for component. */
+    private final String msgFactoryCls;
+
     /**
      * Constructor.
      *
@@ -99,9 +111,22 @@ public enum IgniteComponentType {
      * @param module Module name.
      */
     IgniteComponentType(String noOpClsName, String clsName, String module) {
+        this(noOpClsName, clsName, module, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param noOpClsName Class name for no-op implementation.
+     * @param clsName Class name.
+     * @param module Module name.
+     * @param msgFactoryCls {@link MessageFactory} class for the component.
+     */
+    IgniteComponentType(String noOpClsName, String clsName, String module, String msgFactoryCls) {
         this.noOpClsName = noOpClsName;
         this.clsName = clsName;
         this.module = module;
+        this.msgFactoryCls = msgFactoryCls;
     }
 
     /**
@@ -109,6 +134,13 @@ public enum IgniteComponentType {
      */
     public String className() {
         return clsName;
+    }
+
+    /**
+     * @return Component module name.
+     */
+    public String module() {
+        return module;
     }
 
     /**
@@ -135,7 +167,7 @@ public enum IgniteComponentType {
      * @return Created component.
      * @throws IgniteCheckedException If failed.
      */
-    public <T extends GridComponent> T create(GridKernalContext ctx, boolean noOp) throws IgniteCheckedException {
+    public <T> T create(GridKernalContext ctx, boolean noOp) throws IgniteCheckedException {
         return create0(ctx, noOp ? noOpClsName : clsName);
     }
 
@@ -147,7 +179,7 @@ public enum IgniteComponentType {
      * @return Created component.
      * @throws IgniteCheckedException If failed.
      */
-    public <T extends GridComponent> T createIfInClassPath(GridKernalContext ctx, boolean mandatory)
+    public <T> T createIfInClassPath(GridKernalContext ctx, boolean mandatory)
         throws IgniteCheckedException {
         String cls = clsName;
 
@@ -260,16 +292,31 @@ public enum IgniteComponentType {
                 return (T)ctor.newInstance(ctx);
             }
         }
-        catch (Exception e) {
+        catch (Throwable e) {
             throw componentException(e);
         }
+    }
+
+    /**
+     * Creates message factory for the component.
+     *
+     * @return Message factory or {@code null} if none or the component is not in classpath.
+     * @throws IgniteCheckedException If failed.
+     */
+    @Nullable public MessageFactory messageFactory() throws IgniteCheckedException {
+        Class<?> cls;
+
+        if (msgFactoryCls == null || null == (cls = U.classForName(msgFactoryCls, null)))
+            return null;
+
+        return (MessageFactory)U.newInstance(cls);
     }
 
     /**
      * @param err Creation error.
      * @return Component creation exception.
      */
-    private IgniteCheckedException componentException(Exception err) {
+    private IgniteCheckedException componentException(Throwable err) {
         return new IgniteCheckedException("Failed to create Ignite component (consider adding " + module +
             " module to classpath) [component=" + this + ", cls=" + clsName + ']', err);
     }

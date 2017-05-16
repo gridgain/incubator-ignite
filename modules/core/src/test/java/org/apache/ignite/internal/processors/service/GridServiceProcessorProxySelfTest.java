@@ -17,19 +17,18 @@
 
 package org.apache.ignite.internal.processors.service;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.services.*;
-
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.services.Service;
+import org.apache.ignite.services.ServiceContext;
 
 /**
  * Service proxy test.
  */
 public class GridServiceProcessorProxySelfTest extends GridServiceProcessorAbstractSelfTest {
-
     /** {@inheritDoc} */
     @Override protected int nodeCount() {
         return 4;
@@ -216,7 +215,7 @@ public class GridServiceProcessorProxySelfTest extends GridServiceProcessorAbstr
             MapService<Integer, String> svc =  grid(i).services().serviceProxy(name, MapService.class, false);
 
             // Make sure service is a local instance.
-            assertTrue(svc instanceof Service);
+            assertTrue("Invalid service instance [srv=" + svc + ", node=" + i + ']', svc instanceof Service);
 
             svc.put(i, Integer.toString(i));
         }

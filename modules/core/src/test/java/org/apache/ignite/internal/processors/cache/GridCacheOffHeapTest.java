@@ -17,23 +17,23 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.eviction.fifo.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.spi.swapspace.noop.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.eviction.fifo.FifoEvictionPolicy;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.spi.swapspace.noop.NoopSwapSpaceSpi;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_ASYNC;
 
 /**
  * Test for cache swap.
@@ -73,11 +73,14 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
         cacheCfg.setWriteSynchronizationMode(FULL_ASYNC);
         cacheCfg.setSwapEnabled(false);
         cacheCfg.setCacheMode(mode);
-        cacheCfg.setDistributionMode(PARTITIONED_ONLY);
+        cacheCfg.setNearConfiguration(null);
         cacheCfg.setStartSize(startSize);
 
         if (onheap > 0) {
-            cacheCfg.setEvictionPolicy(new CacheFifoEvictionPolicy(onheap));
+            FifoEvictionPolicy plc = new FifoEvictionPolicy();
+            plc.setMaxSize(onheap);
+
+            cacheCfg.setEvictionPolicy(plc);
 
             cacheCfg.setOffHeapMaxMemory(80 * 1024L * 1024L * 1024L); // 10GB
         }
@@ -90,7 +93,9 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void _testOnHeapReplicatedPerformance() throws Exception {
+    public void testOnHeapReplicatedPerformance() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-817");
+        
         mode = REPLICATED;
         onheap = 0;
         startSize = 18 * 1024 * 1024;
@@ -101,7 +106,9 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void _testOnHeapPartitionedPerformance() throws Exception {
+    public void testOnHeapPartitionedPerformance() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-817");
+        
         mode = PARTITIONED;
         onheap = 0;
         startSize = 18 * 1024 * 1024;
@@ -112,7 +119,9 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void _testOffHeapReplicatedPerformance() throws Exception {
+    public void testOffHeapReplicatedPerformance() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-817");
+        
         mode = REPLICATED;
         onheap = 1024 * 1024;
         startSize = onheap;
@@ -123,7 +132,9 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void _testOffHeapPartitionedPerformance() throws Exception {
+    public void testOffHeapPartitionedPerformance() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-817");
+        
         mode = PARTITIONED;
         onheap = 4 * 1024 * 1024;
 
@@ -133,7 +144,9 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void _testOnHeapReplicatedPerformanceMultithreaded() throws Exception {
+    public void testOnHeapReplicatedPerformanceMultithreaded() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-817");
+        
         mode = REPLICATED;
         onheap = 0;
         startSize = 18 * 1024 * 1024;
@@ -144,7 +157,9 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void _testOnHeapPartitionedPerformanceMultithreaded() throws Exception {
+    public void testOnHeapPartitionedPerformanceMultithreaded() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-817");
+        
         mode = PARTITIONED;
         onheap = 0;
         startSize = 18 * 1024 * 1024;
@@ -166,7 +181,9 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void _testOffHeapPartitionedPerformanceMultithreaded() throws Exception {
+    public void testOffHeapPartitionedPerformanceMultithreaded() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-817");
+        
         mode = PARTITIONED;
         onheap = 4 * 1024 * 1024;
 
@@ -180,7 +197,7 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
         Ignite g = startGrid();
 
         try {
-            GridCache<Integer, Integer> cache = ((IgniteKernal)g).internalCache(null);
+            GridCacheAdapter<Integer, Integer> cache = ((IgniteKernal)g).internalCache(null);
 
 //            int max = 17 * 1024 * 1024;
             int max = Integer.MAX_VALUE;
@@ -188,7 +205,7 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
             long start = System.currentTimeMillis();
 
             for (int i = 0; i < max; i++) {
-                cache.put(i, i);
+                cache.getAndPut(i, i);
 
                 if (i % 100000 == 0) {
                     long cur = System.currentTimeMillis();
@@ -210,7 +227,7 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
         Ignite g = startGrid();
 
         try {
-            final GridCache<Integer, Integer> c = ((IgniteKernal)g).internalCache(null);
+            final GridCacheAdapter<Integer, Integer> c = ((IgniteKernal)g).internalCache(null);
 
             final long start = System.currentTimeMillis();
 
@@ -225,7 +242,7 @@ public class GridCacheOffHeapTest extends GridCommonAbstractTest {
                         int val = keyGen.addAndGet(reserveSize); // Reserve keys.
 
                         for (int i = val - reserveSize; i < val; i++) {
-                            c.put(i, i);
+                            c.getAndPut(i, i);
 
                             if (i % 500000 == 0) {
                                 long dur = System.currentTimeMillis() - start;

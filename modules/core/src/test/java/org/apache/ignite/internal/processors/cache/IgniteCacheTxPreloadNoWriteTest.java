@@ -17,23 +17,26 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheRebalanceMode.ASYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  *
@@ -57,10 +60,10 @@ public class IgniteCacheTxPreloadNoWriteTest extends GridCommonAbstractTest {
         CacheConfiguration ccfg = new CacheConfiguration();
 
         ccfg.setCacheMode(REPLICATED);
-        ccfg.setDistributionMode(PARTITIONED_ONLY);
         ccfg.setAtomicityMode(TRANSACTIONAL);
-        ccfg.setRebalanceMode(CacheRebalanceMode.ASYNC);
-        ccfg.setAffinity(new CacheRendezvousAffinityFunction(false, 100));
+        ccfg.setRebalanceMode(ASYNC);
+        ccfg.setAffinity(new RendezvousAffinityFunction(false, 100));
+        ccfg.setWriteSynchronizationMode(FULL_SYNC);
 
         cfg.setCacheConfiguration(ccfg);
 
@@ -78,18 +81,35 @@ public class IgniteCacheTxPreloadNoWriteTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testTxNoWrite() throws Exception {
+        txNoWrite(true);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testTxNoWriteRollback() throws Exception {
+        txNoWrite(false);
+    }
+
+    /**
+     * @param commit {@code True} if commit transaction.
+     * @throws Exception If failed.
+     */
+    private void txNoWrite(boolean commit) throws Exception {
         Ignite ignite0 = startGrid(0);
 
-        CacheAffinity<Integer> aff = ignite0.affinity(null);
+        Affinity<Integer> aff = ignite0.affinity(null);
 
-        IgniteCache<Integer, Object> cache0 = ignite0.jcache(null);
+        IgniteCache<Integer, Object> cache0 = ignite0.cache(null);
 
-        for (int i = 0; i < 1000; i++)
-            cache0.put(i + 10000, new byte[1024]);
+        try (IgniteDataStreamer<Integer, Object> streamer = ignite0.dataStreamer(null)) {
+            for (int i = 0; i < 1000; i++)
+                streamer.addData(i + 10000, new byte[1024]);
+        }
 
         Ignite ignite1 = startGrid(1);
 
-        Integer key = 70;
+        Integer key = primaryKey(ignite1.cache(null));
 
         // Want test scenario when ignite1 is new primary node, but ignite0 is still partition owner.
         assertTrue(aff.isPrimary(ignite1.cluster().localNode(), key));
@@ -97,7 +117,8 @@ public class IgniteCacheTxPreloadNoWriteTest extends GridCommonAbstractTest {
         try (Transaction tx = ignite0.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             cache0.get(key);
 
-            tx.commit();
+            if (commit)
+                tx.commit();
         }
 
         GridCacheAdapter cacheAdapter = ((IgniteKernal)ignite(0)).context().cache().internalCache();

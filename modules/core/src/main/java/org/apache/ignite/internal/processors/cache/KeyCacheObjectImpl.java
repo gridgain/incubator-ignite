@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectTransient;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
  */
-public class KeyCacheObjectImpl extends CacheObjectAdapter implements KeyCacheObject, Comparable<KeyCacheObjectImpl> {
+public class KeyCacheObjectImpl extends CacheObjectAdapter implements KeyCacheObject {
     /** */
     private static final long serialVersionUID = 0L;
+
+    /** */
+    @GridDirectTransient
+    private int part = -1;
 
     /**
      *
@@ -39,19 +44,38 @@ public class KeyCacheObjectImpl extends CacheObjectAdapter implements KeyCacheOb
      * @param valBytes Value bytes.
      */
     public KeyCacheObjectImpl(Object val, byte[] valBytes) {
+        this(val, valBytes, -1);
+    }
+
+    /**
+     * @param val Value.
+     * @param valBytes Value bytes.
+     * @param part Partition.
+     */
+    public KeyCacheObjectImpl(Object val, byte[] valBytes, int part) {
         assert val != null;
 
         this.val = val;
         this.valBytes = valBytes;
+        this.part = part;
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("unchecked")
-    @Override public int compareTo(KeyCacheObjectImpl other) {
-        assert val instanceof Comparable : val;
-        assert other.val instanceof Comparable : val;
+    @Override public KeyCacheObject copy(int part) {
+        if (this.part == part)
+            return this;
 
-        return ((Comparable)val).compareTo(other.val);
+        return new KeyCacheObjectImpl(val, valBytes, part);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int partition() {
+        return part;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void partition(int part) {
+        this.part = part;
     }
 
     /** {@inheritDoc} */
@@ -70,22 +94,21 @@ public class KeyCacheObjectImpl extends CacheObjectAdapter implements KeyCacheOb
     }
 
     /** {@inheritDoc} */
+    @Override public boolean isPlatformType() {
+        return true;
+    }
+
+    /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     @Nullable @Override public <T> T value(CacheObjectContext ctx, boolean cpy) {
-        cpy = cpy && needCopy(ctx);
-
-        if (cpy) {
-            try {
-                return (T)ctx.processor().unmarshal(ctx,
-                    valBytes,
-                    val.getClass().getClassLoader());
-            }
-            catch (IgniteCheckedException e) {
-                throw new IgniteException("Failed to unmarshal object.", e);
-            }
-        }
+        assert val != null;
 
         return (T)val;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onAckReceived() {
+        // No-op.
     }
 
     /** {@inheritDoc} */
@@ -103,6 +126,11 @@ public class KeyCacheObjectImpl extends CacheObjectAdapter implements KeyCacheOb
     /** {@inheritDoc} */
     @Override public byte directType() {
         return 90;
+    }
+
+    /** {@inheritDoc} */
+    @Override public byte fieldsCount() {
+        return 1;
     }
 
     /** {@inheritDoc} */

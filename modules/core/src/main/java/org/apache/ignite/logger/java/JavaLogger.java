@@ -17,19 +17,31 @@
 
 package org.apache.ignite.logger.java;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.logger.*;
-import org.jetbrains.annotations.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.UUID;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.FileHandler;
+import java.util.logging.Handler;
+import java.util.logging.LogManager;
+import java.util.logging.Logger;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.logger.LoggerNodeIdAware;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.logging.*;
-
-import static java.util.logging.Level.*;
-import static org.apache.ignite.IgniteSystemProperties.*;
+import static java.util.logging.Level.FINE;
+import static java.util.logging.Level.FINEST;
+import static java.util.logging.Level.INFO;
+import static java.util.logging.Level.SEVERE;
+import static java.util.logging.Level.WARNING;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_CONSOLE_APPENDER;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_QUIET;
 
 /**
  * Logger to use with Java logging. Implementation simply delegates to Java Logging.
@@ -40,7 +52,7 @@ import static org.apache.ignite.IgniteSystemProperties.*;
  * <pre name="code" class="xml">
  *      ...
  *      &lt;property name="gridLogger"&gt;
- *          &lt;bean class="org.apache.ignite.logger.java.IgniteJavaLogger"&gt;
+ *          &lt;bean class="org.apache.ignite.logger.java.JavaLogger"&gt;
  *              &lt;constructor-arg type="java.util.logging.Logger"&gt;
  *                  &lt;bean class="java.util.logging.Logger"&gt;
  *                      &lt;constructor-arg type="java.lang.String" value="global"/&gt;
@@ -54,23 +66,23 @@ import static org.apache.ignite.IgniteSystemProperties.*;
  * <pre name="code" class="xml">
  *      ...
  *      &lt;property name="gridLogger"&gt;
- *          &lt;bean class="org.apache.ignite.logger.java.IgniteJavaLogger"/&gt;
+ *          &lt;bean class="org.apache.ignite.logger.java.JavaLogger"/&gt;
  *      &lt;/property&gt;
  *      ...
  * </pre>
  * And the same configuration if you'd like to configure Ignite in your code:
  * <pre name="code" class="java">
- *      GridConfiguration cfg = new GridConfiguration();
+ *      IgniteConfiguration cfg = new IgniteConfiguration();
  *      ...
- *      GridLogger log = new GridJavaLogger(Logger.global);
+ *      IgniteLogger log = new JavaLogger(Logger.global);
  *      ...
  *      cfg.setGridLogger(log);
  * </pre>
  * or which is actually the same:
  * <pre name="code" class="java">
- *      GridConfiguration cfg = new GridConfiguration();
+ *      IgniteConfiguration cfg = new IgniteConfiguration();
  *      ...
- *      GridLogger log = new GridJavaLogger();
+ *      IgniteLogger log = new JavaLogger();
  *      ...
  *      cfg.setGridLogger(log);
  * </pre>

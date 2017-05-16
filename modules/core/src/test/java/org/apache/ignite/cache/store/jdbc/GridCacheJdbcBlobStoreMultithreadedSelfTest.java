@@ -17,30 +17,37 @@
 
 package org.apache.ignite.cache.store.jdbc;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
-import org.jdk8.backport.*;
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.Random;
+import java.util.TreeMap;
+import java.util.concurrent.Callable;
+import javax.cache.configuration.Factory;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
+import org.jsr166.LongAdder8;
 
-import javax.cache.configuration.*;
-import java.lang.reflect.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.testframework.GridTestUtils.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.testframework.GridTestUtils.runMultiThreaded;
+import static org.apache.ignite.testframework.GridTestUtils.runMultiThreadedAsync;
 
 /**
  *
@@ -55,22 +62,22 @@ public class GridCacheJdbcBlobStoreMultithreadedSelfTest extends GridCommonAbstr
     /** Number of transactions. */
     private static final int TX_CNT = 1000;
 
-    /** Distribution mode. */
-    private CacheDistributionMode mode;
+    /** Client flag. */
+    private boolean client;
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        mode = NEAR_PARTITIONED;
-
         startGridsMultiThreaded(GRID_CNT - 2);
 
-        mode = NEAR_ONLY;
+        client = true;
 
-        startGrid(GRID_CNT - 2);
+        Ignite grid = startGrid(GRID_CNT - 2);
 
-        mode = CLIENT_ONLY;
+        grid.createNearCache(null, new NearCacheConfiguration());
 
-        startGrid(GRID_CNT - 1);
+        grid = startGrid(GRID_CNT - 1);
+
+        grid.cache(null);
     }
 
     /** {@inheritDoc} */
@@ -89,21 +96,24 @@ public class GridCacheJdbcBlobStoreMultithreadedSelfTest extends GridCommonAbstr
 
         c.setDiscoverySpi(disco);
 
-        CacheConfiguration cc = defaultCacheConfiguration();
+        if (!client) {
+            CacheConfiguration cc = defaultCacheConfiguration();
 
-        cc.setCacheMode(PARTITIONED);
-        cc.setWriteSynchronizationMode(FULL_SYNC);
-        cc.setSwapEnabled(false);
-        cc.setAtomicityMode(TRANSACTIONAL);
-        cc.setBackups(1);
-        cc.setDistributionMode(mode);
+            cc.setCacheMode(PARTITIONED);
+            cc.setWriteSynchronizationMode(FULL_SYNC);
+            cc.setSwapEnabled(false);
+            cc.setAtomicityMode(TRANSACTIONAL);
+            cc.setBackups(1);
 
-        cc.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(store()));
-        cc.setReadThrough(true);
-        cc.setWriteThrough(true);
-        cc.setLoadPreviousValue(true);
+            cc.setCacheStoreFactory(new TestStoreFactory());
+            cc.setReadThrough(true);
+            cc.setWriteThrough(true);
+            cc.setLoadPreviousValue(true);
 
-        c.setCacheConfiguration(cc);
+            c.setCacheConfiguration(cc);
+        }
+        else
+            c.setClientMode(true);
 
         return c;
     }
@@ -158,7 +168,7 @@ public class GridCacheJdbcBlobStoreMultithreadedSelfTest extends GridCommonAbstr
                     Map<Integer, String> map = new TreeMap<>();
 
                     for (int j = 0; j < 10; j++)
-                        map.put(rnd.nextInt(1000), "value");
+                        map.put(j, "value");
 
                     IgniteCache<Object, Object> cache = jcache(rnd.nextInt(GRID_CNT));
 
@@ -183,7 +193,7 @@ public class GridCacheJdbcBlobStoreMultithreadedSelfTest extends GridCommonAbstr
                 for (int i = 0; i < TX_CNT; i++) {
                     IgniteEx ignite = grid(rnd.nextInt(GRID_CNT));
 
-                    IgniteCache<Object, Object> cache = ignite.jcache(null);
+                    IgniteCache<Object, Object> cache = ignite.cache(null);
 
                     try (Transaction tx = ignite.transactions().txStart()) {
                         cache.put(1, "value");
@@ -212,19 +222,25 @@ public class GridCacheJdbcBlobStoreMultithreadedSelfTest extends GridCommonAbstr
     }
 
     /**
-     * @return New store.
-     * @throws Exception In case of error.
+     * Test store factory.
      */
-    private CacheStore<Integer, String> store() throws Exception {
-        CacheStore<Integer, String> store = new CacheJdbcBlobStore<>();
+    private static class TestStoreFactory implements Factory<CacheStore> {
+        @Override public CacheStore create() {
+            try {
+                CacheStore<Integer, String> store = new CacheJdbcBlobStore<>();
 
-        Field f = store.getClass().getDeclaredField("testMode");
+                Field f = store.getClass().getDeclaredField("testMode");
 
-        f.setAccessible(true);
+                f.setAccessible(true);
 
-        f.set(store, true);
+                f.set(store, true);
 
-        return store;
+                return store;
+            }
+            catch (NoSuchFieldException | IllegalAccessException e) {
+                throw new IgniteException(e);
+            }
+        }
     }
 
     /**
@@ -238,8 +254,8 @@ public class GridCacheJdbcBlobStoreMultithreadedSelfTest extends GridCommonAbstr
 
             CacheStore store = cctx.store().configuredStore();
 
-            long opened = ((LongAdder)U.field(store, "opened")).sum();
-            long closed = ((LongAdder)U.field(store, "closed")).sum();
+            long opened = ((LongAdder8)U.field(store, "opened")).sum();
+            long closed = ((LongAdder8)U.field(store, "closed")).sum();
 
             assert opened > 0;
             assert closed > 0;

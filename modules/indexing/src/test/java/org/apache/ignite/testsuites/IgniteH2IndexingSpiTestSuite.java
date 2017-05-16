@@ -17,10 +17,11 @@
 
 package org.apache.ignite.testsuites;
 
-import junit.framework.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.query.h2.*;
-import org.apache.ignite.internal.processors.query.h2.opt.*;
+import junit.framework.TestSuite;
+import org.apache.ignite.internal.processors.query.h2.GridH2IndexRebuildTest;
+import org.apache.ignite.internal.processors.query.h2.GridH2IndexingInMemSelfTest;
+import org.apache.ignite.internal.processors.query.h2.GridH2IndexingOffheapSelfTest;
+import org.apache.ignite.internal.processors.query.h2.opt.GridH2TableSelfTest;
 
 /**
  * H2 indexing SPI tests.
@@ -44,12 +45,6 @@ public class IgniteH2IndexingSpiTestSuite extends TestSuite {
 
         // Index rebuilding.
         suite.addTest(new TestSuite(GridH2IndexRebuildTest.class));
-
-        // Tests moved to this suite since they require GridH2IndexingSpi.
-        suite.addTestSuite(GridCacheOffHeapAndSwapSelfTest.class);
-        suite.addTestSuite(GridIndexingWithNoopSwapSelfTest.class);
-        suite.addTestSuite(GridCacheSwapSelfTest.class);
-        suite.addTestSuite(GridCacheOffHeapSelfTest.class);
 
         return suite;
     }

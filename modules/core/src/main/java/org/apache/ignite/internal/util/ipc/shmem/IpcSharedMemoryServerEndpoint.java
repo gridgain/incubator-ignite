@@ -17,25 +17,43 @@
 
 package org.apache.ignite.internal.util.ipc.shmem;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.resource.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.ipc.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.util.worker.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.thread.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.net.*;
-import java.nio.channels.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
+import java.io.RandomAccessFile;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.channels.FileLock;
+import java.nio.channels.FileLockInterruptionException;
+import java.nio.channels.OverlappingFileLockException;
+import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.processors.resource.GridResourceProcessor;
+import org.apache.ignite.internal.util.GridConcurrentHashSet;
+import org.apache.ignite.internal.util.ipc.IpcEndpoint;
+import org.apache.ignite.internal.util.ipc.IpcEndpointBindException;
+import org.apache.ignite.internal.util.ipc.IpcServerEndpoint;
+import org.apache.ignite.internal.util.lang.IgnitePair;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.worker.GridWorker;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.thread.IgniteThread;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Server shared memory IPC endpoint.
@@ -118,7 +136,10 @@ public class IpcSharedMemoryServerEndpoint implements IpcServerEndpoint {
     private final Collection<IpcSharedMemoryClientEndpoint> endpoints =
         new GridConcurrentHashSet<>();
 
-    /** Use this constructor when dependencies could be injected with {@link GridResourceProcessor#injectGeneric(Object)}. */
+    /**
+     * Use this constructor when dependencies could be injected
+     * with {@link GridResourceProcessor#injectGeneric(Object)}.
+     */
     public IpcSharedMemoryServerEndpoint() {
         // No-op.
     }
@@ -143,7 +164,7 @@ public class IpcSharedMemoryServerEndpoint implements IpcServerEndpoint {
 
     /** {@inheritDoc} */
     @Override public void start() throws IgniteCheckedException {
-        IpcSharedMemoryNativeLoader.load();
+        IpcSharedMemoryNativeLoader.load(log);
 
         pid = IpcSharedMemoryUtils.pid();
 
@@ -276,13 +297,13 @@ public class IpcSharedMemoryServerEndpoint implements IpcServerEndpoint {
                     String msg = "Failed to process incoming connection (most probably, shared memory " +
                         "rest endpoint has been configured by mistake).";
 
-                    LT.warn(log, null, msg);
+                    LT.warn(log, msg);
 
                     sendErrorResponse(out, e);
                 }
                 catch (IpcOutOfSystemResourcesException e) {
                     if (!omitOutOfResourcesWarn)
-                        LT.warn(log, null, OUT_OF_RESOURCES_MSG);
+                        LT.warn(log, OUT_OF_RESOURCES_MSG);
 
                     sendErrorResponse(out, e);
                 }
@@ -360,8 +381,10 @@ public class IpcSharedMemoryServerEndpoint implements IpcServerEndpoint {
             long idx = tokIdxGen.get();
 
             if (tokIdxGen.compareAndSet(idx, idx + 2))
-                return F.pair(new File(tokDir, TOKEN_FILE_NAME + idx + "-" + pid + "-" + size).getAbsolutePath(),
-                    new File(tokDir, TOKEN_FILE_NAME + (idx + 1) + "-" + pid + "-" + size).getAbsolutePath());
+                return new IgnitePair<>(
+                    new File(tokDir, TOKEN_FILE_NAME + idx + "-" + pid + "-" + size).getAbsolutePath(),
+                    new File(tokDir, TOKEN_FILE_NAME + (idx + 1) + "-" + pid + "-" + size).getAbsolutePath()
+                );
         }
     }
 
@@ -493,7 +516,7 @@ public class IpcSharedMemoryServerEndpoint implements IpcServerEndpoint {
                 }
             }
             catch (Throwable t) {
-                if (t instanceof IgniteCheckedException)
+                if (t instanceof IgniteCheckedException || t instanceof Error)
                     throw t;
 
                 throw new IgniteCheckedException("Invalid value '" + e.getValue() + "' of the property '" + e.getKey() + "' in " +
@@ -524,37 +547,22 @@ public class IpcSharedMemoryServerEndpoint implements IpcServerEndpoint {
 
             assert workTokDir != null;
 
-            while (!isCancelled()) {
-                U.sleep(GC_FREQ);
+            boolean lastRunNeeded = true;
+
+            while (true) {
+                try {
+                    // Sleep only if not cancelled.
+                    if (lastRunNeeded)
+                        Thread.sleep(GC_FREQ);
+                }
+                catch (InterruptedException ignored) {
+                    // No-op.
+                }
 
                 if (log.isDebugEnabled())
                     log.debug("Starting GC iteration.");
 
-                RandomAccessFile lockFile = null;
-
-                FileLock lock = null;
-
-                try {
-                    lockFile = new RandomAccessFile(new File(workTokDir, LOCK_FILE_NAME), "rw");
-
-                    lock = lockFile.getChannel().lock();
-
-                    if (lock != null)
-                        processTokenDirectory(workTokDir);
-                    else if (log.isDebugEnabled())
-                        log.debug("Token directory is being processed concurrently: " + workTokDir.getAbsolutePath());
-                }
-                catch (OverlappingFileLockException ignored) {
-                    if (log.isDebugEnabled())
-                        log.debug("Token directory is being processed concurrently: " + workTokDir.getAbsolutePath());
-                }
-                catch (IOException e) {
-                    U.error(log, "Failed to process directory: " + workTokDir.getAbsolutePath(), e);
-                }
-                finally {
-                    U.releaseQuiet(lock);
-                    U.closeQuiet(lockFile);
-                }
+                cleanupResources(workTokDir);
 
                 // Process spaces created by this endpoint.
                 if (log.isDebugEnabled())
@@ -571,10 +579,60 @@ public class IpcSharedMemoryServerEndpoint implements IpcServerEndpoint {
                             log.debug("Removed endpoint: " + e);
                     }
                 }
+
+                if (isCancelled()) {
+                    if (lastRunNeeded) {
+                        lastRunNeeded = false;
+
+                        // Clear interrupted status.
+                        Thread.interrupted();
+                    }
+                    else {
+                        Thread.currentThread().interrupt();
+
+                        break;
+                    }
+                }
             }
         }
 
-        /** @param workTokDir Token directory (common for multiple nodes). */
+        /**
+         * @param workTokDir Token directory (common for multiple nodes).
+         */
+        private void cleanupResources(File workTokDir) {
+            RandomAccessFile lockFile = null;
+
+            FileLock lock = null;
+
+            try {
+                lockFile = new RandomAccessFile(new File(workTokDir, LOCK_FILE_NAME), "rw");
+
+                lock = lockFile.getChannel().lock();
+
+                if (lock != null)
+                    processTokenDirectory(workTokDir);
+                else if (log.isDebugEnabled())
+                    log.debug("Token directory is being processed concurrently: " + workTokDir.getAbsolutePath());
+            }
+            catch (OverlappingFileLockException ignored) {
+                if (log.isDebugEnabled())
+                    log.debug("Token directory is being processed concurrently: " + workTokDir.getAbsolutePath());
+            }
+            catch (FileLockInterruptionException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            catch (IOException e) {
+                U.error(log, "Failed to process directory: " + workTokDir.getAbsolutePath(), e);
+            }
+            finally {
+                U.releaseQuiet(lock);
+                U.closeQuiet(lockFile);
+            }
+        }
+
+        /**
+         * @param workTokDir Token directory (common for multiple nodes).
+         */
         private void processTokenDirectory(File workTokDir) {
             for (File f : workTokDir.listFiles()) {
                 if (!f.isDirectory()) {

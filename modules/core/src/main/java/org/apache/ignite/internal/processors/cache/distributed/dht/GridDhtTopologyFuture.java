@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.discovery.*;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Future that implements a barrier after which dht topology is safe to use. Topology is considered to be
@@ -29,16 +30,19 @@ import org.apache.ignite.internal.managers.discovery.*;
  * When new new transaction is started, it will wait for this future before acquiring new locks on particular
  * topology version.
  */
-public interface GridDhtTopologyFuture extends IgniteInternalFuture<Long> {
+public interface GridDhtTopologyFuture extends IgniteInternalFuture<AffinityTopologyVersion> {
     /**
-     * Gets a topology snapshot for the topology version represented by the future. Note that by the time
-     * partition exchange completes some nodes from the snapshot may leave the grid. One should use discovery
-     * service to check if the node is valid.
-     * <p/>
-     * This method will block until the topology future is ready.
+     * Gets topology version of this future.
      *
-     * @return Topology snapshot for particular topology version.
-     * @throws IgniteCheckedException If topology future failed.
+     * @return Topology version.
      */
-    public GridDiscoveryTopologySnapshot topologySnapshot() throws IgniteCheckedException;
+    public AffinityTopologyVersion topologyVersion();
+
+    /**
+     * Returns error is cache topology is not valid.
+     *
+     * @param cctx Cache context.
+     * @return valid ot not.
+     */
+    @Nullable public Throwable validateCache(GridCacheContext cctx);
 }

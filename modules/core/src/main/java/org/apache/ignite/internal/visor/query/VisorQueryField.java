@@ -17,46 +17,86 @@
 
 package org.apache.ignite.internal.visor.query;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Data transfer object for query field type description.
  */
-public class VisorQueryField implements Serializable {
+public class VisorQueryField implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
-    /** Column type. */
-    private final String type;
+    /** Schema name. */
+    private String schemaName;
+
+    /** Type name. */
+    private String typeName;
 
     /** Field name. */
-    private final String field;
+    private String fieldName;
+
+    /** Field type name. */
+    private String fieldTypeName;
 
     /**
      * Create data transfer object with given parameters.
      *
-     * @param type Column type.
-     * @param field Field name.
+     * @param schemaName Schema name.
+     * @param typeName Type name.
+     * @param fieldName Name.
+     * @param fieldTypeName Type.
      */
-    public VisorQueryField(String type, String field) {
-        this.type = type;
-        this.field = field;
+    public VisorQueryField(String schemaName, String typeName, String fieldName, String fieldTypeName) {
+        this.schemaName = schemaName;
+        this.typeName = typeName;
+        this.fieldName = fieldName;
+        this.fieldTypeName = fieldTypeName;
     }
 
     /**
-     * @return Column type.
+     * @return Schema name.
      */
-    public String type() {
-        return type;
+    public String schemaName() {
+        return schemaName;
+    }
+
+    /**
+     * @return Type name.
+     */
+    public String typeName() {
+        return typeName;
     }
 
     /**
      * @return Field name.
      */
-    public String field() {
-        return field;
+    public String fieldName() {
+        return fieldName;
+    }
+
+    /**
+     * @return Field type name.
+     */
+    public String fieldTypeName() {
+        return fieldTypeName;
+    }
+
+    /**
+     * @param schema If {@code true} then add schema name to full name.
+     * @return Fully qualified field name with type name and schema name.
+     */
+    public String fullName(boolean schema) {
+        if (!F.isEmpty(typeName)) {
+            if (schema && !F.isEmpty(schemaName))
+                return schemaName + "." + typeName + "." + fieldName;
+
+            return typeName + "." + fieldName;
+        }
+
+        return fieldName;
     }
 
     /** {@inheritDoc} */

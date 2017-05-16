@@ -17,19 +17,31 @@
 
 package org.apache.ignite.loadtests.dsi;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.testframework.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCompute;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeTaskFuture;
+import org.apache.ignite.internal.util.GridAtomicLong;
+import org.apache.ignite.internal.util.typedef.T3;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.testframework.GridFileLock;
+import org.apache.ignite.testframework.GridLoadTestUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -234,7 +246,7 @@ public class GridDsiClient implements Callable {
 
                 // No 2 client should use the same simulator.
                 HashMap<UUID, Collection<String>> terminals = (HashMap<UUID, Collection<String>>)
-                    g.jcache("CLIENT_PARTITIONED_CACHE").get("terminals");
+                    g.cache("CLIENT_PARTITIONED_CACHE").get("terminals");
 
                 if (terminals == null) {
                     X.println(">>> Terminals map has not been initialized.");
@@ -260,7 +272,7 @@ public class GridDsiClient implements Callable {
                             String terminalId = String.valueOf(++tid);
 
                             // Server partition cache.
-                            if (!srvrId.equals(g.cluster().mapKeyToNode("PARTITIONED_CACHE", terminalId).id()))
+                            if (!srvrId.equals(g.affinity("PARTITIONED_CACHE").mapKeyToNode(terminalId).id()))
                                 continue;
 
                             if (terminalsPerSrv < srvMaxNoTerminals) {
@@ -279,7 +291,7 @@ public class GridDsiClient implements Callable {
                         terminals.put(srvrId, list);
                     }
 
-                    g.jcache("CLIENT_PARTITIONED_CACHE").put("terminals", terminals);
+                    g.cache("CLIENT_PARTITIONED_CACHE").put("terminals", terminals);
                 }
                 else {
                     X.println(">>> Terminals map has been initialized.");

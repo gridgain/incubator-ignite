@@ -17,13 +17,18 @@
 
 package org.apache.ignite.cache.hibernate;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.hibernate.cache.*;
-import org.hibernate.cache.spi.*;
-import org.hibernate.cache.spi.access.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.hibernate.cache.CacheException;
+import org.hibernate.cache.spi.CacheDataDescription;
+import org.hibernate.cache.spi.CollectionRegion;
+import org.hibernate.cache.spi.EntityRegion;
+import org.hibernate.cache.spi.NaturalIdRegion;
+import org.hibernate.cache.spi.TransactionalDataRegion;
+import org.hibernate.cache.spi.access.AccessType;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 
 /**
  * Implementation of {@link TransactionalDataRegion} (transactional means that
@@ -43,7 +48,7 @@ public class HibernateTransactionalDataRegion extends HibernateRegion implements
      * @param dataDesc Region data description.
      */
     public HibernateTransactionalDataRegion(HibernateRegionFactory factory, String name,
-        Ignite ignite, GridCache<Object, Object> cache, CacheDataDescription dataDesc) {
+        Ignite ignite, IgniteInternalCache<Object, Object> cache, CacheDataDescription dataDesc) {
         super(factory, name, ignite, cache);
 
         this.dataDesc = dataDesc;
@@ -83,9 +88,16 @@ public class HibernateTransactionalDataRegion extends HibernateRegion implements
                     throw new CacheException("Hibernate TRANSACTIONAL access strategy must have Ignite cache with " +
                         "'TRANSACTIONAL' atomicity mode: " + cache.name());
 
-                if (cache.configuration().getTransactionManagerLookupClassName() == null)
-                    throw new CacheException("Hibernate TRANSACTIONAL access strategy must have Ignite cache with " +
-                        "TransactionManagerLookup configured: " + cache.name());
+                TransactionConfiguration txCfg = ignite.configuration().getTransactionConfiguration();
+
+                if (txCfg == null ||
+                    (txCfg.getTxManagerFactory() == null
+                    && txCfg.getTxManagerLookupClassName() == null
+                    && cache.configuration().getTransactionManagerLookupClassName() == null)) {
+                    throw new CacheException("Hibernate TRANSACTIONAL access strategy must have Ignite with " +
+                                "Factory<TransactionManager> configured (see IgniteConfiguration." +
+                                "getTransactionConfiguration().setTxManagerFactory()): " + cache.name());
+                }
 
                 return new HibernateTransactionalAccessStrategy(ignite, cache);
 

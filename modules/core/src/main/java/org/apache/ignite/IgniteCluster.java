@@ -17,15 +17,20 @@
 
 package org.apache.ignite;
 
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.io.File;
+import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.cluster.ClusterStartNodeResult;
+import org.apache.ignite.lang.IgniteAsyncSupport;
+import org.apache.ignite.lang.IgniteAsyncSupported;
+import org.apache.ignite.lang.IgniteFuture;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents whole cluster (all available nodes) and also provides a handle on {@link #nodeLocalMap()} which
@@ -42,9 +47,9 @@ public interface IgniteCluster extends ClusterGroup, IgniteAsyncSupport {
     public ClusterNode localNode();
 
     /**
-     * Gets monadic projection consisting from the local node.
+     * Gets a cluster group consisting from the local node.
      *
-     * @return Monadic projection consisting from the local node.
+     * @return Cluster group consisting from the local node.
      */
     public ClusterGroup forLocal();
 
@@ -110,7 +115,7 @@ public interface IgniteCluster extends ClusterGroup, IgniteAsyncSupport {
      * <ul>
      * <li>For local caches it returns only local node mapped to all keys.</li>
      * <li>
-     *      For fully replicated caches, {@link CacheAffinityFunction} is
+     *      For fully replicated caches, {@link AffinityFunction} is
      *      used to determine which keys are mapped to which groups of nodes.
      * </li>
      * <li>For partitioned caches, the returned map represents node-to-key affinity.</li>
@@ -120,7 +125,9 @@ public interface IgniteCluster extends ClusterGroup, IgniteAsyncSupport {
      * @param keys Cache keys to map to nodes.
      * @return Map of nodes to cache keys or empty map if there are no alive nodes for this cache.
      * @throws IgniteException If failed to map cache keys.
+     * @deprecated Use {@link Affinity#mapKeysToNodes(Collection)} instead.
      */
+    @Deprecated
     public <K> Map<ClusterNode, Collection<K>> mapKeysToNodes(@Nullable String cacheName,
         @Nullable Collection<? extends K> keys) throws IgniteException;
 
@@ -133,7 +140,7 @@ public interface IgniteCluster extends ClusterGroup, IgniteAsyncSupport {
      * <ul>
      * <li>For local caches it returns only local node ID.</li>
      * <li>
-     *      For fully replicated caches first node ID returned by {@link CacheAffinityFunction}
+     *      For fully replicated caches first node ID returned by {@link AffinityFunction}
      *      is returned.
      * </li>
      * <li>For partitioned caches, the returned node ID is the primary node for the key.</li>
@@ -144,7 +151,9 @@ public interface IgniteCluster extends ClusterGroup, IgniteAsyncSupport {
      * @return Primary node for the key or {@code null} if cache with given name
      *      is not present in the grid.
      * @throws IgniteException If failed to map key.
+     * @deprecated Use {@link Affinity#mapKeyToNode(Object)} instead.
      */
+    @Deprecated
     public <K> ClusterNode mapKeyToNode(@Nullable String cacheName, K key) throws IgniteException;
 
     /**
@@ -170,12 +179,12 @@ public interface IgniteCluster extends ClusterGroup, IgniteAsyncSupport {
      *      nodes on the host than expected.
      * @param timeout Connection timeout.
      * @param maxConn Number of parallel SSH connections to one host.
-     * @return Collection of tuples, each containing host name, result (success of failure)
+     * @return Collection of start node results, each containing host name, result (success or failure)
      *      and error message (if any).
      * @throws IgniteException In case of error.
      */
     @IgniteAsyncSupported
-    public Collection<GridTuple3<String, Boolean, String>> startNodes(File file, boolean restart, int timeout,
+    public Collection<ClusterStartNodeResult> startNodes(File file, boolean restart, int timeout,
         int maxConn) throws IgniteException;
 
     /**
@@ -272,12 +281,12 @@ public interface IgniteCluster extends ClusterGroup, IgniteAsyncSupport {
      *      nodes on the host than expected.
      * @param timeout Connection timeout in milliseconds.
      * @param maxConn Number of parallel SSH connections to one host.
-     * @return Collection of tuples, each containing host name, result (success of failure)
+     * @return Collection of start node results, each containing host name, result (success or failure)
      *      and error message (if any).
      * @throws IgniteException In case of error.
      */
     @IgniteAsyncSupported
-    public Collection<GridTuple3<String, Boolean, String>> startNodes(Collection<Map<String, Object>> hosts,
+    public Collection<ClusterStartNodeResult> startNodes(Collection<Map<String, Object>> hosts,
         @Nullable Map<String, Object> dflts, boolean restart, int timeout, int maxConn) throws IgniteException;
 
     /**
@@ -329,6 +338,14 @@ public interface IgniteCluster extends ClusterGroup, IgniteAsyncSupport {
      */
     public void resetMetrics();
 
+    /**
+     * If local client node disconnected from cluster returns future
+     * that will be completed when client reconnected.
+     *
+     * @return Future that will be completed when client reconnected.
+     */
+    @Nullable public IgniteFuture<?> clientReconnectFuture();
+
     /** {@inheritDoc} */
-    public IgniteCluster withAsync();
+    @Override public IgniteCluster withAsync();
 }

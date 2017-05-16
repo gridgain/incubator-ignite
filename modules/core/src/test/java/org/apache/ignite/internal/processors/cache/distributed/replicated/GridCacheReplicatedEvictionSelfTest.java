@@ -17,19 +17,23 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.replicated;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.testframework.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.UUID;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.processors.cache.GridCacheAbstractSelfTest;
+import org.apache.ignite.internal.util.typedef.P1;
+import org.apache.ignite.internal.util.typedef.PA;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.testframework.GridTestUtils;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.events.EventType.EVT_CACHE_ENTRY_EVICTED;
 
 /**
  * Tests synchronous eviction for replicated cache.
@@ -56,8 +60,8 @@ public class GridCacheReplicatedEvictionSelfTest extends GridCacheAbstractSelfTe
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return PARTITIONED_ONLY;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -72,11 +76,11 @@ public class GridCacheReplicatedEvictionSelfTest extends GridCacheAbstractSelfTe
         final int KEYS = 10;
 
         for (int i = 0; i < KEYS; i++)
-            cache(0).put(String.valueOf(i), i);
+            jcache(0).put(String.valueOf(i), i);
 
         for (int g = 0 ; g < gridCount(); g++) {
             for (int i = 0; i < KEYS; i++)
-                assertNotNull(cache(g).peek(String.valueOf(i)));
+                assertNotNull(jcache(g).localPeek(String.valueOf(i)));
         }
 
         Collection<IgniteFuture<Event>> futs = new ArrayList<>();
@@ -87,7 +91,7 @@ public class GridCacheReplicatedEvictionSelfTest extends GridCacheAbstractSelfTe
         for (int g = 0; g < gridCount(); g++) {
             for (int i = 0; i < KEYS; i++) {
                 if (grid(g).affinity(null).isPrimary(grid(g).localNode(), String.valueOf(i)))
-                    assertTrue(cache(g).evict(String.valueOf(i)));
+                    jcache(g).localEvict(Collections.singleton(String.valueOf(i)));
             }
         }
 
@@ -98,7 +102,7 @@ public class GridCacheReplicatedEvictionSelfTest extends GridCacheAbstractSelfTe
             @Override public boolean apply() {
                 for (int g = 0 ; g < gridCount(); g++) {
                     for (int i = 0; i < KEYS; i++) {
-                        if (cache(g).peek(String.valueOf(i)) != null) {
+                        if (jcache(g).localPeek(String.valueOf(i)) != null) {
                             log.info("Non-null value, will wait [grid=" + g + ", key=" + i + ']');
 
                             return false;

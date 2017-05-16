@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.spi.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.io.Serializable;
+import java.util.UUID;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.spi.IgniteNodeValidationResult;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface for all main internal Ignite components (managers and processors).
@@ -36,7 +37,13 @@ public interface GridComponent {
         CONTINUOUS_PROC,
 
         /** */
-        PLUGIN
+        CACHE_PROC,
+
+        /** */
+        PLUGIN,
+
+        /** */
+        CLUSTER_PROC
     }
 
     /**
@@ -78,16 +85,17 @@ public interface GridComponent {
      * @return Discovery data object or {@code null} if there is nothing
      *      to send for this component.
      */
-    @Nullable public Object collectDiscoveryData(UUID nodeId);
+    @Nullable public Serializable collectDiscoveryData(UUID nodeId);
 
     /**
      * Receives discovery data object from remote nodes (called
      * on new node during discovery process).
      *
-     * @param nodeId Remote node ID.
+     * @param joiningNodeId Joining node ID.
+     * @param rmtNodeId Remote node ID for which data is provided.
      * @param data Discovery data object or {@code null} if nothing was
      */
-    public void onDiscoveryDataReceived(UUID nodeId, Object data);
+    public void onDiscoveryDataReceived(UUID joiningNodeId, UUID rmtNodeId, Serializable data);
 
     /**
      * Prints memory statistics (sizes of internal structures, etc.).
@@ -103,7 +111,7 @@ public interface GridComponent {
      * @param node Joining node.
      * @return Validation result or {@code null} in case of success.
      */
-    @Nullable public IgniteSpiNodeValidationResult validateNode(ClusterNode node);
+    @Nullable public IgniteNodeValidationResult validateNode(ClusterNode node);
 
     /**
      * Gets unique component type to distinguish components providing discovery data. Must return non-null value
@@ -112,4 +120,21 @@ public interface GridComponent {
      * @return Unique component type for discovery data exchange.
      */
     @Nullable public DiscoveryDataExchangeType discoveryDataType();
+
+    /**
+     * Client disconnected callback.
+     *
+     * @param reconnectFut Reconnect future.
+     * @throws IgniteCheckedException If failed.
+     */
+    public void onDisconnected(IgniteFuture<?> reconnectFut) throws IgniteCheckedException;
+
+    /**
+     * Client reconnected callback.
+     *
+     * @param clusterRestarted Cluster restarted flag.
+     * @throws IgniteCheckedException If failed.
+     * @return Future to wait before completing reconnect future.
+     */
+    @Nullable public IgniteInternalFuture<?> onReconnected(boolean clusterRestarted) throws IgniteCheckedException;
 }

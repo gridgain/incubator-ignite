@@ -17,18 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  * Test cases for multi-threaded tests.
@@ -97,7 +101,8 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
             true,
             false,
             false,
-            false
+            false,
+            null
         );
 
         Marshaller marshaller = getTestResources().getMarshaller();
@@ -1345,13 +1350,19 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
 
         ctx.mvcc().addNext(ctx, c1);
 
+        ctx.mvcc().contextReset();
+
         GridCacheMvccCandidate c2 = entry.addLocal(2, ver2, 0, true, false);
 
         ctx.mvcc().addNext(ctx, c2);
 
+        ctx.mvcc().contextReset();
+
         GridCacheMvccCandidate c3 = entry.addLocal(3, ver3, 0, true, true);
 
         ctx.mvcc().addNext(ctx, c3);
+
+        ctx.mvcc().contextReset();
 
         checkLocal(entry.candidate(ver1), ver1, false, false, false);
         checkLocal(entry.candidate(ver2), ver2, false, false, false);
@@ -1367,9 +1378,7 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
         entry.removeLock(ver2);
 
         assert c3 != null;
-        assert c3.previous() == c2;
         assert c2 != null;
-        assert c2.previous() == c1;
 
         checkLocal(c2, ver2, false, false, false, true);
 
@@ -1378,18 +1387,13 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
 
         entry.removeLock(ver1);
 
-        assert c3.previous() == c2;
-        assert c2.previous() == c1;
-
         checkLocal(entry.candidate(ver3), ver3, true, true, false);
 
         GridCacheMvccCandidate c4 = entry.addLocal(4, ver4, 0, true, true);
 
         ctx.mvcc().addNext(ctx, c4);
 
-        assert c3.previous() == null;
         assert c4 != null;
-        assert c4.previous() == c3;
     }
 
     /**
@@ -1621,6 +1625,7 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
     /**
      * Links candidates.
      *
+     * @param ctx Cache context.
      * @param cands Candidates.
      * @throws Exception If failed.
      */
@@ -1646,7 +1651,7 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
      * @param vers Ordered versions.
      */
     private void checkOrder(Collection<GridCacheMvccCandidate> cands, GridCacheVersion... vers) {
-        assert cands.size() == vers.length;
+        assertEquals(vers.length, cands.size());
 
         int i = 0;
 
@@ -1667,9 +1672,8 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
 
         StringBuilder buf = new StringBuilder(eol);
 
-        for (Object obj : objs) {
+        for (Object obj : objs)
             buf.append(obj.toString()).append(eol);
-        }
 
         return buf.toString();
     }
@@ -1683,9 +1687,8 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
 
         StringBuilder buf = new StringBuilder(eol);
 
-        for (Object obj : objs) {
+        for (Object obj : objs)
             buf.append(obj.toString()).append(eol);
-        }
 
         return buf.toString();
     }
@@ -1831,20 +1834,12 @@ public class GridCacheMvccSelfTest extends GridCommonAbstractTest {
     }
 
     /**
-     * @return Empty collection.
-     */
-    private Collection<GridCacheVersion> empty() {
-        return Collections.emptyList();
-    }
-
-    /**
      * @param cands Candidates to print.
      */
     private void info(Iterable<GridCacheMvccCandidate> cands) {
         info("Collection of candidates: ");
 
-        for (GridCacheMvccCandidate c : cands) {
+        for (GridCacheMvccCandidate c : cands)
             info(">>> " + c);
-        }
     }
 }

@@ -17,20 +17,25 @@
 
 package org.apache.ignite.messaging;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.testframework.config.*;
-
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Collections;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.P2;
+import org.apache.ignite.testframework.config.GridTestProperties;
 
 /**
  * Tests for Messaging public API with disabled
  * peer class loading.
  */
 public class GridMessagingNoPeerClassLoadingSelfTest extends GridMessagingSelfTest {
+    /** */
+    private static CountDownLatch rcvLatch;
+
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
@@ -56,9 +61,9 @@ public class GridMessagingNoPeerClassLoadingSelfTest extends GridMessagingSelfTe
 
         final AtomicBoolean error = new AtomicBoolean(false); //to make it modifiable
 
-        final CountDownLatch rcvLatch = new CountDownLatch(1);
+        rcvLatch = new CountDownLatch(1);
 
-        ignite2.message().remoteListen("", new P2<UUID, Object>() {
+        ignite2.message().remoteListen(null, new P2<UUID, Object>() {
             @Override public boolean apply(UUID nodeId, Object msg) {
                 try {
                     log.info("Received new message [msg=" + msg + ", senderNodeId=" + nodeId + ']');

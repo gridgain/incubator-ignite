@@ -17,28 +17,34 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.query.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.cache.Cache;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.cache.query.SqlQuery;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.events.EventType;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.processors.cache.GridCacheAbstractSelfTest;
+import org.apache.ignite.internal.util.typedef.CAX;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
-import javax.cache.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
 
 /**
  * Test for distributed queries with node restarts.
@@ -73,13 +79,14 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
 
         c.setDiscoverySpi(disco);
 
-        CacheConfiguration<?,?> cc = defaultCacheConfiguration();
+        CacheConfiguration<?, ?> cc = defaultCacheConfiguration();
 
         cc.setCacheMode(PARTITIONED);
         cc.setBackups(1);
         cc.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         cc.setAtomicityMode(TRANSACTIONAL);
-        cc.setDistributionMode(NEAR_PARTITIONED);
+        cc.setRebalanceMode(SYNC);
+        cc.setAffinity(new RendezvousAffinityFunction(false, 15));
         cc.setIndexedTypes(
             Integer.class, Integer.class
         );
@@ -99,16 +106,16 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
         int duration = 60 * 1000;
         int qryThreadNum = 10;
         final long nodeLifeTime = 2 * 1000;
-        final int logFreq = 20;
+        final int logFreq = 50;
 
-        final IgniteCache<Integer, Integer> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Integer> cache = grid(0).cache(null);
 
         assert cache != null;
 
         for (int i = 0; i < KEY_CNT; i++)
             cache.put(i, i);
 
-        assertEquals(KEY_CNT, cache.localSize());
+        assertEquals(KEY_CNT, cache.size());
 
         final AtomicInteger qryCnt = new AtomicInteger();
 
@@ -118,9 +125,23 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
             @Override public void applyx() throws IgniteCheckedException {
                 while (!done.get()) {
                     Collection<Cache.Entry<Integer, Integer>> res =
-                        cache.query(new SqlQuery(Integer.class, "_val >= 0")).getAll();
+                        cache.query(new SqlQuery<Integer, Integer>(Integer.class, "true")).getAll();
 
-                    assertFalse(res.isEmpty());
+                    Set<Integer> keys = new HashSet<>();
+
+                    for (Cache.Entry<Integer,Integer> entry : res)
+                        keys.add(entry.getKey());
+
+                    if (KEY_CNT > keys.size()) {
+                        for (int i = 0; i < KEY_CNT; i++) {
+                            if (!keys.contains(i))
+                                assertEquals(Integer.valueOf(i), cache.get(i));
+                        }
+
+                        fail("res size: " + res.size());
+                    }
+
+                    assertEquals(KEY_CNT, keys.size());
 
                     int c = qryCnt.incrementAndGet();
 
@@ -128,7 +149,7 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
                         info("Executed queries: " + c);
                 }
             }
-        }, qryThreadNum);
+        }, qryThreadNum, "query-thread");
 
         final AtomicInteger restartCnt = new AtomicInteger();
 
@@ -157,14 +178,22 @@ public class IgniteCacheQueryNodeRestartSelfTest extends GridCacheAbstractSelfTe
 
                 return true;
             }
-        }, 1);
+        }, 1, "restart-thread");
 
         Thread.sleep(duration);
 
+        info("Stopping..");
+
         done.set(true);
 
-        fut1.get();
         fut2.get();
+
+        info("Restarts stopped.");
+
+        fut1.get();
+
+        info("Queries stopped.");
+
 
         info("Awaiting rebalance events [restartCnt=" + restartCnt.get() + ']');
 

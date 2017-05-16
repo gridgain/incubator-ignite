@@ -17,13 +17,14 @@
 
 package org.apache.ignite.spi.discovery.tcp.ipfinder.s3;
 
-import com.amazonaws.auth.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.testsuites.*;
-
-import java.net.*;
-import java.util.*;
+import com.amazonaws.auth.BasicAWSCredentials;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.util.Collection;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinderAbstractSelfTest;
+import org.apache.ignite.testsuites.IgniteIgnore;
+import org.apache.ignite.testsuites.IgniteS3TestSuite;
 
 /**
  * TcpDiscoveryS3IpFinder test.
@@ -51,7 +52,7 @@ public class TcpDiscoveryS3IpFinderSelfTest
             IgniteS3TestSuite.getSecretKey()));
 
         // Bucket name should be unique for the host to parallel test run on one bucket.
-        finder.setBucketName("ip-finder-test-bucket-" + InetAddress.getLocalHost().getAddress()[3]);
+        finder.setBucketName("ip-finder-unit-test-bucket-" + InetAddress.getLocalHost().getAddress()[3]);
 
         for (int i = 0; i < 5; i++) {
             Collection<InetSocketAddress> addrs = finder.getRegisteredAddresses();
@@ -68,5 +69,11 @@ public class TcpDiscoveryS3IpFinderSelfTest
             throw new Exception("Failed to initialize IP finder.");
 
         return finder;
+    }
+
+    /** {@inheritDoc} */
+    @IgniteIgnore("https://issues.apache.org/jira/browse/IGNITE-2420")
+    @Override public void testIpFinder() throws Exception {
+        super.testIpFinder();
     }
 }

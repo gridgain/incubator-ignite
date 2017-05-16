@@ -17,26 +17,27 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.Map;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.internal.processors.cache.version.GridCacheVersionManager.*;
+import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.PRIMARY;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.internal.processors.cache.version.GridCacheVersionManager.TOP_VER_BASE_TIME;
 
 /**
- * Tests that entry version is
+ *
  */
 public class GridCacheEntryVersionSelfTest extends GridCommonAbstractTest {
     /** IP finder. */
@@ -100,7 +101,7 @@ public class GridCacheEntryVersionSelfTest extends GridCommonAbstractTest {
                     F.viewReadOnly(grid(0).affinity(null).mapKeyToPrimaryAndBackups(key), F.node2id()) + ']');
             }
 
-            grid(0).jcache(null).putAll(map);
+            grid(0).cache(null).putAll(map);
 
             for (int g = 0; g < 3; g++) {
                 IgniteKernal grid = (IgniteKernal)grid(g);
@@ -113,7 +114,7 @@ public class GridCacheEntryVersionSelfTest extends GridCommonAbstractTest {
                     if (entry != null) {
                         GridCacheVersion ver = entry.version();
 
-                        long order = cache.affinity().mapKeyToNode(key).order();
+                        long order = grid.affinity(null).mapKeyToNode(key).order();
 
                         // Check topology version.
                         assertEquals(3, ver.topologyVersion() -
@@ -127,7 +128,7 @@ public class GridCacheEntryVersionSelfTest extends GridCommonAbstractTest {
 
             startGrid(3);
 
-            grid(0).jcache(null).putAll(map);
+            grid(0).cache(null).putAll(map);
 
             for (int g = 0; g < 4; g++) {
                 IgniteKernal grid = (IgniteKernal)grid(g);
@@ -140,7 +141,7 @@ public class GridCacheEntryVersionSelfTest extends GridCommonAbstractTest {
                     if (entry != null) {
                         GridCacheVersion ver = entry.version();
 
-                        long order = cache.affinity().mapKeyToNode(key).order();
+                        long order = grid.affinity(null).mapKeyToNode(key).order();
 
                         // Check topology version.
                         assertEquals(4, ver.topologyVersion() -

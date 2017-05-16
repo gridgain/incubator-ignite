@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.processors.query.h2.twostep.messages;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.nio.*;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  * Error message.
@@ -63,6 +64,11 @@ public class GridQueryFailResponse implements Message {
      */
     public String error() {
         return errMsg;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onAckReceived() {
+        // No-op.
     }
 
     /** {@inheritDoc} */
@@ -125,7 +131,7 @@ public class GridQueryFailResponse implements Message {
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridQueryFailResponse.class);
     }
 
     /** {@inheritDoc} */

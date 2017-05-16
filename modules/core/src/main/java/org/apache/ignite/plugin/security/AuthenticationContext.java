@@ -17,31 +17,36 @@
 
 package org.apache.ignite.plugin.security;
 
-import java.net.*;
-import java.util.*;
+import java.net.InetSocketAddress;
+import java.util.Collections;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Authentication context.
  */
 public class AuthenticationContext {
     /** Subject type. */
-    private GridSecuritySubjectType subjType;
+    private SecuritySubjectType subjType;
 
     /** Subject ID.w */
     private UUID subjId;
 
     /** Credentials. */
-    private GridSecurityCredentials credentials;
+    private SecurityCredentials creds;
 
     /** Subject address. */
     private InetSocketAddress addr;
+
+    /** */
+    private Map<String, Object> nodeAttrs;
 
     /**
      * Gets subject type.
      *
      * @return Subject type.
      */
-    public GridSecuritySubjectType subjectType() {
+    public SecuritySubjectType subjectType() {
         return subjType;
     }
 
@@ -50,7 +55,7 @@ public class AuthenticationContext {
      *
      * @param subjType Subject type.
      */
-    public void subjectType(GridSecuritySubjectType subjType) {
+    public void subjectType(SecuritySubjectType subjType) {
         this.subjType = subjType;
     }
 
@@ -77,17 +82,17 @@ public class AuthenticationContext {
      *
      * @return Security credentials.
      */
-    public GridSecurityCredentials credentials() {
-        return credentials;
+    public SecurityCredentials credentials() {
+        return creds;
     }
 
     /**
      * Sets security credentials.
      *
-     * @param credentials Security credentials.
+     * @param creds Security credentials.
      */
-    public void credentials(GridSecurityCredentials credentials) {
-        this.credentials = credentials;
+    public void credentials(SecurityCredentials creds) {
+        this.creds = creds;
     }
 
     /**
@@ -106,5 +111,23 @@ public class AuthenticationContext {
      */
     public void address(InetSocketAddress addr) {
         this.addr = addr;
+    }
+
+    /**
+     * Gets node attributes.
+     *
+     * @return Node attributes or empty map for {@link SecuritySubjectType#REMOTE_CLIENT}.
+     */
+    public Map<String, Object> nodeAttributes() {
+        return nodeAttrs != null ? nodeAttrs : Collections.<String, Object>emptyMap();
+    }
+
+    /**
+     * Sets node attributes.
+     *
+     * @param nodeAttrs Node attributes.
+     */
+    public void nodeAttributes(Map<String, Object> nodeAttrs) {
+        this.nodeAttrs = nodeAttrs;
     }
 }

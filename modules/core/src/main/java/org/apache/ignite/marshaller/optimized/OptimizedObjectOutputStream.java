@@ -17,18 +17,49 @@
 
 package org.apache.ignite.marshaller.optimized;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.io.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.marshaller.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.NotActiveException;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.util.GridHandleTable;
+import org.apache.ignite.internal.util.io.GridDataOutput;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.marshaller.MarshallerContext;
 
-import java.io.*;
-import java.lang.reflect.*;
-import java.util.*;
-
-import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.*;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.HANDLE;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.JDK;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.JDK_MARSH;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.NULL;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.classDescriptor;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.getBoolean;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.getByte;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.getChar;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.getDouble;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.getFloat;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.getInt;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.getLong;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.getObject;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.getShort;
 
 /**
  * Optimized object output stream.
@@ -60,13 +91,13 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
     private Object curObj;
 
     /** */
-    private List<T2<OptimizedFieldType, Long>> curFields;
-
-    /** */
-    private Map<String, IgniteBiTuple<Integer, OptimizedFieldType>> curFieldInfoMap;
+    private OptimizedClassDescriptor.ClassFields curFields;
 
     /** */
     private PutFieldImpl curPut;
+
+    /** */
+    private ConcurrentMap<Class, OptimizedClassDescriptor> clsMap;
 
     /**
      * @param out Output.
@@ -77,11 +108,16 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
     }
 
     /**
+     * @param clsMap Class descriptors by class map.
      * @param ctx Context.
      * @param mapper ID mapper.
      * @param requireSer Require {@link Serializable} flag.
      */
-    void context(MarshallerContext ctx, OptimizedMarshallerIdMapper mapper, boolean requireSer) {
+    void context(ConcurrentMap<Class, OptimizedClassDescriptor> clsMap,
+        MarshallerContext ctx,
+        OptimizedMarshallerIdMapper mapper,
+        boolean requireSer) {
+        this.clsMap = clsMap;
         this.ctx = ctx;
         this.mapper = mapper;
         this.requireSer = requireSer;
@@ -106,6 +142,7 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
         reset();
 
         ctx = null;
+        clsMap = null;
     }
 
     /** {@inheritDoc} */
@@ -148,7 +185,6 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
         curObj = null;
         curFields = null;
         curPut = null;
-        curFieldInfoMap = null;
 
         if (obj == null)
             writeByte(NULL);
@@ -170,7 +206,10 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
             }
             else {
                 OptimizedClassDescriptor desc = classDescriptor(
-                    obj instanceof Object[] ? Object[].class : obj.getClass(), ctx, mapper);
+                    clsMap,
+                    obj instanceof Object[] ? Object[].class : obj.getClass(),
+                    ctx,
+                    mapper);
 
                 if (desc.excluded()) {
                     writeByte(NULL);
@@ -188,13 +227,16 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
 
                 int handle = -1;
 
-                if (!desc.isPrimitive() && !desc.isEnum() && !desc.isClass())
+                if (!desc.isPrimitive() && !desc.isEnum() && !desc.isClass() && !desc.isProxy())
                     handle = handles.lookup(obj);
 
                 if (obj0 != obj) {
                     obj = obj0;
 
-                    desc = classDescriptor(obj instanceof Object[] ? Object[].class : obj.getClass(), ctx, mapper);
+                    desc = classDescriptor(clsMap,
+                        obj instanceof Object[] ? Object[].class : obj.getClass(),
+                        ctx,
+                        mapper);
                 }
 
                 if (handle >= 0) {
@@ -293,8 +335,7 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
 
             if (mtd != null) {
                 curObj = obj;
-                curFields = fields.fieldOffs(i);
-                curFieldInfoMap = fields.fieldInfoMap(i);
+                curFields = fields.fields(i);
 
                 try {
                     mtd.invoke(obj, this);
@@ -307,7 +348,7 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
                 }
             }
             else
-                writeFields(obj, fields.fieldOffs(i));
+                writeFields(obj, fields.fields(i));
         }
     }
 
@@ -436,57 +477,66 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
      * Writes all non-static and non-transient field values to this stream.
      *
      * @param obj Object.
-     * @param fieldOffs Field offsets.
+     * @param fields Fields.
      * @throws IOException In case of error.
      */
     @SuppressWarnings("ForLoopReplaceableByForEach")
-    private void writeFields(Object obj, List<T2<OptimizedFieldType, Long>> fieldOffs) throws IOException {
-        for (int i = 0; i < fieldOffs.size(); i++) {
-            T2<OptimizedFieldType, Long> t = fieldOffs.get(i);
+    private void writeFields(Object obj, OptimizedClassDescriptor.ClassFields fields) throws IOException {
+        for (int i = 0; i < fields.size(); i++) {
+            OptimizedClassDescriptor.FieldInfo t = fields.get(i);
 
-            switch (t.get1()) {
+            switch (t.type()) {
                 case BYTE:
-                    writeByte(getByte(obj, t.get2()));
+                    if (t.field() != null)
+                        writeByte(getByte(obj, t.offset()));
 
                     break;
 
                 case SHORT:
-                    writeShort(getShort(obj, t.get2()));
+                    if (t.field() != null)
+                        writeShort(getShort(obj, t.offset()));
 
                     break;
 
                 case INT:
-                    writeInt(getInt(obj, t.get2()));
+                    if (t.field() != null)
+                        writeInt(getInt(obj, t.offset()));
 
                     break;
 
                 case LONG:
-                    writeLong(getLong(obj, t.get2()));
+                    if (t.field() != null)
+                        writeLong(getLong(obj, t.offset()));
 
                     break;
 
                 case FLOAT:
-                    writeFloat(getFloat(obj, t.get2()));
+                    if (t.field() != null)
+                        writeFloat(getFloat(obj, t.offset()));
 
                     break;
 
                 case DOUBLE:
-                    writeDouble(getDouble(obj, t.get2()));
+                    if (t.field() != null)
+                        writeDouble(getDouble(obj, t.offset()));
 
                     break;
 
                 case CHAR:
-                    writeChar(getChar(obj, t.get2()));
+                    if (t.field() != null)
+                        writeChar(getChar(obj, t.offset()));
 
                     break;
 
                 case BOOLEAN:
-                    writeBoolean(getBoolean(obj, t.get2()));
+                    if (t.field() != null)
+                        writeBoolean(getBoolean(obj, t.offset()));
 
                     break;
 
                 case OTHER:
-                    writeObject0(getObject(obj, t.get2()));
+                    if (t.field() != null)
+                        writeObject0(getObject(obj, t.offset()));
             }
         }
     }
@@ -734,7 +784,6 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
         curObj = null;
         curFields = null;
         curPut = null;
-        curFieldInfoMap = null;
     }
 
     /** {@inheritDoc} */
@@ -764,9 +813,8 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
         /** Stream. */
         private final OptimizedObjectOutputStream out;
 
-        /** Field info map. */
-        private final Map<String, IgniteBiTuple<Integer, OptimizedFieldType>> fieldInfoMap;
-
+        /** Fields info. */
+        private final OptimizedClassDescriptor.ClassFields curFields;
         /** Values. */
         private final IgniteBiTuple<OptimizedFieldType, Object>[] objs;
 
@@ -777,9 +825,9 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
         private PutFieldImpl(OptimizedObjectOutputStream out) {
             this.out = out;
 
-            fieldInfoMap = out.curFieldInfoMap;
+            curFields = out.curFields;
 
-            objs = new IgniteBiTuple[fieldInfoMap.size()];
+            objs = new IgniteBiTuple[curFields.size()];
         }
 
         /** {@inheritDoc} */
@@ -840,9 +888,11 @@ class OptimizedObjectOutputStream extends ObjectOutputStream {
          * @param val Value.
          */
         private void value(String name, Object val) {
-            IgniteBiTuple<Integer, OptimizedFieldType> info = fieldInfoMap.get(name);
+            int i = curFields.getIndex(name);
 
-            objs[info.get1()] = F.t(info.get2(), val);
+            OptimizedClassDescriptor.FieldInfo info = curFields.get(i);
+
+            objs[i] = F.t(info.type(), val);
         }
     }
 }

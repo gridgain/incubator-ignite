@@ -17,16 +17,27 @@
 
 package org.apache.ignite.loadtests.colocation;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.thread.*;
-import org.springframework.beans.factory.*;
-import org.springframework.context.support.*;
-
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteCompute;
+import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.CI1;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.thread.IgniteThreadPoolExecutor;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 /**
  * Accenture collocated example.
@@ -43,7 +54,7 @@ public class GridTestMain {
 
         // Initialize Spring factory.
         try (Ignite g = G.start((IgniteConfiguration)ctx.getBean("grid.cfg"))) {
-            final IgniteCache<GridTestKey, Long> cache = g.jcache("partitioned");
+            final IgniteCache<GridTestKey, Long> cache = g.cache("partitioned");
 
             assert cache != null;
 
@@ -71,7 +82,7 @@ public class GridTestMain {
 
         Ignite g = G.ignite();
 
-        final IgniteCache<GridTestKey, Long> cache = g.jcache("partitioned");
+        final IgniteCache<GridTestKey, Long> cache = g.cache("partitioned");
 
         final BlockingQueue<IgniteFuture> q = new ArrayBlockingQueue<>(400);
 
@@ -133,7 +144,7 @@ public class GridTestMain {
 
         long start = System.currentTimeMillis();
 
-        final IgniteCache<GridTestKey, Long> cache = G.ignite().jcache("partitioned");
+        final IgniteCache<GridTestKey, Long> cache = G.ignite().cache("partitioned");
 
         // Collocate computations and data.
         for (long i = 0; i < GridTestConstants.ENTRY_COUNT; i++) {

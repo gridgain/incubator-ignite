@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal;
 
-import org.jetbrains.annotations.*;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Kernal life cycle states.
  */
-enum GridKernalState {
+public enum GridKernalState {
     /** Kernal is started. */
     STARTED,
 
@@ -31,6 +31,9 @@ enum GridKernalState {
 
     /** Kernal is stopping. */
     STOPPING,
+
+    /** Kernal is disconnected. */
+    DISCONNECTED,
 
     /** Kernal is stopped.
      * <p>

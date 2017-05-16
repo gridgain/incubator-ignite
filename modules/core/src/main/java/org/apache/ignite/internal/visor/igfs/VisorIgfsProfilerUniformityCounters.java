@@ -17,21 +17,22 @@
 
 package org.apache.ignite.internal.visor.igfs;
 
-import org.apache.ignite.internal.util.typedef.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.F;
 
-import java.io.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.visor.igfs.VisorIgfsProfiler.*;
+import static org.apache.ignite.internal.visor.igfs.VisorIgfsProfiler.UNIFORMITY_BLOCKS;
+import static org.apache.ignite.internal.visor.igfs.VisorIgfsProfiler.UNIFORMITY_DFLT_BLOCK_SIZE;
 
 /**
  * Class to support uniformity calculation.
- *<p>
- *<a href="http://en.wikipedia.org/wiki/Coefficient_of_variation">Uniformity calculated as coefficient of variation.</a>
- *</p>
+ * <p>
+ * <a href="http://en.wikipedia.org/wiki/Coefficient_of_variation">Uniformity calculated as coefficient of variation.</a>
+ * </p>
  * Count read frequency for each file and compare with ideal uniform distribution.
  */
-public class VisorIgfsProfilerUniformityCounters implements Serializable {
+public class VisorIgfsProfilerUniformityCounters implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 

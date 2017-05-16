@@ -17,11 +17,14 @@
 
 package org.apache.ignite.cache.hibernate;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.hibernate.cache.*;
-import org.hibernate.cache.spi.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.hibernate.cache.CacheException;
+import org.hibernate.cache.spi.GeneralDataRegion;
+import org.hibernate.cache.spi.QueryResultsRegion;
+import org.hibernate.cache.spi.TimestampsRegion;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link GeneralDataRegion}. This interface defines common contract for {@link QueryResultsRegion}
@@ -35,7 +38,7 @@ public class HibernateGeneralDataRegion extends HibernateRegion implements Gener
      * @param cache Region cache.
      */
     public HibernateGeneralDataRegion(HibernateRegionFactory factory, String name,
-        Ignite ignite, GridCache<Object, Object> cache) {
+        Ignite ignite, IgniteInternalCache<Object, Object> cache) {
         super(factory, name, ignite, cache);
     }
 
@@ -51,7 +54,7 @@ public class HibernateGeneralDataRegion extends HibernateRegion implements Gener
     /** {@inheritDoc} */
     @Override public void put(Object key, Object val) throws CacheException {
         try {
-            cache.putx(key, val);
+            cache.put(key, val);
         } catch (IgniteCheckedException e) {
             throw new CacheException(e);
         }

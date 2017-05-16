@@ -17,8 +17,8 @@
 
 package org.apache.ignite.testsuites;
 
-import junit.framework.*;
-import org.apache.ignite.logger.jcl.*;
+import junit.framework.TestSuite;
+import org.apache.ignite.logger.jcl.JclLoggerTest;
 
 /**
  * Commons logging test.
@@ -31,7 +31,7 @@ public class IgniteJclTestSuite extends TestSuite {
     public static TestSuite suite() throws Exception {
         TestSuite suite = new TestSuite("Commons Logging Test Suite");
 
-        suite.addTest(new TestSuite(IgniteJclLoggerTest.class));
+        suite.addTest(new TestSuite(JclLoggerTest.class));
 
         return suite;
     }

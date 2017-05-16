@@ -32,8 +32,10 @@
     <moduleSets>
         <moduleSet>
             <includes>
+                <include>org.apache.ignite:ignite-spark</include>
                 <include>org.apache.ignite:ignite-spring</include>
                 <include>org.apache.ignite:ignite-log4j</include>
+                <include>org.apache.ignite:ignite-indexing</include>
             </includes>
             <sources>
                 <includeModuleDirectory>true</includeModuleDirectory>
@@ -42,9 +44,13 @@
                         <directory>${basedir}</directory>
                         <outputDirectory>/</outputDirectory>
                         <includes>
-                            <include>readme.txt</include>
+                            <include>README.txt</include>
                             <include>licenses/**</include>
                         </includes>
+                    </fileSet>
+                    <fileSet>
+                        <directory>${basedir}/target/licenses</directory>
+                        <outputDirectory>/licenses</outputDirectory>
                     </fileSet>
                     <fileSet>
                         <directory>target/libs</directory>
@@ -77,9 +83,12 @@
                         <directory>${basedir}</directory>
                         <outputDirectory>/</outputDirectory>
                         <includes>
-                            <include>readme.txt</include>
                             <include>licenses/**</include>
                         </includes>
+                    </fileSet>
+                    <fileSet>
+                        <directory>${basedir}/target/licenses</directory>
+                        <outputDirectory>/licenses</outputDirectory>
                     </fileSet>
                     <fileSet>
                         <directory>target/libs</directory>
@@ -112,9 +121,13 @@
                         <directory>${basedir}</directory>
                         <outputDirectory>/</outputDirectory>
                         <includes>
-                            <include>readme.txt</include>
+                            <include>README.txt</include>
                             <include>licenses/**</include>
                         </includes>
+                    </fileSet>
+                    <fileSet>
+                        <directory>${basedir}/target/licenses</directory>
+                        <outputDirectory>/licenses</outputDirectory>
                     </fileSet>
                     <fileSet>
                         <directory>target/libs</directory>

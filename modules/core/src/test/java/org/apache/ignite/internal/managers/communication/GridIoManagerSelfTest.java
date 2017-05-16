@@ -17,41 +17,55 @@
 
 package org.apache.ignite.internal.managers.communication;
 
-import org.apache.commons.collections.*;
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.discovery.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.marshaller.jdk.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.apache.ignite.spi.communication.tcp.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.mockito.*;
-
-import java.nio.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.GridTopic;
+import org.apache.ignite.internal.managers.discovery.GridDiscoveryManager;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.marshaller.jdk.JdkMarshaller;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.testframework.GridTestNode;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.GridTestKernalContext;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.mockito.ArgumentMatcher;
+import org.mockito.Mockito;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Test for {@link GridIoManager}.
  */
 public class GridIoManagerSelfTest extends GridCommonAbstractTest {
     /** Grid test context. */
-    private GridTestKernalContext ctx = new GridTestKernalContext(log);
+    private GridTestKernalContext ctx;
 
     /** Test local node. */
     private GridTestNode locNode = new GridTestNode(UUID.randomUUID());
 
     /** Test remote node. */
     private GridTestNode rmtNode = new GridTestNode(UUID.randomUUID());
+
+    /**
+     * @throws IgniteCheckedException In case of error.
+     */
+    public GridIoManagerSelfTest() throws IgniteCheckedException {
+        ctx = new GridTestKernalContext(log);
+    }
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
@@ -182,7 +196,7 @@ public class GridIoManagerSelfTest extends GridCommonAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public void send(ClusterNode node, GridTopic topic, Message msg, GridIoPolicy plc)
+        @Override public void send(ClusterNode node, GridTopic topic, Message msg, byte plc)
             throws IgniteCheckedException {
             // No-op.
         }
@@ -218,6 +232,11 @@ public class GridIoManagerSelfTest extends GridCommonAbstractTest {
 
     /** */
     private static class TestMessage implements Message {
+        /** {@inheritDoc} */
+        @Override public void onAckReceived() {
+            // No-op.
+        }
+
         /** {@inheritDoc} */
         @Override public boolean writeTo(ByteBuffer buf, MessageWriter writer) {
             return true;

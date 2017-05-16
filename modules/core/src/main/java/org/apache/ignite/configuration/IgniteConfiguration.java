@@ -17,49 +17,77 @@
 
 package org.apache.ignite.configuration;
 
-import org.apache.ignite.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.lifecycle.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.plugin.*;
-import org.apache.ignite.plugin.segmentation.*;
-import org.apache.ignite.services.*;
-import org.apache.ignite.spi.checkpoint.*;
-import org.apache.ignite.spi.collision.*;
-import org.apache.ignite.spi.communication.*;
-import org.apache.ignite.spi.deployment.*;
-import org.apache.ignite.spi.discovery.*;
-import org.apache.ignite.spi.eventstorage.*;
-import org.apache.ignite.spi.failover.*;
-import org.apache.ignite.spi.indexing.*;
-import org.apache.ignite.spi.loadbalancing.*;
-import org.apache.ignite.spi.swapspace.*;
-import org.apache.ignite.streamer.*;
+import java.io.Serializable;
+import java.lang.management.ManagementFactory;
+import java.util.Map;
+import java.util.UUID;
+import javax.cache.configuration.Factory;
+import javax.cache.event.CacheEntryListener;
+import javax.cache.expiry.ExpiryPolicy;
+import javax.cache.integration.CacheLoader;
+import javax.cache.processor.EntryProcessor;
+import javax.management.MBeanServer;
+import javax.net.ssl.SSLContext;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.CacheKeyConfiguration;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.cache.store.CacheStoreSessionListener;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeTask;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.events.EventType;
+import org.apache.ignite.internal.managers.eventstorage.GridEventStorageManager;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteAsyncCallback;
+import org.apache.ignite.lang.IgniteInClosure;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.lifecycle.LifecycleBean;
+import org.apache.ignite.lifecycle.LifecycleEventType;
+import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.plugin.PluginConfiguration;
+import org.apache.ignite.plugin.PluginProvider;
+import org.apache.ignite.plugin.segmentation.SegmentationPolicy;
+import org.apache.ignite.plugin.segmentation.SegmentationResolver;
+import org.apache.ignite.services.ServiceConfiguration;
+import org.apache.ignite.spi.checkpoint.CheckpointSpi;
+import org.apache.ignite.spi.checkpoint.noop.NoopCheckpointSpi;
+import org.apache.ignite.spi.collision.CollisionSpi;
+import org.apache.ignite.spi.collision.noop.NoopCollisionSpi;
+import org.apache.ignite.spi.communication.CommunicationSpi;
+import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.spi.deployment.DeploymentSpi;
+import org.apache.ignite.spi.deployment.local.LocalDeploymentSpi;
+import org.apache.ignite.spi.discovery.DiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.eventstorage.EventStorageSpi;
+import org.apache.ignite.spi.eventstorage.memory.MemoryEventStorageSpi;
+import org.apache.ignite.spi.failover.FailoverSpi;
+import org.apache.ignite.spi.failover.always.AlwaysFailoverSpi;
+import org.apache.ignite.spi.indexing.IndexingSpi;
+import org.apache.ignite.spi.loadbalancing.LoadBalancingSpi;
+import org.apache.ignite.spi.loadbalancing.roundrobin.RoundRobinLoadBalancingSpi;
+import org.apache.ignite.spi.swapspace.SwapSpaceSpi;
+import org.apache.ignite.spi.swapspace.file.FileSwapSpaceSpi;
+import org.apache.ignite.ssl.SslContextFactory;
 
-import javax.cache.event.*;
-import javax.cache.expiry.*;
-import javax.cache.integration.*;
-import javax.cache.processor.*;
-import javax.management.*;
-import java.lang.management.*;
-import java.util.*;
-
-import static org.apache.ignite.plugin.segmentation.GridSegmentationPolicy.*;
+import static org.apache.ignite.plugin.segmentation.SegmentationPolicy.STOP;
 
 /**
  * This class defines grid runtime configuration. This configuration is passed to
- * {@link org.apache.ignite.Ignition#start(IgniteConfiguration)} method. It defines all configuration
+ * {@link Ignition#start(IgniteConfiguration)} method. It defines all configuration
  * parameters required to start a grid instance. Usually, a special
  * class called "loader" will create an instance of this interface and apply
- * {@link org.apache.ignite.Ignition#start(IgniteConfiguration)} method to initialize Ignite instance.
+ * {@link Ignition#start(IgniteConfiguration)} method to initialize Ignite instance.
  * <p>
  * Note that you should only set values that differ from defaults, as grid
  * will automatically pick default values for all values that are not set.
  * <p>
- * For more information about grid configuration and startup refer to {@link org.apache.ignite.Ignition}
+ * For more information about grid configuration and startup refer to {@link Ignition}
  * documentation.
  */
 public class IgniteConfiguration {
@@ -123,6 +151,9 @@ public class IgniteConfiguration {
     /** Default keep alive time for public thread pool. */
     public static final long DFLT_PUBLIC_KEEP_ALIVE_TIME = 0;
 
+    /** Default limit of threads used for rebalance. */
+    public static final int DFLT_REBALANCE_THREAD_POOL_SIZE = 1;
+
     /** Default max queue capacity of public thread pool. */
     public static final int DFLT_PUBLIC_THREADPOOL_QUEUE_CAP = Integer.MAX_VALUE;
 
@@ -135,6 +166,9 @@ public class IgniteConfiguration {
     /** Default keep alive time for system thread pool. */
     public static final long DFLT_SYSTEM_KEEP_ALIVE_TIME = 0;
 
+    /** Default keep alive time for utility thread pool. */
+    public static final long DFLT_UTILITY_KEEP_ALIVE_TIME = 10_000;
+
     /** Default max queue capacity of system thread pool. */
     public static final int DFLT_SYSTEM_THREADPOOL_QUEUE_CAP = Integer.MAX_VALUE;
 
@@ -145,7 +179,7 @@ public class IgniteConfiguration {
     public static final int DFLT_MGMT_THREAD_CNT = 4;
 
     /** Default segmentation policy. */
-    public static final GridSegmentationPolicy DFLT_SEG_PLC = STOP;
+    public static final SegmentationPolicy DFLT_SEG_PLC = STOP;
 
     /** Default value for wait for segment on startup flag. */
     public static final boolean DFLT_WAIT_FOR_SEG_ON_START = true;
@@ -171,6 +205,13 @@ public class IgniteConfiguration {
     /** Default value for cache sanity check enabled flag. */
     public static final boolean DFLT_CACHE_SANITY_CHECK_ENABLED = true;
 
+    /** Default value for late affinity assignment flag. */
+    public static final boolean DFLT_LATE_AFF_ASSIGNMENT = true;
+
+    /** Default failure detection timeout in millis. */
+    @SuppressWarnings("UnnecessaryBoxing")
+    public static final Long DFLT_FAILURE_DETECTION_TIMEOUT = new Long(10_000);
+
     /** Optional grid name. */
     private String gridName;
 
@@ -183,6 +224,9 @@ public class IgniteConfiguration {
     /** Public pool size. */
     private int pubPoolSize = DFLT_PUBLIC_THREAD_CNT;
 
+    /** Async Callback pool size. */
+    private int callbackPoolSize = DFLT_PUBLIC_THREAD_CNT;
+
     /** System pool size. */
     private int sysPoolSize = DFLT_SYSTEM_CORE_THREAD_CNT;
 
@@ -192,14 +236,26 @@ public class IgniteConfiguration {
     /** IGFS pool size. */
     private int igfsPoolSize = AVAILABLE_PROC_CNT;
 
+    /** Utility cache pool size. */
+    private int utilityCachePoolSize = DFLT_SYSTEM_CORE_THREAD_CNT;
+
+    /** Utility cache pool keep alive time. */
+    private long utilityCacheKeepAliveTime = DFLT_UTILITY_KEEP_ALIVE_TIME;
+
+    /** Marshaller pool size. */
+    private int marshCachePoolSize = DFLT_SYSTEM_CORE_THREAD_CNT;
+
+    /** Marshaller pool keep alive time. */
+    private long marshCacheKeepAliveTime = DFLT_UTILITY_KEEP_ALIVE_TIME;
+
     /** P2P pool size. */
     private int p2pPoolSize = DFLT_P2P_THREAD_CNT;
 
     /** Ignite installation folder. */
-    private String ggHome;
+    private String igniteHome;
 
     /** Ignite work folder. */
-    private String ggWork;
+    private String igniteWorkDir;
 
     /** MBean server. */
     private MBeanServer mbeanSrv;
@@ -256,10 +312,10 @@ public class IgniteConfiguration {
     private DiscoverySpi discoSpi;
 
     /** Segmentation policy. */
-    private GridSegmentationPolicy segPlc = DFLT_SEG_PLC;
+    private SegmentationPolicy segPlc = DFLT_SEG_PLC;
 
     /** Segmentation resolvers. */
-    private GridSegmentationResolver[] segResolvers;
+    private SegmentationResolver[] segResolvers;
 
     /** Segmentation resolve attempts count. */
     private int segResolveAttempts = DFLT_SEG_RESOLVE_ATTEMPTS;
@@ -306,6 +362,12 @@ public class IgniteConfiguration {
     /** Cache configurations. */
     private CacheConfiguration[] cacheCfg;
 
+    /** Client mode flag. */
+    private Boolean clientMode;
+
+    /** Rebalance thread pool size. */
+    private int rebalanceThreadPoolSize = DFLT_REBALANCE_THREAD_POOL_SIZE;
+
     /** Transactions configuration. */
     private TransactionConfiguration txCfg = new TransactionConfiguration();
 
@@ -333,6 +395,9 @@ public class IgniteConfiguration {
     /** Port number range for time server. */
     private int timeSrvPortRange = DFLT_TIME_SERVER_PORT_RANGE;
 
+    /** Failure detection timeout. */
+    private Long failureDetectionTimeout = DFLT_FAILURE_DETECTION_TIMEOUT;
+
     /** Property names to include into node attributes. */
     private String[] includeProps;
 
@@ -346,9 +411,6 @@ public class IgniteConfiguration {
     /** IGFS configuration. */
     private FileSystemConfiguration[] igfsCfg;
 
-    /** Streamer configuration. */
-    private StreamerConfiguration[] streamerCfg;
-
     /** Service configuration. */
     private ServiceConfiguration[] svcCfgs;
 
@@ -358,6 +420,9 @@ public class IgniteConfiguration {
     /** Client access configuration. */
     private ConnectorConfiguration connectorCfg = new ConnectorConfiguration();
 
+    /** ODBC configuration. */
+    private OdbcConfiguration odbcCfg;
+
     /** Warmup closure. Will be invoked before actual grid start. */
     private IgniteInClosure<IgniteConfiguration> warmupClos;
 
@@ -366,6 +431,27 @@ public class IgniteConfiguration {
 
     /** User's class loader. */
     private ClassLoader classLdr;
+
+    /** Cache store session listeners. */
+    private Factory<CacheStoreSessionListener>[] storeSesLsnrs;
+
+    /** Consistent globally unique node ID which survives node restarts. */
+    private Serializable consistentId;
+
+    /** SSL connection factory. */
+    private Factory<SSLContext> sslCtxFactory;
+
+    /** Platform configuration. */
+    private PlatformConfiguration platformCfg;
+
+    /** Cache key configuration. */
+    private CacheKeyConfiguration[] cacheKeyCfg;
+
+    /** */
+    private BinaryConfiguration binaryCfg;
+
+    /** */
+    private boolean lateAffAssignment = DFLT_LATE_AFF_ASSIGNMENT;
 
     /**
      * Creates valid grid configuration with all default values.
@@ -401,30 +487,37 @@ public class IgniteConfiguration {
         addrRslvr = cfg.getAddressResolver();
         allResolversPassReq = cfg.isAllSegmentationResolversPassRequired();
         atomicCfg = cfg.getAtomicConfiguration();
+        binaryCfg = cfg.getBinaryConfiguration();
         daemon = cfg.isDaemon();
         cacheCfg = cfg.getCacheConfiguration();
+        cacheKeyCfg = cfg.getCacheKeyConfiguration();
         cacheSanityCheckEnabled = cfg.isCacheSanityCheckEnabled();
         connectorCfg = cfg.getConnectorConfiguration();
         classLdr = cfg.getClassLoader();
+        clientMode = cfg.isClientMode();
         clockSyncFreq = cfg.getClockSyncFrequency();
         clockSyncSamples = cfg.getClockSyncSamples();
+        consistentId = cfg.getConsistentId();
         deployMode = cfg.getDeploymentMode();
         discoStartupDelay = cfg.getDiscoveryStartupDelay();
-        pubPoolSize = cfg.getPublicThreadPoolSize();
-        ggHome = cfg.getIgniteHome();
-        ggWork = cfg.getWorkDirectory();
+        failureDetectionTimeout = cfg.getFailureDetectionTimeout();
         gridName = cfg.getGridName();
+        hadoopCfg = cfg.getHadoopConfiguration();
         igfsCfg = cfg.getFileSystemConfiguration();
         igfsPoolSize = cfg.getIgfsThreadPoolSize();
-        hadoopCfg = cfg.getHadoopConfiguration();
+        igniteHome = cfg.getIgniteHome();
+        igniteWorkDir = cfg.getWorkDirectory();
         inclEvtTypes = cfg.getIncludeEventTypes();
         includeProps = cfg.getIncludeProperties();
+        lateAffAssignment = cfg.isLateAffinityAssignment();
         lifecycleBeans = cfg.getLifecycleBeans();
         locHost = cfg.getLocalHost();
         log = cfg.getGridLogger();
         lsnrs = cfg.getLocalEventListeners();
         marsh = cfg.getMarshaller();
         marshLocJobs = cfg.isMarshalLocalJobs();
+        marshCacheKeepAliveTime = cfg.getMarshallerCacheKeepAliveTime();
+        marshCachePoolSize = cfg.getMarshallerCacheThreadPoolSize();
         mbeanSrv = cfg.getMBeanServer();
         metricsHistSize = cfg.getMetricsHistorySize();
         metricsExpTime = cfg.getMetricsExpireTime();
@@ -433,24 +526,31 @@ public class IgniteConfiguration {
         mgmtPoolSize = cfg.getManagementThreadPoolSize();
         netTimeout = cfg.getNetworkTimeout();
         nodeId = cfg.getNodeId();
+        odbcCfg = cfg.getOdbcConfiguration();
         p2pEnabled = cfg.isPeerClassLoadingEnabled();
         p2pLocClsPathExcl = cfg.getPeerClassLoadingLocalClassPathExclude();
         p2pMissedCacheSize = cfg.getPeerClassLoadingMissedResourcesCacheSize();
         p2pPoolSize = cfg.getPeerClassLoadingThreadPoolSize();
+        platformCfg = cfg.getPlatformConfiguration();
         pluginCfgs = cfg.getPluginConfigurations();
+        pubPoolSize = cfg.getPublicThreadPoolSize();
+        rebalanceThreadPoolSize = cfg.getRebalanceThreadPoolSize();
         segChkFreq = cfg.getSegmentCheckFrequency();
         segPlc = cfg.getSegmentationPolicy();
         segResolveAttempts = cfg.getSegmentationResolveAttempts();
         segResolvers = cfg.getSegmentationResolvers();
         sndRetryCnt = cfg.getNetworkSendRetryCount();
         sndRetryDelay = cfg.getNetworkSendRetryDelay();
-        streamerCfg = cfg.getStreamerConfiguration();
+        sslCtxFactory = cfg.getSslContextFactory();
+        storeSesLsnrs = cfg.getCacheStoreSessionListenerFactories();
         svcCfgs = cfg.getServiceConfiguration();
         sysPoolSize = cfg.getSystemThreadPoolSize();
         timeSrvPortBase = cfg.getTimeServerPortBase();
         timeSrvPortRange = cfg.getTimeServerPortRange();
         txCfg = cfg.getTransactionConfiguration();
         userAttrs = cfg.getUserAttributes();
+        utilityCacheKeepAliveTime = cfg.getUtilityCacheKeepAliveTime();
+        utilityCachePoolSize = cfg.getUtilityCacheThreadPoolSize();
         waitForSegOnStart = cfg.isWaitForSegmentOnStart();
         warmupClos = cfg.getWarmupClosure();
     }
@@ -470,16 +570,16 @@ public class IgniteConfiguration {
      * Whether or not this node should be a daemon node.
      * <p>
      * Daemon nodes are the usual grid nodes that participate in topology but not
-     * visible on the main APIs, i.e. they are not part of any projections. The only
-     * way to see daemon nodes is to use {@link org.apache.ignite.cluster.ClusterGroup#forDaemons()} method.
+     * visible on the main APIs, i.e. they are not part of any cluster groups. The only
+     * way to see daemon nodes is to use {@link ClusterGroup#forDaemons()} method.
      * <p>
      * Daemon nodes are used primarily for management and monitoring functionality that
-     * is build on Ignite and needs to participate in the topology but also needs to be
-     * excluded from "normal" topology so that it won't participate in task execution
+     * is build on Ignite and needs to participate in the topology, but also needs to be
+     * excluded from the "normal" topology, so that it won't participate in the task execution
      * or in-memory data grid storage.
      *
      * @return {@code True} if this node should be a daemon node, {@code false} otherwise.
-     * @see org.apache.ignite.cluster.ClusterGroup#forDaemons()
+     * @see ClusterGroup#forDaemons()
      */
     public boolean isDaemon() {
         return daemon;
@@ -489,18 +589,21 @@ public class IgniteConfiguration {
      * Sets daemon flag.
      * <p>
      * Daemon nodes are the usual grid nodes that participate in topology but not
-     * visible on the main APIs, i.e. they are not part of any projections. The only
-     * way to see daemon nodes is to use {@link org.apache.ignite.cluster.ClusterGroup#forDaemons()} method.
+     * visible on the main APIs, i.e. they are not part of any cluster group. The only
+     * way to see daemon nodes is to use {@link ClusterGroup#forDaemons()} method.
      * <p>
      * Daemon nodes are used primarily for management and monitoring functionality that
-     * is build on Ignite and needs to participate in the topology but also needs to be
-     * excluded from "normal" topology so that it won't participate in task execution
+     * is build on Ignite and needs to participate in the topology, but also needs to be
+     * excluded from the "normal" topology, so that it won't participate in the task execution
      * or in-memory data grid storage.
      *
      * @param daemon Daemon flag.
+     * @return {@code this} for chaining.
      */
-    public void setDaemon(boolean daemon) {
+    public IgniteConfiguration setDaemon(boolean daemon) {
         this.daemon = daemon;
+
+        return this;
     }
 
     /**
@@ -508,15 +611,39 @@ public class IgniteConfiguration {
      *
      * @param gridName Grid name to set. Can be {@code null}, which is default
      *      grid name.
+     * @return {@code this} for chaining.
      */
-    public void setGridName(String gridName) {
+    public IgniteConfiguration setGridName(String gridName) {
         this.gridName = gridName;
+
+        return this;
+    }
+
+    /**
+     * Sets consistent globally unique node ID which survives node restarts.
+     *
+     * @param consistentId Node consistent ID.
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setConsistentId(Serializable consistentId) {
+        this.consistentId = consistentId;
+
+        return this;
+    }
+
+    /**
+     * Gets consistent globally unique node ID which survives node restarts.
+     *
+     * @return Node consistent ID.
+     */
+    public Serializable getConsistentId() {
+        return consistentId;
     }
 
     /**
      * Should return any user-defined attributes to be added to this node. These attributes can
-     * then be accessed on nodes by calling {@link org.apache.ignite.cluster.ClusterNode#attribute(String)} or
-     * {@link org.apache.ignite.cluster.ClusterNode#attributes()} methods.
+     * then be accessed on nodes by calling {@link ClusterNode#attribute(String)} or
+     * {@link ClusterNode#attributes()} methods.
      * <p>
      * Note that system adds the following (among others) attributes automatically:
      * <ul>
@@ -542,9 +669,12 @@ public class IgniteConfiguration {
      *
      * @param userAttrs User attributes for this node.
      * @see IgniteConfiguration#getUserAttributes()
+     * @return {@code this} for chaining.
      */
-    public void setUserAttributes(Map<String, ?> userAttrs) {
+    public IgniteConfiguration setUserAttributes(Map<String, ?> userAttrs) {
         this.userAttrs = userAttrs;
+
+        return this;
     }
 
     /**
@@ -563,14 +693,17 @@ public class IgniteConfiguration {
      *
      * @param log Logger to use within grid.
      * @see IgniteConfiguration#getGridLogger()
+     * @return {@code this} for chaining.
      */
-    public void setGridLogger(IgniteLogger log) {
+    public IgniteConfiguration setGridLogger(IgniteLogger log) {
         this.log = log;
+
+        return this;
     }
 
     /**
      * Should return a thread pool size to be used in grid.
-     * This executor service will be in charge of processing {@link org.apache.ignite.compute.ComputeJob GridJobs}
+     * This executor service will be in charge of processing {@link ComputeJob GridJobs}
      * and user messages sent to node.
      * <p>
      * If not provided, executor service will have size {@link #DFLT_PUBLIC_THREAD_CNT}.
@@ -594,8 +727,22 @@ public class IgniteConfiguration {
     }
 
     /**
+     * Size of thread pool that is in charge of processing asynchronous callbacks.
+     * <p>
+     * This pool is used for callbacks annotated with {@link IgniteAsyncCallback}.
+     * <p>
+     * If not provided, executor service will have size {@link #DFLT_PUBLIC_THREAD_CNT}.
+     *
+     * @return Thread pool size to be used.
+     * @see IgniteAsyncCallback
+     */
+    public int getAsyncCallbackPoolSize() {
+        return callbackPoolSize;
+    }
+
+    /**
      * Size of thread pool that is in charge of processing internal and Visor
-     * {@link org.apache.ignite.compute.ComputeJob GridJobs}.
+     * {@link ComputeJob GridJobs}.
      * <p>
      * If not provided, executor service will have size {@link #DFLT_MGMT_THREAD_CNT}
      *
@@ -632,13 +779,60 @@ public class IgniteConfiguration {
     }
 
     /**
+     * Default size of thread pool that is in charge of processing utility cache messages.
+     * <p>
+     * If not provided, executor service will have size {@link #DFLT_SYSTEM_CORE_THREAD_CNT}.
+     *
+     * @return Default thread pool size to be used in grid for utility cache messages.
+     */
+    public int getUtilityCacheThreadPoolSize() {
+        return utilityCachePoolSize;
+    }
+
+    /**
+     * Keep alive time of thread pool that is in charge of processing utility cache messages.
+     * <p>
+     * If not provided, executor service will have keep alive time {@link #DFLT_UTILITY_KEEP_ALIVE_TIME}.
+     *
+     * @return Thread pool keep alive time (in milliseconds) to be used in grid for utility cache messages.
+     */
+    public long getUtilityCacheKeepAliveTime() {
+        return utilityCacheKeepAliveTime;
+    }
+
+    /**
+     * Default size of thread pool that is in charge of processing marshaller messages.
+     * <p>
+     * If not provided, executor service will have size {@link #DFLT_SYSTEM_CORE_THREAD_CNT}.
+     *
+     * @return Default thread pool size to be used in grid for marshaller messages.
+     */
+    public int getMarshallerCacheThreadPoolSize() {
+        return marshCachePoolSize;
+    }
+
+    /**
+     * Keep alive time of thread pool that is in charge of processing marshaller messages.
+     * <p>
+     * If not provided, executor service will have keep alive time {@link #DFLT_UTILITY_KEEP_ALIVE_TIME}.
+     *
+     * @return Thread pool keep alive time (in milliseconds) to be used in grid for marshaller messages.
+     */
+    public long getMarshallerCacheKeepAliveTime() {
+        return marshCacheKeepAliveTime;
+    }
+
+    /**
      * Sets thread pool size to use within grid.
      *
      * @param poolSize Thread pool size to use within grid.
      * @see IgniteConfiguration#getPublicThreadPoolSize()
+     * @return {@code this} for chaining.
      */
-    public void setPublicThreadPoolSize(int poolSize) {
-        this.pubPoolSize = poolSize;
+    public IgniteConfiguration setPublicThreadPoolSize(int poolSize) {
+        pubPoolSize = poolSize;
+
+        return this;
     }
 
     /**
@@ -646,9 +840,26 @@ public class IgniteConfiguration {
      *
      * @param poolSize Thread pool size to use within grid.
      * @see IgniteConfiguration#getSystemThreadPoolSize()
+     * @return {@code this} for chaining.
      */
-    public void setSystemThreadPoolSize(int poolSize) {
-        this.sysPoolSize = poolSize;
+    public IgniteConfiguration setSystemThreadPoolSize(int poolSize) {
+        sysPoolSize = poolSize;
+
+        return this;
+    }
+
+    /**
+     * Sets async callback thread pool size to use within grid.
+     *
+     * @param poolSize Thread pool size to use within grid.
+     * @return {@code this} for chaining.
+     * @see IgniteConfiguration#getAsyncCallbackPoolSize()
+     * @see IgniteAsyncCallback
+     */
+    public IgniteConfiguration setAsyncCallbackPoolSize(int poolSize) {
+        this.callbackPoolSize = poolSize;
+
+        return this;
     }
 
     /**
@@ -656,9 +867,12 @@ public class IgniteConfiguration {
      *
      * @param poolSize Thread pool size to use within grid.
      * @see IgniteConfiguration#getManagementThreadPoolSize()
+     * @return {@code this} for chaining.
      */
-    public void setManagementThreadPoolSize(int poolSize) {
-        this.mgmtPoolSize = poolSize;
+    public IgniteConfiguration setManagementThreadPoolSize(int poolSize) {
+        mgmtPoolSize = poolSize;
+
+        return this;
     }
 
     /**
@@ -666,9 +880,12 @@ public class IgniteConfiguration {
      *
      * @param poolSize Thread pool size to use within grid.
      * @see IgniteConfiguration#getPeerClassLoadingThreadPoolSize()
+     * @return {@code this} for chaining.
      */
-    public void setPeerClassLoadingThreadPoolSize(int poolSize) {
-        this.p2pPoolSize = poolSize;
+    public IgniteConfiguration setPeerClassLoadingThreadPoolSize(int poolSize) {
+        p2pPoolSize = poolSize;
+
+        return this;
     }
 
     /**
@@ -676,9 +893,82 @@ public class IgniteConfiguration {
      *
      * @param poolSize Executor service to use for outgoing IGFS messages.
      * @see IgniteConfiguration#getIgfsThreadPoolSize()
+     * @return {@code this} for chaining.
      */
-    public void setIgfsThreadPoolSize(int poolSize) {
-        this.igfsPoolSize = poolSize;
+    public IgniteConfiguration setIgfsThreadPoolSize(int poolSize) {
+        igfsPoolSize = poolSize;
+
+        return this;
+    }
+
+    /**
+     * Sets default thread pool size that will be used to process utility cache messages.
+     *
+     * @param poolSize Default executor service size to use for utility cache messages.
+     * @see IgniteConfiguration#getUtilityCacheThreadPoolSize()
+     * @see IgniteConfiguration#getUtilityCacheKeepAliveTime()
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setUtilityCachePoolSize(int poolSize) {
+        utilityCachePoolSize = poolSize;
+
+        return this;
+    }
+
+    /**
+     * Sets keep alive time of thread pool size that will be used to process utility cache messages.
+     *
+     * @param keepAliveTime Keep alive time of executor service to use for utility cache messages.
+     * @see IgniteConfiguration#getUtilityCacheThreadPoolSize()
+     * @see IgniteConfiguration#getUtilityCacheKeepAliveTime()
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setUtilityCacheKeepAliveTime(long keepAliveTime) {
+        utilityCacheKeepAliveTime = keepAliveTime;
+
+        return this;
+    }
+
+    /**
+     * Sets default thread pool size that will be used to process marshaller messages.
+     *
+     * @param poolSize Default executor service size to use for marshaller messages.
+     * @see IgniteConfiguration#getMarshallerCacheThreadPoolSize()
+     * @see IgniteConfiguration#getMarshallerCacheKeepAliveTime()
+     * @return {@code this} for chaining.
+     * @deprecated Use {@link #setMarshallerCacheThreadPoolSize(int)} instead.
+     */
+    @Deprecated
+    public IgniteConfiguration setMarshallerCachePoolSize(int poolSize) {
+        return setMarshallerCacheThreadPoolSize(poolSize);
+    }
+
+    /**
+     * Sets default thread pool size that will be used to process marshaller messages.
+     *
+     * @param poolSize Default executor service size to use for marshaller messages.
+     * @see IgniteConfiguration#getMarshallerCacheThreadPoolSize()
+     * @see IgniteConfiguration#getMarshallerCacheKeepAliveTime()
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setMarshallerCacheThreadPoolSize(int poolSize) {
+        marshCachePoolSize = poolSize;
+
+        return this;
+    }
+
+    /**
+     * Sets maximum thread pool size that will be used to process marshaller messages.
+     *
+     * @param keepAliveTime Keep alive time of executor service to use for marshaller messages.
+     * @see IgniteConfiguration#getMarshallerCacheThreadPoolSize()
+     * @see IgniteConfiguration#getMarshallerCacheKeepAliveTime()
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setMarshallerCacheKeepAliveTime(long keepAliveTime) {
+        marshCacheKeepAliveTime = keepAliveTime;
+
+        return this;
     }
 
     /**
@@ -689,46 +979,52 @@ public class IgniteConfiguration {
      *
      * @return Ignite installation home or {@code null} to make the system attempt to
      *      infer it automatically.
-     * @see org.apache.ignite.IgniteSystemProperties#IGNITE_HOME
+     * @see IgniteSystemProperties#IGNITE_HOME
      */
     public String getIgniteHome() {
-        return ggHome;
+        return igniteHome;
     }
 
     /**
      * Sets Ignite installation folder.
      *
-     * @param ggHome {@code Ignition} installation folder.
+     * @param igniteHome {@code Ignition} installation folder.
      * @see IgniteConfiguration#getIgniteHome()
-     * @see org.apache.ignite.IgniteSystemProperties#IGNITE_HOME
+     * @see IgniteSystemProperties#IGNITE_HOME
+     * @return {@code this} for chaining.
      */
-    public void setIgniteHome(String ggHome) {
-        this.ggHome = ggHome;
+    public IgniteConfiguration setIgniteHome(String igniteHome) {
+        this.igniteHome = igniteHome;
+
+        return this;
     }
 
     /**
-     * Gets Ignite work folder. If not provided, the method will use work folder under
+     * Gets Ignite work directory. If not provided, the method will use work directory under
      * {@code IGNITE_HOME} specified by {@link IgniteConfiguration#setIgniteHome(String)} or
      * {@code IGNITE_HOME} environment variable or system property.
      * <p>
-     * If {@code IGNITE_HOME} is not provided, then system temp folder is used.
+     * If {@code IGNITE_HOME} is not provided, then system temp directory is used.
      *
-     * @return Ignite work folder or {@code null} to make the system attempt to infer it automatically.
+     * @return Ignite work directory or {@code null} to make the system attempt to infer it automatically.
      * @see IgniteConfiguration#getIgniteHome()
-     * @see org.apache.ignite.IgniteSystemProperties#IGNITE_HOME
+     * @see IgniteSystemProperties#IGNITE_HOME
      */
     public String getWorkDirectory() {
-        return ggWork;
+        return igniteWorkDir;
     }
 
     /**
      * Sets Ignite work folder.
      *
-     * @param ggWork {@code Ignite} work folder.
+     * @param igniteWorkDir {@code Ignite} work directory.
      * @see IgniteConfiguration#getWorkDirectory()
+     * @return {@code this} for chaining.
      */
-    public void setWorkDirectory(String ggWork) {
-        this.ggWork = ggWork;
+    public IgniteConfiguration setWorkDirectory(String igniteWorkDir) {
+        this.igniteWorkDir = igniteWorkDir;
+
+        return this;
     }
 
     /**
@@ -746,9 +1042,12 @@ public class IgniteConfiguration {
      * Sets initialized and started MBean server.
      *
      * @param mbeanSrv Initialized and started MBean server.
+     * @return {@code this} for chaining.
      */
-    public void setMBeanServer(MBeanServer mbeanSrv) {
+    public IgniteConfiguration setMBeanServer(MBeanServer mbeanSrv) {
         this.mbeanSrv = mbeanSrv;
+
+        return this;
     }
 
     /**
@@ -756,6 +1055,7 @@ public class IgniteConfiguration {
      *
      * @return Unique identifier for this node within grid.
      */
+    @Deprecated
     public UUID getNodeId() {
         return nodeId;
     }
@@ -765,15 +1065,20 @@ public class IgniteConfiguration {
      *
      * @param nodeId Unique identifier for local node.
      * @see IgniteConfiguration#getNodeId()
+     * @return {@code this} for chaining.
+     * @deprecated Use {@link #setConsistentId(Serializable)} instead.
      */
-    public void setNodeId(UUID nodeId) {
+    @Deprecated
+    public IgniteConfiguration setNodeId(UUID nodeId) {
         this.nodeId = nodeId;
+
+        return this;
     }
 
     /**
      * Should return an instance of marshaller to use in grid. If not provided,
-     * {@link org.apache.ignite.marshaller.optimized.OptimizedMarshaller} will be used on Java HotSpot VM, and
-     * {@link org.apache.ignite.marshaller.jdk.JdkMarshaller} will be used on other VMs.
+     * default marshaller implementation that allows to read object field values
+     * without deserialization will be used.
      *
      * @return Marshaller to use in grid.
      */
@@ -786,9 +1091,12 @@ public class IgniteConfiguration {
      *
      * @param marsh Marshaller to use within grid.
      * @see IgniteConfiguration#getMarshaller()
+     * @return {@code this} for chaining.
      */
-    public void setMarshaller(Marshaller marsh) {
+    public IgniteConfiguration setMarshaller(Marshaller marsh) {
         this.marsh = marsh;
+
+        return this;
     }
 
 
@@ -801,7 +1109,7 @@ public class IgniteConfiguration {
      * execution. This way, a task can be physically deployed only on one node
      * and then internally penetrate to all other nodes.
      * <p>
-     * See {@link org.apache.ignite.compute.ComputeTask} documentation for more information about task deployment.
+     * See {@link ComputeTask} documentation for more information about task deployment.
      *
      * @return {@code true} if peer class loading is enabled, {@code false}
      *      otherwise.
@@ -826,9 +1134,12 @@ public class IgniteConfiguration {
      * Sets marshal local jobs flag.
      *
      * @param marshLocJobs {@code True} if local jobs should be marshalled.
+     * @return {@code this} for chaining.
      */
-    public void setMarshalLocalJobs(boolean marshLocJobs) {
+    public IgniteConfiguration setMarshalLocalJobs(boolean marshLocJobs) {
         this.marshLocJobs = marshLocJobs;
+
+        return this;
     }
 
     /**
@@ -836,9 +1147,12 @@ public class IgniteConfiguration {
      *
      * @param p2pEnabled {@code true} if peer class loading is
      *      enabled, {@code false} otherwise.
+     * @return {@code this} for chaining.
      */
-    public void setPeerClassLoadingEnabled(boolean p2pEnabled) {
+    public IgniteConfiguration setPeerClassLoadingEnabled(boolean p2pEnabled) {
         this.p2pEnabled = p2pEnabled;
+
+        return this;
     }
 
     /**
@@ -860,9 +1174,12 @@ public class IgniteConfiguration {
      *
      * @param p2pLocClsPathExcl List of P2P loaded packages. Package
      *      name supports '*' at the end like in package import clause.
+     * @return {@code this} for chaining.
      */
-    public void setPeerClassLoadingLocalClassPathExclude(String... p2pLocClsPathExcl) {
+    public IgniteConfiguration setPeerClassLoadingLocalClassPathExclude(String... p2pLocClsPathExcl) {
         this.p2pLocClsPathExcl = p2pLocClsPathExcl;
+
+        return this;
     }
 
     /**
@@ -884,9 +1201,12 @@ public class IgniteConfiguration {
      * @param metricsHistSize Number of metrics kept in history to use for
      *      metric totals and averages calculations.
      * @see #DFLT_METRICS_HISTORY_SIZE
+     * @return {@code this} for chaining.
      */
-    public void setMetricsHistorySize(int metricsHistSize) {
+    public IgniteConfiguration setMetricsHistorySize(int metricsHistSize) {
         this.metricsHistSize = metricsHistSize;
+
+        return this;
     }
 
     /**
@@ -920,9 +1240,12 @@ public class IgniteConfiguration {
      * {@link #DFLT_METRICS_UPDATE_FREQ} is used.
      *
      * @param metricsUpdateFreq Job metrics update frequency in milliseconds.
+     * @return {@code this} for chaining.
      */
-    public void setMetricsUpdateFrequency(long metricsUpdateFreq) {
+    public IgniteConfiguration setMetricsUpdateFrequency(long metricsUpdateFreq) {
         this.metricsUpdateFreq = metricsUpdateFreq;
+
+        return this;
     }
 
     /**
@@ -943,9 +1266,12 @@ public class IgniteConfiguration {
      *
      * @param metricsExpTime The metricsExpTime to set.
      * @see #DFLT_METRICS_EXPIRE_TIME
+     * @return {@code this} for chaining.
      */
-    public void setMetricsExpireTime(long metricsExpTime) {
+    public IgniteConfiguration setMetricsExpireTime(long metricsExpTime) {
         this.metricsExpTime = metricsExpTime;
+
+        return this;
     }
 
     /**
@@ -969,9 +1295,12 @@ public class IgniteConfiguration {
      *
      * @param netTimeout Maximum timeout for network requests.
      * @see #DFLT_NETWORK_TIMEOUT
+     * @return {@code this} for chaining.
      */
-    public void setNetworkTimeout(long netTimeout) {
+    public IgniteConfiguration setNetworkTimeout(long netTimeout) {
         this.netTimeout = netTimeout;
+
+        return this;
     }
 
     /**
@@ -995,9 +1324,12 @@ public class IgniteConfiguration {
      * {@link #DFLT_SEND_RETRY_DELAY} is used.
      *
      * @param sndRetryDelay Interval between message send retries.
+     * @return {@code this} for chaining.
      */
-    public void setNetworkSendRetryDelay(long sndRetryDelay) {
+    public IgniteConfiguration setNetworkSendRetryDelay(long sndRetryDelay) {
         this.sndRetryDelay = sndRetryDelay;
+
+        return this;
     }
 
     /**
@@ -1021,9 +1353,12 @@ public class IgniteConfiguration {
      * {@link #DFLT_SEND_RETRY_CNT} is used.
      *
      * @param sndRetryCnt Message send retries count.
+     * @return {@code this} for chaining.
      */
-    public void setNetworkSendRetryCount(int sndRetryCnt) {
+    public IgniteConfiguration setNetworkSendRetryCount(int sndRetryCnt) {
         this.sndRetryCnt = sndRetryCnt;
+
+        return this;
     }
 
     /**
@@ -1041,9 +1376,12 @@ public class IgniteConfiguration {
      * Sets number of samples used for clock synchronization.
      *
      * @param clockSyncSamples Number of samples.
+     * @return {@code this} for chaining.
      */
-    public void setClockSyncSamples(int clockSyncSamples) {
+    public IgniteConfiguration setClockSyncSamples(int clockSyncSamples) {
         this.clockSyncSamples = clockSyncSamples;
+
+        return this;
     }
 
     /**
@@ -1061,9 +1399,36 @@ public class IgniteConfiguration {
      * Sets clock synchronization frequency in milliseconds.
      *
      * @param clockSyncFreq Clock synchronization frequency.
+     * @return {@code this} for chaining.
      */
-    public void setClockSyncFrequency(long clockSyncFreq) {
+    public IgniteConfiguration setClockSyncFrequency(long clockSyncFreq) {
         this.clockSyncFreq = clockSyncFreq;
+
+        return this;
+    }
+
+    /**
+     * Gets Max count of threads can be used at rebalancing.
+     * Minimum is 1.
+     * @return count.
+     */
+    public int getRebalanceThreadPoolSize() {
+        return rebalanceThreadPoolSize;
+    }
+
+    /**
+     * Sets Max count of threads can be used at rebalancing.
+     *
+     * Default is {@code 1} which has minimal impact on the operation of the grid.
+     *
+     * @param rebalanceThreadPoolSize Number of system threads that will be assigned for partition transfer during
+     *      rebalancing.
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setRebalanceThreadPoolSize(int rebalanceThreadPoolSize) {
+        this.rebalanceThreadPoolSize = rebalanceThreadPoolSize;
+
+        return this;
     }
 
     /**
@@ -1073,8 +1438,8 @@ public class IgniteConfiguration {
      * routines.
      *
      * @return Collection of life-cycle beans.
-     * @see org.apache.ignite.lifecycle.LifecycleBean
-     * @see org.apache.ignite.lifecycle.LifecycleEventType
+     * @see LifecycleBean
+     * @see LifecycleEventType
      */
     public LifecycleBean[] getLifecycleBeans() {
         return lifecycleBeans;
@@ -1087,15 +1452,40 @@ public class IgniteConfiguration {
      * routines.
      *
      * @param lifecycleBeans Collection of lifecycle beans.
-     * @see org.apache.ignite.lifecycle.LifecycleEventType
+     * @see LifecycleEventType
+     * @return {@code this} for chaining.
      */
-    public void setLifecycleBeans(LifecycleBean... lifecycleBeans) {
+    public IgniteConfiguration setLifecycleBeans(LifecycleBean... lifecycleBeans) {
         this.lifecycleBeans = lifecycleBeans;
+
+        return this;
+    }
+
+    /**
+     * Sets SSL context factory that will be used for creating a secure socket  layer.
+     *
+     * @param sslCtxFactory Ssl context factory.
+     * @see SslContextFactory
+     */
+    public IgniteConfiguration setSslContextFactory(Factory<SSLContext> sslCtxFactory) {
+        this.sslCtxFactory = sslCtxFactory;
+
+        return this;
+    }
+
+    /**
+     * Returns SSL context factory that will be used for creating a secure socket layer.
+     *
+     * @return SSL connection factory.
+     * @see SslContextFactory
+     */
+    public Factory<SSLContext> getSslContextFactory() {
+        return sslCtxFactory;
     }
 
     /**
      * Should return fully configured event SPI implementation. If not provided,
-     * {@link org.apache.ignite.spi.eventstorage.memory.MemoryEventStorageSpi} will be used.
+     * {@link MemoryEventStorageSpi} will be used.
      *
      * @return Grid event SPI implementation or {@code null} to use default implementation.
      */
@@ -1104,18 +1494,21 @@ public class IgniteConfiguration {
     }
 
     /**
-     * Sets fully configured instance of {@link org.apache.ignite.spi.eventstorage.EventStorageSpi}.
+     * Sets fully configured instance of {@link EventStorageSpi}.
      *
-     * @param evtSpi Fully configured instance of {@link org.apache.ignite.spi.eventstorage.EventStorageSpi}.
+     * @param evtSpi Fully configured instance of {@link EventStorageSpi}.
      * @see IgniteConfiguration#getEventStorageSpi()
+     * @return {@code this} for chaining.
      */
-    public void setEventStorageSpi(EventStorageSpi evtSpi) {
+    public IgniteConfiguration setEventStorageSpi(EventStorageSpi evtSpi) {
         this.evtSpi = evtSpi;
+
+        return this;
     }
 
     /**
      * Should return fully configured discovery SPI implementation. If not provided,
-     * {@link org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi} will be used by default.
+     * {@link TcpDiscoverySpi} will be used by default.
      *
      * @return Grid discovery SPI implementation or {@code null} to use default implementation.
      */
@@ -1124,13 +1517,16 @@ public class IgniteConfiguration {
     }
 
     /**
-     * Sets fully configured instance of {@link org.apache.ignite.spi.discovery.DiscoverySpi}.
+     * Sets fully configured instance of {@link DiscoverySpi}.
      *
-     * @param discoSpi Fully configured instance of {@link org.apache.ignite.spi.discovery.DiscoverySpi}.
+     * @param discoSpi Fully configured instance of {@link DiscoverySpi}.
      * @see IgniteConfiguration#getDiscoverySpi()
+     * @return {@code this} for chaining.
      */
-    public void setDiscoverySpi(DiscoverySpi discoSpi) {
+    public IgniteConfiguration setDiscoverySpi(DiscoverySpi discoSpi) {
         this.discoSpi = discoSpi;
+
+        return this;
     }
 
     /**
@@ -1138,7 +1534,7 @@ public class IgniteConfiguration {
      *
      * @return Segmentation policy.
      */
-    public GridSegmentationPolicy getSegmentationPolicy() {
+    public SegmentationPolicy getSegmentationPolicy() {
         return segPlc;
     }
 
@@ -1146,9 +1542,12 @@ public class IgniteConfiguration {
      * Sets segmentation policy.
      *
      * @param segPlc Segmentation policy.
+     * @return {@code this} for chaining.
      */
-    public void setSegmentationPolicy(GridSegmentationPolicy segPlc) {
+    public IgniteConfiguration setSegmentationPolicy(SegmentationPolicy segPlc) {
         this.segPlc = segPlc;
+
+        return this;
     }
 
     /**
@@ -1170,9 +1569,12 @@ public class IgniteConfiguration {
      * Sets wait for segment on start flag.
      *
      * @param waitForSegOnStart {@code True} to wait for segment on start.
+     * @return {@code this} for chaining.
      */
-    public void setWaitForSegmentOnStart(boolean waitForSegOnStart) {
+    public IgniteConfiguration setWaitForSegmentOnStart(boolean waitForSegOnStart) {
         this.waitForSegOnStart = waitForSegOnStart;
+
+        return this;
     }
 
     /**
@@ -1197,9 +1599,12 @@ public class IgniteConfiguration {
      *
      * @param allResolversPassReq {@code True} if all segmentation resolvers should
      *      succeed for node to be in the correct segment.
+     * @return {@code this} for chaining.
      */
-    public void setAllSegmentationResolversPassRequired(boolean allResolversPassReq) {
+    public IgniteConfiguration setAllSegmentationResolversPassRequired(boolean allResolversPassReq) {
         this.allResolversPassReq = allResolversPassReq;
+
+        return this;
     }
 
     /**
@@ -1218,9 +1623,12 @@ public class IgniteConfiguration {
      * Sets segmentation resolve attempts count.
      *
      * @param segResolveAttempts Segmentation resolve attempts.
+     * @return {@code this} for chaining.
      */
-    public void setSegmentationResolveAttempts(int segResolveAttempts) {
+    public IgniteConfiguration setSegmentationResolveAttempts(int segResolveAttempts) {
         this.segResolveAttempts = segResolveAttempts;
+
+        return this;
     }
 
     /**
@@ -1231,7 +1639,7 @@ public class IgniteConfiguration {
      *
      * @return Segmentation resolvers.
      */
-    public GridSegmentationResolver[] getSegmentationResolvers() {
+    public SegmentationResolver[] getSegmentationResolvers() {
         return segResolvers;
     }
 
@@ -1239,9 +1647,12 @@ public class IgniteConfiguration {
      * Sets segmentation resolvers.
      *
      * @param segResolvers Segmentation resolvers.
+     * @return {@code this} for chaining.
      */
-    public void setSegmentationResolvers(GridSegmentationResolver... segResolvers) {
+    public IgniteConfiguration setSegmentationResolvers(SegmentationResolver... segResolvers) {
         this.segResolvers = segResolvers;
+
+        return this;
     }
 
     /**
@@ -1262,14 +1673,17 @@ public class IgniteConfiguration {
      * Sets network segment check frequency.
      *
      * @param segChkFreq Segment check frequency.
+     * @return {@code this} for chaining.
      */
-    public void setSegmentCheckFrequency(long segChkFreq) {
+    public IgniteConfiguration setSegmentCheckFrequency(long segChkFreq) {
         this.segChkFreq = segChkFreq;
+
+        return this;
     }
 
     /**
      * Should return fully configured SPI communication  implementation. If not provided,
-     * {@link org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi} will be used by default.
+     * {@link TcpCommunicationSpi} will be used by default.
      *
      * @return Grid communication SPI implementation or {@code null} to use default implementation.
      */
@@ -1278,22 +1692,25 @@ public class IgniteConfiguration {
     }
 
     /**
-     * Sets fully configured instance of {@link org.apache.ignite.spi.communication.CommunicationSpi}.
+     * Sets fully configured instance of {@link CommunicationSpi}.
      *
-     * @param commSpi Fully configured instance of {@link org.apache.ignite.spi.communication.CommunicationSpi}.
+     * @param commSpi Fully configured instance of {@link CommunicationSpi}.
      * @see IgniteConfiguration#getCommunicationSpi()
+     * @return {@code this} for chaining.
      */
-    public void setCommunicationSpi(CommunicationSpi commSpi) {
+    public IgniteConfiguration setCommunicationSpi(CommunicationSpi commSpi) {
         this.commSpi = commSpi;
+
+        return this;
     }
 
     /**
      * Should return fully configured collision SPI implementation. If not provided,
-     * {@link org.apache.ignite.spi.collision.noop.NoopCollisionSpi} is used and jobs get activated immediately
+     * {@link NoopCollisionSpi} is used and jobs get activated immediately
      * on arrive to mapped node. This approach suits well for large amount of small
      * jobs (which is a wide-spread use case). User still can control the number
      * of concurrent jobs by setting maximum thread pool size defined by
-     * GridConfiguration.getPublicThreadPoolSize() configuration property.
+     * IgniteConfiguration.getPublicThreadPoolSize() configuration property.
      *
      * @return Grid collision SPI implementation or {@code null} to use default implementation.
      */
@@ -1302,19 +1719,22 @@ public class IgniteConfiguration {
     }
 
     /**
-     * Sets fully configured instance of {@link org.apache.ignite.spi.collision.CollisionSpi}.
+     * Sets fully configured instance of {@link CollisionSpi}.
      *
-     * @param colSpi Fully configured instance of {@link org.apache.ignite.spi.collision.CollisionSpi} or
+     * @param colSpi Fully configured instance of {@link CollisionSpi} or
      *      {@code null} if no SPI provided.
      * @see IgniteConfiguration#getCollisionSpi()
+     * @return {@code this} for chaining.
      */
-    public void setCollisionSpi(CollisionSpi colSpi) {
+    public IgniteConfiguration setCollisionSpi(CollisionSpi colSpi) {
         this.colSpi = colSpi;
+
+        return this;
     }
 
     /**
      * Should return fully configured deployment SPI implementation. If not provided,
-     * {@link org.apache.ignite.spi.deployment.local.LocalDeploymentSpi} will be used.
+     * {@link LocalDeploymentSpi} will be used.
      *
      * @return Grid deployment SPI implementation or {@code null} to use default implementation.
      */
@@ -1323,18 +1743,21 @@ public class IgniteConfiguration {
     }
 
     /**
-     * Sets fully configured instance of {@link org.apache.ignite.spi.deployment.DeploymentSpi}.
+     * Sets fully configured instance of {@link DeploymentSpi}.
      *
-     * @param deploySpi Fully configured instance of {@link org.apache.ignite.spi.deployment.DeploymentSpi}.
+     * @param deploySpi Fully configured instance of {@link DeploymentSpi}.
      * @see IgniteConfiguration#getDeploymentSpi()
+     * @return {@code this} for chaining.
      */
-    public void setDeploymentSpi(DeploymentSpi deploySpi) {
+    public IgniteConfiguration setDeploymentSpi(DeploymentSpi deploySpi) {
         this.deploySpi = deploySpi;
+
+        return this;
     }
 
     /**
      * Should return fully configured checkpoint SPI implementation. If not provided,
-     * {@link org.apache.ignite.spi.checkpoint.noop.NoopCheckpointSpi} will be used.
+     * {@link NoopCheckpointSpi} will be used.
      *
      * @return Grid checkpoint SPI implementation or {@code null} to use default implementation.
      */
@@ -1343,18 +1766,21 @@ public class IgniteConfiguration {
     }
 
     /**
-     * Sets fully configured instance of {@link org.apache.ignite.spi.checkpoint.CheckpointSpi}.
+     * Sets fully configured instance of {@link CheckpointSpi}.
      *
-     * @param cpSpi Fully configured instance of {@link org.apache.ignite.spi.checkpoint.CheckpointSpi}.
+     * @param cpSpi Fully configured instance of {@link CheckpointSpi}.
      * @see IgniteConfiguration#getCheckpointSpi()
+     * @return {@code this} for chaining.
      */
-    public void setCheckpointSpi(CheckpointSpi... cpSpi) {
+    public IgniteConfiguration setCheckpointSpi(CheckpointSpi... cpSpi) {
         this.cpSpi = cpSpi;
+
+        return this;
     }
 
     /**
      * Should return fully configured failover SPI implementation. If not provided,
-     * {@link org.apache.ignite.spi.failover.always.AlwaysFailoverSpi} will be used.
+     * {@link AlwaysFailoverSpi} will be used.
      *
      * @return Grid failover SPI implementation or {@code null} to use default implementation.
      */
@@ -1363,19 +1789,49 @@ public class IgniteConfiguration {
     }
 
     /**
-     * Sets fully configured instance of {@link org.apache.ignite.spi.failover.FailoverSpi}.
+     * Sets fully configured instance of {@link FailoverSpi}.
      *
-     * @param failSpi Fully configured instance of {@link org.apache.ignite.spi.failover.FailoverSpi} or
+     * @param failSpi Fully configured instance of {@link FailoverSpi} or
      *      {@code null} if no SPI provided.
      * @see IgniteConfiguration#getFailoverSpi()
+     * @return {@code this} for chaining.
      */
-    public void setFailoverSpi(FailoverSpi... failSpi) {
+    public IgniteConfiguration setFailoverSpi(FailoverSpi... failSpi) {
         this.failSpi = failSpi;
+
+        return this;
+    }
+
+    /**
+     * Returns failure detection timeout used by {@link TcpDiscoverySpi} and {@link TcpCommunicationSpi}.
+     * <p>
+     * Default is {@link #DFLT_FAILURE_DETECTION_TIMEOUT}.
+     *
+     * @see #setFailureDetectionTimeout(long)
+     * @return Failure detection timeout in milliseconds.
+     */
+    public Long getFailureDetectionTimeout() {
+        return failureDetectionTimeout;
+    }
+
+    /**
+     * Sets failure detection timeout to use in {@link TcpDiscoverySpi} and {@link TcpCommunicationSpi}.
+     * <p>
+     * Failure detection timeout is used to determine how long the communication or discovery SPIs should wait before
+     * considering a remote connection failed.
+     *
+     * @param failureDetectionTimeout Failure detection timeout in milliseconds.
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setFailureDetectionTimeout(long failureDetectionTimeout) {
+        this.failureDetectionTimeout = failureDetectionTimeout;
+
+        return this;
     }
 
     /**
      * Should return fully configured load balancing SPI implementation. If not provided,
-     * {@link org.apache.ignite.spi.loadbalancing.roundrobin.RoundRobinLoadBalancingSpi} will be used.
+     * {@link RoundRobinLoadBalancingSpi} will be used.
      *
      * @return Grid load balancing SPI implementation or {@code null} to use default implementation.
      */
@@ -1410,36 +1866,45 @@ public class IgniteConfiguration {
      *
      * @param discoStartupDelay Time in milliseconds for when nodes
      *      can be out-of-sync during startup.
+     * @return {@code this} for chaining.
      */
-    public void setDiscoveryStartupDelay(long discoStartupDelay) {
+    public IgniteConfiguration setDiscoveryStartupDelay(long discoStartupDelay) {
         this.discoStartupDelay = discoStartupDelay;
+
+        return this;
     }
 
     /**
-     * Sets fully configured instance of {@link org.apache.ignite.spi.loadbalancing.LoadBalancingSpi}.
+     * Sets fully configured instance of {@link LoadBalancingSpi}.
      *
-     * @param loadBalancingSpi Fully configured instance of {@link org.apache.ignite.spi.loadbalancing.LoadBalancingSpi} or
+     * @param loadBalancingSpi Fully configured instance of {@link LoadBalancingSpi} or
      *      {@code null} if no SPI provided.
      * @see IgniteConfiguration#getLoadBalancingSpi()
+     * @return {@code this} for chaining.
      */
-    public void setLoadBalancingSpi(LoadBalancingSpi... loadBalancingSpi) {
+    public IgniteConfiguration setLoadBalancingSpi(LoadBalancingSpi... loadBalancingSpi) {
         this.loadBalancingSpi = loadBalancingSpi;
+
+        return this;
     }
 
     /**
-     * Sets fully configured instances of {@link org.apache.ignite.spi.swapspace.SwapSpaceSpi}.
+     * Sets fully configured instances of {@link SwapSpaceSpi}.
      *
-     * @param swapSpaceSpi Fully configured instances of {@link org.apache.ignite.spi.swapspace.SwapSpaceSpi} or
+     * @param swapSpaceSpi Fully configured instances of {@link SwapSpaceSpi} or
      *      <tt>null</tt> if no SPI provided.
      * @see IgniteConfiguration#getSwapSpaceSpi()
+     * @return {@code this} for chaining.
      */
-    public void setSwapSpaceSpi(SwapSpaceSpi swapSpaceSpi) {
+    public IgniteConfiguration setSwapSpaceSpi(SwapSpaceSpi swapSpaceSpi) {
         this.swapSpaceSpi = swapSpaceSpi;
+
+        return this;
     }
 
     /**
      * Should return fully configured swap space SPI implementation. If not provided,
-     * {@link org.apache.ignite.spi.swapspace.file.FileSwapSpaceSpi} will be used.
+     * {@link FileSwapSpaceSpi} will be used.
      * <p>
      * Note that user can provide one or multiple instances of this SPI (and select later which one
      * is used in a particular context).
@@ -1455,9 +1920,12 @@ public class IgniteConfiguration {
      *
      * @param indexingSpi Fully configured instance of {@link IndexingSpi}.
      * @see IgniteConfiguration#getIndexingSpi()
+     * @return {@code this} for chaining.
      */
-    public void setIndexingSpi(IndexingSpi indexingSpi) {
+    public IgniteConfiguration setIndexingSpi(IndexingSpi indexingSpi) {
         this.indexingSpi = indexingSpi;
+
+        return this;
     }
 
     /**
@@ -1478,22 +1946,28 @@ public class IgniteConfiguration {
         return addrRslvr;
     }
 
-    /*
+    /**
      * Sets address resolver for addresses mapping determination.
      *
      * @param addrRslvr Address resolver.
+     * @return {@code this} for chaining.
      */
-    public void setAddressResolver(AddressResolver addrRslvr) {
+    public IgniteConfiguration setAddressResolver(AddressResolver addrRslvr) {
         this.addrRslvr = addrRslvr;
+
+        return this;
     }
 
     /**
      * Sets task classes and resources sharing mode.
      *
      * @param deployMode Task classes and resources sharing mode.
+     * @return {@code this} for chaining.
      */
-    public void setDeploymentMode(DeploymentMode deployMode) {
+    public IgniteConfiguration setDeploymentMode(DeploymentMode deployMode) {
         this.deployMode = deployMode;
+
+        return this;
     }
 
     /**
@@ -1511,9 +1985,12 @@ public class IgniteConfiguration {
      * missed resources caching.
      *
      * @param p2pMissedCacheSize Size of missed resources cache.
+     * @return {@code this} for chaining.
      */
-    public void setPeerClassLoadingMissedResourcesCacheSize(int p2pMissedCacheSize) {
+    public IgniteConfiguration setPeerClassLoadingMissedResourcesCacheSize(int p2pMissedCacheSize) {
         this.p2pMissedCacheSize = p2pMissedCacheSize;
+
+        return this;
     }
 
     /**
@@ -1543,8 +2020,74 @@ public class IgniteConfiguration {
      * @param cacheCfg Cache configurations.
      */
     @SuppressWarnings({"ZeroLengthArrayAllocation"})
-    public void setCacheConfiguration(CacheConfiguration... cacheCfg) {
+    public IgniteConfiguration setCacheConfiguration(CacheConfiguration... cacheCfg) {
         this.cacheCfg = cacheCfg == null ? new CacheConfiguration[0] : cacheCfg;
+
+        return this;
+    }
+
+    /**
+     * Gets client mode flag. Client node cannot hold data in the caches. It's recommended to use
+     * {@link DiscoverySpi} in client mode if this property is {@code true}.
+     *
+     * @return Client mode flag.
+     * @see TcpDiscoverySpi#setForceServerMode(boolean)
+     */
+    public Boolean isClientMode() {
+        return clientMode;
+    }
+
+    /**
+     * Sets client mode flag.
+     *
+     * @param clientMode Client mode flag.
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setClientMode(boolean clientMode) {
+        this.clientMode = clientMode;
+
+        return this;
+    }
+
+    /**
+     * Gets cache key configuration.
+     *
+     * @return Cache key configuration.
+     */
+    public CacheKeyConfiguration[] getCacheKeyConfiguration() {
+        return cacheKeyCfg;
+    }
+
+    /**
+     * Sets cache key configuration.
+     * Cache key configuration defines
+     *
+     * @param cacheKeyCfg Cache key configuration.
+     */
+    public IgniteConfiguration setCacheKeyConfiguration(CacheKeyConfiguration... cacheKeyCfg) {
+        this.cacheKeyCfg = cacheKeyCfg;
+
+        return this;
+    }
+
+    /**
+     * Gets configuration for Ignite Binary objects.
+     *
+     * @return Binary configuration object.
+     */
+    public BinaryConfiguration getBinaryConfiguration() {
+        return binaryCfg;
+    }
+
+    /**
+     * Sets configuration for Ignite Binary objects.
+     *
+     * @param binaryCfg Binary configuration object.
+     */
+    public IgniteConfiguration setBinaryConfiguration(BinaryConfiguration binaryCfg) {
+        this.binaryCfg = binaryCfg;
+
+        return this;
     }
 
     /**
@@ -1575,9 +2118,12 @@ public class IgniteConfiguration {
      *
      * @param cacheSanityCheckEnabled {@code True} if cache sanity check is enabled.
      * @see #isCacheSanityCheckEnabled()
+     * @return {@code this} for chaining.
      */
-    public void setCacheSanityCheckEnabled(boolean cacheSanityCheckEnabled) {
+    public IgniteConfiguration setCacheSanityCheckEnabled(boolean cacheSanityCheckEnabled) {
         this.cacheSanityCheckEnabled = cacheSanityCheckEnabled;
+
+        return this;
     }
 
     /**
@@ -1598,13 +2144,16 @@ public class IgniteConfiguration {
     }
 
     /**
-     * Sets array of event types, which will be recorded by {@link GridEventStorageManager#record(org.apache.ignite.events.Event)}.
+     * Sets array of event types, which will be recorded by {@link GridEventStorageManager#record(Event)}.
      * Note, that either the include event types or the exclude event types can be established.
      *
      * @param inclEvtTypes Include event types.
+     * @return {@code this} for chaining.
      */
-    public void setIncludeEventTypes(int... inclEvtTypes) {
+    public IgniteConfiguration setIncludeEventTypes(int... inclEvtTypes) {
         this.inclEvtTypes = inclEvtTypes;
+
+        return this;
     }
 
     /**
@@ -1612,9 +2161,12 @@ public class IgniteConfiguration {
      * override all default local bind settings within Ignite or any of its SPIs.
      *
      * @param locHost Local IP address or host to bind to.
+     * @return {@code this} for chaining.
      */
-    public void setLocalHost(String locHost) {
+    public IgniteConfiguration setLocalHost(String locHost) {
         this.locHost = locHost;
+
+        return this;
     }
 
     /**
@@ -1650,13 +2202,19 @@ public class IgniteConfiguration {
      * Sets time server port base.
      *
      * @param timeSrvPortBase Time server port base.
+     * @return {@code this} for chaining.
      */
-    public void setTimeServerPortBase(int timeSrvPortBase) {
+    public IgniteConfiguration setTimeServerPortBase(int timeSrvPortBase) {
         this.timeSrvPortBase = timeSrvPortBase;
+
+        return this;
     }
 
     /**
      * Defines port range to try for time server start.
+     *
+     * If port range value is <tt>0</tt>, then implementation will try bind only to the port provided by
+     * {@link #setTimeServerPortBase(int)} method and fail if binding to this port did not succeed.
      *
      * @return Number of ports to try before server initialization fails.
      */
@@ -1668,9 +2226,12 @@ public class IgniteConfiguration {
      * Sets time server port range.
      *
      * @param timeSrvPortRange Time server port range.
+     * @return {@code this} for chaining.
      */
-    public void setTimeServerPortRange(int timeSrvPortRange) {
+    public IgniteConfiguration setTimeServerPortRange(int timeSrvPortRange) {
         this.timeSrvPortRange = timeSrvPortRange;
+
+        return this;
     }
 
     /**
@@ -1691,9 +2252,12 @@ public class IgniteConfiguration {
      * See {@link #getIncludeProperties()} for more info.
      *
      * @param includeProps Array of system or environment property names to include into node attributes.
+     * @return {@code this} for chaining.
      */
-    public void setIncludeProperties(String... includeProps) {
+    public IgniteConfiguration setIncludeProperties(String... includeProps) {
         this.includeProps = includeProps;
+
+        return this;
     }
 
     /**
@@ -1717,9 +2281,12 @@ public class IgniteConfiguration {
      * If not provided, then default value {@link #DFLT_METRICS_LOG_FREQ} is used.
      *
      * @param metricsLogFreq Frequency of metrics log print out.
+     * @return {@code this} for chaining.
      */
-    public void setMetricsLogFrequency(long metricsLogFreq) {
+    public IgniteConfiguration setMetricsLogFrequency(long metricsLogFreq) {
         this.metricsLogFreq = metricsLogFreq;
+
+        return this;
     }
 
     /**
@@ -1735,27 +2302,12 @@ public class IgniteConfiguration {
      * Sets IGFS (Ignite In-Memory File System) configurations.
      *
      * @param igfsCfg IGFS configurations.
+     * @return {@code this} for chaining.
      */
-    public void setFileSystemConfiguration(FileSystemConfiguration... igfsCfg) {
+    public IgniteConfiguration setFileSystemConfiguration(FileSystemConfiguration... igfsCfg) {
         this.igfsCfg = igfsCfg;
-    }
 
-    /**
-     * Gets streamers configurations.
-     *
-     * @return Streamers configurations.
-     */
-    public StreamerConfiguration[] getStreamerConfiguration() {
-        return streamerCfg;
-    }
-
-    /**
-     * Sets streamer configuration.
-     *
-     * @param streamerCfg Streamer configuration.
-     */
-    public void setStreamerConfiguration(StreamerConfiguration... streamerCfg) {
-        this.streamerCfg = streamerCfg;
+        return this;
     }
 
     /**
@@ -1771,9 +2323,12 @@ public class IgniteConfiguration {
      * Sets hadoop configuration.
      *
      * @param hadoopCfg Hadoop configuration.
+     * @return {@code this} for chaining.
      */
-    public void setHadoopConfiguration(HadoopConfiguration hadoopCfg) {
+    public IgniteConfiguration setHadoopConfiguration(HadoopConfiguration hadoopCfg) {
         this.hadoopCfg = hadoopCfg;
+
+        return this;
     }
 
     /**
@@ -1785,9 +2340,33 @@ public class IgniteConfiguration {
 
     /**
      * @param connectorCfg Connector configuration.
+     * @return {@code this} for chaining.
      */
-    public void setConnectorConfiguration(ConnectorConfiguration connectorCfg) {
+    public IgniteConfiguration setConnectorConfiguration(ConnectorConfiguration connectorCfg) {
         this.connectorCfg = connectorCfg;
+
+        return this;
+    }
+
+    /**
+     * Gets configuration for ODBC.
+     *
+     * @return ODBC configuration.
+     */
+    public OdbcConfiguration getOdbcConfiguration() {
+        return odbcCfg;
+    }
+
+    /**
+     * Sets configuration for ODBC.
+     *
+     * @param odbcCfg ODBC configuration.
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setOdbcConfiguration(OdbcConfiguration odbcCfg) {
+        this.odbcCfg = odbcCfg;
+
+        return this;
     }
 
     /**
@@ -1803,9 +2382,12 @@ public class IgniteConfiguration {
      * Sets configurations for services to be deployed on the grid.
      *
      * @param svcCfgs Configurations for services to be deployed on the grid.
+     * @return {@code this} for chaining.
      */
-    public void setServiceConfiguration(ServiceConfiguration... svcCfgs) {
+    public IgniteConfiguration setServiceConfiguration(ServiceConfiguration... svcCfgs) {
         this.svcCfgs = svcCfgs;
+
+        return this;
     }
 
     /**
@@ -1813,7 +2395,7 @@ public class IgniteConfiguration {
      * Each listener is mapped to array of event types.
      *
      * @return Pre-configured event listeners map.
-     * @see org.apache.ignite.events.EventType
+     * @see EventType
      */
     public Map<IgnitePredicate<? extends Event>, int[]> getLocalEventListeners() {
         return lsnrs;
@@ -1824,9 +2406,12 @@ public class IgniteConfiguration {
      * Each listener is mapped to array of event types.
      *
      * @param lsnrs Pre-configured event listeners map.
+     * @return {@code this} for chaining.
      */
-    public void setLocalEventListeners(Map<IgnitePredicate<? extends Event>, int[]> lsnrs) {
+    public IgniteConfiguration setLocalEventListeners(Map<IgnitePredicate<? extends Event>, int[]> lsnrs) {
         this.lsnrs = lsnrs;
+
+        return this;
     }
 
     /**
@@ -1844,9 +2429,12 @@ public class IgniteConfiguration {
      *
      * @param warmupClos Warmup closure to execute.
      * @see #getWarmupClosure()
+     * @return {@code this} for chaining.
      */
-    public void setWarmupClosure(IgniteInClosure<IgniteConfiguration> warmupClos) {
+    public IgniteConfiguration setWarmupClosure(IgniteInClosure<IgniteConfiguration> warmupClos) {
         this.warmupClos = warmupClos;
+
+        return this;
     }
 
     /**
@@ -1862,23 +2450,35 @@ public class IgniteConfiguration {
      * Sets transactions configuration.
      *
      * @param txCfg Transactions configuration.
+     * @return {@code this} for chaining.
      */
-    public void setTransactionConfiguration(TransactionConfiguration txCfg) {
+    public IgniteConfiguration setTransactionConfiguration(TransactionConfiguration txCfg) {
         this.txCfg = txCfg;
+
+        return this;
     }
 
     /**
+     * Gets plugin configurations.
+     *
      * @return Plugin configurations.
+     * @see PluginProvider
      */
     public PluginConfiguration[] getPluginConfigurations() {
         return pluginCfgs;
     }
 
     /**
+     * Sets plugin configurations.
+     *
      * @param pluginCfgs Plugin configurations.
+     * @return {@code this} for chaining.
+     * @see PluginProvider
      */
-    public void setPluginConfigurations(PluginConfiguration... pluginCfgs) {
+    public IgniteConfiguration setPluginConfigurations(PluginConfiguration... pluginCfgs) {
         this.pluginCfgs = pluginCfgs;
+
+        return this;
     }
 
     /**
@@ -1890,9 +2490,12 @@ public class IgniteConfiguration {
 
     /**
      * @param atomicCfg Atomic data structures configuration.
+     * @return {@code this} for chaining.
      */
-    public void setAtomicConfiguration(AtomicConfiguration atomicCfg) {
+    public IgniteConfiguration setAtomicConfiguration(AtomicConfiguration atomicCfg) {
         this.atomicCfg = atomicCfg;
+
+        return this;
     }
 
     /**
@@ -1901,9 +2504,12 @@ public class IgniteConfiguration {
      * {@link ExpiryPolicy ExpiryPolicys}).
      *
      * @param classLdr Class loader.
+     * @return {@code this} for chaining.
      */
-    public void setClassLoader(ClassLoader classLdr) {
+    public IgniteConfiguration setClassLoader(ClassLoader classLdr) {
         this.classLdr = classLdr;
+
+        return this;
     }
 
     /**
@@ -1911,6 +2517,97 @@ public class IgniteConfiguration {
      */
     public ClassLoader getClassLoader() {
         return classLdr;
+    }
+
+    /**
+     * Gets cache store session listener factories.
+     *
+     * @return Cache store session listener factories.
+     * @see CacheStoreSessionListener
+     */
+    public Factory<CacheStoreSessionListener>[] getCacheStoreSessionListenerFactories() {
+        return storeSesLsnrs;
+    }
+
+    /**
+     * Cache store session listener factories.
+     * <p>
+     * These are global store session listeners, so they are applied to
+     * all caches. If you need to override listeners for a
+     * particular cache, use {@link CacheConfiguration#setCacheStoreSessionListenerFactories(Factory[])}
+     * configuration property.
+     *
+     * @param storeSesLsnrs Cache store session listener factories.
+     * @return {@code this} for chaining.
+     * @see CacheStoreSessionListener
+     */
+    public IgniteConfiguration setCacheStoreSessionListenerFactories(
+        Factory<CacheStoreSessionListener>... storeSesLsnrs) {
+        this.storeSesLsnrs = storeSesLsnrs;
+
+        return this;
+    }
+
+    /**
+     * Gets platform configuration.
+     *
+     * @return Platform configuration.
+     */
+    public PlatformConfiguration getPlatformConfiguration() {
+        return platformCfg;
+    }
+
+    /**
+     * Sets platform configuration.
+     *
+     * @param platformCfg Platform configuration.
+     * @return  {@code this} for chaining.
+     */
+    public IgniteConfiguration setPlatformConfiguration(PlatformConfiguration platformCfg) {
+        this.platformCfg = platformCfg;
+
+        return this;
+    }
+
+    /**
+     * Whether or not late affinity assignment mode should be used.
+     * <p>
+     * On each topology change, for each started cache partition-to-node mapping is
+     * calculated using {@link AffinityFunction} configured for cache. When late
+     * affinity assignment mode is disabled then new affinity mapping is applied immediately.
+     * <p>
+     * With late affinity assignment mode if primary node was changed for some partition, but data for this
+     * partition is not rebalanced yet on this node, then current primary is not changed and new primary is temporary
+     * assigned as backup. This nodes becomes primary only when rebalancing for all assigned primary partitions is
+     * finished. This mode can show better performance for cache operations, since when cache primary node
+     * executes some operation and data is not rebalanced yet, then it sends additional message to force rebalancing
+     * from other nodes.
+     * <p>
+     * Note, that {@link Affinity} interface provides assignment information taking into account late assignment,
+     * so while rebalancing for new primary nodes is not finished it can return assignment which differs
+     * from assignment calculated by {@link AffinityFunction#assignPartitions}.
+     * <p>
+     * This property should have the same value for all nodes in cluster.
+     * <p>
+     * If not provided, default value is {@link #DFLT_LATE_AFF_ASSIGNMENT}.
+     *
+     * @return Late affinity assignment flag.
+     * @see AffinityFunction
+     */
+    public boolean isLateAffinityAssignment() {
+        return lateAffAssignment;
+    }
+
+    /**
+     * Sets late affinity assignment flag.
+     *
+     * @param lateAffAssignment Late affinity assignment flag.
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setLateAffinityAssignment(boolean lateAffAssignment) {
+        this.lateAffAssignment = lateAffAssignment;
+
+        return this;
     }
 
     /** {@inheritDoc} */

@@ -17,17 +17,26 @@
 
 package org.apache.ignite.p2p;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.testframework.config.*;
-import org.apache.ignite.testframework.junits.common.*;
-
-import java.io.*;
-import java.net.*;
-import java.util.*;
+import java.io.Serializable;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeJobAdapter;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.compute.ComputeTaskAdapter;
+import org.apache.ignite.configuration.DeploymentMode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.testframework.config.GridTestProperties;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
 
 /**
  * Test to make sure that if job executes on the same node, it reuses the same class loader as task.
@@ -212,7 +221,7 @@ public class GridP2PLocalDeploymentSelfTest extends GridCommonAbstractTest {
 
             for (ClusterNode node : subgrid) {
                 if (node.id().equals(arg))
-                    return Collections.singletonMap(new TestJob(arg), node);
+                    return Collections.singletonMap(new DeployementTestJob(arg), node);
             }
 
             throw new IgniteException("Failed to find target node: " + arg);
@@ -230,7 +239,7 @@ public class GridP2PLocalDeploymentSelfTest extends GridCommonAbstractTest {
         /**
          * Simple job class.
          */
-        public static class TestJob extends ComputeJobAdapter {
+        public static class DeployementTestJob extends ComputeJobAdapter {
             /** Ignite instance. */
             @IgniteInstanceResource
             private Ignite ignite;
@@ -238,7 +247,7 @@ public class GridP2PLocalDeploymentSelfTest extends GridCommonAbstractTest {
             /**
              * @param nodeId Node ID for node this job is supposed to execute on.
              */
-            public TestJob(UUID nodeId) { super(nodeId); }
+            public DeployementTestJob(UUID nodeId) { super(nodeId); }
 
             /** {@inheritDoc} */
             @Override public Serializable execute() {

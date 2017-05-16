@@ -17,16 +17,16 @@
 
 package org.apache.ignite.yardstick.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMemoryMode;
 
 /**
  * Ignite benchmark that performs transactional put operations
  * with {@link CacheMemoryMode#OFFHEAP_TIERED OFFHEAP TIRED} memory mode.
  */
-public class IgnitePutTxOffHeapBenchmark extends IgnitePutTxBenchmark {
+public class IgnitePutTxOffHeapBenchmark extends IgnitePutTxImplicitBenchmark {
     /** {@inheritDoc} */
     @Override protected IgniteCache<Integer, Object> cache() {
-        return ignite().jcache("tx-offheap");
+        return ignite().cache("tx-offheap");
     }
 }

@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.util.nio;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.typedef.internal.LT;
 
 /**
  * Filter chain implementation for nio server filters.
@@ -157,7 +158,7 @@ public class GridNioFilterChain<T> extends GridNioFilterAdapter {
             head.onExceptionCaught(ses, e);
         }
         catch (Exception ex) {
-            LT.warn(log, ex, "Failed to forward GridNioException to filter chain [ses=" + ses + ", e=" + e + ']');
+            LT.error(log, ex, "Failed to forward GridNioException to filter chain [ses=" + ses + ", e=" + e + ']');
         }
     }
 

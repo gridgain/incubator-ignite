@@ -17,30 +17,40 @@
 
 package org.apache.ignite.examples.computegrid;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.examples.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.jetbrains.annotations.*;
-
-import java.math.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.math.BigInteger;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCompute;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJobContext;
+import org.apache.ignite.compute.ComputeTaskFuture;
+import org.apache.ignite.examples.ExampleNodeStartup;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteInClosure;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.JobContextResource;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This example demonstrates how to use continuation feature of Ignite by
  * performing the distributed recursive calculation of {@code 'Fibonacci'}
  * numbers on the cluster. Continuations
  * functionality is exposed via {@link ComputeJobContext#holdcc()} and
- * {@link ComputeJobContext#callcc()} method calls in {@link FibonacciClosure} class.
+ * {@link ComputeJobContext#callcc()} method calls in
+ * {@link org.apache.ignite.examples.computegrid.ComputeFibonacciContinuationExample.ContinuationFibonacciClosure}
+ * class.
  * <p>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-compute.xml'}.
+ * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link ComputeNodeStartup} in another JVM which will start node
- * with {@code examples/config/example-compute.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will start node
+ * with {@code examples/config/example-ignite.xml} configuration.
  */
 public final class ComputeFibonacciContinuationExample {
     /**
@@ -50,7 +60,7 @@ public final class ComputeFibonacciContinuationExample {
      * @throws IgniteException If example execution failed.
      */
     public static void main(String[] args) throws IgniteException {
-        try (Ignite ignite = Ignition.start("examples/config/example-compute.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             System.out.println();
             System.out.println("Compute Fibonacci continuation example started.");
 
@@ -68,7 +78,8 @@ public final class ComputeFibonacciContinuationExample {
 
             long start = System.currentTimeMillis();
 
-            BigInteger fib = ignite.compute(ignite.cluster().forPredicate(nodeFilter)).apply(new FibonacciClosure(nodeFilter), N);
+            BigInteger fib = ignite.compute(ignite.cluster().forPredicate(nodeFilter)).apply(
+                new ContinuationFibonacciClosure(nodeFilter), N);
 
             long duration = System.currentTimeMillis() - start;
 
@@ -85,7 +96,7 @@ public final class ComputeFibonacciContinuationExample {
     /**
      * Closure to execute.
      */
-    private static class FibonacciClosure implements IgniteClosure<Long, BigInteger> {
+    private static class ContinuationFibonacciClosure implements IgniteClosure<Long, BigInteger> {
         /** Future for spawned task. */
         private IgniteFuture<BigInteger> fut1;
 
@@ -106,7 +117,7 @@ public final class ComputeFibonacciContinuationExample {
         /**
          * @param nodeFilter Predicate to filter nodes.
          */
-        FibonacciClosure(IgnitePredicate<ClusterNode> nodeFilter) {
+        ContinuationFibonacciClosure(IgnitePredicate<ClusterNode> nodeFilter) {
             this.nodeFilter = nodeFilter;
         }
 
@@ -135,7 +146,7 @@ public final class ComputeFibonacciContinuationExample {
 
                 // If future is not cached in node-local-map, cache it.
                 if (fut1 == null) {
-                    compute.apply(new FibonacciClosure(nodeFilter), n - 1);
+                    compute.apply(new ContinuationFibonacciClosure(nodeFilter), n - 1);
 
                     ComputeTaskFuture<BigInteger> futVal = compute.future();
 
@@ -147,7 +158,7 @@ public final class ComputeFibonacciContinuationExample {
 
                 // If future is not cached in node-local-map, cache it.
                 if (fut2 == null) {
-                    compute.apply(new FibonacciClosure(nodeFilter), n - 2);
+                    compute.apply(new ContinuationFibonacciClosure(nodeFilter), n - 2);
 
                     ComputeTaskFuture<BigInteger> futVal = compute.<BigInteger>future();
 

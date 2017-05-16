@@ -17,8 +17,15 @@
 
 package org.apache.ignite.examples;
 
-import org.apache.ignite.examples.computegrid.*;
-import org.apache.ignite.testframework.junits.common.*;
+import org.apache.ignite.examples.computegrid.ComputeBroadcastExample;
+import org.apache.ignite.examples.computegrid.ComputeCallableExample;
+import org.apache.ignite.examples.computegrid.ComputeClosureExample;
+import org.apache.ignite.examples.computegrid.ComputeReducerExample;
+import org.apache.ignite.examples.computegrid.ComputeRunnableExample;
+import org.apache.ignite.examples.computegrid.ComputeTaskMapExample;
+import org.apache.ignite.examples.computegrid.ComputeTaskSplitExample;
+import org.apache.ignite.examples.datastructures.IgniteExecutorServiceExample;
+import org.apache.ignite.testframework.junits.common.GridAbstractExamplesTest;
 
 /**
  * Closure examples self test.
@@ -49,7 +56,7 @@ public class BasicExamplesSelfTest extends GridAbstractExamplesTest {
      * @throws Exception If failed.
      */
     public void testExecutorExample() throws Exception {
-        ComputeExecutorServiceExample.main(EMPTY_ARGS);
+        IgniteExecutorServiceExample.main(EMPTY_ARGS);
     }
 
     /**

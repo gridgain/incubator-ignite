@@ -58,7 +58,7 @@ fi
 # Set IGNITE_LIBS.
 #
 . "${SCRIPTS_HOME}"/include/setenv.sh
-. "${SCRIPTS_HOME}"/include/target-classpath.sh # Will be removed in release.
+. "${SCRIPTS_HOME}"/include/build-classpath.sh # Will be removed in the binary release.
 CP="${IGNITE_LIBS}"
 
 RANDOM_NUMBER=$("$JAVA" -cp "${CP}" org.apache.ignite.startup.cmdline.CommandLineRandomNumberGenerator)
@@ -71,7 +71,11 @@ RESTART_SUCCESS_OPT="-DIGNITE_SUCCESS_FILE=${RESTART_SUCCESS_FILE}"
 #
 # You can specify IGNITE_JMX_PORT environment variable for overriding automatically found JMX port
 #
-findAvailableJmxPort
+# This is executed when -nojmx is not specified
+#
+if [ "${NOJMX}" == "0" ] ; then
+    findAvailableJmxPort
+fi
 
 # Mac OS specific support to display correct name in the dock.
 osname=`uname`
@@ -86,7 +90,11 @@ fi
 # ADD YOUR/CHANGE ADDITIONAL OPTIONS HERE
 #
 if [ -z "$JVM_OPTS" ] ; then
-    JVM_OPTS="-Xms1g -Xmx1g -server -XX:+AggressiveOpts -XX:MaxPermSize=256m"
+    if [[ `"$JAVA" -version 2>&1 | egrep "1\.[7]\."` ]]; then
+        JVM_OPTS="-Xms1g -Xmx1g -server -XX:+AggressiveOpts -XX:MaxPermSize=256m"
+    else
+        JVM_OPTS="-Xms1g -Xmx1g -server -XX:+AggressiveOpts -XX:MaxMetaspaceSize=256m"
+    fi
 fi
 
 #
@@ -130,7 +138,7 @@ fi
 # Remote debugging (JPDA).
 # Uncomment and change if remote debugging is required.
 #
-# JVM_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,address=8787,server=y,suspend=n ${JVM_OPTS}"
+# JVM_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8787 ${JVM_OPTS}"
 
 ERRORCODE="-1"
 

@@ -17,28 +17,59 @@
 
 package org.apache.ignite.internal.processors.cache.datastructures;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.datastructures.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.cache.event.CacheEntryEvent;
+import javax.cache.event.CacheEntryUpdatedListener;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteSet;
+import org.apache.ignite.cache.CacheEntryEventSerializableFilter;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheAffinityManager;
+import org.apache.ignite.internal.processors.cache.GridCacheGateway;
+import org.apache.ignite.internal.processors.cache.GridCacheManagerAdapter;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.datastructures.DataStructuresProcessor;
+import org.apache.ignite.internal.processors.datastructures.GridAtomicCacheQueueImpl;
+import org.apache.ignite.internal.processors.datastructures.GridCacheQueueHeader;
+import org.apache.ignite.internal.processors.datastructures.GridCacheQueueHeaderKey;
+import org.apache.ignite.internal.processors.datastructures.GridCacheQueueProxy;
+import org.apache.ignite.internal.processors.datastructures.GridCacheSetHeader;
+import org.apache.ignite.internal.processors.datastructures.GridCacheSetHeaderKey;
+import org.apache.ignite.internal.processors.datastructures.GridCacheSetImpl;
+import org.apache.ignite.internal.processors.datastructures.GridCacheSetProxy;
+import org.apache.ignite.internal.processors.datastructures.GridTransactionalCacheQueueImpl;
+import org.apache.ignite.internal.processors.datastructures.SetItemKey;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.GridConcurrentHashSet;
+import org.apache.ignite.internal.util.GridSpinBusyLock;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
-import javax.cache.event.*;
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.internal.GridClosureCallMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.internal.GridClosureCallMode.BROADCAST;
 
 /**
  *
@@ -48,14 +79,14 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
     private final ConcurrentMap<IgniteUuid, GridCacheSetProxy> setsMap;
 
     /** Set keys used for set iteration. */
-    private ConcurrentMap<IgniteUuid, GridConcurrentHashSet<GridCacheSetItemKey>> setDataMap =
+    private ConcurrentMap<IgniteUuid, GridConcurrentHashSet<SetItemKey>> setDataMap =
         new ConcurrentHashMap8<>();
 
     /** Queues map. */
     private final ConcurrentMap<IgniteUuid, GridCacheQueueProxy> queuesMap;
 
     /** Queue header view.  */
-    private CacheProjection<GridCacheQueueHeaderKey, GridCacheQueueHeader> queueHdrView;
+    private IgniteInternalCache<GridCacheQueueHeaderKey, GridCacheQueueHeader> queueHdrView;
 
     /** Query notifying about queue update. */
     private UUID queueQryId;
@@ -84,7 +115,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
     /** {@inheritDoc} */
     @Override protected void onKernalStart0() throws IgniteCheckedException {
         try {
-            queueHdrView = cctx.cache().projection(GridCacheQueueHeaderKey.class, GridCacheQueueHeader.class);
+            queueHdrView = cctx.cache();
 
             initFlag = true;
         }
@@ -102,6 +133,41 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
 
         for (GridCacheQueueProxy q : queuesMap.values())
             q.delegate().onKernalStop();
+    }
+
+    /**
+     * @param set Set.
+     */
+    public void onRemoved(GridCacheSetProxy set) {
+        setsMap.remove(set.delegate().id(), set);
+    }
+
+    /**
+     * @param clusterRestarted Cluster restarted flag.
+     * @throws IgniteCheckedException If failed.
+     */
+    public void onReconnected(boolean clusterRestarted) throws IgniteCheckedException {
+        for (Map.Entry<IgniteUuid, GridCacheSetProxy> e : setsMap.entrySet()) {
+            GridCacheSetProxy set = e.getValue();
+
+            if (clusterRestarted) {
+                set.blockOnRemove();
+
+                setsMap.remove(e.getKey(), set);
+            }
+            else
+                set.needCheckNotRemoved();
+        }
+
+        for (Map.Entry<IgniteUuid, GridCacheQueueProxy> e : queuesMap.entrySet()) {
+            GridCacheQueueProxy queue = e.getValue();
+
+            if (clusterRestarted) {
+                queue.delegate().onRemoved(false);
+
+                queuesMap.remove(e.getKey(), queue);
+            }
+        }
     }
 
     /**
@@ -164,7 +230,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
             if (create) {
                 hdr = new GridCacheQueueHeader(IgniteUuid.randomUuid(), cap, colloc, 0, 0, null);
 
-                GridCacheQueueHeader old = queueHdrView.putIfAbsent(key, hdr);
+                GridCacheQueueHeader old = queueHdrView.withNoRetries().getAndPutIfAbsent(key, hdr);
 
                 if (old != null) {
                     if (old.capacity() != cap || old.collocated() != colloc)
@@ -217,8 +283,9 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
                         }
                     },
                     new QueueHeaderPredicate(),
-                    cctx.isLocal() || cctx.isReplicated(),
-                    true);
+                    cctx.isLocal() || (cctx.isReplicated() && cctx.affinityNode()),
+                    true,
+                    false);
             }
 
             GridCacheQueueProxy queue = queuesMap.get(hdr.id());
@@ -245,12 +312,18 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
      *
      * @param key Key.
      * @param rmv {@code True} if entry was removed.
+     * @param keepBinary Keep binary flag.
      */
-    public void onEntryUpdated(KeyCacheObject key, boolean rmv) {
-        Object key0 = key.value(cctx.cacheObjectContext(), false);
+    public void onEntryUpdated(KeyCacheObject key, boolean rmv, boolean keepBinary) {
+        // No need to notify data structures manager for a user cache since all DS objects are stored
+        // in system caches.
+        if (cctx.userCache())
+            return;
 
-        if (key0 instanceof GridCacheSetItemKey)
-            onSetItemUpdated((GridCacheSetItemKey)key0, rmv);
+        Object key0 = cctx.cacheObjectContext().unwrapBinaryIfNeeded(key, keepBinary, false);
+
+        if (key0 instanceof SetItemKey)
+            onSetItemUpdated((SetItemKey)key0, rmv);
     }
 
     /**
@@ -261,11 +334,11 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
     public void onPartitionEvicted(int part) {
         GridCacheAffinityManager aff = cctx.affinity();
 
-        for (GridConcurrentHashSet<GridCacheSetItemKey> set : setDataMap.values()) {
-            Iterator<GridCacheSetItemKey> iter = set.iterator();
+        for (GridConcurrentHashSet<SetItemKey> set : setDataMap.values()) {
+            Iterator<SetItemKey> iter = set.iterator();
 
             while (iter.hasNext()) {
-                GridCacheSetItemKey key = iter.next();
+                SetItemKey key = iter.next();
 
                 if (aff.partition(key) == part)
                     iter.remove();
@@ -312,12 +385,12 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
 
             GridCacheSetHeader hdr;
 
-            GridCacheAdapter cache = cctx.cache();
+            IgniteInternalCache cache = cctx.cache().withNoRetries();
 
             if (create) {
                 hdr = new GridCacheSetHeader(IgniteUuid.randomUuid(), collocated);
 
-                GridCacheSetHeader old = retryPutIfAbsent(cache, key, hdr);
+                GridCacheSetHeader old = (GridCacheSetHeader)cache.getAndPutIfAbsent(key, hdr);
 
                 if (old != null)
                     hdr = old;
@@ -349,7 +422,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
      * @param id Set ID.
      * @return Data for given set.
      */
-    @Nullable public GridConcurrentHashSet<GridCacheSetItemKey> setData(IgniteUuid id) {
+    @Nullable public GridConcurrentHashSet<SetItemKey> setData(IgniteUuid id) {
         return setDataMap.get(id);
     }
 
@@ -359,7 +432,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
      * @throws IgniteCheckedException If failed.
      */
     @SuppressWarnings("unchecked")
-    private void removeSetData(IgniteUuid setId, long topVer) throws IgniteCheckedException {
+    private void removeSetData(IgniteUuid setId, AffinityTopologyVersion topVer) throws IgniteCheckedException {
         boolean loc = cctx.isLocal();
 
         GridCacheAffinityManager aff = cctx.affinity();
@@ -370,18 +443,18 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
             cctx.preloader().syncFuture().get();
         }
 
-        GridConcurrentHashSet<GridCacheSetItemKey> set = setDataMap.get(setId);
+        GridConcurrentHashSet<SetItemKey> set = setDataMap.get(setId);
 
         if (set == null)
             return;
 
-        GridCache cache = cctx.cache();
+        IgniteInternalCache cache = cctx.cache();
 
         final int BATCH_SIZE = 100;
 
-        Collection<GridCacheSetItemKey> keys = new ArrayList<>(BATCH_SIZE);
+        Collection<SetItemKey> keys = new ArrayList<>(BATCH_SIZE);
 
-        for (GridCacheSetItemKey key : set) {
+        for (SetItemKey key : set) {
             if (!loc && !aff.primary(cctx.localNode(), key, topVer))
                 continue;
 
@@ -410,7 +483,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
 
         if (!cctx.isLocal()) {
             while (true) {
-                long topVer = cctx.topologyVersionFuture().get();
+                AffinityTopologyVersion topVer = cctx.topologyVersionFuture().get();
 
                 Collection<ClusterNode> nodes = CU.affinityNodes(cctx, topVer);
 
@@ -421,9 +494,15 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
                         true).get();
                 }
                 catch (IgniteCheckedException e) {
-                    if (e.hasCause(ClusterTopologyException.class)) {
+                    if (e.hasCause(ClusterTopologyCheckedException.class)) {
                         if (log.isDebugEnabled())
                             log.debug("RemoveSetData job failed, will retry: " + e);
+
+                        continue;
+                    }
+                    else if (!pingNodes(nodes)) {
+                        if (log.isDebugEnabled())
+                            log.debug("RemoveSetData job failed and set data node left, will retry: " + e);
 
                         continue;
                     }
@@ -438,9 +517,15 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
                         true).get();
                 }
                 catch (IgniteCheckedException e) {
-                    if (e.hasCause(ClusterTopologyException.class)) {
+                    if (e.hasCause(ClusterTopologyCheckedException.class)) {
                         if (log.isDebugEnabled())
                             log.debug("RemoveSetData job failed, will retry: " + e);
+
+                        continue;
+                    }
+                    else if (!pingNodes(nodes)) {
+                        if (log.isDebugEnabled())
+                            log.debug("RemoveSetData job failed and set data node left, will retry: " + e);
 
                         continue;
                     }
@@ -448,29 +533,43 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
                         throw e;
                 }
 
-                if (cctx.topologyVersionFuture().get() == topVer)
+                if (topVer.equals(cctx.topologyVersionFuture().get()))
                     break;
             }
         }
         else {
             blockSet(id);
 
-            cctx.dataStructures().removeSetData(id, 0);
+            cctx.dataStructures().removeSetData(id, AffinityTopologyVersion.ZERO);
         }
+    }
+
+    /**
+     * @param nodes Nodes to ping.
+     * @return {@code True} if was able to ping all nodes.
+     * @throws IgniteCheckedException If failed/
+     */
+    private boolean pingNodes(Collection<ClusterNode> nodes) throws IgniteCheckedException {
+        for (ClusterNode node : nodes) {
+            if (!cctx.discovery().pingNode(node.id()))
+                return false;
+        }
+
+        return true;
     }
 
     /**
      * @param key Set item key.
      * @param rmv {@code True} if item was removed.
      */
-    private void onSetItemUpdated(GridCacheSetItemKey key, boolean rmv) {
-        GridConcurrentHashSet<GridCacheSetItemKey> set = setDataMap.get(key.setId());
+    private void onSetItemUpdated(SetItemKey key, boolean rmv) {
+        GridConcurrentHashSet<SetItemKey> set = setDataMap.get(key.setId());
 
         if (set == null) {
             if (rmv)
                 return;
 
-            GridConcurrentHashSet<GridCacheSetItemKey> old = setDataMap.putIfAbsent(key.setId(),
+            GridConcurrentHashSet<SetItemKey> old = setDataMap.putIfAbsent(key.setId(),
                 set = new GridConcurrentHashSet<>());
 
             if (old != null)
@@ -496,28 +595,11 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
 
     /**
      * @param cache Cache.
-     * @param key Key.
-     * @param val Value.
-     * @throws IgniteCheckedException If failed.
-     * @return Previous value.
-     */
-    @SuppressWarnings("unchecked")
-    @Nullable private <T> T retryPutIfAbsent(final GridCache cache, final Object key, final T val)
-        throws IgniteCheckedException {
-        return DataStructuresProcessor.retry(log, new Callable<T>() {
-            @Nullable @Override public T call() throws Exception {
-                return (T)cache.putIfAbsent(key, val);
-            }
-        });
-    }
-
-    /**
-     * @param cache Cache.
      * @param keys Keys to remove.
      * @throws IgniteCheckedException If failed.
      */
     @SuppressWarnings("unchecked")
-    private void retryRemoveAll(final GridCache cache, final Collection<GridCacheSetItemKey> keys)
+    private void retryRemoveAll(final IgniteInternalCache cache, final Collection<SetItemKey> keys)
         throws IgniteCheckedException {
         DataStructuresProcessor.retry(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
@@ -531,7 +613,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
     /**
      * Predicate for queue continuous query.
      */
-    private static class QueueHeaderPredicate<K, V> implements CacheEntryEventFilter<K, V>,
+    private static class QueueHeaderPredicate<K, V> implements CacheEntryEventSerializableFilter<K, V>,
         Externalizable {
         /** */
         private static final long serialVersionUID = 0L;
@@ -643,7 +725,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
         private IgniteUuid setId;
 
         /** */
-        private long topVer;
+        private AffinityTopologyVersion topVer;
 
         /**
          * Required by {@link Externalizable}.
@@ -657,7 +739,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
          * @param setId Set ID.
          * @param topVer Topology version.
          */
-        private RemoveSetDataCallable(String cacheName, IgniteUuid setId, long topVer) {
+        private RemoveSetDataCallable(String cacheName, IgniteUuid setId, @NotNull AffinityTopologyVersion topVer) {
             this.cacheName = cacheName;
             this.setId = setId;
             this.topVer = topVer;
@@ -689,14 +771,14 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
         @Override public void writeExternal(ObjectOutput out) throws IOException {
             U.writeString(out, cacheName);
             U.writeGridUuid(out, setId);
-            out.writeLong(topVer);
+            out.writeObject(topVer);
         }
 
         /** {@inheritDoc} */
         @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
             cacheName = U.readString(in);
             setId = U.readGridUuid(in);
-            topVer = in.readLong();
+            topVer = (AffinityTopologyVersion)in.readObject();
         }
 
         /** {@inheritDoc} */

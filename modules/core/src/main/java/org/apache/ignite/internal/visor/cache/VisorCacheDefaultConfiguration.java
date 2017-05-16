@@ -17,26 +17,20 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Data transfer object for default cache configuration properties.
  */
-public class VisorCacheDefaultConfiguration implements Serializable {
+public class VisorCacheDefaultConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
-    /** TTL value. */
-    private long ttl;
-
     /** Default transaction timeout. */
     private long txLockTimeout;
-
-    /** Default query timeout. */
-    private long qryTimeout;
 
     /**
      * @param ccfg Cache configuration.
@@ -45,17 +39,9 @@ public class VisorCacheDefaultConfiguration implements Serializable {
     public static VisorCacheDefaultConfiguration from(CacheConfiguration ccfg) {
         VisorCacheDefaultConfiguration cfg = new VisorCacheDefaultConfiguration();
 
-        cfg.ttl = ccfg.getDefaultTimeToLive();
         cfg.txLockTimeout = ccfg.getDefaultLockTimeout();
 
         return cfg;
-    }
-
-    /**
-     * @return TTL value.
-     */
-    public long timeToLive() {
-        return ttl;
     }
 
     /**
@@ -63,13 +49,6 @@ public class VisorCacheDefaultConfiguration implements Serializable {
      */
     public long txLockTimeout() {
         return txLockTimeout;
-    }
-
-    /**
-     * @return Default query timeout.
-     */
-    public long queryTimeout() {
-        return qryTimeout;
     }
 
     /** {@inheritDoc} */

@@ -17,11 +17,17 @@
 
 package org.apache.ignite.util.mbeans;
 
-import org.apache.ignite.internal.mxbean.*;
-import org.apache.ignite.mxbean.*;
-import org.apache.ignite.testframework.junits.common.*;
-
-import javax.management.*;
+import javax.management.MBeanAttributeInfo;
+import javax.management.MBeanInfo;
+import javax.management.MBeanOperationInfo;
+import javax.management.MBeanParameterInfo;
+import javax.management.StandardMBean;
+import org.apache.ignite.internal.mxbean.IgniteStandardMXBean;
+import org.apache.ignite.mxbean.IgniteMXBean;
+import org.apache.ignite.mxbean.MXBeanDescription;
+import org.apache.ignite.mxbean.MXBeanParametersDescriptions;
+import org.apache.ignite.mxbean.MXBeanParametersNames;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 /**
  * MBean test.
@@ -35,13 +41,13 @@ public class GridMBeanSelfTest extends GridCommonAbstractTest {
     public void testCorrectMBeanInfo() throws Exception {
         StandardMBean mbean = new IgniteStandardMXBean(new GridMBeanImplementation(), GridMBeanInterface.class);
 
-        MBeanInfo info =  mbean.getMBeanInfo();
+        MBeanInfo info = mbean.getMBeanInfo();
 
         assert info.getDescription().equals("MBeanDescription.") == true;
 
         assert info.getOperations().length == 2;
 
-        for (MBeanOperationInfo opInfo: info.getOperations()) {
+        for (MBeanOperationInfo opInfo : info.getOperations()) {
             if (opInfo.getDescription().equals("MBeanOperation."))
                 assert opInfo.getSignature().length == 2;
             else {
@@ -50,7 +56,7 @@ public class GridMBeanSelfTest extends GridCommonAbstractTest {
             }
         }
 
-        for (MBeanParameterInfo paramInfo: info.getOperations()[0].getSignature()) {
+        for (MBeanParameterInfo paramInfo : info.getOperations()[0].getSignature()) {
             if (paramInfo.getName().equals("ignored"))
                 assert paramInfo.getDescription().equals("MBeanOperationParameter1.") == true;
             else {
@@ -59,9 +65,9 @@ public class GridMBeanSelfTest extends GridCommonAbstractTest {
             }
         }
 
-        assert info.getAttributes().length == 4: "Expected 4 attributes but got " + info.getAttributes().length;
+        assert info.getAttributes().length == 4 : "Expected 4 attributes but got " + info.getAttributes().length;
 
-        for (MBeanAttributeInfo attrInfo: info.getAttributes()) {
+        for (MBeanAttributeInfo attrInfo : info.getAttributes()) {
             if (attrInfo.isWritable() == false) {
                 assert (attrInfo.getDescription().equals("MBeanReadonlyGetter.") == true ||
                     attrInfo.getDescription().equals("MBeanROGetter."));
@@ -75,6 +81,7 @@ public class GridMBeanSelfTest extends GridCommonAbstractTest {
 
     /**
      * Tests correct MBean interface.
+     *
      * @throws Exception Thrown if test fails.
      */
     public void testMissedNameMBeanInfo() throws Exception {
@@ -92,6 +99,7 @@ public class GridMBeanSelfTest extends GridCommonAbstractTest {
 
     /**
      * Tests correct MBean interface.
+     *
      * @throws Exception Thrown if test fails.
      */
     public void testMissedDescriptionMBeanInfo() throws Exception {
@@ -110,6 +118,7 @@ public class GridMBeanSelfTest extends GridCommonAbstractTest {
 
     /**
      * Tests correct MBean interface.
+     *
      * @throws Exception Thrown if test fails.
      */
     public void testEmptyDescriptionMBeanInfo() throws Exception {
@@ -128,6 +137,7 @@ public class GridMBeanSelfTest extends GridCommonAbstractTest {
 
     /**
      * Tests correct MBean interface.
+     *
      * @throws Exception Thrown if test fails.
      */
     public void testEmptyNameMBeanInfo() throws Exception {
@@ -142,6 +152,23 @@ public class GridMBeanSelfTest extends GridCommonAbstractTest {
         }
 
         assert false;
+    }
+
+    /**
+     * Tests correct MBean interface.
+     *
+     * @throws Exception Thrown if test fails.
+     */
+    public void testIgniteKernalReturnsValidMBeanInfo() throws Exception {
+        try {
+            IgniteMXBean ignite = (IgniteMXBean)startGrid();
+
+            assertNotNull(ignite.getUserAttributesFormatted());
+            assertNotNull(ignite.getLifecycleBeansFormatted());
+        }
+        finally {
+            stopAllGrids();
+        }
     }
 
     /**
@@ -206,6 +233,7 @@ public class GridMBeanSelfTest extends GridCommonAbstractTest {
 
         /**
          * Test boolean setter.
+         *
          * @param isWritable Just a boolean.
          */
         public void setWritable(boolean isWritable);

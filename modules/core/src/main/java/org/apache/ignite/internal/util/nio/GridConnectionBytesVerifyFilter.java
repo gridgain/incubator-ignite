@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.util.nio;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.nio.*;
+import java.nio.ByteBuffer;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Verifies that first bytes received in accepted (incoming)
@@ -114,7 +115,7 @@ public class GridConnectionBytesVerifyFilter extends GridNioFilterAdapter {
             else {
                 ses.close();
 
-                LT.warn(log, null, "Unknown connection detected (is some other software connecting to this " +
+                LT.warn(log, "Unknown connection detected (is some other software connecting to this " +
                     "Ignite port?) [rmtAddr=" + ses.remoteAddress() + ", locAddr=" + ses.localAddress() + ']');
             }
         }

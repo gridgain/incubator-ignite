@@ -17,29 +17,34 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jdk8.backport.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import javax.cache.integration.CompletionListenerFuture;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheAtomicWriteOrderMode;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.cache.store.CacheStoreAdapter;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jsr166.ConcurrentHashMap8;
 
-import javax.cache.configuration.*;
-import javax.cache.integration.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.CLOCK;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Check reloadAll() on partitioned cache.
@@ -73,7 +78,8 @@ public abstract class GridCachePartitionedReloadAllAbstractSelfTest extends Grid
 
         CacheConfiguration cc = defaultCacheConfiguration();
 
-        cc.setDistributionMode(nearEnabled() ? NEAR_PARTITIONED : PARTITIONED_ONLY);
+        if (!nearEnabled())
+            cc.setNearConfiguration(null);
 
         cc.setCacheMode(cacheMode());
 
@@ -86,7 +92,7 @@ public abstract class GridCachePartitionedReloadAllAbstractSelfTest extends Grid
         CacheStore store = cacheStore();
 
         if (store != null) {
-            cc.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(store));
+            cc.setCacheStoreFactory(singletonFactory(store));
             cc.setReadThrough(true);
             cc.setWriteThrough(true);
             cc.setLoadPreviousValue(true);
@@ -132,7 +138,7 @@ public abstract class GridCachePartitionedReloadAllAbstractSelfTest extends Grid
         caches = new ArrayList<>(GRID_CNT);
 
         for (int i = 0; i < GRID_CNT; i++)
-            caches.add(startGrid(i).<Integer, String>jcache(null));
+            caches.add(startGrid(i).<Integer, String>cache(null));
 
         awaitPartitionMapExchange();
     }
@@ -158,7 +164,7 @@ public abstract class GridCachePartitionedReloadAllAbstractSelfTest extends Grid
 
             @Override public void loadCache(IgniteBiInClosure<Integer, String> c,
                 Object... args) {
-                X.println("Loading all on: " + caches.indexOf(((IgniteKernal)g).<Integer, String>cache(null)));
+                X.println("Loading all on: " + caches.indexOf(((IgniteKernal)g).<Integer, String>getCache(null)));
 
                 for (Map.Entry<Integer, String> e : map.entrySet())
                     c.apply(e.getKey(), e.getValue());
@@ -166,7 +172,7 @@ public abstract class GridCachePartitionedReloadAllAbstractSelfTest extends Grid
 
             @Override public String load(Integer key) {
                 X.println("Loading on: " + caches.indexOf(((IgniteKernal)g)
-                    .<Integer, String>cache(null)) + " key=" + key);
+                    .<Integer, String>getCache(null)) + " key=" + key);
 
                 return map.get(key);
             }
@@ -201,7 +207,7 @@ public abstract class GridCachePartitionedReloadAllAbstractSelfTest extends Grid
 
         fut.get();
 
-        CacheAffinity aff = ignite(0).affinity(null);
+        Affinity aff = ignite(0).affinity(null);
 
         for (IgniteCache<Integer, String> cache : caches) {
             for (Integer key : map.keySet()) {

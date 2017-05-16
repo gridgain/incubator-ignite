@@ -17,14 +17,23 @@
 
 package org.apache.ignite.spi.collision.priorityqueue;
 
-import org.apache.ignite.*;
-import org.apache.ignite.spi.collision.*;
-import org.apache.ignite.testframework.junits.spi.*;
-import org.jetbrains.annotations.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import org.apache.ignite.GridTestJobContext;
+import org.apache.ignite.spi.collision.CollisionJobContext;
+import org.apache.ignite.spi.collision.GridCollisionTestContext;
+import org.apache.ignite.spi.collision.GridTestCollisionJobContext;
+import org.apache.ignite.spi.collision.GridTestCollisionTaskSession;
+import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
+import org.apache.ignite.testframework.junits.spi.GridSpiTest;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
-
-import static org.apache.ignite.spi.collision.priorityqueue.PriorityQueueCollisionSpi.*;
+import static org.apache.ignite.spi.collision.priorityqueue.PriorityQueueCollisionSpi.DFLT_JOB_PRIORITY_ATTRIBUTE_KEY;
+import static org.apache.ignite.spi.collision.priorityqueue.PriorityQueueCollisionSpi.DFLT_PARALLEL_JOBS_NUM;
+import static org.apache.ignite.spi.collision.priorityqueue.PriorityQueueCollisionSpi.DFLT_PRIORITY_ATTRIBUTE_KEY;
+import static org.apache.ignite.spi.collision.priorityqueue.PriorityQueueCollisionSpi.DFLT_STARVATION_INCREMENT;
 
 /**
  * Priority queue collision SPI test.
@@ -32,7 +41,7 @@ import static org.apache.ignite.spi.collision.priorityqueue.PriorityQueueCollisi
 @GridSpiTest(spi = PriorityQueueCollisionSpi.class, group = "Collision SPI")
 public class GridPriorityQueueCollisionSpiSelfTest extends GridSpiAbstractTest<PriorityQueueCollisionSpi> {
     /** {@inheritDoc} */
-    @Override protected void afterTest() {
+    @Override protected void afterTest() throws Exception {
         getSpi().setParallelJobsNumber(DFLT_PARALLEL_JOBS_NUM);
     }
 

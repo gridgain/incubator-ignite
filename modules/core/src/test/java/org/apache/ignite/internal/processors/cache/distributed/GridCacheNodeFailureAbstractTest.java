@@ -17,30 +17,40 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.transactions.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.locks.Lock;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteState;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.DeploymentMode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.P1;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
 
-import java.util.*;
-import java.util.concurrent.locks.*;
-
-import static org.apache.ignite.IgniteState.*;
-import static org.apache.ignite.IgniteSystemProperties.*;
-import static org.apache.ignite.events.EventType.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.IgniteState.STOPPED;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_TX_SALVAGE_TIMEOUT;
+import static org.apache.ignite.IgniteSystemProperties.getInteger;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
+import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 
 /**
  * Tests for node failure in transactions.
@@ -124,26 +134,17 @@ public abstract class GridCacheNodeFailureAbstractTest extends GridCommonAbstrac
      * @param i Grid index.
      * @return Cache.
      */
-    @Override protected <K, V> GridCache<K, V> cache(int i) {
-        return ((IgniteKernal)IGNITEs.get(i)).cache(null);
-    }
-
-    /**
-     * @param i Grid index.
-     * @return Cache.
-     */
     @Override protected <K, V> IgniteCache<K, V> jcache(int i) {
-        return IGNITEs.get(i).jcache(null);
+        return IGNITEs.get(i).cache(null);
     }
 
     /**
      * @throws IgniteCheckedException If test failed.
+     * 
+     * Note: test was disabled for REPPLICATED cache case because IGNITE-601.
+     * This comment should be removed if test passed stably.
      */
     public void testPessimisticReadCommitted() throws Throwable {
-        // TODO:  GG-7437.
-        if (jcache(0).getConfiguration(CacheConfiguration.class).getCacheMode() == CacheMode.REPLICATED)
-            return;
-
         checkTransaction(PESSIMISTIC, READ_COMMITTED);
     }
 
@@ -176,7 +177,7 @@ public abstract class GridCacheNodeFailureAbstractTest extends GridCommonAbstrac
         Transaction tx = g.transactions().txStart(concurrency, isolation);
 
         try {
-            g.jcache(null).put(KEY, VALUE);
+            g.cache(null).put(KEY, VALUE);
 
             int checkIdx = (idx + 1) % G.allGrids().size();
 
@@ -234,6 +235,9 @@ public abstract class GridCacheNodeFailureAbstractTest extends GridCommonAbstrac
 
     /**
      * @throws Exception If check failed.
+     * 
+     * Note: test was disabled for REPPLICATED cache case because IGNITE-601.
+     * This comment should be removed if test passed stably.
      */
     public void testLock() throws Exception {
         int idx = 0;
@@ -244,10 +248,6 @@ public abstract class GridCacheNodeFailureAbstractTest extends GridCommonAbstrac
             ", key=" + KEY + ']');
 
         IgniteCache<Integer, String> cache = jcache(idx);
-
-        // TODO:  GG-7437.
-        if (cache.getConfiguration(CacheConfiguration.class).getCacheMode() == CacheMode.REPLICATED)
-            return;
 
         cache.put(KEY, VALUE);
 

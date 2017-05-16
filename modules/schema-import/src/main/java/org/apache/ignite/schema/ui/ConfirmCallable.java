@@ -17,12 +17,14 @@
 
 package org.apache.ignite.schema.ui;
 
-import javafx.application.*;
-import javafx.stage.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.FutureTask;
+import javafx.application.Platform;
+import javafx.stage.Stage;
 
-import java.util.concurrent.*;
-
-import static org.apache.ignite.schema.ui.MessageBox.Result.*;
+import static org.apache.ignite.schema.ui.MessageBox.Result.NO;
+import static org.apache.ignite.schema.ui.MessageBox.Result.NO_TO_ALL;
+import static org.apache.ignite.schema.ui.MessageBox.Result.YES_TO_ALL;
 
 /**
  * Callable to ask user for confirmation from non EDT thread.
@@ -51,7 +53,7 @@ public class ConfirmCallable implements Callable<MessageBox.Result> {
 
     /** {@inheritDoc} */
     @Override public MessageBox.Result call() throws Exception {
-        choice = MessageBox.confirmRememberChoiceDialog(owner, String.format(template, msg));
+        choice = MessageBox.applyToAllChoiceDialog(owner, String.format(template, msg));
 
         return choice;
     }

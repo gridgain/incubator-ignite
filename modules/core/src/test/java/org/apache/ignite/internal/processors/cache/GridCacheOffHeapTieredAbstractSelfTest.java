@@ -17,26 +17,34 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.transactions.*;
-import org.jetbrains.annotations.*;
-import org.junit.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.locks.Lock;
+import javax.cache.Cache;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.MutableEntry;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 
-import javax.cache.*;
-import javax.cache.processor.*;
-import java.util.*;
-import java.util.concurrent.locks.*;
-
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMemoryMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.PRIMARY;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMemoryMode.OFFHEAP_TIERED;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  *
@@ -53,12 +61,12 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return PARTITIONED_ONLY;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return null;
     }
 
     /** {@inheritDoc} */
-    protected boolean portableEnabled() {
+    protected boolean binaryEnabled() {
         return false;
     }
 
@@ -78,7 +86,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     public void testTransform() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> cache = grid(0).cache(null);
 
         checkTransform(primaryKey(cache));
 
@@ -92,7 +100,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     private void checkTransform(Integer key) throws Exception {
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         c.invoke(key, new EntryProcessor<Integer, Integer, Void>() {
             @Override public Void process(MutableEntry<Integer, Integer> e, Object... args) {
@@ -159,7 +167,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     public void testPutGetRemove() throws Exception {
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         checkPutGetRemove(primaryKey(c));
 
@@ -172,7 +180,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     public void testPutGetRemoveByteArray() throws Exception {
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         checkPutGetRemoveByteArray(primaryKey(c));
 
@@ -186,7 +194,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     private void checkPutGetRemove(Integer key) throws Exception {
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         checkValue(key, null);
 
@@ -210,7 +218,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     private void checkPutGetRemoveByteArray(Integer key) throws Exception {
-        IgniteCache<Integer, byte[]> c = grid(0).jcache(null);
+        IgniteCache<Integer, byte[]> c = grid(0).cache(null);
 
         checkValue(key, null);
 
@@ -237,7 +245,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     private void checkPutGetRemoveTx(Integer key, TransactionConcurrency txConcurrency) throws Exception {
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         Transaction tx = grid(0).transactions().txStart(txConcurrency, REPEATABLE_READ);
 
@@ -262,7 +270,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     private void checkPutGetRemoveTxByteArray(Integer key, TransactionConcurrency txConcurrency) throws Exception {
-        IgniteCache<Integer, byte[]> c = grid(0).jcache(null);
+        IgniteCache<Integer, byte[]> c = grid(0).cache(null);
 
         Transaction tx = grid(0).transactions().txStart(txConcurrency, REPEATABLE_READ);
 
@@ -287,7 +295,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     public void testPromote() throws Exception {
-        IgniteCache<Integer, TestValue> c = grid(0).jcache(null);
+        IgniteCache<Integer, TestValue> c = grid(0).cache(null);
 
         TestValue val = new TestValue(new byte[100 * 1024]);
 
@@ -314,7 +322,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
         for (int i = 0; i < 100; i++)
             map.put(i, i);
 
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         Map<Integer, Integer> map0 = c.getAll(map.keySet());
 
@@ -373,7 +381,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
         for (int i = 0; i < 100; i++)
             map.put(i, i);
 
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         Map<Integer, Integer> map0 = c.getAll(map.keySet());
 
@@ -410,7 +418,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     public void testPutGetRemoveObject() throws Exception {
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         checkPutGetRemoveObject(primaryKey(c));
 
@@ -424,7 +432,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     private void checkPutGetRemoveObject(Integer key) throws Exception {
-        IgniteCache<Integer, TestValue> c = grid(0).jcache(null);
+        IgniteCache<Integer, TestValue> c = grid(0).cache(null);
 
         checkValue(key, null);
 
@@ -436,14 +444,14 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
 
         TestValue val2 = new TestValue(new byte[10]);
 
-        if (portableEnabled()) // TODO: 9271, check return value when fixed.
+        if (binaryEnabled()) // TODO: IGNITE-608, check return value when fixed.
             c.put(key, val);
         else
             assertEquals(val, c.getAndPut(key, val));
 
         checkValue(key, val2);
 
-        if (portableEnabled()) // TODO: 9271, check return value when fixed.
+        if (binaryEnabled()) // TODO: IGNITE-608, check return value when fixed.
             c.remove(key);
         else
             assertEquals(val2, c.getAndRemove(key));
@@ -463,7 +471,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     private void checkPutGetRemoveObjectTx(Integer key, TransactionConcurrency txConcurrency) throws Exception {
-        IgniteCache<Integer, TestValue> c = grid(0).jcache(null);
+        IgniteCache<Integer, TestValue> c = grid(0).cache(null);
 
         TestValue val = new TestValue(new byte[10]);
 
@@ -491,7 +499,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
         if (atomicityMode() == ATOMIC)
             return;
 
-        IgniteCache<Integer, TestValue> c = grid(0).jcache(null);
+        IgniteCache<Integer, TestValue> c = grid(0).cache(null);
 
         checkLockUnlock(primaryKey(c));
 
@@ -506,7 +514,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      */
     @SuppressWarnings("UnnecessaryLocalVariable")
     private void checkLockUnlock(Integer key) throws Exception {
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         Integer val = key;
 
@@ -539,10 +547,10 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
             if (val != null && val.getClass() == byte[].class) {
                 Assert.assertArrayEquals("Unexpected value for grid: " + i,
                     (byte[])val,
-                    (byte[])grid(i).jcache(null).get(key));
+                    (byte[])grid(i).cache(null).get(key));
             }
             else
-                assertEquals("Unexpected value for grid: " + i, val, grid(i).jcache(null).get(key));
+                assertEquals("Unexpected value for grid: " + i, val, grid(i).cache(null).get(key));
         }
     }
 
@@ -550,7 +558,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     public void testUnswap() throws Exception {
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         checkUnswap(primaryKey(c));
 
@@ -564,10 +572,10 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
      * @throws Exception If failed.
      */
     private void checkUnswap(Integer key) throws Exception {
-        IgniteCache<Integer, Integer> c = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> c = grid(0).cache(null);
 
         for (int i = 0; i < gridCount(); i++) {
-            assertEquals("Unexpected entries for grid: " + i, 0, internalCache(i).offHeapEntriesCount());
+            assertEquals("Unexpected entries for grid: " + i, 0, grid(i).cache(null).localSize(CachePeekMode.OFFHEAP));
 
             assertEquals("Unexpected offheap size for grid: " + i, 0, internalCache(i).offHeapAllocatedSize());
         }
@@ -587,7 +595,7 @@ public abstract class GridCacheOffHeapTieredAbstractSelfTest extends GridCacheAb
         assertNull(c.localPeek(key, CachePeekMode.ONHEAP));
 
         for (int i = 0; i < gridCount(); i++) {
-            assertEquals("Unexpected entries for grid: " + i, 0, internalCache(i).offHeapEntriesCount());
+            assertEquals("Unexpected entries for grid: " + i, 0, grid(i).cache(null).localSize(CachePeekMode.OFFHEAP));
 
             assertEquals("Unexpected offheap size for grid: " + i, 0, internalCache(i).offHeapAllocatedSize());
         }

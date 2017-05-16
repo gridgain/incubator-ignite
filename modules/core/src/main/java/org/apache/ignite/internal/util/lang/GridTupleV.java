@@ -17,11 +17,17 @@
 
 package org.apache.ignite.internal.util.lang;
 
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Constructs a tuple over a given array.
@@ -31,6 +37,7 @@ import java.util.*;
  * synchronization, if needed.
  * @see GridFunc#tv(Object...)
  */
+@Deprecated
 public class GridTupleV implements Iterable<Object>, Externalizable, Cloneable {
     /** */
     private static final long serialVersionUID = 0L;

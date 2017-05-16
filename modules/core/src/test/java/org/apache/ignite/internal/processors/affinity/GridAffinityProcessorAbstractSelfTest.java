@@ -17,21 +17,23 @@
 
 package org.apache.ignite.internal.processors.affinity;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Random;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
 
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Tests for {@link GridAffinityProcessor}.
@@ -56,6 +58,7 @@ public abstract class GridAffinityProcessorAbstractSelfTest extends GridCommonAb
 
         TcpDiscoverySpi discoSpi = new TcpDiscoverySpi();
 
+        discoSpi.setForceServerMode(true);
         discoSpi.setIpFinder(ipFinder);
 
         cfg.setDiscoverySpi(discoSpi);
@@ -70,6 +73,8 @@ public abstract class GridAffinityProcessorAbstractSelfTest extends GridCommonAb
 
             cfg.setCacheConfiguration(cacheCfg);
         }
+        else
+            cfg.setClientMode(true);
 
         return cfg;
     }
@@ -79,7 +84,7 @@ public abstract class GridAffinityProcessorAbstractSelfTest extends GridCommonAb
      *
      * @return Affinity function.
      */
-    protected abstract CacheAffinityFunction affinityFunction();
+    protected abstract AffinityFunction affinityFunction();
 
     /** {@inheritDoc} */
     @SuppressWarnings({"ConstantConditions"})
@@ -117,15 +122,7 @@ public abstract class GridAffinityProcessorAbstractSelfTest extends GridCommonAb
         assertEquals(NODES_CNT * 2, grid1.cluster().nodes().size());
         assertEquals(NODES_CNT * 2, grid2.cluster().nodes().size());
 
-        GridTestUtils.assertThrows(log, new Callable<Void>() {
-            @Override public Void call() throws Exception {
-                grid1.jcache(CACHE_NAME);
-
-                return null;
-            }
-        }, IllegalArgumentException.class, null);
-
-        IgniteCache<Integer, Integer> cache = grid2.jcache(CACHE_NAME);
+        IgniteCache<Integer, Integer> cache = grid2.cache(CACHE_NAME);
 
         assertNotNull(cache);
 
@@ -183,7 +180,7 @@ public abstract class GridAffinityProcessorAbstractSelfTest extends GridCommonAb
         int iterations = 10000000;
 
         for (int i = 0; i < iterations; i++)
-            aff.mapKeyToNode(keys);
+            aff.mapKeyToNode(null, keys);
 
         long diff = System.currentTimeMillis() - start;
 

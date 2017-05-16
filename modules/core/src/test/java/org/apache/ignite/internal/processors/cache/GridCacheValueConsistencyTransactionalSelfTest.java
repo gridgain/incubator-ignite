@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.cache.*;
+import org.apache.ignite.cache.CacheAtomicityMode;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 
 /**
  * Tests cache values consistency for transactional cache.
@@ -32,6 +32,6 @@ public class GridCacheValueConsistencyTransactionalSelfTest extends GridCacheVal
 
     /** {@inheritDoc} */
     @Override protected int iterationCount() {
-        return 100_000;
+        return 50_000;
     }
 }

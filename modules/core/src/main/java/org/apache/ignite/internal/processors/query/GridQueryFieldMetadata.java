@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.processors.query;
 
-import java.io.*;
+import java.io.Externalizable;
 
 /**
  * Query field descriptor. This descriptor is used to provide metadata
@@ -34,7 +34,7 @@ public interface GridQueryFieldMetadata extends Externalizable {
     /**
      * Gets name of type to which this field belongs.
      *
-     * @return Gets type name.
+     * @return Type name.
      */
     public String typeName();
 

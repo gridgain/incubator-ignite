@@ -17,15 +17,18 @@
 
 package org.apache.ignite.cache.store.jdbc.dialect;
 
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.util.*;
+import java.util.Collection;
+import org.apache.ignite.internal.util.typedef.C1;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.SB;
 
 /**
- * Represents a dialect of SQL implemented by a particular RDBMS.
+ * Basic implementation of dialect based on JDBC specification.
  */
 public class BasicJdbcDialect implements JdbcDialect {
+    /** */
+    private static final long serialVersionUID = 0L;
+
     /** Default max query parameters count. */
     protected static final int DFLT_MAX_PARAMS_CNT = 2000;
 
@@ -146,6 +149,11 @@ public class BasicJdbcDialect implements JdbcDialect {
     }
 
     /** {@inheritDoc} */
+    @Override public String escape(String ident) {
+        return '"' + ident + '"';
+    }
+
+    /** {@inheritDoc} */
     @Override public String loadCacheSelectRangeQuery(String fullTblName, Collection<String> keyCols) {
         String cols = mkString(keyCols, ",");
 
@@ -242,8 +250,7 @@ public class BasicJdbcDialect implements JdbcDialect {
     }
 
     /** {@inheritDoc} */
-    @Override public String mergeQuery(String fullTblName, Collection<String> keyCols,
-        Collection<String> uniqCols) {
+    @Override public String mergeQuery(String fullTblName, Collection<String> keyCols, Collection<String> uniqCols) {
         return "";
     }
 
@@ -259,7 +266,7 @@ public class BasicJdbcDialect implements JdbcDialect {
     }
 
     /** {@inheritDoc} */
-    @Override public int getMaxParamsCnt() {
+    @Override public int getMaxParameterCount() {
         return maxParamsCnt;
     }
 
@@ -268,7 +275,12 @@ public class BasicJdbcDialect implements JdbcDialect {
      *
      * @param maxParamsCnt Max query parameters count.
      */
-    public void setMaxParamsCnt(int maxParamsCnt) {
+    public void setMaxParameterCount(int maxParamsCnt) {
         this.maxParamsCnt = maxParamsCnt;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int getFetchSize() {
+        return 0;
     }
 }

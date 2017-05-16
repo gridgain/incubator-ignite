@@ -17,34 +17,49 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.NONE;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Multiple put test.
@@ -101,7 +116,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
 
         cacheCfg.setRebalanceMode(NONE);
         cacheCfg.setCacheMode(PARTITIONED);
-        cacheCfg.setDistributionMode(NEAR_PARTITIONED);
+        cacheCfg.setNearConfiguration(new NearCacheConfiguration());
         cacheCfg.setAtomicityMode(TRANSACTIONAL);
         cacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         cacheCfg.setBackups(backups);
@@ -116,12 +131,11 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         backups = DFLT_BACKUPS;
     }
 
-    /**
-     * @param cache Cache.
-     * @return Affinity.
-     */
-    private static CacheAffinity<String> affinity(GridCache<String, Integer> cache) {
-        return cache.affinity();
+    /** {@inheritDoc} */
+    @Override protected void afterTest() throws Exception {
+        stopAllGrids();
+
+        super.afterTest();
     }
 
     /**
@@ -184,14 +198,9 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         int priThreads = 2;
         int nearThreads = 2;
 
-        startGrids(gridCnt);
+        startGridsMultiThreaded(gridCnt, true);
 
-        try {
-            checkNearAndPrimary(gridCnt, priThreads, nearThreads);
-        }
-        finally {
-            stopAllGrids();
-        }
+        checkNearAndPrimary(gridCnt, priThreads, nearThreads);
     }
 
     /** @throws Exception If failed. */
@@ -204,14 +213,9 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         int priThreads = 5;
         int nearThreads = 5;
 
-        startGrids(gridCnt);
+        startGridsMultiThreaded(gridCnt, true);
 
-        try {
-            checkNearAndPrimary(gridCnt, priThreads, nearThreads);
-        }
-        finally {
-            stopAllGrids();
-        }
+        checkNearAndPrimary(gridCnt, priThreads, nearThreads);
     }
 
     /**
@@ -241,7 +245,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         X.println("*** Retries: " + RETRIES);
         X.println("*** Log frequency: " + LOG_FREQ);
 
-        CacheAffinity<String> aff = affinity(grid(0).<String, Integer>jcache(null));
+        Affinity<String> aff = affinity(grid(0).<String, Integer>cache(null));
 
         Collection<ClusterNode> affNodes = aff.mapKeyToPrimaryAndBackups(CNTR_KEY);
 
@@ -261,7 +265,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         final UUID priId = pri.cluster().localNode().id();
 
         // Initialize.
-        pri.jcache(null).put(CNTR_KEY, 0);
+        pri.cache(null).put(CNTR_KEY, 0);
 //        nears.get(0).cache(null).put(CNTR_KEY, 0);
 
         assertNull(near(pri).peekEx(CNTR_KEY));
@@ -306,7 +310,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
                                 if (DEBUG)
                                     info("***");
 
-                                IgniteCache<String, Integer> c = pri.jcache(null);
+                                IgniteCache<String, Integer> c = pri.cache(null);
 
                                 Integer oldCntr = c.localPeek(CNTR_KEY, CachePeekMode.ONHEAP);
 
@@ -403,7 +407,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
                                     if (DEBUG)
                                         info("***");
 
-                                    IgniteCache<String, Integer> c = near.jcache(null);
+                                    IgniteCache<String, Integer> c = near.cache(null);
 
                                     Integer oldCntr = c.localPeek(CNTR_KEY, CachePeekMode.ONHEAP);
 
@@ -488,7 +492,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
             dht(g).context().tm().printMemoryStats();
             near(g).context().tm().printMemoryStats();
 
-            IgniteCache<String, Integer> cache = grid(i).jcache(null);
+            IgniteCache<String, Integer> cache = grid(i).cache(null);
 
             int cntr = nearThreads > 0 && nears.contains(g) ? cache.get(CNTR_KEY) : cache.localPeek(CNTR_KEY, CachePeekMode.ONHEAP);
 
@@ -514,28 +518,18 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
     public void testMultiNearAndPrimaryMultiNode() throws Exception {
         int gridCnt = 4;
 
-        startGrids(gridCnt);
+        startGridsMultiThreaded(gridCnt, true);
 
-        try {
-            checkNearAndPrimaryMultiNode(gridCnt);
-        }
-        finally {
-            stopAllGrids();
-        }
+        checkNearAndPrimaryMultiNode(gridCnt);
     }
 
     /** @throws Exception If failed. */
     public void testOneNearAndPrimaryMultiNode() throws Exception {
         int gridCnt = 2;
 
-        startGrids(gridCnt);
+        startGridsMultiThreaded(gridCnt, true);
 
-        try {
-            checkNearAndPrimaryMultiNode(gridCnt);
-        }
-        finally {
-            stopAllGrids();
-        }
+        checkNearAndPrimaryMultiNode(gridCnt);
     }
 
     /**
@@ -543,7 +537,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
      * @throws Exception If failed.
      */
     private void checkNearAndPrimaryMultiNode(int gridCnt) throws Exception {
-        CacheAffinity<String> aff = affinity(grid(0).<String, Integer>jcache(null));
+        Affinity<String> aff = affinity(grid(0).<String, Integer>cache(null));
 
         Collection<ClusterNode> affNodes = aff.mapKeyToPrimaryAndBackups(CNTR_KEY);
 
@@ -552,7 +546,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         Ignite pri = G.ignite(F.first(affNodes).id());
 
         // Initialize.
-        pri.jcache(null).put(CNTR_KEY, 0);
+        pri.cache(null).put(CNTR_KEY, 0);
 
         assertNull(near(pri).peekEx(CNTR_KEY));
 
@@ -576,7 +570,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
         for (int i = 0; i < gridCnt; i++) {
             Ignite g = grid(i);
 
-            IgniteCache<String, Integer> cache = grid(i).jcache(null);
+            IgniteCache<String, Integer> cache = grid(i).cache(null);
 
             int cntr = cache.localPeek(CNTR_KEY, CachePeekMode.ONHEAP);
 
@@ -640,7 +634,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
                     if (DEBUG)
                         log.info("***");
 
-                    IgniteCache<String, Integer> c = near.jcache(null);
+                    IgniteCache<String, Integer> c = near.cache(null);
 
                     Integer oldCntr = c.localPeek(CNTR_KEY, CachePeekMode.ONHEAP);
 
@@ -709,7 +703,7 @@ public class GridCachePartitionedMultiNodeCounterSelfTest extends GridCommonAbst
                     if (DEBUG)
                         log.info("***");
 
-                    IgniteCache<String, Integer> c = pri.jcache(null);
+                    IgniteCache<String, Integer> c = pri.cache(null);
 
                     Integer oldCntr = c.localPeek(CNTR_KEY, CachePeekMode.ONHEAP);
 

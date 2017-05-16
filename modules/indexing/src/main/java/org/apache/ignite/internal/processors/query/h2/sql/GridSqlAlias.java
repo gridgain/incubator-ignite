@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.h2.sql;
 
-import org.h2.command.*;
+import java.util.ArrayList;
+import org.h2.command.Parser;
 
 /**
  * Alias for column or table.
@@ -43,10 +44,24 @@ public class GridSqlAlias extends GridSqlElement {
      * @param useAs Use 'AS' keyword.
      */
     public GridSqlAlias(String alias, GridSqlElement expr, boolean useAs) {
+        super(new ArrayList<GridSqlElement>(1));
+
         addChild(expr);
 
         this.useAs = useAs;
         this.alias = alias;
+    }
+
+    /**
+     * @param el Element.
+     * @return Unwrapped from alias element.
+     */
+    public static GridSqlElement unwrap(GridSqlElement el) {
+        el = el instanceof GridSqlAlias ? el.child() : el;
+
+        assert el != null;
+
+        return el;
     }
 
     /** {@inheritDoc} */

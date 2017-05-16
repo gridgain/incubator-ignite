@@ -17,31 +17,62 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.replicated.preloader;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.spi.eventstorage.memory.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import javax.cache.configuration.CacheEntryListenerConfiguration;
+import javax.cache.configuration.Factory;
+import javax.cache.configuration.MutableCacheEntryListenerConfiguration;
+import javax.cache.event.CacheEntryEventFilter;
+import javax.cache.event.CacheEntryListener;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteMessaging;
+import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.cache.CacheEntryEventSerializableFilter;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.cache.CacheRebalanceMode;
+import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.cache.affinity.AffinityFunctionContext;
+import org.apache.ignite.cache.affinity.AffinityKeyMapper;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.binary.BinaryEnumObjectImpl;
+import org.apache.ignite.internal.binary.BinaryMarshaller;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.P2;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.plugin.CachePluginConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.spi.eventstorage.memory.MemoryEventStorageSpi;
+import org.apache.ignite.testframework.config.GridTestProperties;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.io.*;
-import java.util.*;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheRebalanceMode.ASYNC;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.configuration.DeploymentMode.CONTINUOUS;
+import static org.apache.ignite.events.EventType.EVTS_ALL;
+import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_PUT;
+import static org.apache.ignite.events.EventType.EVT_CACHE_REBALANCE_STARTED;
+import static org.apache.ignite.events.EventType.EVT_CACHE_REBALANCE_STOPPED;
 
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.configuration.DeploymentMode.*;
-import static org.apache.ignite.events.EventType.*;
 
 /**
  * Tests for replicated cache preloader.
@@ -57,7 +88,25 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
     private int poolSize = 2;
 
     /** */
+    private volatile boolean extClassloadingAtCfg = false;
+
+    /** */
+    private volatile boolean isClient = false;
+
+    /** */
+    private volatile boolean useExtClassLoader = false;
+
+    /** Disable p2p. */
+    private volatile boolean disableP2p = false;
+
+    /** */
     private TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
+
+    /** */
+    private static volatile CountDownLatch latch;
+
+    /** */
+    private static boolean cutromEvt = false;
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
@@ -77,8 +126,6 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
         cfg.setDiscoverySpi(disco);
 
         cfg.setCacheConfiguration(cacheConfiguration(gridName));
-        cfg.setPeerClassLoadingLocalClassPathExclude(GridCacheReplicatedPreloadSelfTest.class.getName(),
-            TestValue.class.getName());
 
         cfg.setDeploymentMode(CONTINUOUS);
 
@@ -89,6 +136,26 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
         spi.setExpireCount(50_000);
 
         cfg.setEventStorageSpi(spi);
+
+        if (disableP2p)
+            cfg.setPeerClassLoadingEnabled(false);
+
+        if (getTestGridName(1).equals(gridName) || useExtClassLoader ||
+            cfg.getMarshaller() instanceof BinaryMarshaller)
+            cfg.setClassLoader(getExternalClassLoader());
+
+        if (isClient)
+            cfg.setClientMode(true);
+
+        if (cutromEvt) {
+            int[] evts = new int[EVTS_ALL.length + 1];
+
+            evts[0] = Integer.MAX_VALUE - 1;
+
+            System.arraycopy(EVTS_ALL, 0, evts, 1, EVTS_ALL.length);
+
+            cfg.setIncludeEventTypes(evts);
+        }
 
         return cfg;
     }
@@ -108,7 +175,46 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
         cacheCfg.setRebalanceBatchSize(batchSize);
         cacheCfg.setRebalanceThreadPoolSize(poolSize);
 
+        if (extClassloadingAtCfg)
+            loadExternalClassesToCfg(cacheCfg);
+
         return cacheCfg;
+    }
+
+    /**
+     *
+     * @param cacheCfg Configuration.
+     */
+    private void loadExternalClassesToCfg(CacheConfiguration cacheCfg) {
+        try {
+            Object sf = getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.CacheDeploymentTestStoreFactory").newInstance();
+
+            cacheCfg.setCacheStoreFactory((Factory)sf);
+
+            Object sslf = getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.CacheDeploymentStoreSessionListenerFactory").newInstance();
+
+            cacheCfg.setCacheStoreSessionListenerFactories((Factory)sslf);
+
+            Object cpc = getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.CacheDeploymentCachePluginConfiguration").newInstance();
+
+            cacheCfg.setPluginConfigurations((CachePluginConfiguration)cpc);
+
+            Object akm = getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.CacheDeploymentAffinityKeyMapper").newInstance();
+
+            cacheCfg.setAffinityMapper((AffinityKeyMapper)akm);
+
+            Object pred = getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.CacheDeploymentAlwaysTruePredicate2").newInstance();
+
+            cacheCfg.setNodeFilter((IgnitePredicate)pred);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -126,29 +232,8 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
     }
 
     /**
-     * @throws Exception If failed.
-     */
-    public void testSingleZeroPoolSize() throws Exception {
-        preloadMode = SYNC;
-        poolSize = 0;
-
-        try {
-            startGrid(1);
-
-            assert false : "Grid should have been failed to start.";
-        }
-        catch (IgniteCheckedException e) {
-            info("Caught expected exception: " + e);
-        }
-        finally {
-            stopAllGrids();
-        }
-    }
-
-    /**
      * @throws Exception If test failed.
      */
-    @SuppressWarnings({"BusyWait"})
     public void testIntegrity() throws Exception {
         preloadMode = SYNC;
 
@@ -157,8 +242,8 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
 
             GridCacheAdapter<Integer, String> cache1 = ((IgniteKernal)g1).internalCache(null);
 
-            cache1.put(1, "val1");
-            cache1.put(2, "val2");
+            cache1.getAndPut(1, "val1");
+            cache1.getAndPut(2, "val2");
 
             GridCacheEntryEx e1 = cache1.peekEx(1);
 
@@ -170,7 +255,7 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
 
             for (int i = 0; i < 3; i++) {
                 evts = g2.events().localQuery(F.<Event>alwaysTrue(),
-                        EVT_CACHE_REBALANCE_STARTED, EVT_CACHE_REBALANCE_STOPPED);
+                    EVT_CACHE_REBALANCE_STARTED, EVT_CACHE_REBALANCE_STOPPED);
 
                 if (evts.size() != 2) {
                     info("Wrong events collection size (will retry in 1000 ms): " + evts.size());
@@ -188,12 +273,14 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             assertEquals(EVT_CACHE_REBALANCE_STARTED, iter.next().type());
             assertEquals(EVT_CACHE_REBALANCE_STOPPED, iter.next().type());
 
-            GridCacheAdapter<Integer, String> cache2 = ((IgniteKernal)g2).internalCache(null);
+            IgniteCache<Integer, String> cache2 = g2.cache(null);
 
-            assertEquals("val1", cache2.peek(1));
-            assertEquals("val2", cache2.peek(2));
+            assertEquals("val1", cache2.localPeek(1, CachePeekMode.ONHEAP));
+            assertEquals("val2", cache2.localPeek(2, CachePeekMode.ONHEAP));
 
-            GridCacheEntryEx e2 = cache2.peekEx(1);
+            GridCacheAdapter<Integer, String> cacheAdapter2 = ((IgniteKernal)g2).internalCache(null);
+
+            GridCacheEntryEx e2 = cacheAdapter2.peekEx(1);
 
             assert e2 != null;
             assert e2 != e1;
@@ -217,15 +304,12 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             Ignite g1 = startGrid(1);
             Ignite g2 = startGrid(2);
 
-            IgniteCache<Integer, Object> cache1 = g1.jcache(null);
-            IgniteCache<Integer, Object> cache2 = g2.jcache(null);
+            IgniteCache<Integer, Object> cache1 = g1.cache(null);
+            IgniteCache<Integer, Object> cache2 = g2.cache(null);
 
-            ClassLoader ldr = new GridTestClassLoader(
-                GridCacheReplicatedPreloadSelfTest.class.getName(),
-                TestValue.class.getName(),
-                TestAffinityFunction.class.getName());
+            ClassLoader ldr = grid(1).configuration().getClassLoader();
 
-            Object v1 = ldr.loadClass(TestValue.class.getName()).newInstance();
+            Object v1 = ldr.loadClass("org.apache.ignite.tests.p2p.CacheDeploymentTestValue3").newInstance();
 
             cache1.put(1, v1);
 
@@ -238,13 +322,34 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             assert v2 != null;
             assert v2.toString().equals(v1.toString());
             assert !v2.getClass().getClassLoader().equals(getClass().getClassLoader());
-            assert v2.getClass().getClassLoader().getClass().getName().contains("GridDeploymentClassLoader");
+            assert v2.getClass().getClassLoader().getClass().getName().contains("GridDeploymentClassLoader") ||
+                grid(2).configuration().getMarshaller() instanceof BinaryMarshaller;
+
+            Object e1 = ldr.loadClass("org.apache.ignite.tests.p2p.CacheDeploymentTestEnumValue").getEnumConstants()[0];
+
+            cache1.put(2, e1);
+
+            Object e2 = cache2.get(2);
+
+            if (g1.configuration().getMarshaller() instanceof BinaryMarshaller) {
+                BinaryObject enumObj = (BinaryObject)cache2.withKeepBinary().get(2);
+
+                assertEquals(0, enumObj.enumOrdinal());
+                assertTrue(enumObj.type().isEnum());
+                assertTrue(enumObj instanceof BinaryEnumObjectImpl);
+            }
+
+            assert e2 != null;
+            assert e2.toString().equals(e1.toString());
+            assert !e2.getClass().getClassLoader().equals(getClass().getClassLoader());
+            assert e2.getClass().getClassLoader().getClass().getName().contains("GridDeploymentClassLoader") ||
+                grid(2).configuration().getMarshaller() instanceof BinaryMarshaller;
 
             stopGrid(1);
 
             Ignite g3 = startGrid(3);
 
-            IgniteCache<Integer, Object> cache3 = g3.jcache(null);
+            IgniteCache<Integer, Object> cache3 = g3.cache(null);
 
             Object v3 = cache3.localPeek(1, CachePeekMode.ONHEAP);
 
@@ -255,10 +360,249 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             assert v3 != null;
             assert v3.toString().equals(v1.toString());
             assert !v3.getClass().getClassLoader().equals(getClass().getClassLoader());
-            assert v3.getClass().getClassLoader().getClass().getName().contains("GridDeploymentClassLoader");
+            assert v3.getClass().getClassLoader().getClass().getName().contains("GridDeploymentClassLoader") ||
+                grid(3).configuration().getMarshaller() instanceof BinaryMarshaller;
         }
         finally {
             stopAllGrids();
+        }
+    }
+
+    /**
+     * @throws Exception If test failed.
+     */
+    public void testExternalClassesAtConfiguration() throws Exception {
+        try {
+            extClassloadingAtCfg = true;
+            useExtClassLoader = true;
+
+            Ignite g1 = startGrid(1);
+
+            Ignite g2 = startGrid(2);  // Checks deserialization at node join.
+
+            isClient = true;
+
+            Ignite g3 = startGrid(3);
+
+            IgniteCache<Integer, Object> cache1 = g1.cache(null);
+            IgniteCache<Integer, Object> cache2 = g2.cache(null);
+            IgniteCache<Integer, Object> cache3 = g3.cache(null);
+
+            final Class<CacheEntryListener> cls1 = (Class<CacheEntryListener>) getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.CacheDeploymentCacheEntryListener");
+            final Class<CacheEntryEventSerializableFilter> cls2 = (Class<CacheEntryEventSerializableFilter>) getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.CacheDeploymentCacheEntryEventSerializableFilter");
+
+            CacheEntryListenerConfiguration<Integer, Object> lsnrCfg = new MutableCacheEntryListenerConfiguration<>(
+                new Factory<CacheEntryListener<Integer, Object>>() {
+                    @Override public CacheEntryListener<Integer, Object> create() {
+                        try {
+                            return cls1.newInstance();
+                        }
+                        catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                },
+                new ClassFilterFactory(cls2),
+                true,
+                true
+            );
+
+            cache1.registerCacheEntryListener(lsnrCfg);
+
+            cache1.put(1, 1);
+
+            assertEquals(1, cache2.get(1));
+            assertEquals(1, cache3.get(1));
+        }
+        finally {
+            extClassloadingAtCfg = false;
+            isClient = false;
+            useExtClassLoader = false;
+        }
+    }
+
+    /**
+     * @throws Exception If test failed.
+     */
+    public void testExternalClassesAtConfigurationDynamicStart() throws Exception {
+        try {
+            extClassloadingAtCfg = false;
+            useExtClassLoader = true;
+
+            Ignite g1 = startGrid(1);
+            Ignite g2 = startGrid(2);
+
+            isClient = true;
+
+            Ignite g3 = startGrid(3);
+
+            CacheConfiguration cfg = defaultCacheConfiguration();
+
+            loadExternalClassesToCfg(cfg);
+
+            cfg.setName("customStore");
+
+            IgniteCache<Integer, Object> cache1 = g1.createCache(cfg);
+
+            IgniteCache<Integer, Object> cache2 = g2.getOrCreateCache(cfg); // Checks deserialization at cache creation.
+            IgniteCache<Integer, Object> cache3 = g3.getOrCreateCache(cfg); // Checks deserialization at cache creation.
+
+            cache1.put(1, 1);
+
+            assertEquals(1, cache2.get(1));
+            assertEquals(1, cache3.get(1));
+        }
+        finally {
+            extClassloadingAtCfg = false;
+            isClient = false;
+            useExtClassLoader = false;
+        }
+    }
+
+    /**
+     * @throws Exception If test failed.
+     */
+    public void testExternalClassesAtConfigurationDynamicStart2() throws Exception {
+        try {
+            extClassloadingAtCfg = false;
+            useExtClassLoader = true;
+
+            Ignite g1 = startGrid(1);
+            Ignite g2 = startGrid(2);
+
+            isClient = true;
+
+            Ignite g3 = startGrid(3);
+
+            CacheConfiguration cfg = defaultCacheConfiguration();
+
+            loadExternalClassesToCfg(cfg);
+
+            cfg.setName("customStore");
+
+            IgniteCache<Integer, Object> cache1 = g1.getOrCreateCache(cfg);
+
+            IgniteCache<Integer, Object> cache2 = g2.getOrCreateCache("customStore"); // Checks deserialization at cache creation.
+            IgniteCache<Integer, Object> cache3 = g3.getOrCreateCache("customStore"); // Checks deserialization at cache creation.
+
+            cache1.put(1, 1);
+
+            assertEquals(1, cache2.get(1));
+            assertEquals(1, cache3.get(1));
+        }
+        finally {
+            extClassloadingAtCfg = false;
+            isClient = false;
+            useExtClassLoader = false;
+        }
+    }
+
+    /**
+     * @throws Exception If test failed.
+     */
+    public void testExternalClassesAtMessage() throws Exception {
+        try {
+            useExtClassLoader = true;
+            disableP2p = true;
+
+            final Class cls = (Class)getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.CacheDeploymentExternalizableTestValue");
+
+            Ignite g1 = startGrid(1);
+            startGrid(2);
+
+            IgniteMessaging rmtMsg = g1.message();
+
+            latch = new CountDownLatch(2);
+
+            rmtMsg.remoteListen("MyOrderedTopic", new MessageListener());
+
+            Object o = cls.newInstance();
+
+            o.toString();
+
+            rmtMsg.send("MyOrderedTopic", o);
+            rmtMsg.sendOrdered("MyOrderedTopic", o, 0);
+
+            latch.await();
+
+            // Custom topic.
+
+            final Class cls2 = (Class)getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.CacheDeploymentTestEnumValue");
+
+            Object topic = cls2.getEnumConstants()[0];
+
+            latch = new CountDownLatch(2);
+
+            rmtMsg.remoteListen(topic, new MessageListener());
+
+            rmtMsg.send(topic, topic);
+            rmtMsg.sendOrdered(topic, topic, 0);
+
+            latch.await();
+
+        }
+        finally {
+            useExtClassLoader = false;
+            disableP2p = false;
+        }
+    }
+
+    /**
+     * @throws Exception If test failed.
+     */
+    public void testExternalClassesAtEventP2pDisabled() throws Exception {
+        testExternalClassesAtEvent0(true);
+
+    }
+
+    /**
+     * @throws Exception If test failed.
+     */
+    public void testExternalClassesAtEvent() throws Exception {
+        testExternalClassesAtEvent0(false);
+    }
+
+    /**
+     * @throws Exception If test failed.
+     */
+    private void testExternalClassesAtEvent0(boolean p2p) throws Exception {
+        try {
+            useExtClassLoader = true;
+            cutromEvt = true;
+
+            if (p2p)
+                disableP2p = true;
+
+            final Class cls = (Class)getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.CacheDeploymentExternalizableTestValue");
+            final Class cls2 = (Class)getExternalClassLoader().
+                loadClass("org.apache.ignite.tests.p2p.GridEventConsumeFilter");
+
+            Ignite g1 = startGrid(1);
+            startGrid(2);
+
+            latch = new CountDownLatch(3);
+
+            g1.events().localListen((IgnitePredicate)cls2.newInstance(), EVT_CACHE_OBJECT_PUT);
+            g1.events().localListen(new EventListener(), EVT_CACHE_OBJECT_PUT);
+
+            g1.events().remoteListen(null, (IgnitePredicate)cls2.newInstance(), EVT_CACHE_OBJECT_PUT);
+            g1.events().remoteListen(null, new EventListener(), EVT_CACHE_OBJECT_PUT);
+
+            g1.cache(null).put("1", cls.newInstance());
+
+            latch.await();
+        }
+        finally {
+            useExtClassLoader = false;
+            cutromEvt = false;
+
+            if (p2p)
+                disableP2p = false;
         }
     }
 
@@ -270,16 +614,16 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
         batchSize = 512;
 
         try {
-            IgniteCache<Integer, String> cache1 = startGrid(1).jcache(null);
+            IgniteCache<Integer, String> cache1 = startGrid(1).cache(null);
 
             int keyCnt = 1000;
 
             for (int i = 0; i < keyCnt; i++)
                 cache1.put(i, "val" + i);
 
-            IgniteCache<Integer, String> cache2 = startGrid(2).jcache(null);
+            IgniteCache<Integer, String> cache2 = startGrid(2).cache(null);
 
-            assertEquals(keyCnt, cache2.localSize());
+            assertEquals(keyCnt, cache2.localSize(CachePeekMode.ALL));
         }
         finally {
             stopAllGrids();
@@ -294,20 +638,21 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
         batchSize = 256;
 
         try {
-            IgniteCache<Integer, String> cache1 = startGrid(1).jcache(null);
+            IgniteCache<Integer, String> cache1 = startGrid(1).cache(null);
 
             int keyCnt = 2000;
 
             for (int i = 0; i < keyCnt; i++)
                 cache1.put(i, "val" + i);
 
-            IgniteCache<Integer, String> cache2 = startGrid(2).jcache(null);
+            IgniteCache<Integer, String> cache2 = startGrid(2).cache(null);
 
-            int size = cache2.localSize();
+            int size = cache2.localSize(CachePeekMode.ALL);
 
             info("Size of cache2: " + size);
 
-            assert waitCacheSize(cache2, keyCnt, getTestTimeout()) : "Actual cache size: " + cache2.localSize();
+            assert waitCacheSize(cache2, keyCnt, getTestTimeout()) :
+                "Actual cache size: " + cache2.localSize(CachePeekMode.ALL);
         }
         finally {
             stopAllGrids();
@@ -330,14 +675,14 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
 
         long end = System.currentTimeMillis() + timeout;
 
-        while (cache.localSize() < expSize) {
+        while (cache.localSize(CachePeekMode.ALL) < expSize) {
             Thread.sleep(50);
 
             if (end - System.currentTimeMillis() <= 0)
                 break;
         }
 
-        return cache.localSize() >= expSize;
+        return cache.localSize(CachePeekMode.ALL) >= expSize;
     }
 
     /**
@@ -348,16 +693,16 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
         batchSize = 1; // 1 byte but one entry should be in batch anyway.
 
         try {
-            IgniteCache<Integer, String> cache1 = startGrid(1).jcache(null);
+            IgniteCache<Integer, String> cache1 = startGrid(1).cache(null);
 
             int cnt = 100;
 
             for (int i = 0; i < cnt; i++)
                 cache1.put(i, "val" + i);
 
-            IgniteCache<Integer, String> cache2 = startGrid(2).jcache(null);
+            IgniteCache<Integer, String> cache2 = startGrid(2).cache(null);
 
-            assertEquals(cnt, cache2.localSize());
+            assertEquals(cnt, cache2.localSize(CachePeekMode.ALL));
         }
         finally {
             stopAllGrids();
@@ -372,16 +717,16 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
         batchSize = 1000; // 1000 bytes.
 
         try {
-            IgniteCache<Integer, String> cache1 = startGrid(1).jcache(null);
+            IgniteCache<Integer, String> cache1 = startGrid(1).cache(null);
 
             int cnt = 100;
 
             for (int i = 0; i < cnt; i++)
                 cache1.put(i, "val" + i);
 
-            IgniteCache<Integer, String> cache2 = startGrid(2).jcache(null);
+            IgniteCache<Integer, String> cache2 = startGrid(2).cache(null);
 
-            assertEquals(cnt, cache2.localSize());
+            assertEquals(cnt, cache2.localSize(CachePeekMode.ALL));
         }
         finally {
             stopAllGrids();
@@ -396,16 +741,16 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
         batchSize = 10000; // 10000 bytes.
 
         try {
-            IgniteCache<Integer, String> cache1 = startGrid(1).jcache(null);
+            IgniteCache<Integer, String> cache1 = startGrid(1).cache(null);
 
             int cnt = 100;
 
             for (int i = 0; i < cnt; i++)
                 cache1.put(i, "val" + i);
 
-            IgniteCache<Integer, String> cache2 = startGrid(2).jcache(null);
+            IgniteCache<Integer, String> cache2 = startGrid(2).cache(null);
 
-            assertEquals(cnt, cache2.localSize());
+            assertEquals(cnt, cache2.localSize(CachePeekMode.ALL));
         }
         finally {
             stopGrid(1);
@@ -434,7 +779,7 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             for (int i = 0; i < cnt; i++) {
                 if (i % 100 == 0) {
                     if (map != null && !map.isEmpty()) {
-                        grid(0).jcache(null).putAll(map);
+                        grid(0).cache(null).putAll(map);
 
                         info("Put entries count: " + i);
                     }
@@ -446,15 +791,16 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
             }
 
             if (map != null && !map.isEmpty())
-                grid(0).jcache(null).putAll(map);
+                grid(0).cache(null).putAll(map);
 
             for (int gridIdx = 0; gridIdx < gridCnt; gridIdx++) {
-                assert internalCache(gridIdx).size() == cnt : "Actual size: " + internalCache(gridIdx).size();
+                assert grid(gridIdx).cache(null).localSize(CachePeekMode.ALL) == cnt :
+                    "Actual size: " + grid(gridIdx).cache(null).localSize(CachePeekMode.ALL);
 
                 info("Cache size is OK for grid index: " + gridIdx);
             }
 
-            IgniteCache<Integer, String> lastCache = startGrid(gridCnt).jcache(null);
+            IgniteCache<Integer, String> lastCache = startGrid(gridCnt).cache(null);
 
             // Let preloading start.
             Thread.sleep(1000);
@@ -466,7 +812,8 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
 
             stopGrid(idx);
 
-            assert waitCacheSize(lastCache, cnt, 20 * 1000) : "Actual cache size: " + lastCache.localSize();
+            assert waitCacheSize(lastCache, cnt, 20 * 1000) :
+                "Actual cache size: " + lastCache.localSize(CachePeekMode.ALL);
         }
         finally {
             stopAllGrids();
@@ -504,31 +851,10 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
     }
 
     /**
-     *
-     */
-    @SuppressWarnings({"PublicInnerClass"})
-    public static class TestValue implements Serializable {
-        /** */
-        private String val = "test-" + System.currentTimeMillis();
-
-        /**
-         * @return Value
-         */
-        public String getValue() {
-            return val;
-        }
-
-        /** {@inheritDoc} */
-        @Override public String toString() {
-            return S.toString(TestValue.class, this);
-        }
-    }
-
-    /**
      * Test affinity.
      */
     @SuppressWarnings({"PublicInnerClass"})
-    private static class TestAffinityFunction implements CacheAffinityFunction {
+    private static class TestAffinityFunction implements AffinityFunction {
         /** {@inheritDoc} */
         @Override public int partitions() {
             return 2;
@@ -543,7 +869,7 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public List<List<ClusterNode>> assignPartitions(CacheAffinityFunctionContext affCtx) {
+        @Override public List<List<ClusterNode>> assignPartitions(AffinityFunctionContext affCtx) {
             List<List<ClusterNode>> res = new ArrayList<>(partitions());
 
             for (int part = 0; part < partitions(); part++)
@@ -580,6 +906,59 @@ public class GridCacheReplicatedPreloadSelfTest extends GridCommonAbstractTest {
         /** {@inheritDoc} */
         @Override public void removeNode(UUID nodeId) {
             // No-op.
+        }
+    }
+
+    /**
+     *
+     */
+    private static class MessageListener implements P2<UUID, Object> {
+        /**
+         * @param nodeId
+         * @param msg
+         * @return
+         */
+        @Override public boolean apply(UUID nodeId, Object msg) {
+            System.out.println("Received message [msg=" + msg + ", from=" + nodeId + ']');
+
+            latch.countDown();
+
+            return true; // Return true to continue listening.
+        }
+    }
+
+    private static class EventListener implements IgnitePredicate<Event> {
+        @Override public boolean apply(Event evt) {
+            System.out.println("Cache event: " + evt);
+
+            latch.countDown();
+
+            return true;
+        }
+    }
+
+    /**
+     *
+     */
+    private static class ClassFilterFactory implements Factory<CacheEntryEventFilter<Integer, Object>> {
+        /** */
+        private Class<CacheEntryEventSerializableFilter> cls;
+
+        /**
+         * @param cls Class.
+         */
+        public ClassFilterFactory(Class<CacheEntryEventSerializableFilter> cls) {
+            this.cls = cls;
+        }
+
+        /** {@inheritDoc} */
+        @Override public CacheEntryEventSerializableFilter<Integer, Object> create() {
+            try {
+                return cls.newInstance();
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

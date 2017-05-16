@@ -17,15 +17,29 @@
 
 package org.apache.ignite.cache;
 
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.lang.*;
-
-import java.util.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import javax.cache.CacheException;
+import org.apache.ignite.cache.store.jdbc.CacheJdbcPojoStore;
+import org.apache.ignite.internal.processors.query.GridQueryProcessor;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
- * Type metadata.
+ * Cache type metadata need for configuration of indexes or automatic persistence.
+ * @deprecated Use {@link org.apache.ignite.cache.QueryEntity} instead.
  */
-public class CacheTypeMetadata {
+@Deprecated
+public class CacheTypeMetadata implements Serializable {
+    /** */
+    private static final long serialVersionUID = 0L;
+
     /** Schema name in database. */
     private String dbSchema;
 
@@ -38,23 +52,26 @@ public class CacheTypeMetadata {
     /** Value class used to store value in cache. */
     private String valType;
 
-    /** Key fields. */
+    /** Simple value type name that will be used as SQL table name.*/
+    private String simpleValType;
+
+    /** Optional persistent key fields (needed only if {@link CacheJdbcPojoStore} is used). */
     @GridToStringInclude
     private Collection<CacheTypeFieldMetadata> keyFields;
 
-    /** Value fields . */
+    /** Optional persistent value fields (needed only if {@link CacheJdbcPojoStore} is used). */
     @GridToStringInclude
     private Collection<CacheTypeFieldMetadata> valFields;
 
-    /** Fields to be queried, in addition to indexed fields. */
+    /** Field name-to-type map to be queried, in addition to indexed fields. */
     @GridToStringInclude
     private Map<String, Class<?>> qryFlds;
 
-    /** Fields to index in ascending order. */
+    /** Field name-to-type map to index in ascending order. */
     @GridToStringInclude
     private Map<String, Class<?>> ascFlds;
 
-    /** Fields to index in descending order. */
+    /** Field name-to-type map to index in descending order. */
     @GridToStringInclude
     private Map<String, Class<?>> descFlds;
 
@@ -66,22 +83,20 @@ public class CacheTypeMetadata {
     @GridToStringInclude
     private Map<String, LinkedHashMap<String, IgniteBiTuple<Class<?>, Boolean>>> grps;
 
+    /** */
+    @GridToStringInclude
+    private Map<String,String> aliases;
+
     /**
      * Default constructor.
      */
     public CacheTypeMetadata() {
         keyFields = new ArrayList<>();
-
         valFields = new ArrayList<>();
-
         qryFlds = new LinkedHashMap<>();
-
         ascFlds = new LinkedHashMap<>();
-
         descFlds = new LinkedHashMap<>();
-
         txtFlds = new LinkedHashSet<>();
-
         grps = new LinkedHashMap<>();
     }
 
@@ -90,25 +105,16 @@ public class CacheTypeMetadata {
      */
     public CacheTypeMetadata(CacheTypeMetadata src) {
         dbSchema = src.getDatabaseSchema();
-
         dbTbl = src.getDatabaseTable();
-
-        keyType = getKeyType();
-
-        valType = getValueType();
-
+        keyType = src.getKeyType();
+        valType = src.getValueType();
+        simpleValType = src.simpleValType;
         keyFields = new ArrayList<>(src.getKeyFields());
-
         valFields = new ArrayList<>(src.getValueFields());
-
         qryFlds = new LinkedHashMap<>(src.getQueryFields());
-
         ascFlds = new LinkedHashMap<>(src.getAscendingFields());
-
         descFlds = new LinkedHashMap<>(src.getDescendingFields());
-
         txtFlds = new LinkedHashSet<>(src.getTextFields());
-
         grps = new LinkedHashMap<>(src.getGroups());
     }
 
@@ -185,12 +191,28 @@ public class CacheTypeMetadata {
     }
 
     /**
+     * Gets simple value type.
+     *
+     * @return Simple value type.
+     */
+    public String getSimpleValueType() {
+        return simpleValType;
+    }
+
+    /**
      * Sets value type.
      *
      * @param valType Value type.
      */
     public void setValueType(String valType) {
+        if (this.valType != null)
+            throw new CacheException("Value type can be set only once.");
+
         this.valType = valType;
+
+        Class<?> cls = U.classForName(valType, null);
+
+        simpleValType = cls == null ? valType : GridQueryProcessor.typeName(cls);
     }
 
     /**
@@ -203,90 +225,93 @@ public class CacheTypeMetadata {
     }
 
     /**
-     * Gets key fields.
+     * Gets optional persistent key fields (needed only if {@link CacheJdbcPojoStore} is used).
      *
-     * @return Key fields.
+     * @return Persistent key fields.
      */
     public Collection<CacheTypeFieldMetadata> getKeyFields() {
         return keyFields;
     }
 
     /**
-     * Sets key fields.
+     * Sets optional persistent key fields (needed only if {@link CacheJdbcPojoStore} is used).
      *
-     * @param keyFields New key fields.
+     * @param keyFields Persistent key fields.
      */
     public void setKeyFields(Collection<CacheTypeFieldMetadata> keyFields) {
         this.keyFields = keyFields;
     }
 
     /**
-     * Gets value fields.
+     * Gets optional persistent value fields (needed only if {@link CacheJdbcPojoStore} is used).
      *
-     * @return Value fields.
+     * @return Persistent value fields.
      */
     public Collection<CacheTypeFieldMetadata> getValueFields() {
         return valFields;
     }
 
     /**
-     * Sets value fields.
+     * Sets optional persistent value fields (needed only if {@link CacheJdbcPojoStore} is used).
      *
-     * @param valFields New value fields.
+     * @param valFields Persistent value fields.
      */
     public void setValueFields(Collection<CacheTypeFieldMetadata> valFields) {
         this.valFields = valFields;
     }
 
     /**
-     * Gets query-enabled fields.
+     * Gets name-to-type map for query-enabled fields.
      *
-     * @return Collection of fields available for query.
+     * @return Name-to-type map for query-enabled fields.
      */
     public Map<String, Class<?>> getQueryFields() {
         return qryFlds;
     }
 
     /**
-     * Sets query fields map.
+     * Sets name-to-type map for query-enabled fields.
      *
-     * @param qryFlds Query fields.
+     * @param qryFlds Name-to-type map for query-enabled fields.
      */
     public void setQueryFields(Map<String, Class<?>> qryFlds) {
         this.qryFlds = qryFlds;
     }
 
     /**
-     * Gets ascending-indexed fields.
+     * Gets name-to-type map for ascending-indexed fields.
      *
-     * @return Map of ascending-indexed fields.
+     * @return Name-to-type map for ascending-indexed fields.
      */
     public Map<String, Class<?>> getAscendingFields() {
         return ascFlds;
     }
 
     /**
-     * Sets ascending-indexed fields.
+     * Sets name-to-type map for ascending-indexed fields.
      *
-     * @param ascFlds Map of ascending-indexed fields.
+     * @param ascFlds Name-to-type map for ascending-indexed fields.
      */
     public void setAscendingFields(Map<String, Class<?>> ascFlds) {
-        this.ascFlds = ascFlds;
+        if (ascFlds == null)
+            this.ascFlds = ascFlds;
+        else
+            this.ascFlds.putAll(ascFlds);
     }
 
     /**
-     * Gets descending-indexed fields.
+     * Gets name-to-type map for descending-indexed fields.
      *
-     * @return Map of descending-indexed fields.
+     * @return Name-to-type map of descending-indexed fields.
      */
     public Map<String, Class<?>> getDescendingFields() {
         return descFlds;
     }
 
     /**
-     * Sets descending-indexed fields.
+     * Sets name-to-type map for descending-indexed fields.
      *
-     * @param descFlds Map of descending-indexed fields.
+     * @param descFlds Name-to-type map of descending-indexed fields.
      */
     public void setDescendingFields(Map<String, Class<?>> descFlds) {
         this.descFlds = descFlds;
@@ -326,5 +351,29 @@ public class CacheTypeMetadata {
      */
     public void setGroups(Map<String, LinkedHashMap<String, IgniteBiTuple<Class<?>, Boolean>>> grps) {
         this.grps = grps;
+    }
+
+    /**
+     * Sets mapping from full property name in dot notation to an alias that will be used as SQL column name.
+     * Example: {"parent.name" -> "parentName"}.
+     *
+     * @param aliases Aliases.
+     */
+    public void setAliases(Map<String,String> aliases) {
+        this.aliases = aliases;
+    }
+
+    /**
+     * Gets aliases mapping.
+     *
+     * @return Aliases.
+     */
+    public Map<String,String> getAliases() {
+        return aliases;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(CacheTypeMetadata.class, this);
     }
 }

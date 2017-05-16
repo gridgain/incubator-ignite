@@ -17,15 +17,16 @@
 
 package org.apache.ignite.internal.util.ipc.shmem.benchmark;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.ipc.*;
-import org.apache.ignite.internal.util.ipc.shmem.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.logger.java.*;
-
-import javax.swing.*;
-import java.io.*;
-import java.util.concurrent.atomic.*;
+import java.io.OutputStream;
+import java.util.concurrent.atomic.AtomicLong;
+import javax.swing.JOptionPane;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.util.ipc.IpcEndpoint;
+import org.apache.ignite.internal.util.ipc.IpcEndpointFactory;
+import org.apache.ignite.internal.util.ipc.shmem.IpcSharedMemoryNativeLoader;
+import org.apache.ignite.internal.util.ipc.shmem.IpcSharedMemoryServerEndpoint;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.logger.java.JavaLogger;
 
 /**
  *
@@ -42,7 +43,7 @@ public class IpcSharedMemoryBenchmarkWriter implements IpcSharedMemoryBenchmarkP
      * @throws IgniteCheckedException If failed.
      */
     public static void main(String[] args) throws IgniteCheckedException {
-        IpcSharedMemoryNativeLoader.load();
+        IpcSharedMemoryNativeLoader.load(null);
 
         int nThreads = args.length > 0 ? Integer.parseInt(args[0]) : 1;
 

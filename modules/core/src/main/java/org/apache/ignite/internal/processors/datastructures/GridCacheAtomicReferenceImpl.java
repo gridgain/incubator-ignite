@@ -17,20 +17,28 @@
 
 package org.apache.ignite.internal.processors.datastructures;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.transactions.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.util.concurrent.Callable;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
 
-import java.io.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.internal.processors.cache.GridCacheUtils.retryTopologySafe;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Cache atomic reference implementation.
@@ -43,7 +51,7 @@ public final class GridCacheAtomicReferenceImpl<T> implements GridCacheAtomicRef
     private static final ThreadLocal<IgniteBiTuple<GridKernalContext, String>> stash =
         new ThreadLocal<IgniteBiTuple<GridKernalContext, String>>() {
             @Override protected IgniteBiTuple<GridKernalContext, String> initialValue() {
-                return F.t2();
+                return new IgniteBiTuple<>();
             }
         };
 
@@ -56,11 +64,14 @@ public final class GridCacheAtomicReferenceImpl<T> implements GridCacheAtomicRef
     /** Status.*/
     private volatile boolean rmvd;
 
+    /** Check removed flag. */
+    private boolean rmvCheck;
+
     /** Atomic reference key. */
     private GridCacheInternalKey key;
 
     /** Atomic reference projection. */
-    private CacheProjection<GridCacheInternalKey, GridCacheAtomicReferenceValue<T>> atomicView;
+    private IgniteInternalCache<GridCacheInternalKey, GridCacheAtomicReferenceValue<T>> atomicView;
 
     /** Cache context. */
     private GridCacheContext ctx;
@@ -94,7 +105,7 @@ public final class GridCacheAtomicReferenceImpl<T> implements GridCacheAtomicRef
      */
     public GridCacheAtomicReferenceImpl(String name,
         GridCacheInternalKey key,
-        CacheProjection<GridCacheInternalKey, GridCacheAtomicReferenceValue<T>> atomicView,
+        IgniteInternalCache<GridCacheInternalKey, GridCacheAtomicReferenceValue<T>> atomicView,
         GridCacheContext ctx) {
         assert key != null;
         assert atomicView != null;
@@ -106,7 +117,7 @@ public final class GridCacheAtomicReferenceImpl<T> implements GridCacheAtomicRef
         this.atomicView = atomicView;
         this.name = name;
 
-        log = ctx.gridConfig().getGridLogger().getLogger(getClass());
+        log = ctx.logger(getClass());
     }
 
     /** {@inheritDoc} */
@@ -140,10 +151,20 @@ public final class GridCacheAtomicReferenceImpl<T> implements GridCacheAtomicRef
 
     /** {@inheritDoc} */
     @Override public boolean compareAndSet(T expVal, T newVal) {
+        return compareAndSetAndGet(newVal, expVal) == expVal;
+    }
+
+    /**
+     * Compares current value with specified value for equality and, if they are equal, replaces current value.
+     *
+     * @param newVal New value to set.
+     * @return Original value.
+     */
+    public T compareAndSetAndGet(T newVal, T expVal) {
         checkRemoved();
 
         try {
-            return CU.outTx(internalCompareAndSet(wrapperPredicate(expVal), wrapperClosure(newVal)), ctx);
+            return CU.outTx(internalCompareAndSetAndGet(expVal, newVal), ctx);
         }
         catch (IgniteCheckedException e) {
             throw U.convertException(e);
@@ -156,8 +177,8 @@ public final class GridCacheAtomicReferenceImpl<T> implements GridCacheAtomicRef
     }
 
     /** {@inheritDoc} */
-    @Override public void onInvalid(@Nullable Exception err) {
-        // No-op.
+    @Override public void needCheckNotRemoved() {
+        rmvCheck = true;
     }
 
     /** {@inheritDoc} */
@@ -184,41 +205,13 @@ public final class GridCacheAtomicReferenceImpl<T> implements GridCacheAtomicRef
     }
 
     /**
-     * Method make wrapper predicate for existing value.
-     *
-     * @param val Value.
-     * @return Predicate.
-     */
-    private IgnitePredicate<T> wrapperPredicate(final T val) {
-        return new IgnitePredicate<T>() {
-            @Override public boolean apply(T e) {
-                return val != null && val.equals(e);
-            }
-        };
-    }
-
-    /**
-     * Method make wrapper closure for existing value.
-     *
-     * @param val Value.
-     * @return Closure.
-     */
-    private IgniteClosure<T, T> wrapperClosure(final T val) {
-        return new IgniteClosure<T, T>() {
-            @Override public T apply(T e) {
-                return val;
-            }
-        };
-    }
-
-    /**
      * Method returns callable for execution {@link #set(Object)} operation in async and sync mode.
      *
      * @param val Value will be set in reference .
      * @return Callable for execution in async and sync mode.
      */
     private Callable<Boolean> internalSet(final T val) {
-        return new Callable<Boolean>() {
+        return retryTopologySafe(new Callable<Boolean>() {
             @Override public Boolean call() throws Exception {
                 try (IgniteInternalTx tx = CU.txStartInternal(ctx, atomicView, PESSIMISTIC, REPEATABLE_READ)) {
                     GridCacheAtomicReferenceValue<T> ref = atomicView.get(key);
@@ -240,50 +233,51 @@ public final class GridCacheAtomicReferenceImpl<T> implements GridCacheAtomicRef
                     throw e;
                 }
             }
-        };
+        });
     }
 
     /**
      * Conditionally sets the new value. It will be set if {@code expValPred} is
      * evaluate to {@code true}.
      *
-     * @param expValPred Predicate which should evaluate to {@code true} for value to be set.
-     * @param newValClos Closure which generates new value.
+     * @param expVal Expected value.
+     * @param newVal New value.
      * @return Callable for execution in async and sync mode.
      */
-    private Callable<Boolean> internalCompareAndSet(final IgnitePredicate<T> expValPred,
-        final IgniteClosure<T, T> newValClos) {
-        return new Callable<Boolean>() {
-            @Override public Boolean call() throws Exception {
+    private Callable<T> internalCompareAndSetAndGet(final T expVal, final T newVal) {
+        return retryTopologySafe(new Callable<T>() {
+            @Override public T call() throws Exception {
                 try (IgniteInternalTx tx = CU.txStartInternal(ctx, atomicView, PESSIMISTIC, REPEATABLE_READ)) {
                     GridCacheAtomicReferenceValue<T> ref = atomicView.get(key);
 
                     if (ref == null)
                         throw new IgniteCheckedException("Failed to find atomic reference with given name: " + name);
 
-                    if (!expValPred.apply(ref.get())) {
+                    T origVal = ref.get();
+
+                    if (!F.eq(expVal, origVal)) {
                         tx.setRollbackOnly();
 
-                        return false;
+                        return origVal;
                     }
                     else {
-                        ref.set(newValClos.apply(ref.get()));
+                        ref.set(newVal);
 
-                        atomicView.put(key, ref);
+                        atomicView.getAndPut(key, ref);
 
                         tx.commit();
 
-                        return true;
+                        return expVal;
                     }
                 }
                 catch (Error | Exception e) {
-                    U.error(log, "Failed to compare and value [expValPred=" + expValPred + ", newValClos" +
-                        newValClos + ", atomicReference" + this + ']', e);
+                    U.error(log, "Failed to compare and value [expVal=" + expVal + ", newVal" +
+                        newVal + ", atomicReference" + this + ']', e);
 
                     throw e;
                 }
             }
-        };
+        });
     }
 
     /**
@@ -293,7 +287,31 @@ public final class GridCacheAtomicReferenceImpl<T> implements GridCacheAtomicRef
      */
     private void checkRemoved() throws IllegalStateException {
         if (rmvd)
-            throw new IllegalStateException("Atomic reference was removed from cache: " + name);
+            throw removedError();
+
+        if (rmvCheck) {
+            try {
+                rmvd = atomicView.get(key) == null;
+            }
+            catch (IgniteCheckedException e) {
+                throw U.convertException(e);
+            }
+
+            rmvCheck = false;
+
+            if (rmvd) {
+                ctx.kernalContext().dataStructures().onRemoved(key, this);
+
+                throw removedError();
+            }
+        }
+    }
+
+    /**
+     * @return Error.
+     */
+    private IllegalStateException removedError() {
+        return new IllegalStateException("Atomic reference was removed from cache: " + name);
     }
 
     /** {@inheritDoc} */

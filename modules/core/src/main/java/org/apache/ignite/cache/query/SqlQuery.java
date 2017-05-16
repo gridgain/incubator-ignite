@@ -17,18 +17,19 @@
 
 package org.apache.ignite.cache.query;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.query.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
+import javax.cache.Cache;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.internal.processors.query.GridQueryProcessor;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * SQL Query.
  *
  * @see IgniteCache#query(Query)
- * @see IgniteCache#localQuery(Query)
  */
-public final class SqlQuery extends Query<SqlQuery> {
+public final class SqlQuery<K, V> extends Query<Cache.Entry<K, V>> {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -41,6 +42,9 @@ public final class SqlQuery extends Query<SqlQuery> {
     /** Arguments. */
     @GridToStringInclude
     private Object[] args;
+
+    /** */
+    private boolean distributedJoins;
 
     /**
      * Constructs query for the given type name and SQL query.
@@ -79,7 +83,7 @@ public final class SqlQuery extends Query<SqlQuery> {
      * @param sql SQL clause.
      * @return {@code this} For chaining.
      */
-    public SqlQuery setSql(String sql) {
+    public SqlQuery<K, V> setSql(String sql) {
         A.notNull(sql, "sql");
 
         this.sql = sql;
@@ -102,7 +106,7 @@ public final class SqlQuery extends Query<SqlQuery> {
      * @param args SQL arguments.
      * @return {@code this} For chaining.
      */
-    public SqlQuery setArgs(Object... args) {
+    public SqlQuery<K, V> setArgs(Object... args) {
         this.args = args;
 
         return this;
@@ -123,17 +127,52 @@ public final class SqlQuery extends Query<SqlQuery> {
      * @param type Type.
      * @return {@code this} For chaining.
      */
-    public SqlQuery setType(String type) {
+    public SqlQuery<K, V> setType(String type) {
         this.type = type;
 
         return this;
     }
 
+    /** {@inheritDoc} */
+    @Override public SqlQuery<K, V> setPageSize(int pageSize) {
+        return (SqlQuery<K, V>)super.setPageSize(pageSize);
+    }
+
+    /** {@inheritDoc} */
+    @Override public SqlQuery<K, V> setLocal(boolean loc) {
+        return (SqlQuery<K, V>)super.setLocal(loc);
+    }
+
     /**
      * @param type Type.
+     * @return {@code this} For chaining.
      */
     public SqlQuery setType(Class<?> type) {
         return setType(GridQueryProcessor.typeName(type));
+    }
+
+    /**
+     * Specify if distributed joins are enabled for this query.
+     *
+     * When disabled, join results will only contain colocated data (joins work locally).
+     * When enabled, joins work as expected, no matter how the data is distributed.
+     *
+     * @param distributedJoins Distributed joins enabled.
+     * @return {@code this} For chaining.
+     */
+    public SqlQuery setDistributedJoins(boolean distributedJoins) {
+        this.distributedJoins = distributedJoins;
+
+        return this;
+    }
+
+    /**
+     * Check if distributed joins are enabled for this query.
+     *
+     * @return {@code true} If distributed joind enabled.
+     */
+    public boolean isDistributedJoins() {
+        return distributedJoins;
     }
 
     /** {@inheritDoc} */

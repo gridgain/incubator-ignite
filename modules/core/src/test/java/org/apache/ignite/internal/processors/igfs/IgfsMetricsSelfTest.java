@@ -17,21 +17,33 @@
 
 package org.apache.ignite.internal.processors.igfs;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteFileSystem;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.FileSystemConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.igfs.IgfsGroupDataBlocksKeyMapper;
+import org.apache.ignite.igfs.IgfsInputStream;
+import org.apache.ignite.igfs.IgfsIpcEndpointConfiguration;
+import org.apache.ignite.igfs.IgfsIpcEndpointType;
+import org.apache.ignite.igfs.IgfsMetrics;
+import org.apache.ignite.igfs.IgfsMode;
+import org.apache.ignite.igfs.IgfsOutputStream;
+import org.apache.ignite.igfs.IgfsPath;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.igfs.IgfsMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.igfs.IgfsMode.DUAL_SYNC;
+import static org.apache.ignite.igfs.IgfsMode.PRIMARY;
 
 /**
  * Test for IGFS metrics.
@@ -104,6 +116,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
      * @return Configuration.
      * @throws Exception If failed.
      */
+    @SuppressWarnings("unchecked")
     private IgniteConfiguration primaryConfiguration(int idx) throws Exception {
         FileSystemConfiguration igfsCfg = new FileSystemConfiguration();
 
@@ -111,12 +124,12 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
         igfsCfg.setMetaCacheName("metaCache");
         igfsCfg.setName(IGFS_PRIMARY);
         igfsCfg.setBlockSize(PRIMARY_BLOCK_SIZE);
-        igfsCfg.setDefaultMode(PRIMARY);
+        igfsCfg.setDefaultMode(DUAL_SYNC);
         igfsCfg.setSecondaryFileSystem(igfsSecondary.asSecondary());
 
         Map<String, IgfsMode> pathModes = new HashMap<>();
 
-        pathModes.put("/fileRemote", DUAL_SYNC);
+        pathModes.put("/primary", PRIMARY);
 
         igfsCfg.setPathModes(pathModes);
 
@@ -124,7 +137,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
 
         dataCacheCfg.setName("dataCache");
         dataCacheCfg.setCacheMode(PARTITIONED);
-        dataCacheCfg.setDistributionMode(CacheDistributionMode.PARTITIONED_ONLY);
+        dataCacheCfg.setNearConfiguration(null);
         dataCacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         dataCacheCfg.setAffinityMapper(new IgfsGroupDataBlocksKeyMapper(128));
         dataCacheCfg.setBackups(0);
@@ -134,7 +147,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
 
         metaCacheCfg.setName("metaCache");
         metaCacheCfg.setCacheMode(REPLICATED);
-        metaCacheCfg.setDistributionMode(CacheDistributionMode.PARTITIONED_ONLY);
+        metaCacheCfg.setNearConfiguration(null);
         metaCacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         metaCacheCfg.setAtomicityMode(TRANSACTIONAL);
 
@@ -160,6 +173,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
      *
      * @throws Exception If failed.
      */
+    @SuppressWarnings("unchecked")
     private void startSecondary() throws Exception {
         FileSystemConfiguration igfsCfg = new FileSystemConfiguration();
 
@@ -174,7 +188,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
 
         dataCacheCfg.setName("dataCache");
         dataCacheCfg.setCacheMode(PARTITIONED);
-        dataCacheCfg.setDistributionMode(CacheDistributionMode.PARTITIONED_ONLY);
+        dataCacheCfg.setNearConfiguration(null);
         dataCacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         dataCacheCfg.setAffinityMapper(new IgfsGroupDataBlocksKeyMapper(128));
         dataCacheCfg.setBackups(0);
@@ -184,7 +198,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
 
         metaCacheCfg.setName("metaCache");
         metaCacheCfg.setCacheMode(REPLICATED);
-        metaCacheCfg.setDistributionMode(CacheDistributionMode.PARTITIONED_ONLY);
+        metaCacheCfg.setNearConfiguration(null);
         metaCacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         metaCacheCfg.setAtomicityMode(TRANSACTIONAL);
 
@@ -221,35 +235,35 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
         assertEquals(0, m.filesOpenedForRead());
         assertEquals(0, m.filesOpenedForWrite());
 
-        fs.mkdirs(new IgfsPath("/dir1"));
+        fs.mkdirs(new IgfsPath("/primary/dir1"));
 
         m = fs.metrics();
 
         assertNotNull(m);
-        assertEquals(1, m.directoriesCount());
+        assertEquals(2, m.directoriesCount());
         assertEquals(0, m.filesCount());
         assertEquals(0, m.filesOpenedForRead());
         assertEquals(0, m.filesOpenedForWrite());
 
-        fs.mkdirs(new IgfsPath("/dir1/dir2/dir3"));
-        fs.mkdirs(new IgfsPath("/dir4"));
+        fs.mkdirs(new IgfsPath("/primary/dir1/dir2/dir3"));
+        fs.mkdirs(new IgfsPath("/primary/dir4"));
 
         m = fs.metrics();
 
         assertNotNull(m);
-        assertEquals(4, m.directoriesCount());
+        assertEquals(5, m.directoriesCount());
         assertEquals(0, m.filesCount());
         assertEquals(0, m.filesOpenedForRead());
         assertEquals(0, m.filesOpenedForWrite());
 
-        IgfsOutputStream out1 = fs.create(new IgfsPath("/dir1/file1"), false);
-        IgfsOutputStream out2 = fs.create(new IgfsPath("/dir1/file2"), false);
-        IgfsOutputStream out3 = fs.create(new IgfsPath("/dir1/dir2/file"), false);
+        IgfsOutputStream out1 = fs.create(new IgfsPath("/primary/dir1/file1"), false);
+        IgfsOutputStream out2 = fs.create(new IgfsPath("/primary/dir1/file2"), false);
+        IgfsOutputStream out3 = fs.create(new IgfsPath("/primary/dir1/dir2/file"), false);
 
         m = fs.metrics();
 
         assertNotNull(m);
-        assertEquals(4, m.directoriesCount());
+        assertEquals(5, m.directoriesCount());
         assertEquals(3, m.filesCount());
         assertEquals(0, m.filesOpenedForRead());
         assertEquals(3, m.filesOpenedForWrite());
@@ -263,7 +277,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
         m = fs.metrics();
 
         assertNotNull(m);
-        assertEquals(4, m.directoriesCount());
+        assertEquals(5, m.directoriesCount());
         assertEquals(3, m.filesCount());
         assertEquals(0, m.filesOpenedForRead());
         assertEquals(2, m.filesOpenedForWrite());
@@ -274,19 +288,19 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
         m = fs.metrics();
 
         assertNotNull(m);
-        assertEquals(4, m.directoriesCount());
+        assertEquals(5, m.directoriesCount());
         assertEquals(3, m.filesCount());
         assertEquals(0, m.filesOpenedForRead());
         assertEquals(0, m.filesOpenedForWrite());
 
-        IgfsOutputStream out = fs.append(new IgfsPath("/dir1/file1"), false);
+        IgfsOutputStream out = fs.append(new IgfsPath("/primary/dir1/file1"), false);
 
         out.write(new byte[20]);
 
         m = fs.metrics();
 
         assertNotNull(m);
-        assertEquals(4, m.directoriesCount());
+        assertEquals(5, m.directoriesCount());
         assertEquals(3, m.filesCount());
         assertEquals(0, m.filesOpenedForRead());
         assertEquals(1, m.filesOpenedForWrite());
@@ -298,18 +312,18 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
         m = fs.metrics();
 
         assertNotNull(m);
-        assertEquals(4, m.directoriesCount());
+        assertEquals(5, m.directoriesCount());
         assertEquals(3, m.filesCount());
         assertEquals(0, m.filesOpenedForRead());
         assertEquals(0, m.filesOpenedForWrite());
 
-        IgfsInputStream in1 = fs.open(new IgfsPath("/dir1/file1"));
-        IgfsInputStream in2 = fs.open(new IgfsPath("/dir1/file2"));
+        IgfsInputStream in1 = fs.open(new IgfsPath("/primary/dir1/file1"));
+        IgfsInputStream in2 = fs.open(new IgfsPath("/primary/dir1/file2"));
 
         m = fs.metrics();
 
         assertNotNull(m);
-        assertEquals(4, m.directoriesCount());
+        assertEquals(5, m.directoriesCount());
         assertEquals(3, m.filesCount());
         assertEquals(2, m.filesOpenedForRead());
         assertEquals(0, m.filesOpenedForWrite());
@@ -320,23 +334,23 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
         m = fs.metrics();
 
         assertNotNull(m);
-        assertEquals(4, m.directoriesCount());
+        assertEquals(5, m.directoriesCount());
         assertEquals(3, m.filesCount());
         assertEquals(0, m.filesOpenedForRead());
         assertEquals(0, m.filesOpenedForWrite());
 
-        fs.delete(new IgfsPath("/dir1/file1"), false);
-        fs.delete(new IgfsPath("/dir1/dir2"), true);
+        fs.delete(new IgfsPath("/primary/dir1/file1"), false);
+        fs.delete(new IgfsPath("/primary/dir1/dir2"), true);
 
         m = fs.metrics();
 
         assertNotNull(m);
-        assertEquals(2, m.directoriesCount());
+        assertEquals(3, m.directoriesCount());
         assertEquals(1, m.filesCount());
         assertEquals(0, m.filesOpenedForRead());
         assertEquals(0, m.filesOpenedForWrite());
 
-        fs.delete(new IgfsPath("/"), true);
+        fs.format();
 
         m = fs.metrics();
 
@@ -351,12 +365,12 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
     public void testMultipleClose() throws Exception {
         IgniteFileSystem fs = igfsPrimary[0];
 
-        IgfsOutputStream out = fs.create(new IgfsPath("/file"), false);
+        IgfsOutputStream out = fs.create(new IgfsPath("/primary/file"), false);
 
         out.close();
         out.close();
 
-        IgfsInputStream in = fs.open(new IgfsPath("/file"));
+        IgfsInputStream in = fs.open(new IgfsPath("/primary/file"));
 
         in.close();
         in.close();
@@ -372,12 +386,13 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
      *
      * @throws Exception If failed.
      */
+    @SuppressWarnings({"ResultOfMethodCallIgnored", "ConstantConditions"})
     public void testBlockMetrics() throws Exception {
         IgfsEx igfs = (IgfsEx)igfsPrimary[0];
 
         IgfsPath fileRemote = new IgfsPath("/fileRemote");
-        IgfsPath file1 = new IgfsPath("/file1");
-        IgfsPath file2 = new IgfsPath("/file2");
+        IgfsPath file1 = new IgfsPath("/primary/file1");
+        IgfsPath file2 = new IgfsPath("/primary/file2");
 
         // Create remote file and write some data to it.
         IgfsOutputStream out = igfsSecondary.create(fileRemote, 256, true, null, 1, 256, null);
@@ -412,7 +427,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
         checkBlockMetrics(initMetrics, igfs.metrics(), 0, 0, 0, 3, 0, blockSize * 3);
 
         // Read data from the first file.
-        IgfsInputStreamAdapter is = igfs.open(file1);
+        IgfsInputStream is = igfs.open(file1);
         is.readFully(0, new byte[blockSize * 2]);
         is.close();
 
@@ -420,7 +435,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
 
         // Read data from the second file with hits.
         is = igfs.open(file2);
-        is.readChunks(0, blockSize);
+        is.read(new byte[blockSize]);
         is.close();
 
         checkBlockMetrics(initMetrics, igfs.metrics(), 3, 0, blockSize * 3, 3, 0, blockSize * 3);
@@ -437,7 +452,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
 
         // Read remote file.
         is = igfs.open(fileRemote);
-        is.readChunks(0, rmtBlockSize);
+        is.read(new byte[rmtBlockSize]);
         is.close();
 
         checkBlockMetrics(initMetrics, igfs.metrics(), 4, 1, blockSize * 3 + rmtBlockSize, 3, 0, blockSize * 3);
@@ -447,7 +462,7 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
 
         // Read remote file again.
         is = igfs.open(fileRemote);
-        is.readChunks(0, rmtBlockSize);
+        is.read(new byte[rmtBlockSize]);
         is.close();
 
         checkBlockMetrics(initMetrics, igfs.metrics(), 5, 1, blockSize * 3 + rmtBlockSize * 2, 3, 0, blockSize * 3);
@@ -481,16 +496,6 @@ public class IgfsMetricsSelfTest extends IgfsCommonAbstractTest {
         os.close();
 
         checkBlockMetrics(initMetrics, igfs.metrics(), 5, 1, blockSize * 3 + rmtBlockSize * 2, 5, 1,
-            blockSize * 7 / 2 + rmtBlockSize);
-
-        // Now read partial block.
-        // Read remote file again.
-        is = igfs.open(file1);
-        is.seek(blockSize * 2);
-        is.readChunks(0, blockSize / 2);
-        is.close();
-
-        checkBlockMetrics(initMetrics, igfs.metrics(), 6, 1, blockSize * 7 / 2 + rmtBlockSize * 2, 5, 1,
             blockSize * 7 / 2 + rmtBlockSize);
 
         igfs.resetMetrics();

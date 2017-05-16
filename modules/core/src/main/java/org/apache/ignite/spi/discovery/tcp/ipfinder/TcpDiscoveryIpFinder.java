@@ -17,10 +17,10 @@
 
 package org.apache.ignite.spi.discovery.tcp.ipfinder;
 
-import org.apache.ignite.spi.*;
-
-import java.net.*;
-import java.util.*;
+import java.net.InetSocketAddress;
+import java.util.Collection;
+import org.apache.ignite.spi.IgniteSpiContext;
+import org.apache.ignite.spi.IgniteSpiException;
 
 /**
  * IP finder interface for {@link org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi}.
@@ -31,7 +31,7 @@ public interface TcpDiscoveryIpFinder {
      * method is completed, SPI context can be stored for future access.
      *
      * @param spiCtx Spi context.
-     * @throws org.apache.ignite.spi.IgniteSpiException In case of error.
+     * @throws IgniteSpiException In case of error.
      */
     public void onSpiContextInitialized(IgniteSpiContext spiCtx) throws IgniteSpiException;
 
@@ -46,7 +46,7 @@ public interface TcpDiscoveryIpFinder {
      * Initializes addresses discovery SPI binds to.
      *
      * @param addrs Addresses discovery SPI binds to.
-     * @throws org.apache.ignite.spi.IgniteSpiException In case of error.
+     * @throws IgniteSpiException In case of error.
      */
     public void initializeLocalAddresses(Collection<InetSocketAddress> addrs) throws IgniteSpiException;
 
@@ -54,16 +54,24 @@ public interface TcpDiscoveryIpFinder {
      * Gets all addresses registered in this finder.
      *
      * @return All known addresses, potentially empty, but never {@code null}.
-     * @throws org.apache.ignite.spi.IgniteSpiException In case of error.
+     * @throws IgniteSpiException In case of error.
      */
     public Collection<InetSocketAddress> getRegisteredAddresses() throws IgniteSpiException;
 
     /**
      * Checks whether IP finder is shared or not.
      * <p>
-     * If it is shared then only coordinator can unregister addresses.
+     * If this property is set to {@code true} then IP finder allows to add and remove
+     * addresses in runtime and this is how, for example, IP finder should work in
+     * Amazon EC2 environment or any other environment where IPs may not be known beforehand.
      * <p>
-     * All nodes should register their address themselves, as early as possible on node start.
+     * If this property is set to {@code false} then IP finder is immutable and all the addresses
+     * should be listed in configuration before Ignite start. This is the most use case for IP finders
+     * local to current VM. Since, usually such IP finders are created per each Ignite instance and
+     * all the known IPs are listed right away, but there is also an option to make such IP finders shared
+     * by setting this property to {@code true} and literally share it between local VM Ignite instances.
+     * This way user does not have to list any IPs before start, instead all starting nodes add their addresses
+     * to the finder, then get the registered addresses and continue with discovery procedure.
      *
      * @return {@code true} if IP finder is shared.
      */
@@ -76,7 +84,7 @@ public interface TcpDiscoveryIpFinder {
      * is already registered.
      *
      * @param addrs Addresses to register. Not {@code null} and not empty.
-     * @throws org.apache.ignite.spi.IgniteSpiException In case of error.
+     * @throws IgniteSpiException In case of error.
      */
     public void registerAddresses(Collection<InetSocketAddress> addrs) throws IgniteSpiException;
 
@@ -87,7 +95,7 @@ public interface TcpDiscoveryIpFinder {
      * registered quietly (just no-op).
      *
      * @param addrs Addresses to unregister. Not {@code null} and not empty.
-     * @throws org.apache.ignite.spi.IgniteSpiException In case of error.
+     * @throws IgniteSpiException In case of error.
      */
     public void unregisterAddresses(Collection<InetSocketAddress> addrs) throws IgniteSpiException;
 

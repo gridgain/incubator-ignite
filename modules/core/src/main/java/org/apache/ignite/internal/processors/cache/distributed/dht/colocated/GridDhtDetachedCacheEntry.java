@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.colocated;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheMapEntry;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.GridDistributedCacheEntry;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Detached cache entry.
@@ -34,12 +37,11 @@ public class GridDhtDetachedCacheEntry extends GridDistributedCacheEntry {
      * @param hash Key hash value.
      * @param val Entry value.
      * @param next Next entry in the linked list.
-     * @param ttl Time to live.
      * @param hdrId Header ID.
      */
     public GridDhtDetachedCacheEntry(GridCacheContext ctx, KeyCacheObject key, int hash, CacheObject val,
-        GridCacheMapEntry next, long ttl, int hdrId) {
-        super(ctx, key, hash, val, next, ttl, hdrId);
+        GridCacheMapEntry next, int hdrId) {
+        super(ctx, key, hash, val);
     }
 
     /**
@@ -47,17 +49,15 @@ public class GridDhtDetachedCacheEntry extends GridDistributedCacheEntry {
      *
      * @param val Value.
      * @param ver Version.
-     * @throws IgniteCheckedException If value unmarshalling failed.
      */
-    public void resetFromPrimary(CacheObject val, GridCacheVersion ver)
-        throws IgniteCheckedException {
+    public void resetFromPrimary(CacheObject val, GridCacheVersion ver) {
         value(val);
 
         this.ver = ver;
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public CacheObject unswap(boolean ignoreFlags, boolean needVal) throws IgniteCheckedException {
+    @Nullable @Override public CacheObject unswap(boolean needVal, boolean checkExpire) throws IgniteCheckedException {
         return null;
     }
 

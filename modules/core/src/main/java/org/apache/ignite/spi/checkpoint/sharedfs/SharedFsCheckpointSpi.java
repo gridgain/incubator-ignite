@@ -17,17 +17,36 @@
 
 package org.apache.ignite.spi.checkpoint.sharedfs;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.checkpoint.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Queue;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.binary.BinaryMarshaller;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.marshaller.MarshallerUtils;
+import org.apache.ignite.marshaller.jdk.JdkMarshaller;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.IgniteSpiConfiguration;
+import org.apache.ignite.spi.IgniteSpiConsistencyChecked;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.IgniteSpiMultipleInstancesSupport;
+import org.apache.ignite.spi.checkpoint.CheckpointListener;
+import org.apache.ignite.spi.checkpoint.CheckpointSpi;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class defines shared file system {@link org.apache.ignite.spi.checkpoint.CheckpointSpi} implementation for
@@ -54,9 +73,9 @@ import java.util.*;
  * <h2 class="header">Java Example</h2>
  * {@link SharedFsCheckpointSpi} can be configured as follows:
  * <pre name="code" class="java">
- * GridConfiguration cfg = new GridConfiguration();
+ * IgniteConfiguration cfg = new IgniteConfiguration();
  *
- * GridSharedFsCheckpointSpi checkpointSpi = new GridSharedFsCheckpointSpi();
+ * SharedFsCheckpointSpi checkpointSpi = new SharedFsCheckpointSpi();
  *
  * // List of checkpoint directories where all files are stored.
  * Collection<String> dirPaths = new ArrayList<String>();
@@ -93,7 +112,7 @@ import java.util.*;
  * &lt;/bean&gt;
  * </pre>
  * <p>
- * <img src="http://ignite.incubator.apache.org/images/spring-small.png">
+ * <img src="http://ignite.apache.org/images/spring-small.png">
  * <br>
  * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
  * @see org.apache.ignite.spi.checkpoint.CheckpointSpi
@@ -149,6 +168,9 @@ public class SharedFsCheckpointSpi extends IgniteSpiAdapter implements Checkpoin
     /** Listener. */
     private CheckpointListener lsnr;
 
+    /** Marshaller. */
+    private Marshaller marsh;
+
     /**
      * Initializes default directory paths.
      */
@@ -192,6 +214,11 @@ public class SharedFsCheckpointSpi extends IgniteSpiAdapter implements Checkpoin
         assertParameter(!F.isEmpty(dirPaths), "!F.isEmpty(dirPaths)");
 
         this.gridName = gridName;
+
+        if (ignite.configuration().getMarshaller() instanceof BinaryMarshaller)
+            marsh = MarshallerUtils.jdkMarshaller(ignite.name());
+        else
+            marsh = ignite.configuration().getMarshaller();
 
         folder = getNextSharedPath();
 
@@ -291,8 +318,6 @@ public class SharedFsCheckpointSpi extends IgniteSpiAdapter implements Checkpoin
         if (folder != null) {
             Map<File, SharedFsTimeData> files = new HashMap<>();
 
-            Marshaller marsh = ignite.configuration().getMarshaller();
-
             // Track expiration for only those files that are made by this node
             // to avoid file access conflicts.
             for (File file : getFiles()) {
@@ -364,7 +389,7 @@ public class SharedFsCheckpointSpi extends IgniteSpiAdapter implements Checkpoin
 
         if (file.exists())
             try {
-                SharedFsCheckpointData data = SharedFsUtils.read(file, ignite.configuration().getMarshaller(), log);
+                SharedFsCheckpointData data = SharedFsUtils.read(file, marsh, log);
 
                 return data != null ?
                     data.getExpireTime() == 0 || data.getExpireTime() > U.currentTimeMillis() ?
@@ -412,7 +437,7 @@ public class SharedFsCheckpointSpi extends IgniteSpiAdapter implements Checkpoin
 
             try {
                 SharedFsUtils.write(file, new SharedFsCheckpointData(state, expireTime, host, key),
-                    ignite.configuration().getMarshaller(), log);
+                    marsh, log);
             }
             catch (IOException e) {
                 // Select next shared directory if exists, otherwise throw exception

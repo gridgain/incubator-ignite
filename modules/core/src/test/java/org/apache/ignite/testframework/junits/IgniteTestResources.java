@@ -17,27 +17,40 @@
 
 package org.apache.ignite.testframework.junits;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.resource.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.marshaller.optimized.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.testframework.config.*;
-import org.apache.ignite.testframework.junits.logger.*;
-import org.apache.ignite.thread.*;
-import org.jetbrains.annotations.*;
-
-import javax.management.*;
-import java.io.*;
-import java.lang.management.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import javax.management.MBeanServer;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.binary.BinaryCachingMetadataHandler;
+import org.apache.ignite.internal.binary.BinaryMarshaller;
+import org.apache.ignite.internal.binary.BinaryContext;
+import org.apache.ignite.internal.processors.resource.GridResourceProcessor;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.logger.NullLogger;
+import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.marshaller.MarshallerContextTestImpl;
+import org.apache.ignite.marshaller.optimized.OptimizedMarshaller;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.testframework.config.GridTestProperties;
+import org.apache.ignite.testframework.junits.logger.GridTestLog4jLogger;
+import org.apache.ignite.thread.IgniteThreadPoolExecutor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Test resources for injection.
  */
 public class IgniteTestResources {
+    /** Marshaller class name. */
+    public static final String MARSH_CLASS_NAME = "test.marshaller.class";
+
     /** */
     private static final IgniteLogger rootLog = new GridTestLog4jLogger(false);
 
@@ -63,12 +76,14 @@ public class IgniteTestResources {
     private GridResourceProcessor rsrcProc;
 
     /** */
-    public IgniteTestResources() {
+    public IgniteTestResources() throws IgniteCheckedException {
         log = rootLog.getLogger(getClass());
         nodeId = UUID.randomUUID();
         jmx = ManagementFactory.getPlatformMBeanServer();
         home = U.getIgniteHome();
         locHost = localHost();
+
+        U.setWorkDirectory(null, null);
 
         GridTestKernalContext ctx = new GridTestKernalContext(log);
 
@@ -78,7 +93,7 @@ public class IgniteTestResources {
     /**
      * @param jmx JMX server.
      */
-    public IgniteTestResources(MBeanServer jmx) {
+    public IgniteTestResources(MBeanServer jmx) throws IgniteCheckedException {
         assert jmx != null;
 
         this.jmx = jmx;
@@ -97,7 +112,7 @@ public class IgniteTestResources {
     /**
      * @param log Logger.
      */
-    public IgniteTestResources(IgniteLogger log) {
+    public IgniteTestResources(IgniteLogger log) throws IgniteCheckedException {
         assert log != null;
 
         this.log = log.getLogger(getClass());
@@ -139,7 +154,7 @@ public class IgniteTestResources {
      * @param prestart Prestart flag.
      */
     public void startThreads(boolean prestart) {
-        execSvc = new IgniteThreadPoolExecutor(nodeId.toString(), 40, 40, Long.MAX_VALUE,
+        execSvc = new IgniteThreadPoolExecutor(nodeId.toString(), null, 40, 40, Long.MAX_VALUE,
             new LinkedBlockingQueue<Runnable>());
 
         // Improve concurrency for testing.
@@ -191,6 +206,7 @@ public class IgniteTestResources {
     }
 
     /**
+     * @param cls Class.
      * @return Logger for specified class.
      */
     public static IgniteLogger getLogger(Class<?> cls) {
@@ -223,18 +239,19 @@ public class IgniteTestResources {
      * @throws IgniteCheckedException If failed.
      */
     @SuppressWarnings("unchecked")
-    public synchronized Marshaller getMarshaller() throws IgniteCheckedException {
-        String marshallerName = GridTestProperties.getProperty("marshaller.class");
+    public static synchronized Marshaller getMarshaller() throws IgniteCheckedException {
+        String marshallerName =
+            System.getProperty(MARSH_CLASS_NAME, GridTestProperties.getProperty(GridTestProperties.MARSH_CLASS_NAME));
 
-        Marshaller marshaller;
+        Marshaller marsh;
 
         if (marshallerName == null)
-            marshaller = new OptimizedMarshaller();
+            marsh = new OptimizedMarshaller();
         else {
             try {
                 Class<? extends Marshaller> cls = (Class<? extends Marshaller>)Class.forName(marshallerName);
 
-                marshaller = cls.newInstance();
+                marsh = cls.newInstance();
             }
             catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
                 throw new IgniteCheckedException("Failed to create test marshaller [marshaller=" +
@@ -242,8 +259,18 @@ public class IgniteTestResources {
             }
         }
 
-        marshaller.setContext(new MarshallerContextTestImpl());
+        if (marsh instanceof OptimizedMarshaller)
+            ((OptimizedMarshaller)marsh).setRequireSerializable(false);
 
-        return marshaller;
+        marsh.setContext(new MarshallerContextTestImpl());
+
+        if (marsh instanceof BinaryMarshaller) {
+            BinaryContext ctx =
+                new BinaryContext(BinaryCachingMetadataHandler.create(), new IgniteConfiguration(), new NullLogger());
+
+            IgniteUtils.invoke(BinaryMarshaller.class, marsh, "setBinaryContext", ctx, new IgniteConfiguration());
+        }
+
+        return marsh;
     }
 }

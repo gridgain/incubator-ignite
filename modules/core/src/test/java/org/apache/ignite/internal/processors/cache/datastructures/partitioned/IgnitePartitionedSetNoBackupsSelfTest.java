@@ -17,19 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache.datastructures.partitioned;
 
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.testframework.*;
-
-import java.util.*;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.UUID;
+import org.apache.ignite.configuration.CollectionConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheMapEntry;
+import org.apache.ignite.testframework.GridTestUtils;
 
 /**
  *
  */
 public class IgnitePartitionedSetNoBackupsSelfTest extends GridCachePartitionedSetSelfTest {
     /** {@inheritDoc} */
-    @Override protected TestCollectionConfiguration collectionConfiguration() {
-        TestCollectionConfiguration colCfg = super.collectionConfiguration();
+    @Override protected CollectionConfiguration collectionConfiguration() {
+        CollectionConfiguration colCfg = super.collectionConfiguration();
 
         colCfg.setBackups(0);
 
@@ -54,8 +57,8 @@ public class IgnitePartitionedSetNoBackupsSelfTest extends GridCachePartitionedS
         for (int i = 0; i < gridCount(); i++) {
             IgniteKernal grid = (IgniteKernal)grid(i);
 
-            Iterator<GridCacheEntryEx> entries =
-                grid.context().cache().internalCache(cctx.name()).map().allEntries0().iterator();
+            Iterator<GridCacheMapEntry> entries =
+                grid.context().cache().internalCache(cctx.name()).map().entries().iterator();
 
             if (entries.hasNext()) {
                 if (setNodeId == null)

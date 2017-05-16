@@ -17,20 +17,20 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactClass;
 
 /**
  * Data transfer object for affinity configuration properties.
  */
-public class VisorCacheAffinityConfiguration implements Serializable {
+public class VisorCacheAffinityConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -54,12 +54,12 @@ public class VisorCacheAffinityConfiguration implements Serializable {
      * @return Data transfer object for affinity configuration properties.
      */
     public static VisorCacheAffinityConfiguration from(CacheConfiguration ccfg) {
-        CacheAffinityFunction aff = ccfg.getAffinity();
+        AffinityFunction aff = ccfg.getAffinity();
 
         Boolean excludeNeighbors = null;
 
-        if (aff instanceof CacheRendezvousAffinityFunction) {
-            CacheRendezvousAffinityFunction hashAffFunc = (CacheRendezvousAffinityFunction)aff;
+        if (aff instanceof RendezvousAffinityFunction) {
+            RendezvousAffinityFunction hashAffFunc = (RendezvousAffinityFunction)aff;
 
             excludeNeighbors = hashAffFunc.isExcludeNeighbors();
         }

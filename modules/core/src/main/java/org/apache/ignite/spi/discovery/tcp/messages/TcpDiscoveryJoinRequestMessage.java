@@ -17,11 +17,10 @@
 
 package org.apache.ignite.spi.discovery.tcp.messages;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.internal.*;
-
-import java.io.*;
-import java.util.*;
+import java.util.Map;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 
 /**
  * Initial message sent by a node that wants to enter topology.
@@ -32,17 +31,10 @@ public class TcpDiscoveryJoinRequestMessage extends TcpDiscoveryAbstractMessage 
     private static final long serialVersionUID = 0L;
 
     /** New node that wants to join the topology. */
-    private TcpDiscoveryNode node;
+    private final TcpDiscoveryNode node;
 
     /** Discovery data. */
-    private Map<Integer, Object> discoData;
-
-    /**
-     * Public default no-arg constructor for {@link Externalizable} interface.
-     */
-    public TcpDiscoveryJoinRequestMessage() {
-        // No-op.
-    }
+    private final Map<Integer, byte[]> discoData;
 
     /**
      * Constructor.
@@ -50,7 +42,7 @@ public class TcpDiscoveryJoinRequestMessage extends TcpDiscoveryAbstractMessage 
      * @param node New node that wants to join.
      * @param discoData Discovery data.
      */
-    public TcpDiscoveryJoinRequestMessage(TcpDiscoveryNode node, Map<Integer, Object> discoData) {
+    public TcpDiscoveryJoinRequestMessage(TcpDiscoveryNode node, Map<Integer, byte[]> discoData) {
         super(node.id());
 
         this.node = node;
@@ -69,7 +61,7 @@ public class TcpDiscoveryJoinRequestMessage extends TcpDiscoveryAbstractMessage 
     /**
      * @return Discovery data.
      */
-    public Map<Integer, Object> discoveryData() {
+    public Map<Integer, byte[]> discoveryData() {
         return discoData;
     }
 
@@ -88,19 +80,16 @@ public class TcpDiscoveryJoinRequestMessage extends TcpDiscoveryAbstractMessage 
     }
 
     /** {@inheritDoc} */
-    @Override public void writeExternal(ObjectOutput out) throws IOException {
-        super.writeExternal(out);
+    @Override public boolean equals(Object obj) {
+        // NOTE!
+        // Do not call super. As IDs will differ, but we can ignore this.
 
-        out.writeObject(node);
-        U.writeMap(out, discoData);
-    }
+        if (!(obj instanceof TcpDiscoveryJoinRequestMessage))
+            return false;
 
-    /** {@inheritDoc} */
-    @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        super.readExternal(in);
+        TcpDiscoveryJoinRequestMessage other = (TcpDiscoveryJoinRequestMessage)obj;
 
-        node = (TcpDiscoveryNode)in.readObject();
-        discoData = U.readMap(in);
+        return F.eqNodes(other.node, node);
     }
 
     /** {@inheritDoc} */

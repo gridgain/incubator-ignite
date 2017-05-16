@@ -17,24 +17,12 @@
 
 package org.apache.ignite.internal.processors.continuous;
 
-import org.jetbrains.annotations.*;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Continuous processor message types.
  */
 enum GridContinuousMessageType {
-    /** Consume start request. */
-    MSG_START_REQ,
-
-    /** Consume start acknowledgement. */
-    MSG_START_ACK,
-
-    /** Consume stop request. */
-    MSG_STOP_REQ,
-
-    /** Consume stop acknowledgement. */
-    MSG_STOP_ACK,
-
     /** Remote event notification. */
     MSG_EVT_NOTIFICATION,
 

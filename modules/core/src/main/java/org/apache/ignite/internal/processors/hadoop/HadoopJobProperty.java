@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.processors.hadoop;
 
-import org.jetbrains.annotations.*;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Enumeration of optional properties supported by Ignite for Apache Hadoop.
+ * Enumeration of optional properties supported by Apache Ignite Hadoop Accelerator.
  */
 public enum HadoopJobProperty {
     /**

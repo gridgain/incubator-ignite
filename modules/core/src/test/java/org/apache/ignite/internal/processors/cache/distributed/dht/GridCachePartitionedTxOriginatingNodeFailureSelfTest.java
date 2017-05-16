@@ -17,15 +17,16 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
-import org.apache.ignite.internal.processors.cache.distributed.near.*;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.processors.cache.distributed.IgniteTxOriginatingNodeFailureAbstractSelfTest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
 
 /**
  * Tests transaction consistency when originating node fails.
@@ -34,11 +35,6 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
     IgniteTxOriginatingNodeFailureAbstractSelfTest {
     /** */
     private static final int BACKUP_CNT = 2;
-
-    /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return CacheDistributionMode.NEAR_PARTITIONED;
-    }
 
     /** {@inheritDoc} */
     @Override protected CacheMode cacheMode() {
@@ -63,14 +59,12 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
      * @throws Exception If failed.
      */
     public void testTxFromPrimary() throws Exception {
-        GridCacheAdapter<Integer, String> cache = ((IgniteKernal)grid(originatingNode())).internalCache();
-
         ClusterNode txNode = grid(originatingNode()).localNode();
 
         Integer key = null;
 
         for (int i = 0; i < Integer.MAX_VALUE; i++) {
-            if (cache.affinity().isPrimary(txNode, i)) {
+            if (grid(originatingNode()).affinity(null).isPrimary(txNode, i)) {
                 key = i;
 
                 break;
@@ -86,14 +80,12 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
      * @throws Exception If failed.
      */
     public void testTxFromBackup() throws Exception {
-        GridCacheAdapter<Integer, String> cache = ((IgniteKernal)grid(originatingNode())).internalCache();
-
         ClusterNode txNode = grid(originatingNode()).localNode();
 
         Integer key = null;
 
         for (int i = 0; i < Integer.MAX_VALUE; i++) {
-            if (cache.affinity().isBackup(txNode, i)) {
+            if (grid(originatingNode()).affinity(null).isBackup(txNode, i)) {
                 key = i;
 
                 break;
@@ -109,14 +101,13 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
      * @throws Exception If failed.
      */
     public void testTxFromNotColocated() throws Exception {
-        GridCacheAdapter<Integer, String> cache = ((IgniteKernal)grid(originatingNode())).internalCache();
-
         ClusterNode txNode = grid(originatingNode()).localNode();
 
         Integer key = null;
 
         for (int i = 0; i < Integer.MAX_VALUE; i++) {
-            if (!cache.affinity().isPrimary(txNode, i) && !cache.affinity().isBackup(txNode, i)) {
+            if (!grid(originatingNode()).affinity(null).isPrimary(txNode, i)
+                && !grid(originatingNode()).affinity(null).isBackup(txNode, i)) {
                 key = i;
 
                 break;
@@ -132,8 +123,6 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
      * @throws Exception If failed.
      */
     public void testTxAllNodes() throws Exception {
-        GridCacheAdapter<Integer, String> cache = ((IgniteKernal)grid(originatingNode())).internalCache();
-
         List<ClusterNode> allNodes = new ArrayList<>(GRID_CNT);
 
         for (int i = 0; i < GRID_CNT; i++)
@@ -145,7 +134,7 @@ public class GridCachePartitionedTxOriginatingNodeFailureSelfTest extends
             for (Iterator<ClusterNode> iter = allNodes.iterator(); iter.hasNext();) {
                 ClusterNode node = iter.next();
 
-                if (cache.affinity().isPrimary(node, i)) {
+                if (grid(originatingNode()).affinity(null).isPrimary(node, i)) {
                     keys.add(i);
 
                     iter.remove();

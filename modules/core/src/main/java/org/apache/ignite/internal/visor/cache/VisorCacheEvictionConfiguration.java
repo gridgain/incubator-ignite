@@ -17,19 +17,20 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.cache.eviction.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import org.apache.ignite.cache.eviction.EvictionPolicy;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactClass;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.evictionPolicyMaxSize;
 
 /**
  * Data transfer object for eviction configuration properties.
  */
-public class VisorCacheEvictionConfiguration implements Serializable {
+public class VisorCacheEvictionConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -54,9 +55,6 @@ public class VisorCacheEvictionConfiguration implements Serializable {
     /** Synchronous evicts flag. */
     private boolean evictSynchronized;
 
-    /** Synchronous near evicts flag. */
-    private boolean nearSynchronized;
-
     /** Eviction max overflow ratio. */
     private float maxOverflowRatio;
 
@@ -67,7 +65,7 @@ public class VisorCacheEvictionConfiguration implements Serializable {
     public static VisorCacheEvictionConfiguration from(CacheConfiguration ccfg) {
         VisorCacheEvictionConfiguration cfg = new VisorCacheEvictionConfiguration();
 
-        final CacheEvictionPolicy plc = ccfg.getEvictionPolicy();
+        final EvictionPolicy plc = ccfg.getEvictionPolicy();
 
         cfg.plc = compactClass(plc);
         cfg.plcMaxSize = evictionPolicyMaxSize(plc);
@@ -76,7 +74,6 @@ public class VisorCacheEvictionConfiguration implements Serializable {
         cfg.syncTimeout = ccfg.getEvictSynchronizedTimeout();
         cfg.syncKeyBufSize = ccfg.getEvictSynchronizedKeyBufferSize();
         cfg.evictSynchronized = ccfg.isEvictSynchronized();
-        cfg.nearSynchronized = ccfg.isEvictNearSynchronized();
         cfg.maxOverflowRatio = ccfg.getEvictMaxOverflowRatio();
 
         return cfg;
@@ -129,13 +126,6 @@ public class VisorCacheEvictionConfiguration implements Serializable {
      */
     public boolean evictSynchronized() {
         return evictSynchronized;
-    }
-
-    /**
-     * @return Synchronous near evicts flag.
-     */
-    public boolean nearSynchronized() {
-        return nearSynchronized;
     }
 
     /**

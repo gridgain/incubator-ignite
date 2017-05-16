@@ -17,22 +17,32 @@
 
 package org.apache.ignite.marshaller.optimized;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.marshaller.*;
-import org.jetbrains.annotations.*;
-import sun.misc.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.marshaller.AbstractNodeNameAwareMarshaller;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
+import sun.misc.Unsafe;
 
-import java.io.*;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_OPTIMIZED_MARSHALLER_USE_DEFAULT_SUID;
 
 /**
- * Optimized implementation of {@link org.apache.ignite.marshaller.Marshaller}. Unlike {@link org.apache.ignite.marshaller.jdk.JdkMarshaller},
+ * Optimized implementation of {@link org.apache.ignite.marshaller.Marshaller}.
+ * Unlike {@link org.apache.ignite.marshaller.jdk.JdkMarshaller},
  * which is based on standard {@link ObjectOutputStream}, this marshaller does not
  * enforce that all serialized objects implement {@link Serializable} interface. It is also
  * about 20 times faster as it removes lots of serialization overhead that exists in
  * default JDK implementation.
  * <p>
- * {@code GridOptimizedMarshaller} is tested only on Java HotSpot VM on other VMs
+ * {@code OptimizedMarshaller} is tested only on Java HotSpot VM on other VMs
  * it could yield unexpected results. It is the default marshaller on Java HotSpot VMs
  * and will be used if no other marshaller was explicitly configured.
  * <p>
@@ -41,12 +51,12 @@ import java.io.*;
  * This marshaller has no mandatory configuration parameters.
  * <h2 class="header">Java Example</h2>
  * <pre name="code" class="java">
- * GridOptimizedMarshaller marshaller = new GridOptimizedMarshaller();
+ * OptimizedMarshaller marshaller = new OptimizedMarshaller();
  *
  * // Enforce Serializable interface.
  * marshaller.setRequireSerializable(true);
  *
- * GridConfiguration cfg = new GridConfiguration();
+ * IgniteConfiguration cfg = new IgniteConfiguration();
  *
  * // Override marshaller.
  * cfg.setMarshaller(marshaller);
@@ -60,7 +70,7 @@ import java.io.*;
  * &lt;bean id="grid.custom.cfg" class="org.apache.ignite.configuration.IgniteConfiguration" singleton="true"&gt;
  *     ...
  *     &lt;property name="marshaller"&gt;
- *         &lt;bean class="org.apache.ignite.marshaller.optimized.GridOptimizedMarshaller"&gt;
+ *         &lt;bean class="org.apache.ignite.marshaller.optimized.OptimizedMarshaller"&gt;
  *             &lt;property name="requireSerializable"&gt;true&lt;/property&gt;
  *         &lt;/bean&gt;
  *     &lt;/property&gt;
@@ -68,11 +78,15 @@ import java.io.*;
  * &lt;/bean&gt;
  * </pre>
  * <p>
- * <img src="http://ignite.incubator.apache.org/images/spring-small.png">
+ * <img src="http://ignite.apache.org/images/spring-small.png">
  * <br>
  * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
  */
-public class OptimizedMarshaller extends AbstractMarshaller {
+public class OptimizedMarshaller extends AbstractNodeNameAwareMarshaller {
+    /** Use default {@code serialVersionUID} for {@link Serializable} classes. */
+    public static final boolean USE_DFLT_SUID =
+        IgniteSystemProperties.getBoolean(IGNITE_OPTIMIZED_MARSHALLER_USE_DEFAULT_SUID, false);
+
     /** Default class loader. */
     private final ClassLoader dfltClsLdr = getClass().getClassLoader();
 
@@ -82,6 +96,9 @@ public class OptimizedMarshaller extends AbstractMarshaller {
     /** ID mapper. */
     private OptimizedMarshallerIdMapper mapper;
 
+    /** Class descriptors by class. */
+    private final ConcurrentMap<Class, OptimizedClassDescriptor> clsMap = new ConcurrentHashMap8<>();
+
     /**
      * Creates new marshaller will all defaults.
      *
@@ -89,7 +106,7 @@ public class OptimizedMarshaller extends AbstractMarshaller {
      */
     public OptimizedMarshaller() {
         if (!available())
-            throw new IgniteException("Using GridOptimizedMarshaller on unsupported JVM version (some of " +
+            throw new IgniteException("Using OptimizedMarshaller on unsupported JVM version (some of " +
                 "JVM-private APIs required for the marshaller to work are missing).");
     }
 
@@ -141,7 +158,7 @@ public class OptimizedMarshaller extends AbstractMarshaller {
     }
 
     /** {@inheritDoc} */
-    @Override public void marshal(@Nullable Object obj, OutputStream out) throws IgniteCheckedException {
+    @Override protected void marshal0(@Nullable Object obj, OutputStream out) throws IgniteCheckedException {
         assert out != null;
 
         OptimizedObjectOutputStream objOut = null;
@@ -149,7 +166,7 @@ public class OptimizedMarshaller extends AbstractMarshaller {
         try {
             objOut = OptimizedObjectStreamRegistry.out();
 
-            objOut.context(ctx, mapper, requireSer);
+            objOut.context(clsMap, ctx, mapper, requireSer);
 
             objOut.out().outputStream(out);
 
@@ -164,13 +181,13 @@ public class OptimizedMarshaller extends AbstractMarshaller {
     }
 
     /** {@inheritDoc} */
-    @Override public byte[] marshal(@Nullable Object obj) throws IgniteCheckedException {
+    @Override protected byte[] marshal0(@Nullable Object obj) throws IgniteCheckedException {
         OptimizedObjectOutputStream objOut = null;
 
         try {
             objOut = OptimizedObjectStreamRegistry.out();
 
-            objOut.context(ctx, mapper, requireSer);
+            objOut.context(clsMap, ctx, mapper, requireSer);
 
             objOut.writeObject(obj);
 
@@ -186,7 +203,7 @@ public class OptimizedMarshaller extends AbstractMarshaller {
 
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
-    @Override public <T> T unmarshal(InputStream in, @Nullable ClassLoader clsLdr) throws IgniteCheckedException {
+    @Override protected <T> T unmarshal0(InputStream in, @Nullable ClassLoader clsLdr) throws IgniteCheckedException {
         assert in != null;
 
         OptimizedObjectInputStream objIn = null;
@@ -194,7 +211,7 @@ public class OptimizedMarshaller extends AbstractMarshaller {
         try {
             objIn = OptimizedObjectStreamRegistry.in();
 
-            objIn.context(ctx, mapper, clsLdr != null ? clsLdr : dfltClsLdr);
+            objIn.context(clsMap, ctx, mapper, clsLdr != null ? clsLdr : dfltClsLdr);
 
             objIn.in().inputStream(in);
 
@@ -215,7 +232,7 @@ public class OptimizedMarshaller extends AbstractMarshaller {
 
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
-    @Override public <T> T unmarshal(byte[] arr, @Nullable ClassLoader clsLdr) throws IgniteCheckedException {
+    @Override protected <T> T unmarshal0(byte[] arr, @Nullable ClassLoader clsLdr) throws IgniteCheckedException {
         assert arr != null;
 
         OptimizedObjectInputStream objIn = null;
@@ -223,7 +240,7 @@ public class OptimizedMarshaller extends AbstractMarshaller {
         try {
             objIn = OptimizedObjectStreamRegistry.in();
 
-            objIn.context(ctx, mapper, clsLdr != null ? clsLdr : dfltClsLdr);
+            objIn.context(clsMap, ctx, mapper, clsLdr != null ? clsLdr : dfltClsLdr);
 
             objIn.in().bytes(arr, arr.length);
 
@@ -256,9 +273,7 @@ public class OptimizedMarshaller extends AbstractMarshaller {
     @SuppressWarnings({"TypeParameterExtendsFinalClass", "ErrorNotRethrown"})
     public static boolean available() {
         try {
-            Unsafe unsafe = GridUnsafe.unsafe();
-
-            Class<? extends Unsafe> unsafeCls = unsafe.getClass();
+            Class<? extends Unsafe> unsafeCls = Unsafe.class;
 
             unsafeCls.getMethod("allocateInstance", Class.class);
             unsafeCls.getMethod("copyMemory", Object.class, long.class, Object.class, long.class, long.class);
@@ -278,14 +293,12 @@ public class OptimizedMarshaller extends AbstractMarshaller {
      *
      * @param ldr Class loader being undeployed.
      */
-    public static void onUndeploy(ClassLoader ldr) {
-        OptimizedMarshallerUtils.onUndeploy(ldr);
-    }
+    @Override public void onUndeploy(ClassLoader ldr) {
+        for (Class<?> cls : clsMap.keySet()) {
+            if (ldr.equals(cls.getClassLoader()))
+                clsMap.remove(cls);
+        }
 
-    /**
-     * Clears internal caches and frees memory. Usually called on system stop.
-     */
-    public static void clearCache() {
-        OptimizedMarshallerUtils.clearCache();
+        U.clearClassCache(ldr);
     }
 }

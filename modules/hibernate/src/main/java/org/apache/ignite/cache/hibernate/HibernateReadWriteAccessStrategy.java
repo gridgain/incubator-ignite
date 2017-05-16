@@ -17,17 +17,19 @@
 
 package org.apache.ignite.cache.hibernate;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.transactions.*;
-import org.hibernate.cache.*;
-import org.hibernate.cache.spi.access.*;
+import java.util.Set;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.util.GridLeanSet;
+import org.apache.ignite.transactions.Transaction;
+import org.hibernate.cache.CacheException;
+import org.hibernate.cache.spi.access.AccessType;
+import org.hibernate.cache.spi.access.SoftLock;
 
-import java.util.*;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Implementation of {@link AccessType#READ_WRITE} cache access strategy.
@@ -66,7 +68,7 @@ public class HibernateReadWriteAccessStrategy extends HibernateAccessStrategyAda
      * @param cache Cache.
      * @param txCtx Thread local instance used to track updates done during one Hibernate transaction.
      */
-    protected HibernateReadWriteAccessStrategy(Ignite ignite, GridCache<Object, Object> cache, ThreadLocal txCtx) {
+    protected HibernateReadWriteAccessStrategy(Ignite ignite, IgniteInternalCache<Object, Object> cache, ThreadLocal txCtx) {
         super(ignite, cache);
 
         this.txCtx = (ThreadLocal<TxContext>)txCtx;
@@ -97,7 +99,7 @@ public class HibernateReadWriteAccessStrategy extends HibernateAccessStrategyAda
         boolean success = false;
 
         try {
-            cache.putx(key, val);
+            cache.put(key, val);
 
             success = true;
         }
@@ -172,7 +174,7 @@ public class HibernateReadWriteAccessStrategy extends HibernateAccessStrategyAda
             TxContext ctx = txCtx.get();
 
             if (ctx != null) {
-                cache.putx(key, val);
+                cache.put(key, val);
 
                 unlock(ctx, key);
 
@@ -202,7 +204,7 @@ public class HibernateReadWriteAccessStrategy extends HibernateAccessStrategyAda
         boolean success = false;
 
         try {
-            cache.putx(key, val);
+            cache.put(key, val);
 
             success = true;
 
@@ -225,7 +227,7 @@ public class HibernateReadWriteAccessStrategy extends HibernateAccessStrategyAda
             TxContext ctx = txCtx.get();
 
             if (ctx != null)
-                cache.removex(key);
+                cache.remove(key);
 
             success = true;
         }

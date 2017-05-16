@@ -17,22 +17,22 @@
 
 package org.apache.ignite.internal.visor.node;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.cache.*;
-import org.apache.ignite.internal.visor.streamer.*;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
-import java.io.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactArray;
 
 /**
  * Data transfer object for node configuration data.
  */
-public class VisorGridConfiguration implements Serializable {
+public class VisorGridConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -69,14 +69,8 @@ public class VisorGridConfiguration implements Serializable {
     /** User attributes. */
     private Map<String, ?> userAttrs;
 
-    /** Caches. */
-    private Iterable<VisorCacheConfiguration> caches;
-
     /** Igfss. */
     private Iterable<VisorIgfsConfiguration> igfss;
-
-    /** Streamers. */
-    private Iterable<VisorStreamerConfiguration> streamers;
 
     /** Environment. */
     private Map<String, String> env;
@@ -110,9 +104,7 @@ public class VisorGridConfiguration implements Serializable {
         inclEvtTypes = c.getIncludeEventTypes();
         rest = VisorRestConfiguration.from(c);
         userAttrs = c.getUserAttributes();
-        caches = VisorCacheConfiguration.list(ignite, c.getCacheConfiguration());
         igfss = VisorIgfsConfiguration.list(c.getFileSystemConfiguration());
-        streamers = VisorStreamerConfiguration.list(c.getStreamerConfiguration());
         env = new HashMap<>(System.getenv());
         sysProps = IgniteSystemProperties.snapshot();
         atomic = VisorAtomicConfiguration.from(c.getAtomicConfiguration());
@@ -199,24 +191,10 @@ public class VisorGridConfiguration implements Serializable {
     }
 
     /**
-     * @return Caches.
-     */
-    public Iterable<VisorCacheConfiguration> caches() {
-        return caches;
-    }
-
-    /**
      * @return Igfss.
      */
     public Iterable<VisorIgfsConfiguration> igfss() {
         return igfss;
-    }
-
-    /**
-     * @return Streamers.
-     */
-    public Iterable<VisorStreamerConfiguration> streamers() {
-        return streamers;
     }
 
     /**

@@ -17,38 +17,50 @@
 
 package org.apache.ignite;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Collection;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import javax.cache.CacheException;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.CollectionConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.lang.IgniteProductVersion;
+import org.apache.ignite.plugin.IgnitePlugin;
+import org.apache.ignite.plugin.PluginNotFoundException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Main entry-point for all Ignite APIs.
- * You can obtain an instance of {@code Grid} through {@link Ignition#ignite()},
+ * You can obtain an instance of {@code Ignite} through {@link Ignition#ignite()},
  * or for named grids you can use {@link Ignition#ignite(String)}. Note that you
- * can have multiple instances of {@code Grid} running in the same VM by giving
+ * can have multiple instances of {@code Ignite} running in the same VM by giving
  * each instance a different name.
  * <p>
- * Note that {@code Grid} extends {@link ClusterGroup} which means that it provides grid projection
- * functionality over the whole grid (instead of a subgroup of nodes).
- * <p>
- * In addition to {@link ClusterGroup} functionality, from here you can get the following:
+ * Ignite provides the following functionality:
  * <ul>
- * <li>{@link IgniteCache} - functionality for in-memory distributed cache.</li>
- * <li>{@link IgniteDataStreamer} - functionality for loading data large amounts of data into cache.</li>
- * <li>{@link IgniteFileSystem} - functionality for distributed Hadoop-compliant in-memory file system and map-reduce.</li>
- * <li>{@link IgniteStreamer} - functionality for streaming events workflow with queries and indexes into rolling windows.</li>
- * <li>{@link IgniteScheduler} - functionality for scheduling jobs using UNIX Cron syntax.</li>
+ * <li>{@link IgniteCluster} - clustering functionality.</li>
+ * <li>{@link IgniteCache} - functionality for in-memory distributed cache, including SQL, TEXT, and Predicate-based queries.</li>
+ * <li>{@link IgniteTransactions} - distributed ACID-compliant transactions.</li>
+ * <li>{@link IgniteDataStreamer} - functionality for streaming large amounts of data into cache.</li>
  * <li>{@link IgniteCompute} - functionality for executing tasks and closures on all grid nodes (inherited form {@link ClusterGroup}).</li>
+ * <li>{@link IgniteServices} - distributed service grid functionality (e.g. singletons on the cluster).</li>
  * <li>{@link IgniteMessaging} - functionality for topic-based message exchange on all grid nodes (inherited form {@link ClusterGroup}).</li>
  * <li>{@link IgniteEvents} - functionality for querying and listening to events on all grid nodes  (inherited form {@link ClusterGroup}).</li>
+ * <li>{@link ExecutorService} - distributed thread pools.</li>
+ * <li>{@link IgniteAtomicLong} - distributed atomic long.</li>
+ * <li>{@link IgniteAtomicReference} - distributed atomic reference.</li>
+ * <li>{@link IgniteAtomicSequence} - distributed atomic sequence.</li>
+ * <li>{@link IgniteAtomicStamped} - distributed atomic stamped reference.</li>
+ * <li>{@link IgniteCountDownLatch} - distributed count down latch.</li>
+ * <li>{@link IgniteQueue} - distributed blocking queue.</li>
+ * <li>{@link IgniteSet} - distributed concurrent set.</li>
+ * <li>{@link IgniteScheduler} - functionality for scheduling jobs using UNIX Cron syntax.</li>
+ * <li>{@link IgniteFileSystem} - functionality for distributed Hadoop-compliant in-memory file system and map-reduce.</li>
  * </ul>
  */
 public interface Ignite extends AutoCloseable {
@@ -74,7 +86,7 @@ public interface Ignite extends AutoCloseable {
     public IgniteLogger log();
 
     /**
-     * Gets the configuration of this grid instance.
+     * Gets the configuration of this Ignite instance.
      * <p>
      * <b>NOTE:</b>
      * <br>
@@ -84,7 +96,7 @@ public interface Ignite extends AutoCloseable {
      * via this method to check its configuration properties or call other non-SPI
      * methods.
      *
-     * @return Grid configuration instance.
+     * @return Ignite configuration instance.
      */
     public IgniteConfiguration configuration();
 
@@ -96,77 +108,89 @@ public interface Ignite extends AutoCloseable {
     public IgniteCluster cluster();
 
     /**
-     * Gets {@code compute} functionality over this grid projection. All operations
-     * on the returned {@link IgniteCompute} instance will only include nodes from
-     * this projection.
+     * Gets {@code compute} facade over all cluster nodes started in server mode.
      *
-     * @return Compute instance over this grid projection.
+     * @return Compute instance over all cluster nodes started in server mode.
      */
     public IgniteCompute compute();
 
     /**
-     * @param grp Cluster group..
+     * Gets {@code compute} facade over the specified cluster group. All operations
+     * on the returned {@link IgniteCompute} instance will only include nodes from
+     * this cluster group.
+     *
+     * @param grp Cluster group.
      * @return Compute instance over given cluster group.
      */
     public IgniteCompute compute(ClusterGroup grp);
 
     /**
-     * Gets {@code messaging} functionality over this grid projection. All operations
-     * on the returned {@link IgniteMessaging} instance will only include nodes from
-     * this projection.
+     * Gets {@code messaging} facade over all cluster nodes.
      *
-     * @return Messaging instance over this grid projection.
+     * @return Messaging instance over all cluster nodes.
      */
     public IgniteMessaging message();
 
     /**
+     * Gets {@code messaging} facade over nodes within the cluster group.  All operations
+     * on the returned {@link IgniteMessaging} instance will only include nodes from
+     * the specified cluster group.
+     *
      * @param grp Cluster group.
      * @return Messaging instance over given cluster group.
      */
     public IgniteMessaging message(ClusterGroup grp);
 
     /**
-     * Gets {@code events} functionality over this grid projection. All operations
-     * on the returned {@link IgniteEvents} instance will only include nodes from
-     * this projection.
+     * Gets {@code events} facade over all cluster nodes.
      *
-     * @return Events instance over this grid projection.
+     * @return Events instance over all cluster nodes.
      */
     public IgniteEvents events();
 
     /**
+     * Gets {@code events} facade over nodes within the cluster group. All operations
+     * on the returned {@link IgniteEvents} instance will only include nodes from
+     * the specified cluster group.
+     *
      * @param grp Cluster group.
      * @return Events instance over given cluster group.
      */
     public IgniteEvents events(ClusterGroup grp);
 
     /**
-     * Gets {@code services} functionality over this grid projection. All operations
-     * on the returned {@link IgniteMessaging} instance will only include nodes from
-     * this projection.
+     * Gets {@code services} facade over all cluster nodes started in server mode.
      *
-     * @return Services instance over this grid projection.
+     * @return Services facade over all cluster nodes started in server mode.
      */
     public IgniteServices services();
 
     /**
+     * Gets {@code services} facade over nodes within the cluster group. All operations
+     * on the returned {@link IgniteMessaging} instance will only include nodes from
+     * the specified cluster group.
+     *
      * @param grp Cluster group.
      * @return {@code Services} functionality over given cluster group.
      */
     public IgniteServices services(ClusterGroup grp);
 
     /**
-     * Creates new {@link ExecutorService} which will execute all submitted
-     * {@link java.util.concurrent.Callable} and {@link Runnable} jobs on nodes in this grid projection.
-     * This essentially
-     * creates a <b><i>Distributed Thread Pool</i></b> that can be used as a
-     * replacement for local thread pools.
+     * Creates a new {@link ExecutorService} which will execute all submitted
+     * {@link Callable} and {@link Runnable} jobs on all cluster nodes.
+     * This essentially creates a <b><i>Distributed Thread Pool</i></b> that can
+     * be used as a replacement for local thread pools.
      *
      * @return Grid-enabled {@code ExecutorService}.
      */
     public ExecutorService executorService();
 
     /**
+     * Creates a new {@link ExecutorService} which will execute all submitted
+     * {@link Callable} and {@link Runnable} jobs on nodes in the specified cluster group.
+     * This essentially creates a <b><i>Distributed Thread Pool</i></b> that can be used as a
+     * replacement for local thread pools.
+     *
      * @param grp Cluster group.
      * @return {@link ExecutorService} which will execute jobs on nodes in given cluster group.
      */
@@ -187,13 +211,187 @@ public interface Ignite extends AutoCloseable {
     public IgniteScheduler scheduler();
 
     /**
+     * Dynamically starts new cache with the given cache configuration.
+     * <p>
+     * If local node is an affinity node, this method will return the instance of started cache.
+     * Otherwise, it will create a client cache on local node.
+     * <p>
+     * If a cache with the same name already exists in the grid, an exception will be thrown regardless
+     * whether the given configuration matches the configuration of the existing cache or not.
+     *
+     * @param cacheCfg Cache configuration to use.
+     * @return Instance of started cache.
+     * @throws CacheException If a cache with the same name already exists or other error occurs.
+     */
+    public <K, V> IgniteCache<K, V> createCache(CacheConfiguration<K, V> cacheCfg) throws CacheException;
+
+    /**
+     * Dynamically starts new caches with the given cache configurations.
+     * <p>
+     * If local node is an affinity node, this method will return the instance of started caches.
+     * Otherwise, it will create a client caches on local node.
+     * <p>
+     * If for one of configurations a cache with the same name already exists in the grid, an exception will be thrown regardless
+     * whether the given configuration matches the configuration of the existing cache or not.
+     *
+     * @param cacheCfgs Collection of cache configuration to use.
+     * @return Collection of instances of started caches.
+     * @throws CacheException If one of created caches exists or other error occurs.
+     */
+    public Collection<IgniteCache> createCaches(Collection<CacheConfiguration> cacheCfgs) throws CacheException;
+
+    /**
+     * Dynamically starts new cache using template configuration.
+     * <p>
+     * If local node is an affinity node, this method will return the instance of started cache.
+     * Otherwise, it will create a client cache on local node.
+     * <p>
+     * If a cache with the same name already exists in the grid, an exception will be thrown.
+     *
+     * @param cacheName Cache name.
+     * @return Instance of started cache.
+     * @throws CacheException If a cache with the same name already exists or other error occurs.
+     */
+    public <K, V> IgniteCache<K, V> createCache(String cacheName) throws CacheException;
+
+    /**
+     * Gets existing cache with the given name or creates new one with the given configuration.
+     * <p>
+     * If a cache with the same name already exist, this method will not check that the given
+     * configuration matches the configuration of existing cache and will return an instance
+     * of the existing cache.
+     *
+     * @param cacheCfg Cache configuration to use.
+     * @return Existing or newly created cache.
+     * @throws CacheException If error occurs.
+     */
+    public <K, V> IgniteCache<K, V> getOrCreateCache(CacheConfiguration<K, V> cacheCfg) throws CacheException;
+
+    /**
+     * Gets existing cache with the given name or creates new one using template configuration.
+     *
+     * @param cacheName Cache name.
+     * @return Existing or newly created cache.
+     * @throws CacheException If error occurs.
+     */
+    public <K, V> IgniteCache<K, V> getOrCreateCache(String cacheName) throws CacheException;
+
+    /**
+     * Gets existing caches with the given name or created one with the given configuration.
+     * <p>
+     * If a cache with the same name already exist, this method will not check that the given
+     * configuration matches the configuration of existing cache and will return an instance
+     * of the existing cache.
+     *
+     * @param cacheCfgs Collection of cache configuration to use.
+     * @return Collection of existing or newly created caches.
+     * @throws CacheException If error occurs.
+     */
+    public Collection<IgniteCache> getOrCreateCaches(Collection<CacheConfiguration> cacheCfgs) throws CacheException;
+
+    /**
+     * Adds cache configuration template.
+     *
+     * @param cacheCfg Cache configuration template.
+     * @throws CacheException If error occurs.
+     */
+    public <K, V> void addCacheConfiguration(CacheConfiguration<K, V> cacheCfg) throws CacheException;
+
+    /**
+     * Dynamically starts new cache with the given cache configuration.
+     * <p>
+     * If local node is an affinity node, this method will return the instance of started cache.
+     * Otherwise, it will create a near cache with the given configuration on local node.
+     * <p>
+     * If a cache with the same name already exists in the grid, an exception will be thrown regardless
+     * whether the given configuration matches the configuration of the existing cache or not.
+     *
+     * @param cacheCfg Cache configuration to use.
+     * @param nearCfg Near cache configuration to use on local node in case it is not an
+     *      affinity node.
+     * @throws CacheException If a cache with the same name already exists or other error occurs.
+     * @return Instance of started cache.
+     */
+    public <K, V> IgniteCache<K, V> createCache(CacheConfiguration<K, V> cacheCfg,
+        NearCacheConfiguration<K, V> nearCfg) throws CacheException;
+
+    /**
+     * Gets existing cache with the given cache configuration or creates one if it does not exist.
+     * <p>
+     * If a cache with the same name already exist, this method will not check that the given
+     * configuration matches the configuration of existing cache and will return an instance
+     * of the existing cache.
+     * <p>
+     * If local node is not an affinity node and a client cache without near cache has been already started
+     * on this node, an exception will be thrown.
+     *
+     * @param cacheCfg Cache configuration.
+     * @param nearCfg Near cache configuration for client.
+     * @return {@code IgniteCache} instance.
+     * @throws CacheException If error occurs.
+     */
+    public <K, V> IgniteCache<K, V> getOrCreateCache(CacheConfiguration<K, V> cacheCfg,
+        NearCacheConfiguration<K, V> nearCfg) throws CacheException;
+
+    /**
+     * Starts a near cache on local node if cache was previously started with one of the
+     * {@link #createCache(CacheConfiguration)} or {@link #createCache(CacheConfiguration, NearCacheConfiguration)}
+     * methods.
+     *
+     * @param cacheName Cache name.
+     * @param nearCfg Near cache configuration.
+     * @return Cache instance.
+     * @throws CacheException If error occurs.
+     */
+    public <K, V> IgniteCache<K, V> createNearCache(@Nullable String cacheName, NearCacheConfiguration<K, V> nearCfg)
+        throws CacheException;
+
+    /**
+     * Gets existing near cache with the given name or creates a new one.
+     *
+     * @param cacheName Cache name.
+     * @param nearCfg Near configuration.
+     * @return {@code IgniteCache} instance.
+     * @throws CacheException If error occurs.
+     */
+    public <K, V> IgniteCache<K, V> getOrCreateNearCache(@Nullable String cacheName, NearCacheConfiguration<K, V> nearCfg)
+        throws CacheException;
+
+    /**
+     * Stops dynamically started cache.
+     *
+     * @param cacheName Cache name to stop.
+     * @throws CacheException If error occurs.
+     */
+    public void destroyCache(String cacheName) throws CacheException;
+
+    /**
+     * Stops dynamically started caches.
+     *
+     * @param cacheNames Collection of cache names to stop.
+     * @throws CacheException If error occurs.
+     */
+    public void destroyCaches(Collection<String> cacheNames) throws CacheException;
+
+    /**
      * Gets an instance of {@link IgniteCache} API. {@code IgniteCache} is a fully-compatible
      * implementation of {@code JCache (JSR 107)} specification.
      *
      * @param name Cache name.
      * @return Instance of the cache for the specified name.
+     * @throws CacheException If error occurs.
      */
-    public <K, V> IgniteCache<K, V> jcache(@Nullable String name);
+    public <K, V> IgniteCache<K, V> cache(@Nullable String name) throws CacheException;
+
+    /**
+     * Gets the collection of names of currently available caches.
+     *
+     * Collection may contain {@code null} as a value for a cache name. Refer to {@link CacheConfiguration#getName()}
+     * for more info.
+     *
+     * @return Collection of names of currently available caches or an empty collection if no caches are available.
+     */
+    public Collection<String> cacheNames();
 
     /**
      * Gets grid transactions facade.
@@ -209,8 +407,9 @@ public interface Ignite extends AutoCloseable {
      *
      * @param cacheName Cache name ({@code null} for default cache).
      * @return Data streamer.
+     * @throws IllegalStateException If node is stopping.
      */
-    public <K, V> IgniteDataStreamer<K, V> dataStreamer(@Nullable String cacheName);
+    public <K, V> IgniteDataStreamer<K, V> dataStreamer(@Nullable String cacheName) throws IllegalStateException;
 
     /**
      * Gets an instance of IGFS (Ignite In-Memory File System). If one is not
@@ -224,7 +423,7 @@ public interface Ignite extends AutoCloseable {
      * @return IGFS instance.
      * @throws IllegalArgumentException If IGFS with such name is not configured.
      */
-    public IgniteFileSystem fileSystem(String name);
+    public IgniteFileSystem fileSystem(String name) throws IllegalArgumentException;
 
     /**
      * Gets all instances of IGFS (Ignite In-Memory File System).
@@ -232,22 +431,6 @@ public interface Ignite extends AutoCloseable {
      * @return Collection of IGFS instances.
      */
     public Collection<IgniteFileSystem> fileSystems();
-
-    /**
-     * Gets an instance of streamer by name, if one does not exist then
-     * {@link IllegalArgumentException} will be thrown.
-     *
-     * @param name Streamer name.
-     * @return Streamer for given name.
-     */
-    public IgniteStreamer streamer(@Nullable String name);
-
-    /**
-     * Gets all instances of streamers.
-     *
-     * @return Collection of all streamer instances.
-     */
-    public Collection<IgniteStreamer> streamers();
 
     /**
      * Will get an atomic sequence from cache and create one if it has not been created yet and {@code create} flag
@@ -317,6 +500,40 @@ public interface Ignite extends AutoCloseable {
         throws IgniteException;
 
     /**
+     * Gets or creates semaphore. If semaphore is not found in cache and {@code create} flag
+     * is {@code true}, it is created using provided name and count parameter.
+     *
+     * @param name Name of the semaphore.
+     * @param cnt Count for new semaphore creation. Ignored if {@code create} flag is {@code false}.
+     * @param failoverSafe {@code True} to create failover safe semaphore which means that
+     *      if any node leaves topology permits already acquired by that node are silently released
+     *      and become available for alive nodes to acquire. If flag is {@code false} then
+     *      all threads waiting for available permits get interrupted.
+     * @param create Boolean flag indicating whether data structure should be created if does not exist.
+     * @return Semaphore for the given name.
+     * @throws IgniteException If semaphore could not be fetched or created.
+     */
+    public IgniteSemaphore semaphore(String name, int cnt, boolean failoverSafe, boolean create)
+        throws IgniteException;
+
+    /**
+     * Gets or creates reentrant lock. If reentrant lock is not found in cache and {@code create} flag
+     * is {@code true}, it is created using provided name.
+     *
+     * @param name Name of the lock.
+     * @param failoverSafe {@code True} to create failover safe lock which means that
+     *      if any node leaves topology, all locks already acquired by that node are silently released
+     *      and become available for other nodes to acquire. If flag is {@code false} then
+     *      all threads on other nodes waiting to acquire lock are interrupted.
+     * @param fair If {@code True}, fair lock will be created.
+     * @param create Boolean flag indicating whether data structure should be created if does not exist.
+     * @return ReentrantLock for the given name.
+     * @throws IgniteException If reentrant lock could not be fetched or created.
+     */
+    public IgniteLock reentrantLock(String name, boolean failoverSafe, boolean fair, boolean create)
+        throws IgniteException;
+
+    /**
      * Will get a named queue from cache and create one if it has not been created yet and {@code cfg} is not
      * {@code null}.
      * If queue is present already, queue properties will not be changed. Use
@@ -356,6 +573,13 @@ public interface Ignite extends AutoCloseable {
     public <T extends IgnitePlugin> T plugin(String name) throws PluginNotFoundException;
 
     /**
+     * Gets an instance of {@link IgniteBinary} interface.
+     *
+     * @return Instance of {@link IgniteBinary} interface.
+     */
+    public IgniteBinary binary();
+
+    /**
      * Closes {@code this} instance of grid. This method is identical to calling
      * {@link G#stop(String, boolean) G.stop(gridName, true)}.
      * <p>
@@ -373,5 +597,5 @@ public interface Ignite extends AutoCloseable {
      * @param <K> Cache key type.
      * @return Affinity.
      */
-    public <K> CacheAffinity<K> affinity(String cacheName);
+    public <K> Affinity<K> affinity(String cacheName);
 }

@@ -17,58 +17,58 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.atomic;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.cluster.*;
-import org.apache.ignite.internal.managers.discovery.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.*;
-import org.apache.ignite.internal.processors.cache.distributed.near.*;
-import org.apache.ignite.internal.processors.cache.dr.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import javax.cache.expiry.ExpiryPolicy;
+import javax.cache.processor.EntryProcessor;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
+import org.apache.ignite.internal.cluster.ClusterTopologyServerNotFoundException;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheEntryPredicate;
+import org.apache.ignite.internal.processors.cache.CachePartialUpdateCheckedException;
+import org.apache.ignite.internal.processors.cache.EntryProcessorResourceInjectorProxy;
+import org.apache.ignite.internal.processors.cache.GridCacheAffinityManager;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheOperation;
+import org.apache.ignite.internal.processors.cache.GridCacheReturn;
+import org.apache.ignite.internal.processors.cache.GridCacheTryPutFailedException;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTopologyFuture;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearAtomicCache;
+import org.apache.ignite.internal.processors.cache.dr.GridCacheDrInfo;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.future.GridFinishedFuture;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.CI1;
+import org.apache.ignite.internal.util.typedef.CI2;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.Nullable;
 
-import javax.cache.expiry.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.internal.processors.cache.CacheFlag.*;
-import static org.apache.ignite.internal.processors.cache.GridCacheOperation.*;
+import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.CLOCK;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_ASYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.PRIMARY_SYNC;
+import static org.apache.ignite.internal.processors.cache.GridCacheOperation.TRANSFORM;
 
 /**
  * DHT atomic cache near update future.
  */
-public class GridNearAtomicUpdateFuture extends GridFutureAdapter<Object>
-    implements GridCacheAtomicFuture<Object>{
-    /** Logger reference. */
-    private static final AtomicReference<IgniteLogger> logRef = new AtomicReference<>();
-
-    /** Logger. */
-    protected static IgniteLogger log;
-
-    /** Cache context. */
-    private final GridCacheContext cctx;
-
-    /** Cache. */
-    private GridDhtAtomicCache cache;
-
-    /** Future ID. */
-    private volatile GridCacheVersion futVer;
-
-    /** Update operation. */
-    private final GridCacheOperation op;
+public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFuture {
+    /** Fast map flag. */
+    private final boolean fastMap;
 
     /** Keys */
     private Collection<?> keys;
@@ -76,9 +76,6 @@ public class GridNearAtomicUpdateFuture extends GridFutureAdapter<Object>
     /** Values. */
     @SuppressWarnings({"FieldAccessedSynchronizedAndUnsynchronized"})
     private Collection<?> vals;
-
-    /** Optional arguments for entry processor. */
-    private Object[] invokeArgs;
 
     /** Conflict put values. */
     @SuppressWarnings({"FieldAccessedSynchronizedAndUnsynchronized"})
@@ -88,57 +85,15 @@ public class GridNearAtomicUpdateFuture extends GridFutureAdapter<Object>
     @SuppressWarnings({"FieldAccessedSynchronizedAndUnsynchronized"})
     private Collection<GridCacheVersion> conflictRmvVals;
 
-    /** Mappings. */
+    /** Mappings if operations is mapped to more than one node. */
     @GridToStringInclude
-    private final ConcurrentMap<UUID, GridNearAtomicUpdateRequest> mappings;
+    private Map<UUID, GridNearAtomicUpdateRequest> mappings;
 
-    /** Error. */
-    private volatile CachePartialUpdateCheckedException err;
+    /** Keys to remap. */
+    private Collection<KeyCacheObject> remapKeys;
 
-    /** Operation result. */
-    private volatile GridCacheReturn opRes;
-
-    /** Return value require flag. */
-    private final boolean retval;
-
-    /** Expiry policy. */
-    private final ExpiryPolicy expiryPlc;
-
-    /** Future map topology version. */
-    private long topVer;
-
-    /** Optional filter. */
-    private final CacheEntryPredicate[] filter;
-
-    /** Write synchronization mode. */
-    private final CacheWriteSynchronizationMode syncMode;
-
-    /** If this future mapped to single node. */
-    private volatile Boolean single;
-
-    /** If this future is mapped to a single node, this field will contain that node ID. */
-    private UUID singleNodeId;
-
-    /** Single update request. */
+    /** Not null is operation is mapped to single node. */
     private GridNearAtomicUpdateRequest singleReq;
-
-    /** Raw return value flag. */
-    private boolean rawRetval;
-
-    /** Fast map flag. */
-    private final boolean fastMap;
-
-    /** Near cache flag. */
-    private final boolean nearEnabled;
-
-    /** Subject ID. */
-    private final UUID subjId;
-
-    /** Task name hash. */
-    private final int taskNameHash;
-
-    /** Map time. */
-    private volatile long mapTime;
 
     /**
      * @param cctx Cache context.
@@ -156,6 +111,10 @@ public class GridNearAtomicUpdateFuture extends GridFutureAdapter<Object>
      * @param filter Entry filter.
      * @param subjId Subject ID.
      * @param taskNameHash Task name hash code.
+     * @param skipStore Skip store flag.
+     * @param keepBinary Keep binary flag.
+     * @param remapCnt Maximum number of retries.
+     * @param waitTopFut If {@code false} does not wait for affinity change future.
      */
     public GridNearAtomicUpdateFuture(
         GridCacheContext cctx,
@@ -172,129 +131,102 @@ public class GridNearAtomicUpdateFuture extends GridFutureAdapter<Object>
         @Nullable ExpiryPolicy expiryPlc,
         final CacheEntryPredicate[] filter,
         UUID subjId,
-        int taskNameHash
+        int taskNameHash,
+        boolean skipStore,
+        boolean keepBinary,
+        int remapCnt,
+        boolean waitTopFut
     ) {
-        this.rawRetval = rawRetval;
+        super(cctx, cache, syncMode, op, invokeArgs, retval, rawRetval, expiryPlc, filter, subjId, taskNameHash,
+            skipStore, keepBinary, remapCnt, waitTopFut);
 
         assert vals == null || vals.size() == keys.size();
         assert conflictPutVals == null || conflictPutVals.size() == keys.size();
         assert conflictRmvVals == null || conflictRmvVals.size() == keys.size();
         assert subjId != null;
 
-        this.cctx = cctx;
-        this.cache = cache;
-        this.syncMode = syncMode;
-        this.op = op;
         this.keys = keys;
         this.vals = vals;
-        this.invokeArgs = invokeArgs;
         this.conflictPutVals = conflictPutVals;
         this.conflictRmvVals = conflictRmvVals;
-        this.retval = retval;
-        this.expiryPlc = expiryPlc;
-        this.filter = filter;
-        this.subjId = subjId;
-        this.taskNameHash = taskNameHash;
 
-        if (log == null)
-            log = U.logger(cctx.kernalContext(), logRef, GridFutureAdapter.class);
-
-        mappings = new ConcurrentHashMap8<>(keys.size(), 1.0f);
-
-        fastMap = F.isEmpty(filter) && op != TRANSFORM && cctx.config().getWriteSynchronizationMode() == FULL_SYNC &&
-            cctx.config().getAtomicWriteOrderMode() == CLOCK &&
-            !(cctx.writeThrough() && cctx.config().getInterceptor() != null);
-
-        nearEnabled = CU.isNearEnabled(cctx);
-    }
-
-    /** {@inheritDoc} */
-    @Override public IgniteUuid futureId() {
-        return futVer.asGridUuid();
+        fastMap = cache.isFastMap(filter, op);
     }
 
     /** {@inheritDoc} */
     @Override public GridCacheVersion version() {
-        return futVer;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<? extends ClusterNode> nodes() {
-        return F.view(F.viewReadOnly(mappings.keySet(), U.id2Node(cctx.kernalContext())), F.notNull());
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean waitForPartitionExchange() {
-        // Wait fast-map near atomic update futures in CLOCK mode.
-        return fastMap;
-    }
-
-    /** {@inheritDoc} */
-    @Override public long topologyVersion() {
-        return topVer;
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<?> keys() {
-        return keys;
+        synchronized (mux) {
+            return futVer;
+        }
     }
 
     /** {@inheritDoc} */
     @Override public boolean onNodeLeft(UUID nodeId) {
-        Boolean single0 = single;
+        GridNearAtomicUpdateResponse res = null;
 
-        if (single0 != null && single0) {
-            if (singleNodeId.equals(nodeId)) {
-                onDone(addFailedKeys(
-                    singleReq.keys(),
-                    new ClusterTopologyCheckedException("Primary node left grid before response is received: " + nodeId)));
+        GridNearAtomicUpdateRequest req;
 
-                return true;
+        synchronized (mux) {
+            if (singleReq != null)
+                req = singleReq.nodeId().equals(nodeId) ? singleReq : null;
+            else
+                req = mappings != null ? mappings.get(nodeId) : null;
+
+            if (req != null && req.response() == null) {
+                res = new GridNearAtomicUpdateResponse(cctx.cacheId(),
+                    nodeId,
+                    req.futureVersion(),
+                    cctx.deploymentEnabled());
+
+                ClusterTopologyCheckedException e = new ClusterTopologyCheckedException("Primary node left grid " +
+                    "before response is received: " + nodeId);
+
+                e.retryReadyFuture(cctx.shared().nextAffinityReadyFuture(req.topologyVersion()));
+
+                res.addFailedKeys(req.keys(), e);
             }
-
-            return false;
         }
 
-        GridNearAtomicUpdateRequest req = mappings.get(nodeId);
+        if (res != null) {
+            if (msgLog.isDebugEnabled()) {
+                msgLog.debug("Near update fut, node left [futId=" + req.futureVersion() +
+                    ", writeVer=" + req.updateVersion() +
+                    ", node=" + nodeId + ']');
+            }
 
-        if (req != null) {
-            addFailedKeys(req.keys(), new ClusterTopologyCheckedException("Primary node left grid before response is " +
-                "received: " + nodeId));
-
-            mappings.remove(nodeId);
-
-            checkComplete();
-
-            return true;
+            onResult(nodeId, res, true);
         }
 
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public void checkTimeout(long timeout) {
-        long mapTime0 = mapTime;
+    @Override public IgniteInternalFuture<Void> completeFuture(AffinityTopologyVersion topVer) {
+        // Wait fast-map near atomic update futures in CLOCK mode.
+        if (fastMap) {
+            GridFutureAdapter<Void> fut;
 
-        if (mapTime0 > 0 && U.currentTimeMillis() > mapTime0 + timeout)
-            onDone(new CacheAtomicUpdateTimeoutCheckedException("Cache update timeout out " +
-                "(consider increasing networkTimeout configuration property)."));
-    }
+            synchronized (mux) {
+                if (this.topVer != AffinityTopologyVersion.ZERO && this.topVer.compareTo(topVer) < 0) {
+                    if (topCompleteFut == null)
+                        topCompleteFut = new GridFutureAdapter<>();
 
-    /** {@inheritDoc} */
-    @Override public boolean trackable() {
-        return true;
-    }
+                    fut = topCompleteFut;
+                }
+                else
+                    fut = null;
+            }
 
-    /** {@inheritDoc} */
-    @Override public void markNotTrackable() {
-        // No-op.
-    }
+            if (fut != null && isDone()) {
+                fut.onDone();
 
-    /**
-     * Performs future mapping.
-     */
-    public void map() {
-        mapOnTopology(keys, false, null);
+                return null;
+            }
+
+            return fut;
+        }
+
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -305,13 +237,17 @@ public class GridNearAtomicUpdateFuture extends GridFutureAdapter<Object>
         GridCacheReturn ret = (GridCacheReturn)res;
 
         Object retval =
-            res == null ? null : rawRetval ? ret : (this.retval || op == TRANSFORM) ? ret.value() : ret.success();
+            res == null ? null : rawRetval ? ret : (this.retval || op == TRANSFORM) ?
+                cctx.unwrapBinaryIfNeeded(ret.value(), keepBinary) : ret.success();
 
         if (op == TRANSFORM && retval == null)
             retval = Collections.emptyMap();
 
         if (super.onDone(retval, err)) {
-            cctx.mvcc().removeAtomicFuture(version());
+            GridCacheVersion futVer = onFutureDone();
+
+            if (futVer != null)
+                cctx.mvcc().removeAtomicFuture(futVer);
 
             return true;
         }
@@ -319,71 +255,225 @@ public class GridNearAtomicUpdateFuture extends GridFutureAdapter<Object>
         return false;
     }
 
-    /**
-     * Response callback.
-     *
-     * @param nodeId Node ID.
-     * @param res Update response.
-     */
-    public void onResult(UUID nodeId, GridNearAtomicUpdateResponse res) {
-        if (res.remapKeys() != null) {
-            assert cctx.config().getAtomicWriteOrderMode() == PRIMARY;
+    /** {@inheritDoc} */
+    @SuppressWarnings({"unchecked", "ThrowableResultOfMethodCallIgnored"})
+    @Override public void onResult(UUID nodeId, GridNearAtomicUpdateResponse res, boolean nodeErr) {
+        GridNearAtomicUpdateRequest req;
 
-            mapOnTopology(res.remapKeys(), true, nodeId);
+        AffinityTopologyVersion remapTopVer = null;
+
+        GridCacheReturn opRes0 = null;
+        CachePartialUpdateCheckedException err0 = null;
+
+        boolean rcvAll;
+
+        GridFutureAdapter<?> fut0 = null;
+
+        synchronized (mux) {
+            if (!res.futureVersion().equals(futVer))
+                return;
+
+            if (singleReq != null) {
+                if (!singleReq.nodeId().equals(nodeId))
+                    return;
+
+                req = singleReq;
+
+                singleReq = null;
+
+                rcvAll = true;
+            }
+            else {
+                req = mappings != null ? mappings.get(nodeId) : null;
+
+                if (req != null && req.onResponse(res)) {
+                    resCnt++;
+
+                    rcvAll = mappings.size() == resCnt;
+                }
+                else
+                    return;
+            }
+
+            assert req != null && req.topologyVersion().equals(topVer) : req;
+
+            if (res.remapKeys() != null) {
+                assert !fastMap || cctx.kernalContext().clientNode();
+
+                if (remapKeys == null)
+                    remapKeys = U.newHashSet(res.remapKeys().size());
+
+                remapKeys.addAll(res.remapKeys());
+
+                if (mapErrTopVer == null || mapErrTopVer.compareTo(req.topologyVersion()) < 0)
+                    mapErrTopVer = req.topologyVersion();
+            }
+            else if (res.error() != null) {
+                if (res.failedKeys() != null) {
+                    if (err == null)
+                        err = new CachePartialUpdateCheckedException(
+                            "Failed to update keys (retry update if possible).");
+
+                    Collection<Object> keys = new ArrayList<>(res.failedKeys().size());
+
+                    for (KeyCacheObject key : res.failedKeys())
+                        keys.add(cctx.cacheObjectContext().unwrapBinaryIfNeeded(key, keepBinary, false));
+
+                    err.add(keys, res.error(), req.topologyVersion());
+                }
+            }
+            else {
+                if (!req.fastMap() || req.hasPrimary()) {
+                    GridCacheReturn ret = res.returnValue();
+
+                    if (op == TRANSFORM) {
+                        if (ret != null) {
+                            assert ret.value() == null || ret.value() instanceof Map : ret.value();
+
+                            if (ret.value() != null) {
+                                if (opRes != null)
+                                    opRes.mergeEntryProcessResults(ret);
+                                else
+                                    opRes = ret;
+                            }
+                        }
+                    }
+                    else
+                        opRes = ret;
+                }
+            }
+
+            if (rcvAll) {
+                if (remapKeys != null) {
+                    assert mapErrTopVer != null;
+
+                    remapTopVer = cctx.shared().exchange().topologyVersion();
+                }
+                else {
+                    if (err != null &&
+                        X.hasCause(err, CachePartialUpdateCheckedException.class) &&
+                        X.hasCause(err, ClusterTopologyCheckedException.class) &&
+                        storeFuture() &&
+                        --remapCnt > 0) {
+                        ClusterTopologyCheckedException topErr =
+                            X.cause(err, ClusterTopologyCheckedException.class);
+
+                        if (!(topErr instanceof ClusterTopologyServerNotFoundException)) {
+                            CachePartialUpdateCheckedException cause =
+                                X.cause(err, CachePartialUpdateCheckedException.class);
+
+                            assert cause != null && cause.topologyVersion() != null : err;
+
+                            remapTopVer =
+                                new AffinityTopologyVersion(cause.topologyVersion().topologyVersion() + 1);
+
+                            err = null;
+
+                            Collection<Object> failedKeys = cause.failedKeys();
+
+                            remapKeys = new ArrayList<>(failedKeys.size());
+
+                            for (Object key : failedKeys)
+                                remapKeys.add(cctx.toCacheKeyObject(key));
+
+                            updVer = null;
+                        }
+                    }
+                }
+
+                if (remapTopVer == null) {
+                    err0 = err;
+                    opRes0 = opRes;
+                }
+                else {
+                    fut0 = topCompleteFut;
+
+                    topCompleteFut = null;
+
+                    cctx.mvcc().removeAtomicFuture(futVer);
+
+                    futVer = null;
+                    topVer = AffinityTopologyVersion.ZERO;
+                }
+            }
+        }
+
+        if (res.error() != null && res.failedKeys() == null) {
+            onDone(res.error());
 
             return;
         }
 
-        GridCacheReturn ret = res.returnValue();
+        if (rcvAll && nearEnabled) {
+            if (mappings != null) {
+                for (GridNearAtomicUpdateRequest req0 : mappings.values()) {
+                    GridNearAtomicUpdateResponse res0 = req0.response();
 
-        Boolean single0 = single;
+                    assert res0 != null : req0;
 
-        if (single0 != null && single0) {
-            assert singleNodeId.equals(nodeId) : "Invalid response received for single-node mapped future " +
-                "[singleNodeId=" + singleNodeId + ", nodeId=" + nodeId + ", res=" + res + ']';
-
-            updateNear(singleReq, res);
-
-            if (res.error() != null)
-                onDone(addFailedKeys(res.failedKeys(), res.error()));
-            else {
-                if (op == TRANSFORM) {
-                    if (ret != null)
-                        addInvokeResults(ret);
-
-                    onDone(opRes);
-                }
-                else {
-                    GridCacheReturn opRes0 = opRes = ret;
-
-                    onDone(opRes0);
+                    updateNear(req0, res0);
                 }
             }
-        }
-        else {
-            GridNearAtomicUpdateRequest req = mappings.get(nodeId);
-
-            if (req != null) { // req can be null if onResult is being processed concurrently with onNodeLeft.
+            else if (!nodeErr)
                 updateNear(req, res);
+        }
 
-                if (res.error() != null)
-                    addFailedKeys(req.keys(), res.error());
-                else {
-                    if (op == TRANSFORM) {
-                        assert !req.fastMap();
+        if (remapTopVer != null) {
+            if (fut0 != null)
+                fut0.onDone();
 
-                        if (ret != null)
-                            addInvokeResults(ret);
-                    }
-                    else if (req.fastMap() && req.hasPrimary())
-                        opRes = ret;
-                }
+            if (!waitTopFut) {
+                onDone(new GridCacheTryPutFailedException());
 
-                mappings.remove(nodeId);
+                return;
             }
 
-            checkComplete();
+            if (topLocked) {
+                assert !F.isEmpty(remapKeys) : remapKeys;
+
+                CachePartialUpdateCheckedException e =
+                    new CachePartialUpdateCheckedException("Failed to update keys (retry update if possible).");
+
+                ClusterTopologyCheckedException cause = new ClusterTopologyCheckedException(
+                    "Failed to update keys, topology changed while execute atomic update inside transaction.");
+
+                cause.retryReadyFuture(cctx.affinity().affinityReadyFuture(remapTopVer));
+
+                e.add(remapKeys, cause);
+
+                onDone(e);
+
+                return;
+            }
+
+            IgniteInternalFuture<AffinityTopologyVersion> fut =
+                cctx.shared().exchange().affinityReadyFuture(remapTopVer);
+
+            if (fut == null)
+                fut = new GridFinishedFuture<>(remapTopVer);
+
+            fut.listen(new CI1<IgniteInternalFuture<AffinityTopologyVersion>>() {
+                @Override public void apply(final IgniteInternalFuture<AffinityTopologyVersion> fut) {
+                    cctx.kernalContext().closure().runLocalSafe(new Runnable() {
+                        @Override public void run() {
+                            try {
+                                AffinityTopologyVersion topVer = fut.get();
+
+                                map(topVer, remapKeys);
+                            }
+                            catch (IgniteCheckedException e) {
+                                onDone(e);
+                            }
+                        }
+                    });
+                }
+            });
+
+            return;
         }
+
+        if (rcvAll)
+            onDone(opRes0, err0);
     }
 
     /**
@@ -393,7 +483,9 @@ public class GridNearAtomicUpdateFuture extends GridFutureAdapter<Object>
      * @param res Update response.
      */
     private void updateNear(GridNearAtomicUpdateRequest req, GridNearAtomicUpdateResponse res) {
-        if (!nearEnabled || !req.hasPrimary())
+        assert nearEnabled;
+
+        if (res.remapKeys() != null || !req.hasPrimary())
             return;
 
         GridNearAtomicCache near = (GridNearAtomicCache)cctx.dht().near();
@@ -401,393 +493,58 @@ public class GridNearAtomicUpdateFuture extends GridFutureAdapter<Object>
         near.processNearAtomicUpdateResponse(req, res);
     }
 
-    /**
-     * Maps future on ready topology.
-     *
-     * @param keys Keys to map.
-     * @param remap Boolean flag indicating if this is partial future remap.
-     * @param oldNodeId Old node ID if remap.
-     */
-    private void mapOnTopology(final Collection<?> keys, final boolean remap, final UUID oldNodeId) {
+    /** {@inheritDoc} */
+    @Override protected void mapOnTopology() {
         cache.topology().readLock();
 
-        GridDiscoveryTopologySnapshot snapshot = null;
+        AffinityTopologyVersion topVer = null;
 
         try {
-            GridDhtTopologyFuture fut = cctx.topologyVersionFuture();
-
-            if (fut.isDone()) {
-                if (futVer == null)
-                    // Assign future version in topology read lock before first exception may be thrown.
-                    futVer = cctx.versions().next(topVer);
-
-                // We are holding topology read lock and current topology is ready, we can start mapping.
-                snapshot = fut.topologySnapshot();
-            }
-            else {
-                fut.listen(new CI1<IgniteInternalFuture<Long>>() {
-                    @Override public void apply(IgniteInternalFuture<Long> t) {
-                        mapOnTopology(keys, remap, oldNodeId);
-                    }
-                });
+            if (cache.topology().stopping()) {
+                onDone(new IgniteCheckedException("Failed to perform cache operation (cache is stopped): " +
+                    cache.name()));
 
                 return;
             }
 
-            topVer = snapshot.topologyVersion();
+            GridDhtTopologyFuture fut = cache.topology().topologyVersionFuture();
 
-            mapTime = U.currentTimeMillis();
+            if (fut.isDone()) {
+                Throwable err = fut.validateCache(cctx);
 
-            if (!remap && (cctx.config().getAtomicWriteOrderMode() == CLOCK || syncMode != FULL_ASYNC))
-                cctx.mvcc().addAtomicFuture(version(), this);
-        }
-        catch (IgniteCheckedException e) {
-            onDone(new IgniteCheckedException("Failed to get topology snapshot for update operation: " + this, e));
+                if (err != null) {
+                    onDone(err);
 
-            return;
+                    return;
+                }
+
+                topVer = fut.topologyVersion();
+            }
+            else {
+                if (waitTopFut) {
+                    assert !topLocked : this;
+
+                    fut.listen(new CI1<IgniteInternalFuture<AffinityTopologyVersion>>() {
+                        @Override public void apply(IgniteInternalFuture<AffinityTopologyVersion> t) {
+                            cctx.kernalContext().closure().runLocalSafe(new Runnable() {
+                                @Override public void run() {
+                                    mapOnTopology();
+                                }
+                            });
+                        }
+                    });
+                }
+                else
+                    onDone(new GridCacheTryPutFailedException());
+
+                return;
+            }
         }
         finally {
             cache.topology().readUnlock();
         }
 
-        map0(snapshot, keys, remap, oldNodeId);
-    }
-
-    /**
-     * Checks if future is ready to be completed.
-     */
-    private synchronized void checkComplete() {
-        if ((syncMode == FULL_ASYNC && cctx.config().getAtomicWriteOrderMode() == PRIMARY) || mappings.isEmpty()) {
-            CachePartialUpdateCheckedException err0 = err;
-
-            if (err0 != null)
-                onDone(err0);
-            else
-                onDone(opRes);
-        }
-    }
-
-    /**
-     * @param topSnapshot Topology snapshot to map on.
-     * @param keys Keys to map.
-     * @param remap Flag indicating if this is partial remap for this future.
-     * @param oldNodeId Old node ID if was remap.
-     */
-    private void map0(GridDiscoveryTopologySnapshot topSnapshot,
-        Collection<?> keys,
-        boolean remap,
-        @Nullable UUID oldNodeId) {
-        assert oldNodeId == null || remap;
-
-        long topVer = topSnapshot.topologyVersion();
-
-        Collection<ClusterNode> topNodes = CU.affinityNodes(cctx, topVer);
-
-        if (F.isEmpty(topNodes)) {
-            onDone(new ClusterTopologyCheckedException("Failed to map keys for cache (all partition nodes left the grid)."));
-
-            return;
-        }
-
-        CacheConfiguration ccfg = cctx.config();
-
-        // Assign version on near node in CLOCK ordering mode even if fastMap is false.
-        GridCacheVersion updVer = ccfg.getAtomicWriteOrderMode() == CLOCK ? cctx.versions().next(topVer) : null;
-
-        if (updVer != null && log.isDebugEnabled())
-            log.debug("Assigned fast-map version for update on near node: " + updVer);
-
-        if (keys.size() == 1 && !fastMap && (single == null || single)) {
-            Object key = F.first(keys);
-
-            Object val;
-            GridCacheVersion conflictVer;
-            long conflictTtl;
-            long conflictExpireTime;
-
-            if (vals != null) {
-                // Regular PUT.
-                val = F.first(vals);
-                conflictVer = null;
-                conflictTtl = CU.TTL_NOT_CHANGED;
-                conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
-            }
-            else if (conflictPutVals != null) {
-                // Conflict PUT.
-                GridCacheDrInfo conflictPutVal = F.first(conflictPutVals);
-
-                val = conflictPutVal.value();
-                conflictVer = conflictPutVal.version();
-                conflictTtl = conflictPutVal.ttl();
-                conflictExpireTime = conflictPutVal.expireTime();
-            }
-            else if (conflictRmvVals != null) {
-                // Conflict REMOVE.
-                val = null;
-                conflictVer = F.first(conflictRmvVals);
-                conflictTtl = CU.TTL_NOT_CHANGED;
-                conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
-            }
-            else {
-                // Regular REMOVE.
-                val = null;
-                conflictVer = null;
-                conflictTtl = CU.TTL_NOT_CHANGED;
-                conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
-            }
-
-            // We still can get here if user pass map with single element.
-            if (key == null) {
-                NullPointerException err = new NullPointerException("Null key.");
-
-                onDone(err);
-
-                throw err;
-            }
-
-            if (val == null && op != GridCacheOperation.DELETE) {
-                NullPointerException err = new NullPointerException("Null value.");
-
-                onDone(err);
-
-                throw err;
-            }
-
-            KeyCacheObject cacheKey = cctx.toCacheKeyObject(key);
-
-            if (op != TRANSFORM)
-                val = cctx.toCacheObject(val);
-
-            Collection<ClusterNode> primaryNodes = mapKey(cacheKey, topVer, fastMap);
-
-            // One key and no backups.
-            assert primaryNodes.size() == 1 : "Should be mapped to single node: " + primaryNodes;
-
-            ClusterNode primary = F.first(primaryNodes);
-
-            GridNearAtomicUpdateRequest req = new GridNearAtomicUpdateRequest(
-                cctx.cacheId(),
-                primary.id(),
-                futVer,
-                fastMap,
-                updVer,
-                topSnapshot.topologyVersion(),
-                syncMode,
-                op,
-                retval,
-                op == TRANSFORM && cctx.hasFlag(FORCE_TRANSFORM_BACKUP),
-                expiryPlc,
-                invokeArgs,
-                filter,
-                subjId,
-                taskNameHash);
-
-            req.addUpdateEntry(cacheKey,
-                val,
-                conflictTtl,
-                conflictExpireTime,
-                conflictVer,
-                true);
-
-            single = true;
-
-            // Optimize mapping for single key.
-            mapSingle(primary.id(), req);
-
-            return;
-        }
-
-        Iterator<?> it = null;
-
-        if (vals != null)
-            it = vals.iterator();
-
-        Iterator<GridCacheDrInfo> conflictPutValsIt = null;
-
-        if (conflictPutVals != null)
-            conflictPutValsIt = conflictPutVals.iterator();
-
-        Iterator<GridCacheVersion> conflictRmvValsIt = null;
-
-        if (conflictRmvVals != null)
-            conflictRmvValsIt = conflictRmvVals.iterator();
-
-        Map<UUID, GridNearAtomicUpdateRequest> pendingMappings = new HashMap<>(topNodes.size(), 1.0f);
-
-        // Must do this in synchronized block because we need to atomically remove and add mapping.
-        // Otherwise checkComplete() may see empty intermediate state.
-        synchronized (this) {
-            if (remap)
-                removeMapping(oldNodeId);
-
-            // Create mappings first, then send messages.
-            for (Object key : keys) {
-                if (key == null) {
-                    NullPointerException err = new NullPointerException("Null key.");
-
-                    onDone(err);
-
-                    throw err;
-                }
-
-                Object val;
-                GridCacheVersion conflictVer;
-                long conflictTtl;
-                long conflictExpireTime;
-
-                if (vals != null) {
-                    val = it.next();
-                    conflictVer = null;
-                    conflictTtl = CU.TTL_NOT_CHANGED;
-                    conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
-
-                    if (val == null) {
-                        NullPointerException err = new NullPointerException("Null value.");
-
-                        onDone(err);
-
-                        throw err;
-                    }
-                }
-                else if (conflictPutVals != null) {
-                    GridCacheDrInfo conflictPutVal =  conflictPutValsIt.next();
-
-                    val = conflictPutVal.value();
-                    conflictVer = conflictPutVal.version();
-                    conflictTtl =  conflictPutVal.ttl();
-                    conflictExpireTime = conflictPutVal.expireTime();
-                }
-                else if (conflictRmvVals != null) {
-                    val = null;
-                    conflictVer = conflictRmvValsIt.next();
-                    conflictTtl = CU.TTL_NOT_CHANGED;
-                    conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
-                }
-                else {
-                    val = null;
-                    conflictVer = null;
-                    conflictTtl = CU.TTL_NOT_CHANGED;
-                    conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
-                }
-
-                if (val == null && op != GridCacheOperation.DELETE)
-                    continue;
-
-                KeyCacheObject cacheKey = cctx.toCacheKeyObject(key);
-
-                if (op != TRANSFORM)
-                    val = cctx.toCacheObject(val);
-
-                Collection<ClusterNode> affNodes = mapKey(cacheKey, topVer, fastMap);
-
-                int i = 0;
-
-                for (ClusterNode affNode : affNodes) {
-                    UUID nodeId = affNode.id();
-
-                    GridNearAtomicUpdateRequest mapped = pendingMappings.get(nodeId);
-
-                    if (mapped == null) {
-                        mapped = new GridNearAtomicUpdateRequest(
-                            cctx.cacheId(),
-                            nodeId,
-                            futVer,
-                            fastMap,
-                            updVer,
-                            topSnapshot.topologyVersion(),
-                            syncMode,
-                            op,
-                            retval,
-                            op == TRANSFORM && cctx.hasFlag(FORCE_TRANSFORM_BACKUP),
-                            expiryPlc,
-                            invokeArgs,
-                            filter,
-                            subjId,
-                            taskNameHash);
-
-                        pendingMappings.put(nodeId, mapped);
-
-                        GridNearAtomicUpdateRequest old = mappings.put(nodeId, mapped);
-
-                        assert old == null || (old != null && remap) :
-                            "Invalid mapping state [old=" + old + ", remap=" + remap + ']';
-                    }
-
-                    mapped.addUpdateEntry(cacheKey, val, conflictTtl, conflictExpireTime, conflictVer, i == 0);
-
-                    i++;
-                }
-            }
-        }
-
-        if ((single == null || single) && pendingMappings.size() == 1) {
-            Map.Entry<UUID, GridNearAtomicUpdateRequest> entry = F.first(pendingMappings.entrySet());
-
-            single = true;
-
-            mapSingle(entry.getKey(), entry.getValue());
-
-            return;
-        }
-        else
-            single = false;
-
-        doUpdate(pendingMappings);
-    }
-
-    /**
-     * Maps key to nodes. If filters are absent and operation is not TRANSFORM, then we can assign version on near
-     * node and send updates in parallel to all participating nodes.
-     *
-     * @param key Key to map.
-     * @param topVer Topology version to map.
-     * @param fastMap Flag indicating whether mapping is performed for fast-circuit update.
-     * @return Collection of nodes to which key is mapped.
-     */
-    private Collection<ClusterNode> mapKey(KeyCacheObject key, long topVer, boolean fastMap) {
-        GridCacheAffinityManager affMgr = cctx.affinity();
-
-        // If we can send updates in parallel - do it.
-        return fastMap ?
-            cctx.topology().nodes(affMgr.partition(key), topVer) :
-            Collections.singletonList(affMgr.primary(key, topVer));
-    }
-
-    /**
-     * Maps future to single node.
-     *
-     * @param nodeId Node ID.
-     * @param req Request.
-     */
-    private void mapSingle(UUID nodeId, GridNearAtomicUpdateRequest req) {
-        singleNodeId = nodeId;
-        singleReq = req;
-
-        if (cctx.localNodeId().equals(nodeId)) {
-            cache.updateAllAsyncInternal(nodeId, req,
-                new CI2<GridNearAtomicUpdateRequest, GridNearAtomicUpdateResponse>() {
-                    @Override public void apply(GridNearAtomicUpdateRequest req,
-                        GridNearAtomicUpdateResponse res) {
-                        assert res.futureVersion().equals(futVer);
-
-                        onResult(res.nodeId(), res);
-                    }
-                });
-        }
-        else {
-            try {
-                if (log.isDebugEnabled())
-                    log.debug("Sending near atomic update request [nodeId=" + req.nodeId() + ", req=" + req + ']');
-
-                cctx.io().send(req.nodeId(), req, cctx.ioPolicy());
-
-                if (syncMode == FULL_ASYNC && cctx.config().getAtomicWriteOrderMode() == PRIMARY)
-                    onDone(new GridCacheReturn(cctx, true, null, true));
-            }
-            catch (IgniteCheckedException e) {
-                onDone(addFailedKeys(req.keys(), e));
-            }
-        }
+        map(topVer, null);
     }
 
     /**
@@ -810,89 +567,444 @@ public class GridNearAtomicUpdateFuture extends GridFutureAdapter<Object>
             }
             else {
                 try {
-                    if (log.isDebugEnabled())
-                        log.debug("Sending near atomic update request [nodeId=" + req.nodeId() + ", req=" + req + ']');
-
                     cctx.io().send(req.nodeId(), req, cctx.ioPolicy());
+
+                    if (msgLog.isDebugEnabled()) {
+                        msgLog.debug("Near update fut, sent request [futId=" + req.futureVersion() +
+                            ", writeVer=" + req.updateVersion() +
+                            ", node=" + req.nodeId() + ']');
+                    }
                 }
                 catch (IgniteCheckedException e) {
-                    addFailedKeys(req.keys(), e);
+                    if (msgLog.isDebugEnabled()) {
+                        msgLog.debug("Near update fut, failed to send request [futId=" + req.futureVersion() +
+                            ", writeVer=" + req.updateVersion() +
+                            ", node=" + req.nodeId() +
+                            ", err=" + e + ']');
+                    }
 
-                    removeMapping(req.nodeId());
+                    onSendError(req, e);
                 }
-
-                if (syncMode == PRIMARY_SYNC && !req.hasPrimary())
-                    removeMapping(req.nodeId());
             }
         }
-
-        if (syncMode == FULL_ASYNC)
-            // In FULL_ASYNC mode always return (null, true).
-            opRes = new GridCacheReturn(cctx, true, null, true);
 
         if (locUpdate != null) {
             cache.updateAllAsyncInternal(cctx.localNodeId(), locUpdate,
                 new CI2<GridNearAtomicUpdateRequest, GridNearAtomicUpdateResponse>() {
-                    @Override public void apply(GridNearAtomicUpdateRequest req,
-                        GridNearAtomicUpdateResponse res) {
-                        assert res.futureVersion().equals(futVer);
-
-                        onResult(res.nodeId(), res);
+                    @Override public void apply(GridNearAtomicUpdateRequest req, GridNearAtomicUpdateResponse res) {
+                        onResult(res.nodeId(), res, false);
                     }
                 });
         }
 
-        checkComplete();
+        if (syncMode == FULL_ASYNC)
+            onDone(new GridCacheReturn(cctx, true, true, null, true));
+    }
+
+    /** {@inheritDoc} */
+    protected void map(AffinityTopologyVersion topVer) {
+        map(topVer, null);
     }
 
     /**
-     * Removes mapping from future mappings map.
-     *
-     * @param nodeId Node ID to remove mapping for.
+     * @param topVer Topology version.
+     * @param remapKeys Keys to remap.
      */
-    private void removeMapping(UUID nodeId) {
-        mappings.remove(nodeId);
-    }
+    void map(AffinityTopologyVersion topVer, @Nullable Collection<KeyCacheObject> remapKeys) {
+        Collection<ClusterNode> topNodes = CU.affinityNodes(cctx, topVer);
 
-    /**
-     * @param ret Result from single node.
-     */
-    @SuppressWarnings("unchecked")
-    private synchronized void addInvokeResults(GridCacheReturn ret) {
-        assert op == TRANSFORM : op;
-        assert ret.value() == null || ret.value() instanceof Map : ret.value();
+        if (F.isEmpty(topNodes)) {
+            onDone(new ClusterTopologyServerNotFoundException("Failed to map keys for cache (all partition nodes " +
+                "left the grid)."));
 
-        if (ret.value() != null) {
-            if (opRes != null)
-                opRes.mergeEntryProcessResults(ret);
+            return;
+        }
+
+        Exception err = null;
+        GridNearAtomicUpdateRequest singleReq0 = null;
+        Map<UUID, GridNearAtomicUpdateRequest> mappings0 = null;
+
+        int size = keys.size();
+
+        GridCacheVersion futVer = cctx.versions().next(topVer);
+
+        GridCacheVersion updVer;
+
+        // Assign version on near node in CLOCK ordering mode even if fastMap is false.
+        if (cctx.config().getAtomicWriteOrderMode() == CLOCK) {
+            updVer = this.updVer;
+
+            if (updVer == null) {
+                updVer = cctx.versions().next(topVer);
+
+                if (log.isDebugEnabled())
+                    log.debug("Assigned fast-map version for update on near node: " + updVer);
+            }
+        }
+        else
+            updVer = null;
+
+        try {
+            if (size == 1 && !fastMap) {
+                assert remapKeys == null || remapKeys.size() == 1;
+
+                singleReq0 = mapSingleUpdate(topVer, futVer, updVer);
+            }
+            else {
+                Map<UUID, GridNearAtomicUpdateRequest> pendingMappings = mapUpdate(topNodes,
+                    topVer,
+                    futVer,
+                    updVer,
+                    remapKeys);
+
+                if (pendingMappings.size() == 1)
+                    singleReq0 = F.firstValue(pendingMappings);
+                else {
+                    if (syncMode == PRIMARY_SYNC) {
+                        mappings0 = U.newHashMap(pendingMappings.size());
+
+                        for (GridNearAtomicUpdateRequest req : pendingMappings.values()) {
+                            if (req.hasPrimary())
+                                mappings0.put(req.nodeId(), req);
+                        }
+                    }
+                    else
+                        mappings0 = pendingMappings;
+
+                    assert !mappings0.isEmpty() || size == 0 : this;
+                }
+            }
+
+            synchronized (mux) {
+                assert this.futVer == null : this;
+                assert this.topVer == AffinityTopologyVersion.ZERO : this;
+
+                this.topVer = topVer;
+                this.updVer = updVer;
+                this.futVer = futVer;
+
+                resCnt = 0;
+
+                singleReq = singleReq0;
+                mappings = mappings0;
+
+                this.remapKeys = null;
+            }
+        }
+        catch (Exception e) {
+            err = e;
+        }
+
+        if (err != null) {
+            onDone(err);
+
+            return;
+        }
+
+        if (storeFuture()) {
+            if (!cctx.mvcc().addAtomicFuture(futVer, this)) {
+                assert isDone() : this;
+
+                return;
+            }
+        }
+
+        // Optimize mapping for single key.
+        if (singleReq0 != null)
+            mapSingle(singleReq0.nodeId(), singleReq0);
+        else {
+            assert mappings0 != null;
+
+            if (size == 0)
+                onDone(new GridCacheReturn(cctx, true, true, null, true));
             else
-                opRes = ret;
+                doUpdate(mappings0);
         }
     }
 
     /**
-     * @param failedKeys Failed keys.
-     * @param err Error cause.
-     * @return Root {@link org.apache.ignite.internal.processors.cache.CachePartialUpdateCheckedException}.
+     * @return Future version.
      */
-    private synchronized IgniteCheckedException addFailedKeys(Collection<KeyCacheObject> failedKeys, Throwable err) {
-        CachePartialUpdateCheckedException err0 = this.err;
+    GridCacheVersion onFutureDone() {
+        GridCacheVersion ver0;
 
-        if (err0 == null)
-            err0 = this.err = new CachePartialUpdateCheckedException("Failed to update keys (retry update if possible).");
+        GridFutureAdapter<Void> fut0;
 
-        List<Object> keys = new ArrayList<>(failedKeys.size());
+        synchronized (mux) {
+            fut0 = topCompleteFut;
 
-        for (KeyCacheObject key : failedKeys)
-            keys.add(key.value(cctx.cacheObjectContext(), false));
+            topCompleteFut = null;
 
-        err0.add(keys, err);
+            ver0 = futVer;
 
-        return err0;
+            futVer = null;
+        }
+
+        if (fut0 != null)
+            fut0.onDone();
+
+        return ver0;
+    }
+
+    /**
+     * @param topNodes Cache nodes.
+     * @param topVer Topology version.
+     * @param futVer Future version.
+     * @param updVer Update version.
+     * @param remapKeys Keys to remap.
+     * @return Mapping.
+     * @throws Exception If failed.
+     */
+    @SuppressWarnings("ForLoopReplaceableByForEach")
+    private Map<UUID, GridNearAtomicUpdateRequest> mapUpdate(Collection<ClusterNode> topNodes,
+        AffinityTopologyVersion topVer,
+        GridCacheVersion futVer,
+        @Nullable GridCacheVersion updVer,
+        @Nullable Collection<KeyCacheObject> remapKeys) throws Exception {
+        Iterator<?> it = null;
+
+        if (vals != null)
+            it = vals.iterator();
+
+        Iterator<GridCacheDrInfo> conflictPutValsIt = null;
+
+        if (conflictPutVals != null)
+            conflictPutValsIt = conflictPutVals.iterator();
+
+        Iterator<GridCacheVersion> conflictRmvValsIt = null;
+
+        if (conflictRmvVals != null)
+            conflictRmvValsIt = conflictRmvVals.iterator();
+
+        Map<UUID, GridNearAtomicUpdateRequest> pendingMappings = U.newHashMap(topNodes.size());
+
+        // Create mappings first, then send messages.
+        for (Object key : keys) {
+            if (key == null)
+                throw new NullPointerException("Null key.");
+
+            Object val;
+            GridCacheVersion conflictVer;
+            long conflictTtl;
+            long conflictExpireTime;
+
+            if (vals != null) {
+                val = it.next();
+                conflictVer = null;
+                conflictTtl = CU.TTL_NOT_CHANGED;
+                conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
+
+                if (val == null)
+                    throw new NullPointerException("Null value.");
+            }
+            else if (conflictPutVals != null) {
+                GridCacheDrInfo conflictPutVal = conflictPutValsIt.next();
+
+                val = conflictPutVal.valueEx();
+                conflictVer = conflictPutVal.version();
+                conflictTtl = conflictPutVal.ttl();
+                conflictExpireTime = conflictPutVal.expireTime();
+            }
+            else if (conflictRmvVals != null) {
+                val = null;
+                conflictVer = conflictRmvValsIt.next();
+                conflictTtl = CU.TTL_NOT_CHANGED;
+                conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
+            }
+            else {
+                val = null;
+                conflictVer = null;
+                conflictTtl = CU.TTL_NOT_CHANGED;
+                conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
+            }
+
+            if (val == null && op != GridCacheOperation.DELETE)
+                continue;
+
+            KeyCacheObject cacheKey = cctx.toCacheKeyObject(key);
+
+            if (remapKeys != null && !remapKeys.contains(cacheKey))
+                continue;
+
+            if (op != TRANSFORM)
+                val = cctx.toCacheObject(val);
+            else
+                val = EntryProcessorResourceInjectorProxy.wrap(cctx.kernalContext(), (EntryProcessor)val);
+
+            List<ClusterNode> affNodes = mapKey(cacheKey, topVer);
+
+            if (affNodes.isEmpty())
+                throw new ClusterTopologyServerNotFoundException("Failed to map keys for cache " +
+                    "(all partition nodes left the grid).");
+
+            int i = 0;
+
+            for (int n = 0; n < affNodes.size(); n++) {
+                ClusterNode affNode = affNodes.get(n);
+
+                if (affNode == null)
+                    throw new ClusterTopologyServerNotFoundException("Failed to map keys for cache " +
+                        "(all partition nodes left the grid).");
+
+                UUID nodeId = affNode.id();
+
+                GridNearAtomicUpdateRequest mapped = pendingMappings.get(nodeId);
+
+                if (mapped == null) {
+                    mapped = new GridNearAtomicUpdateRequest(
+                        cctx.cacheId(),
+                        nodeId,
+                        futVer,
+                        fastMap,
+                        updVer,
+                        topVer,
+                        topLocked,
+                        syncMode,
+                        op,
+                        retval,
+                        expiryPlc,
+                        invokeArgs,
+                        filter,
+                        subjId,
+                        taskNameHash,
+                        skipStore,
+                        keepBinary,
+                        cctx.kernalContext().clientNode(),
+                        cctx.deploymentEnabled(),
+                        keys.size());
+
+                    pendingMappings.put(nodeId, mapped);
+                }
+
+                mapped.addUpdateEntry(cacheKey, val, conflictTtl, conflictExpireTime, conflictVer, i == 0);
+
+                i++;
+            }
+        }
+
+        return pendingMappings;
+    }
+
+    /**
+     * @param topVer Topology version.
+     * @param futVer Future version.
+     * @param updVer Update version.
+     * @return Request.
+     * @throws Exception If failed.
+     */
+    private GridNearAtomicUpdateRequest mapSingleUpdate(AffinityTopologyVersion topVer,
+        GridCacheVersion futVer,
+        @Nullable GridCacheVersion updVer) throws Exception {
+        Object key = F.first(keys);
+
+        Object val;
+        GridCacheVersion conflictVer;
+        long conflictTtl;
+        long conflictExpireTime;
+
+        if (vals != null) {
+            // Regular PUT.
+            val = F.first(vals);
+            conflictVer = null;
+            conflictTtl = CU.TTL_NOT_CHANGED;
+            conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
+        }
+        else if (conflictPutVals != null) {
+            // Conflict PUT.
+            GridCacheDrInfo conflictPutVal = F.first(conflictPutVals);
+
+            val = conflictPutVal.valueEx();
+            conflictVer = conflictPutVal.version();
+            conflictTtl = conflictPutVal.ttl();
+            conflictExpireTime = conflictPutVal.expireTime();
+        }
+        else if (conflictRmvVals != null) {
+            // Conflict REMOVE.
+            val = null;
+            conflictVer = F.first(conflictRmvVals);
+            conflictTtl = CU.TTL_NOT_CHANGED;
+            conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
+        }
+        else {
+            // Regular REMOVE.
+            val = null;
+            conflictVer = null;
+            conflictTtl = CU.TTL_NOT_CHANGED;
+            conflictExpireTime = CU.EXPIRE_TIME_CALCULATE;
+        }
+
+        // We still can get here if user pass map with single element.
+        if (key == null)
+            throw new NullPointerException("Null key.");
+
+        if (val == null && op != GridCacheOperation.DELETE)
+            throw new NullPointerException("Null value.");
+
+        KeyCacheObject cacheKey = cctx.toCacheKeyObject(key);
+
+        if (op != TRANSFORM)
+            val = cctx.toCacheObject(val);
+        else
+            val = EntryProcessorResourceInjectorProxy.wrap(cctx.kernalContext(), (EntryProcessor)val);
+
+        ClusterNode primary = cctx.affinity().primary(cacheKey.partition(), topVer);
+
+        if (primary == null)
+            throw new ClusterTopologyServerNotFoundException("Failed to map keys for cache (all partition nodes " +
+                "left the grid).");
+
+        GridNearAtomicUpdateRequest req = new GridNearAtomicUpdateRequest(
+            cctx.cacheId(),
+            primary.id(),
+            futVer,
+            fastMap,
+            updVer,
+            topVer,
+            topLocked,
+            syncMode,
+            op,
+            retval,
+            expiryPlc,
+            invokeArgs,
+            filter,
+            subjId,
+            taskNameHash,
+            skipStore,
+            keepBinary,
+            cctx.kernalContext().clientNode(),
+            cctx.deploymentEnabled(),
+            1);
+
+        req.addUpdateEntry(cacheKey,
+            val,
+            conflictTtl,
+            conflictExpireTime,
+            conflictVer,
+            true);
+
+        return req;
+    }
+
+    /**
+     * Maps key to nodes. If filters are absent and operation is not TRANSFORM, then we can assign version on near
+     * node and send updates in parallel to all participating nodes.
+     *
+     * @param key Key to map.
+     * @param topVer Topology version to map.
+     * @return Collection of nodes to which key is mapped.
+     */
+    private List<ClusterNode> mapKey(KeyCacheObject key, AffinityTopologyVersion topVer) {
+        GridCacheAffinityManager affMgr = cctx.affinity();
+
+        // If we can send updates in parallel - do it.
+        return fastMap ? cctx.topology().nodes(affMgr.partition(key), topVer) :
+            Collections.singletonList(affMgr.primary(key, topVer));
     }
 
     /** {@inheritDoc} */
     public String toString() {
-        return S.toString(GridNearAtomicUpdateFuture.class, this, super.toString());
+        synchronized (mux) {
+            return S.toString(GridNearAtomicUpdateFuture.class, this, super.toString());
+        }
     }
 }

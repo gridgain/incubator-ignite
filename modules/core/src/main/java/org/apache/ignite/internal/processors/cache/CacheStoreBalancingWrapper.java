@@ -17,25 +17,30 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.*;
-import javax.cache.integration.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
+import javax.cache.Cache;
+import javax.cache.integration.CacheLoaderException;
+import javax.cache.integration.CacheWriterException;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
 /**
  * Cache store wrapper that ensures that there will be no more that one thread loading value from underlying store.
  */
 public class CacheStoreBalancingWrapper<K, V> implements CacheStore<K, V> {
     /** */
-    public static final int DFLT_LOAD_ALL_THRESHOLD = 5;
+    public static final int DFLT_LOAD_ALL_THRESHOLD = CacheConfiguration.DFLT_CONCURRENT_LOAD_ALL_THRESHOLD;
 
     /** Delegate store. */
     private CacheStore<K, V> delegate;
@@ -97,6 +102,9 @@ public class CacheStoreBalancingWrapper<K, V> implements CacheStore<K, V> {
         }
         catch (Throwable e) {
             fut.onError(key, e);
+
+            if (e instanceof Error)
+                throw e;
 
             throw e;
         }
@@ -173,6 +181,9 @@ public class CacheStoreBalancingWrapper<K, V> implements CacheStore<K, V> {
             catch (Throwable e) {
                 span.onError(needLoad, e);
 
+                if (e instanceof Error)
+                    throw e;
+
                 throw e;
             }
         }
@@ -212,8 +223,8 @@ public class CacheStoreBalancingWrapper<K, V> implements CacheStore<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public void txEnd(boolean commit) {
-        delegate.txEnd(commit);
+    @Override public void sessionEnd(boolean commit) {
+        delegate.sessionEnd(commit);
     }
 
     /**

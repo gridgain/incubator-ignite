@@ -17,31 +17,60 @@
 
 package org.apache.ignite.internal.client.impl.connection;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.client.*;
-import org.apache.ignite.internal.client.impl.*;
-import org.apache.ignite.internal.client.util.*;
-import org.apache.ignite.internal.processors.rest.client.message.*;
-import org.apache.ignite.internal.processors.rest.protocols.tcp.*;
-import org.apache.ignite.internal.util.nio.*;
-import org.apache.ignite.internal.util.nio.ssl.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.logger.java.*;
-import org.apache.ignite.plugin.security.*;
-import org.jetbrains.annotations.*;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.net.ssl.SSLContext;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.client.GridClientClosedException;
+import org.apache.ignite.internal.client.GridClientConfiguration;
+import org.apache.ignite.internal.client.GridClientException;
+import org.apache.ignite.internal.client.GridClientHandshakeException;
+import org.apache.ignite.internal.client.GridClientNode;
+import org.apache.ignite.internal.client.GridClientProtocol;
+import org.apache.ignite.internal.client.GridServerUnreachableException;
+import org.apache.ignite.internal.client.impl.GridClientFutureAdapter;
+import org.apache.ignite.internal.client.impl.GridClientThreadFactory;
+import org.apache.ignite.internal.client.marshaller.GridClientMarshaller;
+import org.apache.ignite.internal.client.marshaller.optimized.GridClientZipOptimizedMarshaller;
+import org.apache.ignite.internal.client.util.GridClientStripedLock;
+import org.apache.ignite.internal.client.util.GridClientUtils;
+import org.apache.ignite.internal.processors.rest.client.message.GridClientHandshakeResponse;
+import org.apache.ignite.internal.processors.rest.client.message.GridClientMessage;
+import org.apache.ignite.internal.processors.rest.client.message.GridClientPingPacket;
+import org.apache.ignite.internal.processors.rest.protocols.tcp.GridTcpRestParser;
+import org.apache.ignite.internal.util.nio.GridNioCodecFilter;
+import org.apache.ignite.internal.util.nio.GridNioFilter;
+import org.apache.ignite.internal.util.nio.GridNioServer;
+import org.apache.ignite.internal.util.nio.GridNioServerListener;
+import org.apache.ignite.internal.util.nio.GridNioSession;
+import org.apache.ignite.internal.util.nio.ssl.GridNioSslFilter;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.logger.java.JavaLogger;
+import org.apache.ignite.plugin.security.SecurityCredentials;
+import org.jetbrains.annotations.Nullable;
 
-import javax.net.ssl.*;
-import java.io.*;
-import java.net.*;
-import java.nio.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.logging.*;
-
-import static java.util.logging.Level.*;
-import static org.apache.ignite.internal.IgniteNodeAttributes.*;
-import static org.apache.ignite.internal.client.impl.connection.GridClientConnectionCloseReason.*;
+import static java.util.logging.Level.INFO;
+import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_MACS;
+import static org.apache.ignite.internal.client.impl.connection.GridClientConnectionCloseReason.CLIENT_CLOSED;
+import static org.apache.ignite.internal.client.impl.connection.GridClientConnectionCloseReason.FAILED;
 
 /**
  * Cached connections manager.
@@ -146,7 +175,7 @@ public abstract class GridClientConnectionManagerAdapter implements GridClientCo
                 GridNioFilter codecFilter = new GridNioCodecFilter(new GridTcpRestParser(routerClient), gridLog, false);
 
                 if (sslCtx != null) {
-                    GridNioSslFilter sslFilter = new GridNioSslFilter(sslCtx, gridLog);
+                    GridNioSslFilter sslFilter = new GridNioSslFilter(sslCtx, true, ByteOrder.nativeOrder(), gridLog);
 
                     sslFilter.directMode(false);
                     sslFilter.clientMode(true);
@@ -420,7 +449,7 @@ public abstract class GridClientConnectionManagerAdapter implements GridClientCo
                 }
             }
 
-            GridSecurityCredentials cred = null;
+            SecurityCredentials cred = null;
 
             try {
                 if (cfg.getSecurityCredentialsProvider() != null)
@@ -433,9 +462,26 @@ public abstract class GridClientConnectionManagerAdapter implements GridClientCo
             GridClientConnection conn;
 
             if (cfg.getProtocol() == GridClientProtocol.TCP) {
-                conn = new GridClientNioTcpConnection(srv, clientId, addr, sslCtx, pingExecutor,
-                    cfg.getConnectTimeout(), cfg.getPingInterval(), cfg.getPingTimeout(),
-                    cfg.isTcpNoDelay(), cfg.getMarshaller(), marshId, top, cred, keepPortablesThreadLocal());
+                GridClientMarshaller marsh = cfg.getMarshaller();
+
+                try {
+                    conn = new GridClientNioTcpConnection(srv, clientId, addr, sslCtx, pingExecutor,
+                        cfg.getConnectTimeout(), cfg.getPingInterval(), cfg.getPingTimeout(),
+                        cfg.isTcpNoDelay(), marsh, marshId, top, cred, keepBinariesThreadLocal());
+                }
+                catch (GridClientException e) {
+                    if (marsh instanceof GridClientZipOptimizedMarshaller) {
+                        log.warning("Failed to connect with GridClientZipOptimizedMarshaller," +
+                            " trying to fallback to default marshaller: " + e);
+
+                        conn = new GridClientNioTcpConnection(srv, clientId, addr, sslCtx, pingExecutor,
+                            cfg.getConnectTimeout(), cfg.getPingInterval(), cfg.getPingTimeout(),
+                            cfg.isTcpNoDelay(), ((GridClientZipOptimizedMarshaller)marsh).defaultMarshaller(), marshId,
+                            top, cred, keepBinariesThreadLocal());
+                    }
+                    else
+                        throw e;
+                }
             }
             else
                 throw new GridServerUnreachableException("Failed to create client (protocol is not supported): " +
@@ -456,9 +502,9 @@ public abstract class GridClientConnectionManagerAdapter implements GridClientCo
     }
 
     /**
-     * @return Get thread local used to enable keep portables mode.
+     * @return Get thread local used to enable keep binary mode.
      */
-    protected ThreadLocal<Boolean> keepPortablesThreadLocal() {
+    protected ThreadLocal<Boolean> keepBinariesThreadLocal() {
         return null;
     }
 

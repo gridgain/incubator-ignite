@@ -17,23 +17,34 @@
 
 package org.apache.ignite.internal.processors.igfs;
 
-import org.apache.ignite.*;
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.igfs.common.*;
-import org.apache.ignite.internal.util.ipc.*;
-import org.apache.ignite.internal.util.ipc.loopback.*;
-import org.apache.ignite.internal.util.ipc.shmem.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.util.worker.*;
-import org.apache.ignite.thread.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.io.BufferedOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.igfs.IgfsIpcEndpointConfiguration;
+import org.apache.ignite.igfs.IgfsIpcEndpointType;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.igfs.common.IgfsControlResponse;
+import org.apache.ignite.internal.igfs.common.IgfsDataInputStream;
+import org.apache.ignite.internal.igfs.common.IgfsDataOutputStream;
+import org.apache.ignite.internal.igfs.common.IgfsIpcCommand;
+import org.apache.ignite.internal.igfs.common.IgfsMarshaller;
+import org.apache.ignite.internal.igfs.common.IgfsMessage;
+import org.apache.ignite.internal.util.ipc.IpcEndpoint;
+import org.apache.ignite.internal.util.ipc.IpcServerEndpoint;
+import org.apache.ignite.internal.util.ipc.loopback.IpcServerTcpEndpoint;
+import org.apache.ignite.internal.util.ipc.shmem.IpcSharedMemoryServerEndpoint;
+import org.apache.ignite.internal.util.typedef.CIX1;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.worker.GridWorker;
+import org.apache.ignite.thread.IgniteThread;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentLinkedDeque8;
 
-import java.io.*;
-
-import static org.apache.ignite.spi.IgnitePortProtocol.*;
+import static org.apache.ignite.spi.IgnitePortProtocol.TCP;
 
 /**
  * IGFS server. Handles requests passed from IGFS clients.
@@ -128,7 +139,7 @@ public class IgfsServer {
         if (srvEndpoint.getPort() >= 0)
             igfsCtx.kernalContext().ports().registerPort(srvEndpoint.getPort(), TCP, srvEndpoint.getClass());
 
-        hnd = new IgfsIpcHandler(igfsCtx);
+        hnd = new IgfsIpcHandler(igfsCtx, endpointCfg, mgmt);
 
         // Start client accept worker.
         acceptWorker = new AcceptWorker();
@@ -239,13 +250,13 @@ public class IgfsServer {
      */
     private class ClientWorker extends GridWorker {
         /** Connected client endpoint. */
-        private IpcEndpoint endpoint;
+        private final IpcEndpoint endpoint;
 
         /** Data output stream. */
         private final IgfsDataOutputStream out;
 
         /** Client session object. */
-        private IgfsClientSession ses;
+        private final IgfsClientSession ses;
 
         /** Queue node for fast unlink. */
         private ConcurrentLinkedDeque8.Node<ClientWorker> node;
@@ -258,7 +269,7 @@ public class IgfsServer {
          * @throws IgniteCheckedException If endpoint output stream cannot be obtained.
          */
         protected ClientWorker(IpcEndpoint endpoint, int idx) throws IgniteCheckedException {
-            super(igfsCtx.kernalContext().gridName(), "igfs-client-worker-" + idx, log);
+            super(igfsCtx.kernalContext().gridName(), "igfs-client-worker-" + idx, IgfsServer.this.log);
 
             this.endpoint = endpoint;
 
@@ -426,7 +437,7 @@ public class IgfsServer {
          * Creates accept worker.
          */
         protected AcceptWorker() {
-            super(igfsCtx.kernalContext().gridName(), "igfs-accept-worker", log);
+            super(igfsCtx.kernalContext().gridName(), "igfs-accept-worker", IgfsServer.this.log);
         }
 
         /** {@inheritDoc} */

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.processors.hadoop.counter;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.hadoop.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.hadoop.HadoopJob;
 
 /**
  * The object that writes some system counters to some storage for each running job. This operation is a part of
@@ -28,10 +28,9 @@ public interface HadoopCounterWriter {
     /**
      * Writes counters of given job to some statistics storage.
      *
-     * @param jobInfo Job info.
-     * @param jobId Job id.
+     * @param job The job.
      * @param cntrs Counters.
      * @throws IgniteCheckedException If failed.
      */
-    public void write(HadoopJobInfo jobInfo, HadoopJobId jobId, HadoopCounters cntrs) throws IgniteCheckedException;
+    public void write(HadoopJob job, HadoopCounters cntrs) throws IgniteCheckedException;
 }

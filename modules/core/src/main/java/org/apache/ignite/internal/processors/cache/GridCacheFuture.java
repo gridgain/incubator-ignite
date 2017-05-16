@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.lang.*;
-
-import java.util.*;
+import java.util.UUID;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * This interface should be implemented by all distributed futures.
@@ -32,16 +29,6 @@ public interface GridCacheFuture<R> extends IgniteInternalFuture<R> {
      * @return Unique identifier for this future.
      */
     public IgniteUuid futureId();
-
-    /**
-     * @return Future version.
-     */
-    public GridCacheVersion version();
-
-    /**
-     * @return Involved nodes.
-     */
-    public Collection<? extends ClusterNode> nodes();
 
     /**
      * Callback for when node left.

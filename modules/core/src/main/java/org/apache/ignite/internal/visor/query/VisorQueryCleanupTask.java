@@ -17,17 +17,24 @@
 
 package org.apache.ignite.internal.visor.query;
 
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.*;
-import org.jetbrains.annotations.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorJob;
+import org.apache.ignite.internal.visor.VisorMultiNodeTask;
+import org.apache.ignite.internal.visor.VisorTaskArgument;
+import org.apache.ignite.internal.visor.util.VisorClusterGroupEmptyException;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.logMapped;
 
 /**
  * Task for cleanup not needed SCAN or SQL queries result futures from node local.
@@ -47,12 +54,25 @@ public class VisorQueryCleanupTask extends VisorMultiNodeTask<Map<UUID, Collecti
         @Nullable VisorTaskArgument<Map<UUID, Collection<String>>> arg) {
         Set<UUID> nodeIds = taskArg.keySet();
 
+        if (nodeIds.isEmpty())
+            throw new VisorClusterGroupEmptyException("Nothing to clear. List with node IDs is empty!");
+
         Map<ComputeJob, ClusterNode> map = U.newHashMap(nodeIds.size());
 
         try {
             for (ClusterNode node : subgrid)
                 if (nodeIds.contains(node.id()))
                     map.put(new VisorQueryCleanupJob(taskArg.get(node.id()), debug), node);
+
+            if (map.isEmpty()) {
+                String notFoundNodes = "";
+
+                for (UUID nid : nodeIds)
+                    notFoundNodes = notFoundNodes + (notFoundNodes.isEmpty() ? "" : ",")  + U.id8(nid);
+
+                throw new VisorClusterGroupEmptyException("Failed to clear query results. Nodes are not available: [" +
+                    notFoundNodes + "]");
+            }
 
             return map;
         }
@@ -86,10 +106,14 @@ public class VisorQueryCleanupTask extends VisorMultiNodeTask<Map<UUID, Collecti
 
         /** {@inheritDoc} */
         @Override protected Void run(Collection<String> qryIds) {
-            ConcurrentMap<String, VisorQueryTask.VisorFutureResultSetHolder> locMap = ignite.cluster().nodeLocalMap();
+            ConcurrentMap<String, VisorQueryCursor> storage = ignite.cluster().nodeLocalMap();
 
-            for (String qryId : qryIds)
-                locMap.remove(qryId);
+            for (String qryId : qryIds) {
+                VisorQueryCursor cur = storage.remove(qryId);
+
+                if (cur != null)
+                    cur.close();
+            }
 
             return null;
         }

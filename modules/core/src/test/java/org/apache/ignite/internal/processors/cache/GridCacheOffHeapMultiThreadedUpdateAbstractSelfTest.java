@@ -17,23 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.testframework.*;
+import java.io.Serializable;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.cache.Cache;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.MutableEntry;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.testframework.GridTestUtils;
 
-import javax.cache.*;
-import javax.cache.processor.*;
-import java.io.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheMemoryMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.PRIMARY;
+import static org.apache.ignite.cache.CacheMemoryMode.OFFHEAP_TIERED;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Multithreaded update test with off heap enabled.
@@ -89,7 +88,7 @@ public abstract class GridCacheOffHeapMultiThreadedUpdateAbstractSelfTest extend
      * @throws Exception If failed.
      */
     private void testTransform(final Integer key) throws Exception {
-        final IgniteCache<Integer, Integer> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Integer> cache = grid(0).cache(null);
 
         cache.put(key, 0);
 
@@ -110,7 +109,7 @@ public abstract class GridCacheOffHeapMultiThreadedUpdateAbstractSelfTest extend
         }, THREADS, "transform");
 
         for (int i = 0; i < gridCount(); i++) {
-            Integer val = (Integer)grid(i).jcache(null).get(key);
+            Integer val = (Integer)grid(i).cache(null).get(key);
 
             assertEquals("Unexpected value for grid " + i, (Integer)(ITERATIONS_PER_THREAD * THREADS), val);
         }
@@ -133,7 +132,7 @@ public abstract class GridCacheOffHeapMultiThreadedUpdateAbstractSelfTest extend
      * @throws Exception If failed.
      */
     private void testPut(final Integer key) throws Exception {
-        final IgniteCache<Integer, Integer> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Integer> cache = grid(0).cache(null);
 
         cache.put(key, 0);
 
@@ -156,7 +155,7 @@ public abstract class GridCacheOffHeapMultiThreadedUpdateAbstractSelfTest extend
         }, THREADS, "put");
 
         for (int i = 0; i < gridCount(); i++) {
-            Integer val = (Integer)grid(i).jcache(null).get(key);
+            Integer val = (Integer)grid(i).cache(null).get(key);
 
             assertNotNull("Unexpected value for grid " + i, val);
         }
@@ -179,7 +178,7 @@ public abstract class GridCacheOffHeapMultiThreadedUpdateAbstractSelfTest extend
      * @throws Exception If failed.
      */
     private void testPutxIfAbsent(final Integer key) throws Exception {
-        final IgniteCache<Integer, Integer> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Integer> cache = grid(0).cache(null);
 
         cache.put(key, 0);
 
@@ -200,7 +199,7 @@ public abstract class GridCacheOffHeapMultiThreadedUpdateAbstractSelfTest extend
         }, THREADS, "putxIfAbsent");
 
         for (int i = 0; i < gridCount(); i++) {
-            Integer val = (Integer)grid(i).jcache(null).get(key);
+            Integer val = (Integer)grid(i).cache(null).get(key);
 
             assertEquals("Unexpected value for grid " + i, (Integer)0, val);
         }
@@ -223,7 +222,7 @@ public abstract class GridCacheOffHeapMultiThreadedUpdateAbstractSelfTest extend
      * @throws Exception If failed.
      */
     private void testPutGet(final Integer key) throws Exception {
-        final IgniteCache<Integer, Integer> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Integer> cache = grid(0).cache(null);
 
         cache.put(key, 0);
 
@@ -272,7 +271,7 @@ public abstract class GridCacheOffHeapMultiThreadedUpdateAbstractSelfTest extend
         getFut.get();
 
         for (int i = 0; i < gridCount(); i++) {
-            Integer val = (Integer)grid(i).jcache(null).get(key);
+            Integer val = (Integer)grid(i).cache(null).get(key);
 
             assertNotNull("Unexpected value for grid " + i, val);
         }

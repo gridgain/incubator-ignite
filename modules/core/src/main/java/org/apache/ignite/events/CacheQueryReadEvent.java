@@ -17,17 +17,14 @@
 
 package org.apache.ignite.events;
 
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.processors.cache.query.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.internal.processors.cache.query.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.event.*;
-import java.util.*;
+import java.util.UUID;
+import org.apache.ignite.cache.CacheEntryEventSerializableFilter;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cache query read event.
@@ -69,7 +66,7 @@ public class CacheQueryReadEvent<K, V> extends EventAdapter {
     private static final long serialVersionUID = -1984731272984397445L;
 
     /** Query type. */
-    private final CacheQueryType qryType;
+    private final String qryType;
 
     /** Cache name. */
     private final String cacheName;
@@ -86,7 +83,7 @@ public class CacheQueryReadEvent<K, V> extends EventAdapter {
 
     /** Continuous query filter. */
     @GridToStringInclude
-    private final CacheEntryEventFilter<K, V> contQryFilter;
+    private final CacheEntryEventSerializableFilter<K, V> contQryFilter;
 
     /** Query arguments. */
     @GridToStringInclude
@@ -132,12 +129,12 @@ public class CacheQueryReadEvent<K, V> extends EventAdapter {
         ClusterNode node,
         String msg,
         int type,
-        CacheQueryType qryType,
+        String qryType,
         @Nullable String cacheName,
         @Nullable String clsName,
         @Nullable String clause,
         @Nullable IgniteBiPredicate<K, V> scanQryFilter,
-        @Nullable CacheEntryEventFilter<K, V> contQryFilter,
+        @Nullable CacheEntryEventSerializableFilter<K, V> contQryFilter,
         @Nullable Object[] args,
         @Nullable UUID subjId,
         @Nullable String taskName,
@@ -167,9 +164,10 @@ public class CacheQueryReadEvent<K, V> extends EventAdapter {
     /**
      * Gets query type.
      *
-     * @return Query type.
+     * @return Query type. Can be {@code "SQL"}, {@code "SQL_FIELDS"}, {@code "FULL_TEXT"}, {@code "SCAN"},
+     * {@code "CONTINUOUS"} or {@code "SPI"}.
      */
-    public CacheQueryType queryType() {
+    public String queryType() {
         return qryType;
     }
 
@@ -222,7 +220,7 @@ public class CacheQueryReadEvent<K, V> extends EventAdapter {
      *
      * @return Continuous query filter.
      */
-    @Nullable public CacheEntryEventFilter<K, V> continuousQueryFilter() {
+    @Nullable public CacheEntryEventSerializableFilter<K, V> continuousQueryFilter() {
         return contQryFilter;
     }
 

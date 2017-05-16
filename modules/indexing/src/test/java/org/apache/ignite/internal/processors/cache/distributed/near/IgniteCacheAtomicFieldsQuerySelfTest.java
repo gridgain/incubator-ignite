@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.query.*;
-import org.apache.ignite.internal.util.typedef.*;
+import java.util.List;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.query.QueryCursor;
+import org.apache.ignite.cache.query.SqlFieldsQuery;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.util.typedef.X;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 
 /**
  * Tests for fields queries.
@@ -36,8 +36,8 @@ public class IgniteCacheAtomicFieldsQuerySelfTest extends IgniteCachePartitioned
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return PARTITIONED_ONLY;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return null;
     }
 
     /**
@@ -45,7 +45,7 @@ public class IgniteCacheAtomicFieldsQuerySelfTest extends IgniteCachePartitioned
      */
     public void testUnsupportedOperations() {
         try {
-            QueryCursor<List<?>> qry = grid(0).jcache(null).queryFields(new SqlFieldsQuery(
+            QueryCursor<List<?>> qry = grid(0).cache(null).query(new SqlFieldsQuery(
                 "update Person set name = ?").setArgs("Mary Poppins"));
 
             qry.getAll();

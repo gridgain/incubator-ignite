@@ -17,7 +17,7 @@
 
 package org.apache.ignite.schema.ui;
 
-import javafx.stage.*;
+import javafx.stage.Stage;
 
 /**
  * Abstract base modal dialog.
@@ -34,8 +34,8 @@ public abstract class ModalDialog extends Stage {
     protected ModalDialog(Stage owner, int width, int height) {
         this.owner = owner;
 
-        this.setWidth(width);
-        this.setHeight(height);
+        setWidth(width);
+        setHeight(height);
     }
 
     /**

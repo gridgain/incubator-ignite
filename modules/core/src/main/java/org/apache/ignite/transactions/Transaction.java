@@ -17,19 +17,19 @@
 
 package org.apache.ignite.transactions;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.UUID;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteTransactions;
+import org.apache.ignite.lang.IgniteAsyncSupport;
+import org.apache.ignite.lang.IgniteAsyncSupported;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
- * Grid cache transaction. Cache transactions have a default 2PC (two-phase-commit) behavior and
+ * Ignite cache transaction. Cache transactions have a default 2PC (two-phase-commit) behavior and
  * can be plugged into ongoing {@code JTA} transaction by properly implementing
  * {@ignitelink org.apache.ignite.cache.jta.CacheTmLookup}
- * interface. Cache transactions can also be started explicitly directly from {@link CacheProjection} API
- * via any of the {@code 'CacheProjection.txStart(..)'} methods.
+ * interface. Cache transactions can also be started explicitly directly from {@link IgniteTransactions} API
+ * via any of the {@code 'IgniteTransactions.txStart(..)'} methods.
  * <p>
  * Cache transactions support the following isolation levels:
  * <ul>
@@ -54,7 +54,7 @@ import java.util.*;
  *  Read access with this level happens the same way as with {@link TransactionIsolation#REPEATABLE_READ} level.
  *  However, in {@link TransactionConcurrency#OPTIMISTIC} mode, if some transactions cannot be serially isolated
  *  from each other, then one winner will be picked and the other transactions in conflict will result in
- * {@link org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException} being thrown.
+ * {@link TransactionOptimisticException} being thrown.
  * </li>
  * </ul>
  * <p>
@@ -67,8 +67,7 @@ import java.util.*;
  *  all nodes reply {@code 'OK'} (i.e. {@code Phase 1} completes successfully), a one-way' {@code 'COMMIT'}
  *  message is sent without waiting for reply. If it is necessary to know whenever remote nodes have committed
  *  as well, synchronous commit or synchronous rollback should be enabled via
- *  {@link org.apache.ignite.configuration.CacheConfiguration#setWriteSynchronizationMode}
- *  or by setting proper flags on cache projection, such as {@link org.apache.ignite.internal.processors.cache.CacheFlag#SYNC_COMMIT}.
+ *  {@link org.apache.ignite.configuration.CacheConfiguration#setWriteSynchronizationMode}.
  *  <p>
  *  Note that in this mode, optimistic failures are only possible in conjunction with
  *  {@link TransactionIsolation#SERIALIZABLE} isolation level. In all other cases, optimistic
@@ -97,17 +96,19 @@ import java.util.*;
  * <h1 class="header">Usage</h1>
  * You can use cache transactions as follows:
  * <pre name="code" class="java">
- * Cache&lt;String, Integer&gt; cache = Ignition.ignite().cache();
+ * Ignite ignite = Ignition.ignite();
  *
- * try (GridCacheTx tx = cache.txStart()) {
+ * IgniteCache&lt;String, Integer&gt; cache = ignite.cache(cacheName);
+ *
+ * try (Transaction tx = ignite.transactions().txStart()) {
  *     // Perform transactional operations.
  *     Integer v1 = cache.get("k1");
  *
  *     // Check if v1 satisfies some condition before doing a put.
  *     if (v1 != null && v1 > 0)
- *         cache.putx("k1", 2);
+ *         cache.put("k1", 2);
  *
- *     cache.removex("k2");
+ *     cache.remove("k2");
  *
  *     // Commit the transaction.
  *     tx.commit();
@@ -189,7 +190,7 @@ public interface Transaction extends AutoCloseable, IgniteAsyncSupport {
 
     /**
      * Gets timeout value in milliseconds for this transaction. If transaction times
-     * out prior to it's completion, {@link org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException} will be thrown.
+     * out prior to it's completion, {@link org.apache.ignite.transactions.TransactionTimeoutException} will be thrown.
      *
      * @return Transaction timeout value.
      */
@@ -226,6 +227,11 @@ public interface Transaction extends AutoCloseable, IgniteAsyncSupport {
      * Commits this transaction by initiating {@code two-phase-commit} process.
      *
      * @throws IgniteException If commit failed.
+     * @throws TransactionTimeoutException If transaction is timed out.
+     * @throws TransactionRollbackException If transaction is automatically rolled back.
+     * @throws TransactionOptimisticException If transaction concurrency is {@link TransactionConcurrency#OPTIMISTIC}
+     * and commit is optimistically failed.
+     * @throws TransactionHeuristicException If transaction has entered an unknown state.
      */
     @IgniteAsyncSupported
     public void commit() throws IgniteException;
@@ -244,33 +250,4 @@ public interface Transaction extends AutoCloseable, IgniteAsyncSupport {
      */
     @IgniteAsyncSupported
     public void rollback() throws IgniteException;
-
-    /**
-     * Removes metadata by name.
-     *
-     * @param name Name of the metadata to remove.
-     * @param <V> Type of the value.
-     * @return Value of removed metadata or {@code null}.
-     */
-    @Nullable public <V> V removeMeta(UUID name);
-
-    /**
-     * Gets metadata by name.
-     *
-     * @param name Metadata name.
-     * @param <V> Type of the value.
-     * @return Metadata value or {@code null}.
-     */
-    @Nullable public <V> V meta(UUID name);
-
-    /**
-     * Adds a new metadata.
-     *
-     * @param name Metadata name.
-     * @param val Metadata value.
-     * @param <V> Type of the value.
-     * @return Metadata previously associated with given name, or
-     *      {@code null} if there was none.
-     */
-    @Nullable public <V> V addMeta(UUID name, V val);
 }

@@ -17,33 +17,67 @@
 
 package org.apache.ignite.internal.client.integration;
 
-import junit.framework.*;
-import net.sf.json.*;
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.client.*;
-import org.apache.ignite.internal.client.ssl.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.spi.swapspace.file.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jetbrains.annotations.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.cache.Cache;
+import javax.cache.configuration.Factory;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import junit.framework.Assert;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.cache.store.CacheStoreAdapter;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeJobAdapter;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.compute.ComputeTaskSplitAdapter;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.ConnectorConfiguration;
+import org.apache.ignite.configuration.ConnectorMessageInterceptor;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.client.GridClient;
+import org.apache.ignite.internal.client.GridClientClosedException;
+import org.apache.ignite.internal.client.GridClientCompute;
+import org.apache.ignite.internal.client.GridClientConfiguration;
+import org.apache.ignite.internal.client.GridClientData;
+import org.apache.ignite.internal.client.GridClientDataConfiguration;
+import org.apache.ignite.internal.client.GridClientException;
+import org.apache.ignite.internal.client.GridClientFactory;
+import org.apache.ignite.internal.client.GridClientFuture;
+import org.apache.ignite.internal.client.GridClientNode;
+import org.apache.ignite.internal.client.GridClientPredicate;
+import org.apache.ignite.internal.client.GridClientProtocol;
+import org.apache.ignite.internal.client.GridServerUnreachableException;
+import org.apache.ignite.internal.client.ssl.GridSslContextFactory;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.spi.swapspace.file.FileSwapSpaceSpi;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jetbrains.annotations.Nullable;
 
-import javax.cache.configuration.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.IgniteSystemProperties.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.testframework.GridTestUtils.*;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_JETTY_PORT;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Tests for Java client.
@@ -115,18 +149,22 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        exec.shutdown();
+        U.shutdownNow(ClientAbstractSelfTest.class, exec, log);
+
         exec = null;
 
-        GridClientFactory.stop(client.id(), true);
+        if (client != null)
+            GridClientFactory.stop(client.id(), true);
 
         client = null;
 
-        for (HashMapStore cacheStore : cacheStores.values())
-            cacheStore.map.clear();
+        synchronized (cacheStores) {
+            for (HashMapStore cacheStore : cacheStores.values())
+                cacheStore.map.clear();
+        }
 
-        grid().jcache(null).clear();
-        grid().jcache(CACHE_NAME).clear();
+        grid().cache(null).clear();
+        grid().cache(CACHE_NAME).clear();
 
         INTERCEPTED_OBJECTS.clear();
     }
@@ -210,8 +248,8 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
             cacheConfiguration("partitioned"), cacheConfiguration(CACHE_NAME));
 
         clientCfg.setMessageInterceptor(new ConnectorMessageInterceptor() {
-            @Override
-            public Object onReceive(@Nullable Object obj) {
+            /** {@inheritDoc} */
+            @Override public Object onReceive(@Nullable Object obj) {
                 if (obj != null)
                     INTERCEPTED_OBJECTS.put(obj, obj);
 
@@ -219,8 +257,8 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
                     obj + INTERCEPTED_SUF : obj;
             }
 
-            @Override
-            public Object onSend(Object obj) {
+            /** {@inheritDoc} */
+            @Override public Object onSend(Object obj) {
                 if (obj != null)
                     INTERCEPTED_OBJECTS.put(obj, obj);
 
@@ -240,7 +278,7 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
      * @throws Exception In case of error.
      */
     @SuppressWarnings("unchecked")
-    private CacheConfiguration cacheConfiguration(@Nullable String cacheName) throws Exception {
+    private  static CacheConfiguration cacheConfiguration(@Nullable final String cacheName) throws Exception {
         CacheConfiguration cfg = defaultCacheConfiguration();
 
         cfg.setCacheMode(cacheName == null || CACHE_NAME.equals(cacheName) ? LOCAL : "replicated".equals(cacheName) ?
@@ -248,12 +286,19 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
         cfg.setName(cacheName);
         cfg.setWriteSynchronizationMode(FULL_SYNC);
 
-        HashMapStore cacheStore = cacheStores.get(cacheName);
+        cfg.setCacheStoreFactory(new Factory<CacheStore>() {
+            @Override public CacheStore create() {
+                synchronized (cacheStores) {
+                    HashMapStore cacheStore = cacheStores.get(cacheName);
 
-        if (cacheStore == null)
-            cacheStores.put(cacheName, cacheStore = new HashMapStore());
+                    if (cacheStore == null)
+                        cacheStores.put(cacheName, cacheStore = new HashMapStore());
 
-        cfg.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(cacheStore));
+                    return cacheStore;
+                }
+            }
+        });
+
         cfg.setWriteThrough(true);
         cfg.setReadThrough(true);
         cfg.setLoadPreviousValue(true);
@@ -289,7 +334,7 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
         cfg.setDataConfigurations(Arrays.asList(nullCache, cache));
 
         cfg.setProtocol(protocol());
-        cfg.setServers(Arrays.asList(serverAddress()));
+        cfg.setServers(Collections.singleton(serverAddress()));
 
         // Setting custom executor, to avoid failures on client shutdown.
         // And applying custom naming scheme to ease debugging.
@@ -347,9 +392,9 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
         futs.put("put", data.putAsync("key", "val"));
         futs.put("putAll", data.putAllAsync(F.asMap("key", "val")));
         futs.put("get", data.getAsync("key"));
-        futs.put("getAll", data.getAllAsync(Arrays.asList("key")));
+        futs.put("getAll", data.getAllAsync(Collections.singletonList("key")));
         futs.put("remove", data.removeAsync("key"));
-        futs.put("removeAll", data.removeAllAsync(Arrays.asList("key")));
+        futs.put("removeAll", data.removeAllAsync(Collections.singletonList("key")));
         futs.put("replace", data.replaceAsync("key", "val"));
         futs.put("cas", data.casAsync("key", "val", "val2"));
         futs.put("metrics", data.metricsAsync());
@@ -448,617 +493,6 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
 
         assertEquals(0, failed);
     }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testPut() throws Exception {
-        IgniteCache<String, String> dfltCache = grid().jcache(null);
-        IgniteCache<Object, Object> namedCache = grid().jcache(CACHE_NAME);
-
-        GridClientData dfltData = client.data();
-
-        assertNotNull(dfltData);
-
-        GridClientData namedData = client.data(CACHE_NAME);
-
-        assertNotNull(namedData);
-
-        assertTrue(dfltData.put("key1", "val1"));
-        assertEquals("val1", dfltCache.get("key1"));
-
-        assertTrue(dfltData.putAsync("key2", "val2").get());
-        assertEquals("val2", dfltCache.get("key2"));
-
-        assertTrue(namedData.put("key1", "val1"));
-        assertEquals("val1", namedCache.get("key1"));
-
-        assertTrue(namedData.putAsync("key2", "val2").get());
-        assertEquals("val2", namedCache.get("key2"));
-
-        assertTrue(dfltData.put("", ""));
-        assertEquals("", dfltCache.get(""));
-
-        assertTrue(namedData.put("", ""));
-        assertEquals("", namedCache.get(""));
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testCacheFlags() throws Exception {
-        /* Note! Only 'SKIP_STORE' flag is validated. */
-        final GridClientData data = client.data(CACHE_NAME);
-        final GridClientData readData = data.flagsOn(GridClientCacheFlag.SKIP_STORE);
-        final GridClientData writeData = readData.flagsOff(GridClientCacheFlag.SKIP_STORE);
-
-        assertEquals(Collections.singleton(GridClientCacheFlag.SKIP_STORE), readData.flags());
-        assertTrue(writeData.flags().isEmpty());
-
-        for (int i = 0; i < 100; i++) {
-            String key = UUID.randomUUID().toString();
-            Object val = UUID.randomUUID().toString();
-
-            // Put entry into cache & store.
-            assertTrue(writeData.put(key, val));
-
-            assertEquals(val, readData.get(key));
-            assertEquals(val, writeData.get(key));
-
-            // Remove from cache, skip store.
-            assertTrue(readData.remove(key));
-
-            assertNull(readData.get(key));
-            assertEquals(val, writeData.get(key));
-            assertEquals(val, readData.get(key));
-
-            // Remove from cache and from store.
-            assertTrue(writeData.remove(key));
-
-            assertNull(readData.get(key));
-            assertNull(writeData.get(key));
-        }
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testPutAll() throws Exception {
-        GridClientData dfltData = client.data();
-
-        assertNotNull(dfltData);
-
-        GridClientData namedData = client.data(CACHE_NAME);
-
-        assertNotNull(namedData);
-
-        dfltData.putAll(F.asMap("key1", "val1", "key2", "val2"));
-
-        Map<String, String> map = grid().<String, String>jcache(null).getAll(F.asSet("key1", "key2"));
-
-        assertEquals(2, map.size());
-        assertEquals("val1", map.get("key1"));
-        assertEquals("val2", map.get("key2"));
-
-        dfltData.putAllAsync(F.asMap("key3", "val3", "key4", "val4")).get();
-
-        map = grid().<String, String>jcache(null).getAll(F.asSet("key3", "key4"));
-
-        assertEquals(2, map.size());
-        assertEquals("val3", map.get("key3"));
-        assertEquals("val4", map.get("key4"));
-
-        namedData.putAll(F.asMap("key1", "val1", "key2", "val2"));
-
-        map = grid().<String, String>jcache(CACHE_NAME).getAll(F.asSet("key1", "key2"));
-
-        assertEquals(2, map.size());
-        assertEquals("val1", map.get("key1"));
-        assertEquals("val2", map.get("key2"));
-
-        namedData.putAllAsync(F.asMap("key3", "val3", "key4", "val4")).get();
-
-        map = grid().<String, String>jcache(CACHE_NAME).getAll(F.asSet("key3", "key4"));
-
-        assertEquals(2, map.size());
-        assertEquals("val3", map.get("key3"));
-        assertEquals("val4", map.get("key4"));
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testPutAllWithCornerCases() throws Exception {
-        final GridClientData dfltData = client.data();
-
-        assertNotNull(dfltData);
-
-        GridClientData namedData = client.data(CACHE_NAME);
-
-        assertNotNull(namedData);
-
-        dfltData.putAll(F.asMap("", "val1"));
-
-        assertEquals(F.asMap("", "val1"), grid().<String, String>jcache(null).getAll(F.asSet("")));
-
-        GridClientProtocol proto = clientConfiguration().getProtocol();
-
-        assertThrows(log, new Callable<Object>() {
-            @Override public Object call() throws Exception {
-                dfltData.putAll(Collections.singletonMap("key3", null));
-
-                return null;
-            }
-        }, proto == GridClientProtocol.TCP ? GridClientException.class : IllegalArgumentException.class, null);
-
-        assertThrows(log, new Callable<Object>() {
-            @Override public Object call() throws Exception {
-                dfltData.putAll(Collections.singletonMap(null, "val2"));
-
-                return null;
-            }
-        }, proto == GridClientProtocol.TCP ? GridClientException.class : IllegalArgumentException.class, null);
-
-        assertThrows(log, new Callable<Object>() {
-            @Override public Object call() throws Exception {
-                dfltData.getAll(Collections.singleton(null));
-
-                return null;
-            }
-        }, proto == GridClientProtocol.TCP ? GridClientException.class : IllegalArgumentException.class, null);
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testGet() throws Exception {
-        GridClientData dfltData = client.data();
-
-        assertNotNull(dfltData);
-
-        GridClientData namedData = client.data(CACHE_NAME);
-
-        assertNotNull(namedData);
-
-        grid().jcache(null).put("key", "val");
-
-        Assert.assertEquals("val", dfltData.get("key"));
-        Assert.assertEquals("val", dfltData.getAsync("key").get());
-
-        grid().jcache(CACHE_NAME).put("key", "val");
-
-        Assert.assertEquals("val", namedData.get("key"));
-        Assert.assertEquals("val", namedData.getAsync("key").get());
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testGetAll() throws Exception {
-        GridClientData dfltData = client.data();
-
-        assertNotNull(dfltData);
-
-        GridClientData namedData = client.data(CACHE_NAME);
-
-        assertNotNull(namedData);
-
-        grid().jcache(null).put("key1", "val1");
-        grid().jcache(null).put("key2", "val2");
-
-        Map<String, String> map = dfltData.getAll(F.asList("key1", "key2"));
-
-        assertEquals(2, map.size());
-        assertEquals("val1", map.get("key1"));
-        assertEquals("val2", map.get("key2"));
-
-        grid().jcache(null).put("key3", "val3");
-        grid().jcache(null).put("key4", "val4");
-
-        map = dfltData.getAll(F.asList("key3", "key4"));
-
-        assertEquals(2, map.size());
-        assertEquals("val3", map.get("key3"));
-        assertEquals("val4", map.get("key4"));
-
-        map = dfltData.getAll(F.asList("key1"));
-
-        assertEquals(1, map.size());
-        assertEquals("val1", map.get("key1"));
-
-        grid().jcache(CACHE_NAME).put("key1", "val1");
-        grid().jcache(CACHE_NAME).put("key2", "val2");
-
-        map = namedData.getAll(F.asList("key1", "key2"));
-
-        assertEquals(2, map.size());
-        assertEquals("val1", map.get("key1"));
-        assertEquals("val2", map.get("key2"));
-
-        grid().jcache(CACHE_NAME).put("key3", "val3");
-        grid().jcache(CACHE_NAME).put("key4", "val4");
-
-        map = namedData.getAll(F.asList("key3", "key4"));
-
-        assertEquals(2, map.size());
-        assertEquals("val3", map.get("key3"));
-        assertEquals("val4", map.get("key4"));
-
-        map = namedData.getAll(F.asList("key1"));
-
-        assertEquals(1, map.size());
-        assertEquals("val1", map.get("key1"));
-
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testRemove() throws Exception {
-        GridClientData dfltData = client.data();
-
-        assertNotNull(dfltData);
-
-        GridClientData namedData = client.data(CACHE_NAME);
-
-        assertNotNull(namedData);
-
-        grid().jcache(null).put("key1", "val1");
-        grid().jcache(null).put("key2", "val2");
-
-        assertTrue(dfltData.remove("key1"));
-        assertTrue(dfltData.removeAsync("key2").get());
-        assertFalse(dfltData.remove("wrongKey"));
-        assertFalse(dfltData.removeAsync("wrongKey").get());
-
-        assertNull(grid().jcache(null).get("key1"));
-        assertNull(grid().jcache(null).get("key2"));
-
-        grid().jcache(CACHE_NAME).put("key1", "val1");
-        grid().jcache(CACHE_NAME).put("key2", "val2");
-
-        assertTrue(namedData.remove("key1"));
-        assertTrue(namedData.removeAsync("key2").get());
-        assertFalse(namedData.remove("wrongKey"));
-        assertFalse(namedData.removeAsync("wrongKey").get());
-
-        assertNull(grid().jcache(CACHE_NAME).get("key1"));
-        assertNull(grid().jcache(CACHE_NAME).get("key2"));
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testSkipStoreFlag() throws Exception {
-        GridClientData namedData = client.data(CACHE_NAME).flagsOn(GridClientCacheFlag.SKIP_STORE);
-
-        // test keyA
-        grid().jcache(CACHE_NAME).put("keyA", "valA");
-        assertTrue(namedData.remove("keyA"));
-        assertEquals("valA", cacheStores.get(CACHE_NAME).map.get("keyA"));
-        assertNull(namedData.get("keyA"));
-
-        // test keyX
-        assertTrue(namedData.put("keyX", "valX"));
-        assertEquals("valX", namedData.get("keyX"));
-        assertNull(cacheStores.get(CACHE_NAME).map.get("keyX"));
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testSkipSwapFlag() throws Exception {
-        GridClientData namedData = client.data(CACHE_NAME);
-
-        assertTrue(namedData.put("k", "v"));
-
-        grid().jcache(CACHE_NAME).localEvict(Collections.<Object>singleton("k"));
-
-        assertNull(namedData.flagsOn(GridClientCacheFlag.SKIP_SWAP, GridClientCacheFlag.SKIP_STORE).get("k"));
-        assertEquals("v", namedData.flagsOn(GridClientCacheFlag.SKIP_STORE).get("k"));
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testRemoveAll() throws Exception {
-        GridClientData dfltData = client.data();
-
-        assertNotNull(dfltData);
-
-        GridClientData namedData = client.data(CACHE_NAME);
-
-        assertNotNull(namedData);
-
-        grid().jcache(null).put("key1", "val1");
-        grid().jcache(null).put("key2", "val2");
-        grid().jcache(null).put("key3", "val3");
-        grid().jcache(null).put("key4", "val4");
-
-        dfltData.removeAll(F.asList("key1", "key2"));
-        dfltData.removeAllAsync(F.asList("key3", "key4")).get();
-
-        assertNull(grid().jcache(null).get("key1"));
-        assertNull(grid().jcache(null).get("key2"));
-        assertNull(grid().jcache(null).get("key3"));
-        assertNull(grid().jcache(null).get("key4"));
-
-        grid().jcache(CACHE_NAME).put("key1", "val1");
-        grid().jcache(CACHE_NAME).put("key2", "val2");
-        grid().jcache(CACHE_NAME).put("key3", "val3");
-        grid().jcache(CACHE_NAME).put("key4", "val4");
-
-        namedData.removeAll(F.asList("key1", "key2"));
-        namedData.removeAllAsync(F.asList("key3", "key4")).get();
-
-        assertNull(grid().jcache(CACHE_NAME).get("key1"));
-        assertNull(grid().jcache(CACHE_NAME).get("key2"));
-        assertNull(grid().jcache(CACHE_NAME).get("key3"));
-        assertNull(grid().jcache(CACHE_NAME).get("key4"));
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testReplace() throws Exception {
-        GridClientData dfltData = client.data();
-
-        assertNotNull(dfltData);
-
-        GridClientData namedData = client.data(CACHE_NAME);
-
-        assertNotNull(namedData);
-
-        assertFalse(dfltData.replace("key1", "val1"));
-        grid().jcache(null).put("key1", "val1");
-        assertTrue(dfltData.replace("key1", "val2"));
-        assertEquals("val2", grid().jcache(null).get("key1"));
-
-        assertFalse(dfltData.replace("key2", "val1"));
-        grid().jcache(null).put("key2", "val1");
-        assertTrue(dfltData.replace("key2", "val2"));
-        assertEquals("val2", grid().jcache(null).get("key2"));
-
-        grid().jcache(null).removeAll(F.asSet("key1", "key2"));
-
-        assertFalse(dfltData.replaceAsync("key1", "val1").get());
-        grid().jcache(null).put("key1", "val1");
-        assertTrue(dfltData.replaceAsync("key1", "val2").get());
-        assertEquals("val2", grid().jcache(null).get("key1"));
-
-        assertFalse(dfltData.replaceAsync("key2", "val1").get());
-        grid().jcache(null).put("key2", "val1");
-        assertTrue(dfltData.replaceAsync("key2", "val2").get());
-        assertEquals("val2", grid().jcache(null).get("key2"));
-
-        assertFalse(namedData.replace("key1", "val1"));
-        IgniteCache<Object, Object> cache = grid().jcache(CACHE_NAME);
-
-        cache.put("key1", "val1");
-        assertTrue(namedData.replace("key1", "val2"));
-        assertEquals("val2", cache.get("key1"));
-
-        assertFalse(namedData.replaceAsync("key2", "val1").get());
-        cache.put("key2", "val1");
-        assertTrue(namedData.replaceAsync("key2", "val2").get());
-        assertEquals("val2", cache.get("key2"));
-
-        cache.removeAll(F.asSet("key1", "key2"));
-
-        assertFalse(namedData.replaceAsync("key1", "val1").get());
-        cache.put("key1", "val1");
-        assertTrue(namedData.replaceAsync("key1", "val2").get());
-        assertEquals("val2", cache.get("key1"));
-
-        assertFalse(namedData.replaceAsync("key2", "val1").get());
-        cache.put("key2", "val1");
-        assertTrue(namedData.replaceAsync("key2", "val2").get());
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    @SuppressWarnings("NullableProblems")
-    public void testCompareAndSet() throws Exception {
-        GridClientData[] datas = new GridClientData[] {
-            client.data(),
-            client.data(CACHE_NAME)
-        };
-
-        assertNotNull(datas[0]);
-        assertNotNull(datas[1]);
-
-        IgniteCache[] caches = new IgniteCache[] {
-            grid().jcache(null),
-            grid().jcache(CACHE_NAME)
-        };
-
-        for (int i = 0; i < datas.length; i++) {
-            GridClientData data = datas[i];
-            IgniteCache<String, String> cache = (IgniteCache<String, String>)caches[i];
-
-            assertFalse(data.cas("key", null, null));
-            cache.put("key", "val");
-            assertTrue(data.cas("key", null, null));
-            assertNull(cache.get("key"));
-
-            assertFalse(data.cas("key", null, "val"));
-            cache.put("key", "val");
-            assertFalse(data.cas("key", null, "wrongVal"));
-            assertEquals("val", cache.get("key"));
-            assertTrue(data.cas("key", null, "val"));
-            assertNull(cache.get("key"));
-
-            assertTrue(data.cas("key", "val", null));
-            assertEquals("val", cache.get("key"));
-            assertFalse(data.cas("key", "newVal", null));
-            assertEquals("val", cache.get("key"));
-            cache.remove("key");
-
-            assertFalse(data.cas("key", "val1", "val2"));
-            cache.put("key", "val2");
-            assertFalse(data.cas("key", "val1", "wrongVal"));
-            assertEquals("val2", cache.get("key"));
-            assertTrue(data.cas("key", "val1", "val2"));
-            assertEquals("val1", cache.get("key"));
-            cache.remove("key");
-
-            assertFalse(data.casAsync("key", null, null).get());
-            cache.put("key", "val");
-            assertTrue(data.casAsync("key", null, null).get());
-            assertNull(cache.get("key"));
-
-            assertFalse(data.casAsync("key", null, "val").get());
-            cache.put("key", "val");
-            assertFalse(data.casAsync("key", null, "wrongVal").get());
-            assertEquals("val", cache.get("key"));
-            assertTrue(data.casAsync("key", null, "val").get());
-            assertNull(cache.get("key"));
-
-            assertTrue(data.casAsync("key", "val", null).get());
-            assertEquals("val", cache.get("key"));
-            assertFalse(data.casAsync("key", "newVal", null).get());
-            assertEquals("val", cache.get("key"));
-            cache.remove("key");
-
-            assertFalse(data.casAsync("key", "val1", "val2").get());
-            cache.put("key", "val2");
-            assertFalse(data.casAsync("key", "val1", "wrongVal").get());
-            assertEquals("val2", cache.get("key"));
-            assertTrue(data.casAsync("key", "val1", "val2").get());
-            assertEquals("val1", cache.get("key"));
-            cache.remove("key");
-        }
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testMetrics() throws Exception {
-        GridClientData dfltData = client.data();
-        GridClientData namedData = client.data(CACHE_NAME);
-
-        grid().jcache(null).mxBean().clear();
-        grid().jcache(CACHE_NAME).mxBean().clear();
-
-        grid().jcache(null).put("key1", "val1");
-        grid().jcache(null).put("key2", "val2");
-        grid().jcache(null).put("key2", "val3");
-
-        assertEquals("val1", grid().jcache(null).get("key1"));
-        assertEquals("val3", grid().jcache(null).get("key2"));
-        assertEquals("val3", grid().jcache(null).get("key2"));
-
-        grid().jcache(CACHE_NAME).put("key1", "val1");
-        grid().jcache(CACHE_NAME).put("key2", "val2");
-        grid().jcache(CACHE_NAME).put("key2", "val3");
-
-        assertEquals("val1", grid().jcache(CACHE_NAME).get("key1"));
-        assertEquals("val3", grid().jcache(CACHE_NAME).get("key2"));
-        assertEquals("val3", grid().jcache(CACHE_NAME).get("key2"));
-
-        GridClientDataMetrics m = dfltData.metrics();
-
-        CacheMetrics metrics = grid().jcache(null).metrics();
-
-        assertNotNull(m);
-        assertEquals(metrics.getCacheGets(), m.reads());
-        assertEquals(metrics.getCachePuts(), m.writes());
-
-        m = dfltData.metricsAsync().get();
-
-        assertNotNull(m);
-        assertEquals(metrics.getCacheGets(), m.reads());
-        assertEquals(metrics.getCachePuts(), m.writes());
-
-        m = namedData.metrics();
-
-        metrics = grid().jcache(CACHE_NAME).metrics();
-
-        assertNotNull(m);
-        assertEquals(metrics.getCacheGets(), m.reads());
-        assertEquals(metrics.getCachePuts(), m.writes());
-
-        m = namedData.metricsAsync().get();
-
-        assertNotNull(m);
-        assertEquals(metrics.getCacheGets(), m.reads());
-        assertEquals(metrics.getCachePuts(), m.writes());
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testAppendPrepend() throws Exception {
-        List<GridClientData> datas = Arrays.asList(client.data(), client.data(CACHE_NAME));
-
-        String key = UUID.randomUUID().toString();
-
-        for (GridClientData data : datas) {
-            assertNotNull(data);
-
-            data.remove(key);
-
-            assertFalse(data.append(key, ".suffix"));
-            assertTrue(data.put(key, "val"));
-            assertTrue(data.append(key, ".suffix"));
-            assertEquals("val.suffix", data.get(key));
-            assertTrue(data.remove(key));
-            assertFalse(data.append(key, ".suffix"));
-
-            data.remove(key);
-
-            assertFalse(data.prepend(key, "postfix."));
-            assertTrue(data.put(key, "val"));
-            assertTrue(data.prepend(key, "postfix."));
-            assertEquals("postfix.val", data.get(key));
-            assertTrue(data.remove(key));
-            assertFalse(data.prepend(key, "postfix."));
-        }
-
-        // TCP protocol supports work with collections.
-        if (protocol() != GridClientProtocol.TCP)
-            return;
-
-        List<String> origList = new ArrayList<>(Arrays.asList("1", "2")); // This list should be modifiable.
-        List<String> newList = Arrays.asList("3", "4");
-
-        Map<String, String> origMap = F.asMap("1", "a1", "2", "a2");
-        Map<String, String> newMap = F.asMap("2", "b2", "3", "b3");
-
-        for (GridClientData data : datas) {
-            assertNotNull(data);
-
-            data.remove(key);
-
-            assertFalse(data.append(key, newList));
-            assertTrue(data.put(key, origList));
-            assertTrue(data.append(key, newList));
-            assertEquals(Arrays.asList("1", "2", "3", "4"), data.get(key));
-
-            data.remove(key);
-
-            assertFalse(data.prepend(key, newList));
-            assertTrue(data.put(key, origList));
-            assertTrue(data.prepend(key, newList));
-            assertEquals(Arrays.asList("3", "4", "1", "2"), data.get(key));
-
-            data.remove(key);
-
-            assertFalse(data.append(key, newMap));
-            assertTrue(data.put(key, origMap));
-            assertTrue(data.append(key, newMap));
-            assertEquals(F.asMap("1", "a1", "2", "b2", "3", "b3"), data.get(key));
-
-            data.remove(key);
-
-            assertFalse(data.prepend(key, newMap));
-            assertTrue(data.put(key, origMap));
-            assertTrue(data.prepend(key, newMap));
-            assertEquals(F.asMap("1", "a1", "2", "a2", "3", "b3"), data.get(key));
-        }
-    }
-
     /**
      * @throws Exception If failed.
      */
@@ -1068,156 +502,8 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
 
         GridClientCompute compute = client.compute();
 
-        Assert.assertEquals(17, compute.execute(taskName, taskArg));
-        Assert.assertEquals(17, compute.executeAsync(taskName, taskArg).get());
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testNode() throws Exception {
-        GridClientCompute compute = client.compute();
-
-        assertNull(compute.refreshNode(UUID.randomUUID(), true, false));
-        assertNull(compute.refreshNode(UUID.randomUUID(), false, false));
-
-        GridClientNode node = compute.refreshNode(grid().localNode().id(), true, false);
-
-        assertNotNull(node);
-        assertFalse(node.attributes().isEmpty());
-        assertTrue(node.metrics() == null);
-        assertNotNull(node.tcpAddresses());
-        assertEquals(grid().localNode().id(), node.nodeId());
-        assertEquals(4, node.caches().size());
-
-        Map<String, GridClientCacheMode> caches = node.caches();
-
-        for (Map.Entry<String, GridClientCacheMode> e : caches.entrySet()) {
-            if (e.getKey() == null || CACHE_NAME.equals(e.getKey()))
-                assertEquals(GridClientCacheMode.LOCAL, e.getValue());
-            else if ("replicated".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.REPLICATED, e.getValue());
-            else if ("partitioned".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.PARTITIONED, e.getValue());
-            else
-                fail("Unexpected cache name: " + e.getKey());
-        }
-
-        node = compute.refreshNode(grid().localNode().id(), false, false);
-
-        assertNotNull(node);
-        assertTrue(node.attributes().isEmpty());
-        assertTrue(node.metrics() == null);
-        assertNotNull(node.tcpAddresses());
-        assertEquals(grid().localNode().id(), node.nodeId());
-        assertEquals(4, node.caches().size());
-
-        caches = node.caches();
-
-        for (Map.Entry<String, GridClientCacheMode> e : caches.entrySet()) {
-            if (e.getKey() == null || CACHE_NAME.equals(e.getKey()))
-                assertEquals(GridClientCacheMode.LOCAL, e.getValue());
-            else if ("replicated".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.REPLICATED, e.getValue());
-            else if ("partitioned".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.PARTITIONED, e.getValue());
-            else
-                fail("Unexpected cache name: " + e.getKey());
-        }
-
-        node = compute.refreshNode(grid().localNode().id(), false, true);
-
-        assertNotNull(node);
-        assertTrue(node.attributes().isEmpty());
-        assertFalse(node.metrics() == null);
-        assertTrue(node.metrics().getCurrentActiveJobs() != -1);
-        assertTrue(node.metrics().getCurrentIdleTime() != -1);
-        assertTrue(node.metrics().getLastUpdateTime() != -1);
-        assertNotNull(node.tcpAddresses());
-        assertEquals(grid().localNode().id(), node.nodeId());
-        assertEquals(4, node.caches().size());
-
-        caches = node.caches();
-
-        for (Map.Entry<String, GridClientCacheMode> e : caches.entrySet()) {
-            if (e.getKey() == null || CACHE_NAME.equals(e.getKey()))
-                assertEquals(GridClientCacheMode.LOCAL, e.getValue());
-            else if ("replicated".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.REPLICATED, e.getValue());
-            else if ("partitioned".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.PARTITIONED, e.getValue());
-            else
-                fail("Unexpected cache name: " + e.getKey());
-        }
-
-        assertNull(compute.refreshNodeAsync(UUID.randomUUID(), true, false).get());
-        assertNull(compute.refreshNodeAsync(UUID.randomUUID(), false, false).get());
-
-        node = compute.refreshNodeAsync(grid().localNode().id(), true, false).get();
-
-        assertNotNull(node);
-        assertFalse(node.attributes().isEmpty());
-        assertTrue(node.metrics() == null);
-        assertNotNull(node.tcpAddresses());
-        assertEquals(grid().localNode().id(), node.nodeId());
-        assertEquals(4, node.caches().size());
-
-        caches = node.caches();
-
-        for (Map.Entry<String, GridClientCacheMode> e : caches.entrySet()) {
-            if (e.getKey() == null || CACHE_NAME.equals(e.getKey()))
-                assertEquals(GridClientCacheMode.LOCAL, e.getValue());
-            else if ("replicated".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.REPLICATED, e.getValue());
-            else if ("partitioned".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.PARTITIONED, e.getValue());
-            else
-                fail("Unexpected cache name: " + e.getKey());
-        }
-
-        node = compute.refreshNodeAsync(grid().localNode().id(), false, false).get();
-
-        assertNotNull(node);
-        assertTrue(node.attributes().isEmpty());
-        assertTrue(node.metrics() == null);
-        assertNotNull(node.tcpAddresses());
-        assertEquals(grid().localNode().id(), node.nodeId());
-        assertEquals(4, node.caches().size());
-
-        caches = node.caches();
-
-        for (Map.Entry<String, GridClientCacheMode> e : caches.entrySet()) {
-            if (e.getKey() == null || CACHE_NAME.equals(e.getKey()))
-                assertEquals(GridClientCacheMode.LOCAL, e.getValue());
-            else if ("replicated".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.REPLICATED, e.getValue());
-            else if ("partitioned".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.PARTITIONED, e.getValue());
-            else
-                fail("Unexpected cache name: " + e.getKey());
-        }
-
-        node = compute.refreshNodeAsync(grid().localNode().id(), false, true).get();
-
-        assertNotNull(node);
-        assertTrue(node.attributes().isEmpty());
-        assertFalse(node.metrics() == null);
-        assertNotNull(node.tcpAddresses());
-        assertEquals(grid().localNode().id(), node.nodeId());
-        assertEquals(4, node.caches().size());
-
-        caches = node.caches();
-
-        for (Map.Entry<String, GridClientCacheMode> e : caches.entrySet()) {
-            if (e.getKey() == null || CACHE_NAME.equals(e.getKey()))
-                assertEquals(GridClientCacheMode.LOCAL, e.getValue());
-            else if ("replicated".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.REPLICATED, e.getValue());
-            else if ("partitioned".equals(e.getKey()))
-                assertEquals(GridClientCacheMode.PARTITIONED, e.getValue());
-            else
-                fail("Unexpected cache name: " + e.getKey());
-        }
+        assertEquals(Integer.valueOf(17), compute.execute(taskName, taskArg));
+        assertEquals(Integer.valueOf(17), compute.executeAsync(taskName, taskArg).get());
     }
 
     /**
@@ -1284,50 +570,15 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
     }
 
     /**
-     * Test if all user objects passed interception.
-     *
-     * @throws Exception If failed.
-     */
-    public void testInterception() throws Exception {
-        grid().jcache(null).put("rem1", "rem1");
-
-        GridClientData data = client.data();
-
-        assertNotNull(data);
-
-        overwriteIntercepted = true;
-
-        data.put("key1", "val1");
-        data.putAll(F.asMap("key2", "val2", "key3", "val3"));
-        data.remove("rem1");
-        data.replace("key1", "nval1");
-
-        client.compute().execute(getTaskName(), getTaskArgument());
-
-        for (Object obj : Arrays.asList(
-            "rem1", "rem1", "key1", "key2", "key2", "val2", "key3", "val3", "rem1", "key1", "nval1",
-            getTaskArgument())) {
-
-            assert INTERCEPTED_OBJECTS.containsKey(obj);
-        }
-
-        assert ("nval1" + INTERCEPTED_SUF).equals(grid().jcache(null).get("key1" + INTERCEPTED_SUF));
-        assert ("val2" + INTERCEPTED_SUF).equals(grid().jcache(null).get("key2" + INTERCEPTED_SUF));
-        assert "rem1".equals(grid().jcache(null).get("rem1"));
-
-        overwriteIntercepted = false;
-    }
-
-    /**
      * Test task.
      */
-    private static class TestTask extends ComputeTaskSplitAdapter<List<Object>, Integer> {
+    private static class TestTask extends ComputeTaskSplitAdapter<List<String>, Integer> {
         /** {@inheritDoc} */
-        @Override protected Collection<? extends ComputeJob> split(int gridSize, List<Object> list) {
+        @Override protected Collection<? extends ComputeJob> split(int gridSize, List<String> list) {
             Collection<ComputeJobAdapter> jobs = new ArrayList<>();
 
             if (list != null)
-                for (final Object val : list)
+                for (final String val : list)
                     jobs.add(new ComputeJobAdapter() {
                         @Override public Object execute() {
                             try {
@@ -1337,7 +588,7 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
                                 Thread.currentThread().interrupt();
                             }
 
-                            return val == null ? 0 : val.toString().length();
+                            return val == null ? 0 : val.length();
                         }
                     });
 
@@ -1358,20 +609,20 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
     /**
      * Test task that sleeps 5 seconds.
      */
-    private static class SleepTestTask extends ComputeTaskSplitAdapter<List<Object>, Integer> {
+    private static class SleepTestTask extends ComputeTaskSplitAdapter<List<String>, Integer> {
         /** {@inheritDoc} */
-        @Override protected Collection<? extends ComputeJob> split(int gridSize, List<Object> list)
+        @Override protected Collection<? extends ComputeJob> split(int gridSize, List<String> list)
             {
             Collection<ComputeJobAdapter> jobs = new ArrayList<>();
 
             if (list != null)
-                for (final Object val : list)
+                for (final String val : list)
                     jobs.add(new ComputeJobAdapter() {
                         @Override public Object execute() {
                             try {
                                 Thread.sleep(5000);
 
-                                return val == null ? 0 : val.toString().length();
+                                return val == null ? 0 : val.length();
                             }
                             catch (InterruptedException ignored) {
                                 return -1;
@@ -1393,10 +644,14 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
         }
     }
 
+    /** JSON to java mapper. */
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+
     /**
      * Http test task with restriction to string arguments only.
      */
     protected static class HttpTestTask extends ComputeTaskSplitAdapter<String, Integer> {
+        /** */
         private final TestTask delegate = new TestTask();
 
         /** {@inheritDoc} */
@@ -1405,11 +660,23 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
             if (arg.endsWith("intercepted"))
                 arg = arg.substring(0, arg.length() - 11);
 
-            JSON json = JSONSerializer.toJSON(arg);
+            try {
+                JsonNode json = JSON_MAPPER.readTree(arg);
 
-            List list = json.isArray() ? JSONArray.toList((JSONArray)json, String.class, new JsonConfig()) : null;
+                List<String> list = null;
 
-            return delegate.split(gridSize, list);
+                if (json.isArray()) {
+                    list = new ArrayList<>();
+
+                    for (JsonNode child : json)
+                        list.add(child.asText());
+                }
+
+                return delegate.split(gridSize, list);
+            }
+            catch (IOException e) {
+                throw new IgniteException(e);
+            }
         }
 
         /** {@inheritDoc} */
@@ -1422,16 +689,29 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
      * Http wrapper for sleep task.
      */
     protected static class SleepHttpTestTask extends ComputeTaskSplitAdapter<String, Integer> {
+        /** */
         private final SleepTestTask delegate = new SleepTestTask();
 
         /** {@inheritDoc} */
         @SuppressWarnings("unchecked")
         @Override protected Collection<? extends ComputeJob> split(int gridSize, String arg) {
-            JSON json = JSONSerializer.toJSON(arg);
+            try {
+                JsonNode json = JSON_MAPPER.readTree(arg);
 
-            List list = json.isArray() ? JSONArray.toList((JSONArray)json, String.class, new JsonConfig()) : null;
+                List<String> list = null;
 
-            return delegate.split(gridSize, list);
+                if (json.isArray()) {
+                    list = new ArrayList<>();
+
+                    for (JsonNode child : json)
+                        list.add(child.asText());
+                }
+
+                return delegate.split(gridSize, list);
+            }
+            catch (IOException e) {
+                throw new IgniteException(e);
+            }
         }
 
         /** {@inheritDoc} */
@@ -1449,9 +729,8 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
 
         /** {@inheritDoc} */
         @Override public void loadCache(IgniteBiInClosure<Object, Object> clo, Object... args) {
-            for (Map.Entry e : map.entrySet()) {
+            for (Map.Entry e : map.entrySet())
                 clo.apply(e.getKey(), e.getValue());
-            }
         }
 
         /** {@inheritDoc} */
@@ -1460,7 +739,7 @@ public abstract class ClientAbstractSelfTest extends GridCommonAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public void write(javax.cache.Cache.Entry<? extends Object, ? extends Object> e) {
+        @Override public void write(Cache.Entry<?, ?> e) {
             map.put(e.getKey(), e.getValue());
         }
 

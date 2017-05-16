@@ -17,12 +17,18 @@
 
 package org.apache.ignite.examples.computegrid;
 
-import org.apache.ignite.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.examples.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeJobAdapter;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.compute.ComputeTaskSplitAdapter;
+import org.apache.ignite.examples.ExampleNodeStartup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Demonstrates a simple use of Ignite with {@link ComputeTaskSplitAdapter}.
@@ -32,10 +38,10 @@ import java.util.*;
  * is calculated on reduce stage.
  * <p>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-compute.xml'}.
+ * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link ComputeNodeStartup} in another JVM which will start node
- * with {@code examples/config/example-compute.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will start node
+ * with {@code examples/config/example-ignite.xml} configuration.
  */
 public class ComputeTaskSplitExample {
     /**
@@ -45,12 +51,12 @@ public class ComputeTaskSplitExample {
      * @throws IgniteException If example execution failed.
      */
     public static void main(String[] args) throws IgniteException {
-        try (Ignite ignite = Ignition.start("examples/config/example-compute.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             System.out.println();
             System.out.println("Compute task split example started.");
 
             // Execute task on the cluster and wait for its completion.
-            int cnt = ignite.compute().execute(CharacterCountTask.class, "Hello Ignite Enabled World!");
+            int cnt = ignite.compute().execute(SplitExampleCharacterCountTask.class, "Hello Ignite Enabled World!");
 
             System.out.println();
             System.out.println(">>> Total number of characters in the phrase is '" + cnt + "'.");
@@ -61,7 +67,7 @@ public class ComputeTaskSplitExample {
     /**
      * Task to count non-white-space characters in a phrase.
      */
-    private static class CharacterCountTask extends ComputeTaskSplitAdapter<String, Integer> {
+    private static class SplitExampleCharacterCountTask extends ComputeTaskSplitAdapter<String, Integer> {
         /**
          * Splits the received string to words, creates a child job for each word, and sends
          * these jobs to other nodes for processing. Each such job simply prints out the received word.

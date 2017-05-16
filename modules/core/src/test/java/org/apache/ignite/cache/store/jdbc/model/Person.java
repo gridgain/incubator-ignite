@@ -17,7 +17,8 @@
 
 package org.apache.ignite.cache.store.jdbc.model;
 
-import java.io.*;
+import java.io.Serializable;
+import java.sql.Date;
 
 /**
  * Person definition.
@@ -34,8 +35,14 @@ public class Person implements Serializable {
     /** Value for orgId. */
     private Integer orgId;
 
+    /** Value for birthday. */
+    private Date birthday;
+
     /** Value for name. */
     private String name;
+
+    /** Value for salary. */
+    private Integer salary;
 
     /**
      * Empty constructor.
@@ -50,11 +57,15 @@ public class Person implements Serializable {
     public Person(
         Integer id,
         Integer orgId,
-        String name
+        Date birthday,
+        String name,
+        Integer salary
     ) {
         this.id = id;
         this.orgId = orgId;
+        this.birthday = birthday;
         this.name = name;
+        this.salary = salary;
     }
 
     /**
@@ -94,6 +105,24 @@ public class Person implements Serializable {
     }
 
     /**
+     * Gets birthday.
+     *
+     * @return Value for birthday.
+     */
+    public Date getBirthday() {
+        return birthday;
+    }
+
+    /**
+     * Sets birthday.
+     *
+     * @param birthday New value for birthday.
+     */
+    public void setBirthday(Date birthday) {
+        this.birthday = birthday;
+    }
+
+    /**
      * Gets name.
      *
      * @return Value for name.
@@ -109,6 +138,25 @@ public class Person implements Serializable {
      */
     public void setName(String name) {
         this.name = name;
+    }
+
+
+    /**
+     * Gets salary.
+     *
+     * @return Value for salary.
+     */
+    public Integer getSalary() {
+        return salary;
+    }
+
+    /**
+     * Sets salary.
+     *
+     * @param salary New value for salary.
+     */
+    public void setSalary(Integer salary) {
+        this.salary = salary;
     }
 
     /** {@inheritDoc} */
@@ -148,8 +196,8 @@ public class Person implements Serializable {
     @Override public String toString() {
         return "Person [id=" + id +
             ", orgId=" + orgId +
+            ", birthday=" + birthday.getTime() +
             ", name=" + name +
             "]";
     }
 }
-

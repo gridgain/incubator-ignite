@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.processors.datastreamer;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
+import org.apache.ignite.internal.util.lang.GridPlainCallable;
+import org.apache.ignite.internal.util.typedef.C1;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.plugin.security.SecurityPermission;
+import org.apache.ignite.stream.StreamReceiver;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Job to put entries to cache on affinity node.
@@ -49,7 +54,10 @@ class DataStreamerUpdateJob implements GridPlainCallable<Object> {
     private final boolean skipStore;
 
     /** */
-    private final IgniteDataStreamer.Updater updater;
+    private final StreamReceiver rcvr;
+
+    /** */
+    private boolean keepBinary;
 
     /**
      * @param ctx Context.
@@ -58,7 +66,7 @@ class DataStreamerUpdateJob implements GridPlainCallable<Object> {
      * @param col Entries to put.
      * @param ignoreDepOwnership {@code True} to ignore deployment ownership.
      * @param skipStore Skip store flag.
-     * @param updater Updater.
+     * @param rcvr Updater.
      */
     DataStreamerUpdateJob(
         GridKernalContext ctx,
@@ -67,18 +75,20 @@ class DataStreamerUpdateJob implements GridPlainCallable<Object> {
         Collection<DataStreamerEntry> col,
         boolean ignoreDepOwnership,
         boolean skipStore,
-        IgniteDataStreamer.Updater<?, ?> updater) {
+        boolean keepBinary,
+        StreamReceiver<?, ?> rcvr) {
         this.ctx = ctx;
         this.log = log;
 
         assert col != null && !col.isEmpty();
-        assert updater != null;
+        assert rcvr != null;
 
         this.cacheName = cacheName;
         this.col = col;
         this.ignoreDepOwnership = ignoreDepOwnership;
         this.skipStore = skipStore;
-        this.updater = updater;
+        this.keepBinary = keepBinary;
+        this.rcvr = rcvr;
     }
 
     /** {@inheritDoc} */
@@ -87,21 +97,15 @@ class DataStreamerUpdateJob implements GridPlainCallable<Object> {
         if (log.isDebugEnabled())
             log.debug("Running put job [nodeId=" + ctx.localNodeId() + ", size=" + col.size() + ']');
 
-//        TODO IGNITE-77: restore adapter usage.
-//        GridCacheAdapter<Object, Object> cache = ctx.cache().internalCache(cacheName);
-//
-//        IgniteFuture<?> f = cache.context().preloader().startFuture();
-//
-//        if (!f.isDone())
-//            f.get();
-//
-//        if (ignoreDepOwnership)
-//            cache.context().deploy().ignoreOwnership(true);
+        IgniteCacheProxy cache = ctx.cache().jcache(cacheName).cacheNoGate();
 
-        IgniteCacheProxy cache = ctx.cache().jcache(cacheName);
+        cache.context().awaitStarted();
 
         if (skipStore)
             cache = (IgniteCacheProxy<?, ?>)cache.withSkipStore();
+
+        if (keepBinary)
+            cache = (IgniteCacheProxy<?, ?>)cache.withKeepBinary();
 
         if (ignoreDepOwnership)
             cache.context().deploy().ignoreOwnership(true);
@@ -114,21 +118,26 @@ class DataStreamerUpdateJob implements GridPlainCallable<Object> {
 
                 CacheObject val = e.getValue();
 
-                if (val != null)
+                if (val != null) {
+                    checkSecurityPermission(SecurityPermission.CACHE_PUT);
+
                     val.finishUnmarshal(cctx.cacheObjectContext(), cctx.deploy().globalLoader());
+                }
+                else
+                    checkSecurityPermission(SecurityPermission.CACHE_REMOVE);
             }
 
             if (unwrapEntries()) {
                 Collection<Map.Entry> col0 = F.viewReadOnly(col, new C1<DataStreamerEntry, Map.Entry>() {
                     @Override public Map.Entry apply(DataStreamerEntry e) {
-                        return e.toEntry(cctx);
+                        return e.toEntry(cctx, keepBinary);
                     }
                 });
 
-                updater.update(cache, col0);
+                rcvr.receive(cache, col0);
             }
             else
-                updater.update(cache, col);
+                rcvr.receive(cache, col);
 
             return null;
         }
@@ -145,6 +154,18 @@ class DataStreamerUpdateJob implements GridPlainCallable<Object> {
      * @return {@code True} if need to unwrap internal entries.
      */
     private boolean unwrapEntries() {
-        return !(updater instanceof DataStreamerCacheUpdaters.InternalUpdater);
+        return !(rcvr instanceof DataStreamerCacheUpdaters.InternalUpdater);
+    }
+
+    /**
+     * @param perm Security permission.
+     * @throws org.apache.ignite.plugin.security.SecurityException If permission is not enough.
+     */
+    private void checkSecurityPermission(SecurityPermission perm)
+        throws org.apache.ignite.plugin.security.SecurityException {
+        if (!ctx.security().enabled())
+            return;
+
+        ctx.security().authorize(cacheName, perm, null);
     }
 }

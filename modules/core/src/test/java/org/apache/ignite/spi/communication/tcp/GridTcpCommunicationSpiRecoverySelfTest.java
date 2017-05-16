@@ -17,27 +17,39 @@
 
 package org.apache.ignite.spi.communication.tcp;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.nio.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.communication.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.*;
-import org.apache.ignite.testframework.junits.spi.*;
-import org.eclipse.jetty.util.*;
-
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.net.BindException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.managers.communication.GridIoMessageFactory;
+import org.apache.ignite.internal.util.lang.GridAbsPredicate;
+import org.apache.ignite.internal.util.nio.GridNioServer;
+import org.apache.ignite.internal.util.nio.GridNioSession;
+import org.apache.ignite.internal.util.typedef.CO;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.communication.CommunicationListener;
+import org.apache.ignite.spi.communication.CommunicationSpi;
+import org.apache.ignite.spi.communication.GridTestMessage;
+import org.apache.ignite.testframework.GridSpiTestContext;
+import org.apache.ignite.testframework.GridTestNode;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.IgniteTestResources;
+import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
+import org.apache.ignite.testframework.junits.spi.GridSpiTest;
+import org.eclipse.jetty.util.ConcurrentHashSet;
 
 /**
  *
@@ -60,7 +72,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
     private static final int ITERS = 10;
 
     /** */
-    private static int port = 30_000;
+    protected static int port = 30_000;
 
     /**
      *
@@ -163,6 +175,15 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
     }
 
     /**
+     * Time to wait for socket write timeout.
+     *
+     * @return Timeout.
+     */
+    protected long awaitForSocketWriteTimeout() {
+        return 8000;
+    }
+
+    /**
      * @throws Exception If failed.
      */
     public void testBlockListener() throws Exception {
@@ -245,7 +266,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
             @Override public boolean apply() {
                 return lsnr0.rcvCnt.get() >= expMsgs && lsnr1.rcvCnt.get() >= expMsgs;
             }
-        }, 5000);
+        }, awaitForSocketWriteTimeout());
 
         assertEquals(expMsgs, lsnr0.rcvCnt.get());
         assertEquals(expMsgs, lsnr1.rcvCnt.get());
@@ -301,7 +322,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
                         @Override public boolean apply() {
                             return ses0.closeTime() != 0;
                         }
-                    }, 5000);
+                    }, awaitForSocketWriteTimeout());
 
                     assertTrue("Failed to wait for session close", ses0.closeTime() != 0);
 
@@ -411,7 +432,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
                         @Override public boolean apply() {
                             return ses0.closeTime() != 0;
                         }
-                    }, 5000);
+                    }, awaitForSocketWriteTimeout());
 
                     assertTrue("Failed to wait for session close", ses0.closeTime() != 0);
 
@@ -423,7 +444,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
                         public boolean apply() {
                             return ses1.closeTime() != 0;
                         }
-                    }, 5000);
+                    }, awaitForSocketWriteTimeout());
 
                     assertTrue("Failed to wait for session close", ses1.closeTime() != 0);
 
@@ -528,7 +549,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
                         @Override public boolean apply() {
                             return ses0.closeTime() != 0;
                         }
-                    }, 5000);
+                    }, awaitForSocketWriteTimeout());
 
                     assertTrue("Failed to wait for session close", ses0.closeTime() != 0);
 
@@ -592,7 +613,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
 
                 return !sessions.isEmpty();
             }
-        }, 5000);
+        }, awaitForSocketWriteTimeout());
 
         Collection<? extends GridNioSession> sessions = GridTestUtils.getFieldValue(srv, "sessions");
 
@@ -608,6 +629,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
     protected TcpCommunicationSpi getSpi(int idx) {
         TcpCommunicationSpi spi = new TcpCommunicationSpi();
 
+        spi.setSharedMemoryPort(-1);
         spi.setLocalPort(port++);
         spi.setIdleConnectionTimeout(10_000);
         spi.setConnectTimeout(10_000);
@@ -632,7 +654,7 @@ public class GridTcpCommunicationSpiRecoverySelfTest<T extends CommunicationSpi>
         for (int i = 0; i < SPI_CNT; i++) {
             TcpCommunicationSpi spi = getSpi(i);
 
-            GridTestUtils.setFieldValue(spi, "gridName", "grid-" + i);
+            GridTestUtils.setFieldValue(spi, IgniteSpiAdapter.class, "gridName", "grid-" + i);
 
             IgniteTestResources rsrcs = new IgniteTestResources();
 

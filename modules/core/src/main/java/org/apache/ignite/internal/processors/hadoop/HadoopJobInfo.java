@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.processors.hadoop;
 
-import org.apache.ignite.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compact job description.
@@ -55,12 +55,17 @@ public interface HadoopJobInfo extends Serializable {
      * This method will be called once for the same ID on one node, though it can be called on the same host
      * multiple times from different processes (in case of multiple nodes on the same host or external execution).
      *
+     * @param jobCls The job class.
      * @param jobId Job ID.
      * @param log Logger.
+     * @param libNames Optional additional native library names.
+     * @param helper HadoopHelper.
      * @return Job.
      * @throws IgniteCheckedException If failed.
      */
-    HadoopJob createJob(HadoopJobId jobId, IgniteLogger log) throws IgniteCheckedException;
+    public HadoopJob createJob(Class<? extends HadoopJob> jobCls,
+        HadoopJobId jobId, IgniteLogger log, @Nullable String[] libNames, HadoopHelper helper)
+            throws IgniteCheckedException;
 
     /**
      * @return Number of reducers configured for job.

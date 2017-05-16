@@ -17,10 +17,15 @@
 
 package org.apache.ignite.yardstick;
 
-import com.beust.jcommander.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.transactions.*;
+import com.beust.jcommander.Parameter;
+import org.apache.ignite.cache.CacheAtomicWriteOrderMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.internal.util.tostring.GridToStringBuilder;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Input arguments for Ignite benchmarks.
@@ -35,16 +40,29 @@ public class IgniteBenchmarkArguments {
     @Parameter(names = {"-b", "--backups"}, description = "Backups")
     private int backups;
 
+    /** */
     @Parameter(names = {"-cfg", "--Config"}, description = "Configuration file")
     private String cfg = "config/ignite-localhost-config.xml";
+
+    /** */
+    @Parameter(names = {"-ltqf", "--loadTestQueriesFile"}, description = "File with predefined SQL queries")
+    private String loadTestQueriesFile = null;
 
     /** */
     @Parameter(names = {"-sm", "--syncMode"}, description = "Synchronization mode")
     private CacheWriteSynchronizationMode syncMode = CacheWriteSynchronizationMode.PRIMARY_SYNC;
 
     /** */
-    @Parameter(names = {"-dm", "--distroMode"}, description = "Distribution mode")
-    private CacheDistributionMode distroMode = CacheDistributionMode.PARTITIONED_ONLY;
+    @Parameter(names = {"-cl", "--client"}, description = "Client flag")
+    private boolean clientOnly = false;
+
+    /** */
+    @Parameter(names = {"-nc", "--nearCache"}, description = "Near cache flag")
+    private boolean nearCacheFlag = false;
+
+    /** */
+    @Parameter(names = {"-ncs", "--nearCacheSize"}, description = "Near cache size")
+    private int nearCacheSize;
 
     /** */
     @Parameter(names = {"-wom", "--writeOrderMode"}, description = "Write ordering mode")
@@ -52,7 +70,7 @@ public class IgniteBenchmarkArguments {
 
     /** */
     @Parameter(names = {"-txc", "--txConcurrency"}, description = "Transaction concurrency")
-    private TransactionConcurrency txConcurrency = TransactionConcurrency.OPTIMISTIC;
+    private TransactionConcurrency txConcurrency = TransactionConcurrency.PESSIMISTIC;
 
     /** */
     @Parameter(names = {"-txi", "--txIsolation"}, description = "Transaction isolation")
@@ -75,12 +93,12 @@ public class IgniteBenchmarkArguments {
     private String restTcpHost;
 
     /** */
-    @Parameter(names = {"-ss", "--syncSend"}, description = "Synchronous send")
-    private boolean syncSnd;
+    @Parameter(names = {"-r", "--range"}, description = "Key range")
+    public int range = 1_000_000;
 
     /** */
-    @Parameter(names = {"-r", "--range"}, description = "Key range")
-    private int range = 1_000_000;
+    @Parameter(names = {"-pa", "--preloadAmount"}, description = "Data pre-loading amount for load tests")
+    public int preloadAmount = 500_000;
 
     /** */
     @Parameter(names = {"-j", "--jobs"}, description = "Number of jobs for compute benchmarks")
@@ -93,6 +111,71 @@ public class IgniteBenchmarkArguments {
     /** */
     @Parameter(names = {"-wb", "--writeBehind"}, description = "Enable or disable writeBehind for cache store")
     private boolean writeBehind;
+
+    /** */
+    @Parameter(names = {"-bs", "--batchSize"}, description = "Batch size")
+    private int batch = 500;
+
+    /** */
+    @Parameter(names = {"-col", "--collocated"}, description = "Collocated")
+    private boolean collocated;
+
+    /** */
+    @Parameter(names = {"-jdbc", "--jdbcUrl"}, description = "JDBC url")
+    private String jdbcUrl;
+
+    /** */
+    @Parameter(names = {"-rd", "--restartdelay"}, description = "Restart delay in seconds")
+    private int restartDelay = 20;
+
+    /** */
+    @Parameter(names = {"-rs", "--restartsleep"}, description = "Restart sleep in seconds")
+    private int restartSleep = 2;
+
+    /** */
+    @Parameter(names = {"-checkingPeriod", "--checkingPeriod"}, description = "Period to check cache consistency in seconds")
+    private int cacheConsistencyCheckingPeriod = 2 * 60;
+
+    /** */
+    @Parameter(names = {"-kc", "--keysCount"}, description = "Count of keys")
+    private int keysCnt = 5;
+
+    /** */
+    @Parameter(names = {"-cot", "--cacheOperationTimeout"}, description = "Max timeout for cache operations in seconds")
+    private int cacheOpTimeout = 30;
+
+    /** */
+    @Parameter(names = {"-kpt", "--keysPerThread"}, description = "Use not intersecting keys in putAll benchmark")
+    private boolean keysPerThread;
+
+    /** */
+    @Parameter(names = {"-pp", "--printPartitionStats"}, description = "Print partition statistics")
+    private boolean printPartStats;
+
+    /** */
+    @Parameter(names = {"-ltops", "--allowedLoadTestOperations"}, variableArity = true, description = "List of enabled load test operations")
+    private List<String> allowedLoadTestOps = new ArrayList<>();
+
+    /**
+     * @return List of enabled load test operations.
+     */
+    public List<String> allowedLoadTestOps() {
+        return allowedLoadTestOps;
+    }
+
+    /**
+     * @return If {@code true} when need to print partition statistics.
+     */
+    public boolean printPartitionStatistics() {
+        return printPartStats;
+    }
+
+    /**
+     * @return JDBC url.
+     */
+    public String jdbcUrl() {
+        return jdbcUrl;
+    }
 
     /**
      * @return Transaction concurrency.
@@ -125,8 +208,22 @@ public class IgniteBenchmarkArguments {
     /**
      * @return Distribution.
      */
-    public CacheDistributionMode distributionMode() {
-        return distroMode;
+    public boolean isClientOnly() {
+        return clientOnly;
+    }
+
+    /**
+     * @return Near cache flag.
+     */
+    public boolean isNearCache() {
+        return nearCacheFlag;
+    }
+
+    /**
+     * @return Near cache size ({@code 0} for unlimited).
+     */
+    public int getNearCacheSize() {
+        return nearCacheSize;
     }
 
     /**
@@ -179,13 +276,6 @@ public class IgniteBenchmarkArguments {
     }
 
     /**
-     * @return {@code True} if sending is synchronous.
-     */
-    public boolean isSyncSend() {
-        return syncSnd;
-    }
-
-    /**
      * @return Key range, from {@code 0} to this number.
      */
     public int range() {
@@ -193,10 +283,24 @@ public class IgniteBenchmarkArguments {
     }
 
     /**
+     * @return Preload key range, from {@code 0} to this number.
+     */
+    public int preloadAmount() {
+        return preloadAmount;
+    }
+
+    /**
      * @return Configuration file.
      */
     public String configuration() {
         return cfg;
+    }
+
+    /**
+     * @return File with predefined SQL queries.
+     */
+    public String loadTestQueriesFile() {
+        return loadTestQueriesFile;
     }
 
     /**
@@ -221,11 +325,68 @@ public class IgniteBenchmarkArguments {
     }
 
     /**
+     * @return Batch size.
+     */
+    public int batch() {
+        return batch;
+    }
+
+    /**
+     * @return Collocated.
+     */
+    public boolean collocated() {
+        return collocated;
+    }
+
+    /**
+     * @return Delay in second which used in nodes restart algorithm.
+     */
+    public int restartDelay() {
+        return restartDelay;
+    }
+
+    /**
+     * @return Sleep in second which used in nodes restart algorithm.
+     */
+    public int restartSleep() {
+        return restartSleep;
+    }
+
+    /**
+     * @return Keys count.
+     */
+    public int keysCount() {
+        return keysCnt;
+    }
+
+    /**
+     * @return Period in seconds to check cache consistency.
+     */
+    public int cacheConsistencyCheckingPeriod() {
+        return cacheConsistencyCheckingPeriod;
+    }
+
+    /**
+     * @return Cache operation timeout in milliseconds.
+     */
+    public int cacheOperationTimeoutMillis() {
+        return cacheOpTimeout * 1000;
+    }
+
+    /**
+     * @return {@code True} if use not intersecting keys in putAll benchmark.
+     */
+    public boolean keysPerThread() {
+        return keysPerThread;
+    }
+
+    /**
      * @return Description.
      */
     public String description() {
-        return "-nn=" + nodes + "-b=" + backups + "-sm=" + syncMode + "-dm=" + distroMode +
-            (orderMode == null ? "" : "-wom=" + orderMode) + "-txc=" + txConcurrency;
+        return "-nn=" + nodes + "-b=" + backups + "-sm=" + syncMode + "-cl=" + clientOnly + "-nc=" + nearCacheFlag +
+            (orderMode == null ? "" : "-wom=" + orderMode) + "-txc=" + txConcurrency + "-rd=" + restartDelay +
+            "-rs=" + restartSleep;
     }
 
     /** {@inheritDoc} */

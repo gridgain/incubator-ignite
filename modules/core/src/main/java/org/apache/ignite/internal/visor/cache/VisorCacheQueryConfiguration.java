@@ -15,26 +15,17 @@
  * limitations under the License.
  */
 
-/* @java.file.header */
-
-/*  _________        _____ __________________        _____
- *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
- *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
- *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
- *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
- */
-
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Data transfer object for cache query configuration data.
  */
-public class VisorCacheQueryConfiguration implements Serializable {
+public class VisorCacheQueryConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -57,6 +48,9 @@ public class VisorCacheQueryConfiguration implements Serializable {
      * @param clss Classes to compact.
      */
     private static String[] compactClasses(Class<?>[] clss) {
+        if (clss == null)
+            return null;
+
         int len = clss.length;
 
         String[] res = new String[len];
@@ -71,16 +65,14 @@ public class VisorCacheQueryConfiguration implements Serializable {
      * @param ccfg Cache configuration.
      * @return Fill data transfer object with cache query configuration data.
      */
-    public static VisorCacheQueryConfiguration from(CacheConfiguration ccfg) {
-        VisorCacheQueryConfiguration cfg = null;
+    public VisorCacheQueryConfiguration from(CacheConfiguration ccfg) {
+        sqlFuncClss = compactClasses(ccfg.getSqlFunctionClasses());
+        longQryWarnTimeout = ccfg.getLongQueryWarningTimeout();
+        sqlEscapeAll = ccfg.isSqlEscapeAll();
+        indexedTypes = compactClasses(ccfg.getIndexedTypes());
+        sqlOnheapRowCacheSize = ccfg.getSqlOnheapRowCacheSize();
 
-        cfg.sqlFuncClss = compactClasses(ccfg.getSqlFunctionClasses());
-        cfg.longQryWarnTimeout = ccfg.getLongQueryWarningTimeout();
-        cfg.sqlEscapeAll = ccfg.isSqlEscapeAll();
-        cfg.indexedTypes = compactClasses(ccfg.getIndexedTypes());
-        cfg.sqlOnheapRowCacheSize = ccfg.getSqlOnheapRowCacheSize();
-
-        return cfg;
+        return this;
     }
 
     /**

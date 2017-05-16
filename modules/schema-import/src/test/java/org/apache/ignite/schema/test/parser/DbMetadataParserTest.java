@@ -17,13 +17,16 @@
 
 package org.apache.ignite.schema.test.parser;
 
-import org.apache.ignite.schema.test.*;
-import org.apache.ignite.schema.model.*;
-
-import java.math.*;
+import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.*;
-import java.util.*;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import org.apache.ignite.schema.model.PojoDescriptor;
+import org.apache.ignite.schema.model.PojoField;
+import org.apache.ignite.schema.test.AbstractSchemaImportTest;
 
 /**
  * Tests for metadata parsing.
@@ -63,7 +66,7 @@ public class DbMetadataParserTest extends AbstractSchemaImportTest {
 
         List<PojoField> fields = type.fields();
 
-        assertEquals("Value type should have 15 fields", 15, fields.size());
+        assertEquals("Value type should have 15 fields", 16, fields.size());
 
         Iterator<PojoField> fieldsIt = fields.iterator();
 
@@ -99,12 +102,21 @@ public class DbMetadataParserTest extends AbstractSchemaImportTest {
     }
 
     /**
+     * Check that type has not null full db name.
+     *
+     * @param type Type to check.
+     */
+    private void checkSchemaHasFullDbName(PojoDescriptor type) {
+        assertNotNull("The DB schema should have a non-null fullDbName", type.fullDbName());
+    }
+
+    /**
      * Test that metadata generated correctly.
      */
     public void testCheckMetadata() {
-        assertEquals("Metadata should contain 3 element", 3, pojos.size());
+        assertEquals("Metadata should contain 5 elements", 5, all.size());
 
-        Iterator<PojoDescriptor> it = pojos.iterator();
+        Iterator<PojoDescriptor> it = all.iterator();
 
         PojoDescriptor schema = it.next();
 
@@ -112,6 +124,10 @@ public class DbMetadataParserTest extends AbstractSchemaImportTest {
                 schema.valueClassName().isEmpty());
 
         checkType(it.next());
+
+        checkType(it.next());
+
+        checkSchemaHasFullDbName(it.next());
 
         checkType(it.next());
     }

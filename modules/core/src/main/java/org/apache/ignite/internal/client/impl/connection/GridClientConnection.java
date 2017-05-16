@@ -17,14 +17,25 @@
 
 package org.apache.ignite.internal.client.impl.connection;
 
-import org.apache.ignite.internal.client.*;
-import org.apache.ignite.internal.client.impl.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.jetbrains.annotations.*;
-
-import javax.net.ssl.*;
-import java.net.*;
-import java.util.*;
+import java.net.InetSocketAddress;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import javax.net.ssl.SSLContext;
+import org.apache.ignite.internal.client.GridClientCacheFlag;
+import org.apache.ignite.internal.client.GridClientClosedException;
+import org.apache.ignite.internal.client.GridClientDataMetrics;
+import org.apache.ignite.internal.client.GridClientException;
+import org.apache.ignite.internal.client.GridClientFuture;
+import org.apache.ignite.internal.client.GridClientNode;
+import org.apache.ignite.internal.client.impl.GridClientDataMetricsAdapter;
+import org.apache.ignite.internal.client.impl.GridClientFutureAdapter;
+import org.apache.ignite.internal.client.impl.GridClientFutureCallback;
+import org.apache.ignite.internal.util.typedef.F;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Facade for all possible network communications between client and server. Introduced to hide
@@ -105,15 +116,6 @@ public abstract class GridClientConnection {
 
         if (flagSet.contains(GridClientCacheFlag.SKIP_STORE))
             bits |= 1;
-
-        if (flagSet.contains(GridClientCacheFlag.SKIP_SWAP))
-            bits |= 1 << 1;
-
-        if (flagSet.contains(GridClientCacheFlag.SYNC_COMMIT))
-            bits |= 1 << 2;
-
-        if (flagSet.contains(GridClientCacheFlag.INVALIDATE))
-            bits |= 1 << 4;
 
         return bits;
     }
@@ -311,13 +313,13 @@ public abstract class GridClientConnection {
      * @param taskName Task name.
      * @param arg Task argument.
      * @param destNodeId Destination node ID.
-     * @param keepPortables Keep portables flag.
+     * @param keepBinaries Keep binary flag.
      * @return Task execution result.
      * @throws GridClientConnectionResetException In case of error.
      * @throws GridClientClosedException If client was manually closed before request was sent over network.
      */
     public abstract <R> GridClientFutureAdapter<R> execute(String taskName, Object arg, UUID destNodeId,
-        boolean keepPortables) throws GridClientConnectionResetException, GridClientClosedException;
+        boolean keepBinaries) throws GridClientConnectionResetException, GridClientClosedException;
 
     /**
      * Gets node by node ID.

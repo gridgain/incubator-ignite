@@ -17,17 +17,16 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Partition to node assignments.
  */
-public class GridDhtPreloaderAssignments<K, V> extends
-    ConcurrentHashMap<ClusterNode, GridDhtPartitionDemandMessage> {
+public class GridDhtPreloaderAssignments extends ConcurrentHashMap<ClusterNode, GridDhtPartitionDemandMessage> {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -36,18 +35,35 @@ public class GridDhtPreloaderAssignments<K, V> extends
     private final GridDhtPartitionsExchangeFuture exchFut;
 
     /** Last join order. */
-    private final long topVer;
+    private final AffinityTopologyVersion topVer;
+
+    /** */
+    private boolean cancelled;
 
     /**
      * @param exchFut Exchange future.
      * @param topVer Last join order.
      */
-    public GridDhtPreloaderAssignments(GridDhtPartitionsExchangeFuture exchFut, long topVer) {
+    public GridDhtPreloaderAssignments(GridDhtPartitionsExchangeFuture exchFut, AffinityTopologyVersion topVer) {
         assert exchFut != null;
-        assert topVer > 0;
+        assert topVer.topologyVersion() > 0 : topVer;
 
         this.exchFut = exchFut;
         this.topVer = topVer;
+    }
+
+    /**
+     * @return {@code True} if assignments creation was cancelled.
+     */
+    public boolean cancelled() {
+        return cancelled;
+    }
+
+    /**
+     * @param cancelled {@code True} if assignments creation was cancelled.
+     */
+    public void cancelled(boolean cancelled) {
+        this.cancelled = cancelled;
     }
 
     /**
@@ -60,7 +76,7 @@ public class GridDhtPreloaderAssignments<K, V> extends
     /**
      * @return Topology version.
      */
-    long topologyVersion() {
+    AffinityTopologyVersion topologyVersion() {
         return topVer;
     }
 
@@ -70,4 +86,3 @@ public class GridDhtPreloaderAssignments<K, V> extends
             "super", super.toString());
     }
 }
-

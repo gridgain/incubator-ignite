@@ -17,23 +17,34 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.Collection;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.events.EventType;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.events.EventType.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
 
 /**
  * Tests discovery event topology snapshots.
@@ -91,13 +102,17 @@ public class GridDiscoveryEventSelfTest extends GridCommonAbstractTest {
 
             final ConcurrentMap<Integer, Collection<ClusterNode>> evts = new ConcurrentHashMap<>();
 
+            final CountDownLatch latch = new CountDownLatch(3);
+
             g0.events().localListen(new IgnitePredicate<Event>() {
                 private AtomicInteger cnt = new AtomicInteger();
 
                 @Override public boolean apply(Event evt) {
-                    assert evt.type() == EVT_NODE_JOINED;
+                    assert evt.type() == EVT_NODE_JOINED : evt;
 
-                    evts.put(cnt.getAndIncrement(), ((DiscoveryEvent) evt).topologyNodes());
+                    evts.put(cnt.getAndIncrement(), ((DiscoveryEvent)evt).topologyNodes());
+
+                    latch.countDown();
 
                     return true;
                 }
@@ -107,9 +122,7 @@ public class GridDiscoveryEventSelfTest extends GridCommonAbstractTest {
             UUID id2 = startGrid(2).cluster().localNode().id();
             UUID id3 = startGrid(3).cluster().localNode().id();
 
-            U.sleep(100);
-
-            assertEquals("Wrong count of events received", 3, evts.size());
+            assertTrue("Wrong count of events received: " + evts, latch.await(3000, MILLISECONDS));
 
             Collection<ClusterNode> top0 = evts.get(0);
 
@@ -154,25 +167,27 @@ public class GridDiscoveryEventSelfTest extends GridCommonAbstractTest {
 
             final ConcurrentMap<Integer, Collection<ClusterNode>> evts = new ConcurrentHashMap<>();
 
+            final CountDownLatch latch = new CountDownLatch(3);
+
             g0.events().localListen(new IgnitePredicate<Event>() {
                 private AtomicInteger cnt = new AtomicInteger();
 
                 @Override public boolean apply(Event evt) {
-                    assert evt.type() == EVT_NODE_LEFT;
+                    assert evt.type() == EVT_NODE_LEFT || evt.type() == EVT_NODE_FAILED : evt;
 
                     evts.put(cnt.getAndIncrement(), ((DiscoveryEvent) evt).topologyNodes());
 
+                    latch.countDown();
+
                     return true;
                 }
-            }, EVT_NODE_LEFT);
+            }, EVT_NODE_LEFT, EVT_NODE_FAILED);
 
             stopGrid(3);
             stopGrid(2);
             stopGrid(1);
 
-            U.sleep(100);
-
-            assertEquals("Wrong count of events received", 3, evts.size());
+            assertTrue("Wrong count of events received: " + evts, latch.await(3000, MILLISECONDS));
 
             Collection<ClusterNode> top2 = evts.get(0);
 
@@ -217,17 +232,22 @@ public class GridDiscoveryEventSelfTest extends GridCommonAbstractTest {
 
             final ConcurrentMap<Integer, Collection<ClusterNode>> evts = new ConcurrentHashMap<>();
 
+            final CountDownLatch latch = new CountDownLatch(8);
+
             g0.events().localListen(new IgnitePredicate<Event>() {
                 private AtomicInteger cnt = new AtomicInteger();
 
                 @Override public boolean apply(Event evt) {
-                    assert evt.type() == EVT_NODE_JOINED || evt.type() == EVT_NODE_LEFT;
+                    assert evt.type() == EVT_NODE_JOINED
+                        || evt.type() == EVT_NODE_LEFT || evt.type() == EVT_NODE_FAILED : evt;
 
                     evts.put(cnt.getAndIncrement(), ((DiscoveryEvent) evt).topologyNodes());
 
+                    latch.countDown();
+
                     return true;
                 }
-            }, EVT_NODE_JOINED, EVT_NODE_LEFT);
+            }, EVT_NODE_JOINED, EVT_NODE_LEFT, EVT_NODE_FAILED);
 
             UUID id1 = startGrid(1).cluster().localNode().id();
             UUID id2 = startGrid(2).cluster().localNode().id();
@@ -241,9 +261,8 @@ public class GridDiscoveryEventSelfTest extends GridCommonAbstractTest {
 
             stopGrid(4);
 
-            U.sleep(100);
-
-            assertEquals("Wrong count of events received", 8, evts.size());
+            assertTrue("Wrong count of events received [cnt= " + evts.size() + ", evts=" + evts + ']',
+                latch.await(3000, MILLISECONDS));
 
             Collection<ClusterNode> top0 = evts.get(0);
 
@@ -336,7 +355,7 @@ public class GridDiscoveryEventSelfTest extends GridCommonAbstractTest {
                 private AtomicInteger cnt = new AtomicInteger();
 
                 @Override public boolean apply(Event evt) {
-                    assert evt.type() == EVT_NODE_JOINED;
+                    assert evt.type() == EVT_NODE_JOINED : evt;
 
                     X.println(">>>>>>> Joined " + F.viewReadOnly(((DiscoveryEvent) evt).topologyNodes(),
                         NODE_2ID));

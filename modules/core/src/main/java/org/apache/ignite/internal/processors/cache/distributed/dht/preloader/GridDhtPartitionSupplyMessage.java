@@ -17,16 +17,29 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectCollection;
+import org.apache.ignite.internal.GridDirectMap;
+import org.apache.ignite.internal.GridDirectTransient;
+import org.apache.ignite.internal.processors.cache.CacheEntryInfoCollection;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheDeployable;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryInfo;
+import org.apache.ignite.internal.processors.cache.GridCacheMessage;
+import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  * Partition supply message.
@@ -65,14 +78,16 @@ public class GridDhtPartitionSupplyMessage extends GridCacheMessage implements G
      * @param workerId Worker ID.
      * @param updateSeq Update sequence for this node.
      * @param cacheId Cache ID.
+     * @param addDepInfo Deployment info flag.
      */
-    GridDhtPartitionSupplyMessage(int workerId, long updateSeq, int cacheId) {
+    GridDhtPartitionSupplyMessage(int workerId, long updateSeq, int cacheId, boolean addDepInfo) {
         assert workerId >= 0;
         assert updateSeq > 0;
 
         this.cacheId = cacheId;
         this.updateSeq = updateSeq;
         this.workerId = workerId;
+        this.addDepInfo = addDepInfo;
     }
 
     /**
@@ -80,11 +95,6 @@ public class GridDhtPartitionSupplyMessage extends GridCacheMessage implements G
      */
     public GridDhtPartitionSupplyMessage() {
         // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean allowForStartup() {
-        return true;
     }
 
     /** {@inheritDoc} */
@@ -250,6 +260,11 @@ public class GridDhtPartitionSupplyMessage extends GridCacheMessage implements G
         }
     }
 
+    /** {@inheritDoc} */
+    @Override public boolean addDeploymentInfo() {
+        return addDepInfo;
+    }
+
     /**
      * @return Number of entries in message.
      */
@@ -374,7 +389,7 @@ public class GridDhtPartitionSupplyMessage extends GridCacheMessage implements G
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridDhtPartitionSupplyMessage.class);
     }
 
     /** {@inheritDoc} */
@@ -391,7 +406,6 @@ public class GridDhtPartitionSupplyMessage extends GridCacheMessage implements G
     @Override public String toString() {
         return S.toString(GridDhtPartitionSupplyMessage.class, this,
             "size", size(),
-            "parts", infos.keySet(),
             "super", super.toString());
     }
 }

@@ -20,11 +20,12 @@ package org.apache.ignite.visor.commands.top
 import org.apache.ignite._
 import org.apache.ignite.cluster.ClusterNode
 import org.apache.ignite.internal.IgniteNodeAttributes._
+import org.apache.ignite.internal.util.scala.impl
 import org.apache.ignite.internal.util.typedef.X
 import org.apache.ignite.internal.util.{IgniteUtils => U}
 import org.apache.ignite.lang.IgnitePredicate
 import org.apache.ignite.visor.VisorTag
-import org.apache.ignite.visor.commands.{VisorConsoleCommand, VisorTextTable}
+import org.apache.ignite.visor.commands.common.{VisorConsoleCommand, VisorTextTable}
 import org.apache.ignite.visor.visor._
 
 import java.net.{InetAddress, UnknownHostException}
@@ -100,18 +101,8 @@ import scala.util.control.Breaks._
  *         Prints full topology.
  * }}}
  */
-class VisorTopologyCommand {
-    /**
-     * Prints error message and advise.
-     *
-     * @param errMsgs Error messages.
-     */
-    private def scold(errMsgs: Any*) {
-        assert(errMsgs != null)
-
-        warn(errMsgs: _*)
-        warn("Type 'help top' to see how to use this command.")
-    }
+class VisorTopologyCommand extends VisorConsoleCommand {
+    @impl protected val name = "top"
 
     /**
      * ===Command===
@@ -161,7 +152,7 @@ class VisorTopologyCommand {
 
             val all = hasArgFlag("a", argLst)
 
-            var f: NodeFilter = (GridNode) => true
+            var f: NodeFilter = (ClusterNode) => true
 
             try {
                 argLst foreach (arg => {
@@ -188,8 +179,8 @@ class VisorTopologyCommand {
                 show(n => f(n), hosts, all)
             }
             catch {
-                case e: NumberFormatException => scold(e.getMessage)
-                case e: IgniteException => scold(e.getMessage)
+                case e: NumberFormatException => scold(e)
+                case e: IgniteException => scold(e)
             }
         }
     }
@@ -229,11 +220,7 @@ class VisorTopologyCommand {
         }).nodes()
 
         if (hosts.nonEmpty)
-            nodes = nodes.filter(n => {
-                val ips = n.addresses.toSet
-
-                ips.intersect(hosts).nonEmpty
-            })
+            nodes = nodes.filter(n => n.addresses.toSet.intersect(hosts).nonEmpty)
 
         if (nodes.isEmpty)
             println("Empty topology.").^^
@@ -276,12 +263,13 @@ class VisorTopologyCommand {
 
         val hostsT = VisorTextTable()
 
-        hostsT #= ("Int./Ext. IPs", "Node ID8(@)", "OS", "CPUs", "MACs", "CPU Load")
+        hostsT #= ("Int./Ext. IPs", "Node ID8(@)","Node Type", "OS", "CPUs", "MACs", "CPU Load")
 
         neighborhood.foreach {
             case (_, neighbors) =>
                 var ips = Set.empty[String]
                 var id8s = List.empty[String]
+                var nodeTypes = List.empty[String]
                 var macs = Set.empty[String]
                 var cpuLoadSum = 0.0
 
@@ -300,6 +288,7 @@ class VisorTopologyCommand {
                 neighbors.foreach(n => {
                     id8s = id8s :+ (i.toString + ": " + nodeId8(n.id))
 
+                    nodeTypes = nodeTypes :+ (if (n.isClient) "Client" else "Server")
                     i += 1
 
                     ips = ips ++ n.addresses()
@@ -313,6 +302,7 @@ class VisorTopologyCommand {
                 hostsT += (
                     ips.toSeq,
                     id8s,
+                    nodeTypes,
                     os,
                     cpus,
                     macs.toSeq,
@@ -350,6 +340,9 @@ class VisorTopologyCommand {
  * Companion object that does initialization of the command.
  */
 object VisorTopologyCommand {
+    /** Singleton command. */
+    private val cmd = new VisorTopologyCommand
+
     // Adds command's help to visor.
     addHelp(
         name = "top",
@@ -407,11 +400,9 @@ object VisorTopologyCommand {
             "top" ->
                 "Prints full topology."
         ),
-        ref = VisorConsoleCommand(cmd.top, cmd.top)
+        emptyArgs = cmd.top,
+        withArgs = cmd.top
     )
-
-    /** Singleton command. */
-    private val cmd = new VisorTopologyCommand
 
     /**
      * Singleton.

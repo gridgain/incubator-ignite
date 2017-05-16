@@ -17,17 +17,28 @@
 
 package org.apache.ignite.internal.cluster;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.io.Externalizable;
+import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteCluster;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.cluster.ClusterMetrics;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.cluster.ClusterStartNodeResult;
+import org.apache.ignite.internal.AsyncSupportAdapter;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -98,7 +109,7 @@ public class IgniteClusterAsyncImpl extends AsyncSupportAdapter<IgniteCluster>
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<GridTuple3<String, Boolean, String>> startNodes(File file,
+    @Override public Collection<ClusterStartNodeResult> startNodes(File file,
         boolean restart,
         int timeout,
         int maxConn)
@@ -112,7 +123,7 @@ public class IgniteClusterAsyncImpl extends AsyncSupportAdapter<IgniteCluster>
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<GridTuple3<String, Boolean, String>> startNodes(
+    @Override public Collection<ClusterStartNodeResult> startNodes(
         Collection<Map<String, Object>> hosts,
         @Nullable Map<String, Object> dflts,
         boolean restart,
@@ -193,8 +204,18 @@ public class IgniteClusterAsyncImpl extends AsyncSupportAdapter<IgniteCluster>
     }
 
     /** {@inheritDoc} */
-    @Override public ClusterGroup forAttribute(String name, @Nullable String val) {
+    @Override public ClusterGroup forAttribute(String name, @Nullable Object val) {
         return cluster.forAttribute(name, val);
+    }
+
+    /** {@inheritDoc} */
+    @Override public ClusterGroup forServers() {
+        return cluster.forServers();
+    }
+
+    /** {@inheritDoc} */
+    @Override public ClusterGroup forClients() {
+        return cluster.forClients();
     }
 
     /** {@inheritDoc} */
@@ -213,11 +234,6 @@ public class IgniteClusterAsyncImpl extends AsyncSupportAdapter<IgniteCluster>
     }
 
     /** {@inheritDoc} */
-    @Override public ClusterGroup forStreamer(String streamerName, @Nullable String... streamerNames) {
-        return cluster.forStreamer(streamerName, streamerNames);
-    }
-
-    /** {@inheritDoc} */
     @Override public ClusterGroup forRemotes() {
         return cluster.forRemotes();
     }
@@ -225,6 +241,11 @@ public class IgniteClusterAsyncImpl extends AsyncSupportAdapter<IgniteCluster>
     /** {@inheritDoc} */
     @Override public ClusterGroup forHost(ClusterNode node) {
         return cluster.forHost(node);
+    }
+
+    /** {@inheritDoc} */
+    @Override public ClusterGroup forHost(String host, String... hosts) {
+        return cluster.forHost(host, hosts);
     }
 
     /** {@inheritDoc} */
@@ -258,6 +279,11 @@ public class IgniteClusterAsyncImpl extends AsyncSupportAdapter<IgniteCluster>
     }
 
     /** {@inheritDoc} */
+    @Override public Collection<String> hostNames() {
+        return cluster.hostNames();
+    }
+
+    /** {@inheritDoc} */
     @Nullable @Override public ClusterNode node() {
         return cluster.node();
     }
@@ -270,6 +296,11 @@ public class IgniteClusterAsyncImpl extends AsyncSupportAdapter<IgniteCluster>
     /** {@inheritDoc} */
     @Override public ClusterMetrics metrics() {
         return cluster.metrics();
+    }
+
+    /** {@inheritDoc} */
+    @Nullable @Override public IgniteFuture<?> clientReconnectFuture() {
+        return cluster.clientReconnectFuture();
     }
 
     /** {@inheritDoc} */

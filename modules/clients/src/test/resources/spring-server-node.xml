@@ -111,22 +111,24 @@
                     <property name="atomicityMode" value="TRANSACTIONAL"/>
 
                     <!-- Enable near cache to cache recently accessed data. -->
-                    <property name="distributionMode" value="NEAR_PARTITIONED"/>
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration" />
+                    </property>
 
                     <property name="writeSynchronizationMode" value="FULL_SYNC"/>
 
                     <property name="affinity">
-                        <bean class="org.apache.ignite.cache.affinity.rendezvous.CacheRendezvousAffinityFunction">
+                        <bean class="org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction">
                             <constructor-arg value="1"/>
                         </bean>
                     </property>
 
-                    <property name="portableEnabled" value="true"/>
+                    <property name="binaryEnabled" value="true"/>
 
                     <property name="typeMetadata">
                         <list>
                             <bean class="org.apache.ignite.cache.CacheTypeMetadata">
-                                <property name="valueType" value="GridPortablePerson"/>
+                                <property name="valueType" value="GridBinaryPerson"/>
                                 <property name="ascendingFields">
                                     <map>
                                         <entry key="age" value="java.lang.Integer"/>
@@ -144,7 +146,7 @@
                                 </property>
                             </bean>
                             <bean class="org.apache.ignite.cache.CacheTypeMetadata">
-                                <property name="valueType" value="GridImplicitPortablePerson"/>
+                                <property name="valueType" value="GridImplicitBinaryPerson"/>
                                 <property name="ascendingFields">
                                     <map>
                                         <entry key="age" value="java.lang.Integer"/>
@@ -157,7 +159,7 @@
                                 </property>
                             </bean>
                             <bean class="org.apache.ignite.cache.CacheTypeMetadata">
-                                <property name="valueType" value="GridNoDefPortablePerson"/>
+                                <property name="valueType" value="GridNoDefBinaryPerson"/>
                                 <property name="ascendingFields">
                                     <map>
                                         <entry key="age" value="java.lang.Integer"/>
@@ -230,13 +232,13 @@
             TCP discovery SPI (uses VM-shared IP-finder).
         -->
         <property name="discoverySpi">
-            <bean class="org.apache.ignite.spi.discovery.tcp.GridTcpDiscoverySpi">
+            <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
                 <!-- Make sure both servers (unsecured and SSL-protected) can start as independent grids. -->
                 <property name="localPort" value="49500"/>
 
                 <!-- Override default IP-finder.-->
                 <property name="ipFinder">
-                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.GridTcpDiscoveryVmIpFinder">
+                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
                         <property name="addresses">
                             <list>
                                 <!--

@@ -17,11 +17,14 @@
 
 package org.apache.ignite.cache.hibernate;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.hibernate.cache.*;
-import org.hibernate.cache.spi.*;
-import org.hibernate.cache.spi.access.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.hibernate.cache.CacheException;
+import org.hibernate.cache.spi.CacheDataDescription;
+import org.hibernate.cache.spi.NaturalIdRegion;
+import org.hibernate.cache.spi.access.AccessType;
+import org.hibernate.cache.spi.access.NaturalIdRegionAccessStrategy;
+import org.hibernate.cache.spi.access.SoftLock;
 
 /**
  * Implementation of {@link NaturalIdRegion}. This region is used to store naturalId data.
@@ -49,7 +52,7 @@ public class HibernateNaturalIdRegion extends HibernateTransactionalDataRegion i
      * @param dataDesc Region data description.
      */
     public HibernateNaturalIdRegion(HibernateRegionFactory factory, String name,
-        Ignite ignite, GridCache<Object, Object> cache, CacheDataDescription dataDesc) {
+        Ignite ignite, IgniteInternalCache<Object, Object> cache, CacheDataDescription dataDesc) {
         super(factory, name, ignite, cache, dataDesc);
     }
 

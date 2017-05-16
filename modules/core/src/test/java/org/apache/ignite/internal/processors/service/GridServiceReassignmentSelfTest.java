@@ -17,14 +17,18 @@
 
 package org.apache.ignite.internal.processors.service;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Tests service reassignment.
@@ -145,13 +149,14 @@ public class GridServiceReassignmentSelfTest extends GridServiceProcessorAbstrac
      * @param total Total number of services.
      * @param maxPerNode Maximum number of services per node.
      * @param gridIdx Grid index to check.
+     * @param lastTry Last try flag.
      * @throws Exception If failed.
+     * @return {@code True} if check passed.
      */
     private boolean checkServices(int total, int maxPerNode, int gridIdx, boolean lastTry) throws Exception {
         IgniteEx grid = grid(gridIdx);
 
-        GridCacheProjectionEx<GridServiceAssignmentsKey, GridServiceAssignments> cache = grid.
-            utilityCache(GridServiceAssignmentsKey.class, GridServiceAssignments.class);
+        IgniteInternalCache<GridServiceAssignmentsKey, GridServiceAssignments> cache = grid.utilityCache();
 
         GridServiceAssignments assignments = cache.get(new GridServiceAssignmentsKey("testService"));
 

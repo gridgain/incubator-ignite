@@ -17,29 +17,56 @@
 
 package org.apache.ignite.spi.deployment.uri;
 
-import org.apache.ignite.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.deployment.*;
-import org.apache.ignite.spi.deployment.uri.scanners.*;
-import org.apache.ignite.spi.deployment.uri.scanners.file.*;
-import org.apache.ignite.spi.deployment.uri.scanners.ftp.*;
-import org.apache.ignite.spi.deployment.uri.scanners.http.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.Map.*;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.InputStream;
+import java.io.Serializable;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.compute.ComputeTask;
+import org.apache.ignite.compute.ComputeTaskName;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.IgniteSpiConfiguration;
+import org.apache.ignite.spi.IgniteSpiConsistencyChecked;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.IgniteSpiMultipleInstancesSupport;
+import org.apache.ignite.spi.deployment.DeploymentListener;
+import org.apache.ignite.spi.deployment.DeploymentResource;
+import org.apache.ignite.spi.deployment.DeploymentResourceAdapter;
+import org.apache.ignite.spi.deployment.DeploymentSpi;
+import org.apache.ignite.spi.deployment.uri.scanners.GridUriDeploymentScannerListener;
+import org.apache.ignite.spi.deployment.uri.scanners.UriDeploymentScanner;
+import org.apache.ignite.spi.deployment.uri.scanners.UriDeploymentScannerManager;
+import org.apache.ignite.spi.deployment.uri.scanners.file.UriDeploymentFileScanner;
+import org.apache.ignite.spi.deployment.uri.scanners.http.UriDeploymentHttpScanner;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link org.apache.ignite.spi.deployment.DeploymentSpi} which can deploy tasks from
- * different sources like file system folders, FTP, email and HTTP.
+ * different sources like file system folders, email and HTTP.
  * There are different ways to deploy tasks in grid and every deploy method
  * depends on selected source protocol. This SPI is configured to work
  * with a list of URI's. Every URI contains all data about protocol/transport
@@ -53,7 +80,7 @@ import java.util.Map.*;
  * <p>
  * SPI tracks all changes of every given URI. This means that if any file is
  * changed or deleted, SPI will re-deploy or delete corresponding tasks.
- * Note that the very first apply to {@link #findResource(String)} findClassLoader(String)}
+ * Note that the very first apply to {@link #findResource(String)}
  * is blocked until SPI finishes scanning all URI's at least once.
  * <p>
  * There are several deployable unit types supported:
@@ -118,10 +145,32 @@ import java.util.Map.*;
  * URI 'path' field will be automatically encoded. By default this flag is
  * set to {@code true}.
  * <p>
+ * <h1 class="header">Code Example</h1>
+ * The following example demonstrates how the deployment SPI can be used. It expects that you have a GAR file
+ * in 'home/username/ignite/work/my_deployment/file' folder which contains 'myproject.HelloWorldTask' class.
+ * <pre name="code" class="java">
+ * IgniteConfiguration cfg = new IgniteConfiguration();
+ *
+ * DeploymentSpi deploymentSpi = new UriDeploymentSpi();
+ *
+ * deploymentSpi.setUriList(Arrays.asList("file:///home/username/ignite/work/my_deployment/file"));
+ *
+ * cfg.setDeploymentSpi(deploymentSpi);
+ *
+ * try (Ignite ignite = Ignition.start(cfg)) {
+ *     ignite.compute().execute("myproject.HelloWorldTask", "my args");
+ * }
+ * </pre>
  * <h1 class="header">Configuration</h1>
  * {@code UriDeploymentSpi} has the following optional configuration
  * parameters (there are no mandatory parameters):
  * <ul>
+ * <li>
+ * Array of {@link UriDeploymentScanner}-s which will be used to deploy resources
+ * (see {@link #setScanners(UriDeploymentScanner...)}). If not specified, preconfigured {@link UriDeploymentFileScanner}
+ * and {@link UriDeploymentHttpScanner} are used. You can implement your own scanner
+ * by implementing {@link UriDeploymentScanner} interface.
+ * </li>
  * <li>
  * Temporary directory path where scanned GAR files and directories are
  * copied to (see {@link #setTemporaryDirectoryPath(String) setTemporaryDirectoryPath(String)}).
@@ -136,26 +185,28 @@ import java.util.Map.*;
  * </li>
  * </ul>
  * <h1 class="header">Protocols</h1>
- * Following protocols are supported in SPI:
+ * Following protocols are supported by this SPI out of the box:
  * <ul>
  * <li><a href="#file">file://</a> - File protocol</li>
- * <li><a href="#classes">classes://</a> - Custom File protocol.</li>
- * <li><a href="#ftp">ftp://</a> - File transfer protocol</li>
  * <li><a href="#http">http://</a> - HTTP protocol</li>
  * <li><a href="#http">https://</a> - Secure HTTP protocol</li>
  * </ul>
+ * <strong>Custom Protocols.</strong>
+ * <p>
+ * You can add support for additional protocols if needed. To do this implement UriDeploymentScanner interface and
+ * plug your implementation into the SPI via {@link #setScanners(UriDeploymentScanner...)} method.
+ * <p>
  * In addition to SPI configuration parameters, all necessary configuration
  * parameters for selected URI should be defined in URI. Different protocols
  * have different configuration parameters described below. Parameters are
  * separated by '{@code ;}' character.
  * <p>
- * <a name="file"></a>
  * <h1 class="header">File</h1>
  * For this protocol SPI will scan folder specified by URI on file system and
  * download any GAR files or directories that end with .gar from source
  * directory defined in URI. For file system URI must have scheme equal to {@code file}.
  * <p>
- * Following parameters are supported for FILE protocol:
+ * Following parameters are supported:
  * <table class="doctable">
  *  <tr>
  *      <th>Parameter</th>
@@ -165,28 +216,27 @@ import java.util.Map.*;
  *  </tr>
  *  <tr>
  *      <td>freq</td>
- *      <td>File directory scan frequency in milliseconds.</td>
+ *      <td>Scanning frequency in milliseconds.</td>
  *      <td>Yes</td>
- *      <td>{@code 5000} ms specified in {@link #DFLT_DISK_SCAN_FREQUENCY DFLT_DISK_SCAN_FREQUENCY}.</td>
+ *      <td>{@code 5000} ms specified in {@link UriDeploymentFileScanner#DFLT_SCAN_FREQ}.</td>
  *  </tr>
  * </table>
  * <h2 class="header">File URI Example</h2>
  * The following example will scan {@code 'c:/Program files/ignite/deployment'}
- * folder on local box every {@code '5000'} milliseconds. Note that since path
+ * folder on local box every {@code '1000'} milliseconds. Note that since path
  * has spaces, {@link #setEncodeUri(boolean) setEncodeUri(boolean)} parameter must
  * be set to {@code true} (which is default behavior).
  * <blockquote class="snippet">
- * {@code file://freq=5000@localhost/c:/Program files/ignite/deployment}
+ * {@code file://freq=2000@localhost/c:/Program files/ignite/deployment}
  * </blockquote>
  * <a name="classes"></a>
- * <h1 class="header">Classes</h1>
- * For this protocol SPI will scan folder specified by URI on file system
- * looking for compiled classes that implement {@link org.apache.ignite.compute.ComputeTask} interface.
- * This protocol comes very handy during development, as it allows developer
- * to specify IDE compilation output folder as URI and all task classes
- * in that folder will be deployed automatically.
+ * <h2 class="header">HTTP/HTTPS</h2>
+ * URI deployment scanner tries to read DOM of the html it points to and parses out href attributes of all &lt;a&gt; tags
+ * - this becomes the collection of URLs to GAR files that should be deployed. It's important that HTTP scanner
+ * uses {@code URLConnection.getLastModified()} method to check if there were any changes since last iteration
+ * for each GAR-file before redeploying.
  * <p>
- * Following parameters are supported for CLASSES protocol:
+ * Following parameters are supported:
  * <table class="doctable">
  *  <tr>
  *      <th>Parameter</th>
@@ -196,59 +246,15 @@ import java.util.Map.*;
  *  </tr>
  *  <tr>
  *      <td>freq</td>
- *      <td>File directory scan frequency in milliseconds.</td>
+ *      <td>Scanning frequency in milliseconds.</td>
  *      <td>Yes</td>
- *      <td>{@code 5000} ms specified in {@link #DFLT_DISK_SCAN_FREQUENCY DFLT_DISK_SCAN_FREQUENCY}.</td>
+ *      <td>{@code 300000} ms specified in {@link UriDeploymentHttpScanner#DFLT_SCAN_FREQ}.</td>
  *  </tr>
  * </table>
- * <h2 class="header">Classes URI Example</h2>
- * The following example will scan {@code 'c:/Program files/ignite/deployment'}
- * folder on local box every {@code '5000'} milliseconds. Note that since path
- * has spaces, {@link #setEncodeUri(boolean) setEncodeUri(boolean)} parameter must
- * be set to {@code true} (which is default behavior).
- * <blockquote class="snippet">
- * {@code classes://freq=5000@localhost/c:/Program files/ignite/deployment}
- * </blockquote>
- * <a name="ftp"></a>
- * <h1 class="header">FTP</h1>
- * For FTP protocol SPI will scan and download only GAR files from source
- * directory defined in URI. SPI doesn't scan FTP folders recursively.
- * The following parameters are supported for FTP protocol:
- * <table class="doctable">
- *  <tr>
- *      <th>Parameter</th>
- *      <th>Description</th>
- *      <th>Optional</th>
- *      <th>Default</th>
- *  </tr>
- *  <tr>
- *      <td>freq</td>
- *      <td>FTP location scan frequency in milliseconds.</td>
- *      <td>Yes</td>
- *      <td>{@code 300000} ms specified in {@link #DFLT_FTP_SCAN_FREQUENCY DFLT_FTP_SCAN_FREQUENCY}.</td>
- *  </tr>
- *  <tr>
- *      <td>username:password</td>
- *      <td>
- *          FTP username and password specified in standard URI server-based
- *          authority format.
- *      </td>
- *      <td>No</td>
- *      <td>---</td>
- *  </tr>
- * </table>
- * <h2 class="header">FTP URI Example</h2>
- * Here is an example of an FTP URI that connects identified as
- * {@code username:password} to {@code 'localhost'} on port {@code '21'},
- * with initial path set to {@code 'ignite/deployment'}
- * <blockquote class="snippet">
- * ftp://username:password;freq=10000@localhost:21/ignite/deployment
- * </blockquote>
- * <p>
  * <h2 class="header">HTTP URI Example</h2>
- * The following example will scan {@code 'ignite/deployment'} folder with
- * on site {@code 'www.mysite.com'} using authentication
- * {@code 'username:password'} every {@code '10000'} milliseconds.
+ * The following example will download the page `www.mysite.com/ignite/deployment`, parse it and download and deploy
+ * all GAR files specified by href attributes of &lt;a&gt; elements on the page using authentication
+ * {@code 'username:password'} every '10000' milliseconds (only new/updated GAR-s).
  * <blockquote class="snippet">
  * {@code http://username:password;freq=10000@www.mysite.com:110/ignite/deployment}
  * </blockquote>
@@ -257,17 +263,11 @@ import java.util.Map.*;
  * <pre name="code" class="java">
  * UriDeploymentSpi deploySpi = new UriDeploymentSpi();
  *
- * GridConfiguration cfg = new GridConfiguration();
- *
- * List&lt;String&gt; uris = new ArrayList&lt;String&gt;(5);
- *
- * uris.add("http://www.site.com/tasks");
- * uris.add("ftp://ftpuser:password;freq=10000@localhost:21/gg-test/deployment");
- * uris.add("file://freq=20000@localhost/c:/Program files/gg-deployment");
- * uris.add("classes:///c:/Java_Projects/myproject/out");
+ * IgniteConfiguration cfg = new IgniteConfiguration();
  *
  * // Set URIs.
- * deploySpi.setUriList(uris);
+ * deploySpi.setUriList(Arrays.asList("http://www.site.com/tasks",
+ *     "file://freq=20000@localhost/c:/Program files/gg-deployment"));
  *
  * // Override temporary directory path.
  * deploySpi.setTemporaryDirectoryPath("c:/tmp/grid");
@@ -276,7 +276,7 @@ import java.util.Map.*;
  * cfg.setDeploymentSpi(deploySpi);
  *
  * //  Start grid.
- * G.start(cfg);
+ * Ignition.start(cfg);
  * </pre>
  * <p>
  * <h2 class="header">Spring Example</h2>
@@ -290,9 +290,7 @@ import java.util.Map.*;
  *                 &lt;property name="uriList"&gt;
  *                     &lt;list&gt;
  *                         &lt;value&gt;http://www.site.com/tasks&lt;/value&gt;
- *                         &lt;value&gt;ftp://ftpuser:password;freq=10000@localhost:21/gg-test/deployment&lt;/value&gt;
  *                         &lt;value&gt;file://freq=20000@localhost/c:/Program files/gg-deployment&lt;/value&gt;
- *                         &lt;value&gt;classes:///c:/Java_Projects/myproject/out&lt;/value&gt;
  *                     &lt;/list&gt;
  *                 &lt;/property&gt;
  *             &lt;/bean&gt;
@@ -301,7 +299,7 @@ import java.util.Map.*;
  * &lt;/bean&gt;
  * </pre>
  * <p>
- * <img src="http://ignite.incubator.apache.org/images/spring-small.png">
+ * <img src="http://ignite.apache.org/images/spring-small.png">
  * <br>
  * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
  * @see org.apache.ignite.spi.deployment.DeploymentSpi
@@ -318,15 +316,6 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
      * @see org.apache.ignite.configuration.IgniteConfiguration#getWorkDirectory()
      */
     public static final String DFLT_DEPLOY_DIR = "deployment/file";
-
-    /** Default scan frequency for {@code file://} and {@code classes://} protocols (value is {@code 5000}). */
-    public static final int DFLT_DISK_SCAN_FREQUENCY = 5000;
-
-    /** Default scan frequency for {@code ftp://} protocol (value is {@code 300000}). */
-    public static final int DFLT_FTP_SCAN_FREQUENCY = 300000;
-
-    /** Default scan frequency for {@code http://} protocol (value is {@code 300000}). */
-    public static final int DFLT_HTTP_SCAN_FREQUENCY = 300000;
 
     /** Default task description file path and name (value is {@code META-INF/ignite.xml}). */
     public static final String XML_DESCRIPTOR_PATH = "META-INF/ignite.xml";
@@ -354,15 +343,14 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
 
     /** */
     @SuppressWarnings({"CollectionDeclaredAsConcreteClass"})
-    private final LinkedList<GridUriDeploymentUnitDescriptor> unitLoaders =
-        new LinkedList<>();
+    private final LinkedList<GridUriDeploymentUnitDescriptor> unitLoaders = new LinkedList<>();
 
     /** */
     @SuppressWarnings({"TypeMayBeWeakened"})
     private final LastTimeUnitDescriptorComparator unitComp = new LastTimeUnitDescriptorComparator();
 
-    /** List of scanners. Every URI has it's own scanner. */
-    private final Collection<GridUriDeploymentScanner> scanners = new ArrayList<>();
+    /** List of scanner managers. Every URI has it's own manager. */
+    private final Collection<UriDeploymentScannerManager> mgrs = new ArrayList<>();
 
     /** Whether URIs should be encoded or not. */
     private boolean encodeUri = true;
@@ -383,6 +371,9 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
     /** NOTE: flag for test purposes only. */
     @SuppressWarnings("UnusedDeclaration")
     private boolean delayOnNewOrUpdatedFile;
+
+    /** Configured scanners. */
+    private UriDeploymentScanner[] scanners;
 
     /**
      * Sets absolute path to temporary directory which will be used by
@@ -463,17 +454,36 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
         this.lsnr = lsnr;
     }
 
+    /**
+     * Gets scanners.
+     *
+     * @return Scanners.
+     */
+    public UriDeploymentScanner[] getScanners() {
+        return scanners;
+    }
+
+    /**
+     * Sets scanners.
+     *
+     * @param scanners Scanners.
+     */
+    @IgniteSpiConfiguration(optional = true)
+    public void setScanners(UriDeploymentScanner... scanners) {
+        this.scanners = scanners;
+    }
+
     /** {@inheritDoc} */
     @Override public void spiStop() throws IgniteSpiException {
-        for (GridUriDeploymentScanner scanner : scanners)
-            scanner.cancel();
+        for (UriDeploymentScannerManager mgr : mgrs)
+            mgr.cancel();
 
-        for (GridUriDeploymentScanner scanner : scanners)
-            scanner.join();
+        for (UriDeploymentScannerManager mgr : mgrs)
+            mgr.join();
 
         // Clear inner collections.
         uriEncodedList.clear();
-        scanners.clear();
+        mgrs.clear();
 
         List<ClassLoader> tmpClsLdrs;
 
@@ -587,9 +597,15 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
             }
         };
 
-        for (URI uri : uriEncodedList) {
-            String proto = uri.getScheme();
+        // Set default scanners if none are configured.
+        if (scanners == null) {
+            scanners = new UriDeploymentScanner[2];
 
+            scanners[0] = new UriDeploymentFileScanner();
+            scanners[1] = new UriDeploymentHttpScanner();
+        }
+
+        for (URI uri : uriEncodedList) {
             File file = new File(deployTmpDirPath);
 
             long freq = -1;
@@ -601,34 +617,23 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
                 U.error(log, "Error parsing parameter value for frequency.", e);
             }
 
-            assert proto != null;
+            UriDeploymentScannerManager mgr = null;
 
-            GridUriDeploymentScanner scanner;
+            for (UriDeploymentScanner scanner : scanners) {
+                if (scanner.acceptsURI(uri)) {
+                    mgr = new UriDeploymentScannerManager(gridName, uri, file, freq > 0 ? freq :
+                        scanner.getDefaultScanFrequency(), filter, lsnr, log, scanner);
 
-            switch (proto) {
-                case "file":
-                    scanner = new GridUriDeploymentFileScanner(gridName, uri, file, freq > 0 ? freq :
-                        DFLT_DISK_SCAN_FREQUENCY, filter, lsnr, log);
                     break;
-
-                case "http":
-                case "https":
-                    scanner = new GridUriDeploymentHttpScanner(gridName, uri, file, freq > 0 ? freq :
-                        DFLT_HTTP_SCAN_FREQUENCY, filter, lsnr, log);
-                    break;
-
-                case "ftp":
-                    scanner = new GridUriDeploymentFtpScanner(gridName, uri, file, freq > 0 ? freq :
-                        DFLT_FTP_SCAN_FREQUENCY, filter, lsnr, log);
-                    break;
-
-                default:
-                    throw new IgniteSpiException("Unsupported protocol: " + proto);
+                }
             }
 
-            scanners.add(scanner);
+            if (mgr == null)
+                throw new IgniteSpiException("Unsupported URI (please configure appropriate scanner): " + uri);
 
-            scanner.start();
+            mgrs.add(mgr);
+
+            mgr.start();
         }
 
         // Ack parameters.
@@ -636,7 +641,7 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
             log.debug(configInfo("tmpDirPath", tmpDirPath));
             log.debug(configInfo("uriList", uriList));
             log.debug(configInfo("encodeUri", encodeUri));
-            log.debug(configInfo("scanners", scanners));
+            log.debug(configInfo("scanners", mgrs));
         }
 
         // Ack ok start.
@@ -662,7 +667,7 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
         if (userInfo != null) {
             String[] arr = userInfo.split(";");
 
-            if (arr != null && arr.length > 0)
+            if (arr.length > 0)
                 for (String el : arr)
                     if (el.startsWith("freq="))
                         return Long.parseLong(el.substring(5));
@@ -676,7 +681,7 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
     @Override public DeploymentResource findResource(String rsrcName) {
         assert rsrcName != null;
 
-        // Wait until all scanners finish their first scanning.
+        // Wait until all scanner managers finish their first scanning.
         try {
             synchronized (mux) {
                 while (!isFirstScanFinished(firstScanCntr))
@@ -684,7 +689,7 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
             }
         }
         catch (InterruptedException e) {
-            U.error(log, "Failed to wait while all scanners finish their first scanning.", e);
+            U.error(log, "Failed to wait while all scanner managers finish their first scanning.", e);
 
             Thread.currentThread().interrupt();
 
@@ -946,28 +951,6 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
     }
 
     /**
-     * Gets resource name for a given class name.
-     *
-     * @param clsName Class name.
-     * @param rsrcs Map of resources.
-     * @return Resource name.
-     */
-    private String getResourceName(String clsName, Map<String, String> rsrcs) {
-        assert Thread.holdsLock(mux);
-
-        String rsrcName = clsName;
-
-        for (Entry<String, String> e : rsrcs.entrySet())
-            if (e.getValue().equals(clsName) && !e.getKey().equals(clsName)) {
-                rsrcName = e.getKey();
-
-                break;
-            }
-
-        return rsrcName;
-    }
-
-    /**
      * Check is class can be reached.
      *
      * @param ldr Class loader.
@@ -1014,8 +997,6 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
         for (String uri : uriList) {
             assertParameter(uri != null, "uriList.get(X) != null");
 
-            assert uri != null;
-
             String encUri = encodeUri(uri.replaceAll("\\\\", "/"));
 
             URI uriObj;
@@ -1038,7 +1019,7 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
     }
 
     /**
-     * Add configuration for file scanner {@link GridUriDeploymentFileScanner}.
+     * Add configuration for file scanner.
      *
      * @throws org.apache.ignite.spi.IgniteSpiException Thrown if default URI syntax is incorrect.
      */
@@ -1144,7 +1125,7 @@ public class UriDeploymentSpi extends IgniteSpiAdapter implements DeploymentSpi,
                 GridUriDeploymentUnitDescriptor desc = iter.next();
 
                 assert !newDesc.getClassLoader().equals(desc.getClassLoader()) :
-                    "Uri scanners always create new class loader for every GAR file: " + newDesc;
+                    "URI scanners always create new class loader for every GAR file: " + newDesc;
 
                 // Only for GAR files. Undeploy all for overwritten GAR files.
                 if (desc.getType() == GridUriDeploymentUnitDescriptor.Type.FILE &&

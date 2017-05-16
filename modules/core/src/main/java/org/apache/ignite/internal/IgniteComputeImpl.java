@@ -17,21 +17,43 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.cluster.*;
-import org.apache.ignite.internal.managers.deployment.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteCompute;
+import org.apache.ignite.IgniteDeploymentException;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.compute.ComputeTask;
+import org.apache.ignite.compute.ComputeTaskFuture;
+import org.apache.ignite.internal.cluster.ClusterGroupAdapter;
+import org.apache.ignite.internal.managers.deployment.GridDeployment;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteReducer;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.lang.IgniteUuid;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.internal.GridClosureCallMode.*;
-import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.*;
+import static org.apache.ignite.internal.GridClosureCallMode.BALANCE;
+import static org.apache.ignite.internal.GridClosureCallMode.BROADCAST;
+import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.TC_NO_FAILOVER;
+import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.TC_SUBGRID;
+import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.TC_SUBJ_ID;
+import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.TC_TASK_NAME;
+import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.TC_TIMEOUT;
 
 /**
  * {@link IgniteCompute} implementation.
@@ -89,7 +111,64 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
         guard();
 
         try {
-            saveOrGet(ctx.closure().affinityRun(cacheName, affKey, job, prj.nodes()));
+            // In case cache key is passed instead of affinity key.
+            final Object affKey0 = ctx.affinity().affinityKey(cacheName, affKey);
+            int partId = ctx.affinity().partition(cacheName, affKey0);
+
+            if (partId < 0)
+                throw new IgniteCheckedException("Failed map key to partition: [cache=" + cacheName + " key="
+                    + affKey + ']');
+
+            saveOrGet(ctx.closure().affinityRun(Collections.singletonList(cacheName), partId, affKey,
+                job, prj.nodes()));
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void affinityRun(@NotNull Collection<String> cacheNames, Object affKey, IgniteRunnable job) {
+        A.notNull(affKey, "affKey");
+        A.notNull(job, "job");
+        A.ensure(!cacheNames.isEmpty(), "cachesNames mustn't be empty");
+
+        guard();
+
+        try {
+            final String cacheName = F.first(cacheNames);
+
+            // In case cache key is passed instead of affinity key.
+            final Object affKey0 = ctx.affinity().affinityKey(cacheName, affKey);
+            int partId = ctx.affinity().partition(cacheName, affKey0);
+
+            if (partId < 0)
+                throw new IgniteCheckedException("Failed map key to partition: [cache=" + cacheName + " key="
+                    + affKey + ']');
+
+            saveOrGet(ctx.closure().affinityRun(cacheNames, partId, affKey, job, prj.nodes()));
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void affinityRun(@NotNull Collection<String> cacheNames, int partId, IgniteRunnable job) {
+        A.ensure(partId >= 0, "partId = " + partId);
+        A.notNull(job, "job");
+        A.ensure(!cacheNames.isEmpty(), "cachesNames mustn't be empty");
+
+        guard();
+
+        try {
+            saveOrGet(ctx.closure().affinityRun(cacheNames, partId, null, job, prj.nodes()));
         }
         catch (IgniteCheckedException e) {
             throw U.convertException(e);
@@ -107,7 +186,64 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
         guard();
 
         try {
-            return saveOrGet(ctx.closure().affinityCall(cacheName, affKey, job, prj.nodes()));
+            // In case cache key is passed instead of affinity key.
+            final Object affKey0 = ctx.affinity().affinityKey(cacheName, affKey);
+            int partId = ctx.affinity().partition(cacheName, affKey0);
+
+            if (partId < 0)
+                throw new IgniteCheckedException("Failed map key to partition: [cache=" + cacheName + " key="
+                    + affKey + ']');
+
+            return saveOrGet(ctx.closure().affinityCall(Collections.singletonList(cacheName), partId, affKey, job,
+                prj.nodes()));
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public <R> R affinityCall(@NotNull Collection<String> cacheNames, Object affKey, IgniteCallable<R> job) {
+        A.notNull(affKey, "affKey");
+        A.notNull(job, "job");
+        A.ensure(!cacheNames.isEmpty(), "cachesNames mustn't be empty");
+
+        guard();
+
+        try {
+            final String cacheName = F.first(cacheNames);
+
+            // In case cache key is passed instead of affinity key.
+            final Object affKey0 = ctx.affinity().affinityKey(cacheName, affKey);
+            int partId = ctx.affinity().partition(cacheName, affKey0);
+
+            if (partId < 0)
+                throw new IgniteCheckedException("Failed map key to partition: [cache=" + cacheName + " key="
+                    + affKey + ']');
+
+            return saveOrGet(ctx.closure().affinityCall(cacheNames, partId, affKey, job, prj.nodes()));
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public <R> R affinityCall(@NotNull Collection<String> cacheNames, int partId, IgniteCallable<R> job) {
+        A.ensure(partId >= 0, "partId = " + partId);
+        A.notNull(job, "job");
+        A.ensure(!cacheNames.isEmpty(), "cachesNames mustn't be empty");
+
+        guard();
+
+        try {
+            return saveOrGet(ctx.closure().affinityCall(cacheNames, partId, null, job, prj.nodes()));
         }
         catch (IgniteCheckedException e) {
             throw U.convertException(e);
@@ -244,7 +380,7 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
         guard();
 
         try {
-            return saveOrGet(ctx.closure().callAsync(BROADCAST, Arrays.asList(job), prj.nodes()));
+            return saveOrGet(ctx.closure().callAsync(BROADCAST, Collections.singletonList(job), prj.nodes()));
         }
         catch (IgniteCheckedException e) {
             throw U.convertException(e);

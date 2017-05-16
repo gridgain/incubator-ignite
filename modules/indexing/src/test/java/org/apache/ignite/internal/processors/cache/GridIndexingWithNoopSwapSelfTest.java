@@ -17,24 +17,25 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.eviction.fifo.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractQuerySelfTest.*;
-import org.apache.ignite.internal.processors.cache.query.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.spi.swapspace.noop.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.Collections;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.eviction.fifo.FifoEvictionPolicy;
+import org.apache.ignite.cache.query.SqlQuery;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractQuerySelfTest.ObjectValue;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.spi.swapspace.noop.NoopSwapSpaceSpi;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
 
 /**
  * GG-4368
@@ -64,9 +65,12 @@ public class GridIndexingWithNoopSwapSelfTest extends GridCommonAbstractTest {
         cc.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         cc.setRebalanceMode(SYNC);
         cc.setSwapEnabled(true);
-        cc.setDistributionMode(CacheDistributionMode.NEAR_PARTITIONED);
-        cc.setEvictNearSynchronized(false);
-        cc.setEvictionPolicy(new CacheFifoEvictionPolicy(1000));
+        cc.setNearConfiguration(new NearCacheConfiguration());
+
+        FifoEvictionPolicy plc = new FifoEvictionPolicy();
+        plc.setMaxSize(1000);
+
+        cc.setEvictionPolicy(plc);
         cc.setBackups(1);
         cc.setAtomicityMode(TRANSACTIONAL);
         cc.setIndexedTypes(
@@ -92,24 +96,22 @@ public class GridIndexingWithNoopSwapSelfTest extends GridCommonAbstractTest {
 
     /** @throws Exception If failed. */
     public void testQuery() throws Exception {
-        GridCache<Integer, ObjectValue> cache = ((IgniteKernal)ignite).cache(null);
+        IgniteCache<Integer, ObjectValue> cache = ignite.cache(null);
 
         int cnt = 10;
 
         for (int i = 0; i < cnt; i++)
-            cache.putx(i, new ObjectValue("test" + i, i));
+            cache.getAndPut(i, new ObjectValue("test" + i, i));
 
         for (int i = 0; i < cnt; i++) {
-            assertNotNull(cache.peek(i));
+            assertNotNull(cache.localPeek(i, ONHEAP_PEEK_MODES));
 
-            cache.evict(i); // Swap.
+            cache.localEvict(Collections.singleton(i)); // Swap.
         }
 
-        CacheQuery<Map.Entry<Integer, ObjectValue>> qry =
-            cache.queries().createSqlQuery(ObjectValue.class, "intVal >= ? order by intVal");
+        SqlQuery<Integer, ObjectValue> qry =
+            new SqlQuery(ObjectValue.class, "intVal >= ? order by intVal");
 
-        qry.enableDedup(true);
-
-        assertEquals(0, qry.execute(0).get().size());
+        assertEquals(0, cache.query(qry.setArgs(0)).getAll().size());
     }
 }

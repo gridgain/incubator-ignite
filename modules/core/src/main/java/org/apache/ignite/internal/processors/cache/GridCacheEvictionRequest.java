@@ -17,16 +17,20 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectCollection;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Cache eviction request.
@@ -44,7 +48,7 @@ public class GridCacheEvictionRequest extends GridCacheMessage implements GridCa
     private Collection<CacheEvictionEntry> entries;
 
     /** Topology version. */
-    private long topVer;
+    private AffinityTopologyVersion topVer;
 
     /**
      * Required by {@link Externalizable}.
@@ -58,14 +62,17 @@ public class GridCacheEvictionRequest extends GridCacheMessage implements GridCa
      * @param futId Future id.
      * @param size Size.
      * @param topVer Topology version.
+     * @param addDepInfo Deployment info flag.
      */
-    GridCacheEvictionRequest(int cacheId, long futId, int size, long topVer) {
+    GridCacheEvictionRequest(int cacheId, long futId, int size, @NotNull AffinityTopologyVersion topVer,
+        boolean addDepInfo) {
         assert futId > 0;
         assert size > 0;
-        assert topVer > 0;
+        assert topVer.topologyVersion() > 0;
 
         this.cacheId = cacheId;
         this.futId = futId;
+        this.addDepInfo = addDepInfo;
 
         entries = new ArrayList<>(size);
 
@@ -78,15 +85,13 @@ public class GridCacheEvictionRequest extends GridCacheMessage implements GridCa
         super.prepareMarshal(ctx);
 
         if (entries != null) {
-            boolean depEnabled = ctx.deploymentEnabled();
-
             GridCacheContext cctx = ctx.cacheContext(cacheId);
 
             for (CacheEvictionEntry e : entries) {
                 e.prepareMarshal(cctx);
 
-                if (depEnabled)
-                    prepareObject(e.key().value(cctx.cacheObjectContext(), false), ctx);
+                if (addDepInfo)
+                    prepareObject(e.key().value(cctx.cacheObjectContext(), false), cctx);
             }
         }
     }
@@ -101,6 +106,11 @@ public class GridCacheEvictionRequest extends GridCacheMessage implements GridCa
             for (CacheEvictionEntry e : entries)
                 e.finishUnmarshal(cctx, ldr);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean addDeploymentInfo() {
+        return addDepInfo;
     }
 
     /**
@@ -120,7 +130,7 @@ public class GridCacheEvictionRequest extends GridCacheMessage implements GridCa
     /**
      * @return Topology version.
      */
-    @Override public long topologyVersion() {
+    @Override public AffinityTopologyVersion topologyVersion() {
         return topVer;
     }
 
@@ -171,7 +181,7 @@ public class GridCacheEvictionRequest extends GridCacheMessage implements GridCa
                 writer.incrementState();
 
             case 5:
-                if (!writer.writeLong("topVer", topVer))
+                if (!writer.writeMessage("topVer", topVer))
                     return false;
 
                 writer.incrementState();
@@ -209,7 +219,7 @@ public class GridCacheEvictionRequest extends GridCacheMessage implements GridCa
                 reader.incrementState();
 
             case 5:
-                topVer = reader.readLong("topVer");
+                topVer = reader.readMessage("topVer");
 
                 if (!reader.isLastRead())
                     return false;
@@ -218,7 +228,7 @@ public class GridCacheEvictionRequest extends GridCacheMessage implements GridCa
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridCacheEvictionRequest.class);
     }
 
     /** {@inheritDoc} */

@@ -17,10 +17,10 @@
 
 package org.apache.ignite.yardstick.cache.store.jdbc;
 
-import org.apache.ignite.*;
-import org.apache.ignite.yardstick.cache.model.*;
-
-import java.util.*;
+import java.util.Map;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.yardstick.cache.model.SampleKey;
+import org.apache.ignite.yardstick.cache.model.SampleValue;
 
 /**
  * Ignite benchmark that performs put and get operations.
@@ -47,6 +47,6 @@ public class IgniteJdbcStorePutGetBenchmark extends IgniteJdbcStoreAbstractBench
 
     /** {@inheritDoc} */
     @Override protected IgniteCache<Object, Object> cache() {
-        return ignite().jcache("atomic");
+        return ignite().cache("atomic");
     }
 }

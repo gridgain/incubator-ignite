@@ -17,36 +17,30 @@
 
 package org.apache.ignite.spi.discovery.tcp.messages;
 
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-
-import java.io.*;
-import java.util.*;
+import java.util.Collection;
+import java.util.UUID;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * Message telling that client node is reconnecting to topology.
  */
+@TcpDiscoveryEnsureDelivery
 public class TcpDiscoveryClientReconnectMessage extends TcpDiscoveryAbstractMessage {
     /** */
     private static final long serialVersionUID = 0L;
 
     /** New router nodeID. */
-    private UUID routerNodeId;
+    private final UUID routerNodeId;
 
     /** Last message ID. */
-    private IgniteUuid lastMsgId;
+    private final IgniteUuid lastMsgId;
 
     /** Pending messages. */
     @GridToStringExclude
     private Collection<TcpDiscoveryAbstractMessage> msgs;
-
-    /**
-     * For {@link Externalizable}.
-     */
-    public TcpDiscoveryClientReconnectMessage() {
-        // No-op.
-    }
 
     /**
      * @param creatorNodeId Creator node ID.
@@ -103,21 +97,18 @@ public class TcpDiscoveryClientReconnectMessage extends TcpDiscoveryAbstractMess
     }
 
     /** {@inheritDoc} */
-    @Override public void writeExternal(ObjectOutput out) throws IOException {
-        super.writeExternal(out);
+    @Override public boolean equals(Object obj) {
+        // NOTE!
+        // Do not call super. As IDs will differ, but we can ignore this.
 
-        U.writeUuid(out, routerNodeId);
-        U.writeGridUuid(out, lastMsgId);
-        U.writeCollection(out, msgs);
-    }
+        if (!(obj instanceof TcpDiscoveryClientReconnectMessage))
+            return false;
 
-    /** {@inheritDoc} */
-    @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        super.readExternal(in);
+        TcpDiscoveryClientReconnectMessage other = (TcpDiscoveryClientReconnectMessage)obj;
 
-        routerNodeId = U.readUuid(in);
-        lastMsgId = U.readGridUuid(in);
-        msgs = U.readCollection(in);
+        return F.eq(creatorNodeId(), other.creatorNodeId()) &&
+            F.eq(routerNodeId, other.routerNodeId) &&
+            F.eq(lastMsgId, other.lastMsgId);
     }
 
     /** {@inheritDoc} */

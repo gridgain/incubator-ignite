@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractFieldsQuerySelfTest;
+import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Tests for fields queries.
@@ -37,8 +37,8 @@ public class IgniteCachePartitionedFieldsQuerySelfTest extends IgniteCacheAbstra
     /**
      * @return Distribution.
      */
-    protected CacheDistributionMode distributionMode() {
-        return NEAR_PARTITIONED;
+    protected NearCacheConfiguration nearConfiguration() {
+        return new NearCacheConfiguration();
     }
 
     /** {@inheritDoc} */
@@ -50,7 +50,7 @@ public class IgniteCachePartitionedFieldsQuerySelfTest extends IgniteCacheAbstra
     @Override protected CacheConfiguration cache(@Nullable String name, boolean primitives) {
         CacheConfiguration cc = super.cache(name, primitives);
 
-        cc.setDistributionMode(distributionMode());
+        cc.setNearConfiguration(nearConfiguration());
 
         return cc;
     }

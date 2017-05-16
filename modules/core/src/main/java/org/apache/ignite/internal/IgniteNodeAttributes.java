@@ -31,10 +31,17 @@ public final class IgniteNodeAttributes {
     public static final String ATTR_BUILD_DATE = ATTR_PREFIX + ".build.date";
 
     /** Internal attribute name constant. */
-    public static final String ATTR_COMPATIBLE_VERS = ATTR_PREFIX + ".compatible.vers";
+    public static final String ATTR_MARSHALLER = ATTR_PREFIX + ".marshaller";
 
     /** Internal attribute name constant. */
-    public static final String ATTR_MARSHALLER = ATTR_PREFIX + ".marshaller";
+    public static final String ATTR_MARSHALLER_USE_DFLT_SUID = ATTR_PREFIX + ".marshaller.useDefaultSUID";
+
+    /** Attribute for marshaller compact footers. */
+    public static final String ATTR_MARSHALLER_COMPACT_FOOTER = ATTR_PREFIX + ".marshaller.compactFooter";
+
+    /** Internal attribute constant that controls which String serialization version to use. */
+    public static final String ATTR_MARSHALLER_USE_BINARY_STRING_SER_VER_2 = ATTR_PREFIX +
+        ".marshaller.utf8SerializationVer2";
 
     /** Internal attribute name constant. */
     public static final String ATTR_JIT_NAME = ATTR_PREFIX + ".jit.name";
@@ -129,8 +136,29 @@ public final class IgniteNodeAttributes {
     /** Security subject for authenticated node. */
     public static final String ATTR_SECURITY_SUBJECT = ATTR_PREFIX + ".security.subject";
 
-    /** Cache interceptors. */
-    public static final String ATTR_CACHE_INTERCEPTORS = ATTR_PREFIX + ".cache.interceptors";
+    /** Client mode flag. */
+    public static final String ATTR_CLIENT_MODE = ATTR_PREFIX + ".cache.client";
+
+    /** Configuration consistency check disabled flag. */
+    public static final String ATTR_CONSISTENCY_CHECK_SKIPPED = ATTR_PREFIX + ".consistency.check.skipped";
+
+    /** Node consistent id. */
+    public static final String ATTR_NODE_CONSISTENT_ID = ATTR_PREFIX + ".consistent.id";
+
+    /** Binary protocol version. */
+    public static final String ATTR_BINARY_PROTO_VER = ATTR_PREFIX + ".binary.proto.ver";
+
+    /** Update notifier enabled. */
+    public static final String ATTR_UPDATE_NOTIFIER_ENABLED = ATTR_PREFIX + ".update.notifier.enabled";
+
+    /** Binary configuration. */
+    public static final String ATTR_BINARY_CONFIGURATION = ATTR_PREFIX + ".binary.config";
+
+    /** Late affinity assignment mode. */
+    public static final String ATTR_LATE_AFFINITY_ASSIGNMENT = ATTR_PREFIX + ".cache.lateAffinity";
+
+    /** Ignite services compatibility mode (can be {@code null}). */
+    public static final String ATTR_SERVICES_COMPATIBILITY_MODE = ATTR_PREFIX + ".services.compatibility.enabled";
 
     /**
      * Enforces singleton.

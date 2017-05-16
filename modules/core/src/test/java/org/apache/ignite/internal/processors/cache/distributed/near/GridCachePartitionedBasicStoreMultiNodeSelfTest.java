@@ -17,27 +17,28 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.cache.GridCacheTestStore;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
-import javax.cache.configuration.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  *
@@ -69,6 +70,8 @@ public class GridCachePartitionedBasicStoreMultiNodeSelfTest extends GridCommonA
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
+        super.beforeTestsStarted();
+
         stores = Collections.synchronizedList(new ArrayList<GridCacheTestStore>());
 
         startGridsMultiThreaded(GRID_CNT);
@@ -104,10 +107,12 @@ public class GridCachePartitionedBasicStoreMultiNodeSelfTest extends GridCommonA
 
         stores.add(store);
 
-        cc.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(store));
+        cc.setCacheStoreFactory(singletonFactory(store));
         cc.setReadThrough(true);
         cc.setWriteThrough(true);
         cc.setLoadPreviousValue(true);
+
+        cc.setNearConfiguration(nearCacheConfiguration());
 
         c.setCacheConfiguration(cc);
 
@@ -117,8 +122,8 @@ public class GridCachePartitionedBasicStoreMultiNodeSelfTest extends GridCommonA
     /**
      * @return Distribution mode.
      */
-    protected CacheDistributionMode mode() {
-        return NEAR_PARTITIONED;
+    protected NearCacheConfiguration nearCacheConfiguration() {
+        return new NearCacheConfiguration();
     }
 
     /**
@@ -127,22 +132,7 @@ public class GridCachePartitionedBasicStoreMultiNodeSelfTest extends GridCommonA
     public void testPutFromPrimary() throws Exception {
         IgniteCache<Integer, String> cache = jcache(0);
 
-        int key = 0;
-
-        while (true) {
-            boolean found = false;
-
-            for (ClusterNode n : grid(0).cluster().nodes()) {
-                if (grid(0).affinity(null).isPrimary(n, key)) {
-                    found = true;
-
-                    break;
-                }
-            }
-
-            if (found)
-                break;
-        }
+        int key = primaryKey(cache);
 
         assertNull(cache.getAndPut(key, "val"));
 
@@ -155,26 +145,11 @@ public class GridCachePartitionedBasicStoreMultiNodeSelfTest extends GridCommonA
     public void testPutFromBackup() throws Exception {
         IgniteCache<Integer, String> cache = jcache(0);
 
-        int key = 0;
-
-        while (true) {
-            boolean found = false;
-
-            for (ClusterNode n : grid(0).cluster().nodes()) {
-                if (grid(0).affinity(null).isBackup(n, key)) {
-                    found = true;
-
-                    break;
-                }
-            }
-
-            if (found)
-                break;
-        }
+        int key = backupKey(cache);
 
         assertNull(cache.getAndPut(key, "val"));
 
-        checkStoreUsage(1, 1, 0, 1);
+        checkStoreUsage(1, 1, 0, nearCacheConfiguration() == null ? 2 : 1);
     }
 
     /**
@@ -183,26 +158,11 @@ public class GridCachePartitionedBasicStoreMultiNodeSelfTest extends GridCommonA
     public void testPutFromNear() throws Exception {
         IgniteCache<Integer, String> cache = jcache(0);
 
-        int key = 0;
-
-        while (true) {
-            boolean found = false;
-
-            for (ClusterNode n : grid(0).cluster().nodes()) {
-                if (!grid(0).affinity(null).isPrimaryOrBackup(n, key)) {
-                    found = true;
-
-                    break;
-                }
-            }
-
-            if (found)
-                break;
-        }
+        int key = nearKey(cache);
 
         assertNull(cache.getAndPut(key, "val"));
 
-        checkStoreUsage(1, 1, 0, 1);
+        checkStoreUsage(1, 1, 0, nearCacheConfiguration() == null ? 2 : 1);
     }
 
     /**
@@ -211,22 +171,7 @@ public class GridCachePartitionedBasicStoreMultiNodeSelfTest extends GridCommonA
     public void testPutIfAbsentFromPrimary() throws Exception {
         IgniteCache<Integer, String> cache = jcache(0);
 
-        int key = 0;
-
-        while (true) {
-            boolean found = false;
-
-            for (ClusterNode n : grid(0).cluster().nodes()) {
-                if (grid(0).affinity(null).isPrimary(n, key)) {
-                    found = true;
-
-                    break;
-                }
-            }
-
-            if (found)
-                break;
-        }
+        int key = primaryKey(cache);
 
         assertTrue(cache.putIfAbsent(key, "val"));
 
@@ -239,26 +184,11 @@ public class GridCachePartitionedBasicStoreMultiNodeSelfTest extends GridCommonA
     public void testPutIfAbsentFromBackup() throws Exception {
         IgniteCache<Integer, String> cache = jcache(0);
 
-        int key = 0;
-
-        while (true) {
-            boolean found = false;
-
-            for (ClusterNode n : grid(0).cluster().nodes()) {
-                if (grid(0).affinity(null).isBackup(n, key)) {
-                    found = true;
-
-                    break;
-                }
-            }
-
-            if (found)
-                break;
-        }
+        int key = backupKey(cache);
 
         assertTrue(cache.putIfAbsent(key, "val"));
 
-        checkStoreUsage(1, 1, 0, 1);
+        checkStoreUsage(1, 1, 0, nearCacheConfiguration() == null ? 2 : 1);
     }
 
     /**
@@ -267,26 +197,11 @@ public class GridCachePartitionedBasicStoreMultiNodeSelfTest extends GridCommonA
     public void testPutIfAbsentFromNear() throws Exception {
         IgniteCache<Integer, String> cache = jcache(0);
 
-        int key = 0;
-
-        while (true) {
-            boolean found = false;
-
-            for (ClusterNode n : grid(0).cluster().nodes()) {
-                if (!grid(0).affinity(null).isPrimaryOrBackup(n, key)) {
-                    found = true;
-
-                    break;
-                }
-            }
-
-            if (found)
-                break;
-        }
+        int key = nearKey(cache);
 
         assertTrue(cache.putIfAbsent(key, "val"));
 
-        checkStoreUsage(1, 1, 0, 1);
+        checkStoreUsage(1, 1, 0, nearCacheConfiguration() == null ? 2 : 1);
     }
 
     /**
@@ -310,7 +225,6 @@ public class GridCachePartitionedBasicStoreMultiNodeSelfTest extends GridCommonA
      */
     public void testMultipleOperations() throws Exception {
         IgniteCache<Integer, String> cache = jcache(0);
-        //GridCache<Integer, String> cache = cache(0);
 
         try (Transaction tx = grid(0).transactions().txStart(OPTIMISTIC, REPEATABLE_READ)) {
             cache.put(1, "val");

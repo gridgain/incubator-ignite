@@ -17,14 +17,16 @@
 
 package org.apache.ignite.yardstick.cache.store.jdbc;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.store.jdbc.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.yardstick.*;
-import org.yardstickframework.*;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.store.jdbc.CacheAbstractJdbcStore;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
+import org.yardstickframework.BenchmarkConfiguration;
 
 /**
  * Abstract class for Ignite benchmarks which use cache.
@@ -36,14 +38,12 @@ public abstract class IgniteJdbcStoreAbstractBenchmark extends IgniteAbstractBen
     /**
      * Each benchmark must determine which cache will be used.
      *
-     * @return GridCache Cache to use.
+     * @return IgniteCache Cache to use.
      */
     protected abstract IgniteCache<Object, Object> cache();
 
     /**
      * Each benchmark must determine key range (from {@code 0} to this number) for fill.
-     *
-     * @return GridCache Cache to use.
      */
     protected abstract int fillRange();
 

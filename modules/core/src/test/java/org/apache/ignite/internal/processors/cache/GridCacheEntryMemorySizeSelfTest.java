@@ -17,26 +17,32 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.*;
-import org.apache.ignite.internal.processors.cache.distributed.near.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.marshaller.optimized.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.io.Serializable;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheEntry;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheEntry;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.marshaller.MarshallerContext;
+import org.apache.ignite.marshaller.optimized.OptimizedMarshaller;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.io.*;
-import java.lang.reflect.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  *
@@ -49,59 +55,28 @@ public class GridCacheEntryMemorySizeSelfTest extends GridCommonAbstractTest {
     private static final int NULL_REF_SIZE = 1;
 
     /** Entry overhead. */
-    private static final int ENTRY_OVERHEAD;
+    private static int ENTRY_OVERHEAD;
 
     /** Replicated entry overhead. */
-    private static final int REPLICATED_ENTRY_OVERHEAD;
+    private static int REPLICATED_ENTRY_OVERHEAD;
 
     /** DHT entry overhead. */
-    private static final int DHT_ENTRY_OVERHEAD;
+    private static int DHT_ENTRY_OVERHEAD;
 
     /** Near entry overhead. */
-    private static final int NEAR_ENTRY_OVERHEAD;
+    private static int NEAR_ENTRY_OVERHEAD;
 
     /** Reader size. */
-    private static final int READER_SIZE = 24;
+    private static int READER_SIZE = 24;
 
     /** Key size in bytes. */
-    private static final int KEY_SIZE;
+    private static int KEY_SIZE;
 
     /** 1KB value size in bytes. */
-    private static final int ONE_KB_VAL_SIZE;
+    private static int ONE_KB_VAL_SIZE;
 
     /** 2KB value size in bytes. */
-    private static final int TWO_KB_VAL_SIZE;
-
-    /**
-     *
-     */
-    static {
-        try {
-            ENTRY_OVERHEAD = U.<Integer>staticField(GridCacheMapEntry.class, "SIZE_OVERHEAD");
-            DHT_ENTRY_OVERHEAD = U.<Integer>staticField(GridDhtCacheEntry.class, "DHT_SIZE_OVERHEAD");
-            NEAR_ENTRY_OVERHEAD = U.<Integer>staticField(GridNearCacheEntry.class, "NEAR_SIZE_OVERHEAD");
-            REPLICATED_ENTRY_OVERHEAD = DHT_ENTRY_OVERHEAD;
-
-            Marshaller marsh = new OptimizedMarshaller();
-
-            marsh.setContext(new MarshallerContext() {
-                @Override public boolean registerClass(int id, Class cls) {
-                    return true;
-                }
-
-                @Override public Class getClass(int id, ClassLoader ldr) {
-                    throw new UnsupportedOperationException();
-                }
-            });
-
-            KEY_SIZE = marsh.marshal(1).length;
-            ONE_KB_VAL_SIZE = marsh.marshal(new Value(new byte[1024])).length;
-            TWO_KB_VAL_SIZE = marsh.marshal(new Value(new byte[2048])).length;
-        }
-        catch (IgniteCheckedException e) {
-            throw new IgniteException(e);
-        }
-    }
+    private static int TWO_KB_VAL_SIZE;
 
     /** Cache mode. */
     private CacheMode mode;
@@ -116,7 +91,7 @@ public class GridCacheEntryMemorySizeSelfTest extends GridCommonAbstractTest {
         CacheConfiguration cacheCfg = defaultCacheConfiguration();
 
         cacheCfg.setCacheMode(mode);
-        cacheCfg.setDistributionMode(nearEnabled ? NEAR_PARTITIONED : PARTITIONED_ONLY);
+        cacheCfg.setNearConfiguration(nearEnabled ? new NearCacheConfiguration() : null);
         cacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         cacheCfg.setAtomicityMode(TRANSACTIONAL);
 
@@ -134,12 +109,56 @@ public class GridCacheEntryMemorySizeSelfTest extends GridCommonAbstractTest {
         return cfg;
     }
 
+    /** {@inheritDoc} */
+    @Override protected void beforeTestsStarted() throws Exception {
+        try {
+            ENTRY_OVERHEAD = U.<Integer>staticField(GridCacheMapEntry.class, "SIZE_OVERHEAD");
+            DHT_ENTRY_OVERHEAD = U.<Integer>staticField(GridDhtCacheEntry.class, "DHT_SIZE_OVERHEAD");
+            NEAR_ENTRY_OVERHEAD = U.<Integer>staticField(GridNearCacheEntry.class, "NEAR_SIZE_OVERHEAD");
+            REPLICATED_ENTRY_OVERHEAD = DHT_ENTRY_OVERHEAD;
+
+            Marshaller marsh = createMarshaller();
+
+            KEY_SIZE = marsh.marshal(1).length;
+            ONE_KB_VAL_SIZE = marsh.marshal(new Value(new byte[1024])).length;
+            TWO_KB_VAL_SIZE = marsh.marshal(new Value(new byte[2048])).length;
+        }
+        catch (IgniteCheckedException e) {
+            throw new IgniteException(e);
+        }
+    }
+
+    /**
+     * Creates an instance of Marshaller that is used by caches during the test run.
+     *
+     * @return
+     */
+    protected Marshaller createMarshaller() throws IgniteCheckedException {
+        Marshaller marsh = new OptimizedMarshaller();
+
+        marsh.setContext(new MarshallerContext() {
+            @Override public boolean registerClass(int id, Class cls) {
+                return true;
+            }
+
+            @Override public Class getClass(int id, ClassLoader ldr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override public boolean isSystemType(String typeName) {
+                return false;
+            }
+        });
+
+        return marsh;
+    }
+
     /** @throws Exception If failed. */
     public void testLocal() throws Exception {
         mode = LOCAL;
 
         try {
-            IgniteCache<Integer, Value> cache = startGrid().jcache(null);
+            IgniteCache<Integer, Value> cache = startGrid().cache(null);
 
             cache.put(1, new Value(new byte[1024]));
             cache.put(2, new Value(new byte[2048]));
@@ -163,7 +182,7 @@ public class GridCacheEntryMemorySizeSelfTest extends GridCommonAbstractTest {
         mode = REPLICATED;
 
         try {
-            IgniteCache<Integer, Value> cache = startGrid().jcache(null);
+            IgniteCache<Integer, Value> cache = startGrid().cache(null);
 
             cache.put(1, new Value(new byte[1024]));
             cache.put(2, new Value(new byte[2048]));
@@ -198,7 +217,7 @@ public class GridCacheEntryMemorySizeSelfTest extends GridCommonAbstractTest {
                 while (true) {
                     key++;
 
-                    if (grid(0).cluster().mapKeyToNode(null, key).equals(grid(0).localNode())) {
+                    if (grid(0).affinity(null).mapKeyToNode(key).equals(grid(0).localNode())) {
                         if (i > 0)
                             jcache(0).put(key, new Value(new byte[i * 1024]));
 
@@ -252,7 +271,7 @@ public class GridCacheEntryMemorySizeSelfTest extends GridCommonAbstractTest {
                 while (true) {
                     key++;
 
-                    if (grid(0).cluster().mapKeyToNode(null, key).equals(grid(0).localNode())) {
+                    if (grid(0).affinity(null).mapKeyToNode(key).equals(grid(0).localNode())) {
                         if (i > 0)
                             jcache(0).put(key, new Value(new byte[i * 1024]));
 

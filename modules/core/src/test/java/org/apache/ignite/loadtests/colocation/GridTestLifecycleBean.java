@@ -17,9 +17,11 @@
 
 package org.apache.ignite.loadtests.colocation;
 
-import org.apache.ignite.*;
-import org.apache.ignite.lifecycle.*;
-import org.apache.ignite.resources.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.lifecycle.LifecycleBean;
+import org.apache.ignite.lifecycle.LifecycleEventType;
+import org.apache.ignite.resources.IgniteInstanceResource;
 
 /**
  * Lifecycle bean.
@@ -32,7 +34,7 @@ public class GridTestLifecycleBean implements LifecycleBean {
     /** {@inheritDoc} */
     @Override public void onLifecycleEvent(LifecycleEventType type) {
         if (type == LifecycleEventType.AFTER_NODE_START) {
-            IgniteCache<GridTestKey, Long> cache = g.jcache("partitioned");
+            IgniteCache<GridTestKey, Long> cache = g.cache("partitioned");
 
             assert cache != null;
 

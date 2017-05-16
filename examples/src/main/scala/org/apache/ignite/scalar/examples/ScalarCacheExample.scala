@@ -27,22 +27,35 @@ import scala.collection.JavaConversions._
 
 /**
  * Demonstrates basic In-Memory Data Ignite Cluster operations with Scalar.
- * <p>
- * Remote nodes should always be started with configuration file which includes
- * cache: `'ignite.sh examples/config/example-cache.xml'`. Local node can
- * be started with or without cache.
+ * <p/>
+ * Remote nodes should always be started with special configuration file which
+ * enables P2P class loading: `'ignite.{sh|bat} examples/config/example-ignite.xml'`.
+ * <p/>
+ * Alternatively you can run `ExampleNodeStartup` in another JVM which will
+ * start node with `examples/config/example-ignite.xml` configuration.
  */
 object ScalarCacheExample extends App {
+    /** Configuration file name. */
+    private val CONFIG = "examples/config/example-ignite.xml"
+
     /** Name of cache specified in spring configuration. */
-    private val NAME = "partitioned"
+    private val NAME = ScalarCacheExample.getClass.getSimpleName
 
-    scalar("examples/config/example-cache.xml") {
-        // Clean up caches on all nodes before run.
-        cache$(NAME).get.clear()
+    scalar(CONFIG) {
+        val cache = createCache$[String, Int](NAME)
 
-        registerListener()
+        try {
+            registerListener()
 
-        basicOperations()
+            basicOperations()
+        }
+        catch {
+            case e: Throwable =>
+                e.printStackTrace();
+        }
+        finally {
+            cache.destroy()
+        }
     }
 
     /**
@@ -69,13 +82,20 @@ object ScalarCacheExample extends App {
         // Put one more value.
         c += (3.toString -> 11)
 
-        // Get with option...
-        c.opt(44.toString) match {
-            case Some(v) => sys.error("Should never happen.")
-            case None => println("Correct")
+        try {
+            c.opt(44.toString) match {
+                case Some(v) => sys.error("Should never happen.")
+                case _ => println("Correct")
+            }
+        }
+        catch {
+            case e: Throwable =>
+                e.printStackTrace()
         }
 
+
         // Print all values.
+        println("Print all values.")
         c.iterator() foreach println
     }
 

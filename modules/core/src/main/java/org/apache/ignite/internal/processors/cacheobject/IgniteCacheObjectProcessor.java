@@ -17,19 +17,34 @@
 
 package org.apache.ignite.internal.processors.cacheobject;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.processors.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.IgniteBinary;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.GridComponent;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.processors.GridProcessor;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.CacheObjectContext;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cache objects processor.
  */
 public interface IgniteCacheObjectProcessor extends GridProcessor {
-    /** {@inheritDoc} */
-    public void onCacheProcessorStarted();
+    /**
+     * @param ctx Context.
+     * @throws IgniteCheckedException If failed.
+     */
+    public void onContinuousProcessorStarted(GridKernalContext ctx) throws IgniteCheckedException;
+
+    /**
+     * @see GridComponent#onKernalStart()
+     * @throws IgniteCheckedException If failed.
+     */
+    public void onUtilityCacheStarted() throws IgniteCheckedException;
 
     /**
      * @param typeName Type name.
@@ -63,15 +78,22 @@ public interface IgniteCacheObjectProcessor extends GridProcessor {
     @Nullable public CacheObject prepareForCache(@Nullable CacheObject obj, GridCacheContext cctx);
 
     /**
-     * Checks whether object is portable object.
+     * Checks whether object is binary object.
      *
      * @param obj Object to check.
-     * @return {@code True} if object is already a portable object, {@code false} otherwise.
+     * @return {@code True} if object is already a binary object, {@code false} otherwise.
      */
-    public boolean isPortableObject(Object obj);
+    public boolean isBinaryObject(Object obj);
 
     /**
-     * @param obj Portable object to get field from.
+     * Checks whether given class is binary.
+     *
+     * @return {@code true} If binary objects are enabled.
+     */
+    public boolean isBinaryEnabled(CacheConfiguration<?, ?> ccfg);
+
+    /**
+     * @param obj Binary object to get field from.
      * @param fieldName Field name.
      * @return Field value.
      */
@@ -104,20 +126,21 @@ public interface IgniteCacheObjectProcessor extends GridProcessor {
     public Object unmarshal(CacheObjectContext ctx, byte[] bytes, ClassLoader clsLdr) throws IgniteCheckedException;
 
     /**
-     * @param node Node.
-     * @param cacheName Cache name.
+     * @param ccfg Cache configuration.
      * @return Cache object context.
+     * @throws IgniteCheckedException If failed.
      */
-    public CacheObjectContext contextForCache(ClusterNode node, @Nullable String cacheName);
+    public CacheObjectContext contextForCache(CacheConfiguration ccfg) throws IgniteCheckedException;
 
     /**
-     * @param ctx Cache context.
+     * @param ctx Cache objects context.
+     * @param cctx Cache context if cache is available.
      * @param obj Key value.
      * @param userObj If {@code true} then given object is object provided by user and should be copied
      *        before stored in cache.
      * @return Cache key object.
      */
-    public KeyCacheObject toCacheKeyObject(CacheObjectContext ctx, Object obj, boolean userObj);
+    public KeyCacheObject toCacheKeyObject(CacheObjectContext ctx, @Nullable GridCacheContext cctx, Object obj, boolean userObj);
 
     /**
      * @param ctx Cache context.
@@ -147,14 +170,18 @@ public interface IgniteCacheObjectProcessor extends GridProcessor {
 
     /**
      * @param obj Value.
-     * @return {@code True} if object is of known immutable type of it is marked
-     *          with {@link IgniteImmutable} annotation.
+     * @return {@code True} if object is of known immutable type.
      */
     public boolean immutable(Object obj);
 
     /**
-     * @param cacheName Cache name.
-     * @return {@code True} if portable format should be preserved when passing values to cache store.
+     * @return Ignite binary interface.
      */
-    public boolean keepPortableInStore(@Nullable String cacheName);
+    public IgniteBinary binary();
+
+    /**
+     * @param keyType Key type name.
+     * @return Affinity filed name or {@code null}.
+     */
+    public String affinityField(String keyType);
 }

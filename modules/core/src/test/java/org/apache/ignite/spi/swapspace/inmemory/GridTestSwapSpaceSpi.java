@@ -17,17 +17,33 @@
 
 package org.apache.ignite.spi.swapspace.inmemory;
 
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.swapspace.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.lang.IgniteInClosure;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.IgniteSpiCloseableIterator;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.IgniteSpiMultipleInstancesSupport;
+import org.apache.ignite.spi.swapspace.SwapContext;
+import org.apache.ignite.spi.swapspace.SwapKey;
+import org.apache.ignite.spi.swapspace.SwapSpaceSpi;
+import org.apache.ignite.spi.swapspace.SwapSpaceSpiListener;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.events.EventType.EVT_SWAP_SPACE_CLEARED;
+import static org.apache.ignite.events.EventType.EVT_SWAP_SPACE_DATA_READ;
+import static org.apache.ignite.events.EventType.EVT_SWAP_SPACE_DATA_REMOVED;
+import static org.apache.ignite.events.EventType.EVT_SWAP_SPACE_DATA_STORED;
 
 /**
  * Test swap space SPI that stores values in map.
@@ -164,6 +180,14 @@ public class GridTestSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceS
     }
 
     /**
+     *
+     */
+    public void clearAll() {
+        for (Space space : spaces.values())
+            space.clear();
+    }
+
+    /**
      * Gets space, creates if does not exist.
      *
      * @param spaceName Space name.
@@ -187,7 +211,7 @@ public class GridTestSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceS
         SwapSpaceSpiListener lsnr0 = lsnr;
 
         if (lsnr0 != null)
-            lsnr0.onSwapEvent(evtType, spaceName, key);
+            lsnr0.onSwapEvent(evtType, spaceName, key, null);
     }
 
     /**
@@ -285,7 +309,8 @@ public class GridTestSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceS
             byte[] val = data.remove(key);
 
             if (val != null) {
-                c.apply(val);
+                if (c != null)
+                    c.apply(val);
 
                 fireEvent(EVT_SWAP_SPACE_DATA_REMOVED, name, key.keyBytes());
             }

@@ -17,20 +17,41 @@
 
 package org.apache.ignite.internal.visor.igfs;
 
-import org.apache.ignite.*;
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.igfs.IgfsMode;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorJob;
+import org.apache.ignite.internal.visor.VisorOneNodeTask;
 
-import java.io.*;
-import java.nio.charset.*;
-import java.nio.file.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.igfs.common.IgfsLogger.*;
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.igfs.common.IgfsLogger.DELIM_FIELD;
+import static org.apache.ignite.internal.igfs.common.IgfsLogger.HDR;
+import static org.apache.ignite.internal.igfs.common.IgfsLogger.TYPE_CLOSE_IN;
+import static org.apache.ignite.internal.igfs.common.IgfsLogger.TYPE_CLOSE_OUT;
+import static org.apache.ignite.internal.igfs.common.IgfsLogger.TYPE_OPEN_IN;
+import static org.apache.ignite.internal.igfs.common.IgfsLogger.TYPE_OPEN_OUT;
+import static org.apache.ignite.internal.igfs.common.IgfsLogger.TYPE_RANDOM_READ;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.resolveIgfsProfilerLogsDir;
 
 /**
  * Task that parse hadoop profiler logs.
@@ -153,13 +174,17 @@ public class VisorIgfsProfilerTask extends VisorOneNodeTask<String, Collection<V
         private static final int LOG_COL_TOTAL_BYTES = 19;
 
         /** List of log entries that should be parsed. */
-        private static final Set<Integer> LOG_TYPES = F.asSet(
-            TYPE_OPEN_IN,
-            TYPE_OPEN_OUT,
-            TYPE_RANDOM_READ,
-            TYPE_CLOSE_IN,
-            TYPE_CLOSE_OUT
-        );
+        private static final Set<Integer> LOG_TYPES;
+
+        static {
+            LOG_TYPES = new HashSet<>();
+
+            LOG_TYPES.add(TYPE_OPEN_IN);
+            LOG_TYPES.add(TYPE_OPEN_OUT);
+            LOG_TYPES.add(TYPE_RANDOM_READ);
+            LOG_TYPES.add(TYPE_CLOSE_IN);
+            LOG_TYPES.add(TYPE_CLOSE_OUT);
+        }
 
         /**
          * Create job with given argument.

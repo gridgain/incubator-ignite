@@ -17,22 +17,29 @@
 
 package org.apache.ignite.cache.store.jdbc.dialect;
 
-import org.apache.ignite.internal.util.typedef.*;
-
-import java.util.*;
+import java.util.Collection;
+import org.apache.ignite.internal.util.typedef.C1;
+import org.apache.ignite.internal.util.typedef.F;
 
 /**
- * A dialect compatible with the MsSQL database.
+ * A dialect compatible with the Microsoft SQL Server database.
  */
 public class SQLServerDialect extends BasicJdbcDialect {
+    /** */
+    private static final long serialVersionUID = 0L;
+
+    /** {@inheritDoc} */
+    @Override public String escape(String ident) {
+        return '[' + ident + ']';
+    }
+
     /** {@inheritDoc} */
     @Override public boolean hasMerge() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public String mergeQuery(String fullTblName, Collection<String> keyCols,
-        Collection<String> uniqCols) {
+    @Override public String mergeQuery(String fullTblName, Collection<String> keyCols, Collection<String> uniqCols) {
         Collection<String> cols = F.concat(false, keyCols, uniqCols);
 
         String colsLst = mkString(cols, ", ");
@@ -41,7 +48,7 @@ public class SQLServerDialect extends BasicJdbcDialect {
             @Override public String apply(String col) {
                 return String.format("t.%s=v.%s", col, col);
             }
-        }, "", ", ", "");
+        }, "", " AND ", "");
 
         String setCols = mkString(uniqCols, new C1<String, String>() {
             @Override public String apply(String col) {
@@ -61,7 +68,7 @@ public class SQLServerDialect extends BasicJdbcDialect {
                 " WHEN MATCHED THEN" +
                 "  UPDATE SET %s" +
                 " WHEN NOT MATCHED THEN" +
-                "  INSERT (%s) VALUES (%s);", fullTblName, repeat("?", cols.size(), "", ",", ""), colsLst,
-            match, setCols, colsLst, valuesCols);
+                "  INSERT (%s) VALUES (%s);", fullTblName, repeat("?", cols.size(), "", ",", ""),
+            colsLst, match, setCols, colsLst, valuesCols);
     }
 }

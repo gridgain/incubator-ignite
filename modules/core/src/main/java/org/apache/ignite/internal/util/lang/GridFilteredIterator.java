@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.util.lang;
 
-import java.util.*;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 /**
  * Filtered iterator.
@@ -35,7 +36,7 @@ public abstract class GridFilteredIterator<T> implements Iterator<T> {
     /**
      * @param it Iterator.
      */
-    public GridFilteredIterator(Iterator<? extends T> it) {
+    protected GridFilteredIterator(Iterator<? extends T> it) {
         assert it != null;
 
         this.it = it;

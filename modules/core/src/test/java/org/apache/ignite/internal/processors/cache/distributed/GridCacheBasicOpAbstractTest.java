@@ -17,25 +17,30 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.concurrent.CountDownLatch;
+import javax.cache.CacheException;
+import javax.cache.expiry.Duration;
+import javax.cache.expiry.TouchedExpiryPolicy;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
-import javax.cache.*;
-import javax.cache.expiry.*;
-import java.util.concurrent.*;
-
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.events.EventType.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_PUT;
+import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_REMOVED;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
 
 /**
  * Simple cache test.
@@ -87,7 +92,7 @@ public abstract class GridCacheBasicOpAbstractTest extends GridCommonAbstractTes
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
         for (Ignite g : G.allGrids())
-            g.jcache(null).clear();
+            g.cache(null).clear();
     }
 
     /**
@@ -100,9 +105,9 @@ public abstract class GridCacheBasicOpAbstractTest extends GridCommonAbstractTes
         CacheEventListener lsnr = new CacheEventListener(latch);
 
         try {
-            IgniteCache<String, String> cache1 = ignite1.jcache(null);
-            IgniteCache<String, String> cache2 = ignite2.jcache(null);
-            IgniteCache<String, String> cache3 = ignite3.jcache(null);
+            IgniteCache<String, String> cache1 = ignite1.cache(null);
+            IgniteCache<String, String> cache2 = ignite2.cache(null);
+            IgniteCache<String, String> cache3 = ignite3.cache(null);
 
             ignite1.events().localListen(lsnr, EVT_CACHE_OBJECT_PUT, EVT_CACHE_OBJECT_REMOVED);
             ignite2.events().localListen(lsnr, EVT_CACHE_OBJECT_PUT, EVT_CACHE_OBJECT_REMOVED);
@@ -175,11 +180,11 @@ public abstract class GridCacheBasicOpAbstractTest extends GridCommonAbstractTes
         CacheEventListener lsnr = new CacheEventListener(latch);
 
         try {
-            IgniteCache<String, String> cache1 = ignite1.jcache(null);
+            IgniteCache<String, String> cache1 = ignite1.cache(null);
             IgniteCache<String, String> cache1Async = cache1.withAsync();
-            IgniteCache<String, String> cache2 = ignite2.jcache(null);
+            IgniteCache<String, String> cache2 = ignite2.cache(null);
             IgniteCache<String, String> cache2Async = cache2.withAsync();
-            IgniteCache<String, String> cache3 = ignite3.jcache(null);
+            IgniteCache<String, String> cache3 = ignite3.cache(null);
             IgniteCache<String, String> cache3Async = cache3.withAsync();
 
             ignite1.events().localListen(lsnr, EVT_CACHE_OBJECT_PUT, EVT_CACHE_OBJECT_REMOVED);
@@ -275,9 +280,9 @@ public abstract class GridCacheBasicOpAbstractTest extends GridCommonAbstractTes
         IgnitePredicate<Event> lsnr = new CacheEventListener(latch);
 
         try {
-            IgniteCache<String, String> cache1 = ignite1.jcache(null);
-            IgniteCache<String, String> cache2 = ignite2.jcache(null);
-            IgniteCache<String, String> cache3 = ignite3.jcache(null);
+            IgniteCache<String, String> cache1 = ignite1.cache(null);
+            IgniteCache<String, String> cache2 = ignite2.cache(null);
+            IgniteCache<String, String> cache3 = ignite3.cache(null);
 
             ignite1.events().localListen(lsnr, EVT_CACHE_OBJECT_PUT, EVT_CACHE_OBJECT_REMOVED);
             ignite2.events().localListen(lsnr, EVT_CACHE_OBJECT_PUT, EVT_CACHE_OBJECT_REMOVED);
@@ -344,9 +349,9 @@ public abstract class GridCacheBasicOpAbstractTest extends GridCommonAbstractTes
      * @throws Exception In case of error.
      */
     public void testPutWithExpiration() throws Exception {
-        IgniteCache<String, String> cache1 = ignite1.jcache(null);
-        IgniteCache<String, String> cache2 = ignite2.jcache(null);
-        IgniteCache<String, String> cache3 = ignite3.jcache(null);
+        IgniteCache<String, String> cache1 = ignite1.cache(null);
+        IgniteCache<String, String> cache2 = ignite2.cache(null);
+        IgniteCache<String, String> cache3 = ignite3.cache(null);
 
         cache1.put("key", "val");
 

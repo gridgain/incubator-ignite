@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.util.nio;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
-import java.nio.*;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Filter that transforms byte buffers to user-defined objects and vice-versa
@@ -109,7 +110,7 @@ public class GridNioCodecFilter extends GridNioFilterAdapter {
                         if (directMode)
                             return;
 
-                        LT.warn(log, null, "Parser returned null but there are still unread data in input buffer (bug in " +
+                        LT.warn(log, "Parser returned null but there are still unread data in input buffer (bug in " +
                             "parser code?) [parser=" + parser + ", ses=" + ses + ']');
 
                         input.position(input.limit());

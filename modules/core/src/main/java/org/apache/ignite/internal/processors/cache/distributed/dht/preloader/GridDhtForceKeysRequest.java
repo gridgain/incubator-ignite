@@ -17,18 +17,24 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectCollection;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheDeployable;
+import org.apache.ignite.internal.processors.cache.GridCacheMessage;
+import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  * Force keys request. This message is sent by node while preloading to force
@@ -50,7 +56,14 @@ public class GridDhtForceKeysRequest extends GridCacheMessage implements GridCac
     private Collection<KeyCacheObject> keys;
 
     /** Topology version for which keys are requested. */
-    private long topVer;
+    private AffinityTopologyVersion topVer;
+
+    /**
+     * Required by {@link Externalizable}.
+     */
+    public GridDhtForceKeysRequest() {
+        // No-op.
+    }
 
     /**
      * @param cacheId Cache ID.
@@ -58,13 +71,15 @@ public class GridDhtForceKeysRequest extends GridCacheMessage implements GridCac
      * @param miniId Mini-future ID.
      * @param keys Keys.
      * @param topVer Topology version.
+     * @param addDepInfo Deployment info.
      */
     GridDhtForceKeysRequest(
         int cacheId,
         IgniteUuid futId,
         IgniteUuid miniId,
         Collection<KeyCacheObject> keys,
-        long topVer
+        AffinityTopologyVersion topVer,
+        boolean addDepInfo
     ) {
         assert futId != null;
         assert miniId != null;
@@ -75,27 +90,7 @@ public class GridDhtForceKeysRequest extends GridCacheMessage implements GridCac
         this.miniId = miniId;
         this.keys = keys;
         this.topVer = topVer;
-    }
-
-    /**
-     * Required by {@link Externalizable}.
-     */
-    public GridDhtForceKeysRequest() {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean allowForStartup() {
-        return true;
-    }
-
-    /**
-     * @param keys Collection of keys.
-     */
-    public GridDhtForceKeysRequest(Collection<KeyCacheObject> keys) {
-        assert !F.isEmpty(keys);
-
-        this.keys = keys;
+        this.addDepInfo = addDepInfo;
     }
 
     /**
@@ -122,7 +117,7 @@ public class GridDhtForceKeysRequest extends GridCacheMessage implements GridCac
     /**
      * @return Topology version for which keys are requested.
      */
-    @Override public long topologyVersion() {
+    @Override public AffinityTopologyVersion topologyVersion() {
         return topVer;
     }
 
@@ -143,6 +138,11 @@ public class GridDhtForceKeysRequest extends GridCacheMessage implements GridCac
         GridCacheContext cctx = ctx.cacheContext(cacheId);
 
         finishUnmarshalCacheObjects(keys, cctx, ldr);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean addDeploymentInfo() {
+        return addDepInfo;
     }
 
     /**
@@ -186,7 +186,7 @@ public class GridDhtForceKeysRequest extends GridCacheMessage implements GridCac
                 writer.incrementState();
 
             case 6:
-                if (!writer.writeLong("topVer", topVer))
+                if (!writer.writeMessage("topVer", topVer))
                     return false;
 
                 writer.incrementState();
@@ -232,7 +232,7 @@ public class GridDhtForceKeysRequest extends GridCacheMessage implements GridCac
                 reader.incrementState();
 
             case 6:
-                topVer = reader.readLong("topVer");
+                topVer = reader.readMessage("topVer");
 
                 if (!reader.isLastRead())
                     return false;
@@ -241,7 +241,7 @@ public class GridDhtForceKeysRequest extends GridCacheMessage implements GridCac
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridDhtForceKeysRequest.class);
     }
 
     /** {@inheritDoc} */

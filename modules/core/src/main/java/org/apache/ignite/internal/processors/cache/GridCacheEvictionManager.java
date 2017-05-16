@@ -17,62 +17,103 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.eviction.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.cluster.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.*;
-import org.apache.ignite.internal.processors.cache.transactions.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.processors.timeout.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.util.worker.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.thread.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cache.CacheMemoryMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.eviction.EvictionFilter;
+import org.apache.ignite.cache.eviction.EvictionPolicy;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.IgniteFutureCancelledCheckedException;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheEntry;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtInvalidPartitionException;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
+import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
+import org.apache.ignite.internal.util.F0;
+import org.apache.ignite.internal.util.GridBusyLock;
+import org.apache.ignite.internal.util.GridConcurrentHashSet;
+import org.apache.ignite.internal.util.GridUnsafe;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.lang.GridMetadataAwareAdapter;
+import org.apache.ignite.internal.util.lang.IgnitePair;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.C1;
+import org.apache.ignite.internal.util.typedef.CI1;
+import org.apache.ignite.internal.util.typedef.CI2;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.P1;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.worker.GridWorker;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.thread.IgniteThread;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
+import org.jsr166.ConcurrentLinkedDeque8;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-import java.util.concurrent.locks.*;
-
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.cache.CacheMemoryMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.events.EventType.*;
-import static org.apache.ignite.internal.processors.cache.GridCacheUtils.*;
-import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.*;
-import static org.jdk8.backport.ConcurrentLinkedDeque8.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.cache.CacheMemoryMode.OFFHEAP_TIERED;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.events.EventType.EVT_CACHE_ENTRY_EVICTED;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
+import static org.apache.ignite.internal.processors.cache.GridCacheUtils.isNearEnabled;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.MOVING;
+import static org.jsr166.ConcurrentLinkedDeque8.Node;
 
 /**
  * Cache eviction manager.
  */
 public class GridCacheEvictionManager extends GridCacheManagerAdapter {
-    /** Unsafe instance. */
-    private static final sun.misc.Unsafe unsafe = GridUnsafe.unsafe();
+    /** Attribute name used to queue node in entry metadata. */
+    private static final int META_KEY = GridMetadataAwareAdapter.EntryKey.CACHE_EVICTION_MANAGER_KEY.key();
 
     /** Eviction policy. */
-    private CacheEvictionPolicy plc;
+    private EvictionPolicy plc;
 
     /** Eviction filter. */
-    private CacheEvictionFilter filter;
+    private EvictionFilter filter;
 
     /** Eviction buffer. */
     private final ConcurrentLinkedDeque8<EvictionInfo> bufEvictQ = new ConcurrentLinkedDeque8<>();
-
-    /** Attribute name used to queue node in entry metadata. */
-    private final UUID meta = UUID.randomUUID();
 
     /** Active eviction futures. */
     private final Map<Long, EvictionFuture> futs = new ConcurrentHashMap8<>();
@@ -129,11 +170,11 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
     @Override public void start0() throws IgniteCheckedException {
         CacheConfiguration cfg = cctx.config();
 
-        plc = cctx.isNear() ? cfg.getNearEvictionPolicy() : cfg.getEvictionPolicy();
+        plc = cctx.isNear() ? cfg.getNearConfiguration().getNearEvictionPolicy() : cfg.getEvictionPolicy();
 
         memoryMode = cctx.config().getMemoryMode();
 
-        plcEnabled = plc != null && memoryMode != OFFHEAP_TIERED;
+        plcEnabled = plc != null && (cctx.isNear() || memoryMode != OFFHEAP_TIERED);
 
         filter = cfg.getEvictionFilter();
 
@@ -146,13 +187,13 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
         if (!cctx.isLocal()) {
             evictSync = cfg.isEvictSynchronized() && !cctx.isNear() && !cctx.isSwapOrOffheapEnabled();
 
-            nearSync = cfg.isEvictNearSynchronized() && isNearEnabled(cctx) && !cctx.isNear();
+            nearSync = isNearEnabled(cctx) && !cctx.isNear() && cfg.isEvictSynchronized();
         }
         else {
             if (cfg.isEvictSynchronized())
                 U.warn(log, "Ignored 'evictSynchronized' configuration property for LOCAL cache: " + cctx.namexx());
 
-            if (cfg.isEvictNearSynchronized())
+            if (cfg.getNearConfiguration() != null && cfg.isEvictSynchronized())
                 U.warn(log, "Ignored 'evictNearSynchronized' configuration property for LOCAL cache: " + cctx.namexx());
         }
 
@@ -176,7 +217,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                         DiscoveryEvent discoEvt = (DiscoveryEvent)evt;
 
                         // Notify backup worker on each topology change.
-                        if (CU.affinityNode(cctx, discoEvt.eventNode()))
+                        if (cctx.discovery().cacheAffinityNode(discoEvt.eventNode(), cctx.name()))
                             backupWorker.addEvent(discoEvt);
                     }
                 },
@@ -252,11 +293,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
 
         if (plcEnabled && evictSync && !cctx.isNear()) {
             // Add dummy event to worker.
-            ClusterNode locNode = cctx.localNode();
-
-            DiscoveryEvent evt = new DiscoveryEvent(locNode, "Dummy event.", EVT_NODE_JOINED, locNode);
-
-            evt.topologySnapshot(locNode.order(), cctx.discovery().topology(locNode.order()));
+            DiscoveryEvent evt = cctx.discovery().localJoinEvent();
 
             backupWorker.addEvent(evt);
 
@@ -346,10 +383,10 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                 return;
             }
 
-            long topVer = lockTopology();
+            AffinityTopologyVersion topVer = lockTopology();
 
             try {
-                if (topVer != req.topologyVersion()) {
+                if (!topVer.equals(req.topologyVersion())) {
                     if (log.isDebugEnabled())
                         log.debug("Topology version is different [locTopVer=" + topVer +
                             ", rmtTopVer=" + req.topologyVersion() + ']');
@@ -495,7 +532,8 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
 
         if (!cctx.isNear()) {
             try {
-                GridDhtLocalPartition part = cctx.dht().topology().localPartition(p, -1, false);
+                GridDhtLocalPartition part = cctx.dht().topology().localPartition(p,
+                    AffinityTopologyVersion.NONE, false);
 
                 assert part != null;
 
@@ -522,7 +560,8 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
 
         if (!cctx.isNear()) {
             try {
-                GridDhtLocalPartition part = cctx.dht().topology().localPartition(p, -1, false);
+                GridDhtLocalPartition part = cctx.dht().topology().localPartition(p, AffinityTopologyVersion.NONE,
+                    false);
 
                 if (part != null && part.reserve()) {
                     part.lock();
@@ -558,7 +597,8 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
 
         if (!cctx.isNear()) {
             try {
-                GridDhtLocalPartition part = cctx.dht().topology().localPartition(p, -1, false);
+                GridDhtLocalPartition part = cctx.dht().topology().localPartition(p, AffinityTopologyVersion.NONE,
+                    false);
 
                 if (part != null) {
                     part.unlock();
@@ -579,14 +619,14 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
      *
      * @return Topology version after lock.
      */
-    private long lockTopology() {
+    private AffinityTopologyVersion lockTopology() {
         if (!cctx.isNear()) {
             cctx.dht().topology().readLock();
 
             return cctx.dht().topology().topologyVersion();
         }
 
-        return 0;
+        return AffinityTopologyVersion.ZERO;
     }
 
     /**
@@ -680,13 +720,15 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
 
             if (recordable)
                 cctx.events().addEvent(entry.partition(), entry.key(), cctx.nodeId(), (IgniteUuid)null, null,
-                    EVT_CACHE_ENTRY_EVICTED, null, false, oldVal, hasVal, null, null, null);
+                    EVT_CACHE_ENTRY_EVICTED, null, false, oldVal, hasVal, null, null, null, false);
 
             if (log.isDebugEnabled())
                 log.debug("Entry was evicted [entry=" + entry + ", localNode=" + cctx.nodeId() + ']');
         }
-        else if (log.isDebugEnabled())
-            log.debug("Entry was not evicted [entry=" + entry + ", localNode=" + cctx.nodeId() + ']');
+        else {
+            if (log.isDebugEnabled())
+                log.debug("Entry was not evicted [entry=" + entry + ", localNode=" + cctx.nodeId() + ']');
+        }
 
         return evicted;
     }
@@ -739,7 +781,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
      * @param e Entry for eviction policy notification.
      * @param topVer Topology version.
      */
-    public void touch(GridCacheEntryEx e, long topVer) {
+    public void touch(GridCacheEntryEx e, AffinityTopologyVersion topVer) {
         if (e.detached() || e.isInternal())
             return;
 
@@ -751,7 +793,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
             U.error(log, "Failed to evict entry from cache: " + e, ex);
         }
 
-        if (memoryMode == OFFHEAP_TIERED) {
+        if (!cctx.isNear() && memoryMode == OFFHEAP_TIERED) {
             try {
                 evict0(cctx.cache(), e, cctx.versions().next(), null, false);
             }
@@ -915,6 +957,8 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
 
         List<GridCacheEntryEx> locked = new ArrayList<>(keys.size());
 
+        Set<GridCacheEntryEx> notRmv = null;
+
         Collection<GridCacheBatchSwapEntry> swapped = new ArrayList<>(keys.size());
 
         boolean recordable = cctx.events().isRecordable(EVT_CACHE_ENTRY_EVICTED);
@@ -940,9 +984,18 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                     continue;
 
                 // Lock entry.
-                unsafe.monitorEnter(entry);
+                GridUnsafe.monitorEnter(entry);
 
                 locked.add(entry);
+
+                if (entry.obsolete()) {
+                    if (notRmv == null)
+                        notRmv = new HashSet<>();
+
+                    notRmv.add(entry);
+
+                    continue;
+                }
 
                 if (obsoleteVer == null)
                     obsoleteVer = cctx.versions().next();
@@ -950,10 +1003,18 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                 GridCacheBatchSwapEntry swapEntry = entry.evictInBatchInternal(obsoleteVer);
 
                 if (swapEntry != null) {
+                    assert entry.obsolete() : entry;
+
                     swapped.add(swapEntry);
 
                     if (log.isDebugEnabled())
                         log.debug("Entry was evicted [entry=" + entry + ", localNode=" + cctx.nodeId() + ']');
+                }
+                else if (!entry.obsolete()) {
+                    if (notRmv == null)
+                        notRmv = new HashSet<>();
+
+                    notRmv.add(entry);
                 }
             }
 
@@ -966,12 +1027,12 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
             for (ListIterator<GridCacheEntryEx> it = locked.listIterator(locked.size()); it.hasPrevious();) {
                 GridCacheEntryEx e = it.previous();
 
-                unsafe.monitorExit(e);
+                GridUnsafe.monitorExit(e);
             }
 
             // Remove entries and fire events outside the locks.
             for (GridCacheEntryEx entry : locked) {
-                if (entry.obsolete()) {
+                if (entry.obsolete() && (notRmv == null || !notRmv.contains(entry))) {
                     entry.onMarkedObsolete();
 
                     cache.removeEntry(entry);
@@ -981,7 +1042,8 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
 
                     if (recordable)
                         cctx.events().addEvent(entry.partition(), entry.key(), cctx.nodeId(), (IgniteUuid)null, null,
-                            EVT_CACHE_ENTRY_EVICTED, null, false, entry.rawGet(), entry.hasValue(), null, null, null);
+                            EVT_CACHE_ENTRY_EVICTED, null, false, entry.rawGet(), entry.hasValue(), null, null, null,
+                            false);
                 }
             }
         }
@@ -996,12 +1058,12 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
      */
     private void enqueue(GridCacheEntryEx entry, CacheEntryPredicate[] filter)
         throws GridCacheEntryRemovedException {
-        Node<EvictionInfo> node = entry.meta(meta);
+        Node<EvictionInfo> node = entry.meta(META_KEY);
 
         if (node == null) {
             node = bufEvictQ.addLastx(new EvictionInfo(entry, entry.version(), filter));
 
-            if (entry.putMetaIfAbsent(meta, node) != null)
+            if (entry.putMetaIfAbsent(META_KEY, node) != null)
                 // Was concurrently added, need to clear it from queue.
                 bufEvictQ.unlinkx(node);
             else if (log.isDebugEnabled())
@@ -1092,7 +1154,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                                 }
 
                                 try {
-                                    long topVer = lockTopology();
+                                    AffinityTopologyVersion topVer = lockTopology();
 
                                     try {
                                         onFutureCompleted((EvictionFuture)f, topVer);
@@ -1124,7 +1186,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
      * @param fut Completed eviction future.
      * @param topVer Topology version on future complete.
      */
-    private void onFutureCompleted(EvictionFuture fut, long topVer) {
+    private void onFutureCompleted(EvictionFuture fut, AffinityTopologyVersion topVer) {
         if (!busyLock.enterBusy())
             return;
 
@@ -1151,7 +1213,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
             }
 
             // Check if topology version is different.
-            if (fut.topologyVersion() != topVer) {
+            if (!fut.topologyVersion().equals(topVer)) {
                 if (log.isDebugEnabled())
                     log.debug("Topology has changed, all entries will be touched: " + fut);
 
@@ -1249,7 +1311,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
 
                     return info.version().equals(ver) && F.isAll(info.filter());
                 }
-                catch (GridCacheEntryRemovedException err) {
+                catch (GridCacheEntryRemovedException ignored) {
                     return false;
                 }
             }
@@ -1269,7 +1331,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
      */
     @SuppressWarnings( {"IfMayBeConditional"})
     private IgniteBiTuple<Collection<ClusterNode>, Collection<ClusterNode>> remoteNodes(GridCacheEntryEx entry,
-        long topVer)
+        AffinityTopologyVersion topVer)
         throws GridCacheEntryRemovedException {
         assert entry != null;
 
@@ -1327,7 +1389,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
         if (log.isDebugEnabled())
             log.debug("Notifying eviction policy with entry: " + e);
 
-        if (filter == null || filter.evictAllowed(e.wrapLazyValue()))
+        if (filter == null || filter.evictAllowed(e.wrapLazyValue(cctx.keepBinary())))
             plc.onEntryAccessed(e.obsoleteOrDeleted(), e.wrapEviction());
     }
 
@@ -1391,7 +1453,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
          *
          */
         private BackupWorker() {
-            super(cctx.gridName(), "cache-eviction-backup-worker", log);
+            super(cctx.gridName(), "cache-eviction-backup-worker", GridCacheEvictionManager.this.log);
 
             assert plcEnabled;
         }
@@ -1412,9 +1474,16 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
 
                 ClusterNode loc = cctx.localNode();
 
+                AffinityTopologyVersion initTopVer =
+                    new AffinityTopologyVersion(cctx.discovery().localJoinEvent().topologyVersion(), 0);
+
+                AffinityTopologyVersion cacheStartVer = cctx.startTopologyVersion();
+
+                if (cacheStartVer != null && cacheStartVer.compareTo(initTopVer) > 0)
+                    initTopVer = cacheStartVer;
+
                 // Initialize.
-                primaryParts.addAll(cctx.affinity().primaryPartitions(cctx.localNodeId(),
-                    cctx.affinity().affinityTopologyVersion()));
+                primaryParts.addAll(cctx.affinity().primaryPartitions(cctx.localNodeId(), initTopVer));
 
                 while (!isCancelled()) {
                     DiscoveryEvent evt = evts.take();
@@ -1422,12 +1491,14 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                     if (log.isDebugEnabled())
                         log.debug("Processing event: " + evt);
 
+                    AffinityTopologyVersion topVer = new AffinityTopologyVersion(evt.topologyVersion());
+
                     // Remove partitions that are no longer primary.
                     for (Iterator<Integer> it = primaryParts.iterator(); it.hasNext();) {
                         if (!evts.isEmpty())
                             break;
 
-                        if (!cctx.affinity().primary(loc, it.next(), evt.topologyVersion()))
+                        if (!cctx.affinity().primary(loc, it.next(), topVer))
                             it.remove();
                     }
 
@@ -1439,11 +1510,11 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                         if (!evts.isEmpty())
                             break;
 
-                        if (part.primary(evt.topologyVersion()) && primaryParts.add(part.id())) {
+                        if (part.primary(topVer) && primaryParts.add(part.id())) {
                             if (log.isDebugEnabled())
                                 log.debug("Touching partition entries: " + part);
 
-                            touchOnTopologyChange(part.entries());
+                            touchOnTopologyChange(part.allEntries());
                         }
                     }
                 }
@@ -1567,7 +1638,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
         private GridTimeoutObject timeoutObj;
 
         /** Topology version future is processed on. */
-        private long topVer;
+        private AffinityTopologyVersion topVer = AffinityTopologyVersion.ZERO;
 
         /**
          * @return {@code True} if prepare lock was acquired.
@@ -1645,7 +1716,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                 for (EvictionInfo info : evictInfos) {
                     // Queue node may have been stored in entry metadata concurrently, but we don't care
                     // about it since we are currently processing this entry.
-                    Node<EvictionInfo> queueNode = info.entry().removeMeta(meta);
+                    Node<EvictionInfo> queueNode = info.entry().removeMeta(META_KEY);
 
                     if (queueNode != null)
                         bufEvictQ.unlinkx(queueNode);
@@ -1679,7 +1750,8 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                         // There are remote participants.
                         for (ClusterNode node : nodes) {
                             GridCacheEvictionRequest req = F.addIfAbsent(reqMap, node.id(),
-                                new GridCacheEvictionRequest(cctx.cacheId(), id, evictInfos.size(), topVer));
+                                new GridCacheEvictionRequest(cctx.cacheId(), id, evictInfos.size(), topVer,
+                                    cctx.deploymentEnabled()));
 
                             assert req != null;
 
@@ -1784,7 +1856,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
         /**
          * @return Topology version.
          */
-        long topologyVersion() {
+        AffinityTopologyVersion topologyVersion() {
             return topVer;
         }
 
@@ -1880,7 +1952,7 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                     lock.readLock().unlock();
                 }
 
-                if (res.error())
+                if (res.evictError())
                     // Complete future, since there was a class loading error on at least one node.
                     complete(false);
                 else
@@ -1920,16 +1992,20 @@ public class GridCacheEvictionManager extends GridCacheManagerAdapter {
                 if (log.isDebugEnabled())
                     log.debug("Building eviction future result [fut=" + this + ", timedOut=" + timedOut + ']');
 
-                boolean err = F.forAny(resMap.values(), new P1<GridCacheEvictionResponse>() {
-                    @Override public boolean apply(GridCacheEvictionResponse res) {
-                        return res.error();
+                boolean err = false;
+
+                for (GridCacheEvictionResponse res : resMap.values()) {
+                    if (res.evictError()) {
+                        err = true;
+
+                        break;
                     }
-                });
+                }
 
                 if (err) {
                     Collection<UUID> ids = F.view(resMap.keySet(), new P1<UUID>() {
                         @Override public boolean apply(UUID e) {
-                            return resMap.get(e).error();
+                            return resMap.get(e).evictError();
                         }
                     });
 

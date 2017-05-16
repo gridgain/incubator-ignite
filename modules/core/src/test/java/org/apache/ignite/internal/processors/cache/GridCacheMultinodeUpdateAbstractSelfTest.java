@@ -17,23 +17,23 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.testframework.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.MutableEntry;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.testframework.GridTestUtils;
 
-import javax.cache.processor.*;
-import java.io.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Multinode update test.
  */
+@SuppressWarnings("unchecked")
 public abstract class GridCacheMultinodeUpdateAbstractSelfTest extends GridCacheAbstractSelfTest {
     /** */
     protected static volatile boolean failed;
@@ -41,11 +41,6 @@ public abstract class GridCacheMultinodeUpdateAbstractSelfTest extends GridCache
     /** {@inheritDoc} */
     @Override protected int gridCount() {
         return 3;
-    }
-
-    /** {@inheritDoc} */
-    @Nullable @Override protected CacheStore<?, ?> cacheStore() {
-        return null;
     }
 
     /** {@inheritDoc} */
@@ -58,11 +53,29 @@ public abstract class GridCacheMultinodeUpdateAbstractSelfTest extends GridCache
         return 3 * 60_000;
     }
 
+    /** {@inheritDoc} */
+    @Override protected CacheConfiguration cacheConfiguration(String gridName) throws Exception {
+        CacheConfiguration ccfg = super.cacheConfiguration(gridName);
+
+        ccfg.setCacheStoreFactory(null);
+        ccfg.setReadThrough(false);
+        ccfg.setWriteThrough(false);
+
+        return ccfg;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void beforeTest() throws Exception {
+        super.beforeTest();
+
+        failed = false;
+    }
+
     /**
      * @throws Exception If failed.
      */
     public void testInvoke() throws Exception {
-        IgniteCache<Integer, Integer> cache = grid(0).jcache(null);
+        IgniteCache<Integer, Integer> cache = grid(0).cache(null);
 
         final Integer key = primaryKey(cache);
 
@@ -82,7 +95,7 @@ public abstract class GridCacheMultinodeUpdateAbstractSelfTest extends GridCache
                 @Override public Void call() throws Exception {
                     int idx = gridIdx.incrementAndGet() - 1;
 
-                    final IgniteCache<Integer, Integer> cache = grid(idx).jcache(null);
+                    final IgniteCache<Integer, Integer> cache = grid(idx).cache(null);
 
                     for (int i = 0; i < ITERATIONS_PER_THREAD && !failed; i++)
                         cache.invoke(key, new IncProcessor());
@@ -96,7 +109,7 @@ public abstract class GridCacheMultinodeUpdateAbstractSelfTest extends GridCache
             expVal += ITERATIONS_PER_THREAD * THREADS;
 
             for (int j = 0; j < gridCount(); j++) {
-                Integer val = (Integer)grid(j).jcache(null).get(key);
+                Integer val = (Integer)grid(j).cache(null).get(key);
 
                 assertEquals("Unexpected value for grid " + j, expVal, val);
             }

@@ -17,21 +17,29 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.distributed.near.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.transactions.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheAtomicWriteOrderMode;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheAdapter;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheEntry;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.CLOCK;
+import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.PRIMARY;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  *
@@ -44,7 +52,7 @@ public class GridCacheVersionMultinodeTest extends GridCacheAbstractSelfTest {
     private CacheAtomicWriteOrderMode atomicWriteOrder;
 
     /** */
-    private CacheDistributionMode distrMode = PARTITIONED_ONLY;
+    private boolean near;
 
     /** {@inheritDoc} */
     @Override protected int gridCount() {
@@ -65,9 +73,7 @@ public class GridCacheVersionMultinodeTest extends GridCacheAbstractSelfTest {
             ccfg.setAtomicWriteOrderMode(atomicWriteOrder);
         }
 
-        assert distrMode != null;
-
-        ccfg.setDistributionMode(distrMode);
+        ccfg.setNearConfiguration(near ? new NearCacheConfiguration() : null);
 
         return ccfg;
     }
@@ -107,7 +113,7 @@ public class GridCacheVersionMultinodeTest extends GridCacheAbstractSelfTest {
     public void testVersionTxNearEnabled() throws Exception {
         atomicityMode = TRANSACTIONAL;
 
-        distrMode = NEAR_PARTITIONED;
+        near = true;
 
         checkVersion();
     }
@@ -131,7 +137,7 @@ public class GridCacheVersionMultinodeTest extends GridCacheAbstractSelfTest {
 
         atomicWriteOrder = CLOCK;
 
-        distrMode = NEAR_PARTITIONED;
+        near = true;
 
         checkVersion();
     }
@@ -155,7 +161,7 @@ public class GridCacheVersionMultinodeTest extends GridCacheAbstractSelfTest {
 
         atomicWriteOrder = PRIMARY;
 
-        distrMode = NEAR_PARTITIONED;
+        near = true;
 
         checkVersion();
     }
@@ -243,12 +249,14 @@ public class GridCacheVersionMultinodeTest extends GridCacheAbstractSelfTest {
 
             if (e != null) {
                 if (ver != null) {
-                    assertEquals("Non-equal versions for key: " + key, ver, e.version());
+                    assertEquals("Non-equal versions for key: " + key,
+                        ver,
+                        e instanceof GridNearCacheEntry ? ((GridNearCacheEntry)e).dhtVersion() : e.version());
 
                     verified = true;
                 }
                 else
-                    ver = e.version();
+                    ver = e instanceof GridNearCacheEntry ? ((GridNearCacheEntry)e).dhtVersion() : e.version();
             }
         }
 

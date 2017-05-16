@@ -17,20 +17,26 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
-import org.apache.ignite.internal.processors.cache.transactions.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.internal.GridDirectCollection;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxPrepareRequest;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Near transaction prepare request.
@@ -49,7 +55,7 @@ public class GridNearTxPrepareRequest extends GridDistributedTxPrepareRequest {
     private boolean near;
 
     /** Topology version. */
-    private long topVer;
+    private AffinityTopologyVersion topVer;
 
     /** {@code True} if this last prepare request for node. */
     private boolean last;
@@ -65,11 +71,17 @@ public class GridNearTxPrepareRequest extends GridDistributedTxPrepareRequest {
     /** Implicit single flag. */
     private boolean implicitSingle;
 
+    /** Explicit lock flag. Set to true if at least one entry was explicitly locked. */
+    private boolean explicitLock;
+
     /** Subject ID. */
     private UUID subjId;
 
     /** Task name hash. */
     private int taskNameHash;
+
+    /** {@code True} if first optimistic tx prepare request sent from client node. */
+    private boolean firstClientReq;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -82,56 +94,64 @@ public class GridNearTxPrepareRequest extends GridDistributedTxPrepareRequest {
      * @param futId Future ID.
      * @param topVer Topology version.
      * @param tx Transaction.
+     * @param timeout Transaction timeout.
      * @param reads Read entries.
      * @param writes Write entries.
-     * @param grpLockKey Group lock key if preparing group-lock transaction.
-     * @param partLock {@code True} if preparing group-lock transaction with partition lock.
      * @param near {@code True} if mapping is for near caches.
      * @param txNodes Transaction nodes mapping.
      * @param last {@code True} if this last prepare request for node.
-     * @param lastBackups IDs of backup nodes receiving last prepare request during this prepare.
+     * @param onePhaseCommit One phase commit flag.
+     * @param retVal Return value flag.
+     * @param implicitSingle Implicit single flag.
+     * @param explicitLock Explicit lock flag.
      * @param subjId Subject ID.
      * @param taskNameHash Task name hash.
+     * @param firstClientReq {@code True} if first optimistic tx prepare request sent from client node.
+     * @param addDepInfo Deployment info flag.
      */
     public GridNearTxPrepareRequest(
         IgniteUuid futId,
-        long topVer,
+        AffinityTopologyVersion topVer,
         IgniteInternalTx tx,
+        long timeout,
         Collection<IgniteTxEntry> reads,
         Collection<IgniteTxEntry> writes,
-        IgniteTxKey grpLockKey,
-        boolean partLock,
         boolean near,
         Map<UUID, Collection<UUID>> txNodes,
         boolean last,
-        Collection<UUID> lastBackups,
         boolean onePhaseCommit,
         boolean retVal,
         boolean implicitSingle,
+        boolean explicitLock,
         @Nullable UUID subjId,
-        int taskNameHash
+        int taskNameHash,
+        boolean firstClientReq,
+        boolean addDepInfo
     ) {
-        super(tx, reads, writes, grpLockKey, partLock, txNodes, onePhaseCommit);
+        super(tx, timeout, reads, writes, txNodes, onePhaseCommit, addDepInfo);
 
         assert futId != null;
+        assert !firstClientReq || tx.optimistic() : tx;
 
         this.futId = futId;
         this.topVer = topVer;
         this.near = near;
         this.last = last;
-        this.lastBackups = lastBackups;
         this.retVal = retVal;
         this.implicitSingle = implicitSingle;
+        this.explicitLock = explicitLock;
         this.subjId = subjId;
         this.taskNameHash = taskNameHash;
+        this.firstClientReq = firstClientReq;
     }
 
     /**
-     * @return IDs of backup nodes receiving last prepare request during this prepare.
+     * @return {@code True} if first optimistic tx prepare request sent from client node.
      */
-    public Collection<UUID> lastBackups() {
-        return lastBackups;
+    public boolean firstClientRequest() {
+        return firstClientReq;
     }
+
 
     /**
      * @return {@code True} if this last prepare request for node.
@@ -197,9 +217,16 @@ public class GridNearTxPrepareRequest extends GridDistributedTxPrepareRequest {
     }
 
     /**
+     * @return Explicit lock flag.
+     */
+    public boolean explicitLock() {
+        return explicitLock;
+    }
+
+    /**
      * @return Topology version.
      */
-    @Override public long topologyVersion() {
+    @Override public AffinityTopologyVersion topologyVersion() {
         return topVer;
     }
 
@@ -257,6 +284,18 @@ public class GridNearTxPrepareRequest extends GridDistributedTxPrepareRequest {
         }
 
         switch (writer.state()) {
+            case 23:
+                if (!writer.writeBoolean("explicitLock", explicitLock))
+                    return false;
+
+                writer.incrementState();
+
+            case 24:
+                if (!writer.writeBoolean("firstClientReq", firstClientReq))
+                    return false;
+
+                writer.incrementState();
+
             case 25:
                 if (!writer.writeIgniteUuid("futId", futId))
                     return false;
@@ -312,7 +351,7 @@ public class GridNearTxPrepareRequest extends GridDistributedTxPrepareRequest {
                 writer.incrementState();
 
             case 34:
-                if (!writer.writeLong("topVer", topVer))
+                if (!writer.writeMessage("topVer", topVer))
                     return false;
 
                 writer.incrementState();
@@ -333,6 +372,22 @@ public class GridNearTxPrepareRequest extends GridDistributedTxPrepareRequest {
             return false;
 
         switch (reader.state()) {
+            case 23:
+                explicitLock = reader.readBoolean("explicitLock");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
+            case 24:
+                firstClientReq = reader.readBoolean("firstClientReq");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
             case 25:
                 futId = reader.readIgniteUuid("futId");
 
@@ -406,7 +461,7 @@ public class GridNearTxPrepareRequest extends GridDistributedTxPrepareRequest {
                 reader.incrementState();
 
             case 34:
-                topVer = reader.readLong("topVer");
+                topVer = reader.readMessage("topVer");
 
                 if (!reader.isLastRead())
                     return false;
@@ -415,7 +470,7 @@ public class GridNearTxPrepareRequest extends GridDistributedTxPrepareRequest {
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridNearTxPrepareRequest.class);
     }
 
     /** {@inheritDoc} */

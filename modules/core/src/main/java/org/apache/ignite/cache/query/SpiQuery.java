@@ -17,18 +17,18 @@
 
 package org.apache.ignite.cache.query;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.indexing.*;
+import javax.cache.Cache;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.spi.indexing.IndexingSpi;
 
 /**
  * Query to be used by {@link IndexingSpi} implementations.
  *
  * @see IgniteCache#query(Query)
- * @see IgniteCache#localQuery(Query)
  */
-public final class SpiQuery extends Query<SpiQuery> {
+public final class SpiQuery<K, V> extends Query<Cache.Entry<K, V>> {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -51,10 +51,20 @@ public final class SpiQuery extends Query<SpiQuery> {
      * @param args SQL arguments.
      * @return {@code this} For chaining.
      */
-    public SpiQuery setArgs(Object... args) {
+    public SpiQuery<K, V> setArgs(Object... args) {
         this.args = args;
 
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public SqlQuery<K, V> setPageSize(int pageSize) {
+        return (SqlQuery<K, V>)super.setPageSize(pageSize);
+    }
+
+    /** {@inheritDoc} */
+    @Override public SqlQuery<K, V> setLocal(boolean loc) {
+        return (SqlQuery<K, V>)super.setLocal(loc);
     }
 
     /** {@inheritDoc} */

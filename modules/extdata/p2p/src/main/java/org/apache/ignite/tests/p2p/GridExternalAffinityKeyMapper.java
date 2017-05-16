@@ -17,12 +17,12 @@
 
 package org.apache.ignite.tests.p2p;
 
-import org.apache.ignite.cache.affinity.*;
+import org.apache.ignite.cache.affinity.AffinityKeyMapper;
 
 /**
  * Test mapper for P2P class loading tests.
  */
-public class GridExternalAffinityKeyMapper implements CacheAffinityKeyMapper {
+public class GridExternalAffinityKeyMapper implements AffinityKeyMapper {
     /** {@inheritDoc} */
     @Override public Object affinityKey(Object key) {
         if (key instanceof Integer)

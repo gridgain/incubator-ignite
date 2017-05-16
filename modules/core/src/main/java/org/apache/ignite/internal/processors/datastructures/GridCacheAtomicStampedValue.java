@@ -17,20 +17,22 @@
 
 package org.apache.ignite.internal.processors.datastructures;
 
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-
-import java.io.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import org.apache.ignite.internal.processors.cache.GridCacheInternal;
+import org.apache.ignite.internal.util.lang.GridPeerDeployAware;
+import org.apache.ignite.internal.util.tostring.GridToStringBuilder;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Atomic stamped value.
  */
 
 public final class GridCacheAtomicStampedValue<T, S> implements GridCacheInternal, GridPeerDeployAware,
-    Externalizable, Cloneable {
+    Externalizable {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -86,19 +88,6 @@ public final class GridCacheAtomicStampedValue<T, S> implements GridCacheInterna
      */
     public S stamp() {
         return stamp;
-    }
-
-    /** {@inheritDoc} */
-    @SuppressWarnings( {"unchecked"})
-    @Override public GridCacheAtomicStampedValue<T, S> clone() throws CloneNotSupportedException {
-        GridCacheAtomicStampedValue<T, S> obj = (GridCacheAtomicStampedValue<T, S>)super.clone();
-
-        T locVal = X.cloneObject(val, false, true);
-        S locStamp = X.cloneObject(stamp, false, true);
-
-        obj.set(locVal, locStamp);
-
-        return obj;
     }
 
     /** {@inheritDoc} */

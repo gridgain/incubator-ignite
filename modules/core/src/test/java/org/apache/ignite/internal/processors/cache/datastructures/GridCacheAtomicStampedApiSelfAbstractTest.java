@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.processors.cache.datastructures;
 
-import org.apache.ignite.*;
-
-import java.util.*;
+import java.util.UUID;
+import org.apache.ignite.IgniteAtomicStamped;
+import org.apache.ignite.IgniteException;
 
 /**
  * Basic tests for atomic stamped.
@@ -63,7 +63,7 @@ public abstract class GridCacheAtomicStampedApiSelfAbstractTest extends IgniteAt
 
             fail();
         }
-        catch (IllegalStateException e) {
+        catch (IllegalStateException | IgniteException e) {
             info("Caught expected exception: " + e.getMessage());
         }
     }

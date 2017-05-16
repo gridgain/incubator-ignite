@@ -17,20 +17,23 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.marshaller.optimized.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.GridConcurrentHashSet;
+import org.apache.ignite.internal.util.typedef.C1;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Tests for methods that run job locally with multiple arguments.
@@ -40,7 +43,7 @@ public class GridProjectionLocalJobMultipleArgumentsSelfTest extends GridCommonA
     private static final TcpDiscoveryIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
 
     /** */
-    private static Collection<Integer> ids;
+    private static Collection<Object> ids;
 
     /** */
     private static AtomicInteger res;
@@ -55,8 +58,6 @@ public class GridProjectionLocalJobMultipleArgumentsSelfTest extends GridCommonA
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
-
-        cfg.setMarshaller(new OptimizedMarshaller(false));
 
         CacheConfiguration cache = defaultCacheConfiguration();
 
@@ -87,9 +88,9 @@ public class GridProjectionLocalJobMultipleArgumentsSelfTest extends GridCommonA
         Collection<Integer> res = new ArrayList<>();
 
         for (int i : F.asList(1, 2, 3)) {
-            res.add(grid().compute().affinityCall(null, i, new IgniteCallable<Integer>() {
+            res.add(grid().compute().affinityCall((String)null, i, new IgniteCallable<Integer>() {
                 @Override public Integer call() {
-                    ids.add(System.identityHashCode(this));
+                    ids.add(this);
 
                     return 10;
                 }
@@ -105,9 +106,9 @@ public class GridProjectionLocalJobMultipleArgumentsSelfTest extends GridCommonA
      */
     public void testAffinityRun() throws Exception {
         for (int i : F.asList(1, 2, 3)) {
-            grid().compute().affinityRun(null, i, new IgniteRunnable() {
+            grid().compute().affinityRun((String)null, i, new IgniteRunnable() {
                 @Override public void run() {
-                    ids.add(System.identityHashCode(this));
+                    ids.add(this);
 
                     res.addAndGet(10);
                 }
@@ -124,8 +125,7 @@ public class GridProjectionLocalJobMultipleArgumentsSelfTest extends GridCommonA
     public void testCall() throws Exception {
         Collection<Integer> res = grid().compute().apply(new C1<Integer, Integer>() {
             @Override public Integer apply(Integer arg) {
-
-                ids.add(System.identityHashCode(this));
+                ids.add(this);
 
                 return 10 + arg;
             }
@@ -143,7 +143,7 @@ public class GridProjectionLocalJobMultipleArgumentsSelfTest extends GridCommonA
 
         Collection<Integer> res = grid().compute().apply(new C1<Integer, Integer>() {
             @Override public Integer apply(Integer arg) {
-                ids.add(System.identityHashCode(this));
+                ids.add(this);
 
                 return 10 + arg;
             }

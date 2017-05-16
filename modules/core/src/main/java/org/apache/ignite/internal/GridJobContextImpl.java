@@ -17,19 +17,26 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.processors.job.*;
-import org.apache.ignite.internal.processors.timeout.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.Serializable;
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.compute.ComputeJobContext;
+import org.apache.ignite.internal.processors.job.GridJobWorker;
+import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteUuid;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Remote job context implementation.
@@ -52,6 +59,9 @@ public class GridJobContextImpl implements ComputeJobContext, Externalizable {
 
     /** Job worker. */
     private GridJobWorker job;
+
+    /** Current timeout object. */
+    private volatile GridTimeoutObject timeoutObj;
 
     /** Attributes mux. Do not use this as object is exposed to user. */
     private final Object mux = new Object();
@@ -166,47 +176,62 @@ public class GridJobContextImpl implements ComputeJobContext, Externalizable {
             if (job == null)
                 job = ctx.job().activeJob(jobId);
 
-            // Completed?
             if (job != null) {
-                job.hold();
+                if (!job.hold())
+                    throw new IllegalStateException("Job has already been hold [ctx=" + this + ']');
 
-                if (timeout > 0 && !job.isDone()) {
-                    final long endTime = U.currentTimeMillis() + timeout;
+                assert timeoutObj == null;
 
-                    // Overflow.
-                    if (endTime > 0) {
-                        ctx.timeout().addTimeoutObject(new GridTimeoutObject() {
-                            private final IgniteUuid id = IgniteUuid.randomUuid();
+                if (timeout <= 0)
+                    return null;
 
-                            @Override public IgniteUuid timeoutId() {
-                                return id;
-                            }
+                final long endTime = U.currentTimeMillis() + timeout;
 
-                            @Override public long endTime() {
-                                return endTime;
-                            }
+                // Overflow.
+                if (endTime > 0) {
+                    timeoutObj = new GridTimeoutObject() {
+                        private final IgniteUuid id = IgniteUuid.randomUuid();
 
-                            @Override public void onTimeout() {
-                                try {
-                                    ExecutorService execSvc = job.isInternal() ?
-                                        ctx.getManagementExecutorService() : ctx.getExecutorService();
+                        @Override public IgniteUuid timeoutId() {
+                            return id;
+                        }
 
-                                    assert execSvc != null;
+                        @Override public long endTime() {
+                            return endTime;
+                        }
 
-                                    execSvc.submit(new Runnable() {
-                                        @Override public void run() {
-                                            callcc();
-                                        }
-                                    });
+                        @Override public void onTimeout() {
+                            try {
+                                synchronized (mux) {
+                                    GridTimeoutObject timeoutObj0 = timeoutObj;
+
+                                    if (timeoutObj0 == null || timeoutObj0.timeoutId() != id)
+                                        // The timer was canceled by explicit callcc() call.
+                                        return;
+
+                                    timeoutObj = null;
                                 }
-                                catch (RejectedExecutionException e) {
-                                    U.error(log(), "Failed to execute job (will execute synchronously).", e);
 
-                                    callcc();
-                                }
+                                ExecutorService execSvc = job.isInternal() ?
+                                    ctx.getManagementExecutorService() : ctx.getExecutorService();
+
+                                assert execSvc != null;
+
+                                execSvc.submit(new Runnable() {
+                                    @Override public void run() {
+                                        callcc0();
+                                    }
+                                });
                             }
-                        });
-                    }
+                            catch (RejectedExecutionException e) {
+                                U.error(log(), "Failed to execute job (will execute synchronously).", e);
+
+                                callcc0();
+                            }
+                        }
+                    };
+
+                    ctx.timeout().addTimeoutObject(timeoutObj);
                 }
             }
         }
@@ -216,13 +241,32 @@ public class GridJobContextImpl implements ComputeJobContext, Externalizable {
 
     /** {@inheritDoc} */
     @Override public void callcc() {
+        synchronized (mux) {
+            GridTimeoutObject timeoutObj0 = timeoutObj;
+
+            if (timeoutObj0 != null) {
+                if (ctx != null)
+                    ctx.timeout().removeTimeoutObject(timeoutObj0);
+
+                timeoutObj = null;
+            }
+        }
+
+        callcc0();
+    }
+
+    /**
+     * Unholds job.
+     */
+    private void callcc0() {
         if (ctx != null) {
             if (job == null)
                 job = ctx.job().activeJob(jobId);
 
-            if (job != null)
+            if (job != null) {
                 // Execute in the same thread.
                 job.execute();
+            }
         }
     }
 

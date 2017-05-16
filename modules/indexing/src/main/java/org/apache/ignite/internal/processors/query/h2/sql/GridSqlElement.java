@@ -17,42 +17,51 @@
 
 package org.apache.ignite.internal.processors.query.h2.sql;
 
-import java.util.*;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * Abstract SQL element.
  */
-public abstract class GridSqlElement implements Cloneable, Iterable<GridSqlElement> {
+public abstract class GridSqlElement implements Iterable<GridSqlElement> {
     /** */
-    protected List<GridSqlElement> children = new ArrayList<>();
+    protected final List<GridSqlElement> children;
 
     /** */
-    private GridSqlType expressionResultType;
+    private GridSqlType resultType;
+
+    /**
+     * @param children Initial child list.
+     */
+    protected GridSqlElement(List<GridSqlElement> children) {
+        assert children != null;
+
+        this.children = children;
+    }
 
     /**
      * @return Optional expression result type (if this is an expression and result type is known).
      */
-    public GridSqlType expressionResultType() {
-        return expressionResultType;
+    public GridSqlType resultType() {
+        return resultType;
     }
 
     /**
      * @param type Optional expression result type (if this is an expression and result type is known).
+     * @return {@code this}.
      */
-    public void expressionResultType(GridSqlType type) {
-        expressionResultType = type;
-    }
+    public GridSqlElement resultType(GridSqlType type) {
+        resultType = type;
 
-    /** {@inheritDoc} */
-    public abstract String getSQL();
+        return this;
+    }
 
     /**
-     * Clears all children.
+     * Get the SQL expression.
+     *
+     * @return the SQL expression.
      */
-    public void clearChildren() {
-        if (size() != 0)
-            children = new ArrayList<>();
-    }
+    public abstract String getSQL();
 
     /**
      * @param expr Expr.
@@ -70,31 +79,17 @@ public abstract class GridSqlElement implements Cloneable, Iterable<GridSqlEleme
     /**
      * @return First child.
      */
-    public GridSqlElement child() {
-        return children.get(0);
+    public <E extends GridSqlElement> E child() {
+        return child(0);
     }
 
     /**
      * @param idx Index.
      * @return Child.
      */
-    public GridSqlElement child(int idx) {
-        return children.get(idx);
-    }
-
-    /** {@inheritDoc} */
-    @SuppressWarnings({"CloneCallsConstructors", "CloneDoesntDeclareCloneNotSupportedException"})
-    @Override public GridSqlElement clone() {
-        try {
-            GridSqlElement res = (GridSqlElement)super.clone();
-
-            res.children = new ArrayList<>(children);
-
-            return res;
-        }
-        catch (CloneNotSupportedException e) {
-            throw new IllegalStateException(e);
-        }
+    @SuppressWarnings("unchecked")
+    public <E extends GridSqlElement> E child(int idx) {
+        return (E)children.get(idx);
     }
 
     /**
@@ -102,6 +97,9 @@ public abstract class GridSqlElement implements Cloneable, Iterable<GridSqlEleme
      * @param child New child.
      */
     public void child(int idx, GridSqlElement child) {
+        if (child == null)
+            throw new NullPointerException();
+
         children.set(idx, child);
     }
 
@@ -115,5 +113,21 @@ public abstract class GridSqlElement implements Cloneable, Iterable<GridSqlEleme
     /** {@inheritDoc} */
     @Override public Iterator<GridSqlElement> iterator() {
         return children.iterator();
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return getSQL();
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        throw new IllegalStateException();
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        return this == o || (!(o == null || getClass() != o.getClass()) &&
+            children.equals(((GridSqlElement)o).children));
     }
 }

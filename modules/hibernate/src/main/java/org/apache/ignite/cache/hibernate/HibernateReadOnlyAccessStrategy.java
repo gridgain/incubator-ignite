@@ -17,11 +17,13 @@
 
 package org.apache.ignite.cache.hibernate;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.hibernate.cache.*;
-import org.hibernate.cache.spi.access.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.hibernate.cache.CacheException;
+import org.hibernate.cache.spi.access.AccessType;
+import org.hibernate.cache.spi.access.SoftLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link AccessType#READ_ONLY} cache access strategy.
@@ -58,7 +60,7 @@ public class HibernateReadOnlyAccessStrategy extends HibernateAccessStrategyAdap
      * @param ignite Grid.
      * @param cache Cache.
      */
-    public HibernateReadOnlyAccessStrategy(Ignite ignite, GridCache<Object, Object> cache) {
+    public HibernateReadOnlyAccessStrategy(Ignite ignite, IgniteInternalCache<Object, Object> cache) {
         super(ignite, cache);
     }
 
@@ -70,7 +72,7 @@ public class HibernateReadOnlyAccessStrategy extends HibernateAccessStrategyAdap
     /** {@inheritDoc} */
     @Override protected boolean afterInsert(Object key, Object val) throws CacheException {
         try {
-            cache.putx(key, val);
+            cache.put(key, val);
 
             return true;
         }

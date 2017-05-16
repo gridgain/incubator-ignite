@@ -17,16 +17,18 @@
 
 package org.apache.ignite.cache;
 
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.*;
+import javax.cache.Cache;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cache interceptor convenience adapter. It provides no-op implementations for all
  * interceptor callbacks.
  */
 public class CacheInterceptorAdapter<K, V> implements CacheInterceptor<K, V> {
+    /** */
+    private static final long serialVersionUID = 0L;
+
     /** {@inheritDoc} */
     @Nullable @Override public V onGet(K key, V val) {
         return val;

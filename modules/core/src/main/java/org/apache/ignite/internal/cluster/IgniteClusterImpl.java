@@ -17,27 +17,54 @@
 
 package org.apache.ignite.internal.cluster;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.nodestart.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import java.io.Externalizable;
+import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteCluster;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.cluster.ClusterGroupEmptyException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.cluster.ClusterStartNodeResult;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteComponentType;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.util.future.GridCompoundFuture;
+import org.apache.ignite.internal.util.future.GridFinishedFuture;
+import org.apache.ignite.internal.util.nodestart.IgniteRemoteStartSpecification;
+import org.apache.ignite.internal.util.nodestart.IgniteSshHelper;
+import org.apache.ignite.internal.util.nodestart.StartNodeCallable;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.CI1;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.internal.IgniteNodeAttributes.*;
-import static org.apache.ignite.internal.util.nodestart.IgniteNodeStartUtils.*;
+import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
+import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_MACS;
+import static org.apache.ignite.internal.util.nodestart.IgniteNodeStartUtils.parseFile;
+import static org.apache.ignite.internal.util.nodestart.IgniteNodeStartUtils.specifications;
 
 /**
  *
@@ -52,6 +79,9 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     /** Node local store. */
     @GridToStringExclude
     private ConcurrentMap nodeLoc;
+
+    /** Client reconnect future. */
+    private IgniteFuture<?> reconnecFut;
 
     /**
      * Required by {@link Externalizable}.
@@ -102,14 +132,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     @Override public <K, V> ConcurrentMap<K, V> nodeLocalMap() {
-        guard();
-
-        try {
-            return nodeLoc;
-        }
-        finally {
-            unguard();
-        }
+        return nodeLoc;
     }
 
     /** {@inheritDoc} */
@@ -120,6 +143,9 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
 
         try {
             return ctx.discovery().pingNode(nodeId);
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
         }
         finally {
             unguard();
@@ -189,7 +215,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<GridTuple3<String, Boolean, String>> startNodes(File file,
+    @Override public Collection<ClusterStartNodeResult> startNodes(File file,
         boolean restart,
         int timeout,
         int maxConn)
@@ -204,7 +230,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<GridTuple3<String, Boolean, String>> startNodes(Collection<Map<String, Object>> hosts,
+    @Override public Collection<ClusterStartNodeResult> startNodes(Collection<Map<String, Object>> hosts,
         @Nullable Map<String, Object> dflts,
         boolean restart,
         int timeout,
@@ -302,9 +328,9 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      * @param timeout Connection timeout.
      * @param maxConn Number of parallel SSH connections to one host.
      * @return Future with results.
-     * @see {@link IgniteCluster#startNodes(java.io.File, boolean, int, int)}.
+     * @see IgniteCluster#startNodes(java.io.File, boolean, int, int)
      */
-    IgniteInternalFuture<Collection<GridTuple3<String, Boolean, String>>> startNodesAsync(File file,
+    IgniteInternalFuture<Collection<ClusterStartNodeResult>> startNodesAsync(File file,
       boolean restart,
       int timeout,
       int maxConn)
@@ -330,9 +356,9 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      * @param timeout Connection timeout in milliseconds.
      * @param maxConn Number of parallel SSH connections to one host.
      * @return Future with results.
-     * @see {@link IgniteCluster#startNodes(java.util.Collection, java.util.Map, boolean, int, int)}.
+     * @see IgniteCluster#startNodes(java.util.Collection, java.util.Map, boolean, int, int)
      */
-    IgniteInternalFuture<Collection<GridTuple3<String, Boolean, String>>> startNodesAsync(
+    IgniteInternalFuture<Collection<ClusterStartNodeResult>> startNodesAsync(
         Collection<Map<String, Object>> hosts,
         @Nullable Map<String, Object> dflts,
         boolean restart,
@@ -344,11 +370,11 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
         guard();
 
         try {
-            IgniteSshProcessor sshProcessor = IgniteComponentType.SSH.create(false);
+            IgniteSshHelper sshHelper = IgniteComponentType.SSH.create(false);
 
             Map<String, Collection<IgniteRemoteStartSpecification>> specsMap = specifications(hosts, dflts);
 
-            Map<String, ConcurrentLinkedQueue<IgniteNodeCallable>> runMap = new HashMap<>();
+            Map<String, ConcurrentLinkedQueue<StartNodeCallable>> runMap = new HashMap<>();
 
             int nodeCallCnt = 0;
 
@@ -393,7 +419,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
                         startIdx = neighbors.size() + 1;
                 }
 
-                ConcurrentLinkedQueue<IgniteNodeCallable> nodeRuns = new ConcurrentLinkedQueue<>();
+                ConcurrentLinkedQueue<StartNodeCallable> nodeRuns = new ConcurrentLinkedQueue<>();
 
                 runMap.put(host, nodeRuns);
 
@@ -401,7 +427,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
                     assert spec.host().equals(host);
 
                     for (int i = startIdx; i <= spec.nodes(); i++) {
-                        nodeRuns.add(sshProcessor.nodeStartCallable(spec, timeout));
+                        nodeRuns.add(sshHelper.nodeStartCallable(spec, timeout));
 
                         nodeCallCnt++;
                     }
@@ -410,19 +436,17 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
 
             // If there is nothing to start, return finished future with empty result.
             if (nodeCallCnt == 0)
-                return new GridFinishedFuture<Collection<GridTuple3<String, Boolean, String>>>(
-                    Collections.<GridTuple3<String, Boolean, String>>emptyList());
+                return new GridFinishedFuture<Collection<ClusterStartNodeResult>>(
+                    Collections.<ClusterStartNodeResult>emptyList());
 
             // Exceeding max line width for readability.
-            GridCompoundFuture<GridTuple3<String, Boolean, String>, Collection<GridTuple3<String, Boolean, String>>>
-                fut = new GridCompoundFuture<>(
-                CU.<GridTuple3<String, Boolean, String>>objectsReducer()
-            );
+            GridCompoundFuture<ClusterStartNodeResult, Collection<ClusterStartNodeResult>> fut = 
+                new GridCompoundFuture<>(CU.<ClusterStartNodeResult>objectsReducer());
 
             AtomicInteger cnt = new AtomicInteger(nodeCallCnt);
 
             // Limit maximum simultaneous connection number per host.
-            for (ConcurrentLinkedQueue<IgniteNodeCallable> queue : runMap.values()) {
+            for (ConcurrentLinkedQueue<StartNodeCallable> queue : runMap.values()) {
                 for (int i = 0; i < maxConn; i++) {
                     if (!runNextNodeCallable(queue, fut, cnt))
                         break;
@@ -471,25 +495,25 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      * @param cnt Atomic counter to check if all futures are added to compound future.
      * @return {@code True} if task was started, {@code false} if queue was empty.
      */
-    private boolean runNextNodeCallable(final ConcurrentLinkedQueue<IgniteNodeCallable> queue,
-        final GridCompoundFuture<GridTuple3<String, Boolean, String>, Collection<GridTuple3<String, Boolean, String>>>
+    private boolean runNextNodeCallable(final ConcurrentLinkedQueue<StartNodeCallable> queue,
+        final GridCompoundFuture<ClusterStartNodeResult, Collection<ClusterStartNodeResult>>
         comp,
         final AtomicInteger cnt)
     {
-        IgniteNodeCallable call = queue.poll();
+        StartNodeCallable call = queue.poll();
 
         if (call == null)
             return false;
 
-        IgniteInternalFuture<GridTuple3<String, Boolean, String>> fut = ctx.closure().callLocalSafe(call, true);
+        IgniteInternalFuture<ClusterStartNodeResult> fut = ctx.closure().callLocalSafe(call, true);
 
         comp.add(fut);
 
         if (cnt.decrementAndGet() == 0)
             comp.markInitialized();
 
-        fut.listen(new CI1<IgniteInternalFuture<GridTuple3<String, Boolean, String>>>() {
-            @Override public void apply(IgniteInternalFuture<GridTuple3<String, Boolean, String>> f) {
+        fut.listen(new CI1<IgniteInternalFuture<ClusterStartNodeResult>>() {
+            @Override public void apply(IgniteInternalFuture<ClusterStartNodeResult> f) {
                 runNextNodeCallable(queue, comp, cnt);
             }
         });
@@ -502,6 +526,18 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      */
     public void clearNodeMap() {
         nodeLoc.clear();
+    }
+
+    /**
+     * @param reconnecFut Reconnect future.
+     */
+    public void clientReconnectFuture(IgniteFuture<?> reconnecFut) {
+        this.reconnecFut = reconnecFut;
+    }
+
+    /** {@inheritDoc} */
+    @Nullable @Override public IgniteFuture<?> clientReconnectFuture() {
+        return reconnecFut;
     }
 
     /** {@inheritDoc} */

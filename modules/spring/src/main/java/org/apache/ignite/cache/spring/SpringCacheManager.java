@@ -17,16 +17,21 @@
 
 package org.apache.ignite.cache.spring;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.springframework.beans.factory.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteSpring;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.jsr166.ConcurrentHashMap8;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-
-import java.util.*;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 
 /**
  * Implementation of Spring cache abstraction based on Ignite cache.
@@ -43,15 +48,17 @@ import java.util.*;
  * you will need to do the following:
  * <ul>
  *     <li>
- *         Start a Ignite node with configured cache in the same JVM
- *         where you application is running.
+ *         Start an Ignite node with proper configuration in embedded mode
+ *         (i.e., in the same JVM where the application is running). It can
+ *         already have predefined caches, but it's not required - caches
+ *         will be created automatically on first access if needed.
  *     </li>
  *     <li>
- *         Configure {@code GridSpringCacheManager} as a cache provider
- *         in Spring application context.
+ *         Configure {@code SpringCacheManager} as a cache provider
+ *         in the Spring application context.
  *     </li>
  * </ul>
- * {@code GridSpringCacheManager} can start a node itself on its startup
+ * {@code SpringCacheManager} can start a node itself on its startup
  * based on provided Ignite configuration. You can provide path to a
  * Spring configuration XML file, like below (path can be absolute or
  * relative to {@code IGNITE_HOME}):
@@ -63,9 +70,9 @@ import java.util.*;
  *         http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
  *         http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd"&gt;
  *     &lt;-- Provide configuration file path. --&gt;
- *     &lt;bean id="cacheManager" class="org.apache.ignite.cache.spring.GridSpringCacheManager"&gt;
+ *     &lt;bean id="cacheManager" class="org.apache.ignite.cache.spring.SpringCacheManager"&gt;
  *         &lt;property name="configurationPath" value="examples/config/spring-cache.xml"/&gt;
- *     &lt;/bean>
+ *     &lt;/bean&gt;
  *
  *     &lt;-- Use annotation-driven caching configuration. --&gt;
  *     &lt;cache:annotation-driven/&gt;
@@ -80,7 +87,7 @@ import java.util.*;
  *         http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
  *         http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd"&gt;
  *     &lt;-- Provide configuration bean. --&gt;
- *     &lt;bean id="cacheManager" class="org.apache.ignite.cache.spring.GridSpringCacheManager"&gt;
+ *     &lt;bean id="cacheManager" class="org.apache.ignite.cache.spring.SpringCacheManager"&gt;
  *         &lt;property name="configuration"&gt;
  *             &lt;bean id="gridCfg" class="org.apache.ignite.configuration.IgniteConfiguration"&gt;
  *                 ...
@@ -106,7 +113,7 @@ import java.util.*;
  *         http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
  *         http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd"&gt;
  *     &lt;-- Provide Grid name. --&gt;
- *     &lt;bean id="cacheManager" class="org.apache.ignite.cache.spring.GridSpringCacheManager"&gt;
+ *     &lt;bean id="cacheManager" class="org.apache.ignite.cache.spring.SpringCacheManager"&gt;
  *         &lt;property name="gridName" value="myGrid"/&gt;
  *     &lt;/bean>
  *
@@ -115,7 +122,7 @@ import java.util.*;
  * &lt;/beans&gt;
  * </pre>
  * This can be used, for example, when you are running your application
- * in a J2EE Web container and use {@ignitelink org.apache.ignite.startup.servlet.IgniteServletContextListenerStartup}
+ * in a J2EE Web container and use {@ignitelink org.apache.ignite.startup.servlet.ServletContextListenerStartup}
  * for node startup.
  * <p>
  * If neither {@link #setConfigurationPath(String) configurationPath},
@@ -124,13 +131,16 @@ import java.util.*;
  * will try to use default Grid instance (the one with the {@code null}
  * name). If it doesn't exist, exception will be thrown.
  * <h1>Starting Remote Nodes</h1>
- * Remember that the node started inside your application is an entry point
+ * Keep in mind that the node started inside your application is an entry point
  * to the whole topology it connects to. You can start as many remote standalone
  * nodes as you need using {@code bin/ignite.{sh|bat}} scripts provided in
  * Ignite distribution, and all these nodes will participate
- * in caching data.
+ * in caching the data.
  */
-public class SpringCacheManager implements CacheManager, InitializingBean {
+public class SpringCacheManager implements CacheManager, InitializingBean, ApplicationContextAware {
+    /** Caches map. */
+    private final ConcurrentMap<String, SpringCache> caches = new ConcurrentHashMap8<>();
+
     /** Grid configuration file path. */
     private String cfgPath;
 
@@ -140,8 +150,22 @@ public class SpringCacheManager implements CacheManager, InitializingBean {
     /** Grid name. */
     private String gridName;
 
+    /** Dynamic cache configuration template. */
+    private CacheConfiguration<Object, Object> dynamicCacheCfg;
+
+    /** Dynamic near cache configuration template. */
+    private NearCacheConfiguration<Object, Object> dynamicNearCacheCfg;
+
     /** Ignite instance. */
-    protected Ignite grid;
+    private Ignite ignite;
+
+    /** Spring context. */
+    private ApplicationContext springCtx;
+
+    /** {@inheritDoc} */
+    @Override public void setApplicationContext(ApplicationContext ctx) {
+        this.springCtx = ctx;
+    }
 
     /**
      * Gets configuration file path.
@@ -197,46 +221,92 @@ public class SpringCacheManager implements CacheManager, InitializingBean {
         this.gridName = gridName;
     }
 
+    /**
+     * Gets dynamic cache configuration template.
+     *
+     * @return Dynamic cache configuration template.
+     */
+    public CacheConfiguration<Object, Object> getDynamicCacheConfiguration() {
+        return dynamicCacheCfg;
+    }
+
+    /**
+     * Sets dynamic cache configuration template.
+     *
+     * @param dynamicCacheCfg Dynamic cache configuration template.
+     */
+    public void setDynamicCacheConfiguration(CacheConfiguration<Object, Object> dynamicCacheCfg) {
+        this.dynamicCacheCfg = dynamicCacheCfg;
+    }
+
+    /**
+     * Gets dynamic near cache configuration template.
+     *
+     * @return Dynamic near cache configuration template.
+     */
+    public NearCacheConfiguration<Object, Object> getDynamicNearCacheConfiguration() {
+        return dynamicNearCacheCfg;
+    }
+
+    /**
+     * Sets dynamic cache configuration template.
+     *
+     * @param dynamicNearCacheCfg Dynamic cache configuration template.
+     */
+    public void setDynamicNearCacheConfiguration(NearCacheConfiguration<Object, Object> dynamicNearCacheCfg) {
+        this.dynamicNearCacheCfg = dynamicNearCacheCfg;
+    }
+
     /** {@inheritDoc} */
-    @SuppressWarnings("IfMayBeConditional")
     @Override public void afterPropertiesSet() throws Exception {
-        assert grid == null;
+        assert ignite == null;
 
         if (cfgPath != null && cfg != null) {
             throw new IllegalArgumentException("Both 'configurationPath' and 'configuration' are " +
                 "provided. Set only one of these properties if you need to start a Ignite node inside of " +
-                "GridSpringCacheManager. If you already have a node running, omit both of them and set" +
+                "SpringCacheManager. If you already have a node running, omit both of them and set" +
                 "'gridName' property.");
         }
 
         if (cfgPath != null)
-            grid = Ignition.start(cfgPath);
+            ignite = IgniteSpring.start(cfgPath, springCtx);
         else if (cfg != null)
-            grid = Ignition.start(cfg);
+            ignite = IgniteSpring.start(cfg, springCtx);
         else
-            grid = Ignition.ignite(gridName);
+            ignite = Ignition.ignite(gridName);
     }
 
     /** {@inheritDoc} */
-    @Override public org.springframework.cache.Cache getCache(String name) {
-        assert grid != null;
+    @Override public Cache getCache(String name) {
+        assert ignite != null;
 
-        try {
-            return new SpringCache(name, grid, ((IgniteKernal)grid).cache(name), null);
+        SpringCache cache = caches.get(name);
+
+        if (cache == null) {
+            CacheConfiguration<Object, Object> cacheCfg = dynamicCacheCfg != null ?
+                new CacheConfiguration<>(dynamicCacheCfg) : new CacheConfiguration<>();
+
+            NearCacheConfiguration<Object, Object> nearCacheCfg = dynamicNearCacheCfg != null ?
+                new NearCacheConfiguration<>(dynamicNearCacheCfg) : null;
+
+            cacheCfg.setName(name);
+
+            cache = new SpringCache(nearCacheCfg != null ? ignite.getOrCreateCache(cacheCfg, nearCacheCfg) :
+                ignite.getOrCreateCache(cacheCfg));
+
+            SpringCache old = caches.putIfAbsent(name, cache);
+
+            if (old != null)
+                cache = old;
         }
-        catch (IllegalArgumentException ignored) {
-            return null;
-        }
+
+        return cache;
     }
 
     /** {@inheritDoc} */
     @Override public Collection<String> getCacheNames() {
-        assert grid != null;
+        assert ignite != null;
 
-        return F.viewReadOnly(((IgniteKernal)grid).caches(), new IgniteClosure<GridCache<?,?>, String>() {
-            @Override public String apply(GridCache<?, ?> c) {
-                return c.name();
-            }
-        });
+        return new ArrayList<>(caches.keySet());
     }
 }

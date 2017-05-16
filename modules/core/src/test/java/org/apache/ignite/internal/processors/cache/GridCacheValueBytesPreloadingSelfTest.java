@@ -17,17 +17,20 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.Arrays;
+import java.util.Collections;
+import org.apache.ignite.cache.CacheMemoryMode;
+import org.apache.ignite.cache.CacheRebalanceMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMemoryMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheMemoryMode.OFFHEAP_TIERED;
+import static org.apache.ignite.cache.CacheMemoryMode.OFFHEAP_VALUES;
+import static org.apache.ignite.cache.CacheMemoryMode.ONHEAP_TIERED;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  *
@@ -56,7 +59,7 @@ public class GridCacheValueBytesPreloadingSelfTest extends GridCommonAbstractTes
         ccfg.setCacheMode(PARTITIONED);
         ccfg.setBackups(1);
         ccfg.setAtomicityMode(ATOMIC);
-        ccfg.setDistributionMode(PARTITIONED_ONLY);
+        ccfg.setNearConfiguration(null);
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
         ccfg.setMemoryMode(memMode);
         ccfg.setOffHeapMaxMemory(1024 * 1024 * 1024);
@@ -122,26 +125,26 @@ public class GridCacheValueBytesPreloadingSelfTest extends GridCommonAbstractTes
         byte[] val = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
 
         for (int i = 0; i < keyCnt; i++)
-            grid(0).jcache(null).put(String.valueOf(i), val);
+            grid(0).cache(null).put(String.valueOf(i), val);
 
         for (int i = 0; i < keyCnt; i++)
-            grid(0).jcache(null).get(String.valueOf(i));
+            grid(0).cache(null).get(String.valueOf(i));
 
         startGrid(1);
 
         if (memMode == ONHEAP_TIERED) {
             for (int i = 0; i < keyCnt; i++)
-                grid(0).jcache(null).localEvict(Collections.<Object>singleton(String.valueOf(i)));
+                grid(0).cache(null).localEvict(Collections.<Object>singleton(String.valueOf(i)));
 
             for (int i = 0; i < keyCnt; i++)
-                grid(0).jcache(null).localPromote(Collections.singleton(String.valueOf(i)));
+                grid(0).cache(null).localPromote(Collections.singleton(String.valueOf(i)));
         }
 
         startGrid(2);
 
         for (int g = 0; g < 3; g++) {
             for (int i = 0; i < keyCnt; i++) {
-                byte[] o = (byte[])grid(g).jcache(null).get(String.valueOf(i));
+                byte[] o = (byte[])grid(g).cache(null).get(String.valueOf(i));
 
                 assertTrue("Got invalid value [val=" + Arrays.toString(val) + ", actual=" + Arrays.toString(o) + ']',
                     Arrays.equals(val, o));

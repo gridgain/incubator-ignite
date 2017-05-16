@@ -17,17 +17,26 @@
 
 package org.apache.ignite.cache.hibernate;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.hibernate.cache.*;
-import org.hibernate.cache.spi.access.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.hibernate.cache.CacheException;
+import org.hibernate.cache.spi.access.CollectionRegionAccessStrategy;
+import org.hibernate.cache.spi.access.EntityRegionAccessStrategy;
+import org.hibernate.cache.spi.access.NaturalIdRegionAccessStrategy;
+import org.hibernate.cache.spi.access.RegionAccessStrategy;
+import org.hibernate.cache.spi.access.SoftLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Common interface used to implement Hibernate L2 cache access strategies ({@link RegionAccessStrategy},
@@ -83,7 +92,7 @@ import java.io.*;
  */
 public abstract class HibernateAccessStrategyAdapter {
     /** */
-    protected final GridCache<Object, Object> cache;
+    protected final IgniteInternalCache<Object, Object> cache;
 
     /** Grid. */
     protected final Ignite ignite;
@@ -95,7 +104,7 @@ public abstract class HibernateAccessStrategyAdapter {
      * @param ignite Grid.
      * @param cache Cache.
      */
-    protected HibernateAccessStrategyAdapter(Ignite ignite, GridCache<Object, Object> cache) {
+    protected HibernateAccessStrategyAdapter(Ignite ignite, IgniteInternalCache<Object, Object> cache) {
         this.cache = cache;
         this.ignite = ignite;
 
@@ -139,7 +148,7 @@ public abstract class HibernateAccessStrategyAdapter {
      */
     protected void putFromLoad(Object key, Object val) throws CacheException {
         try {
-            cache.putx(key, val);
+            cache.put(key, val);
         }
         catch (IgniteCheckedException e) {
             throw new CacheException(e);
@@ -283,9 +292,9 @@ public abstract class HibernateAccessStrategyAdapter {
      * @param key Key.
      * @throws CacheException If failed.
      */
-    static void evict(Ignite ignite, CacheProjection<Object,Object> cache, Object key) throws CacheException {
+    static void evict(Ignite ignite, IgniteInternalCache<Object,Object> cache, Object key) throws CacheException {
         try {
-            ignite.compute(cache.gridProjection()).call(new ClearKeyCallable(key, cache.name()));
+            ignite.compute(ignite.cluster()).call(new ClearKeyCallable(key, cache.name()));
         }
         catch (IgniteException e) {
             throw new CacheException(e);
@@ -298,7 +307,7 @@ public abstract class HibernateAccessStrategyAdapter {
      * @param cache Cache.
      * @throws CacheException If failed.
      */
-    static void evictAll(CacheProjection<Object,Object> cache) throws CacheException {
+    static void evictAll(IgniteInternalCache<Object,Object> cache) throws CacheException {
         try {
             cache.clear();
         }
@@ -342,7 +351,7 @@ public abstract class HibernateAccessStrategyAdapter {
 
         /** {@inheritDoc} */
         @Override public Void call() throws IgniteCheckedException {
-            GridCache<Object, Object> cache = ((IgniteKernal)ignite).cache(cacheName);
+            IgniteInternalCache<Object, Object> cache = ((IgniteKernal)ignite).getCache(cacheName);
 
             assert cache != null;
 

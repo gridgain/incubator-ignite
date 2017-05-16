@@ -17,16 +17,20 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.jetbrains.annotations.*;
-
-import java.nio.*;
+import java.nio.ByteBuffer;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
  */
 public abstract class CacheEntryPredicateAdapter implements CacheEntryPredicate {
+    /** */
+    private static final long serialVersionUID = 4647110502545358709L;
+
     /** */
     protected transient boolean locked;
 
@@ -54,23 +58,31 @@ public abstract class CacheEntryPredicateAdapter implements CacheEntryPredicate 
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        assert false : this;
-
         return 0;
     }
 
     /** {@inheritDoc} */
     @Override public boolean readFrom(ByteBuffer buf, MessageReader reader) {
-        assert false : this;
+        reader.setBuffer(buf);
 
-        return false;
+        if (!reader.beforeMessageRead())
+            return false;
+
+        return reader.afterMessageRead(CacheEntryPredicateAdapter.class);
     }
 
     /** {@inheritDoc} */
     @Override public boolean writeTo(ByteBuffer buf, MessageWriter writer) {
-        assert false : this;
+        writer.setBuffer(buf);
 
-        return false;
+        if (!writer.isHeaderWritten()) {
+            if (!writer.writeHeader(directType(), fieldsCount()))
+                return false;
+
+            writer.onHeaderWritten();
+        }
+
+        return true;
     }
 
     /**
@@ -84,5 +96,10 @@ public abstract class CacheEntryPredicateAdapter implements CacheEntryPredicate 
         catch (IgniteCheckedException e) {
             throw new IgniteException(e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onAckReceived() {
+        // No-op.
     }
 }

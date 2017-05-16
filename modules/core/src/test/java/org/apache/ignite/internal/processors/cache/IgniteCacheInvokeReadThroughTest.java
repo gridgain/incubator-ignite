@@ -17,105 +17,163 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-
-import javax.cache.processor.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMemoryMode.OFFHEAP_TIERED;
+import static org.apache.ignite.cache.CacheMemoryMode.ONHEAP_TIERED;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  *
  */
-public class IgniteCacheInvokeReadThroughTest extends IgniteCacheAbstractTest {
-    /** */
-    private static volatile boolean failed;
-
+public class IgniteCacheInvokeReadThroughTest extends IgniteCacheInvokeReadThroughAbstractTest {
     /** {@inheritDoc} */
-    @Override protected int gridCount() {
-        return 3;
-    }
+    @Override protected void startNodes() throws Exception {
+        startGridsMultiThreaded(4);
 
-    /** {@inheritDoc} */
-    @Override protected CacheMode cacheMode() {
-        return PARTITIONED;
-    }
+        client = true;
 
-    /** {@inheritDoc} */
-    @Override protected CacheAtomicityMode atomicityMode() {
-        return TRANSACTIONAL;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return PARTITIONED_ONLY;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected CacheStore<?, ?> cacheStore() {
-        return new TestStore();
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void beforeTestsStarted() throws Exception {
-        super.beforeTestsStarted();
-
-        failed = false;
+        startGrid(4);
     }
 
     /**
      * @throws Exception If failed.
      */
-    public void testInvokeReadThrough() throws Exception {
-        IgniteCache<Integer, Integer> cache = jcache(0);
-
-        checkReadThrough(cache, primaryKey(cache));
-
-        checkReadThrough(cache, backupKey(cache));
-
-        checkReadThrough(cache, nearKey(cache));
+    public void testInvokeReadThroughAtomic0() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, ATOMIC, ONHEAP_TIERED, 0, false));
     }
 
     /**
-     * @param cache Cache.
-     * @param key Key.
+     * @throws Exception If failed.
      */
-    private void checkReadThrough(IgniteCache<Integer, Integer> cache, Integer key) {
-        log.info("Test [key=" + key + ']');
+    public void testInvokeReadThroughAtomic1() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, ATOMIC, ONHEAP_TIERED, 1, false));
+    }
 
-        storeMap.put(key, key);
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughAtomic2() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, ATOMIC, ONHEAP_TIERED, 2, false));
+    }
 
-        Object ret = cache.invoke(key, new EntryProcessor<Integer, Integer, Object>() {
-            @Override public Object process(MutableEntry<Integer, Integer> entry, Object... args) {
-                if (!entry.exists()) {
-                    failed = true;
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughAtomicNearCache() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, ATOMIC, ONHEAP_TIERED, 1, true));
+    }
 
-                    fail();
-                }
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughAtomicReplicated() throws Exception {
+        invokeReadThrough(cacheConfiguration(REPLICATED, ATOMIC, ONHEAP_TIERED, 0, false));
+    }
 
-                Integer val = entry.getValue();
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughAtomic0_Offheap() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, ATOMIC, OFFHEAP_TIERED, 0, false));
+    }
 
-                if (!val.equals(entry.getKey())) {
-                    failed = true;
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughAtomic1_Offheap() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, ATOMIC, OFFHEAP_TIERED, 1, false));
+    }
 
-                    assertEquals(val, entry.getKey());
-                }
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughAtomic2_Offheap() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, ATOMIC, OFFHEAP_TIERED, 2, false));
+    }
 
-                entry.setValue(val + 1);
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughAtomicNearCache_Offheap() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, ATOMIC, OFFHEAP_TIERED, 1, true));
+    }
 
-                return val;
-            }
-        });
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughAtomicReplicated_Offheap() throws Exception {
+        invokeReadThrough(cacheConfiguration(REPLICATED, ATOMIC, OFFHEAP_TIERED, 0, false));
+    }
 
-        assertEquals(key, ret);
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughTx0() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, TRANSACTIONAL, ONHEAP_TIERED, 0, false));
+    }
 
-        for (int i = 0; i < gridCount(); i++)
-            assertEquals("Unexpected value for node: " + i, key + 1, jcache(i).get(key));
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughTx1() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, TRANSACTIONAL, ONHEAP_TIERED, 1, false));
+    }
 
-        assertFalse(failed);
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughTx2() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, TRANSACTIONAL, ONHEAP_TIERED, 2, false));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughTxNearCache() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, TRANSACTIONAL, ONHEAP_TIERED, 1, true));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughTxReplicated() throws Exception {
+        invokeReadThrough(cacheConfiguration(REPLICATED, TRANSACTIONAL, ONHEAP_TIERED, 0, false));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughTx0_Offheap() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, TRANSACTIONAL, OFFHEAP_TIERED, 0, false));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughTx1_Offheap() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, TRANSACTIONAL, OFFHEAP_TIERED, 1, false));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughTx2_Offheap() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, TRANSACTIONAL, OFFHEAP_TIERED, 2, false));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughTxNearCache_Offheap() throws Exception {
+        invokeReadThrough(cacheConfiguration(PARTITIONED, TRANSACTIONAL, OFFHEAP_TIERED, 1, true));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvokeReadThroughTxReplicated_Offheap() throws Exception {
+        invokeReadThrough(cacheConfiguration(REPLICATED, TRANSACTIONAL, OFFHEAP_TIERED, 0, false));
     }
 }
-

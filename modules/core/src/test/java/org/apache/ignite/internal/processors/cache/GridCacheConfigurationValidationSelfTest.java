@@ -17,17 +17,20 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import static org.apache.ignite.cache.CacheMemoryMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheMemoryMode.OFFHEAP_VALUES;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheRebalanceMode.ASYNC;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Attribute validation self test.
@@ -83,7 +86,7 @@ public class GridCacheConfigurationValidationSelfTest extends GridCommonAbstract
         dfltCacheCfg.setCacheMode(PARTITIONED);
         dfltCacheCfg.setRebalanceMode(ASYNC);
         dfltCacheCfg.setWriteSynchronizationMode(FULL_SYNC);
-        dfltCacheCfg.setAffinity(new CacheRendezvousAffinityFunction());
+        dfltCacheCfg.setAffinity(new RendezvousAffinityFunction());
         dfltCacheCfg.setIndexedTypes(
             Integer.class, String.class
         );
@@ -95,23 +98,17 @@ public class GridCacheConfigurationValidationSelfTest extends GridCommonAbstract
         namedCacheCfg.setRebalanceMode(ASYNC);
         namedCacheCfg.setWriteSynchronizationMode(FULL_SYNC);
         namedCacheCfg.setName(NON_DFLT_CACHE_NAME);
-        namedCacheCfg.setAffinity(new CacheRendezvousAffinityFunction());
+        namedCacheCfg.setAffinity(new RendezvousAffinityFunction());
 
         // Modify cache config according to test parameters.
         if (gridName.contains(WRONG_PRELOAD_MODE_GRID_NAME))
             dfltCacheCfg.setRebalanceMode(SYNC);
         else if (gridName.contains(WRONG_CACHE_MODE_GRID_NAME))
             dfltCacheCfg.setCacheMode(REPLICATED);
-        else if (gridName.contains(WRONG_AFFINITY_GRID_NAME)) {
-            dfltCacheCfg.setAffinity(new CacheRendezvousAffinityFunction() {
-                // No-op. Just to have another class name.
-            });
-        }
-        else if (gridName.contains(WRONG_AFFINITY_MAPPER_GRID_NAME)) {
-            dfltCacheCfg.setAffinityMapper(new GridCacheDefaultAffinityKeyMapper() {
-                // No-op. Just to have another class name.
-            });
-        }
+        else if (gridName.contains(WRONG_AFFINITY_GRID_NAME))
+            dfltCacheCfg.setAffinity(new TestRendezvousAffinityFunction());
+        else if (gridName.contains(WRONG_AFFINITY_MAPPER_GRID_NAME))
+            dfltCacheCfg.setAffinityMapper(new TestCacheDefaultAffinityKeyMapper());
         else if (gridName.contains(WRONG_OFF_HEAP_GRID_NAME))
             dfltCacheCfg.setMemoryMode(OFFHEAP_VALUES);
 
@@ -194,5 +191,26 @@ public class GridCacheConfigurationValidationSelfTest extends GridCommonAbstract
         catch (Exception e) {
             info("Caught expected exception: " + e);
         }
+    }
+
+    /**
+     *
+     */
+    private static class TestRendezvousAffinityFunction extends RendezvousAffinityFunction {
+        // No-op. Just to have another class name.
+
+        /**
+         * Empty constructor required by Externalizable.
+         */
+        public TestRendezvousAffinityFunction() {
+            // No-op.
+        }
+    }
+
+    /**
+     *
+     */
+    private static class TestCacheDefaultAffinityKeyMapper extends GridCacheDefaultAffinityKeyMapper {
+        // No-op. Just to have another class name.
     }
 }

@@ -17,8 +17,12 @@
 
 package org.apache.ignite.resources;
 
-import java.io.*;
-import java.lang.annotation.*;
+import java.io.Serializable;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * Annotates a field or a setter method for injection of resource
@@ -50,7 +54,7 @@ import java.lang.annotation.*;
  * <pre name="code" class="java">
  * public class MyGridJob implements ComputeJob {
  *      ...
- *      &#64;IgniteSpringResource(resourceName = "bean-name")
+ *      &#64;SpringResource(resourceName = "bean-name")
  *      private transient MyUserBean rsrc;
  *      ...
  *  }
@@ -61,7 +65,7 @@ import java.lang.annotation.*;
  *     ...
  *     private transient MyUserBean rsrc;
  *     ...
- *     &#64;IgniteSpringResource(resourceName = "bean-name")
+ *     &#64;SpringResource(resourceName = "bean-name")
  *     public void setMyUserBean(MyUserBean rsrc) {
  *          this.rsrc = rsrc;
  *     }
@@ -72,12 +76,12 @@ import java.lang.annotation.*;
  * <pre name="code" class="java">
  * public class MyUserResource {
  *     ...
- *     &#64;IgniteSpringResource(resourceName = "bean-name")
+ *     &#64;SpringResource(resourceName = "bean-name")
  *     private MyUserBean rsrc;
  *     ...
  *     // Inject logger (or any other resource).
  *     &#64;LoggerResource
- *     private GridLogger log;
+ *     private IgniteLogger log;
  *
  *     // Inject ignite instance (or any other resource).
  *     &#64;IgniteInstanceResource
@@ -108,5 +112,18 @@ public @interface SpringResource {
      *
      * @return Resource bean name.
      */
-    String resourceName();
+    String resourceName() default "";
+
+    /**
+     * Resource bean class in provided {@code ApplicationContext} to look up
+     * a Spring bean.
+     *
+     * @return Resource bean class.
+     */
+    Class<?> resourceClass() default DEFAULT.class;
+
+    /** Dummy class to compensate for impossibility of having default null value for annotation method. */
+    final class DEFAULT {
+        // No-op.
+    }
 }

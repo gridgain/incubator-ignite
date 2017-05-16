@@ -17,19 +17,28 @@
 
 package org.apache.ignite.cache.hibernate;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.hibernate.cache.*;
-import org.hibernate.cache.spi.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.util.typedef.G;
+import org.hibernate.cache.CacheException;
+import org.hibernate.cache.spi.CacheDataDescription;
+import org.hibernate.cache.spi.CollectionRegion;
+import org.hibernate.cache.spi.EntityRegion;
+import org.hibernate.cache.spi.NaturalIdRegion;
+import org.hibernate.cache.spi.QueryResultsRegion;
 import org.hibernate.cache.spi.RegionFactory;
+import org.hibernate.cache.spi.TimestampsRegion;
 import org.hibernate.cache.spi.access.AccessType;
-import org.hibernate.cfg.*;
+import org.hibernate.cfg.Settings;
 
-import java.util.*;
-
-import static org.hibernate.cache.spi.access.AccessType.*;
+import static org.hibernate.cache.spi.access.AccessType.NONSTRICT_READ_WRITE;
 
 /**
  * Hibernate L2 cache region factory.
@@ -47,8 +56,8 @@ import static org.hibernate.cache.spi.access.AccessType.*;
  * <pre name="code" class="brush: xml; gutter: false;">
  * org.apache.ignite.hibernate.grid_name=&lt;grid name&gt;
  * </pre>
- * Each Hibernate cache region must be associated with some {@link org.apache.ignite.internal.processors.cache.GridCache}, by default it is assumed that
- * for each cache region there is a {@link org.apache.ignite.internal.processors.cache.GridCache} with the same name. Also it is possible to define
+ * Each Hibernate cache region must be associated with some {@link IgniteInternalCache}, by default it is assumed that
+ * for each cache region there is a {@link IgniteInternalCache} with the same name. Also it is possible to define
  * region to cache mapping using properties with prefix {@code org.apache.ignite.hibernate.region_cache}.
  * For example if for region with name "region1" cache with name "cache1" should be used then following
  * Hibernate property should be specified:
@@ -79,7 +88,7 @@ public class HibernateRegionFactory implements RegionFactory {
     private Ignite ignite;
 
     /** Default cache. */
-    private GridCache<Object, Object> dfltCache;
+    private IgniteInternalCache<Object, Object> dfltCache;
 
     /** Default region access type. */
     private AccessType dfltAccessType;
@@ -92,16 +101,10 @@ public class HibernateRegionFactory implements RegionFactory {
 
     /** {@inheritDoc} */
     @Override public void start(Settings settings, Properties props) throws CacheException {
+        String gridCfg = props.getProperty(GRID_CONFIG_PROPERTY);
         String gridName = props.getProperty(GRID_NAME_PROPERTY);
 
-        if (gridName != null)
-            ignite = G.ignite(gridName);
-        else {
-            String gridCfg = props.getProperty(GRID_CONFIG_PROPERTY);
-
-            if (gridCfg == null)
-                throw new CacheException("Either grid name or path to grid configuration must be specified.");
-
+        if (gridCfg != null) {
             try {
                 ignite = G.start(gridCfg);
             }
@@ -109,9 +112,8 @@ public class HibernateRegionFactory implements RegionFactory {
                 throw new CacheException(e);
             }
         }
-
-        if (ignite == null)
-            throw new CacheException("Grid '" + gridName + "' for hibernate L2 cache is not started.");
+        else
+            ignite = Ignition.ignite(gridName);
 
         String accessType = props.getProperty(DFLT_ACCESS_TYPE_PROPERTY, NONSTRICT_READ_WRITE.name());
 
@@ -125,7 +127,7 @@ public class HibernateRegionFactory implements RegionFactory {
 
                 String cacheName = prop.getValue().toString();
 
-                if (((IgniteKernal)ignite).cache(cacheName) == null)
+                if (((IgniteKernal)ignite).getCache(cacheName) == null)
                     throw new CacheException("Cache '" + cacheName + "' specified for region '" + regionName + "' " +
                         "is not configured.");
 
@@ -136,7 +138,7 @@ public class HibernateRegionFactory implements RegionFactory {
         String dfltCacheName = props.getProperty(DFLT_CACHE_NAME_PROPERTY);
 
         if (dfltCacheName != null) {
-            dfltCache = ((IgniteKernal)ignite).cache(dfltCacheName);
+            dfltCache = ((IgniteKernal)ignite).getCache(dfltCacheName);
 
             if (dfltCache == null)
                 throw new CacheException("Cache specified as default is not configured: " + dfltCacheName);
@@ -211,7 +213,7 @@ public class HibernateRegionFactory implements RegionFactory {
      * @return Cache for given region.
      * @throws CacheException If cache for given region is not configured.
      */
-    private GridCache<Object, Object> regionCache(String regionName) throws CacheException {
+    private IgniteInternalCache<Object, Object> regionCache(String regionName) throws CacheException {
         String cacheName = regionCaches.get(regionName);
 
         if (cacheName == null) {
@@ -221,7 +223,7 @@ public class HibernateRegionFactory implements RegionFactory {
             cacheName = regionName;
         }
 
-        GridCache<Object, Object> cache = ((IgniteKernal)ignite).cache(cacheName);
+        IgniteInternalCache<Object, Object> cache = ((IgniteKernal)ignite).getCache(cacheName);
 
         if (cache == null)
             throw new CacheException("Cache '" + cacheName + "' for region '" + regionName + "' is not configured.");

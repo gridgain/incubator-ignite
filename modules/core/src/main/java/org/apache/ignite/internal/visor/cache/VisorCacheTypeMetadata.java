@@ -17,18 +17,30 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.apache.ignite.cache.CacheTypeFieldMetadata;
+import org.apache.ignite.cache.CacheTypeMetadata;
+import org.apache.ignite.cache.QueryEntity;
+import org.apache.ignite.cache.QueryIndex;
+import org.apache.ignite.cache.store.jdbc.CacheJdbcPojoStoreFactory;
+import org.apache.ignite.cache.store.jdbc.JdbcType;
+import org.apache.ignite.cache.store.jdbc.JdbcTypeField;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
 
-import java.io.*;
-import java.util.*;
+import javax.cache.configuration.Factory;
 
 /**
  * Data transfer object for {@link CacheTypeMetadata}.
  */
-public class VisorCacheTypeMetadata implements Serializable {
+public class VisorCacheTypeMetadata implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -73,19 +85,133 @@ public class VisorCacheTypeMetadata implements Serializable {
     private Map<String, LinkedHashMap<String, IgniteBiTuple<String, Boolean>>> grps;
 
     /**
+     * @param qryEntities Collection of query entities.
+     * @param factory Store factory to extract JDBC types info.
      * @param types Cache types metadata configurations.
      * @return Data transfer object for cache type metadata configurations.
      */
-    public static Collection<VisorCacheTypeMetadata> list(Collection<CacheTypeMetadata> types) {
-        if (types == null)
-            return Collections.emptyList();
+    public static Collection<VisorCacheTypeMetadata> list(Collection<QueryEntity> qryEntities, Factory factory,
+        Collection<CacheTypeMetadata> types) {
+        final Collection<VisorCacheTypeMetadata> metas = new ArrayList<>();
 
-        final Collection<VisorCacheTypeMetadata> cfgs = new ArrayList<>(types.size());
+        Map<String, VisorCacheTypeMetadata> metaMap =
+                U.newHashMap(qryEntities != null ? qryEntities.size() : 0);
 
-        for (CacheTypeMetadata type : types)
-            cfgs.add(from(type));
+        // Add query entries.
+        if (qryEntities != null)
+            for (QueryEntity qryEntity : qryEntities) {
+                VisorCacheTypeMetadata meta = from(qryEntity);
 
-        return cfgs;
+                metas.add(meta);
+
+                metaMap.put(meta.keyType, meta);
+            }
+
+        // Add JDBC types.
+        if (factory != null && factory instanceof CacheJdbcPojoStoreFactory) {
+             CacheJdbcPojoStoreFactory jdbcFactory = (CacheJdbcPojoStoreFactory) factory;
+
+            for (JdbcType jdbcType : jdbcFactory.getTypes()) {
+                VisorCacheTypeMetadata meta = metaMap.get(jdbcType.getKeyType());
+
+                boolean notFound = meta == null;
+
+                if (notFound) {
+                    meta = new VisorCacheTypeMetadata();
+
+                    meta.keyType = jdbcType.getKeyType();
+                    meta.valType = jdbcType.getValueType();
+
+                    meta.qryFlds = Collections.emptyMap();
+                    meta.ascFlds = Collections.emptyMap();
+                    meta.descFlds = Collections.emptyMap();
+                    meta.txtFlds = Collections.emptyList();
+                    meta.grps = Collections.emptyMap();
+                }
+
+                meta.dbSchema = jdbcType.getDatabaseSchema();
+                meta.dbTbl = jdbcType.getDatabaseTable();
+
+                JdbcTypeField[] keyFields = jdbcType.getKeyFields();
+
+                if (keyFields != null) {
+                    meta.keyFields = new ArrayList<>(keyFields.length);
+
+                    for (JdbcTypeField fld : keyFields)
+                        meta.keyFields.add(new VisorCacheTypeFieldMetadata(
+                            fld.getDatabaseFieldName(), fld.getDatabaseFieldType(),
+                            fld.getDatabaseFieldName(), U.compact(fld.getJavaFieldType().getName())));
+                }
+
+                JdbcTypeField[] valFields = jdbcType.getValueFields();
+
+                if (valFields != null) {
+                    meta.valFields = new ArrayList<>(valFields.length);
+
+                    for (JdbcTypeField fld : valFields)
+                        meta.valFields.add(new VisorCacheTypeFieldMetadata(
+                            fld.getDatabaseFieldName(), fld.getDatabaseFieldType(),
+                            fld.getDatabaseFieldName(), U.compact(fld.getJavaFieldType().getName())));
+                }
+
+                if (notFound)
+                    metas.add(meta);
+            }
+        }
+
+        // Add old deprecated CacheTypeMetadata for compatibility.
+        if (types != null)
+            for (CacheTypeMetadata type : types)
+                metas.add(from(type));
+
+        return metas;
+    }
+
+    /**
+     * @param q Actual cache query entities.
+     * @return Data transfer object for given cache type metadata.
+     */
+    public static VisorCacheTypeMetadata from(QueryEntity q) {
+        assert q != null;
+
+        VisorCacheTypeMetadata metadata = new VisorCacheTypeMetadata();
+
+        metadata.keyType = q.getKeyType();
+        metadata.valType = q.getValueType();
+
+        metadata.dbSchema = "";
+        metadata.dbTbl = "";
+
+        metadata.keyFields = Collections.emptyList();
+        metadata.valFields = Collections.emptyList();
+
+        LinkedHashMap<String, String> qryFields = q.getFields();
+
+        metadata.qryFlds = new LinkedHashMap<>(qryFields);
+
+        metadata.ascFlds = Collections.emptyMap();
+        metadata.descFlds = Collections.emptyMap();
+        metadata.txtFlds = Collections.emptyList();
+
+        Collection<QueryIndex> qryIdxs = q.getIndexes();
+
+        metadata.grps = new LinkedHashMap<>(qryIdxs.size());
+
+        for (QueryIndex qryIdx : qryIdxs) {
+            LinkedHashMap<String, Boolean> qryIdxFlds = qryIdx.getFields();
+
+            LinkedHashMap<String, IgniteBiTuple<String, Boolean>> grpFlds = new LinkedHashMap<>();
+
+            for (Map.Entry<String, Boolean> qryIdxFld : qryIdxFlds.entrySet()) {
+                String fldName = qryIdxFld.getKey();
+
+                grpFlds.put(fldName, new IgniteBiTuple<>(qryFields.get(fldName), !qryIdxFld.getValue()));
+            }
+
+            metadata.grps.put(qryIdx.getName(), grpFlds);
+        }
+
+        return metadata;
     }
 
     /**
@@ -97,30 +223,30 @@ public class VisorCacheTypeMetadata implements Serializable {
 
         VisorCacheTypeMetadata metadata = new VisorCacheTypeMetadata();
 
-        metadata.dbSchema(m.getDatabaseSchema());
-        metadata.dbTbl(m.getDatabaseTable());
-        metadata.keyType(m.getKeyType());
-        metadata.valType(m.getValueType());
+        metadata.dbSchema = m.getDatabaseSchema();
+        metadata.dbTbl = m.getDatabaseTable();
+        metadata.keyType = m.getKeyType();
+        metadata.valType = m.getValueType();
 
         ArrayList<VisorCacheTypeFieldMetadata> fields = new ArrayList<>(m.getKeyFields().size());
 
         for (CacheTypeFieldMetadata field : m.getKeyFields())
             fields.add(VisorCacheTypeFieldMetadata.from(field));
 
-        metadata.keyFields(fields);
+        metadata.keyFields = fields;
 
         fields = new ArrayList<>(m.getValueFields().size());
 
         for (CacheTypeFieldMetadata field : m.getValueFields())
             fields.add(VisorCacheTypeFieldMetadata.from(field));
 
-        metadata.valFields(fields);
+        metadata.valFields = fields;
 
-        metadata.qryFlds(convertFieldsMap(m.getQueryFields()));
-        metadata.ascFlds(convertFieldsMap(m.getAscendingFields()));
-        metadata.descFlds(convertFieldsMap(m.getDescendingFields()));
-        metadata.txtFlds(m.getTextFields());
-        metadata.grps(convertGrpsMap(m.getGroups()));
+        metadata.qryFlds = convertFieldsMap(m.getQueryFields());
+        metadata.ascFlds = convertFieldsMap(m.getAscendingFields());
+        metadata.descFlds = convertFieldsMap(m.getDescendingFields());
+        metadata.txtFlds = m.getTextFields();
+        metadata.grps = convertGrpsMap(m.getGroups());
 
         return metadata;
     }
@@ -167,24 +293,10 @@ public class VisorCacheTypeMetadata implements Serializable {
     }
 
     /**
-     * @param dbSchema New schema name in database.
-     */
-    public void dbSchema(String dbSchema) {
-        this.dbSchema = dbSchema;
-    }
-
-    /**
      * @return Schema name in database.
      */
     public String dbSchema() {
         return dbSchema;
-    }
-
-    /**
-     * @param dbTbl New table name in database.
-     */
-    public void dbTbl(String dbTbl) {
-        this.dbTbl = dbTbl;
     }
 
     /**
@@ -195,24 +307,10 @@ public class VisorCacheTypeMetadata implements Serializable {
     }
 
     /**
-     * @param keyType New key class used to store key in cache.
-     */
-    public void keyType(String keyType) {
-        this.keyType = keyType;
-    }
-
-    /**
      * @return Key class used to store key in cache.
      */
     public String keyType() {
         return keyType;
-    }
-
-    /**
-     * @param valType New value class used to store value in cache.
-     */
-    public void valType(String valType) {
-        this.valType = valType;
     }
 
     /**
@@ -223,24 +321,10 @@ public class VisorCacheTypeMetadata implements Serializable {
     }
 
     /**
-     * @param keyFields New key fields.
-     */
-    public void keyFields(Collection<VisorCacheTypeFieldMetadata> keyFields) {
-        this.keyFields = keyFields;
-    }
-
-    /**
      * @return Key fields.
      */
     public Collection<VisorCacheTypeFieldMetadata> keyFields() {
         return keyFields;
-    }
-
-    /**
-     * @param valFields New value fields.
-     */
-    public void valFields(Collection<VisorCacheTypeFieldMetadata> valFields) {
-        this.valFields = valFields;
     }
 
     /**
@@ -251,24 +335,10 @@ public class VisorCacheTypeMetadata implements Serializable {
     }
 
     /**
-     * @param qryFlds New fields to be queried, in addition to indexed fields.
-     */
-    public void qryFlds(Map<String, String> qryFlds) {
-        this.qryFlds = qryFlds;
-    }
-
-    /**
      * @return Fields to be queried, in addition to indexed fields.
      */
     public Map<String, String> qryFlds() {
         return qryFlds;
-    }
-
-    /**
-     * @param ascFlds New fields to index in ascending order.
-     */
-    public void ascFlds(Map<String, String> ascFlds) {
-        this.ascFlds = ascFlds;
     }
 
     /**
@@ -279,13 +349,6 @@ public class VisorCacheTypeMetadata implements Serializable {
     }
 
     /**
-     * @param descFlds New fields to index in descending order.
-     */
-    public void descFlds(Map<String, String> descFlds) {
-        this.descFlds = descFlds;
-    }
-
-    /**
      * @return Fields to index in descending order.
      */
     public Map<String, String> descFlds() {
@@ -293,24 +356,10 @@ public class VisorCacheTypeMetadata implements Serializable {
     }
 
     /**
-     * @param txtFlds New fields to index as text.
-     */
-    public void txtFlds(Collection<String> txtFlds) {
-        this.txtFlds = txtFlds;
-    }
-
-    /**
      * @return Fields to index as text.
      */
     public Collection<String> txtFlds() {
         return txtFlds;
-    }
-
-    /**
-     * @param grps New fields to create group indexes for.
-     */
-    public void grps(Map<String, LinkedHashMap<String, IgniteBiTuple<String, Boolean>>> grps) {
-        this.grps = grps;
     }
 
     /**

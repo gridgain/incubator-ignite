@@ -17,7 +17,11 @@
 
 package org.apache.ignite.resources;
 
-import java.lang.annotation.*;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * Annotates a field or a setter method for injection of {@link org.apache.ignite.IgniteLogger}. Grid logger is provided to grid
@@ -36,7 +40,7 @@ import java.lang.annotation.*;
  * public class MyGridJob implements ComputeJob {
  *      ...
  *      &#64;LoggerResource
- *      private GridLogger log;
+ *      private IgniteLogger log;
  *      ...
  *  }
  * </pre>

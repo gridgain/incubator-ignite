@@ -17,17 +17,29 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lifecycle.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteState;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.lifecycle.LifecycleBean;
+import org.apache.ignite.lifecycle.LifecycleEventType;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.lifecycle.LifecycleEventType.*;
+import static org.apache.ignite.lifecycle.LifecycleEventType.AFTER_NODE_START;
+import static org.apache.ignite.lifecycle.LifecycleEventType.AFTER_NODE_STOP;
+import static org.apache.ignite.lifecycle.LifecycleEventType.BEFORE_NODE_START;
+import static org.apache.ignite.lifecycle.LifecycleEventType.BEFORE_NODE_STOP;
 
 /**
  * Lifecycle bean test.
@@ -44,6 +56,41 @@ public class GridLifecycleBeanSelfTest extends GridCommonAbstractTest {
         c.setLifecycleBeans(bean);
 
         return c;
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testGetIgnite() throws Exception {
+        final AtomicBoolean done = new AtomicBoolean();
+
+        bean = new LifeCycleBaseBean() {
+            /** */
+            @IgniteInstanceResource
+            private Ignite ignite;
+
+            @Override public void onLifecycleEvent(LifecycleEventType evt) {
+                super.onLifecycleEvent(evt);
+
+                if (evt == LifecycleEventType.AFTER_NODE_START) {
+                    Ignite ignite0 = Ignition.ignite(ignite.name());
+
+                    assertNotNull(ignite0);
+                    assertNotNull(ignite0.cluster().localNode());
+
+                    done.set(true);
+                }
+            }
+        };
+
+        try {
+            startGrid();
+
+            assertTrue(done.get());
+        }
+        finally {
+            stopAllGrids();
+        }
     }
 
     /**

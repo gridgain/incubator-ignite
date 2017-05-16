@@ -17,24 +17,24 @@
 
 package org.apache.ignite.internal.visor.node;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.segmentation.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.plugin.segmentation.SegmentationPolicy;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactArray;
 
 /**
  * Data transfer object for node segmentation configuration properties.
  */
-public class VisorSegmentationConfiguration implements Serializable {
+public class VisorSegmentationConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
     /** Segmentation policy. */
-    private GridSegmentationPolicy plc;
+    private SegmentationPolicy plc;
 
     /** Segmentation resolvers. */
     private String resolvers;
@@ -67,7 +67,7 @@ public class VisorSegmentationConfiguration implements Serializable {
     /**
      * @return Segmentation policy.
      */
-    public GridSegmentationPolicy policy() {
+    public SegmentationPolicy policy() {
         return plc;
     }
 

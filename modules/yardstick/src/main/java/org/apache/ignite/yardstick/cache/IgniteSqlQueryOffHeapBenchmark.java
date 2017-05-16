@@ -17,8 +17,8 @@
 
 package org.apache.ignite.yardstick.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMemoryMode;
 
 /**
  * Ignite benchmark that performs query operations with {@link CacheMemoryMode#OFFHEAP_TIERED OFFHEAP TIERED}
@@ -27,6 +27,6 @@ import org.apache.ignite.cache.*;
 public class IgniteSqlQueryOffHeapBenchmark extends IgniteSqlQueryBenchmark {
     /** {@inheritDoc} */
     @Override protected IgniteCache<Integer, Object> cache() {
-        return ignite().jcache("query-offheap");
+        return ignite().cache("query-offheap");
     }
 }

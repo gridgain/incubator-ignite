@@ -17,17 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.discovery.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
-import java.util.concurrent.locks.*;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.P1;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Collection of near local locks acquired by a thread on one topology version.
@@ -38,22 +43,22 @@ public class GridCacheExplicitLockSpan extends ReentrantLock {
 
     /** Topology snapshot. */
     @GridToStringInclude
-    private final GridDiscoveryTopologySnapshot topSnapshot;
+    private final AffinityTopologyVersion topVer;
 
     /** Pending candidates. */
     @GridToStringInclude
-    private final Map<KeyCacheObject, Deque<GridCacheMvccCandidate>> cands = new HashMap<>();
+    private final Map<IgniteTxKey, Deque<GridCacheMvccCandidate>> cands = new HashMap<>();
 
     /** Span lock release future. */
-    @GridToStringInclude
+    @GridToStringExclude
     private final GridFutureAdapter<Object> releaseFut = new GridFutureAdapter<>();
 
     /**
-     * @param topSnapshot Topology snapshot.
+     * @param topVer Topology version.
      * @param cand Candidate.
      */
-    public GridCacheExplicitLockSpan(GridDiscoveryTopologySnapshot topSnapshot, GridCacheMvccCandidate cand) {
-        this.topSnapshot = topSnapshot;
+    public GridCacheExplicitLockSpan(AffinityTopologyVersion topVer, GridCacheMvccCandidate cand) {
+        this.topVer = topVer;
 
         ensureDeque(cand.key()).addFirst(cand);
     }
@@ -61,19 +66,19 @@ public class GridCacheExplicitLockSpan extends ReentrantLock {
     /**
      * Adds candidate to a lock span.
      *
-     * @param topSnapshot Topology snapshot for which candidate is added.
+     * @param topVer Topology snapshot for which candidate is added.
      * @param cand Candidate to add.
      * @return {@code True} if candidate was added, {@code false} if this span is empty and
      *      new span should be created.
      */
-    public boolean addCandidate(GridDiscoveryTopologySnapshot topSnapshot, GridCacheMvccCandidate cand) {
+    public boolean addCandidate(AffinityTopologyVersion topVer, GridCacheMvccCandidate cand) {
         lock();
 
         try {
             if (cands.isEmpty())
                 return false;
 
-            assert this.topSnapshot.topologyVersion() == topSnapshot.topologyVersion();
+            assert this.topVer.equals(topVer);
 
             Deque<GridCacheMvccCandidate> deque = ensureDeque(cand.key());
 
@@ -133,7 +138,7 @@ public class GridCacheExplicitLockSpan extends ReentrantLock {
      * @param ver Version (or {@code null} if any candidate should be removed.)
      * @return Removed candidate if matches given parameters.
      */
-    public GridCacheMvccCandidate removeCandidate(KeyCacheObject key, @Nullable GridCacheVersion ver) {
+    public GridCacheMvccCandidate removeCandidate(IgniteTxKey key, @Nullable GridCacheVersion ver) {
         lock();
 
         try {
@@ -183,7 +188,7 @@ public class GridCacheExplicitLockSpan extends ReentrantLock {
      *
      * @param key Key.
      */
-    public void markOwned(KeyCacheObject key) {
+    public void markOwned(IgniteTxKey key) {
         lock();
 
         try {
@@ -206,7 +211,7 @@ public class GridCacheExplicitLockSpan extends ReentrantLock {
      * @param ver Version to lookup (if {@code null} - return any).
      * @return Last added explicit lock candidate, if any, or {@code null}.
      */
-    @Nullable public GridCacheMvccCandidate candidate(KeyCacheObject key, @Nullable final GridCacheVersion ver) {
+    @Nullable public GridCacheMvccCandidate candidate(IgniteTxKey key, @Nullable final GridCacheVersion ver) {
         lock();
 
         try {
@@ -234,8 +239,8 @@ public class GridCacheExplicitLockSpan extends ReentrantLock {
      *
      * @return Topology snapshot or {@code null} if candidate list is empty.
      */
-    @Nullable public GridDiscoveryTopologySnapshot topologySnapshot() {
-        return releaseFut.isDone() ? null : topSnapshot;
+    @Nullable public AffinityTopologyVersion topologyVersion() {
+        return releaseFut.isDone() ? null : topVer;
     }
 
     /**
@@ -253,7 +258,7 @@ public class GridCacheExplicitLockSpan extends ReentrantLock {
      * @param key Key to look up.
      * @return Deque.
      */
-    private Deque<GridCacheMvccCandidate> ensureDeque(KeyCacheObject key) {
+    private Deque<GridCacheMvccCandidate> ensureDeque(IgniteTxKey key) {
         Deque<GridCacheMvccCandidate> deque = cands.get(key);
 
         if (deque == null) {

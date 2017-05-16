@@ -17,32 +17,53 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.cache.CacheRebalanceMode;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.CacheRebalancingEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionFullMap;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionMap2;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPreloader;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.P1;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.configuration.CacheConfiguration.*;
-import static org.apache.ignite.configuration.DeploymentMode.*;
-import static org.apache.ignite.events.EventType.*;
-import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.ASYNC;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.configuration.CacheConfiguration.DFLT_REBALANCE_BATCH_SIZE;
+import static org.apache.ignite.configuration.DeploymentMode.CONTINUOUS;
+import static org.apache.ignite.events.EventType.EVTS_CACHE_REBALANCE;
+import static org.apache.ignite.events.EventType.EVT_CACHE_REBALANCE_STOPPED;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.MOVING;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.OWNING;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.RENTING;
 
 /**
  * Test cases for partitioned cache {@link GridDhtPreloader preloader}.
@@ -113,7 +134,7 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
         cacheCfg.setRebalanceBatchSize(preloadBatchSize);
         cacheCfg.setWriteSynchronizationMode(FULL_SYNC);
         cacheCfg.setRebalanceMode(preloadMode);
-        cacheCfg.setAffinity(new CacheRendezvousAffinityFunction(false, partitions));
+        cacheCfg.setAffinity(new RendezvousAffinityFunction(false, partitions));
         cacheCfg.setBackups(backups);
 
         return cacheCfg;
@@ -139,14 +160,6 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected long getTestTimeout() {
         return TEST_TIMEOUT;
-    }
-
-    /**
-     * @param c Cache.
-     * @return {@code True} if synchronous preloading.
-     */
-    private boolean isSync(GridCache<?, ?> c) {
-        return c.configuration().getRebalanceMode() == SYNC;
     }
 
     /**
@@ -215,7 +228,7 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
         try {
             Ignite ignite1 = startGrid(0);
 
-            IgniteCache<Integer, String> cache1 = ignite1.jcache(null);
+            IgniteCache<Integer, String> cache1 = ignite1.cache(null);
 
             putKeys(cache1, keyCnt);
             checkKeys(cache1, keyCnt, F.asList(ignite1));
@@ -226,7 +239,7 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
 
             // Check all nodes.
             for (Ignite g : ignites) {
-                IgniteCache<Integer, String> c = g.jcache(null);
+                IgniteCache<Integer, String> c = g.cache(null);
 
                 checkKeys(c, keyCnt, ignites);
             }
@@ -275,7 +288,7 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
                         ClusterNode node = evt.discoveryNode();
 
                         return evt.type() == EVT_CACHE_REBALANCE_STOPPED && node.id().equals(nodeId) &&
-                            evt.discoveryEventType() == EVT_NODE_LEFT;
+                            (evt.discoveryEventType() == EVT_NODE_LEFT || evt.discoveryEventType() == EVT_NODE_FAILED);
                     }
                 }, EVT_CACHE_REBALANCE_STOPPED));
 
@@ -301,11 +314,11 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
 
             assert last != null;
 
-            IgniteCache<Integer, String> lastCache = last.jcache(null);
+            IgniteCache<Integer, String> lastCache = last.cache(null);
 
             GridDhtCacheAdapter<Integer, String> dht = dht(lastCache);
 
-            CacheAffinity<Integer> aff = affinity(lastCache);
+            Affinity<Integer> aff = affinity(lastCache);
 
             info("Finished waiting for all exchange futures...");
 
@@ -342,13 +355,13 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
     private void checkActiveState(Iterable<Ignite> grids) {
         // Check that nodes don't have non-active information about other nodes.
         for (Ignite g : grids) {
-            IgniteCache<Integer, String> c = g.jcache(null);
+            IgniteCache<Integer, String> c = g.cache(null);
 
             GridDhtCacheAdapter<Integer, String> dht = dht(c);
 
             GridDhtPartitionFullMap allParts = dht.topology().partitionMap(false);
 
-            for (GridDhtPartitionMap parts : allParts.values()) {
+            for (GridDhtPartitionMap2 parts : allParts.values()) {
                 if (!parts.nodeId().equals(g.cluster().localNode().id())) {
                     for (Map.Entry<Integer, GridDhtPartitionState> e : parts.entrySet()) {
                         int p = e.getKey();
@@ -485,7 +498,7 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
         try {
             Ignite ignite1 = startGrid(0);
 
-            IgniteCache<Integer, String> cache1 = ignite1.jcache(null);
+            IgniteCache<Integer, String> cache1 = ignite1.cache(null);
 
             putKeys(cache1, keyCnt);
             checkKeys(cache1, keyCnt, F.asList(ignite1));
@@ -496,7 +509,7 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
 
             // Check all nodes.
             for (Ignite g : ignites) {
-                IgniteCache<Integer, String> c = g.jcache(null);
+                IgniteCache<Integer, String> c = g.cache(null);
 
                 checkKeys(c, keyCnt, ignites);
             }
@@ -542,7 +555,8 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
                                 ClusterNode node = evt.discoveryNode();
 
                                 return evt.type() == EVT_CACHE_REBALANCE_STOPPED && node.id().equals(nodeId) &&
-                                    evt.discoveryEventType() == EVT_NODE_LEFT;
+                                    (evt.discoveryEventType() == EVT_NODE_LEFT ||
+                                    evt.discoveryEventType() == EVT_NODE_FAILED);
                             }
                         }, EVT_CACHE_REBALANCE_STOPPED));
 
@@ -559,7 +573,7 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
 
                 // Check all left nodes.
                 for (Ignite gg : ignites) {
-                    IgniteCache<Integer, String> c = gg.jcache(null);
+                    IgniteCache<Integer, String> c = gg.cache(null);
 
                     checkKeys(c, keyCnt, ignites);
                 }
@@ -567,11 +581,11 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
 
             assert last != null;
 
-            IgniteCache<Integer, String> lastCache = last.jcache(null);
+            IgniteCache<Integer, String> lastCache = last.cache(null);
 
             GridDhtCacheAdapter<Integer, String> dht = dht(lastCache);
 
-            CacheAffinity<Integer> aff = affinity(lastCache);
+            Affinity<Integer> aff = affinity(lastCache);
 
             for (int i = 0; i < keyCnt; i++) {
                 if (aff.mapPartitionToPrimaryAndBackups(aff.partition(i)).contains(last.cluster().localNode())) {
@@ -613,7 +627,7 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
      * @param grids Grids.
      */
     private void checkKeys(IgniteCache<Integer, String> cache, int cnt, Iterable<Ignite> grids) {
-        CacheAffinity<Integer> aff = affinity(cache);
+        Affinity<Integer> aff = affinity(cache);
 
         Ignite ignite = cache.unwrap(Ignite.class);
 
@@ -654,7 +668,7 @@ public class GridCacheDhtPreloadSelfTest extends GridCommonAbstractTest {
         Map<String, String> map = new HashMap<>();
 
         for (Ignite g : grids) {
-            IgniteCache<Integer, String> c = g.jcache(null);
+            IgniteCache<Integer, String> c = g.cache(null);
 
             GridDhtCacheAdapter<Integer, String> dht = dht(c);
 

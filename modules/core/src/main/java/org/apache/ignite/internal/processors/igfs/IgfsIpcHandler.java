@@ -17,21 +17,39 @@
 
 package org.apache.ignite.internal.processors.igfs;
 
-import org.apache.ignite.*;
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.igfs.common.*;
-import org.apache.ignite.internal.processors.closure.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.igfs.IgfsInputStream;
+import org.apache.ignite.igfs.IgfsIpcEndpointConfiguration;
+import org.apache.ignite.igfs.IgfsOutOfSpaceException;
+import org.apache.ignite.igfs.IgfsOutputStream;
+import org.apache.ignite.igfs.IgfsUserContext;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.igfs.common.IgfsControlResponse;
+import org.apache.ignite.internal.igfs.common.IgfsHandshakeRequest;
+import org.apache.ignite.internal.igfs.common.IgfsIpcCommand;
+import org.apache.ignite.internal.igfs.common.IgfsMessage;
+import org.apache.ignite.internal.igfs.common.IgfsPathControlRequest;
+import org.apache.ignite.internal.igfs.common.IgfsStreamControlRequest;
+import org.apache.ignite.internal.util.future.GridFinishedFuture;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteOutClosure;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.thread.IgniteThreadPoolExecutor;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
+import java.io.Closeable;
+import java.io.DataInput;
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * IGFS IPC handler.
@@ -51,10 +69,13 @@ class IgfsIpcHandler implements IgfsServerHandler {
     private final int bufSize; // Buffer size. Must not be less then file block size.
 
     /** IGFS instance for this handler. */
-    private IgfsEx igfs;
+    private final IgfsEx igfs;
 
     /** Resource ID generator. */
-    private AtomicLong rsrcIdGen = new AtomicLong();
+    private final AtomicLong rsrcIdGen = new AtomicLong();
+
+    /** Thread pool. */
+    private volatile IgniteThreadPoolExecutor pool;
 
     /** Stopping flag. */
     private volatile boolean stopping;
@@ -63,8 +84,10 @@ class IgfsIpcHandler implements IgfsServerHandler {
      * Constructs IGFS IPC handler.
      *
      * @param igfsCtx Context.
+     * @param endpointCfg Endpoint configuration.
+     * @param mgmt Management flag.
      */
-    IgfsIpcHandler(IgfsContext igfsCtx) {
+    IgfsIpcHandler(IgfsContext igfsCtx, IgfsIpcEndpointConfiguration endpointCfg, boolean mgmt) {
         assert igfsCtx != null;
 
         ctx = igfsCtx.kernalContext();
@@ -73,12 +96,24 @@ class IgfsIpcHandler implements IgfsServerHandler {
         // Keep buffer size multiple of block size so no extra byte array copies is performed.
         bufSize = igfsCtx.configuration().getBlockSize() * 2;
 
+        // Create thread pool for request handling.
+        int threadCnt = endpointCfg.getThreadCount();
+
+        String prefix = "igfs-" + igfsCtx.igfs().name() + (mgmt ? "mgmt-" : "") + "-ipc";
+
+        pool = new IgniteThreadPoolExecutor(prefix, igfsCtx.kernalContext().gridName(), threadCnt, threadCnt,
+            Long.MAX_VALUE, new LinkedBlockingQueue<Runnable>());
+
         log = ctx.log(IgfsIpcHandler.class);
     }
 
     /** {@inheritDoc} */
     @Override public void stop() throws IgniteCheckedException {
         stopping = true;
+
+        U.shutdownNow(getClass(), pool, log);
+
+        pool = null;
     }
 
     /** {@inheritDoc} */
@@ -100,7 +135,7 @@ class IgfsIpcHandler implements IgfsServerHandler {
 
     /** {@inheritDoc} */
     @Override public IgniteInternalFuture<IgfsMessage> handleAsync(final IgfsClientSession ses,
-        final IgfsMessage msg, DataInput in) {
+        final IgfsMessage msg, final DataInput in) {
         try {
             // Even if will be closed right after this call, response write error will be ignored.
             if (stopping)
@@ -116,21 +151,32 @@ class IgfsIpcHandler implements IgfsServerHandler {
                 case MAKE_DIRECTORIES:
                 case LIST_FILES:
                 case LIST_PATHS: {
-                    IgfsMessage res = execute(ses, cmd, msg, in);
-
-                    fut = res == null ? null : new GridFinishedFuture<>(res);
+                    fut = executeSynchronously(ses, cmd, msg, in);
 
                     break;
                 }
 
-                // Execute command asynchronously in user's pool.
+                // Execute command asynchronously in pool.
                 default: {
-                    fut = ctx.closure().callLocalSafe(new GridPlainCallable<IgfsMessage>() {
-                        @Override public IgfsMessage call() throws Exception {
-                            // No need to pass data input for non-write-block commands.
-                            return execute(ses, cmd, msg, null);
-                        }
-                    }, GridClosurePolicy.IGFS_POOL);
+                    try {
+                        final GridFutureAdapter<IgfsMessage> fut0 = new GridFutureAdapter<>();
+
+                        pool.execute(new Runnable() {
+                            @Override public void run()  {
+                                try {
+                                    fut0.onDone(execute(ses, cmd, msg, in));
+                                }
+                                catch (Exception e) {
+                                    fut0.onDone(e);
+                                }
+                            }
+                        });
+
+                        fut = fut0;
+                    }
+                    catch (RejectedExecutionException ignored) {
+                        fut = executeSynchronously(ses, cmd, msg, in);
+                    }
                 }
             }
 
@@ -140,6 +186,23 @@ class IgfsIpcHandler implements IgfsServerHandler {
         catch (Exception e) {
             return new GridFinishedFuture<>(e);
         }
+    }
+
+    /**
+     * Execute operation synchronously.
+     *
+     * @param ses Session.
+     * @param cmd Command.
+     * @param msg Message.
+     * @param in Input.
+     * @return Result.
+     * @throws Exception If failed.
+     */
+    @Nullable private IgniteInternalFuture<IgfsMessage> executeSynchronously(IgfsClientSession ses,
+        IgfsIpcCommand cmd, IgfsMessage msg, DataInput in) throws Exception {
+        IgfsMessage res = execute(ses, cmd, msg, in);
+
+        return res == null ? null : new GridFinishedFuture<>(res);
     }
 
     /**
@@ -153,8 +216,7 @@ class IgfsIpcHandler implements IgfsServerHandler {
      * @throws Exception If failed.
      */
     private IgfsMessage execute(IgfsClientSession ses, IgfsIpcCommand cmd, IgfsMessage msg,
-        @Nullable DataInput in)
-        throws Exception {
+        @Nullable DataInput in) throws Exception {
         switch (cmd) {
             case HANDSHAKE:
                 return processHandshakeRequest((IgfsHandshakeRequest)msg);
@@ -196,13 +258,13 @@ class IgfsIpcHandler implements IgfsServerHandler {
      * @throws IgniteCheckedException In case of handshake failure.
      */
     private IgfsMessage processHandshakeRequest(IgfsHandshakeRequest req) throws IgniteCheckedException {
-        if (!F.eq(ctx.gridName(), req.gridName()))
-            throw new IgniteCheckedException("Failed to perform handshake because actual Grid name differs from expected " +
-                "[expected=" + req.gridName() + ", actual=" + ctx.gridName() + ']');
+        if (req.gridName() != null && !F.eq(ctx.gridName(), req.gridName()))
+            throw new IgniteCheckedException("Failed to perform handshake because existing Grid name " +
+                "differs from requested [requested=" + req.gridName() + ", existing=" + ctx.gridName() + ']');
 
-        if (!F.eq(igfs.name(), req.igfsName()))
-            throw new IgniteCheckedException("Failed to perform handshake because actual IGFS name differs from expected " +
-                "[expected=" + req.igfsName() + ", actual=" + igfs.name() + ']');
+        if (req.igfsName() != null && !F.eq(igfs.name(), req.igfsName()))
+            throw new IgniteCheckedException("Failed to perform handshake because existing IGFS name " +
+                "differs from requested [requested=" + req.igfsName() + ", existing=" + igfs.name() + ']');
 
         IgfsControlResponse res = new IgfsControlResponse();
 
@@ -241,138 +303,145 @@ class IgfsIpcHandler implements IgfsServerHandler {
      * @return Response message.
      * @throws IgniteCheckedException If failed.
      */
-    private IgfsMessage processPathControlRequest(IgfsClientSession ses, IgfsIpcCommand cmd,
+    private IgfsMessage processPathControlRequest(final IgfsClientSession ses, final IgfsIpcCommand cmd,
         IgfsMessage msg) throws IgniteCheckedException {
-        IgfsPathControlRequest req = (IgfsPathControlRequest)msg;
+        final IgfsPathControlRequest req = (IgfsPathControlRequest)msg;
 
         if (log.isDebugEnabled())
             log.debug("Processing path control request [igfsName=" + igfs.name() + ", req=" + req + ']');
 
-        IgfsControlResponse res = new IgfsControlResponse();
+        final IgfsControlResponse res = new IgfsControlResponse();
+
+        final String userName = req.userName();
+
+        assert userName != null;
 
         try {
-            switch (cmd) {
-                case EXISTS:
-                    res.response(igfs.exists(req.path()));
+            IgfsUserContext.doAs(userName, new IgniteOutClosure<Object>() {
+                @Override public Void apply() {
+                    switch (cmd) {
+                        case EXISTS:
+                            res.response(igfs.exists(req.path()));
 
-                    break;
+                            break;
 
-                case INFO:
-                    res.response(igfs.info(req.path()));
+                        case INFO:
+                            res.response(igfs.info(req.path()));
 
-                    break;
+                            break;
 
-                case PATH_SUMMARY:
-                    res.response(igfs.summary(req.path()));
+                        case PATH_SUMMARY:
+                            res.response(igfs.summary(req.path()));
 
-                    break;
+                            break;
 
-                case UPDATE:
-                    res.response(igfs.update(req.path(), req.properties()));
+                        case UPDATE:
+                            res.response(igfs.update(req.path(), req.properties()));
 
-                    break;
+                            break;
 
-                case RENAME:
-                    igfs.rename(req.path(), req.destinationPath());
+                        case RENAME:
+                            igfs.rename(req.path(), req.destinationPath());
 
-                    res.response(true);
+                            res.response(true);
 
-                    break;
+                            break;
 
-                case DELETE:
-                    res.response(igfs.delete(req.path(), req.flag()));
+                        case DELETE:
+                            res.response(igfs.delete(req.path(), req.flag()));
 
-                    break;
+                            break;
 
-                case MAKE_DIRECTORIES:
-                    igfs.mkdirs(req.path(), req.properties());
+                        case MAKE_DIRECTORIES:
+                            igfs.mkdirs(req.path(), req.properties());
 
-                    res.response(true);
+                            res.response(true);
 
-                    break;
+                            break;
 
-                case LIST_PATHS:
-                    res.paths(igfs.listPaths(req.path()));
+                        case LIST_PATHS:
+                            res.paths(igfs.listPaths(req.path()));
 
-                    break;
+                            break;
 
-                case LIST_FILES:
-                    res.files(igfs.listFiles(req.path()));
+                        case LIST_FILES:
+                            res.files(igfs.listFiles(req.path()));
 
-                    break;
+                            break;
 
-                case SET_TIMES:
-                    igfs.setTimes(req.path(), req.accessTime(), req.modificationTime());
+                        case SET_TIMES:
+                            igfs.setTimes(req.path(), req.accessTime(), req.modificationTime());
 
-                    res.response(true);
+                            res.response(true);
 
-                    break;
+                            break;
 
-                case AFFINITY:
-                    res.locations(igfs.affinity(req.path(), req.start(), req.length()));
+                        case AFFINITY:
+                            res.locations(igfs.affinity(req.path(), req.start(), req.length()));
 
-                    break;
+                            break;
 
-                case OPEN_READ: {
-                    IgfsInputStreamAdapter igfsIn = !req.flag() ? igfs.open(req.path(), bufSize) :
-                        igfs.open(req.path(), bufSize, req.sequentialReadsBeforePrefetch());
+                        case OPEN_READ: {
+                            IgfsInputStream igfsIn = !req.flag() ? igfs.open(req.path(), bufSize) :
+                                igfs.open(req.path(), bufSize, req.sequentialReadsBeforePrefetch());
 
-                    long streamId = registerResource(ses, igfsIn);
+                            long streamId = registerResource(ses, igfsIn);
 
-                    if (log.isDebugEnabled())
-                        log.debug("Opened IGFS input stream for file read [igfsName=" + igfs.name() + ", path=" +
-                            req.path() + ", streamId=" + streamId + ", ses=" + ses + ']');
+                            if (log.isDebugEnabled())
+                                log.debug("Opened IGFS input stream for file read [igfsName=" + igfs.name() + ", path=" +
+                                    req.path() + ", streamId=" + streamId + ", ses=" + ses + ']');
 
-                    IgfsFileInfo info = new IgfsFileInfo(igfsIn.fileInfo(), null,
-                        igfsIn.fileInfo().modificationTime());
+                            res.response(new IgfsInputStreamDescriptor(streamId, igfsIn.length()));
 
-                    res.response(new IgfsInputStreamDescriptor(streamId, info.length()));
+                            break;
+                        }
 
-                    break;
+                        case OPEN_CREATE: {
+                            long streamId = registerResource(ses, igfs.create(
+                                req.path(),       // Path.
+                                bufSize,          // Buffer size.
+                                req.flag(),       // Overwrite if exists.
+                                affinityKey(req), // Affinity key based on replication factor.
+                                req.replication(),// Replication factor.
+                                req.blockSize(),  // Block size.
+                                req.properties()  // File properties.
+                            ));
+
+                            if (log.isDebugEnabled())
+                                log.debug("Opened IGFS output stream for file create [igfsName=" + igfs.name() + ", path=" +
+                                    req.path() + ", streamId=" + streamId + ", ses=" + ses + ']');
+
+                            res.response(streamId);
+
+                            break;
+                        }
+
+                        case OPEN_APPEND: {
+                            long streamId = registerResource(ses, igfs.append(
+                                req.path(),        // Path.
+                                bufSize,           // Buffer size.
+                                req.flag(),        // Create if absent.
+                                req.properties()   // File properties.
+                            ));
+
+                            if (log.isDebugEnabled())
+                                log.debug("Opened IGFS output stream for file append [igfsName=" + igfs.name() + ", path=" +
+                                    req.path() + ", streamId=" + streamId + ", ses=" + ses + ']');
+
+                            res.response(streamId);
+
+                            break;
+                        }
+
+                        default:
+                            assert false : "Unhandled path control request command: " + cmd;
+
+                            break;
+                    }
+
+                    return null;
                 }
-
-                case OPEN_CREATE: {
-                    long streamId = registerResource(ses, igfs.create(
-                        req.path(),       // Path.
-                        bufSize,          // Buffer size.
-                        req.flag(),       // Overwrite if exists.
-                        affinityKey(req), // Affinity key based on replication factor.
-                        req.replication(),// Replication factor.
-                        req.blockSize(),  // Block size.
-                        req.properties()  // File properties.
-                    ));
-
-                    if (log.isDebugEnabled())
-                        log.debug("Opened IGFS output stream for file create [igfsName=" + igfs.name() + ", path=" +
-                            req.path() + ", streamId=" + streamId + ", ses=" + ses + ']');
-
-                    res.response(streamId);
-
-                    break;
-                }
-
-                case OPEN_APPEND: {
-                    long streamId = registerResource(ses, igfs.append(
-                        req.path(),        // Path.
-                        bufSize,           // Buffer size.
-                        req.flag(),        // Create if absent.
-                        req.properties()   // File properties.
-                    ));
-
-                    if (log.isDebugEnabled())
-                        log.debug("Opened IGFS output stream for file append [igfsName=" + igfs.name() + ", path=" +
-                            req.path() + ", streamId=" + streamId + ", ses=" + ses + ']');
-
-                    res.response(streamId);
-
-                    break;
-                }
-
-                default:
-                    assert false : "Unhandled path control request command: " + cmd;
-
-                    break;
-            }
+            });
         }
         catch (IgniteException e) {
             throw new IgniteCheckedException(e);
@@ -446,7 +515,7 @@ class IgfsIpcHandler implements IgfsServerHandler {
                 long pos = req.position();
                 int size = req.length();
 
-                IgfsInputStreamAdapter igfsIn = (IgfsInputStreamAdapter)resource(ses, rsrcId);
+                IgfsInputStreamImpl igfsIn = (IgfsInputStreamImpl)resource(ses, rsrcId);
 
                 if (igfsIn == null)
                     throw new IgniteCheckedException("Input stream not found (already closed?): " + rsrcId);
@@ -474,8 +543,6 @@ class IgfsIpcHandler implements IgfsServerHandler {
             }
 
             case WRITE_BLOCK: {
-                assert rsrcId != null : "Missing stream ID";
-
                 IgfsOutputStream out = (IgfsOutputStream)resource(ses, rsrcId);
 
                 if (out == null)

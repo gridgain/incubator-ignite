@@ -17,19 +17,30 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.Collections;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectCollection;
+import org.apache.ignite.internal.GridDirectTransient;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheDeployable;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryInfo;
+import org.apache.ignite.internal.processors.cache.GridCacheMessage;
+import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersionable;
+import org.apache.ignite.internal.util.GridLeanSet;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Get response.
@@ -59,11 +70,11 @@ public class GridNearGetResponse extends GridCacheMessage implements GridCacheDe
     private Collection<Integer> invalidParts = new GridLeanSet<>();
 
     /** Topology version if invalid partitions is not empty. */
-    private long topVer;
+    private AffinityTopologyVersion topVer;
 
     /** Error. */
     @GridDirectTransient
-    private Throwable err;
+    private IgniteCheckedException err;
 
     /** Serialized error. */
     private byte[] errBytes;
@@ -80,21 +91,22 @@ public class GridNearGetResponse extends GridCacheMessage implements GridCacheDe
      * @param futId Future ID.
      * @param miniId Sub ID.
      * @param ver Version.
+     * @param addDepInfo Deployment info.
      */
     public GridNearGetResponse(
         int cacheId,
         IgniteUuid futId,
         IgniteUuid miniId,
-        GridCacheVersion ver
+        GridCacheVersion ver,
+        boolean addDepInfo
     ) {
         assert futId != null;
-        assert miniId != null;
-        assert ver != null;
 
         this.cacheId = cacheId;
         this.futId = futId;
         this.miniId = miniId;
         this.ver = ver;
+        this.addDepInfo = addDepInfo;
     }
 
     /**
@@ -141,7 +153,7 @@ public class GridNearGetResponse extends GridCacheMessage implements GridCacheDe
      * @param invalidParts Partitions to retry due to ownership shift.
      * @param topVer Topology version.
      */
-    public void invalidPartitions(Collection<Integer> invalidParts, long topVer) {
+    public void invalidPartitions(Collection<Integer> invalidParts, @NotNull AffinityTopologyVersion topVer) {
         this.invalidParts = invalidParts;
         this.topVer = topVer;
     }
@@ -149,21 +161,19 @@ public class GridNearGetResponse extends GridCacheMessage implements GridCacheDe
     /**
      * @return Topology version if this response has invalid partitions.
      */
-    @Override public long topologyVersion() {
-        return topVer;
+    @Override public AffinityTopologyVersion topologyVersion() {
+        return topVer != null ? topVer : super.topologyVersion();
     }
 
-    /**
-     * @return Error.
-     */
-    public Throwable error() {
+    /** {@inheritDoc} */
+    @Override public IgniteCheckedException error() {
         return err;
     }
 
     /**
      * @param err Error.
      */
-    public void error(Throwable err) {
+    public void error(IgniteCheckedException err) {
         this.err = err;
     }
 
@@ -179,7 +189,7 @@ public class GridNearGetResponse extends GridCacheMessage implements GridCacheDe
                 info.marshal(cctx);
         }
 
-        if (err != null)
+        if (err != null && errBytes == null)
             errBytes = ctx.marshaller().marshal(err);
     }
 
@@ -194,8 +204,13 @@ public class GridNearGetResponse extends GridCacheMessage implements GridCacheDe
                 info.unmarshal(cctx, ldr);
         }
 
-        if (errBytes != null)
-            err = ctx.marshaller().unmarshal(errBytes, ldr);
+        if (errBytes != null && err == null)
+            err = ctx.marshaller().unmarshal(errBytes, U.resolveClassLoader(ldr, ctx.gridConfig()));
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean addDeploymentInfo() {
+        return addDepInfo;
     }
 
     /** {@inheritDoc} */
@@ -244,7 +259,7 @@ public class GridNearGetResponse extends GridCacheMessage implements GridCacheDe
                 writer.incrementState();
 
             case 8:
-                if (!writer.writeLong("topVer", topVer))
+                if (!writer.writeMessage("topVer", topVer))
                     return false;
 
                 writer.incrementState();
@@ -312,7 +327,7 @@ public class GridNearGetResponse extends GridCacheMessage implements GridCacheDe
                 reader.incrementState();
 
             case 8:
-                topVer = reader.readLong("topVer");
+                topVer = reader.readMessage("topVer");
 
                 if (!reader.isLastRead())
                     return false;
@@ -329,7 +344,7 @@ public class GridNearGetResponse extends GridCacheMessage implements GridCacheDe
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridNearGetResponse.class);
     }
 
     /** {@inheritDoc} */

@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.processors.cache.*;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.internal.processors.cache.GridCacheEvictionEventAbstractTest;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 
 /**
  * Tests local cache eviction event.
@@ -34,11 +35,6 @@ public class GridCacheNearEvictionEventSelfTest extends GridCacheEvictionEventAb
     /** {@inheritDoc} */
     @Override protected CacheAtomicityMode atomicityMode() {
         return TRANSACTIONAL;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected boolean isNearEvictSynchronized() {
-        return false;
     }
 
     /** {@inheritDoc} */

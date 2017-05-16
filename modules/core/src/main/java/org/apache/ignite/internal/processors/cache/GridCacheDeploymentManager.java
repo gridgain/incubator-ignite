@@ -17,38 +17,54 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.managers.deployment.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.processors.cache.distributed.near.*;
-import org.apache.ignite.internal.processors.cache.query.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.binary.BinaryInvalidTypeException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.DeploymentMode;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.managers.deployment.GridDeployment;
+import org.apache.ignite.internal.managers.deployment.GridDeploymentInfo;
+import org.apache.ignite.internal.managers.deployment.GridDeploymentInfoBean;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheAdapter;
+import org.apache.ignite.internal.processors.cache.query.GridCacheQueryManager;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.lang.GridPeerDeployAware;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.CA;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteUuid;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
+import org.jsr166.ConcurrentLinkedHashMap;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-import java.util.concurrent.locks.*;
-
-import static org.apache.ignite.configuration.DeploymentMode.*;
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.configuration.DeploymentMode.CONTINUOUS;
+import static org.apache.ignite.configuration.DeploymentMode.ISOLATED;
+import static org.apache.ignite.configuration.DeploymentMode.PRIVATE;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
 
 /**
  * Deployment manager for cache.
  */
 public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdapter<K, V> {
-    /** Node filter. */
-    private IgnitePredicate<ClusterNode> nodeFilter;
-
     /** Cache class loader */
     private volatile ClassLoader globalLdr;
 
@@ -83,12 +99,6 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
     /** {@inheritDoc} */
     @Override public void start0() throws IgniteCheckedException {
         globalLdr = new CacheClassLoader(cctx.gridConfig().getClassLoader());
-
-        nodeFilter = new P1<ClusterNode>() {
-            @Override public boolean apply(ClusterNode node) {
-                return U.hasCaches(node);
-            }
-        };
 
         depEnabled = cctx.gridDeploy().enabled();
 
@@ -141,7 +151,7 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
 
     /**
      * Gets distributed class loader. Note that
-     * {@link #p2pContext(UUID, org.apache.ignite.lang.IgniteUuid, String, org.apache.ignite.configuration.DeploymentMode, Map, boolean)} must be
+     * {@link #p2pContext(UUID, IgniteUuid, String, DeploymentMode, Map, boolean)} must be
      * called from the same thread prior to using this class loader, or the
      * loading may happen for the wrong node or context.
      *
@@ -155,7 +165,7 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
      * Callback on method enter.
      */
     public void onEnter() {
-        if (!locDepOwner && depEnabled && !ignoreOwnership.get()
+        if (depEnabled && !locDepOwner && !ignoreOwnership.get()
             && !cctx.kernalContext().job().internal()) {
             ClassLoader ldr = Thread.currentThread().getContextClassLoader();
 
@@ -170,8 +180,12 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
     /**
      * @param ignore {@code True} to ignore.
      */
-    public void ignoreOwnership(boolean ignore) {
+    public boolean ignoreOwnership(boolean ignore) {
+        boolean old = ignoreOwnership.get();
+
         ignoreOwnership.set(ignore);
+
+        return old;
     }
 
     /**
@@ -180,8 +194,6 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
      * @param ctx Cache context.
      */
     public void unwind(GridCacheContext ctx) {
-        int cnt = 0;
-
         List<CA> q;
 
         synchronized (undeploys) {
@@ -190,6 +202,8 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
 
         if (q == null)
             return;
+
+        int cnt = 0;
 
         for (CA c : q) {
             c.apply();
@@ -220,8 +234,7 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
                 undeploys.put(ctx.name(), queue = new ArrayList<>());
 
             queue.add(new CA() {
-                @Override
-                public void apply() {
+                @Override public void apply() {
                     onUndeploy0(ldr, ctx);
                 }
             });
@@ -265,17 +278,17 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
             cacheCtx.near().dht().context().swap().onUndeploy(ldr) :
             cacheCtx.swap().onUndeploy(ldr);
 
-        if (!cacheCtx.system()) {
+        if (cacheCtx.userCache() && (!keys.isEmpty() || swapUndeployCnt != 0)) {
             U.quietAndWarn(log, "");
             U.quietAndWarn(
                 log,
-                "Cleared all cache entries for undeployed class loader [[cacheName=" + cacheCtx.namexx() +
+                "Cleared all cache entries for undeployed class loader [cacheName=" + cacheCtx.namexx() +
                     ", undeployCnt=" + keys.size() + ", swapUndeployCnt=" + swapUndeployCnt +
-                    ", clsLdr=" + ldr.getClass().getName() + ']',
-                "Cleared all cache entries for undeployed class loader for cache: " + cacheCtx.namexx());
+                    ", clsLdr=" + ldr.getClass().getName() + ']');
             U.quietAndWarn(
                 log,
-                "  ^-- Cache auto-undeployment happens in SHARED deployment mode (to turn off, switch to CONTINUOUS mode)");
+                "  ^-- Cache auto-undeployment happens in SHARED deployment mode " +
+                    "(to turn off, switch to CONTINUOUS mode)");
             U.quietAndWarn(log, "");
         }
 
@@ -291,7 +304,7 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
     private void addEntries(ClassLoader ldr, Collection<KeyCacheObject> keys, GridCacheAdapter cache) {
         GridCacheContext cacheCtx = cache.context();
 
-        for (GridCacheEntryEx e : (Collection<GridCacheEntryEx>)cache.entries()) {
+        for (GridCacheEntryEx e : (Iterable<GridCacheEntryEx>)cache.entries()) {
             boolean undeploy = cacheCtx.isNear() ?
                 undeploy(ldr, e, cacheCtx.near()) || undeploy(ldr, e, cacheCtx.near().dht()) :
                 undeploy(ldr, e, cacheCtx.cache());
@@ -319,7 +332,7 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
         Object val0;
 
         try {
-            CacheObject v = entry.peek(GridCachePeekMode.GLOBAL, CU.empty0());
+            CacheObject v = entry.peek(true, false, false, null);
 
             key0 = key.value(cache.context().cacheObjectContext(), false);
 
@@ -330,7 +343,12 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
         catch (GridCacheEntryRemovedException ignore) {
             return false;
         }
-        catch (IgniteException ignore) {
+        catch (BinaryInvalidTypeException ignore) {
+            log.error("An attempt to undeploy cache with binary objects.", ignore);
+
+            return false;
+        }
+        catch (IgniteCheckedException | IgniteException ignore) {
             // Peek can throw runtime exception if unmarshalling failed.
             return true;
         }
@@ -381,7 +399,7 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
                     ", daemon=" + daemon + ']');
 
             if (!daemon) {
-                LT.warn(log, null, "Ignoring deployment in PRIVATE or ISOLATED mode " +
+                LT.warn(log, "Ignoring deployment in PRIVATE or ISOLATED mode " +
                     "[sndId=" + sndId + ", ldrId=" + ldrId + ", userVer=" + userVer + ", mode=" + mode +
                     ", participants=" + participants + ", daemon=" + daemon + ']');
             }
@@ -390,7 +408,7 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
         }
 
         if (mode != cctx.gridConfig().getDeploymentMode()) {
-            LT.warn(log, null, "Local and remote deployment mode mismatch (please fix configuration and restart) " +
+            LT.warn(log, "Local and remote deployment mode mismatch (please fix configuration and restart) " +
                 "[locDepMode=" + cctx.gridConfig().getDeploymentMode() + ", rmtDepMode=" + mode + ", rmtNodeId=" +
                 sndId + ']');
 
@@ -827,7 +845,7 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
                     sndId,
                     ldrId,
                     participants,
-                    nodeFilter);
+                    F.<ClusterNode>alwaysTrue());
 
                 if (d != null) {
                     Class cls = d.deployedClass(name);
@@ -836,6 +854,11 @@ public class GridCacheDeploymentManager<K, V> extends GridCacheSharedManagerAdap
                         return cls;
                 }
             }
+
+            Class cls = getParent().loadClass(name);
+
+            if (cls != null)
+                return cls;
 
             throw new ClassNotFoundException("Failed to load class [name=" + name+ ", ctx=" + deps + ']');
         }

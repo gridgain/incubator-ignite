@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.visor.event;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-
-import java.util.*;
-
-import static org.apache.ignite.events.EventType.*;
+import java.util.UUID;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * Special event for events lost situations.
@@ -37,9 +34,8 @@ public class VisorGridEventsLost extends VisorGridEvent {
      * @param nid Node where events were lost.
      */
     public VisorGridEventsLost(UUID nid) {
-        super(EVT_VISOR_EVENTS_LOST, IgniteUuid.randomUuid(), "EVT_VISOR_EVENTS_LOST", nid, U.currentTimeMillis(),
+        super(0, IgniteUuid.randomUuid(), "EVT_VISOR_EVENTS_LOST", nid, U.currentTimeMillis(),
             "Some Visor events were lost and Visor may show inconsistent results. " +
-                "Configure your grid to disable not important events.",
-            "");
+            "Configure your grid to disable not important events.", "");
     }
 }

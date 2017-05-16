@@ -17,26 +17,33 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jetbrains.annotations.*;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import javax.cache.Cache;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestThread;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jetbrains.annotations.Nullable;
 
-import javax.cache.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.locks.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_ASYNC;
 
 /**
  * Test cases for multi-threaded tests.
@@ -90,7 +97,6 @@ public abstract class GridCacheLockAbstractTest extends GridCommonAbstractTest {
         cacheCfg.setWriteSynchronizationMode(FULL_ASYNC);
         cacheCfg.setRebalanceMode(SYNC);
         cacheCfg.setAtomicityMode(TRANSACTIONAL);
-        cacheCfg.setDistributionMode(NEAR_PARTITIONED);
 
         return cacheCfg;
     }
@@ -105,8 +111,8 @@ public abstract class GridCacheLockAbstractTest extends GridCommonAbstractTest {
         ignite1 = startGrid(1);
         ignite2 = startGrid(2);
 
-        cache1 = ignite1.jcache(null);
-        cache2 = ignite2.jcache(null);
+        cache1 = ignite1.cache(null);
+        cache2 = ignite2.cache(null);
     }
 
     /** {@inheritDoc} */
@@ -495,5 +501,76 @@ public abstract class GridCacheLockAbstractTest extends GridCommonAbstractTest {
 
         fut1.get();
         fut2.get();
+    }
+
+    /**
+     * @throws Throwable If failed.
+     */
+    public void testLockReentrancy() throws Throwable {
+        Affinity<Integer> aff = ignite1.affinity(null);
+
+        for (int i = 10; i < 100; i++) {
+            log.info("Test lock [key=" + i +
+                ", primary=" + aff.isPrimary(ignite1.cluster().localNode(), i) +
+                ", backup=" + aff.isBackup(ignite1.cluster().localNode(), i) + ']');
+
+            final int i0 = i;
+
+            final Lock lock = cache1.lock(i);
+
+            lock.lockInterruptibly();
+
+            try {
+                final AtomicReference<Throwable> err = new AtomicReference<>();
+
+                Thread t =  new Thread(new Runnable() {
+                    @Override public void run() {
+                        try {
+                            assert !lock.tryLock();
+                            assert !lock.tryLock(100, TimeUnit.MILLISECONDS);
+
+                            assert !cache1.lock(i0).tryLock();
+                            assert !cache1.lock(i0).tryLock(100, TimeUnit.MILLISECONDS);
+                        }
+                        catch (Throwable e) {
+                            err.set(e);
+                        }
+                    }
+                });
+
+                t.start();
+                t.join();
+
+                if (err.get() != null)
+                    throw err.get();
+
+                lock.lock();
+                lock.unlock();
+
+                t =  new Thread(new Runnable() {
+                    @Override public void run() {
+                        try {
+                            assert !lock.tryLock();
+                            assert !lock.tryLock(100, TimeUnit.MILLISECONDS);
+
+                            assert !cache1.lock(i0).tryLock();
+                            assert !cache1.lock(i0).tryLock(100, TimeUnit.MILLISECONDS);
+                        }
+                        catch (Throwable e) {
+                            err.set(e);
+                        }
+                    }
+                });
+
+                t.start();
+                t.join();
+
+                if (err.get() != null)
+                    throw err.get();
+            }
+            finally {
+                lock.unlock();
+            }
+        }
     }
 }

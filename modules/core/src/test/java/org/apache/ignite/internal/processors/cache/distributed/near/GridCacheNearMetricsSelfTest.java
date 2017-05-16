@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.processors.cache.GridCacheAbstractSelfTest;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Cache metrics test.
@@ -66,11 +68,11 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         for (int i = 0; i < gridCount(); i++) {
             Ignite g = grid(i);
 
-            g.jcache(null).removeAll();
+            g.cache(null).removeAll();
 
-            assert internalCache(i).isEmpty();
+            assert g.cache(null).localSize() == 0;
 
-            g.jcache(null).mxBean().clear();
+            g.cache(null).localMxBean().clear();
         }
     }
 
@@ -81,7 +83,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         for (int i = 0; i < gridCount(); i++) {
             Ignite g = grid(i);
 
-            g.jcache(null).getConfiguration(CacheConfiguration.class).setStatisticsEnabled(true);
+            g.cache(null).getConfiguration(CacheConfiguration.class).setStatisticsEnabled(true);
         }
     }
 
@@ -101,7 +103,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
     public void testPrimaryPut() throws Exception {
         Ignite g0 = grid(0);
 
-        IgniteCache<Integer, Integer> cache0 = g0.jcache(null);
+        IgniteCache<Integer, Integer> cache0 = g0.cache(null);
 
         int key;
 
@@ -114,8 +116,8 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
 
                 key = i;
 
-                info("Puts: " + cache0.metrics().getCachePuts());
-                info("Reads: " + cache0.metrics().getCacheGets());
+                info("Puts: " + cache0.localMetrics().getCachePuts());
+                info("Reads: " + cache0.localMetrics().getCacheGets());
                 info("Affinity nodes: " + U.nodes2names(affinity(cache0).mapKeyToPrimaryAndBackups(i)));
 
                 break;
@@ -127,25 +129,25 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
 
             info("Checking grid: " + g.name());
 
-            IgniteCache<Object, Object> jcache = g.jcache(null);
+            IgniteCache<Object, Object> jcache = g.cache(null);
 
-            info("Puts: " + jcache.metrics().getCachePuts());
-            info("Reads: " + jcache.metrics().getCacheGets());
+            info("Puts: " + jcache.localMetrics().getCachePuts());
+            info("Reads: " + jcache.localMetrics().getCacheGets());
 
             if (affinity(jcache).isPrimaryOrBackup(g.cluster().localNode(), key))
-                assertEquals(1, jcache.metrics().getCachePuts());
+                assertEquals(1, jcache.localMetrics().getCachePuts());
             else
-                assertEquals(0, jcache.metrics().getCachePuts());
+                assertEquals(0, jcache.localMetrics().getCachePuts());
 
             if (affinity(jcache).isPrimary(g.cluster().localNode(), key)) {
-                assertEquals(2, jcache.metrics().getCacheGets());
-                assertEquals(1, jcache.metrics().getCacheHits());
-                assertEquals(1, jcache.metrics().getCacheMisses());
+                assertEquals(2, jcache.localMetrics().getCacheGets());
+                assertEquals(1, jcache.localMetrics().getCacheHits());
+                assertEquals(1, jcache.localMetrics().getCacheMisses());
             }
             else {
-                assertEquals(0, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(0, jcache.metrics().getCacheMisses());
+                assertEquals(0, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(0, jcache.localMetrics().getCacheMisses());
             }
         }
     }
@@ -156,7 +158,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
     public void testBackupPut() throws Exception {
         Ignite g0 = grid(0);
 
-        IgniteCache<Integer, Integer> cache0 = g0.jcache(null);
+        IgniteCache<Integer, Integer> cache0 = g0.cache(null);
 
         int key;
 
@@ -169,8 +171,8 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
 
                 key = i;
 
-                info("Puts: " + cache0.metrics().getCachePuts());
-                info("Reads: " + cache0.metrics().getCacheGets());
+                info("Puts: " + cache0.localMetrics().getCachePuts());
+                info("Reads: " + cache0.localMetrics().getCacheGets());
                 info("Affinity nodes: " + U.nodes2names(affinity(cache0).mapKeyToPrimaryAndBackups(i)));
 
                 break;
@@ -179,27 +181,27 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
 
         for (int j = 0; j < gridCount(); j++) {
             Ignite g = grid(j);
-            IgniteCache<Object, Object> jcache = g.jcache(null);
+            IgniteCache<Object, Object> jcache = g.cache(null);
 
             if (affinity(jcache).isPrimaryOrBackup(g.cluster().localNode(), key))
-                assertEquals(1, jcache.metrics().getCachePuts());
+                assertEquals(1, jcache.localMetrics().getCachePuts());
             else
-                assertEquals(0, jcache.metrics().getCachePuts());
+                assertEquals(0, jcache.localMetrics().getCachePuts());
 
             if (affinity(jcache).isPrimary(g.cluster().localNode(), key)) {
-                assertEquals(1, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(1, jcache.metrics().getCacheMisses());
+                assertEquals(1, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(1, jcache.localMetrics().getCacheMisses());
             }
             else if (affinity(jcache).isBackup(g.cluster().localNode(), key)){
-                assertEquals(1, jcache.metrics().getCacheGets());
-                assertEquals(1, jcache.metrics().getCacheHits());
-                assertEquals(0, jcache.metrics().getCacheMisses());
+                assertEquals(1, jcache.localMetrics().getCacheGets());
+                assertEquals(1, jcache.localMetrics().getCacheHits());
+                assertEquals(0, jcache.localMetrics().getCacheMisses());
             }
             else {
-                assertEquals(0, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(0, jcache.metrics().getCacheMisses());
+                assertEquals(0, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(0, jcache.localMetrics().getCacheMisses());
             }
         }
     }
@@ -210,7 +212,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
     public void testNearPut() throws Exception {
         Ignite g0 = grid(0);
 
-        IgniteCache<Integer, Integer> cache0 = g0.jcache(null);
+        IgniteCache<Integer, Integer> cache0 = g0.cache(null);
 
         int key;
 
@@ -223,8 +225,8 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
 
                 key = i;
 
-                info("Writes: " + cache0.metrics().getCachePuts());
-                info("Reads: " + cache0.metrics().getCacheGets());
+                info("Writes: " + cache0.localMetrics().getCachePuts());
+                info("Reads: " + cache0.localMetrics().getCacheGets());
                 info("Affinity nodes: " + U.nodes2names(affinity(cache0).mapKeyToPrimaryAndBackups(i)));
 
                 break;
@@ -234,24 +236,24 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         for (int j = 0; j < gridCount(); j++) {
             Ignite g = grid(j);
 
-            IgniteCache<Object, Object> jcache = g.jcache(null);
+            IgniteCache<Object, Object> jcache = g.cache(null);
 
-            assertEquals(1, jcache.metrics().getCachePuts());
+            assertEquals(1, jcache.localMetrics().getCachePuts());
 
             if (affinity(jcache).isPrimary(g.cluster().localNode(), key)) {
-                assertEquals(1, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(1, jcache.metrics().getCacheMisses());
+                assertEquals(1, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(1, jcache.localMetrics().getCacheMisses());
             }
             else if (affinity(jcache).isBackup(g.cluster().localNode(), key)){
-                assertEquals(0, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(0, jcache.metrics().getCacheMisses());
+                assertEquals(0, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(0, jcache.localMetrics().getCacheMisses());
             }
             else {
-                assertEquals(1, jcache.metrics().getCacheGets());
-                assertEquals(1, jcache.metrics().getCacheHits());
-                assertEquals(0, jcache.metrics().getCacheMisses());
+                assertEquals(1, jcache.localMetrics().getCacheGets());
+                assertEquals(1, jcache.localMetrics().getCacheHits());
+                assertEquals(0, jcache.localMetrics().getCacheMisses());
             }
         }
     }
@@ -262,7 +264,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
     public void testPrimaryRead() throws Exception {
         Ignite g0 = grid(0);
 
-        IgniteCache<Integer, Integer> cache0 = g0.jcache(null);
+        IgniteCache<Integer, Integer> cache0 = g0.cache(null);
 
         int key;
 
@@ -273,14 +275,14 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
 
                 key = i;
 
-                info("Writes: " + cache0.metrics().getCachePuts());
-                info("Reads: " + cache0.metrics().getCacheGets());
+                info("Writes: " + cache0.localMetrics().getCachePuts());
+                info("Reads: " + cache0.localMetrics().getCacheGets());
                 info("Affinity nodes: " + U.nodes2names(affinity(cache0).mapKeyToPrimaryAndBackups(i)));
 
                 cache0.get(i); // +1 read.
 
-                info("Writes: " + cache0.metrics().getCachePuts());
-                info("Reads: " + cache0.metrics().getCacheGets());
+                info("Writes: " + cache0.localMetrics().getCachePuts());
+                info("Reads: " + cache0.localMetrics().getCacheGets());
                 info("Affinity nodes: " + U.nodes2names(affinity(cache0).mapKeyToPrimaryAndBackups(i)));
 
                 break;
@@ -292,22 +294,22 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
 
             info("Checking grid: " + g.name());
 
-            IgniteCache<Object, Object> jcache = g.jcache(null);
+            IgniteCache<Object, Object> jcache = g.cache(null);
 
-            info("Writes: " + jcache.metrics().getCachePuts());
-            info("Reads: " + jcache.metrics().getCacheGets());
+            info("Writes: " + jcache.localMetrics().getCachePuts());
+            info("Reads: " + jcache.localMetrics().getCacheGets());
 
-            assertEquals(0, jcache.metrics().getCachePuts());
+            assertEquals(0, jcache.localMetrics().getCachePuts());
 
             if (affinity(jcache).isPrimary(g.cluster().localNode(), key)) {
-                assertEquals(2, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(2, jcache.metrics().getCacheMisses());
+                assertEquals(2, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(2, jcache.localMetrics().getCacheMisses());
             }
             else {
-                assertEquals(0, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(0, jcache.metrics().getCacheMisses());
+                assertEquals(0, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(0, jcache.localMetrics().getCacheMisses());
             }
         }
     }
@@ -318,7 +320,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
     public void testBackupRead() throws Exception {
         Ignite g0 = grid(0);
 
-        IgniteCache<Integer, Integer> cache0 = g0.jcache(null);
+        IgniteCache<Integer, Integer> cache0 = g0.cache(null);
 
         int key;
 
@@ -329,14 +331,14 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
 
                 key = i;
 
-                info("Writes: " + cache0.metrics().getCachePuts());
-                info("Reads: " + cache0.metrics().getCacheGets());
+                info("Writes: " + cache0.localMetrics().getCachePuts());
+                info("Reads: " + cache0.localMetrics().getCacheGets());
                 info("Affinity nodes: " + U.nodes2names(affinity(cache0).mapKeyToPrimaryAndBackups(i)));
 
                 cache0.get(i); // +1 read.
 
-                info("Writes: " + cache0.metrics().getCachePuts());
-                info("Reads: " + cache0.metrics().getCacheGets());
+                info("Writes: " + cache0.localMetrics().getCachePuts());
+                info("Reads: " + cache0.localMetrics().getCacheGets());
                 info("Affinity nodes: " + U.nodes2names(affinity(cache0).mapKeyToPrimaryAndBackups(i)));
 
                 break;
@@ -346,19 +348,19 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         for (int j = 0; j < gridCount(); j++) {
             Ignite g = grid(j);
 
-            IgniteCache<Object, Object> jcache = g.jcache(null);
+            IgniteCache<Object, Object> jcache = g.cache(null);
 
-            assertEquals(0, jcache.metrics().getCachePuts());
+            assertEquals(0, jcache.localMetrics().getCachePuts());
 
             if (affinity(jcache).isPrimaryOrBackup(g.cluster().localNode(), key)) {
-                assertEquals(2, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(2, jcache.metrics().getCacheMisses());
+                assertEquals(2, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(2, jcache.localMetrics().getCacheMisses());
             }
             else {
-                assertEquals(0, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(0, jcache.metrics().getCacheMisses());
+                assertEquals(0, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(0, jcache.localMetrics().getCacheMisses());
             }
         }
     }
@@ -369,7 +371,7 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
     public void testNearRead() throws Exception {
         Ignite g0 = grid(0);
 
-        IgniteCache<Integer, Integer> cache0 = g0.jcache(null);
+        IgniteCache<Integer, Integer> cache0 = g0.cache(null);
 
         int key;
 
@@ -381,10 +383,10 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
 
                 key = i;
 
-                info("Writes: " + cache0.metrics().getCachePuts());
-                info("Reads: " + cache0.metrics().getCacheGets());
-                info("Hits: " + cache0.metrics().getCacheHits());
-                info("Misses: " + cache0.metrics().getCacheMisses());
+                info("Writes: " + cache0.localMetrics().getCachePuts());
+                info("Reads: " + cache0.localMetrics().getCacheGets());
+                info("Hits: " + cache0.localMetrics().getCacheHits());
+                info("Misses: " + cache0.localMetrics().getCacheMisses());
                 info("Affinity nodes: " + U.nodes2names(affinity(cache0).mapKeyToPrimaryAndBackups(i)));
 
                 break;
@@ -394,24 +396,24 @@ public class GridCacheNearMetricsSelfTest extends GridCacheAbstractSelfTest {
         for (int j = 0; j < gridCount(); j++) {
             Ignite g = grid(j);
 
-            IgniteCache<Object, Object> jcache = g.jcache(null);
+            IgniteCache<Object, Object> jcache = g.cache(null);
 
-            assertEquals(0, jcache.metrics().getCachePuts());
+            assertEquals(0, jcache.localMetrics().getCachePuts());
 
             if (affinity(jcache).isPrimary(g.cluster().localNode(), key)) {
-                assertEquals(2, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(2, jcache.metrics().getCacheMisses());
+                assertEquals(2, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(2, jcache.localMetrics().getCacheMisses());
             }
             else if (affinity(jcache).isBackup(g.cluster().localNode(), key)){
-                assertEquals(0, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(0, jcache.metrics().getCacheMisses());
+                assertEquals(0, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(0, jcache.localMetrics().getCacheMisses());
             }
             else {
-                assertEquals(2, jcache.metrics().getCacheGets());
-                assertEquals(0, jcache.metrics().getCacheHits());
-                assertEquals(2, jcache.metrics().getCacheMisses());
+                assertEquals(2, jcache.localMetrics().getCacheGets());
+                assertEquals(0, jcache.localMetrics().getCacheHits());
+                assertEquals(2, jcache.localMetrics().getCacheMisses());
             }
         }
     }

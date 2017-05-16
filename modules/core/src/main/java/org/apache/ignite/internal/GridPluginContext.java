@@ -17,40 +17,32 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.plugin.*;
-import org.apache.ignite.spi.*;
-
-import java.util.*;
+import java.util.Collection;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.marshaller.MarshallerContext;
+import org.apache.ignite.plugin.PluginContext;
+import org.apache.ignite.spi.IgnitePortProtocol;
 
 /**
  *
  */
 public class GridPluginContext implements PluginContext {
     /** */
-    private final PluginConfiguration cfg;
-
-    /** */
     private final GridKernalContext ctx;
 
     /** */
-    private IgniteConfiguration igniteCfg;
+    private final IgniteConfiguration igniteCfg;
 
     /**
      * @param ctx Kernal context.
-     * @param cfg Plugin configuration.
+     * @param igniteCfg Ignite configuration.
      */
-    public GridPluginContext(GridKernalContext ctx, PluginConfiguration cfg, IgniteConfiguration igniteCfg) {
-        this.cfg = cfg;
+    public GridPluginContext(GridKernalContext ctx, IgniteConfiguration igniteCfg) {
         this.ctx = ctx;
         this.igniteCfg = igniteCfg;
-    }
-
-    /** {@inheritDoc} */
-    @Override public <C extends PluginConfiguration> C configuration() {
-        return (C)cfg;
     }
 
     /** {@inheritDoc} */
@@ -61,6 +53,11 @@ public class GridPluginContext implements PluginContext {
     /** {@inheritDoc} */
     @Override public Ignite grid() {
         return ctx.grid();
+    }
+
+    /** {@inheritDoc} */
+    @Override public MarshallerContext marshallerContext() {
+        return ctx.marshallerContext();
     }
 
     /** {@inheritDoc} */

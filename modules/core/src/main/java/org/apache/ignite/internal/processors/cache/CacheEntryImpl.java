@@ -17,17 +17,36 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import javax.cache.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import javax.cache.Cache;
+import org.apache.ignite.cache.CacheEntry;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 
 /**
  *
  */
-public class CacheEntryImpl<K, V> implements Cache.Entry<K, V> {
+public class CacheEntryImpl<K, V> implements Cache.Entry<K, V>, Externalizable {
     /** */
-    private final K key;
+    private static final long serialVersionUID = 0L;
 
     /** */
-    private final V val;
+    private K key;
+
+    /** */
+    private V val;
+
+    /** Entry version. */
+    private GridCacheVersion ver;
+
+    /**
+     * Required by {@link Externalizable}.
+     */
+    public CacheEntryImpl() {
+        // No-op.
+    }
 
     /**
      * @param key Key.
@@ -36,6 +55,17 @@ public class CacheEntryImpl<K, V> implements Cache.Entry<K, V> {
     public CacheEntryImpl(K key, V val) {
         this.key = key;
         this.val = val;
+    }
+
+    /**
+     * @param key Key.
+     * @param val Value.
+     * @param ver Entry version.
+     */
+    public CacheEntryImpl(K key, V val, GridCacheVersion ver) {
+        this.key = key;
+        this.val = val;
+        this.ver = ver;
     }
 
     /** {@inheritDoc} */
@@ -51,10 +81,25 @@ public class CacheEntryImpl<K, V> implements Cache.Entry<K, V> {
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     @Override public <T> T unwrap(Class<T> cls) {
-        if(cls.isAssignableFrom(getClass()))
+        if (cls.isAssignableFrom(getClass()))
             return cls.cast(this);
 
+        if (cls.isAssignableFrom(CacheEntry.class))
+            return (T)new CacheEntryImplEx<>(key, val, ver);
+
         throw new IllegalArgumentException("Unwrapping to class is not supported: " + cls);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void writeExternal(ObjectOutput out) throws IOException {
+        out.writeObject(key);
+        out.writeObject(val);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        key = (K)in.readObject();
+        val = (V)in.readObject();
     }
 
     /** {@inheritDoc} */

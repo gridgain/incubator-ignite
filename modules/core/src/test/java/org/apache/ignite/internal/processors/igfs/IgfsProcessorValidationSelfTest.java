@@ -17,21 +17,30 @@
 
 package org.apache.ignite.internal.processors.igfs;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.FileSystemConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.igfs.IgfsGroupDataBlocksKeyMapper;
+import org.apache.ignite.igfs.IgfsIpcEndpointConfiguration;
+import org.apache.ignite.internal.processors.cache.GridCacheDefaultAffinityKeyMapper;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
-import java.lang.reflect.*;
-import java.util.*;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.igfs.IgfsMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.igfs.IgfsMode.DUAL_ASYNC;
+import static org.apache.ignite.igfs.IgfsMode.DUAL_SYNC;
+import static org.apache.ignite.igfs.IgfsMode.PROXY;
 
 /**
  * Tests for node validation logic in {@link IgfsProcessor}.
@@ -184,6 +193,7 @@ public class IgfsProcessorValidationSelfTest extends IgfsCommonAbstractTest {
     public void testLocalIfQueryIndexingEnabledForDataCache() throws Exception {
         CacheConfiguration[] dataCaches = dataCaches(1024);
 
+        dataCaches[0].setIndexedTypes(Integer.class, String.class);
 
         g1Cfg.setCacheConfiguration(concat(dataCaches, metaCaches(), CacheConfiguration.class));
 
@@ -195,6 +205,8 @@ public class IgfsProcessorValidationSelfTest extends IgfsCommonAbstractTest {
      */
     public void testLocalIfQueryIndexingEnabledForMetaCache() throws Exception {
         CacheConfiguration[] metaCaches = metaCaches();
+
+        metaCaches[0].setIndexedTypes(Integer.class, String.class);
 
         g1Cfg.setCacheConfiguration(concat(dataCaches(1024), metaCaches, CacheConfiguration.class));
 
@@ -211,46 +223,6 @@ public class IgfsProcessorValidationSelfTest extends IgfsCommonAbstractTest {
         g1IgfsCfg1.setName(null);
 
         assertFalse(G.start(g1Cfg).cluster().nodes().isEmpty());
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testLocalIfOffheapIsDisabledAndMaxSpaceSizeIsGreater() throws Exception {
-        g1Cfg.setCacheConfiguration(concat(dataCaches(1024), metaCaches(), CacheConfiguration.class));
-
-        g1IgfsCfg2.setMaxSpaceSize(999999999999999999L);
-
-        checkGridStartFails(g1Cfg, "Maximum IGFS space size cannot be greater that size of available heap", true);
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testLocalIfOffheapIsEnabledAndMaxSpaceSizeIsGreater() throws Exception {
-        g1Cfg.setCacheConfiguration(concat(dataCaches(1024), metaCaches(), CacheConfiguration.class));
-
-        for (CacheConfiguration cc : g1Cfg.getCacheConfiguration())
-            cc.setOffHeapMaxMemory(1000000);
-
-        g1IgfsCfg2.setMaxSpaceSize(999999999999999999L);
-
-        checkGridStartFails(g1Cfg,
-            "Maximum IGFS space size cannot be greater than size of available heap memory and offheap storage", true);
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testLocalIfBackupsEnabled() throws Exception {
-        g1Cfg.setCacheConfiguration(concat(dataCaches(1024), metaCaches(), CacheConfiguration.class));
-
-        for (CacheConfiguration cc : g1Cfg.getCacheConfiguration()) {
-            cc.setCacheMode(PARTITIONED);
-            cc.setBackups(1);
-        }
-
-        checkGridStartFails(g1Cfg, "IGFS data cache cannot be used with backups", true);
     }
 
     /**
@@ -442,6 +414,62 @@ public class IgfsProcessorValidationSelfTest extends IgfsCommonAbstractTest {
         G.start(g1Cfg);
 
         checkGridStartFails(g2Cfg, "Path modes should be the same on all nodes in grid for IGFS", false);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testZeroEndpointTcpPort() throws Exception {
+        checkIvalidPort(0);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testNegativeEndpointTcpPort() throws Exception {
+        checkIvalidPort(-1);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testTooBigEndpointTcpPort() throws Exception {
+        checkIvalidPort(65536);
+    }
+
+    /**
+     * Check invalid port handling.
+     *
+     * @param port Port.
+     * @throws Exception If failed.
+     */
+    private void checkIvalidPort(int port) throws Exception {
+        final String failMsg = "IGFS endpoint TCP port is out of range";
+        g1Cfg.setCacheConfiguration(concat(dataCaches(1024), metaCaches(), CacheConfiguration.class));
+
+        final String igfsCfgName = "igfs-cfg";
+        final IgfsIpcEndpointConfiguration igfsEndpointCfg = new IgfsIpcEndpointConfiguration();
+        igfsEndpointCfg.setPort(port);
+        g1IgfsCfg1.setName(igfsCfgName);
+        g1IgfsCfg1.setIpcEndpointConfiguration(igfsEndpointCfg);
+
+        checkGridStartFails(g1Cfg, failMsg, true);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInvalidEndpointThreadCount() throws Exception {
+        final String failMsg = "IGFS endpoint thread count must be positive";
+        g1Cfg.setCacheConfiguration(concat(dataCaches(1024), metaCaches(), CacheConfiguration.class));
+
+        final String igfsCfgName = "igfs-cfg";
+        final IgfsIpcEndpointConfiguration igfsEndpointCfg = new IgfsIpcEndpointConfiguration();
+        igfsEndpointCfg.setThreadCount(0);
+        g1IgfsCfg1.setName(igfsCfgName);
+        g1IgfsCfg1.setIpcEndpointConfiguration(igfsEndpointCfg);
+
+        checkGridStartFails(g1Cfg, failMsg, true);
     }
 
     /**

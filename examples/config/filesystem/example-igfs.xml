@@ -50,9 +50,6 @@
         Configuration below demonstrates how to setup a IgniteFs node with file data.
     -->
     <bean id="ignite.cfg" class="org.apache.ignite.configuration.IgniteConfiguration">
-        <!-- Set to true to enable cluster-aware class loading for examples, default is false. -->
-        <property name="peerClassLoadingEnabled" value="true"/>
-
         <property name="marshaller">
             <bean class="org.apache.ignite.marshaller.optimized.OptimizedMarshaller">
                 <!-- Set to false to allow non-serializable objects in examples, default is true. -->
@@ -74,13 +71,6 @@
 
                     <!-- Set number of prefetch blocks. -->
                     <property name="prefetchBlocks" value="32"/>
-
-                    <!--
-                        This will disable IPC endpoint binding thus preventing Hadoop clients from connecting to IgniteFs.
-                        With this option set to false the only possible way to interact with IgniteFs is through
-                        Ignite API.
-                    -->
-                    <property name="ipcEndpointEnabled" value="false"/>
 
                     <!--
                         Example of configured IPC loopback endpoint.
@@ -114,7 +104,6 @@
                     <property name="cacheMode" value="PARTITIONED"/>
                     <property name="atomicityMode" value="TRANSACTIONAL"/>
                     <property name="writeSynchronizationMode" value="FULL_SYNC"/>
-                    <property name="distributionMode" value="PARTITIONED_ONLY"/>
                     <property name="backups" value="0"/>
                     <property name="affinityMapper">
                         <bean class="org.apache.ignite.igfs.IgfsGroupDataBlocksKeyMapper">
@@ -140,7 +129,7 @@
                     <!--
                         Ignition provides several options for automatic discovery that can be used
                         instead os static IP based discovery. For information on all options refer
-                        to our documentation: http://doc.gridgain.org/latest/Automatic+Node+Discovery
+                        to our documentation: http://apacheignite.readme.io/docs/cluster-config
                     -->
                     <!-- Uncomment static IP finder to enable static-based discovery of initial nodes. -->
                     <!--<bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">-->

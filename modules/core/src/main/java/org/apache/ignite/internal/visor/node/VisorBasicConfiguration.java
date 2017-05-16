@@ -17,22 +17,33 @@
 
 package org.apache.ignite.internal.visor.node;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import java.util.UUID;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.util.*;
-
-import static java.lang.System.*;
-import static org.apache.ignite.IgniteSystemProperties.*;
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static java.lang.System.getProperty;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_DAEMON;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_HOME;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_LOCAL_HOST;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_NO_ASCII;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_NO_DISCO_ORDER;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_NO_SHUTDOWN_HOOK;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_PROG_NAME;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_QUIET;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_SUCCESS_FILE;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_UPDATE_NOTIFIER;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.boolValue;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactClass;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactObject;
 
 /**
  * Data transfer object for node basic configuration properties.
  */
-public class VisorBasicConfiguration implements Serializable {
+public class VisorBasicConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -53,6 +64,9 @@ public class VisorBasicConfiguration implements Serializable {
 
     /** Deployment Mode. */
     private Object deployMode;
+
+    /** Client mode flag. */
+    private Boolean clientMode;
 
     /** Whether this node daemon or not. */
     private boolean daemon;
@@ -110,6 +124,7 @@ public class VisorBasicConfiguration implements Serializable {
         cfg.nodeId = ignite.localNode().id();
         cfg.marsh = compactClass(c.getMarshaller());
         cfg.deployMode = compactObject(c.getDeploymentMode());
+        cfg.clientMode = c.isClientMode();
         cfg.daemon = boolValue(IGNITE_DAEMON, c.isDaemon());
         cfg.jmxRemote = ignite.isJmxRemoteEnabled();
         cfg.restart = ignite.isRestartEnabled();
@@ -168,6 +183,13 @@ public class VisorBasicConfiguration implements Serializable {
      */
     public Object deploymentMode() {
         return deployMode;
+    }
+
+    /**
+     * @return Client mode flag.
+     */
+    public Boolean clientMode() {
+        return clientMode;
     }
 
     /**

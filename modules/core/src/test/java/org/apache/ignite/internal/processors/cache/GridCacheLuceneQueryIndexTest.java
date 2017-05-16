@@ -17,26 +17,27 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.query.annotations.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.query.annotations.QueryTextField;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  *
@@ -102,8 +103,8 @@ public class GridCacheLuceneQueryIndexTest extends GridCommonAbstractTest {
     public void testLuceneIndex() throws Exception {
         final Ignite g = startGrid(0);
 
-        final GridCache<Integer, ObjectValue> cache1 = ((IgniteKernal)g).cache("local1");
-        final GridCache<Integer, ObjectValue> cache2 = ((IgniteKernal)g).cache("local2");
+        final IgniteCache<Integer, ObjectValue> cache1 = g.cache("local1");
+        final IgniteCache<Integer, ObjectValue> cache2 = g.cache("local2");
 
         final AtomicInteger threadIdxGen = new AtomicInteger();
 
@@ -116,9 +117,9 @@ public class GridCacheLuceneQueryIndexTest extends GridCommonAbstractTest {
 
                     for (int i = 0; i < keyCnt; i++) {
                         if (threadIdx == 0)
-                            cache1.putx(i, new ObjectValue("test full text more" + i));
+                            cache1.put(i, new ObjectValue("test full text more" + i));
                         else
-                            cache2.putx(i, new ObjectValue("test full text more" + i));
+                            cache2.put(i, new ObjectValue("test full text more" + i));
 
                         if (i % 200 == 0)
                             info("Put entries count: " + i);
@@ -159,8 +160,8 @@ public class GridCacheLuceneQueryIndexTest extends GridCommonAbstractTest {
     public void testLuceneIndex1() throws Exception {
         final Ignite g = startGrid(0);
 
-        final GridCache<Integer, ObjectValue> cache1 = ((IgniteKernal)g).cache("local1");
-        final GridCache<Integer, ObjectValue> cache2 = ((IgniteKernal)g).cache("local2");
+        final IgniteCache<Integer, ObjectValue> cache1 = g.cache("local1");
+        final IgniteCache<Integer, ObjectValue> cache2 = g.cache("local2");
 
         final AtomicInteger threadIdxGen = new AtomicInteger();
 
@@ -230,8 +231,8 @@ public class GridCacheLuceneQueryIndexTest extends GridCommonAbstractTest {
     public void testLuceneIndex2() throws Exception {
         final Ignite g = startGrid(0);
 
-        final GridCache<Integer, ObjectValue> cache1 = ((IgniteKernal)g).cache("local1");
-        final GridCache<Integer, ObjectValue> cache2 = ((IgniteKernal)g).cache("local2");
+        final IgniteCache<Integer, ObjectValue> cache1 = g.cache("local1");
+        final IgniteCache<Integer, ObjectValue> cache2 = g.cache("local2");
 
         final AtomicInteger threadIdxGen = new AtomicInteger();
 
@@ -303,8 +304,8 @@ public class GridCacheLuceneQueryIndexTest extends GridCommonAbstractTest {
     public void testLuceneIndex3() throws Exception {
         final Ignite g = startGrid(0);
 
-        final GridCache<ObjectKey, ObjectValue> cache1 = ((IgniteKernal)g).cache("local1");
-        final GridCache<ObjectKey, ObjectValue> cache2 = ((IgniteKernal)g).cache("local2");
+        final IgniteCache<ObjectKey, ObjectValue> cache1 = g.cache("local1");
+        final IgniteCache<ObjectKey, ObjectValue> cache2 = g.cache("local2");
 
         final AtomicInteger threadIdxGen = new AtomicInteger();
 

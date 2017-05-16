@@ -17,20 +17,27 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.affinity.AffinityKeyMapped;
+import org.apache.ignite.cache.affinity.AffinityKeyMapper;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.util.GridArgumentCheck;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.io.*;
-
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
 
 /**
  * Test affinity mapper.
@@ -43,10 +50,10 @@ public abstract class GridCacheAbstractUsersAffinityMapperSelfTest extends GridC
     private static final TcpDiscoveryIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
 
     /** */
-    public static final CacheAffinityKeyMapper AFFINITY_MAPPER = new UsersAffinityKeyMapper();
+    public static final AffinityKeyMapper AFFINITY_MAPPER = new UsersAffinityKeyMapper();
 
     /** */
-    public GridCacheAbstractUsersAffinityMapperSelfTest() {
+    protected GridCacheAbstractUsersAffinityMapperSelfTest() {
         super(false /* doesn't start grid */);
     }
 
@@ -66,7 +73,7 @@ public abstract class GridCacheAbstractUsersAffinityMapperSelfTest extends GridC
         cacheCfg.setName(null);
         cacheCfg.setCacheMode(getCacheMode());
         cacheCfg.setAtomicityMode(getAtomicMode());
-        cacheCfg.setDistributionMode(getDistributionMode());
+        cacheCfg.setNearConfiguration(nearConfiguration());
         cacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         cacheCfg.setRebalanceMode(SYNC);
         cacheCfg.setAffinityMapper(AFFINITY_MAPPER);
@@ -85,7 +92,7 @@ public abstract class GridCacheAbstractUsersAffinityMapperSelfTest extends GridC
     /**
      * @return Distribution mode.
      */
-    protected abstract CacheDistributionMode getDistributionMode();
+    protected abstract NearCacheConfiguration nearConfiguration();
 
     /**
      * @return Cache atomicity mode.
@@ -101,7 +108,7 @@ public abstract class GridCacheAbstractUsersAffinityMapperSelfTest extends GridC
      * @throws Exception If failed.
      */
     public void testAffinityMapper() throws Exception {
-        IgniteCache<Object, Object> cache = startGrid(0).jcache(null);
+        IgniteCache<Object, Object> cache = startGrid(0).cache(null);
 
         for (int i = 0; i < KEY_CNT; i++) {
             cache.put(String.valueOf(i), String.valueOf(i));
@@ -114,7 +121,7 @@ public abstract class GridCacheAbstractUsersAffinityMapperSelfTest extends GridC
         startGrid(1);
 
         for (int i = 0; i < KEY_CNT; i++)
-            grid(i % 2).compute().affinityRun(null, new TestAffinityKey(1, "1"), new NoopClosure());
+            grid(i % 2).compute().affinityRun((String)null, new TestAffinityKey(1, "1"), new NoopClosure());
     }
 
     /**
@@ -125,7 +132,7 @@ public abstract class GridCacheAbstractUsersAffinityMapperSelfTest extends GridC
         private int key;
 
         /** Affinity key. */
-        @CacheAffinityKeyMapped
+        @AffinityKeyMapped
         private String affKey;
 
         /**
