@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.cache.*;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.NearCacheConfiguration;
 
 /**
  * Test affinity mapper.
  */
 public class GridCacheAtomicUsersAffinityMapperSelfTest extends GridCacheAbstractUsersAffinityMapperSelfTest {
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode getDistributionMode() {
-        return CacheDistributionMode.PARTITIONED_ONLY;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return null;
     }
 
     /** {@inheritDoc} */

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.util.nio;
 
-import org.apache.ignite.*;
+import org.apache.ignite.IgniteCheckedException;
 
 /**
  * Class that defines the piece for application-to-network and vice-versa data conversions
@@ -108,10 +108,14 @@ public abstract class GridNioFilterAdapter implements GridNioFilter {
     }
 
     /** {@inheritDoc} */
-    @Override public GridNioFuture<?> proceedSessionWrite(GridNioSession ses, Object msg) throws IgniteCheckedException {
+    @Override public GridNioFuture<?> proceedSessionWrite(
+        GridNioSession ses,
+        Object msg,
+        boolean fut
+    ) throws IgniteCheckedException {
         checkNext();
 
-        return nextFilter.onSessionWrite(ses, msg);
+        return nextFilter.onSessionWrite(ses, msg, fut);
     }
 
     /** {@inheritDoc} */

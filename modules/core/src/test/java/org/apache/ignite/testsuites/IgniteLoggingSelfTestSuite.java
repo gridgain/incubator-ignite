@@ -17,8 +17,8 @@
 
 package org.apache.ignite.testsuites;
 
-import junit.framework.*;
-import org.apache.ignite.logger.java.*;
+import junit.framework.TestSuite;
+import org.apache.ignite.logger.java.JavaLoggerTest;
 
 /**
  * Logging self-test suite.
@@ -30,9 +30,8 @@ public class IgniteLoggingSelfTestSuite extends TestSuite {
    public static TestSuite suite() {
        TestSuite suite = new TestSuite("Ignite Logging Test Suite");
 
-       suite.addTest(new TestSuite(IgniteJavaLoggerTest.class));
+       suite.addTest(new TestSuite(JavaLoggerTest.class));
 
        return suite;
    }
 }
-

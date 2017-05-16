@@ -17,25 +17,26 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheRebalanceMode;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.configuration.CacheConfiguration.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.configuration.DeploymentMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.ASYNC;
+import static org.apache.ignite.cache.CacheRebalanceMode.NONE;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.configuration.CacheConfiguration.DFLT_REBALANCE_BATCH_SIZE;
+import static org.apache.ignite.configuration.DeploymentMode.CONTINUOUS;
 
 /**
  * Test node restart.
@@ -115,11 +116,12 @@ public abstract class GridCachePreloadRestartAbstractSelfTest extends GridCommon
         cc.setStartSize(20);
         cc.setRebalanceMode(preloadMode);
         cc.setRebalanceBatchSize(preloadBatchSize);
-        cc.setAffinity(new CacheRendezvousAffinityFunction(false, partitions));
+        cc.setAffinity(new RendezvousAffinityFunction(false, partitions));
         cc.setBackups(backups);
         cc.setAtomicityMode(TRANSACTIONAL);
 
-        cc.setDistributionMode(nearEnabled() ? NEAR_PARTITIONED : PARTITIONED_ONLY);
+        if (!nearEnabled())
+            cc.setNearConfiguration(null);
 
         c.setCacheConfiguration(cc);
 
@@ -207,15 +209,6 @@ public abstract class GridCachePreloadRestartAbstractSelfTest extends GridCommon
     }
 
     /**
-     * @param cache Cache.
-     * @return Affinity.
-     */
-    @SuppressWarnings({"unchecked"})
-    private CacheAffinityFunction affinity(GridCache<Integer, ?> cache) {
-        return cache.configuration().getAffinity();
-    }
-
-    /**
      * @param c Cache projection.
      */
     private void affinityBeforeStop(IgniteCache<Integer, String> c) {
@@ -250,7 +243,7 @@ public abstract class GridCachePreloadRestartAbstractSelfTest extends GridCommon
         startGrids();
 
         try {
-            IgniteCache<Integer, String> c = grid(idx).jcache(CACHE_NAME);
+            IgniteCache<Integer, String> c = grid(idx).cache(CACHE_NAME);
 
             for (int j = 0; j < retries; j++) {
                 for (int i = 0; i < keyCnt; i++)
@@ -270,7 +263,7 @@ public abstract class GridCachePreloadRestartAbstractSelfTest extends GridCommon
 
                 Ignite ignite = startGrid(idx);
 
-                c = ignite.jcache(CACHE_NAME);
+                c = ignite.cache(CACHE_NAME);
 
                 affinityAfterStart(c);
 

@@ -17,28 +17,31 @@
 
 package org.apache.ignite.scalar.examples
 
-import org.apache.ignite.configuration.CacheConfiguration
-
+import java.lang.{Long => JLong}
 import java.util._
 
-import org.apache.ignite.{IgniteCache, Ignite}
 import org.apache.ignite.cache.CacheMode._
-import org.apache.ignite.cache.affinity.CacheAffinityKey
+import org.apache.ignite.cache.affinity.AffinityKey
+import org.apache.ignite.configuration.CacheConfiguration
+import org.apache.ignite.examples.model.{Person, Organization}
 import org.apache.ignite.scalar.scalar
 import org.apache.ignite.scalar.scalar._
+import org.apache.ignite.{Ignite, IgniteCache}
 
-import collection.JavaConversions._
+import scala.collection.JavaConversions._
 
 /**
  * Demonstrates cache ad-hoc queries with Scalar.
- * <p>
- * Remote nodes should always be started with configuration file which includes
- * cache: `'ignite.sh examples/config/example-cache.xml'`. Local node can
- * be started with or without cache.
+ * <p/>
+ * Remote nodes should be started using `ExampleNodeStartup` which will
+ * start node with `examples/config/example-ignite.xml` configuration.
  */
 object ScalarCacheQueryExample {
+    /** Configuration file name. */
+    private val CONFIG = "examples/config/example-ignite.xml"
+
     /** Cache name. */
-    private val CACHE_NAME = "partitioned" // "replicated"
+    private val NAME = ScalarCacheQueryExample.getClass.getSimpleName
 
     /**
      * Example entry point. No arguments required.
@@ -46,8 +49,16 @@ object ScalarCacheQueryExample {
      * @param args Command line arguments. None required.
      */
     def main(args: Array[String]) {
-        scalar("examples/config/example-cache.xml") {
-            example(ignite$)
+        scalar(CONFIG) {
+            val cache = createCache$(NAME, indexedTypes = Seq(classOf[JLong], classOf[Organization],
+                classOf[AffinityKey[_]], classOf[Person]))
+
+            try {
+                example(ignite$)
+            }
+            finally {
+                cache.destroy()
+            }
         }
     }
 
@@ -61,12 +72,12 @@ object ScalarCacheQueryExample {
         initialize()
 
         // Cache instance shortcut.
-        val cache = mkCache[CacheAffinityKey[UUID], Person]
+        val cache = mkCache[AffinityKey[JLong], Person]
 
         // Using distributed queries for partitioned cache and local queries for replicated cache.
         // Since in replicated caches data is available on all nodes, including local one,
         // it is enough to just query the local node.
-        val prj = if (cache.getConfiguration(classOf[CacheConfiguration[CacheAffinityKey[UUID], Person]]).getCacheMode == PARTITIONED)
+        val prj = if (cache.getConfiguration(classOf[CacheConfiguration[AffinityKey[JLong], Person]]).getCacheMode == PARTITIONED)
             ignite.cluster().forRemotes()
         else
             ignite.cluster().forLocal()
@@ -85,33 +96,33 @@ object ScalarCacheQueryExample {
      *
      * @return Cache to use.
      */
-    private def mkCache[K, V]: IgniteCache[K, V] = cache$[K, V](CACHE_NAME).get
+    private def mkCache[K, V]: IgniteCache[K, V] = cache$[K, V](NAME).get
 
     /**
      * Populates cache with test data.
      */
     private def initialize() {
         // Clean up caches on all nodes before run.
-        cache$(CACHE_NAME).get.clear()
+        cache$(NAME).get.clear()
 
         // Organization cache projection.
-        val orgCache = mkCache[UUID, Organization]
+        val orgCache = mkCache[JLong, Organization]
 
         // Organizations.
-        val org1 = Organization("Ignite")
-        val org2 = Organization("Other")
+        val org1 = new Organization("Ignite")
+        val org2 = new Organization("Other")
 
         orgCache += (org1.id -> org1)
         orgCache += (org2.id -> org2)
 
         // Person cache projection.
-        val prnCache = mkCache[CacheAffinityKey[UUID], Person]
+        val prnCache = mkCache[AffinityKey[JLong], Person]
 
         // People.
-        val p1 = Person(org1, "John", "Doe", 2000, "John Doe has Master Degree.")
-        val p2 = Person(org1, "Jane", "Doe", 1000, "Jane Doe has Bachelor Degree.")
-        val p3 = Person(org2, "John", "Smith", 1500, "John Smith has Bachelor Degree.")
-        val p4 = Person(org2, "Jane", "Smith", 2500, "Jane Smith has Master Degree.")
+        val p1 = new Person(org1, "John", "Doe", 2000, "John Doe has Master Degree.")
+        val p2 = new Person(org1, "Jane", "Doe", 1000, "Jane Doe has Bachelor Degree.")
+        val p3 = new Person(org2, "John", "Smith", 1500, "John Smith has Bachelor Degree.")
+        val p4 = new Person(org2, "Jane", "Smith", 2500, "Jane Smith has Master Degree.")
 
         // Note that in this example we use custom affinity key for Person objects
         // to ensure that all persons are collocated with their organizations.
@@ -137,47 +148,5 @@ object ScalarCacheQueryExample {
             case it: Iterable[Any] => it.foreach(e => println(">>>     " + e.toString))
             case _ => println(">>>     " + o.toString)
         }
-    }
-}
-
-/**
- * Organization class.
- */
-private case class Organization(
-    @ScalarCacheQuerySqlField
-    name: String
-) {
-    /** Organization ID. */
-    @ScalarCacheQuerySqlField
-    val id = UUID.randomUUID
-}
-
-/**
- * Person class.
- */
-private case class Person(
-    org: Organization,
-    firstName: String,
-    lastName: String,
-    @ScalarCacheQuerySqlField
-    salary: Double,
-    @ScalarCacheQueryTextField
-    resume: String
-) {
-    /** Person ID. */
-    val id = UUID.randomUUID
-
-    /** Organization ID. */
-    @ScalarCacheQuerySqlField
-    val orgId = org.id
-
-    /** Affinity key for this person. */
-    val key = new CacheAffinityKey[UUID](id, org.id)
-
-    /**
-     * `toString` implementation.
-     */
-    override def toString: String = {
-        firstName + " " + lastName + " [salary: " + salary + ", resume: " + resume + "]"
     }
 }

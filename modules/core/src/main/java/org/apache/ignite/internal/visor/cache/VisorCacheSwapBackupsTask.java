@@ -17,19 +17,20 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-
-import javax.cache.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import javax.cache.Cache;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.visor.VisorJob;
+import org.apache.ignite.internal.visor.VisorOneNodeTask;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.resources.IgniteInstanceResource;
 
 /**
  * Task for swapping backup cache entries.
@@ -72,9 +73,9 @@ public class VisorCacheSwapBackupsTask extends VisorOneNodeTask<Set<String>, Map
             Map<String, IgniteBiTuple<Integer, Integer>> total = new HashMap<>();
             ClusterNode locNode = g.localNode();
 
-            for (GridCache c : ignite.cachesx()) {
+            for (IgniteInternalCache c : ignite.cachesx()) {
                 String cacheName = c.name();
-                CacheAffinity<Object> aff = g.affinity(c.name());
+                Affinity<Object> aff = g.affinity(c.name());
 
                 if (names.contains(cacheName)) {
                     Set<Cache.Entry> entries = c.entrySet();

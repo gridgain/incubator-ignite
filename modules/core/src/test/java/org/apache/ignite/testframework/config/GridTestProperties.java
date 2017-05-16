@@ -17,14 +17,20 @@
 
 package org.apache.ignite.testframework.config;
 
-import org.apache.ignite.testframework.*;
-import org.apache.log4j.xml.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
-import java.util.Map.*;
-import java.util.regex.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.log4j.xml.DOMConfigurator;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Loads test properties from {@code config} folder under tests.
@@ -62,6 +68,18 @@ public final class GridTestProperties {
 
     /** */
     private static final Map<String, Map<String, String>> pathProps = new HashMap<>();
+
+    /** */
+    public static final String MARSH_CLASS_NAME = "marshaller.class";
+
+    /** */
+    public static final String ENTRY_PROCESSOR_CLASS_NAME = "entry.processor.class";
+
+    /** Binary marshaller compact footers property. */
+    public static final String BINARY_COMPACT_FOOTERS = "binary.marshaller.compact.footers";
+
+    /** */
+    public static final String BINARY_MARSHALLER_USE_SIMPLE_NAME_MAPPER = "binary.marshaller.use.simple.name.mapper";
 
     /** */
     static {
@@ -159,6 +177,14 @@ public final class GridTestProperties {
     }
 
     /**
+     * @param name Property name.
+     * @param val Property value.
+     */
+    public static synchronized void setProperty(String name, String val) {
+        getProperties().put(name, val);
+    }
+
+    /**
      * @param dir Directory path.
      * @return Properties.
      */
@@ -174,9 +200,6 @@ public final class GridTestProperties {
             // Load properties from specified folder
             // potentially overriding defaults.
             loadProperties(props, dir);
-
-            // Seal it.
-            props = Collections.unmodifiableMap(props);
 
             pathProps.put(dir, props);
         }

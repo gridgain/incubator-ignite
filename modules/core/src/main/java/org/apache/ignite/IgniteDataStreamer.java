@@ -17,11 +17,13 @@
 
 package org.apache.ignite;
 
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import javax.cache.CacheException;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.stream.StreamReceiver;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Data streamer is responsible for streaming external data into cache. It achieves it by
@@ -70,11 +72,11 @@ import java.util.*;
  *      changing), but it won't be lost anyway. Disabled by default (default value is {@code 0}).
  *  </li>
  *  <li>
- *      {@link #allowOverwrite(boolean)} - defines if data streamer will assume that there are no other concurrent
- *      updates and allow data streamer choose most optimal concurrent implementation.
+ *      {@link #allowOverwrite(boolean)} - Sets flag enabling overwriting existing values in cache.
+ *      Data streamer will perform better if this flag is disabled, which is the default setting.
  *  </li>
  *  <li>
- *      {@link #updater(IgniteDataStreamer.Updater)} - defines how cache will be updated with added entries.
+ *      {@link #receiver(StreamReceiver)} - defines how cache will be updated with added entries.
  *      It allows to provide user-defined custom logic to update the cache in the most effective and flexible way.
  *  </li>
  *  <li>
@@ -94,6 +96,9 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
     /** Default per node buffer size. */
     public static final int DFLT_PER_NODE_BUFFER_SIZE = 1024;
 
+    /** Default timeout for streamer's operations. */
+    public static final long DFLT_UNLIMIT_TIMEOUT = -1;
+
     /**
      * Name of cache to stream data to.
      *
@@ -102,24 +107,29 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
     public String cacheName();
 
     /**
-     * Gets flag value indicating that this data streamer assumes that
-     * there are no other concurrent updates to the cache.
-     * Default is {@code false}.
+     * Gets flag enabling overwriting existing values in cache.
+     * Data streamer will perform better if this flag is disabled.
+     * <p>
+     * This flag is disabled by default (default is {@code false}).
      *
-     * @return Flag value.
+     * @return {@code True} if overwriting is allowed, {@code false} otherwise..
      */
     public boolean allowOverwrite();
 
     /**
-     * Sets flag indicating that this data streamer should assume
-     * that there are no other concurrent updates to the cache.
-     * Should not be used when custom cache updater set using {@link #updater(IgniteDataStreamer.Updater)} method.
-     * Default is {@code false}. When this flag is set, updates will not be propagated to the cache store.
+     * Sets flag enabling overwriting existing values in cache.
+     * Data streamer will perform better if this flag is disabled.
+     * Note that when this flag is {@code false}, updates will not be propagated to the cache store
+     * (i.e. {@link #skipStore()} flag will be set to {@code true} implicitly).
+     * <p>
+     * This flag is disabled by default (default is {@code false}).
+     * <p>
+     * The flag has no effect when custom cache receiver set using {@link #receiver(StreamReceiver)} method.
      *
      * @param allowOverwrite Flag value.
-     * @throws IgniteException If failed.
+     * @throws CacheException If failed.
      */
-    public void allowOverwrite(boolean allowOverwrite) throws IgniteException;
+    public void allowOverwrite(boolean allowOverwrite) throws CacheException;
 
     /**
      * Gets flag indicating that write-through behavior should be disabled for data streaming.
@@ -136,6 +146,22 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
      * @param skipStore Skip store flag.
      */
     public void skipStore(boolean skipStore);
+
+    /**
+     * Gets flag indicating that objects should be kept in binary format when passed to the stream receiver.
+     * Default is {@code false}.
+     *
+     * @return Skip store flag.
+     */
+    public boolean keepBinary();
+
+    /**
+     * Sets flag indicating that objects should be kept in binary format when passes to the steam receiver.
+     * Default is {@code false}.
+     *
+     * @param keepBinary Keep binary flag.
+     */
+    public void keepBinary(boolean keepBinary);
 
     /**
      * Gets size of per node key-value pairs buffer.
@@ -156,14 +182,14 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
     public void perNodeBufferSize(int bufSize);
 
     /**
-     * Gets maximum number of parallel update operations for a single node.
+     * Gets maximum number of parallel stream operations for a single node.
      *
      * @return Maximum number of parallel stream operations for a single node.
      */
     public int perNodeParallelOperations();
 
     /**
-     * Sets maximum number of parallel update operations for a single node.
+     * Sets maximum number of parallel stream operations for a single node.
      * <p>
      * This method should be called prior to {@link #addData(Object, Object)} call.
      * <p>
@@ -172,6 +198,29 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
      * @param parallelOps Maximum number of parallel stream operations for a single node.
      */
     public void perNodeParallelOperations(int parallelOps);
+
+    /**
+     * Sets the timeout that is used in the following cases:
+     * <ul>
+     * <li>any data addition method can be blocked when all per node parallel operations are exhausted.
+     * The timeout defines the max time you will be blocked waiting for a permit to add a chunk of data
+     * into the streamer;</li>
+     * <li>Total timeout time for {@link #flush()} operation;</li>
+     * <li>Total timeout time for {@link #close()} operation.</li>
+     * </ul>
+     * By default the timeout is disabled.
+     *
+     * @param timeout Timeout in milliseconds.
+     * @throws IllegalArgumentException If timeout is zero or less than {@code -1}.
+     */
+    public void timeout(long timeout);
+
+    /**
+     * Gets timeout set by {@link #timeout(long)}.
+     *
+     * @return Timeout in milliseconds.
+     */
+    public long timeout();
 
     /**
      * Gets automatic flush frequency. Essentially, this is the time after which the
@@ -226,23 +275,23 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
     public void deployClass(Class<?> depCls);
 
     /**
-     * Sets custom cache updater to this data streamer.
+     * Sets custom stream receiver to this data streamer.
      *
-     * @param updater Cache updater.
+     * @param rcvr Stream receiver.
      */
-    public void updater(Updater<K, V> updater);
+    public void receiver(StreamReceiver<K, V> rcvr);
 
     /**
      * Adds key for removal on remote node. Equivalent to {@link #addData(Object, Object) addData(key, null)}.
      *
      * @param key Key.
      * @return Future fo this operation.
-     * @throws IgniteException If failed to map key to node.
+     * @throws CacheException If failed to map key to node.
      * @throws IgniteInterruptedException If thread has been interrupted.
      * @throws IllegalStateException If grid has been concurrently stopped or
      *      {@link #close(boolean)} has already been called on streamer.
      */
-    public IgniteFuture<?> removeData(K key)  throws IgniteException, IgniteInterruptedException, IllegalStateException;
+    public IgniteFuture<?> removeData(K key) throws CacheException, IgniteInterruptedException, IllegalStateException;
 
     /**
      * Adds data for streaming on remote node. This method can be called from multiple
@@ -259,14 +308,15 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
      * @param key Key.
      * @param val Value or {@code null} if respective entry must be removed from cache.
      * @return Future fo this operation.
-     * @throws IgniteException If failed to map key to node.
+     * @throws CacheException If failed to map key to node.
      * @throws IgniteInterruptedException If thread has been interrupted.
      * @throws IllegalStateException If grid has been concurrently stopped or
      *      {@link #close(boolean)} has already been called on streamer.
+     * @throws IgniteDataStreamerTimeoutException If {@code timeout} is exceeded.
      * @see #allowOverwrite()
      */
-    public IgniteFuture<?> addData(K key, @Nullable V val) throws IgniteException, IgniteInterruptedException,
-        IllegalStateException;
+    public IgniteFuture<?> addData(K key, @Nullable V val) throws CacheException, IgniteInterruptedException,
+        IllegalStateException, IgniteDataStreamerTimeoutException;
 
     /**
      * Adds data for streaming on remote node. This method can be called from multiple
@@ -282,14 +332,15 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
      *
      * @param entry Entry.
      * @return Future fo this operation.
-     * @throws IgniteException If failed to map key to node.
+     * @throws CacheException If failed to map key to node.
      * @throws IgniteInterruptedException If thread has been interrupted.
      * @throws IllegalStateException If grid has been concurrently stopped or
      *      {@link #close(boolean)} has already been called on streamer.
+     * @throws IgniteDataStreamerTimeoutException If {@code timeout} is exceeded.
      * @see #allowOverwrite()
      */
-    public IgniteFuture<?> addData(Map.Entry<K, V> entry) throws IgniteException, IgniteInterruptedException,
-        IllegalStateException;
+    public IgniteFuture<?> addData(Map.Entry<K, V> entry) throws CacheException, IgniteInterruptedException,
+        IllegalStateException, IgniteDataStreamerTimeoutException;
 
     /**
      * Adds data for streaming on remote node. This method can be called from multiple
@@ -306,10 +357,12 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
      * @param entries Collection of entries to be streamed.
      * @throws IllegalStateException If grid has been concurrently stopped or
      *      {@link #close(boolean)} has already been called on streamer.
+     * @throws IgniteDataStreamerTimeoutException If {@code timeout} is exceeded.
      * @return Future for this stream operation.
      * @see #allowOverwrite()
      */
-    public IgniteFuture<?> addData(Collection<? extends Map.Entry<K, V>> entries) throws IllegalStateException;
+    public IgniteFuture<?> addData(Collection<? extends Map.Entry<K, V>> entries) throws IllegalStateException,
+        IgniteDataStreamerTimeoutException;
 
     /**
      * Adds data for streaming on remote node. This method can be called from multiple
@@ -326,10 +379,12 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
      * @param entries Map to be streamed.
      * @throws IllegalStateException If grid has been concurrently stopped or
      *      {@link #close(boolean)} has already been called on streamer.
+     * @throws IgniteDataStreamerTimeoutException If {@code timeout} is exceeded.
      * @return Future for this stream operation.
      * @see #allowOverwrite()
      */
-    public IgniteFuture<?> addData(Map<K, V> entries) throws IllegalStateException;
+    public IgniteFuture<?> addData(Map<K, V> entries) throws IllegalStateException,
+        IgniteDataStreamerTimeoutException;
 
     /**
      * Streams any remaining data, but doesn't close the streamer. Data can be still added after
@@ -340,34 +395,38 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
      * another thread to complete flush and exit. If you don't want to wait in this case,
      * use {@link #tryFlush()} method.
      *
-     * @throws IgniteException If failed to map key to node.
+     * @throws CacheException If failed to map key to node.
      * @throws IgniteInterruptedException If thread has been interrupted.
      * @throws IllegalStateException If grid has been concurrently stopped or
      *      {@link #close(boolean)} has already been called on streamer.
+     * @throws IgniteDataStreamerTimeoutException If {@code timeout} is exceeded.
      * @see #tryFlush()
      */
-    public void flush() throws IgniteException, IgniteInterruptedException, IllegalStateException;
+    public void flush() throws CacheException, IgniteInterruptedException, IllegalStateException,
+        IgniteDataStreamerTimeoutException;
 
     /**
      * Makes an attempt to stream remaining data. This method is mostly similar to {@link #flush},
      * with the difference that it won't wait and will exit immediately.
      *
-     * @throws IgniteException If failed to map key to node.
+     * @throws CacheException If failed to map key to node.
      * @throws IgniteInterruptedException If thread has been interrupted.
      * @throws IllegalStateException If grid has been concurrently stopped or
      *      {@link #close(boolean)} has already been called on streamer.
      * @see #flush()
      */
-    public void tryFlush() throws IgniteException, IgniteInterruptedException, IllegalStateException;
+    public void tryFlush() throws CacheException, IgniteInterruptedException, IllegalStateException;
 
     /**
      * Streams any remaining data and closes this streamer.
      *
      * @param cancel {@code True} to cancel ongoing streaming operations.
-     * @throws IgniteException If failed to map key to node.
+     * @throws CacheException If failed to map key to node.
      * @throws IgniteInterruptedException If thread has been interrupted.
+     * @throws IgniteDataStreamerTimeoutException If {@code timeout} is exceeded, only if cancel is {@code false}.
      */
-    public void close(boolean cancel) throws IgniteException, IgniteInterruptedException;
+    public void close(boolean cancel) throws CacheException, IgniteInterruptedException,
+        IgniteDataStreamerTimeoutException;
 
     /**
      * Closes data streamer. This method is identical to calling {@link #close(boolean) close(false)} method.
@@ -375,27 +434,11 @@ public interface IgniteDataStreamer<K, V> extends AutoCloseable {
      * The method is invoked automatically on objects managed by the
      * {@code try-with-resources} statement.
      *
-     * @throws IgniteException If failed to close data streamer.
+     * @throws CacheException If failed to close data streamer.
      * @throws IgniteInterruptedException If thread has been interrupted.
+     * @throws IgniteDataStreamerTimeoutException If {@code timeout} is exceeded.
      */
-    @Override public void close() throws IgniteException, IgniteInterruptedException;
+    @Override public void close() throws CacheException, IgniteInterruptedException,
+        IgniteDataStreamerTimeoutException;
 
-    /**
-     * Updates cache with batch of entries. Usually it is enough to configure {@link IgniteDataStreamer#allowOverwrite(boolean)}
-     * property and appropriate internal cache updater will be chosen automatically. But in some cases to achieve best
-     * performance custom user-defined implementation may help.
-     * <p>
-     * Data streamer can be configured to use custom implementation of updater instead of default one using
-     * {@link IgniteDataStreamer#updater(IgniteDataStreamer.Updater)} method.
-     */
-    interface Updater<K, V> extends Serializable {
-        /**
-         * Updates cache with batch of entries.
-         *
-         * @param cache Cache.
-         * @param entries Collection of entries.
-         * @throws IgniteException If failed.
-         */
-        public void update(IgniteCache<K, V> cache, Collection<Map.Entry<K, V>> entries) throws IgniteException;
-    }
 }

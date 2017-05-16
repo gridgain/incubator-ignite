@@ -17,16 +17,29 @@
 
 package org.apache.ignite.schema.ui;
 
-import javafx.beans.value.*;
-import javafx.event.*;
-import javafx.geometry.*;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.stage.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Pos;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ScrollBar;
+import javafx.scene.control.TextArea;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
-import java.util.logging.*;
-
-import static org.apache.ignite.schema.ui.Controls.*;
+import static org.apache.ignite.schema.ui.Controls.borderPane;
+import static org.apache.ignite.schema.ui.Controls.button;
+import static org.apache.ignite.schema.ui.Controls.checkBox;
+import static org.apache.ignite.schema.ui.Controls.hBox;
+import static org.apache.ignite.schema.ui.Controls.imageView;
+import static org.apache.ignite.schema.ui.Controls.paneEx;
+import static org.apache.ignite.schema.ui.Controls.scene;
 
 /**
  * Message box functionality.
@@ -72,9 +85,9 @@ public class MessageBox extends ModalDialog {
      * @param owner Owner window.
      * @param type Message box type.
      * @param msg Message to show.
-     * @param rememberChoice If {@code true} then add &quot;Remember choice&quot; check box.
+     * @param applyToAll {@code true} if &quot;Apply to all&quot; check box should be displayed.
      */
-    private MessageBox(Stage owner, MessageType type, String msg, final boolean rememberChoice) {
+    private MessageBox(Stage owner, MessageType type, String msg, final boolean applyToAll) {
         super(owner, 480, 180);
 
         String title;
@@ -124,7 +137,7 @@ public class MessageBox extends ModalDialog {
         contentPnl.add(ta);
 
         // Workaround for vertical scrollbar.
-        if (msg.split("\r\n|\r|\n").length < 4)
+        if (msg.length() < 100 && msg.split("\r\n|\r|\n").length < 4)
             showingProperty().addListener(new ChangeListener<Boolean>() {
                 @Override public void changed(ObservableValue<? extends Boolean> val, Boolean oldVal, Boolean newVal) {
                     if (newVal) {
@@ -136,11 +149,11 @@ public class MessageBox extends ModalDialog {
                 }
             });
 
-        final CheckBox rememberChoiceCh = checkBox("Remember choice", "", false);
+        final CheckBox applyToAllCh = checkBox("Apply to all", "", false);
 
-        if (rememberChoice) {
+        if (applyToAll) {
             contentPnl.skip(1);
-            contentPnl.add(rememberChoiceCh);
+            contentPnl.add(applyToAllCh);
         }
 
         HBox btns = hBox(10, true);
@@ -152,14 +165,14 @@ public class MessageBox extends ModalDialog {
             btns.getChildren().addAll(
                 button("Yes", "Approve the request", new EventHandler<ActionEvent>() {
                     @Override public void handle(ActionEvent e) {
-                        res = rememberChoice && rememberChoiceCh.isSelected() ? Result.YES_TO_ALL : Result.YES;
+                        res = applyToAll && applyToAllCh.isSelected() ? Result.YES_TO_ALL : Result.YES;
 
                         close();
                     }
                 }),
                 button("No", "Reject the request", new EventHandler<ActionEvent>() {
                     @Override public void handle(ActionEvent e) {
-                        res = rememberChoice && rememberChoiceCh.isSelected() ? Result.NO_TO_ALL : Result.NO;
+                        res = applyToAll && applyToAllCh.isSelected() ? Result.NO_TO_ALL : Result.NO;
 
                         close();
                     }
@@ -191,10 +204,11 @@ public class MessageBox extends ModalDialog {
      * @param owner Owner window.
      * @param type Message box type.
      * @param msg Message to show.
+     * @param applyToAll {@code true} if &quot;Apply to all&quot; check box should be displayed.
      * @return Option selected by the user.
      */
-    private static Result showDialog(Stage owner, MessageType type, String msg, boolean rememberChoice) {
-        MessageBox dlg = new MessageBox(owner, type, msg, rememberChoice);
+    private static Result showDialog(Stage owner, MessageType type, String msg, boolean applyToAll) {
+        MessageBox dlg = new MessageBox(owner, type, msg, applyToAll);
 
         dlg.showModal();
 
@@ -219,7 +233,7 @@ public class MessageBox extends ModalDialog {
      * @param msg Message to show.
      * @return User confirmation result.
      */
-    public static Result confirmRememberChoiceDialog(Stage owner, String msg) {
+    public static Result applyToAllChoiceDialog(Stage owner, String msg) {
         return showDialog(owner, MessageType.CANCELLABLE_CONFIRM, msg, true);
     }
 

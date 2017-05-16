@@ -17,19 +17,35 @@
 
 package org.apache.ignite.tools.classgen;
 
-import java.io.*;
-import java.lang.reflect.*;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.locks.*;
-import java.util.jar.*;
+import java.io.BufferedInputStream;
+import java.io.Externalizable;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
+import java.io.Serializable;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.TreeSet;
+import java.util.concurrent.locks.AbstractQueuedSynchronizer;
+import java.util.jar.JarEntry;
+import java.util.jar.JarInputStream;
 
 /**
  * Serialized classes generator.
  */
 public class ClassesGenerator {
     /** */
-    private static final String FILE_PATH = "META-INF/classnames.properties";
+    private static final String META_INF = "META-INF/";
+
+    /** */
+    private static final String DEFAULT_FILE_PATH = META_INF + "classnames.properties";
 
     /** */
     private static final String[] EXCLUDED_PACKAGES = {
@@ -46,8 +62,9 @@ public class ClassesGenerator {
         String basePath = args[0];
         String hdr = args[1];
         String[] packages = args[2].split(":");
+        String finaName = args.length == 4 ? args[3] : null;
 
-        ClassesGenerator gen = new ClassesGenerator(basePath, hdr, packages);
+        ClassesGenerator gen = new ClassesGenerator(basePath, hdr, packages, finaName);
 
         gen.generate();
     }
@@ -74,15 +91,20 @@ public class ClassesGenerator {
     /** */
     private final String[] packages;
 
+    /** */
+    private final String fileName;
+
     /**
      * @param basePath Base file path.
      * @param hdr Header.
      * @param packages Included packages.
+     * @param fileName Property file name.
      */
-    private ClassesGenerator(String basePath, String hdr, String[] packages) {
+    private ClassesGenerator(String basePath, String hdr, String[] packages, String fileName) {
         this.basePath = basePath;
         this.hdr = hdr;
         this.packages = packages;
+        this.fileName = fileName;
     }
 
     /**
@@ -100,10 +122,15 @@ public class ClassesGenerator {
             for (String err : errs)
                 sb.append("    ").append(err).append('\n');
 
-            throw new Exception(sb.toString().trim());
+            String msg = sb.toString().trim();
+
+            System.out.println(msg);
+
+            throw new Exception(msg);
         }
 
-        PrintStream out = new PrintStream(new File(basePath, FILE_PATH));
+        PrintStream out = new PrintStream(new File(basePath,
+            (fileName == null || fileName.isEmpty()) ? DEFAULT_FILE_PATH : META_INF + fileName));
 
         out.println(hdr);
         out.println();
@@ -187,7 +214,7 @@ public class ClassesGenerator {
 
             if (Serializable.class.isAssignableFrom(cls) && !AbstractQueuedSynchronizer.class.isAssignableFrom(cls)) {
                 if (!cls.isInterface() && !Modifier.isAbstract(cls.getModifiers()) && !cls.isEnum() &&
-                    !cls.getSimpleName().isEmpty() && cls.getName().startsWith("org.apache.ignite")) {
+                    !cls.getSimpleName().isEmpty()) {
                     try {
                         Field field = cls.getDeclaredField("serialVersionUID");
 
@@ -204,6 +231,18 @@ public class ClassesGenerator {
                     }
                     catch (NoSuchFieldException ignored) {
                         errs.add("No serialVersionUID field in class: " + cls.getName());
+                    }
+
+                    if (Externalizable.class.isAssignableFrom(cls)) {
+                        try {
+                            Constructor<?> cons = cls.getConstructor();
+
+                            if (!Modifier.isPublic(cons.getModifiers()))
+                                errs.add("Default constructor in Externalizable class is not public: " + cls.getName());
+                        }
+                        catch (NoSuchMethodException ignored) {
+                            errs.add("No default constructor in Externalizable class: " + cls.getName());
+                        }
                     }
                 }
 

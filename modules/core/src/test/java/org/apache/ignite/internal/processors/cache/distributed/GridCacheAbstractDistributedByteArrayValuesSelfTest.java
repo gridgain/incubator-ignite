@@ -17,19 +17,23 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.spi.swapspace.file.*;
-import org.apache.ignite.transactions.*;
-import org.jetbrains.annotations.*;
+import java.util.Arrays;
+import java.util.Collections;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.processors.cache.GridCacheAbstractByteArrayValuesSelfTest;
+import org.apache.ignite.spi.swapspace.file.FileSwapSpaceSpi;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
-import static org.junit.Assert.*;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
+import static org.junit.Assert.assertArrayEquals;
 
 /**
  * Tests for byte array values in distributed caches.
@@ -139,9 +143,9 @@ public abstract class GridCacheAbstractDistributedByteArrayValuesSelfTest extend
         for (int i = 0; i < gridCnt; i++) {
             ignites[i] = startGrid(i);
 
-            caches[i] = ignites[i].jcache(CACHE_REGULAR);
-            cachesOffheap[i] = ignites[i].jcache(CACHE_OFFHEAP);
-            cachesOffheapTiered[i] = ignites[i].jcache(CACHE_OFFHEAP_TIERED);
+            caches[i] = ignites[i].cache(CACHE_REGULAR);
+            cachesOffheap[i] = ignites[i].cache(CACHE_OFFHEAP);
+            cachesOffheapTiered[i] = ignites[i].cache(CACHE_OFFHEAP_TIERED);
         }
     }
 
@@ -332,6 +336,8 @@ public abstract class GridCacheAbstractDistributedByteArrayValuesSelfTest extend
     private void testTransactionMixed0(IgniteCache<Integer, Object>[] caches, TransactionConcurrency concurrency,
         Integer key1, byte[] val1, @Nullable Integer key2, @Nullable Object val2) throws Exception {
         for (IgniteCache<Integer, Object> cache : caches) {
+            info("Checking cache: " + cache.getName());
+
             Transaction tx = cache.unwrap(Ignite.class).transactions().txStart(concurrency, REPEATABLE_READ);
 
             try {
@@ -347,6 +353,8 @@ public abstract class GridCacheAbstractDistributedByteArrayValuesSelfTest extend
             }
 
             for (IgniteCache<Integer, Object> cacheInner : caches) {
+                info("Getting value from cache: " + cacheInner.getName());
+
                 tx = cacheInner.unwrap(Ignite.class).transactions().txStart(concurrency, REPEATABLE_READ);
 
                 try {

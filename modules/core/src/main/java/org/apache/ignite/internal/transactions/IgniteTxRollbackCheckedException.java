@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.transactions;
 
-import org.apache.ignite.*;
+import org.apache.ignite.IgniteCheckedException;
 
 /**
  * Exception thrown whenever grid transactions has been automatically rolled back.
@@ -33,6 +33,15 @@ public class IgniteTxRollbackCheckedException extends IgniteCheckedException {
      */
     public IgniteTxRollbackCheckedException(String msg) {
         super(msg);
+    }
+
+    /**
+     * Creates new exception with given nested exception.
+     *
+     * @param cause Nested exception.
+     */
+    public IgniteTxRollbackCheckedException(Throwable cause) {
+        super(cause);
     }
 
     /**

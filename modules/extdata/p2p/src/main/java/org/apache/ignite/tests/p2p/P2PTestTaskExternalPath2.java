@@ -17,14 +17,27 @@
 
 package org.apache.ignite.tests.p2p;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.resources.*;
-
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeJobAdapter;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.compute.ComputeTaskAdapter;
+import org.apache.ignite.compute.ComputeTaskSession;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.resources.TaskSessionResource;
 
 /**
  * Simple test task.
@@ -64,11 +77,11 @@ public class P2PTestTaskExternalPath2 extends ComputeTaskAdapter<Object, Integer
             sleep = false;
         }
 
-        Map<TestJob, ClusterNode> jobs = U.newHashMap(subgrid.size());
+        Map<TestJob2, ClusterNode> jobs = U.newHashMap(subgrid.size());
 
         for (ClusterNode node : subgrid) {
             if (nodeIds.contains(node.id()))
-                jobs.put(new TestJob(node.id(), sleep), node);
+                jobs.put(new TestJob2(node.id(), sleep), node);
         }
 
         if (!jobs.isEmpty())
@@ -88,7 +101,7 @@ public class P2PTestTaskExternalPath2 extends ComputeTaskAdapter<Object, Integer
      * Simple job class
      */
     @SuppressWarnings("PublicInnerClass")
-    public static class TestJob extends ComputeJobAdapter {
+    public static class TestJob2 extends ComputeJobAdapter {
         /** Ignite instance. */
         @IgniteInstanceResource
         private Ignite ignite;
@@ -108,7 +121,7 @@ public class P2PTestTaskExternalPath2 extends ComputeTaskAdapter<Object, Integer
          * @param nodeId Node ID for node this job is supposed to execute on.
          * @param sleep Sleep flag.
          */
-        public TestJob(UUID nodeId, boolean sleep) {
+        public TestJob2(UUID nodeId, boolean sleep) {
             super(nodeId);
 
             this.sleep = sleep;

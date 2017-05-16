@@ -17,17 +17,23 @@
 
 package org.apache.ignite.internal.processors.cache.version;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.datastreamer.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.nio.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.nio.ByteBuffer;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectTransient;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.CacheObjectContext;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.datastreamer.DataStreamerEntry;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Raw versioned entry.
@@ -54,7 +60,7 @@ public class GridCacheRawVersionedEntry<K, V> extends DataStreamerEntry implemen
     private GridCacheVersion ver;
 
     /**
-     * {@code Externalizable) support.
+     * {@code Externalizable} support.
      */
     public GridCacheRawVersionedEntry() {
         // No-op.
@@ -185,7 +191,7 @@ public class GridCacheRawVersionedEntry<K, V> extends DataStreamerEntry implemen
         unmarshalKey(ctx, marsh);
 
         if (val == null && valBytes != null) {
-            val = marsh.unmarshal(valBytes, null);
+            val = U.unmarshal(marsh, valBytes, U.resolveClassLoader(ctx.kernalContext().config()));
 
             val.finishUnmarshal(ctx, null);
         }
@@ -216,7 +222,7 @@ public class GridCacheRawVersionedEntry<K, V> extends DataStreamerEntry implemen
         if (key == null) {
             assert keyBytes != null;
 
-            key = marsh.unmarshal(keyBytes, null);
+            key = U.unmarshal(marsh, keyBytes, U.resolveClassLoader(ctx.kernalContext().config()));
 
             key.finishUnmarshal(ctx, null);
         }
@@ -233,13 +239,13 @@ public class GridCacheRawVersionedEntry<K, V> extends DataStreamerEntry implemen
         if (keyBytes == null) {
             key.prepareMarshal(ctx);
 
-            keyBytes = marsh.marshal(key);
+            keyBytes = U.marshal(marsh, key);
         }
 
         if (valBytes == null && val != null) {
             val.prepareMarshal(ctx);
 
-            valBytes = marsh.marshal(val);
+            valBytes = U.marshal(marsh, val);
         }
     }
 
@@ -307,7 +313,7 @@ public class GridCacheRawVersionedEntry<K, V> extends DataStreamerEntry implemen
         assert key != null;
         assert !(val != null && valBytes != null);
 
-        return true;
+        return reader.afterMessageRead(GridCacheRawVersionedEntry.class);
     }
 
     /** {@inheritDoc} */
@@ -374,8 +380,9 @@ public class GridCacheRawVersionedEntry<K, V> extends DataStreamerEntry implemen
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(GridCacheRawVersionedEntry.class, this, "keyBytesLen",
-            keyBytes != null ? keyBytes.length : "n/a", "valBytesLen",
-            valBytes != null ? valBytes.length : "n/a");
+        return S.toString(GridCacheRawVersionedEntry.class, this,
+            "keyBytesLen", keyBytes != null ? keyBytes.length : "n/a",
+            "valBytesLen", valBytes != null ? valBytes.length : "n/a",
+            "super", super.toString());
     }
 }

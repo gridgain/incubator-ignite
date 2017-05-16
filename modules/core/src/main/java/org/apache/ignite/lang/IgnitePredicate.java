@@ -17,11 +17,10 @@
 
 package org.apache.ignite.lang;
 
-import java.io.*;
+import java.io.Serializable;
 
 /**
- * Defines a predicate which accepts a parameter and returns {@code true} or {@code false}. In
- * Ignite, predicates are generally used for filtering nodes within grid projections.
+ * Defines a predicate which accepts a parameter and returns {@code true} or {@code false}.
  *
  * @param <E> Type of predicate parameter.
  */

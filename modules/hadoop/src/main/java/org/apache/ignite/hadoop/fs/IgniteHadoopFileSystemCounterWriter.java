@@ -17,17 +17,12 @@
 
 package org.apache.ignite.hadoop.fs;
 
-import org.apache.hadoop.conf.*;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.*;
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.hadoop.*;
-import org.apache.ignite.internal.processors.hadoop.counter.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.hadoop.HadoopJob;
+import org.apache.ignite.internal.processors.hadoop.counter.HadoopCounterWriter;
 import org.apache.ignite.internal.processors.hadoop.counter.HadoopCounters;
-import org.apache.ignite.internal.util.typedef.*;
-
-import java.io.*;
-import java.util.*;
+import org.apache.ignite.internal.processors.hadoop.delegate.HadoopDelegateUtils;
+import org.apache.ignite.internal.processors.hadoop.delegate.HadoopFileSystemCounterWriterDelegate;
 
 /**
  * Statistic writer implementation that writes info into any Hadoop file system.
@@ -37,57 +32,41 @@ public class IgniteHadoopFileSystemCounterWriter implements HadoopCounterWriter 
     public static final String PERFORMANCE_COUNTER_FILE_NAME = "performance";
 
     /** */
-    private static final String DEFAULT_USER_NAME = "anonymous";
-
-    /** */
     public static final String COUNTER_WRITER_DIR_PROPERTY = "ignite.counters.fswriter.directory";
 
-    /** */
-    private static final String USER_MACRO = "${USER}";
+    /** Mutex. */
+    private final Object mux = new Object();
 
-    /** */
-    private static final String DEFAULT_COUNTER_WRITER_DIR = "/user/" + USER_MACRO;
+    /** Delegate. */
+    private volatile HadoopFileSystemCounterWriterDelegate delegate;
 
     /** {@inheritDoc} */
-    @Override public void write(HadoopJobInfo jobInfo, HadoopJobId jobId, HadoopCounters cntrs)
+    @Override public void write(HadoopJob job, HadoopCounters cntrs)
         throws IgniteCheckedException {
+        delegate(job).write(job, cntrs);
+    }
 
-        Configuration hadoopCfg = new Configuration();
+    /**
+     * Get delegate creating it if needed.
+     *
+     * @param job Job.
+     * @return Delegate.
+     */
+    private HadoopFileSystemCounterWriterDelegate delegate(HadoopJob job) {
+        HadoopFileSystemCounterWriterDelegate delegate0 = delegate;
 
-        for (Map.Entry<String, String> e : ((HadoopDefaultJobInfo)jobInfo).properties().entrySet())
-            hadoopCfg.set(e.getKey(), e.getValue());
+        if (delegate0 == null) {
+            synchronized (mux) {
+                delegate0 = delegate;
 
-        String user = jobInfo.user();
+                if (delegate0 == null) {
+                    delegate0 = HadoopDelegateUtils.counterWriterDelegate(job.getClass().getClassLoader(), this);
 
-        if (F.isEmpty(user))
-            user = DEFAULT_USER_NAME;
-
-        String dir = jobInfo.property(COUNTER_WRITER_DIR_PROPERTY);
-
-        if (dir == null)
-            dir = DEFAULT_COUNTER_WRITER_DIR;
-
-        Path jobStatPath = new Path(new Path(dir.replace(USER_MACRO, user)), jobId.toString());
-
-        HadoopPerformanceCounter perfCntr = HadoopPerformanceCounter.getCounter(cntrs, null);
-
-        try {
-            FileSystem fs = jobStatPath.getFileSystem(hadoopCfg);
-
-            fs.mkdirs(jobStatPath);
-
-            try (PrintStream out = new PrintStream(fs.create(new Path(jobStatPath, PERFORMANCE_COUNTER_FILE_NAME)))) {
-                for (T2<String, Long> evt : perfCntr.evts()) {
-                    out.print(evt.get1());
-                    out.print(':');
-                    out.println(evt.get2().toString());
+                    delegate = delegate0;
                 }
-
-                out.flush();
             }
         }
-        catch (IOException e) {
-            throw new IgniteCheckedException(e);
-        }
+
+        return delegate0;
     }
 }

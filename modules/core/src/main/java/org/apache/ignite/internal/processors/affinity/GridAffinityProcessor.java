@@ -17,32 +17,60 @@
 
 package org.apache.ignite.internal.processors.affinity;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.processors.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.timeout.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.cache.affinity.AffinityKeyMapper;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.GridProcessorAdapter;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.CacheObjectContext;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
+import org.apache.ignite.internal.util.GridLeanMap;
+import org.apache.ignite.internal.util.future.GridFinishedFuture;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.lang.GridTuple3;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.lang.IgniteUuid;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.events.EventType.*;
-import static org.apache.ignite.internal.GridClosureCallMode.*;
-import static org.apache.ignite.internal.processors.affinity.GridAffinityUtils.*;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
+import static org.apache.ignite.internal.GridClosureCallMode.BROADCAST;
+import static org.apache.ignite.internal.processors.affinity.GridAffinityUtils.affinityJob;
+import static org.apache.ignite.internal.processors.affinity.GridAffinityUtils.unmarshall;
 
 /**
  * Data affinity processor.
@@ -77,15 +105,12 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
             // Clean up affinity functions if such cache no more exists.
             if (evtType == EVT_NODE_FAILED || evtType == EVT_NODE_LEFT) {
-                final Collection<String> caches = new HashSet<>();
-
-                for (ClusterNode clusterNode : ((DiscoveryEvent)evt).topologyNodes())
-                    caches.addAll(U.cacheNames(clusterNode));
+                final Collection<String> caches = ctx.cache().cacheNames();
 
                 final Collection<AffinityAssignmentKey> rmv = new HashSet<>();
 
                 for (AffinityAssignmentKey key : affMap.keySet()) {
-                    if (!caches.contains(key.cacheName) || key.topVer < discoEvt.topologyVersion() - 10)
+                    if (!caches.contains(key.cacheName) || key.topVer.topologyVersion() < discoEvt.topologyVersion() - 10)
                         rmv.add(key);
                 }
 
@@ -121,6 +146,74 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
     }
 
     /**
+     * @param cacheName Cache name.
+     * @param key Key.
+     * @return Key partition.
+     * @throws IgniteCheckedException If failed.
+     */
+    public int partition(@Nullable String cacheName, Object key) throws IgniteCheckedException {
+        return partition(cacheName, key, null);
+    }
+
+    /**
+     * @param cacheName Cache name (needed only if {@code aff} is not provided.
+     * @param key Key.
+     * @param aff Affinity information.
+     * @return Key partition.
+     * @throws IgniteCheckedException If failed.
+     */
+    public int partition(@Nullable String cacheName,
+        Object key,
+        @Nullable AffinityInfo aff) throws IgniteCheckedException {
+        if (key instanceof KeyCacheObject) {
+            int part = ((KeyCacheObject)key).partition();
+
+            if (part >= 0)
+                return part;
+        }
+
+        return partition0(cacheName, key, aff);
+    }
+
+    /**
+     * @param cacheName Cache name (needed only if {@code aff} is not provided.
+     * @param key Key.
+     * @param aff Affinity.
+     * @return Key partition.
+     * @throws IgniteCheckedException If failed.
+     */
+    public int partition0(@Nullable String cacheName,
+        Object key,
+        @Nullable AffinityInfo aff) throws IgniteCheckedException {
+        if (aff == null) {
+            aff = affinityCache(cacheName, ctx.discovery().topologyVersionEx());
+
+            if (aff == null)
+                throw new IgniteCheckedException("Failed to get cache affinity.");
+        }
+
+        return aff.affFunc.partition(aff.affinityKey(key));
+    }
+
+    /**
+     * Maps partition to a node.
+     *
+     * @param cacheName Cache name.
+     * @param partId partition.
+     * @param topVer Affinity topology version.
+     * @return Picked node.
+     * @throws IgniteCheckedException If failed.
+     */
+    @Nullable public ClusterNode mapPartitionToNode(@Nullable String cacheName, int partId,
+        AffinityTopologyVersion topVer)
+        throws IgniteCheckedException {
+        AffinityInfo affInfo = affinityCache(cacheName, topVer);
+
+        return affInfo != null ? F.first(affInfo.assignment().get(partId)) : null;
+    }
+
+
+    /**
      * Maps keys to nodes for given cache.
      *
      * @param cacheName Cache name.
@@ -134,18 +227,6 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
     }
 
     /**
-     * Maps keys to nodes on default cache.
-     *
-     * @param keys Keys to map.
-     * @return Map of nodes to keys.
-     * @throws IgniteCheckedException If failed.
-     */
-    public <K> Map<ClusterNode, Collection<K>> mapKeysToNodes(@Nullable Collection<? extends K> keys)
-        throws IgniteCheckedException {
-        return keysToNodes(null, keys);
-    }
-
-    /**
      * Maps single key to a node.
      *
      * @param cacheName Cache name.
@@ -156,7 +237,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
     @Nullable public <K> ClusterNode mapKeyToNode(@Nullable String cacheName, K key) throws IgniteCheckedException {
         Map<ClusterNode, Collection<K>> map = keysToNodes(cacheName, F.asList(key));
 
-        return map != null ? F.first(map.keySet()) : null;
+        return !F.isEmpty(map) ? F.first(map.keySet()) : null;
     }
 
     /**
@@ -167,7 +248,8 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
      * @return Picked node.
      * @throws IgniteCheckedException If failed.
      */
-    @Nullable public <K> ClusterNode mapKeyToNode(@Nullable String cacheName, K key, long topVer) throws IgniteCheckedException {
+    @Nullable public <K> ClusterNode mapKeyToNode(@Nullable String cacheName, K key,
+        AffinityTopologyVersion topVer) throws IgniteCheckedException {
         Map<ClusterNode, Collection<K>> map = keysToNodes(cacheName, F.asList(key), topVer);
 
         return map != null ? F.first(map.keySet()) : null;
@@ -178,33 +260,25 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
      *
      * @param cacheName Cache name.
      * @param key Key to map.
+     * @param topVer Topology version.
      * @return Affinity nodes, primary first.
      * @throws IgniteCheckedException If failed.
      */
-    public <K> List<ClusterNode> mapKeyToPrimaryAndBackups(@Nullable String cacheName, K key) throws IgniteCheckedException {
+    public <K> List<ClusterNode> mapKeyToPrimaryAndBackups(@Nullable String cacheName,
+        K key,
+        AffinityTopologyVersion topVer)
+        throws IgniteCheckedException
+    {
         A.notNull(key, "key");
-
-        ClusterNode loc = ctx.discovery().localNode();
-
-        if (U.hasCache(loc, cacheName) && ctx.cache().cache(cacheName).configuration().getCacheMode() == LOCAL)
-            return Collections.singletonList(loc);
-
-        long topVer = ctx.discovery().topologyVersion();
 
         AffinityInfo affInfo = affinityCache(cacheName, topVer);
 
-        return primaryAndBackups(affInfo, key);
-    }
+        if (affInfo == null)
+            return Collections.emptyList();
 
-    /**
-     * Maps single key to a node on default cache.
-     *
-     * @param key Key to map.
-     * @return Picked node.
-     * @throws IgniteCheckedException If failed.
-     */
-    @Nullable public <K> ClusterNode mapKeyToNode(K key) throws IgniteCheckedException {
-        return mapKeyToNode(null, key);
+        int part = partition(cacheName, key, affInfo);
+
+        return affInfo.assignment.get(part);
     }
 
     /**
@@ -220,15 +294,12 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         if (key == null)
             return null;
 
-        AffinityInfo affInfo = affinityCache(cacheName, ctx.discovery().topologyVersion());
+        AffinityInfo affInfo = affinityCache(cacheName, ctx.discovery().topologyVersionEx());
 
-        if (affInfo == null || affInfo.mapper == null)
+        if (affInfo == null)
             return null;
 
-        if (key instanceof CacheObject)
-            key = ((CacheObject)key).value(affInfo.cacheObjCtx, false);
-
-        return affInfo.mapper.affinityKey(key);
+        return affInfo.affinityKey(key);
     }
 
     /**
@@ -255,7 +326,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
      */
     private <K> Map<ClusterNode, Collection<K>> keysToNodes(@Nullable final String cacheName,
         Collection<? extends K> keys) throws IgniteCheckedException {
-        return keysToNodes(cacheName, keys, ctx.discovery().topologyVersion());
+        return keysToNodes(cacheName, keys, ctx.discovery().topologyVersionEx());
     }
 
     /**
@@ -266,14 +337,9 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
      * @throws IgniteCheckedException If failed.
      */
     private <K> Map<ClusterNode, Collection<K>> keysToNodes(@Nullable final String cacheName,
-        Collection<? extends K> keys, long topVer) throws IgniteCheckedException {
+        Collection<? extends K> keys, AffinityTopologyVersion topVer) throws IgniteCheckedException {
         if (F.isEmpty(keys))
             return Collections.emptyMap();
-
-        ClusterNode loc = ctx.discovery().localNode();
-
-        if (U.hasCache(loc, cacheName) && ctx.cache().cache(cacheName).configuration().getCacheMode() == LOCAL)
-            return F.asMap(loc, (Collection<K>)keys);
 
         AffinityInfo affInfo = affinityCache(cacheName, topVer);
 
@@ -287,7 +353,8 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
      * @throws IgniteCheckedException In case of error.
      */
     @SuppressWarnings("ErrorNotRethrown")
-    private AffinityInfo affinityCache(@Nullable final String cacheName, long topVer) throws IgniteCheckedException {
+    @Nullable private AffinityInfo affinityCache(@Nullable final String cacheName, AffinityTopologyVersion topVer)
+        throws IgniteCheckedException {
         AffinityAssignmentKey key = new AffinityAssignmentKey(cacheName, topVer);
 
         IgniteInternalFuture<AffinityInfo> fut = affMap.get(key);
@@ -298,30 +365,50 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         ClusterNode loc = ctx.discovery().localNode();
 
         // Check local node.
-        if (U.hasCache(loc, cacheName)) {
-            GridCacheContext<Object,Object> cctx = ctx.cache().internalCache(cacheName).context();
+        Collection<ClusterNode> cacheNodes = ctx.discovery().cacheNodes(cacheName, topVer);
 
-            AffinityInfo info = new AffinityInfo(
-                cctx.config().getAffinity(),
-                cctx.config().getAffinityMapper(),
-                new GridAffinityAssignment(topVer, cctx.affinity().assignments(topVer)),
-                cctx.cacheObjectContext());
+        if (cacheNodes.contains(loc)) {
+            GridCacheAdapter<Object, Object> cache = ctx.cache().internalCache(cacheName);
 
-            IgniteInternalFuture<AffinityInfo> old = affMap.putIfAbsent(key, new GridFinishedFuture<>(info));
+            // Cache is being stopped.
+            if (cache == null)
+                return null;
 
-            if (old != null)
-                info = old.get();
+            GridCacheContext<Object, Object> cctx = cache.context();
 
-            return info;
+            cctx.awaitStarted();
+
+            try {
+                cctx.gate().enter();
+            }
+            catch (IllegalStateException ignored) {
+                return null;
+            }
+
+            try {
+                AffinityAssignment assign0 = cctx.affinity().assignment(topVer);
+
+                GridAffinityAssignment assign = assign0 instanceof GridAffinityAssignment ?
+                    (GridAffinityAssignment)assign0 :
+                    new GridAffinityAssignment(topVer, assign0.assignment(), assign0.idealAssignment());
+
+                AffinityInfo info = new AffinityInfo(
+                    cctx.config().getAffinity(),
+                    cctx.config().getAffinityMapper(),
+                    assign,
+                    cctx.cacheObjectContext());
+
+                IgniteInternalFuture<AffinityInfo> old = affMap.putIfAbsent(key, new GridFinishedFuture<>(info));
+
+                if (old != null)
+                    info = old.get();
+
+                return info;
+            }
+            finally {
+                cctx.gate().leave();
+            }
         }
-
-        Collection<ClusterNode> cacheNodes = F.view(
-            ctx.discovery().remoteNodes(),
-            new P1<ClusterNode>() {
-                @Override public boolean apply(ClusterNode n) {
-                    return U.hasCache(n, cacheName);
-                }
-            });
 
         if (F.isEmpty(cacheNodes))
             return null;
@@ -352,7 +439,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
             ClusterNode n = it.next();
 
-            CacheMode mode = U.cacheMode(n, cacheName);
+            CacheMode mode = ctx.cache().cacheMode(cacheName);
 
             assert mode != null;
 
@@ -399,8 +486,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
     }
 
     /**
-     * Requests {@link CacheAffinityFunction} and
-     * {@link CacheAffinityKeyMapper} from remote node.
+     * Requests {@link AffinityFunction} and {@link AffinityKeyMapper} from remote node.
      *
      * @param cacheName Name of cache on which affinity is requested.
      * @param topVer Topology version.
@@ -408,13 +494,13 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
      * @return Affinity cached function.
      * @throws IgniteCheckedException If either local or remote node cannot get deployment for affinity objects.
      */
-    private AffinityInfo affinityInfoFromNode(@Nullable String cacheName, long topVer, ClusterNode n)
+    private AffinityInfo affinityInfoFromNode(@Nullable String cacheName, AffinityTopologyVersion topVer, ClusterNode n)
         throws IgniteCheckedException {
         GridTuple3<GridAffinityMessage, GridAffinityMessage, GridAffinityAssignment> t = ctx.closure()
-            .callAsyncNoFailover(BALANCE, affinityJob(cacheName, topVer), F.asList(n), true/*system pool*/).get();
+            .callAsyncNoFailover(BROADCAST, affinityJob(cacheName, topVer), F.asList(n), true/*system pool*/, 0).get();
 
-        CacheAffinityFunction f = (CacheAffinityFunction)unmarshall(ctx, n.id(), t.get1());
-        CacheAffinityKeyMapper m = (CacheAffinityKeyMapper)unmarshall(ctx, n.id(), t.get2());
+        AffinityFunction f = (AffinityFunction)unmarshall(ctx, n.id(), t.get1());
+        AffinityKeyMapper m = (AffinityKeyMapper)unmarshall(ctx, n.id(), t.get2());
 
         assert m != null;
 
@@ -422,7 +508,9 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         f.reset();
         m.reset();
 
-        return new AffinityInfo(f, m, t.get3(), ctx.cacheObjects().contextForCache(n, cacheName));
+        CacheConfiguration ccfg = ctx.cache().cacheConfiguration(cacheName);
+
+        return new AffinityInfo(f, m, t.get3(), ctx.cacheObjects().contextForCache(ccfg));
     }
 
     /**
@@ -471,10 +559,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
      * @throws IgniteCheckedException In case of error.
      */
     private <K> ClusterNode primary(AffinityInfo aff, K key) throws IgniteCheckedException {
-        if (key instanceof CacheObject)
-            key = ((CacheObject)key).value(aff.cacheObjCtx, false);
-
-        int part = aff.affFunc.partition(aff.mapper.affinityKey(key));
+        int part = partition(null, key, aff);
 
         Collection<ClusterNode> nodes = aff.assignment.get(part);
 
@@ -486,16 +571,16 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
     /**
      * @param aff Affinity function.
-     * @param key Key to check.
-     * @return Primary and backup nodes.
+     * @param nodeFilter Node class.
+     * @param backups Number of backups.
+     * @param parts Number of partitions.
+     * @return Key to find caches with similar affinity.
      */
-    private <K> List<ClusterNode> primaryAndBackups(AffinityInfo aff, K key) {
-        if (key instanceof CacheObject)
-            key = ((CacheObject) key).value(aff.cacheObjCtx, false);
-
-        int part = aff.affFunc.partition(aff.mapper.affinityKey(key));
-
-        return aff.assignment.get(part);
+    public Object similaryAffinityKey(AffinityFunction aff,
+        IgnitePredicate<ClusterNode> nodeFilter,
+        int backups,
+        int parts) {
+        return new SimilarAffinityKey(aff.getClass(), nodeFilter.getClass(), backups, parts);
     }
 
     /** {@inheritDoc} */
@@ -510,10 +595,10 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
      */
     private static class AffinityInfo {
         /** Affinity function. */
-        private CacheAffinityFunction affFunc;
+        private AffinityFunction affFunc;
 
         /** Mapper */
-        private CacheAffinityKeyMapper mapper;
+        private AffinityKeyMapper mapper;
 
         /** Assignment. */
         private GridAffinityAssignment assignment;
@@ -527,8 +612,8 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
          * @param assignment Partition assignment.
          * @param cacheObjCtx Cache objects context.
          */
-        private AffinityInfo(CacheAffinityFunction affFunc,
-            CacheAffinityKeyMapper mapper,
+        private AffinityInfo(AffinityFunction affFunc,
+            AffinityKeyMapper mapper,
             GridAffinityAssignment assignment,
             CacheObjectContext cacheObjCtx) {
             this.affFunc = affFunc;
@@ -538,9 +623,20 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         }
 
         /**
+         * @param key Key.
+         * @return Affinity key.
+         */
+        private Object affinityKey(Object key) {
+            if (key instanceof CacheObject && !(key instanceof BinaryObject))
+                key = ((CacheObject)key).value(cacheObjCtx, false);
+
+            return mapper.affinityKey(key);
+        }
+
+        /**
          * @return Cache affinity function.
          */
-        private CacheAffinityFunction affinityFunction() {
+        private AffinityFunction affinityFunction() {
             return affFunc;
         }
 
@@ -549,10 +645,6 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
          */
         private GridAffinityAssignment assignment() {
             return assignment;
-        }
-
-        private CacheAffinityKeyMapper keyMapper() {
-            return mapper;
         }
 
         /** {@inheritDoc} */
@@ -569,13 +661,13 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         private String cacheName;
 
         /** */
-        private long topVer;
+        private AffinityTopologyVersion topVer;
 
         /**
          * @param cacheName Cache name.
          * @param topVer Topology version.
          */
-        private AffinityAssignmentKey(String cacheName, long topVer) {
+        private AffinityAssignmentKey(String cacheName, @NotNull AffinityTopologyVersion topVer) {
             this.cacheName = cacheName;
             this.topVer = topVer;
         }
@@ -590,14 +682,14 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
             AffinityAssignmentKey that = (AffinityAssignmentKey)o;
 
-            return topVer == that.topVer && F.eq(cacheName, that.cacheName);
+            return topVer.equals(that.topVer) && F.eq(cacheName, that.cacheName);
         }
 
         /** {@inheritDoc} */
         @Override public int hashCode() {
             int res = cacheName != null ? cacheName.hashCode() : 0;
 
-            res = 31 * res + (int)(topVer ^ (topVer >>> 32));
+            res = 31 * res + topVer.hashCode();
 
             return res;
         }
@@ -611,7 +703,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
     /**
      * Grid cache affinity.
      */
-    private class CacheAffinityProxy<K> implements CacheAffinity<K> {
+    private class CacheAffinityProxy<K> implements Affinity<K> {
         /** Cache name. */
         private final String cacheName;
 
@@ -642,7 +734,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             ctx.gateway().readLock();
 
             try {
-                return cache().affinityFunction().partition(key);
+                return partition0(cacheName, key, cache());
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteException(e);
@@ -753,10 +845,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             ctx.gateway().readLock();
 
             try {
-                if (key instanceof CacheObject)
-                    key = ((CacheObject)key).value(cache().cacheObjCtx, false);
-
-                return cache().keyMapper().affinityKey(key);
+                return cache().affinityKey(key);
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteException(e);
@@ -771,7 +860,12 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             ctx.gateway().readLock();
 
             try {
-                return GridAffinityProcessor.this.mapKeysToNodes(cacheName, keys);
+                if (F.isEmpty(keys))
+                    return Collections.emptyMap();
+
+                AffinityInfo affInfo = cache();
+
+                return affinityMap(affInfo, keys);
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteException(e);
@@ -783,10 +877,16 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
         /** {@inheritDoc} */
         @Nullable @Override public ClusterNode mapKeyToNode(K key) {
+            A.notNull(key, "key");
+
             ctx.gateway().readLock();
 
             try {
-                return GridAffinityProcessor.this.mapKeyToNode(cacheName, key);
+                AffinityInfo affInfo = cache();
+
+                Map<ClusterNode, Collection<K>> map = affinityMap(affInfo, Collections.singletonList(key));
+
+                return F.first(map.keySet());
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteException(e);
@@ -801,7 +901,9 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             ctx.gateway().readLock();
 
             try {
-                return cache().assignment().get(partition(key));
+                AffinityInfo aff = cache();
+
+                return aff.assignment().get(GridAffinityProcessor.this.partition(cacheName, key, aff));
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteException(e);
@@ -834,11 +936,16 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
                 Map<Integer, ClusterNode> map = new HashMap<>();
 
                 if (!F.isEmpty(parts)) {
+                    AffinityInfo aff = cache();
+
                     for (int p : parts)
-                        map.put(p, mapPartitionToNode(p));
+                        map.put(p, F.first(aff.assignment().get(p)));
                 }
 
                 return map;
+            }
+            catch (IgniteCheckedException e) {
+                throw new IgniteException(e);
             }
             finally {
                 ctx.gateway().readUnlock();
@@ -862,16 +969,82 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
         /**
          * @return Affinity info for current topology version.
+         * @throws IgniteCheckedException If failed.
          */
         private AffinityInfo cache() throws IgniteCheckedException {
-            return affinityCache(cacheName, topologyVersion());
+            AffinityInfo aff = affinityCache(cacheName, ctx.discovery().topologyVersionEx());
+
+            if (aff == null)
+                throw new IgniteException("Failed to find cache (cache was not started " +
+                    "yet or cache was already stopped): " + cacheName);
+
+            return aff;
         }
+    }
+
+    /**
+     *
+     */
+    private static class SimilarAffinityKey {
+        /** */
+        private final int backups;
+
+        /** */
+        private final Class<?> affFuncCls;
+
+        /** */
+        private final Class<?> filterCls;
+
+        /** */
+        private final int partsCnt;
+
+        /** */
+        private final int hash;
 
         /**
-         * @return Topology version.
+         * @param affFuncCls Affinity function class.
+         * @param filterCls Node filter class.
+         * @param backups Number of backups.
+         * @param partsCnt Number of partitions.
          */
-        private long topologyVersion() {
-            return ctx.discovery().topologyVersion();
+        SimilarAffinityKey(Class<?> affFuncCls, Class<?> filterCls, int backups, int partsCnt) {
+            this.backups = backups;
+            this.affFuncCls = affFuncCls;
+            this.filterCls = filterCls;
+            this.partsCnt = partsCnt;
+
+            int hash = backups;
+            hash = 31 * hash + affFuncCls.hashCode();
+            hash = 31 * hash + filterCls.hashCode();
+            hash= 31 * hash + partsCnt;
+
+            this.hash = hash;
+        }
+
+        /** {@inheritDoc} */
+        @Override public int hashCode() {
+            return hash;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean equals(Object o) {
+            if (o == this)
+                return true;
+
+            if (o == null || getClass() != o.getClass())
+                return false;
+
+            SimilarAffinityKey key = (SimilarAffinityKey)o;
+
+            return backups == key.backups &&
+                affFuncCls == key.affFuncCls &&
+                filterCls == key.filterCls &&
+                partsCnt == key.partsCnt;
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return S.toString(SimilarAffinityKey.class, this);
         }
     }
 }

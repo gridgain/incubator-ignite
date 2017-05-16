@@ -52,7 +52,7 @@ package org.apache.ignite.loadtests.communication;
 //    private final Map<UUID, GridCommunicationSpi> spis = new HashMap<>();
 //
 //    /** */
-//    private final Collection<GridNode> nodes = new ArrayList<>();
+//    private final Collection<ClusterNode> nodes = new ArrayList<>();
 //
 //    /**
 //     * Disable automatic test SPI start.
@@ -63,7 +63,7 @@ package org.apache.ignite.loadtests.communication;
 //
 //    /** {@inheritDoc} */
 //    @Override protected void beforeTest() throws Exception {
-//        Map<GridNode, GridSpiTestContext> ctxs = new HashMap<>();
+//        Map<ClusterNode, GridSpiTestContext> ctxs = new HashMap<>();
 //
 //        for (int i = 0; i < 2; i++) {
 //            GridCommunicationSpi spi = getCommunication();
@@ -94,8 +94,8 @@ package org.apache.ignite.loadtests.communication;
 //        }
 //
 //        // For each context set remote nodes.
-//        for (Map.Entry<GridNode, GridSpiTestContext> e : ctxs.entrySet()) {
-//            for (GridNode n : nodes) {
+//        for (Map.Entry<ClusterNode, GridSpiTestContext> e : ctxs.entrySet()) {
+//            for (ClusterNode n : nodes) {
 //                if (!n.equals(e.getKey()))
 //                    e.getValue().remoteNodes().add(n);
 //            }
@@ -136,10 +136,10 @@ package org.apache.ignite.loadtests.communication;
 //        assert spis.size() == 2;
 //        assert nodes.size() == 2;
 //
-//        Iterator<GridNode> it = nodes.iterator();
+//        Iterator<ClusterNode> it = nodes.iterator();
 //
-//        final GridNode sndNode = it.next();
-//        final GridNode rcvNode = it.next();
+//        final ClusterNode sndNode = it.next();
+//        final ClusterNode rcvNode = it.next();
 //
 //        final GridCommunicationSpi sndComm = spis.get(sndNode.id());
 //        final GridCommunicationSpi rcvComm = spis.get(rcvNode.id());
@@ -151,7 +151,7 @@ package org.apache.ignite.loadtests.communication;
 //        info("Messages: " + CONCUR_MSGS);
 //
 //        final Semaphore sem = new Semaphore(CONCUR_MSGS);
-//        final LongAdder msgCntr = new LongAdder();
+//        final LongAdder8 msgCntr = new LongAdder8();
 //
 //        rcvComm.setListener(new GridCommunicationListener() {
 //            @Override public void onMessage(UUID nodeId, byte[] msg, GridAbsClosure msgC) {
@@ -250,10 +250,10 @@ package org.apache.ignite.loadtests.communication;
 //        assert spis.size() == 2;
 //        assert nodes.size() == 2;
 //
-//        Iterator<GridNode> it = nodes.iterator();
+//        Iterator<ClusterNode> it = nodes.iterator();
 //
-//        final GridNode sndNode = it.next();
-//        final GridNode rcvNode = it.next();
+//        final ClusterNode sndNode = it.next();
+//        final ClusterNode rcvNode = it.next();
 //
 //        final GridCommunicationSpi sndComm = spis.get(sndNode.id());
 //        final GridCommunicationSpi rcvComm = spis.get(rcvNode.id());
@@ -262,7 +262,7 @@ package org.apache.ignite.loadtests.communication;
 //
 //        info("Test string length: " + testStr.length());
 //
-//        final LongAdder msgCntr = new LongAdder();
+//        final LongAdder8 msgCntr = new LongAdder8();
 //
 //        final Map<GridUuid, CountDownLatch> map = new ConcurrentHashMap8<>();
 //
@@ -377,10 +377,10 @@ package org.apache.ignite.loadtests.communication;
 //        assert spis.size() == 2;
 //        assert nodes.size() == 2;
 //
-//        Iterator<GridNode> it = nodes.iterator();
+//        Iterator<ClusterNode> it = nodes.iterator();
 //
-//        final GridNode sndNode = it.next();
-//        final GridNode rcvNode = it.next();
+//        final ClusterNode sndNode = it.next();
+//        final ClusterNode rcvNode = it.next();
 //
 //        final GridCommunicationSpi sndComm = spis.get(sndNode.id());
 //        final GridCommunicationSpi rcvComm = spis.get(rcvNode.id());
@@ -392,7 +392,7 @@ package org.apache.ignite.loadtests.communication;
 //        info("Messages: " + CONCUR_MSGS);
 //
 //        final Semaphore sem = new Semaphore(CONCUR_MSGS);
-//        final LongAdder msgCntr = new LongAdder();
+//        final LongAdder8 msgCntr = new LongAdder8();
 //
 //        final Map<GridUuid, CountDownLatch> latches = new ConcurrentHashMap8<>();
 //

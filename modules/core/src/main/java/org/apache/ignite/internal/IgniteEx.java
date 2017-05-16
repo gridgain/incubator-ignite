@@ -17,15 +17,16 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.cluster.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.hadoop.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.Collection;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteFileSystem;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.cluster.IgniteClusterEx;
+import org.apache.ignite.internal.processors.cache.GridCacheUtilityKey;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.hadoop.Hadoop;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Extended Grid interface which provides some additional methods required for kernal and Visor.
@@ -34,11 +35,9 @@ public interface IgniteEx extends Ignite {
     /**
      * Gets utility cache.
      *
-     * @param keyCls Key class.
-     * @param valCls Value class.
      * @return Utility cache.
      */
-    public <K extends GridCacheUtilityKey, V> GridCacheProjectionEx<K, V> utilityCache(Class<K> keyCls, Class<V> valCls);
+    public <K extends GridCacheUtilityKey, V> IgniteInternalCache<K, V> utilityCache();
 
     /**
      * Gets the cache instance for the given name if one is configured or
@@ -49,17 +48,17 @@ public interface IgniteEx extends Ignite {
      * @param name Cache name.
      * @return Cache instance for given name or <tt>null</tt> if one does not exist.
      */
-    @Nullable public <K, V> GridCache<K, V> cachex(@Nullable String name);
+    @Nullable public <K, V> IgniteInternalCache<K, V> cachex(@Nullable String name);
 
     /**
      * Gets default cache instance if one is configured or <tt>null</tt> otherwise returning even non-public caches.
-     * The {@link org.apache.ignite.internal.processors.cache.GridCache#name()} method on default instance returns <tt>null</tt>.
+     * The {@link IgniteInternalCache#name()} method on default instance returns <tt>null</tt>.
      *
      * @param <K> Key type.
      * @param <V> Value type.
      * @return Default cache instance.
      */
-    @Nullable public <K, V> GridCache<K, V> cachex();
+    @Nullable public <K, V> IgniteInternalCache<K, V> cachex();
 
     /**
      * Gets configured cache instance that satisfy all provided predicates including non-public caches. If no
@@ -68,7 +67,7 @@ public interface IgniteEx extends Ignite {
      * @param p Predicates. If none provided - all configured caches will be returned.
      * @return Configured cache instances that satisfy all provided predicates.
      */
-    public Collection<GridCache<?, ?>> cachesx(@Nullable IgnitePredicate<? super GridCache<?, ?>>... p);
+    public Collection<IgniteInternalCache<?, ?>> cachesx(@Nullable IgnitePredicate<? super IgniteInternalCache<?, ?>>... p);
 
     /**
      * Checks if the event type is user-recordable.
@@ -88,13 +87,6 @@ public interface IgniteEx extends Ignite {
      * @throws IllegalArgumentException If {@code types} contains user event type.
      */
     public boolean allEventsUserRecordable(int[] types);
-
-    /**
-     * Gets list of compatible versions.
-     *
-     * @return Compatible versions.
-     */
-    public Collection<String> compatibleVersions();
 
     /**
      * Whether or not remote JMX management is enabled for this node.

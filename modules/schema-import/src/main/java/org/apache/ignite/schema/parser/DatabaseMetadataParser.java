@@ -17,53 +17,59 @@
 
 package org.apache.ignite.schema.parser;
 
-import javafx.collections.*;
-import org.apache.ignite.schema.model.*;
-import org.apache.ignite.schema.parser.dialect.*;
-
-import java.sql.*;
-import java.util.*;
-import java.util.logging.*;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import org.apache.ignite.cache.QueryIndex;
+import org.apache.ignite.schema.model.PojoDescriptor;
+import org.apache.ignite.schema.model.SchemaDescriptor;
 
 /**
  * Database metadata parser.
  */
 public class DatabaseMetadataParser {
-    /** Logger. */
-    private static final Logger log = Logger.getLogger(DatabaseMetadataParser.class.getName());
+    /**
+     * Get list of schemas from database.
+     *
+     * @param conn Connection to database.
+     * @return List of schema descriptors.
+     * @throws SQLException If schemas loading failed.
+     */
+    public static ObservableList<SchemaDescriptor> schemas(Connection conn) throws SQLException  {
+        Collection<String> dbSchemas = DbMetadataReader.getInstance().schemas(conn);
+
+        List<SchemaDescriptor> uiSchemas = new ArrayList<>(dbSchemas.size());
+
+        for (String schema : dbSchemas)
+            uiSchemas.add(new SchemaDescriptor(schema, false));
+
+        return FXCollections.observableList(uiSchemas);
+    }
 
     /**
      * Parse database metadata.
      *
      * @param conn Connection to database.
+     * @param schemas Collection of schema names to process.
      * @param tblsOnly If {@code true} then process tables only else process tables and views.
      * @return Collection of POJO descriptors.
      * @throws SQLException If parsing failed.
      */
-    public static ObservableList<PojoDescriptor> parse(Connection conn, boolean tblsOnly) throws SQLException {
-        DatabaseMetadataDialect dialect;
-
-        try {
-            String dbProductName = conn.getMetaData().getDatabaseProductName();
-
-            if ("Oracle".equals(dbProductName))
-                dialect = new OracleMetadataDialect();
-            else if (dbProductName.startsWith("DB2/"))
-                dialect = new DB2MetadataDialect();
-            else
-                dialect = new JdbcMetadataDialect();
-        }
-        catch (SQLException e) {
-            log.log(Level.SEVERE, "Failed to resolve dialect (JdbcMetaDataDialect will be used.", e);
-
-            dialect = new JdbcMetadataDialect();
-        }
-
+    public static ObservableList<PojoDescriptor> parse(Connection conn, List<String> schemas, boolean tblsOnly)
+        throws SQLException {
         Map<String, PojoDescriptor> parents = new HashMap<>();
 
         Map<String, Collection<PojoDescriptor>> childrens = new HashMap<>();
 
-        for (DbTable tbl : dialect.tables(conn, tblsOnly)) {
+        for (DbTable tbl : DbMetadataReader.getInstance().metadata(conn, schemas, tblsOnly)) {
             String schema = tbl.schema();
 
             PojoDescriptor parent = parents.get(schema);
@@ -71,8 +77,7 @@ public class DatabaseMetadataParser {
 
             if (parent == null) {
                 parent = new PojoDescriptor(null, new DbTable(schema, "", Collections.<DbColumn>emptyList(),
-                    Collections.<String>emptySet(), Collections.<String>emptySet(),
-                    Collections.<String, Map<String, Boolean>>emptyMap()));
+                    Collections.<QueryIndex>emptyList()));
 
                 children = new ArrayList<>();
 
@@ -85,15 +90,17 @@ public class DatabaseMetadataParser {
 
         List<PojoDescriptor> res = new ArrayList<>();
 
-        for (String schema : parents.keySet()) {
-            PojoDescriptor parent = parents.get(schema);
+        for (Map.Entry<String, PojoDescriptor> item : parents.entrySet()) {
+            String schema = item.getKey();
+            PojoDescriptor parent = item.getValue();
+
             Collection<PojoDescriptor> children = childrens.get(schema);
 
             if (!children.isEmpty()) {
                 parent.children(children);
 
-                res.add(parent);
-                res.addAll(children);
+                res.add(parent); // Add schema description.
+                res.addAll(children); // Add tables in schema.
             }
         }
 

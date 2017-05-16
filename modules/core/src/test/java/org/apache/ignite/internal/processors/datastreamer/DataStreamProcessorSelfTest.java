@@ -17,37 +17,58 @@
 
 package org.apache.ignite.internal.processors.datastreamer;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.near.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.marshaller.optimized.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jetbrains.annotations.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.cache.Cache;
+import javax.cache.CacheException;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.cache.store.CacheStoreAdapter;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.IgniteReflectionFactory;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheAdapter;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteFutureCancelledException;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.stream.StreamReceiver;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jetbrains.annotations.Nullable;
 
-import javax.cache.*;
-import javax.cache.configuration.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.events.EventType.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_PUT;
 
 /**
  *
@@ -83,39 +104,55 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
 
+        cfg.setPeerClassLoadingEnabled(false);
+
         TcpDiscoverySpi spi = new TcpDiscoverySpi();
 
+        spi.setForceServerMode(true);
         spi.setIpFinder(ipFinder);
 
         cfg.setDiscoverySpi(spi);
 
         cfg.setIncludeProperties();
 
-        cfg.setMarshaller(new OptimizedMarshaller(false));
-
         if (useCache) {
             CacheConfiguration cc = defaultCacheConfiguration();
 
             cc.setCacheMode(mode);
             cc.setAtomicityMode(TRANSACTIONAL);
-            cc.setDistributionMode(nearEnabled ? NEAR_PARTITIONED : PARTITIONED_ONLY);
+
+            if (nearEnabled) {
+                NearCacheConfiguration nearCfg = new NearCacheConfiguration();
+
+                cc.setNearConfiguration(nearCfg);
+            }
+
             cc.setWriteSynchronizationMode(FULL_SYNC);
 
             cc.setEvictSynchronized(false);
-            cc.setEvictNearSynchronized(false);
 
             if (store != null) {
-                cc.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(store));
+                cc.setCacheStoreFactory(new IgniteReflectionFactory<CacheStore>(TestStore.class));
                 cc.setReadThrough(true);
                 cc.setWriteThrough(true);
             }
 
             cfg.setCacheConfiguration(cc);
         }
-        else
+        else {
             cfg.setCacheConfiguration();
 
+            cfg.setClientMode(true);
+        }
+
         return cfg;
+    }
+
+    /**
+     * @return {@code True} if custom stream receiver should use keepBinary flag.
+     */
+    protected boolean customKeepBinary() {
+        return false;
     }
 
     /**
@@ -157,7 +194,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
 
             assert false;
         }
-        catch (IgniteCheckedException e) {
+        catch (CacheException e) {
             // Cannot load local cache configured remotely.
             info("Caught expected exception: " + e);
         }
@@ -169,16 +206,19 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
     @SuppressWarnings("ErrorNotRethrown")
     private void checkDataStreamer() throws Exception {
         try {
-            Ignite g1 = startGrid(1);
-
             useCache = true;
 
-            Ignite g2 = startGrid(2);
+            Ignite igniteWithCache = startGrid(2);
+
             startGrid(3);
 
-            final IgniteDataStreamer<Integer, Integer> ldr = g1.dataStreamer(null);
+            useCache = false;
 
-            ldr.updater(DataStreamerCacheUpdaters.<Integer, Integer>batchedSorted());
+            Ignite igniteWithoutCache = startGrid(1);
+
+            final IgniteDataStreamer<Integer, Integer> ldr = igniteWithoutCache.dataStreamer(null);
+
+            ldr.receiver(DataStreamerCacheUpdaters.<Integer, Integer>batchedSorted());
 
             final AtomicInteger idxGen = new AtomicInteger();
             final int cnt = 400;
@@ -212,15 +252,15 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
 
             f1.get();
 
-            int s2 = internalCache(2).primaryKeySet().size();
-            int s3 = internalCache(3).primaryKeySet().size();
+            int s2 = grid(2).cache(null).localSize(CachePeekMode.PRIMARY);
+            int s3 = grid(3).cache(null).localSize(CachePeekMode.PRIMARY);
             int total = threads * cnt;
 
             assertEquals(total, s2 + s3);
 
-            final IgniteDataStreamer<Integer, Integer> rmvLdr = g2.dataStreamer(null);
+            final IgniteDataStreamer<Integer, Integer> rmvLdr = igniteWithCache.dataStreamer(null);
 
-            rmvLdr.updater(DataStreamerCacheUpdaters.<Integer, Integer>batchedSorted());
+            rmvLdr.receiver(DataStreamerCacheUpdaters.<Integer, Integer>batchedSorted());
 
             final CountDownLatch l2 = new CountDownLatch(threads);
 
@@ -249,8 +289,8 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
 
             f2.get();
 
-            s2 = internalCache(2).primaryKeySet().size();
-            s3 = internalCache(3).primaryKeySet().size();
+            s2 = grid(2).cache(null).localSize(CachePeekMode.PRIMARY);
+            s3 = grid(3).cache(null).localSize(CachePeekMode.PRIMARY);
 
             assert s2 == 0 && s3 == 0 : "Incorrect entries count [s2=" + s2 + ", s3=" + s3 + ']';
         }
@@ -290,7 +330,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
 
             awaitPartitionMapExchange();
 
-            IgniteCache<Integer, Integer> cache = grid(0).jcache(null);
+            IgniteCache<Integer, Integer> cache = grid(0).cache(null);
 
             for (int i = 0; i < 100; i++)
                 cache.put(i, -1);
@@ -324,14 +364,14 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
                 if (cache0.isNear())
                     cache0 = ((GridNearCacheAdapter<Integer, Integer>)cache0).dht();
 
-                CacheAffinity<Integer> aff = cache0.affinity();
+                Affinity<Integer> aff = cache0.affinity();
 
                 for (int key = 0; key < cnt * threads; key++) {
                     if (aff.isPrimary(locNode, key) || aff.isBackup(locNode, key)) {
                         GridCacheEntryEx entry = cache0.peekEx(key);
 
                         assertNotNull("Missing entry for key: " + key, entry);
-                        assertEquals((key < 100 ? -1 : key),
+                        assertEquals(new Integer((key < 100 ? -1 : key)),
                             CU.value(entry.rawGetOrUnmarshal(false), cache0.context(), false));
                     }
                 }
@@ -406,20 +446,22 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
             // Start all required nodes.
             int idx = 1;
 
-            for (int i = 0; i < nodesCntNoCache; i++)
-                startGrid(idx++);
-
             useCache = true;
 
             for (int i = 0; i < nodesCntCache; i++)
                 startGrid(idx++);
 
-            Ignite g1 = grid(1);
+            useCache = false;
+
+            for (int i = 0; i < nodesCntNoCache; i++)
+                startGrid(idx++);
+
+            Ignite g1 = grid(idx - 1);
 
             // Get and configure loader.
             final IgniteDataStreamer<Integer, Integer> ldr = g1.dataStreamer(null);
 
-            ldr.updater(DataStreamerCacheUpdaters.<Integer, Integer>individual());
+            ldr.receiver(DataStreamerCacheUpdaters.<Integer, Integer>individual());
             ldr.perNodeBufferSize(2);
 
             // Define count of puts.
@@ -675,7 +717,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
         try {
             Ignite g = startGrid();
 
-            final IgniteCache<Integer, Integer> c = g.jcache(null);
+            final IgniteCache<Integer, Integer> c = g.cache(null);
 
             final IgniteDataStreamer<Integer, Integer> ldr = g.dataStreamer(null);
 
@@ -727,7 +769,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
         try {
             Ignite g = startGrid();
 
-            IgniteCache<Integer, Integer> c = g.jcache(null);
+            IgniteCache<Integer, Integer> c = g.cache(null);
 
             IgniteDataStreamer<Integer, Integer> ldr = g.dataStreamer(null);
 
@@ -772,7 +814,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
                 }
             }, EVT_CACHE_OBJECT_PUT);
 
-            IgniteCache<Integer, Integer> c = g.jcache(null);
+            IgniteCache<Integer, Integer> c = g.cache(null);
 
             assertTrue(c.localSize() == 0);
 
@@ -851,7 +893,7 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
                     ldr.removeData(i);
             }
 
-            IgniteCache<Object, Object> cache = ignite.jcache(null);
+            IgniteCache<Object, Object> cache = ignite.cache(null);
 
             for (int i = 0; i < 1000; i++) {
                 assertNull(storeMap.get(i));
@@ -884,24 +926,15 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
 
             try (IgniteDataStreamer<String, TestObject> ldr = ignite.dataStreamer(null)) {
                 ldr.allowOverwrite(true);
+                ldr.keepBinary(customKeepBinary());
 
-                ldr.updater(new IgniteDataStreamer.Updater<String, TestObject>() {
-                    @Override public void update(IgniteCache<String, TestObject> cache,
-                        Collection<Map.Entry<String, TestObject>> entries) {
-                        for (Map.Entry<String, TestObject> e : entries) {
-                            assertTrue(e.getKey() instanceof String);
-                            assertTrue(e.getValue() instanceof TestObject);
-
-                            cache.put(e.getKey(), new TestObject(e.getValue().val + 1));
-                        }
-                    }
-                });
+                ldr.receiver(getStreamReceiver());
 
                 for (int i = 0; i < 100; i++)
                     ldr.addData(String.valueOf(i), new TestObject(i));
             }
 
-            IgniteCache<String, TestObject> cache = ignite.jcache(null);
+            IgniteCache<String, TestObject> cache = ignite.cache(null);
 
             for (int i = 0; i < 100; i++) {
                 TestObject val = cache.get(String.valueOf(i));
@@ -918,14 +951,14 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
     /**
      *
      */
-    private static class TestObject {
+    public static class TestObject {
         /** Value. */
-        private final int val;
+        public final int val;
 
         /**
          * @param val Value.
          */
-        private TestObject(int val) {
+        public TestObject(int val) {
             this.val = val;
         }
 
@@ -949,9 +982,17 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
     }
 
     /**
+     * @return Stream receiver.
+     */
+    protected StreamReceiver<String, TestObject> getStreamReceiver() {
+        return new TestDataReceiver();
+    }
+
+    /**
      *
      */
-    private static class TestStore extends CacheStoreAdapter<Object, Object> {
+    @SuppressWarnings("PublicInnerClass")
+    public static class TestStore extends CacheStoreAdapter<Object, Object> {
         /** {@inheritDoc} */
         @Nullable @Override public Object load(Object key) {
             return storeMap.get(key);
@@ -965,6 +1006,22 @@ public class DataStreamProcessorSelfTest extends GridCommonAbstractTest {
         /** {@inheritDoc} */
         @Override public void delete(Object key) {
             storeMap.remove(key);
+        }
+    }
+
+    /**
+     *
+     */
+    private static class TestDataReceiver implements StreamReceiver<String, TestObject> {
+        /** {@inheritDoc} */
+        @Override public void receive(IgniteCache<String, TestObject> cache,
+            Collection<Map.Entry<String, TestObject>> entries) {
+            for (Map.Entry<String, TestObject> e : entries) {
+                assertTrue(e.getKey() instanceof String);
+                assertTrue(e.getValue() instanceof TestObject);
+
+                cache.put(e.getKey(), new TestObject(e.getValue().val + 1));
+            }
         }
     }
 }

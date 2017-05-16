@@ -17,22 +17,29 @@
 
 package org.apache.ignite.cache.store;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import javax.cache.Cache;
+import javax.cache.expiry.CreatedExpiryPolicy;
+import javax.cache.expiry.Duration;
+import javax.cache.integration.CacheLoaderException;
+import javax.cache.integration.CacheWriterException;
+import javax.cache.integration.CompletionListenerFuture;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.processors.cache.GridCacheAbstractSelfTest;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.jetbrains.annotations.Nullable;
 
-import javax.cache.*;
-import javax.cache.configuration.*;
-import javax.cache.expiry.*;
-import javax.cache.integration.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Test check that cache values removes from cache on expiry.
@@ -59,7 +66,7 @@ public class IgniteCacheExpiryStoreLoadSelfTest extends GridCacheAbstractSelfTes
     @Override protected CacheConfiguration cacheConfiguration(String gridName) throws Exception {
         CacheConfiguration cfg = super.cacheConfiguration(gridName);
 
-        cfg.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(new TestStore()));
+        cfg.setCacheStoreFactory(singletonFactory(new TestStore()));
         cfg.setReadThrough(true);
         cfg.setWriteThrough(true);
         cfg.setLoadPreviousValue(true);
@@ -157,7 +164,7 @@ public class IgniteCacheExpiryStoreLoadSelfTest extends GridCacheAbstractSelfTes
      * @throws Exception If failed.
      */
     public void testLoadAllWithExpiry() throws Exception {
-        IgniteCache<Integer, Integer> cache = ignite(0).<Integer, Integer>jcache(null)
+        IgniteCache<Integer, Integer> cache = ignite(0).<Integer, Integer>cache(null)
             .withExpiryPolicy(new CreatedExpiryPolicy(new Duration(MILLISECONDS, TIME_TO_LIVE)));
 
         Set<Integer> keys = new HashSet<>();
@@ -197,7 +204,7 @@ public class IgniteCacheExpiryStoreLoadSelfTest extends GridCacheAbstractSelfTes
         }
 
         /** {@inheritDoc} */
-        @Override public void txEnd(boolean commit) throws CacheWriterException {
+        @Override public void sessionEnd(boolean commit) throws CacheWriterException {
             // No-op.
         }
 

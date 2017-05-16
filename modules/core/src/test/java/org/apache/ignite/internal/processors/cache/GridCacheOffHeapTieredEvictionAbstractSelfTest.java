@@ -17,22 +17,23 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.testframework.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ThreadLocalRandom;
+import javax.cache.Cache;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.MutableEntry;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.util.typedef.P1;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.testframework.GridTestUtils;
 
-import javax.cache.*;
-import javax.cache.processor.*;
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMemoryMode.*;
+import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.PRIMARY;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheMemoryMode.OFFHEAP_TIERED;
 
 /**
  * Tests that offheap entry is not evicted while cache entry is in use.
@@ -57,7 +58,7 @@ public abstract class GridCacheOffHeapTieredEvictionAbstractSelfTest extends Gri
 
     /** {@inheritDoc} */
     @Override protected long getTestTimeout() {
-        return 60 * 1000;
+        return 120 * 1000;
     }
 
     /** {@inheritDoc} */
@@ -67,6 +68,7 @@ public abstract class GridCacheOffHeapTieredEvictionAbstractSelfTest extends Gri
         ccfg.setAtomicWriteOrderMode(PRIMARY);
 
         ccfg.setMemoryMode(OFFHEAP_TIERED);
+        ccfg.setNearConfiguration(null);
         ccfg.setOffHeapMaxMemory(0);
 
         return ccfg;
@@ -76,7 +78,7 @@ public abstract class GridCacheOffHeapTieredEvictionAbstractSelfTest extends Gri
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
 
-        final IgniteCache<Integer, Object> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Object> cache = grid(0).cache(null);
 
         vals = new ArrayList<>(VALS);
 
@@ -109,11 +111,13 @@ public abstract class GridCacheOffHeapTieredEvictionAbstractSelfTest extends Gri
         return atomicityMode() == ATOMIC ? 100_000 : 50_000;
     }
 
+
+
     /**
      * @throws Exception If failed.
      */
     public void testPut() throws Exception {
-        final IgniteCache<Integer, Object> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Object> cache = grid(0).cache(null);
 
         GridTestUtils.runMultiThreaded(new Callable<Void>() {
             @Override public Void call() throws Exception {
@@ -125,6 +129,9 @@ public abstract class GridCacheOffHeapTieredEvictionAbstractSelfTest extends Gri
                     final TestValue val = vals.get(key % VAL_SIZE);
 
                     cache.put(key, val);
+
+                    if (i % 20_000 == 0 && i > 0)
+                        info("Done " + i + " out of " + iterations());
                 }
 
                 return null;
@@ -136,7 +143,7 @@ public abstract class GridCacheOffHeapTieredEvictionAbstractSelfTest extends Gri
      * @throws Exception If failed.
      */
     public void testRemove() throws Exception {
-        final IgniteCache<Integer, Object> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Object> cache = grid(0).cache(null);
 
         GridTestUtils.runMultiThreaded(new Callable<Void>() {
             @Override public Void call() throws Exception {
@@ -162,7 +169,7 @@ public abstract class GridCacheOffHeapTieredEvictionAbstractSelfTest extends Gri
      * @throws Exception If failed.
      */
     public void testTransform() throws Exception {
-        final IgniteCache<Integer, Object> cache = grid(0).jcache(null);
+        final IgniteCache<Integer, Object> cache = grid(0).cache(null).withKeepBinary();
 
         GridTestUtils.runMultiThreaded(new Callable<Void>() {
             @Override public Void call() throws Exception {

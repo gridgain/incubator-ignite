@@ -17,13 +17,17 @@
 
 package org.apache.ignite;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
-
-import java.net.*;
-import java.util.*;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgnitionEx;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.DiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.thread.IgniteThread;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class defines a factory for the main Ignite API. It controls Grid life cycle
@@ -34,14 +38,14 @@ import java.util.*;
  * {@link org.apache.ignite.startup} package, for example:
  * <ul>
  * <li>{@link org.apache.ignite.startup.cmdline.CommandLineStartup}</li>
- * <li>{@ignitelink org.apache.ignite.startup.servlet.IgniteServletStartup}</li>
+ * <li>{@ignitelink org.apache.ignite.startup.servlet.ServletStartup}</li>
  * </ul>
  * <h1 class="header">Examples</h1>
  * Use {@link #start()} method to start grid with default configuration. You can also use
  * {@link org.apache.ignite.configuration.IgniteConfiguration} to override some default configuration. Below is an
  * example on how to start grid with custom configuration for <strong>URI deployment</strong>.
  * <pre name="code" class="java">
- * GridConfiguration cfg = new GridConfiguration();
+ * IgniteConfiguration cfg = new IgniteConfiguration();
  *
  * GridUriDeployment deploySpi = new GridUriDeployment();
  *
@@ -132,6 +136,36 @@ public class Ignition {
     }
 
     /**
+     * Sets client mode static flag.
+     * <p>
+     * This flag used when node is started if {@link IgniteConfiguration#isClientMode()}
+     * is {@code null}. When {@link IgniteConfiguration#isClientMode()} is set this flag is ignored.
+     * It is recommended to use {@link DiscoverySpi} in client mode too.
+     *
+     * @param clientMode Client mode flag.
+     * @see IgniteConfiguration#isClientMode()
+     * @see TcpDiscoverySpi#setForceServerMode(boolean)
+     */
+    public static void setClientMode(boolean clientMode) {
+        IgnitionEx.setClientMode(clientMode);
+    }
+
+    /**
+     * Gets client mode static flag.
+     * <p>
+     * This flag used when node is started if {@link IgniteConfiguration#isClientMode()}
+     * is {@code null}. When {@link IgniteConfiguration#isClientMode()} is set this flag is ignored.
+     * It is recommended to use {@link DiscoverySpi} in client mode too.
+     *
+     * @return Client mode flag.
+     * @see IgniteConfiguration#isClientMode()
+     * @see TcpDiscoverySpi#setForceServerMode(boolean)
+     */
+    public static boolean isClientMode() {
+        return IgnitionEx.isClientMode();
+    }
+
+    /**
      * Gets state of grid default grid.
      *
      * @return Default grid state.
@@ -187,7 +221,7 @@ public class Ignition {
      *      not found).
      */
     public static boolean stop(@Nullable String name, boolean cancel) {
-        return IgnitionEx.stop(name, cancel);
+        return IgnitionEx.stop(name, cancel, false);
     }
 
     /**
@@ -275,7 +309,7 @@ public class Ignition {
     }
 
     /**
-     * Starts grid with given configuration. Note that this method is no-op if grid with the name
+     * Starts grid with given configuration. Note that this method will throw an exception if grid with the name
      * provided in given configuration is already started.
      *
      * @param cfg Grid configuration. This cannot be {@code null}.
@@ -308,7 +342,7 @@ public class Ignition {
      *      read. This exception will be thrown also if grid with given name has already
      *      been started or Spring XML configuration file is invalid.
      */
-    public static Ignite start(@Nullable String springCfgPath) throws IgniteException {
+    public static Ignite start(String springCfgPath) throws IgniteException {
         try {
             return IgnitionEx.start(springCfgPath);
         }
@@ -336,6 +370,102 @@ public class Ignition {
     public static Ignite start(URL springCfgUrl) throws IgniteException {
         try {
             return IgnitionEx.start(springCfgUrl);
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+    }
+
+    /**
+     * Starts all grids specified within given Spring XML configuration input stream. If grid with given name
+     * is already started, then exception is thrown. In this case all instances that may
+     * have been started so far will be stopped too.
+     * <p>
+     * Usually Spring XML configuration input stream will contain only one Grid definition. Note that
+     * Grid configuration bean(s) is retrieved form configuration input stream by type, so the name of
+     * the Grid configuration bean is ignored.
+     *
+     * @param springCfgStream Input stream containing Spring XML configuration. This cannot be {@code null}.
+     * @return Started grid. If Spring configuration contains multiple grid instances,
+     *      then the 1st found instance is returned.
+     * @throws IgniteException If grid could not be started or configuration
+     *      read. This exception will be thrown also if grid with given name has already
+     *      been started or Spring XML configuration file is invalid.
+     */
+    public static Ignite start(InputStream springCfgStream) throws IgniteException {
+        try {
+            return IgnitionEx.start(springCfgStream);
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+    }
+
+
+    /**
+     * Gets or starts new grid instance if it hasn't been started yet.
+     *
+     * @param cfg Grid configuration. This cannot be {@code null}.
+     * @return Grid instance.
+     * @throws IgniteException If grid could not be started.
+     */
+    public static Ignite getOrStart(IgniteConfiguration cfg) throws IgniteException {
+        try {
+            return IgnitionEx.start(cfg, false);
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+    }
+
+    /**
+     * Loads Spring bean by its name from given Spring XML configuration file. If bean
+     * with such name doesn't exist, exception is thrown.
+     *
+     * @param springXmlPath Spring XML configuration file path (cannot be {@code null}).
+     * @param beanName Bean name (cannot be {@code null}).
+     * @return Loaded bean instance.
+     * @throws IgniteException If bean with provided name was not found or in case any other error.
+     */
+    public static <T> T loadSpringBean(String springXmlPath, String beanName) throws IgniteException {
+        try {
+            return IgnitionEx.loadSpringBean(springXmlPath, beanName);
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+    }
+
+    /**
+     * Loads Spring bean by its name from given Spring XML configuration file. If bean
+     * with such name doesn't exist, exception is thrown.
+     *
+     * @param springXmlUrl Spring XML configuration file URL (cannot be {@code null}).
+     * @param beanName Bean name (cannot be {@code null}).
+     * @return Loaded bean instance.
+     * @throws IgniteException If bean with provided name was not found or in case any other error.
+     */
+    public static <T> T loadSpringBean(URL springXmlUrl, String beanName) throws IgniteException {
+        try {
+            return IgnitionEx.loadSpringBean(springXmlUrl, beanName);
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+    }
+
+    /**
+     * Loads Spring bean by its name from given Spring XML configuration file. If bean
+     * with such name doesn't exist, exception is thrown.
+     *
+     * @param springXmlStream Input stream containing Spring XML configuration (cannot be {@code null}).
+     * @param beanName Bean name (cannot be {@code null}).
+     * @return Loaded bean instance.
+     * @throws IgniteException If bean with provided name was not found or in case any other error.
+     */
+    public static <T> T loadSpringBean(InputStream springXmlStream, String beanName) throws IgniteException {
+        try {
+            return IgnitionEx.loadSpringBean(springXmlStream, beanName);
         }
         catch (IgniteCheckedException e) {
             throw U.convertException(e);
@@ -401,6 +531,21 @@ public class Ignition {
      */
     public static Ignite ignite(@Nullable String name) throws IgniteIllegalStateException {
         return IgnitionEx.grid(name);
+    }
+
+    /**
+     * This method is used to address a local {@link Ignite} instance, principally from closure.
+     * <p>
+     * According to contract this method has to be called only under {@link IgniteThread}.
+     * An {@link IllegalArgumentException} will be thrown otherwise.
+     *
+     * @return A current {@link Ignite} instance to address from closure.
+     * @throws IgniteIllegalStateException Thrown if grid was not properly
+     *      initialized or grid instance was stopped or was not started
+     * @throws IllegalArgumentException Thrown if current thread is not an {@link IgniteThread}.
+     */
+    public static Ignite localIgnite() throws IgniteIllegalStateException, IllegalArgumentException {
+        return IgnitionEx.localIgnite();
     }
 
     /**

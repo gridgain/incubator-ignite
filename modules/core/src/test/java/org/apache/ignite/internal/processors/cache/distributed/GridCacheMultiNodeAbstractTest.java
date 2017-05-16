@@ -17,23 +17,32 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.locks.Lock;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.locks.*;
-
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.events.EventType.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.events.EventType.EVTS_CACHE;
+import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_LOCKED;
+import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_PUT;
+import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_UNLOCKED;
 
 /**
  * Multi-node cache test.
@@ -91,9 +100,9 @@ public abstract class GridCacheMultiNodeAbstractTest extends GridCommonAbstractT
         ignite2 = startGrid(2);
         ignite3 = startGrid(3);
 
-        cache1 = ignite1.jcache(null);
-        cache2 = ignite2.jcache(null);
-        cache3 = ignite3.jcache(null);
+        cache1 = ignite1.cache(null);
+        cache2 = ignite2.cache(null);
+        cache3 = ignite3.cache(null);
 
         cache1Async = cache1.withAsync();
         cache2Async = cache2.withAsync();
@@ -194,7 +203,7 @@ public abstract class GridCacheMultiNodeAbstractTest extends GridCommonAbstractT
         for (Ignite ignite : ignites)
             addListener(ignite, lsnr);
 
-        IgniteCache<Integer, String> cache1 = ignites[0].jcache(null);
+        IgniteCache<Integer, String> cache1 = ignites[0].cache(null);
 
         for (int i = 1; i <= cnt; i++)
             cache1.put(i, "val" + i);
@@ -209,7 +218,7 @@ public abstract class GridCacheMultiNodeAbstractTest extends GridCommonAbstractT
         latch.await(10, SECONDS);
 
         for (Ignite ignite : ignites) {
-            IgniteCache<Integer, String> cache = ignite.jcache(null);
+            IgniteCache<Integer, String> cache = ignite.cache(null);
 
             if (cache == cache1)
                 continue;
@@ -340,15 +349,15 @@ public abstract class GridCacheMultiNodeAbstractTest extends GridCommonAbstractT
         cache2.put(2, "val2");
         cache3.put(3, "val3");
 
-        assertEquals(3, cache1.localSize());
-        assertEquals(3, cache2.localSize());
-        assertEquals(3, cache3.localSize());
+        assertEquals(3, cache1.localSize(CachePeekMode.ALL));
+        assertEquals(3, cache2.localSize(CachePeekMode.ALL));
+        assertEquals(3, cache3.localSize(CachePeekMode.ALL));
 
         cache1.clear();
 
-        assertEquals(0, cache1.localSize());
-        assertEquals(0, cache2.localSize());
-        assertEquals(0, cache3.localSize());
+        assertEquals(0, cache1.localSize(CachePeekMode.ALL));
+        assertEquals(0, cache2.localSize(CachePeekMode.ALL));
+        assertEquals(0, cache3.localSize(CachePeekMode.ALL));
     }
 
     /**

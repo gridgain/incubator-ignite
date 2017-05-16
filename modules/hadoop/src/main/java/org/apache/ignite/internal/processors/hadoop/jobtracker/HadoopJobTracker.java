@@ -17,37 +17,84 @@
 
 package org.apache.ignite.internal.processors.hadoop.jobtracker;
 
-import org.apache.ignite.*;
-import org.apache.ignite.events.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.cache.event.CacheEntryEvent;
+import javax.cache.event.CacheEntryUpdatedListener;
+import javax.cache.expiry.Duration;
+import javax.cache.expiry.ExpiryPolicy;
+import javax.cache.expiry.ModifiedExpiryPolicy;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.MutableEntry;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
 import org.apache.ignite.events.EventType;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.hadoop.*;
-import org.apache.ignite.internal.processors.hadoop.counter.*;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.hadoop.HadoopClassLoader;
+import org.apache.ignite.internal.processors.hadoop.HadoopCommonUtils;
+import org.apache.ignite.internal.processors.hadoop.HadoopComponent;
+import org.apache.ignite.internal.processors.hadoop.HadoopContext;
+import org.apache.ignite.internal.processors.hadoop.HadoopInputSplit;
+import org.apache.ignite.internal.processors.hadoop.HadoopJob;
+import org.apache.ignite.internal.processors.hadoop.HadoopJobId;
+import org.apache.ignite.internal.processors.hadoop.HadoopJobInfo;
+import org.apache.ignite.internal.processors.hadoop.HadoopJobPhase;
+import org.apache.ignite.internal.processors.hadoop.HadoopJobStatus;
+import org.apache.ignite.internal.processors.hadoop.HadoopMapReducePlan;
+import org.apache.ignite.internal.processors.hadoop.HadoopMapReducePlanner;
+import org.apache.ignite.internal.processors.hadoop.HadoopTaskCancelledException;
+import org.apache.ignite.internal.processors.hadoop.HadoopTaskInfo;
+import org.apache.ignite.internal.processors.hadoop.counter.HadoopCounterWriter;
 import org.apache.ignite.internal.processors.hadoop.counter.HadoopCounters;
-import org.apache.ignite.internal.processors.hadoop.taskexecutor.*;
-import org.apache.ignite.internal.processors.hadoop.taskexecutor.external.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.internal.processors.hadoop.counter.HadoopCountersImpl;
+import org.apache.ignite.internal.processors.hadoop.counter.HadoopPerformanceCounter;
+import org.apache.ignite.internal.processors.hadoop.taskexecutor.HadoopTaskStatus;
+import org.apache.ignite.internal.processors.hadoop.taskexecutor.external.HadoopProcessDescriptor;
+import org.apache.ignite.internal.util.GridMutex;
+import org.apache.ignite.internal.util.GridSpinReadWriteLock;
+import org.apache.ignite.internal.util.future.GridFinishedFuture;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.typedef.CI1;
+import org.apache.ignite.internal.util.typedef.CIX1;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInClosure;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
-import javax.cache.event.*;
-import javax.cache.expiry.*;
-import javax.cache.processor.*;
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.internal.processors.hadoop.HadoopJobPhase.*;
-import static org.apache.ignite.internal.processors.hadoop.HadoopTaskType.*;
-import static org.apache.ignite.internal.processors.hadoop.taskexecutor.HadoopTaskState.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.processors.hadoop.HadoopJobPhase.PHASE_CANCELLING;
+import static org.apache.ignite.internal.processors.hadoop.HadoopJobPhase.PHASE_COMPLETE;
+import static org.apache.ignite.internal.processors.hadoop.HadoopJobPhase.PHASE_MAP;
+import static org.apache.ignite.internal.processors.hadoop.HadoopJobPhase.PHASE_REDUCE;
+import static org.apache.ignite.internal.processors.hadoop.HadoopJobPhase.PHASE_SETUP;
+import static org.apache.ignite.internal.processors.hadoop.HadoopTaskType.ABORT;
+import static org.apache.ignite.internal.processors.hadoop.HadoopTaskType.COMMIT;
+import static org.apache.ignite.internal.processors.hadoop.HadoopTaskType.MAP;
+import static org.apache.ignite.internal.processors.hadoop.HadoopTaskType.REDUCE;
+import static org.apache.ignite.internal.processors.hadoop.HadoopTaskType.SETUP;
+import static org.apache.ignite.internal.processors.hadoop.taskexecutor.HadoopTaskState.COMPLETED;
+import static org.apache.ignite.internal.processors.hadoop.taskexecutor.HadoopTaskState.CRASHED;
+import static org.apache.ignite.internal.processors.hadoop.taskexecutor.HadoopTaskState.FAILED;
+import static org.apache.ignite.internal.processors.hadoop.taskexecutor.HadoopTaskState.RUNNING;
 
 /**
  * Hadoop job tracker.
@@ -57,10 +104,10 @@ public class HadoopJobTracker extends HadoopComponent {
     private final GridMutex mux = new GridMutex();
 
     /** */
-    private volatile GridCacheProjectionEx<HadoopJobId, HadoopJobMetadata> jobMetaPrj;
+    private volatile IgniteInternalCache<HadoopJobId, HadoopJobMetadata> jobMetaPrj;
 
     /** Projection with expiry policy for finished job updates. */
-    private volatile GridCacheProjectionEx<HadoopJobId, HadoopJobMetadata> finishedJobMetaPrj;
+    private volatile IgniteInternalCache<HadoopJobId, HadoopJobMetadata> finishedJobMetaPrj;
 
     /** Map-reduce execution planner. */
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
@@ -82,6 +129,9 @@ public class HadoopJobTracker extends HadoopComponent {
     /** Component busy lock. */
     private GridSpinReadWriteLock busyLock;
 
+    /** Class to create HadoopJob instances from. */
+    private Class<? extends HadoopJob> jobCls;
+
     /** Closure to check result of async transform of system cache. */
     private final IgniteInClosure<IgniteInternalFuture<?>> failsLog = new CI1<IgniteInternalFuture<?>>() {
         @Override public void apply(IgniteInternalFuture<?> gridFut) {
@@ -95,26 +145,39 @@ public class HadoopJobTracker extends HadoopComponent {
     };
 
     /** {@inheritDoc} */
-    @Override public void start(HadoopContext ctx) throws IgniteCheckedException {
+    @SuppressWarnings("unchecked")
+    @Override public void start(final HadoopContext ctx) throws IgniteCheckedException {
         super.start(ctx);
 
         busyLock = new GridSpinReadWriteLock();
 
         evtProcSvc = Executors.newFixedThreadPool(1);
+
+        assert jobCls == null;
+
+        HadoopClassLoader ldr = ctx.kernalContext().hadoopHelper().commonClassLoader();
+
+        try {
+            jobCls = (Class<HadoopJob>)ldr.loadClass(HadoopCommonUtils.JOB_CLS_NAME);
+        }
+        catch (Exception ioe) {
+            throw new IgniteCheckedException("Failed to load job class [class=" +
+                HadoopCommonUtils.JOB_CLS_NAME + ']', ioe);
+        }
     }
 
     /**
      * @return Job meta projection.
      */
     @SuppressWarnings("NonPrivateFieldAccessedInSynchronizedContext")
-    private GridCacheProjectionEx<HadoopJobId, HadoopJobMetadata> jobMetaCache() {
-        GridCacheProjectionEx<HadoopJobId, HadoopJobMetadata> prj = jobMetaPrj;
+    private IgniteInternalCache<HadoopJobId, HadoopJobMetadata> jobMetaCache() {
+        IgniteInternalCache<HadoopJobId, HadoopJobMetadata> prj = jobMetaPrj;
 
         if (prj == null) {
             synchronized (mux) {
                 if ((prj = jobMetaPrj) == null) {
-                    CacheProjection<Object, Object> sysCache = ctx.kernalContext().cache()
-                        .cache(CU.SYS_CACHE_HADOOP_MR);
+                    GridCacheAdapter<HadoopJobId, HadoopJobMetadata> sysCache = ctx.kernalContext().cache()
+                        .internalCache(CU.SYS_CACHE_HADOOP_MR);
 
                     assert sysCache != null;
 
@@ -129,8 +192,7 @@ public class HadoopJobTracker extends HadoopComponent {
                         throw new IllegalStateException(e);
                     }
 
-                    jobMetaPrj = prj = (GridCacheProjectionEx<HadoopJobId, HadoopJobMetadata>)
-                        sysCache.projection(HadoopJobId.class, HadoopJobMetadata.class);
+                    jobMetaPrj = prj = sysCache;
 
                     if (ctx.configuration().getFinishedJobInfoTtl() > 0) {
                         ExpiryPolicy finishedJobPlc = new ModifiedExpiryPolicy(
@@ -150,8 +212,8 @@ public class HadoopJobTracker extends HadoopComponent {
     /**
      * @return Projection with expiry policy for finished job updates.
      */
-    private GridCacheProjectionEx<HadoopJobId, HadoopJobMetadata> finishedJobMetaCache() {
-        GridCacheProjectionEx<HadoopJobId, HadoopJobMetadata> prj = finishedJobMetaPrj;
+    private IgniteInternalCache<HadoopJobId, HadoopJobMetadata> finishedJobMetaCache() {
+        IgniteInternalCache<HadoopJobId, HadoopJobMetadata> prj = finishedJobMetaPrj;
 
         if (prj == null) {
             jobMetaCache();
@@ -178,7 +240,7 @@ public class HadoopJobTracker extends HadoopComponent {
 
                     try {
                         // Must process query callback in a separate thread to avoid deadlocks.
-                        evtProcSvc.submit(new EventHandler() {
+                        evtProcSvc.execute(new EventHandler() {
                             @Override protected void body() throws IgniteCheckedException {
                                 processJobMetadataUpdates(evts);
                             }
@@ -191,7 +253,8 @@ public class HadoopJobTracker extends HadoopComponent {
             },
             null,
             true,
-            true
+            true,
+            false
         );
 
         ctx.kernalContext().event().addLocalEventListener(new GridLocalEventListener() {
@@ -201,7 +264,7 @@ public class HadoopJobTracker extends HadoopComponent {
 
                 try {
                     // Must process discovery callback in a separate thread to avoid deadlock.
-                    evtProcSvc.submit(new EventHandler() {
+                    evtProcSvc.execute(new EventHandler() {
                         @Override protected void body() {
                             processNodeLeft((DiscoveryEvent)evt);
                         }
@@ -251,6 +314,8 @@ public class HadoopJobTracker extends HadoopComponent {
 
             HadoopMapReducePlan mrPlan = mrPlanner.preparePlan(job, ctx.nodes(), null);
 
+            logPlan(info, mrPlan);
+
             HadoopJobMetadata meta = new HadoopJobMetadata(ctx.localNodeId(), jobId, info);
 
             meta.mapReducePlan(mrPlan);
@@ -276,7 +341,7 @@ public class HadoopJobTracker extends HadoopComponent {
             perfCntr.onJobPrepare(jobPrepare);
             perfCntr.onJobStart(jobStart);
 
-            if (jobMetaCache().putIfAbsent(jobId, meta) != null)
+            if (jobMetaCache().getAndPutIfAbsent(jobId, meta) != null)
                 throw new IgniteCheckedException("Failed to submit job. Job with the same ID already exists: " + jobId);
 
             return completeFut;
@@ -288,6 +353,64 @@ public class HadoopJobTracker extends HadoopComponent {
         }
         finally {
             busyLock.readUnlock();
+        }
+    }
+
+    /**
+     * Log map-reduce plan if needed.
+     *
+     * @param info Job info.
+     * @param plan Plan.
+     */
+    @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
+    private void logPlan(HadoopJobInfo info, HadoopMapReducePlan plan) {
+        if (log.isDebugEnabled()) {
+            Map<UUID, IgniteBiTuple<Collection<HadoopInputSplit>, int[]>> map = new HashMap<>();
+
+            for (UUID nodeId : plan.mapperNodeIds())
+                map.put(nodeId, new IgniteBiTuple<Collection<HadoopInputSplit>, int[]>(plan.mappers(nodeId), null));
+
+            for (UUID nodeId : plan.reducerNodeIds()) {
+                int[] reducers = plan.reducers(nodeId);
+
+                IgniteBiTuple<Collection<HadoopInputSplit>, int[]> entry = map.get(nodeId);
+
+                if (entry == null)
+                    map.put(nodeId, new IgniteBiTuple<Collection<HadoopInputSplit>, int[]>(null, reducers));
+                else
+                    entry.set2(reducers);
+            }
+
+            StringBuilder details = new StringBuilder("[");
+
+            boolean first = true;
+
+            for (Map.Entry<UUID, IgniteBiTuple<Collection<HadoopInputSplit>, int[]>> entry : map.entrySet()) {
+                if (first)
+                    first = false;
+                else
+                    details.append(", ");
+
+                UUID nodeId = entry.getKey();
+
+                Collection<HadoopInputSplit> mappers = entry.getValue().get1();
+
+                if (mappers == null)
+                    mappers = Collections.emptyList();
+
+                int[] reducers = entry.getValue().get2();
+
+                if (reducers == null)
+                    reducers = new int[0];
+
+                details.append("[nodeId=" + nodeId + ", mappers=" + mappers.size() + ", reducers=" + reducers.length +
+                    ", mapperDetails=" + mappers + ", reducerDetails=" + Arrays.toString(reducers) + ']');
+            }
+
+            details.append(']');
+
+            log.debug("Prepared map-reduce plan [jobName=" + info.jobName() + ", mappers=" + plan.mappers() +
+                ", reducers=" + plan.reducers() + ", details=" + details + ']');
         }
     }
 
@@ -471,7 +594,7 @@ public class HadoopJobTracker extends HadoopComponent {
 
                 case COMMIT:
                 case ABORT: {
-                    GridCacheProjectionEx<HadoopJobId, HadoopJobMetadata> cache = finishedJobMetaCache();
+                    IgniteInternalCache<HadoopJobId, HadoopJobMetadata> cache = finishedJobMetaCache();
 
                     cache.invokeAsync(info.jobId(), new UpdatePhaseProcessor(incrCntrs, PHASE_COMPLETE)).
                         listen(failsLog);
@@ -662,6 +785,7 @@ public class HadoopJobTracker extends HadoopComponent {
      * @param jobId  Job ID.
      * @param plan Map-reduce plan.
      */
+    @SuppressWarnings({"unused", "ConstantConditions" })
     private void printPlan(HadoopJobId jobId, HadoopMapReducePlan plan) {
         log.info("Plan for " + jobId);
 
@@ -821,18 +945,18 @@ public class HadoopJobTracker extends HadoopComponent {
                     finishFut.onDone(jobId, meta.failCause());
                 }
 
+                assert job != null;
+
                 if (ctx.jobUpdateLeader())
                     job.cleanupStagingDirectory();
 
                 jobs.remove(jobId);
 
-                job.dispose(false);
-
                 if (ctx.jobUpdateLeader()) {
                     ClassLoader ldr = job.getClass().getClassLoader();
 
                     try {
-                        String statWriterClsName = job.info().property(HadoopUtils.JOB_COUNTER_WRITER_PROPERTY);
+                        String statWriterClsName = job.info().property(HadoopCommonUtils.JOB_COUNTER_WRITER_PROPERTY);
 
                         if (statWriterClsName != null) {
                             Class<?> cls = ldr.loadClass(statWriterClsName);
@@ -841,13 +965,15 @@ public class HadoopJobTracker extends HadoopComponent {
 
                             HadoopCounters cntrs = meta.counters();
 
-                            writer.write(job.info(), jobId, cntrs);
+                            writer.write(job, cntrs);
                         }
                     }
                     catch (Exception e) {
                         log.error("Can't write statistic due to: ", e);
                     }
                 }
+
+                job.dispose(false);
 
                 break;
             }
@@ -892,6 +1018,8 @@ public class HadoopJobTracker extends HadoopComponent {
             if (state == null)
                 state = initState(jobId);
 
+            int mapperIdx = 0;
+
             for (HadoopInputSplit split : mappers) {
                 if (state.addMapper(split)) {
                     if (log.isDebugEnabled())
@@ -899,6 +1027,8 @@ public class HadoopJobTracker extends HadoopComponent {
                             ", split=" + split + ']');
 
                     HadoopTaskInfo taskInfo = new HadoopTaskInfo(MAP, jobId, meta.taskNumber(split), 0, split);
+
+                    taskInfo.mapperIndex(mapperIdx++);
 
                     if (tasks == null)
                         tasks = new ArrayList<>();
@@ -987,7 +1117,8 @@ public class HadoopJobTracker extends HadoopComponent {
                 jobInfo = meta.jobInfo();
             }
 
-            job = jobInfo.createJob(jobId, log);
+            job = jobInfo.createJob(jobCls, jobId, log, ctx.configuration().getNativeLibraryNames(),
+                ctx.kernalContext().hadoopHelper());
 
             job.initialize(false, ctx.localNodeId());
 
@@ -1043,7 +1174,7 @@ public class HadoopJobTracker extends HadoopComponent {
             try {
                 fut.get();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 if (e.getCause() instanceof HadoopTaskCancelledException)
                     return true;
             }
@@ -1087,6 +1218,9 @@ public class HadoopJobTracker extends HadoopComponent {
             }
             catch (Throwable e) {
                 U.error(log, "Unhandled exception while processing event.", e);
+
+                if (e instanceof Error)
+                    throw (Error)e;
             }
             finally {
                 busyLock.readUnlock();
@@ -1513,7 +1647,10 @@ public class HadoopJobTracker extends HadoopComponent {
 
         /** {@inheritDoc} */
         @Override protected void update(HadoopJobMetadata meta, HadoopJobMetadata cp) {
-            assert meta.phase() == PHASE_CANCELLING || err != null: "Invalid phase for cancel: " + meta;
+            final HadoopJobPhase currPhase = meta.phase();
+
+            assert currPhase == PHASE_CANCELLING || currPhase == PHASE_COMPLETE
+                    || err != null: "Invalid phase for cancel: " + currPhase;
 
             Collection<Integer> rdcCp = new HashSet<>(cp.pendingReducers());
 
@@ -1531,7 +1668,8 @@ public class HadoopJobTracker extends HadoopComponent {
 
             cp.pendingSplits(splitsCp);
 
-            cp.phase(PHASE_CANCELLING);
+            if (currPhase != PHASE_COMPLETE && currPhase != PHASE_CANCELLING)
+                cp.phase(PHASE_CANCELLING);
 
             if (err != null)
                 cp.failCause(err);
@@ -1595,7 +1733,7 @@ public class HadoopJobTracker extends HadoopComponent {
             if (val != null)
                 e.setValue(val);
             else
-                e.remove();;
+                e.remove();
 
             return null;
         }

@@ -17,27 +17,40 @@
 
 package org.apache.ignite.startup.cmdline;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
-
-import javax.swing.*;
-import java.awt.*;
-import java.io.*;
-import java.lang.reflect.*;
+import java.awt.Image;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.net.*;
-import java.text.*;
-import java.util.*;
+import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+import javax.swing.ImageIcon;
+import org.apache.ignite.IgniteState;
+import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.IgnitionListener;
+import org.apache.ignite.internal.util.GridConfigurationFinder;
+import org.apache.ignite.internal.util.lang.GridTuple3;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.IgniteState.*;
-import static org.apache.ignite.IgniteSystemProperties.*;
-import static org.apache.ignite.internal.IgniteVersionUtils.*;
+import static org.apache.ignite.IgniteState.STOPPED;
+import static org.apache.ignite.IgniteState.STOPPED_ON_SEGMENTATION;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_PROG_NAME;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_RESTART_CODE;
+import static org.apache.ignite.internal.IgniteVersionUtils.ACK_VER_STR;
+import static org.apache.ignite.internal.IgniteVersionUtils.COPYRIGHT;
+import static org.apache.ignite.internal.IgniteVersionUtils.RELEASE_DATE_STR;
+import static org.apache.ignite.internal.IgniteVersionUtils.VER_STR;
 
 /**
  * This class defines command-line Ignite startup. This startup can be used to start Ignite
@@ -120,7 +133,7 @@ public final class CommandLineStartup {
 
             appCls.getDeclaredMethod("setAboutHandler", aboutHndCls).invoke(osxApp, aboutHndProxy);
         }
-        catch (Throwable ignore) {
+        catch (Exception ignore) {
             // Ignore.
         }
     }
@@ -154,10 +167,12 @@ public final class CommandLineStartup {
 
             X.error(
                 "Usage:",
-                "    " + runner + (ignite ? " [?]|[path {-v}]|[-i]" : " [?]|[-v]"),
+                "    " + runner + (ignite ? " [?]|[path {-v}{-np}]|[-i]" : " [?]|[-v]"),
                 "    Where:",
-                "    ?, /help, -help - show this message.",
-                "    -v              - verbose mode (quiet by default).");
+                "    ?, /help, -help, - show this message.",
+                "    -v               - verbose mode (quiet by default).",
+                "    -np              - no pause on exit (pause by default)",
+                "    -nojmx           - disable JMX monitoring (enabled by default)");
 
             if (ignite) {
                 X.error(
@@ -295,6 +310,9 @@ public final class CommandLineStartup {
                 note = "\nNote! You may use 'USER_LIBS' environment variable to specify your classpath.";
 
             exit("Failed to start grid: " + e.getMessage() + note, false, -1);
+
+            if (e instanceof Error)
+                throw e;
 
             return;
         }

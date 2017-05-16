@@ -17,25 +17,27 @@
 
 package org.apache.ignite.internal.processors.cache.query;
 
-import org.apache.ignite.cache.query.*;
-import org.apache.ignite.cache.query.annotations.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.affinity.AffinityKey;
+import org.apache.ignite.cache.query.Query;
+import org.apache.ignite.cache.query.QueryMetrics;
+import org.apache.ignite.cache.query.annotations.QuerySqlField;
+import org.apache.ignite.cache.query.annotations.QuerySqlFunction;
+import org.apache.ignite.cache.query.annotations.QueryTextField;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.internal.util.lang.GridCloseableIterator;
+import org.apache.ignite.lang.IgniteReducer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Main API for configuring and executing cache queries.
  * <p>
- * Cache queries are created from {@link CacheQueries} API via any of the available
- * {@code createXXXQuery(...)} methods.
  * <h1 class="header">SQL Queries</h1>
  * {@code SQL} query allows to execute distributed cache
  * queries using standard SQL syntax. All values participating in where clauses
- * or joins must be annotated with {@link QuerySqlField} annotation. Query can be created
- * with {@link CacheQueries#createSqlQuery(Class, String)} method.
+ * or joins must be annotated with {@link QuerySqlField} annotation.
  * <h2 class="header">Field Queries</h2>
  * By default {@code select} clause is ignored as query result contains full objects.
- * If it is needed to select individual fields, use {@link CacheQueries#createSqlFieldsQuery(String)} method.
  * This type of query replaces full objects with individual fields. Note that selected fields
  * must be annotated with {@link QuerySqlField} annotation.
  * <h2 class="header">Cross-Cache Queries</h2>
@@ -55,15 +57,13 @@ import org.jetbrains.annotations.*;
  * and annotated with {@link QuerySqlFunction}. Classes containing these methods must be registered in
  * {@link org.apache.ignite.configuration.CacheConfiguration#setSqlFunctionClasses(Class[])}.
  * <h1 class="header">Full Text Queries</h1>
- * Ignite supports full text queries based on Apache Lucene engine. This queries are created by
- * {@link CacheQueries#createFullTextQuery(Class, String)} method. Note that all fields that
+ * Ignite supports full text queries based on Apache Lucene engine. Note that all fields that
  * are expected to show up in text query results must be annotated with {@link QueryTextField}
  * annotation.
  * <h1 class="header">Scan Queries</h1>
  * Sometimes when it is known in advance that SQL query will cause a full data scan, or whenever data set
  * is relatively small, the full scan query may be used. This query will iterate over all cache
- * entries, skipping over entries that don't pass the optionally provided key-value filter
- * (see {@link CacheQueries#createScanQuery(org.apache.ignite.lang.IgniteBiPredicate)} method).
+ * entries, skipping over entries that don't pass the optionally provided key-value filter.
  * <h2 class="header">Limitations</h2>
  * Data in Ignite cache is usually distributed across several nodes,
  * so some queries may not work as expected. Keep in mind following limitations
@@ -81,9 +81,9 @@ import org.jetbrains.annotations.*;
  *     </li>
  *     <li>
  *         Joins will work correctly only if joined objects are stored in
- *         collocated mode or at least one side of the join is stored in
+ *         colocated mode or at least one side of the join is stored in
  *         {@link org.apache.ignite.cache.CacheMode#REPLICATED} cache. Refer to
- *         {@link org.apache.ignite.cache.affinity.CacheAffinityKey} javadoc for more information about colocation.
+ *         {@link AffinityKey} javadoc for more information about colocation.
  *     </li>
  * </ul>
  * <h1 class="header">Query usage</h1>
@@ -187,11 +187,8 @@ import org.jetbrains.annotations.*;
  * </pre>
  */
 public interface CacheQuery<T> {
-    /** Default query page size. */
-    public static final int DFLT_PAGE_SIZE = 1024;
-
     /**
-     * Sets result page size. If not provided, {@link #DFLT_PAGE_SIZE} will be used.
+     * Sets result page size. If not provided, {@link Query#DFLT_PAGE_SIZE} will be used.
      * Results are returned from queried nodes one page at a tme.
      *
      * @param pageSize Page size.
@@ -274,15 +271,6 @@ public interface CacheQuery<T> {
     public <R> CacheQueryFuture<R> execute(IgniteReducer<T, R> rmtReducer, @Nullable Object... args);
 
     /**
-     * Executes the query the same way as {@link #execute(Object...)} method but transforms result remotely.
-     *
-     * @param rmtTransform Remote transformer.
-     * @param args Optional arguments.
-     * @return Future for the query result.
-     */
-    public <R> CacheQueryFuture<R> execute(IgniteClosure<T, R> rmtTransform, @Nullable Object... args);
-
-    /**
      * Gets metrics for this query.
      *
      * @return Query metrics.
@@ -293,4 +281,9 @@ public interface CacheQuery<T> {
      * Resets metrics for this query.
      */
     public void resetMetrics();
+
+    /**
+     * @return Scan query iterator.
+     */
+    public GridCloseableIterator executeScanQuery() throws IgniteCheckedException;
 }

@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.cluster.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Serializable;
+import java.util.Comparator;
+import org.apache.ignite.cluster.ClusterNode;
 
 /**
  * Node order comparator.
@@ -28,6 +27,16 @@ import java.util.*;
 public class GridNodeOrderComparator implements Comparator<ClusterNode>, Serializable {
     /** */
     private static final long serialVersionUID = 0L;
+
+    /** */
+    public static final Comparator<ClusterNode> INSTANCE = new GridNodeOrderComparator();
+
+    /**
+     * Private constructor. Don't create this class, use {@link #INSTANCE}.
+     */
+    private GridNodeOrderComparator() {
+
+    }
 
     /** {@inheritDoc} */
     @Override public int compare(ClusterNode n1, ClusterNode n2) {

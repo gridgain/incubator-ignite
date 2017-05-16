@@ -17,13 +17,30 @@
 
 package org.apache.ignite.internal.processors.cache.datastructures;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteQueue;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.CollectionConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.testframework.GridTestUtils;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 
 /**
  * Queue basic tests.
@@ -233,15 +250,27 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
     }
 
     /**
-     * JUnit.
-     *
      * @throws Exception If failed.
      */
     public void testIterator() throws Exception {
+        checkIterator(false);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testIteratorCollocated() throws Exception {
+        checkIterator(true);
+    }
+
+    /**
+     * @param collocated Collocated flag.
+     */
+    private void checkIterator(boolean collocated) {
         // Random queue name.
         String queueName = UUID.randomUUID().toString();
 
-        IgniteQueue<String> queue = grid(0).queue(queueName, 0, config(false));
+        IgniteQueue<String> queue = grid(0).queue(queueName, 0, config(collocated));
 
         for (int i = 0; i < 100; i++)
             assert queue.add(Integer.toString(i));
@@ -380,58 +409,58 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
 
         final CountDownLatch clearLatch = new CountDownLatch(THREAD_NUM);
 
-        for (int t = 0; t < THREAD_NUM; t++) {
-            Thread th = new Thread(new Runnable() {
-                @Override public void run() {
-                    if (log.isDebugEnabled())
-                        log.debug("Thread has been started." + Thread.currentThread().getName());
+        IgniteInternalFuture<?> offerFut = GridTestUtils.runMultiThreadedAsync(new Callable<Void>() {
+            @Override public Void call() throws Exception {
+                if (log.isDebugEnabled())
+                    log.debug("Thread has been started." + Thread.currentThread().getName());
 
-                    try {
-                        // Thread must be blocked on put operation.
-                        for (int i = 0; i < (QUEUE_CAPACITY * THREAD_NUM); i++)
-                            queue.offer("anything", 3, TimeUnit.MINUTES);
+                try {
+                    // Thread must be blocked on put operation.
+                    for (int i = 0; i < (QUEUE_CAPACITY * THREAD_NUM); i++)
+                        queue.offer("anything", 3, TimeUnit.MINUTES);
 
-                        fail("Queue failed");
-                    }
-                    catch (IgniteException | IllegalStateException e) {
-                        putLatch.countDown();
-
-                        assert e.getMessage().contains("removed");
-
-                        assert queue.removed();
-                    }
-
-                    if (log.isDebugEnabled())
-                        log.debug("Thread has been stopped." + Thread.currentThread().getName());
-
+                    fail("Queue failed");
                 }
-            });
-            th.start();
-        }
+                catch (IgniteException | IllegalStateException e) {
+                    putLatch.countDown();
 
-        for (int t = 0; t < THREAD_NUM; t++) {
-            Thread th = new Thread(new Runnable() {
-                @Override public void run() {
-                    try {
-                        IgniteQueue<String> queue = grid(0).queue(queueName, 0, null);
+                    assert e.getMessage().contains("removed");
 
-                        if (queue != null)
-                            queue.close();
-                    }
-                    catch (Exception e) {
-                        fail("Unexpected exception: " + e);
-                    }
-                    finally {
-                        clearLatch.countDown();
-                    }
+                    assert queue.removed();
                 }
-            });
-            th.start();
-        }
+
+                if (log.isDebugEnabled())
+                    log.debug("Thread has been stopped." + Thread.currentThread().getName());
+
+                return null;
+            }
+        }, THREAD_NUM, "offer-thread");
+
+        IgniteInternalFuture<?> closeFut = GridTestUtils.runMultiThreadedAsync(new Callable<Void>() {
+            @Override public Void call() throws Exception {
+                try {
+                    IgniteQueue<String> queue = grid(0).queue(queueName, 0, null);
+
+                    if (queue != null)
+                        queue.close();
+                }
+                catch (Exception e) {
+                    fail("Unexpected exception: " + e);
+                }
+                finally {
+                    clearLatch.countDown();
+                }
+
+                return null;
+            }
+        }, THREAD_NUM, "close-thread");
 
         assert putLatch.await(3, TimeUnit.MINUTES);
 
         assert clearLatch.await(3, TimeUnit.MINUTES);
+
+        offerFut.get();
+        closeFut.get();
 
         try {
             assert queue.isEmpty() : queue.size();
@@ -505,6 +534,244 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
     }
 
     /**
+     * JUnit.
+     *
+     * @throws Exception If failed.
+     */
+    public void testPutRemovePeekPollUnbounded() throws Exception {
+        // Random queue name.
+        String queueName = UUID.randomUUID().toString();
+
+        IgniteQueue<String> queue = grid(0).queue(queueName, 0, config(false));
+
+        for (int i = 0; i < QUEUE_CAPACITY; i++)
+            queue.put("Item-" + i);
+
+        assertEquals(QUEUE_CAPACITY, queue.size());
+
+        queue.remove("Item-1");
+
+        assertEquals(QUEUE_CAPACITY - 1, queue.size());
+
+        assertEquals("Item-0", queue.peek());
+        assertEquals("Item-0", queue.poll());
+        assertEquals("Item-2", queue.poll());
+
+        assertEquals(0, queue.size());
+
+        queue.clear();
+
+        assertTrue(queue.isEmpty());
+    }
+
+    /**
+     * JUnit.
+     *
+     * @throws Exception If failed.
+     */
+    public void testRemovePeek() throws Exception {
+        // Random queue name.
+        String queueName = UUID.randomUUID().toString();
+
+        IgniteQueue<String> queue = grid(0).queue(queueName, 0, config(false));
+
+        for (int i = 0; i < 5; i++)
+            queue.put("Item-" + i);
+
+        queue.remove("Item-1");
+
+        assertEquals("Item-0", queue.peek());
+
+        queue.remove("Item-2");
+
+        assertEquals("Item-0", queue.peek());
+
+        queue.remove("Item-0");
+
+        assertEquals("Item-3", queue.peek());
+
+        queue.remove("Item-4");
+
+        assertEquals("Item-3", queue.peek());
+
+        queue.remove("Item-3");
+
+        assertNull(queue.peek());
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testReuseCache() throws Exception {
+        CollectionConfiguration colCfg = collectionConfiguration();
+
+        IgniteQueue queue1 = grid(0).queue("Queue1", 0, colCfg);
+
+        IgniteQueue queue2 = grid(0).queue("Queue2", 0, colCfg);
+
+        assertEquals(getQueueCache(queue1), getQueueCache(queue2));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testNotReuseCache() throws Exception {
+        CollectionConfiguration colCfg1 = collectionConfiguration();
+
+        CollectionConfiguration colCfg2 = collectionConfiguration();
+
+        if (colCfg2.getAtomicityMode() == ATOMIC)
+            colCfg2.setAtomicityMode(TRANSACTIONAL);
+        else
+            colCfg2.setAtomicityMode(ATOMIC);
+
+        IgniteQueue queue1 = grid(0).queue("Queue1", 0, colCfg1);
+
+        IgniteQueue queue2 = grid(0).queue("Queue2", 0, colCfg2);
+
+        assertNotSame(getQueueCache(queue1), getQueueCache(queue2));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testFilterNode() throws Exception {
+        CollectionConfiguration colCfg1 = collectionConfiguration();
+
+        CollectionConfiguration colCfg2 = collectionConfiguration();
+
+        colCfg2.setNodeFilter(CacheConfiguration.ALL_NODES);
+
+        IgniteQueue queue1 = grid(0).queue("Queue1", 0, colCfg1);
+
+        IgniteQueue queue2 = grid(0).queue("Queue2", 0, colCfg2);
+
+        assertNotSame(getQueueCache(queue1), getQueueCache(queue2));
+
+        colCfg1.setNodeFilter(CacheConfiguration.ALL_NODES);
+
+        IgniteQueue queue3 = grid(0).queue("Queue3", 0, colCfg1);
+
+        assertEquals(getQueueCache(queue2), getQueueCache(queue3));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testSystemCache() throws Exception {
+        CollectionConfiguration colCfg = collectionConfiguration();
+
+        IgniteQueue queue = grid(0).queue("Queue1", 0, colCfg);
+
+        final CacheConfiguration ccfg = getQueueCache(queue);
+
+        GridTestUtils.assertThrows(log, new Callable<Object>() {
+            @Override public Object call() throws Exception {
+                grid(0).cache(ccfg.getName());
+                return null;
+            }
+        }, IllegalStateException.class, "Failed to get cache because it is a system cache");
+
+        assertNotNull(((IgniteKernal)grid(0)).internalCache(ccfg.getName()));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testAffinityRun() throws Exception {
+        final CollectionConfiguration colCfg = collectionConfiguration();
+
+        colCfg.setCollocated(false);
+        colCfg.setCacheMode(CacheMode.PARTITIONED);
+
+        try (final IgniteQueue<Integer> queue1 = grid(0).queue("Queue1", 0, colCfg)) {
+            GridTestUtils.assertThrows(
+                log,
+                new Callable<Void>() {
+                    @Override public Void call() throws Exception {
+                        queue1.affinityRun(new IgniteRunnable() {
+                            @Override public void run() {
+                                // No-op.
+                            }
+                        });
+
+                        return null;
+                    }
+                },
+                IgniteException.class,
+                "Failed to execute affinityRun() for non-collocated queue: " + queue1.name() +
+                    ". This operation is supported only for collocated queues.");
+        }
+
+        colCfg.setCollocated(true);
+
+        try (final IgniteQueue<Integer> queue2 = grid(0).queue("Queue2", 0, colCfg)) {
+            queue2.add(100);
+
+            queue2.affinityRun(new IgniteRunnable() {
+                @IgniteInstanceResource
+                private IgniteEx ignite;
+
+                @Override public void run() {
+                    assertTrue(ignite.cachex("datastructures_0").affinity().isPrimaryOrBackup(
+                        ignite.cluster().localNode(), "Queue2"));
+
+                    assertEquals(100, queue2.take().intValue());
+                }
+            });
+        }
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testAffinityCall() throws Exception {
+        final CollectionConfiguration colCfg = collectionConfiguration();
+
+        colCfg.setCollocated(false);
+        colCfg.setCacheMode(CacheMode.PARTITIONED);
+
+        try (final IgniteQueue<Integer> queue1 = grid(0).queue("Queue1", 0, colCfg)) {
+            GridTestUtils.assertThrows(
+                log,
+                new Callable<Void>() {
+                    @Override public Void call() throws Exception {
+                        queue1.affinityCall(new IgniteCallable<Object>() {
+                            @Override public Object call() {
+                                return null;
+                            }
+                        });
+
+                        return null;
+                    }
+                },
+                IgniteException.class,
+                "Failed to execute affinityCall() for non-collocated queue: " + queue1.name() +
+                    ". This operation is supported only for collocated queues.");
+        }
+
+        colCfg.setCollocated(true);
+
+        try (final IgniteQueue<Integer> queue2 = grid(0).queue("Queue2", 0, colCfg)) {
+            queue2.add(100);
+
+            Integer res = queue2.affinityCall(new IgniteCallable<Integer>() {
+                @IgniteInstanceResource
+                private IgniteEx ignite;
+
+                @Override public Integer call() {
+                    assertTrue(ignite.cachex("datastructures_0").affinity().isPrimaryOrBackup(
+                        ignite.cluster().localNode(), "Queue2"));
+
+                    return queue2.take();
+                }
+            });
+
+            assertEquals(100, res.intValue());
+        }
+    }
+
+    /**
      *  Test class with the same hash code.
      */
     private static class SameHashItem implements Serializable {
@@ -516,13 +783,6 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
          */
         private SameHashItem(String s) {
             this.s = s;
-        }
-
-        /**
-         * @return Priority.
-         */
-        String data() {
-            return s;
         }
 
         /** {@inheritDoc} */
@@ -549,4 +809,5 @@ public abstract class GridCacheQueueApiSelfAbstractTest extends IgniteCollection
             return S.toString(SameHashItem.class, this);
         }
     }
+
 }

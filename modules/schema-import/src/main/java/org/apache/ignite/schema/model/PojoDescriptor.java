@@ -17,15 +17,47 @@
 
 package org.apache.ignite.schema.model;
 
-import javafx.beans.property.*;
-import javafx.beans.value.*;
-import javafx.collections.*;
-import org.apache.ignite.schema.parser.*;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import org.apache.ignite.cache.QueryIndex;
+import org.apache.ignite.schema.parser.DbColumn;
+import org.apache.ignite.schema.parser.DbTable;
 
-import java.math.*;
-import java.util.*;
-
-import static java.sql.Types.*;
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.BIT;
+import static java.sql.Types.BOOLEAN;
+import static java.sql.Types.CHAR;
+import static java.sql.Types.CLOB;
+import static java.sql.Types.DATE;
+import static java.sql.Types.DECIMAL;
+import static java.sql.Types.DOUBLE;
+import static java.sql.Types.FLOAT;
+import static java.sql.Types.INTEGER;
+import static java.sql.Types.LONGNVARCHAR;
+import static java.sql.Types.LONGVARCHAR;
+import static java.sql.Types.NCHAR;
+import static java.sql.Types.NCLOB;
+import static java.sql.Types.NUMERIC;
+import static java.sql.Types.NVARCHAR;
+import static java.sql.Types.REAL;
+import static java.sql.Types.SMALLINT;
+import static java.sql.Types.SQLXML;
+import static java.sql.Types.TIME;
+import static java.sql.Types.TIMESTAMP;
+import static java.sql.Types.TINYINT;
+import static java.sql.Types.VARCHAR;
 
 /**
  * Descriptor for java type.
@@ -64,9 +96,6 @@ public class PojoDescriptor {
     /** Java class fields. */
     private final ObservableList<PojoField> fields;
 
-    /** Fields map for quick access. */
-    private final Map<String, PojoField> fieldsMap;
-
     /**
      * Constructor of POJO descriptor.
      *
@@ -90,20 +119,16 @@ public class PojoDescriptor {
 
         List<PojoField> flds = new ArrayList<>(cols.size());
 
-        fieldsMap = new HashMap<>(cols.size());
-
         for (DbColumn col : cols) {
             String colName = col.name();
 
             PojoField fld = new PojoField(colName, col.type(),
-                toJavaFieldName(colName), toJavaType(col.type(), col.nullable()).getName(),
+                toJavaFieldName(colName), toJavaType(col).getName(),
                 col.key(), col.nullable());
 
             fld.owner(this);
 
             flds.add(fld);
-
-            fieldsMap.put(colName, fld);
         }
 
         fields = FXCollections.observableList(flds);
@@ -273,60 +298,12 @@ public class PojoDescriptor {
     }
 
     /**
-     * @return Ascending fields.
+     * Gets indexes indexes.
+     *
+     * @return Collection with indexes.
      */
-    public Collection<PojoField> ascendingFields() {
-        Collection<PojoField> res = new ArrayList<>();
-
-        Set<String> asc = tbl.ascendingColumns();
-
-        for (PojoField field : fields)
-            if (field.use() && asc.contains(field.dbName()))
-                res.add(field);
-
-        return res;
-    }
-
-    /**
-     * @return Descending fields.
-     */
-    public Collection<PojoField> descendingFields() {
-        Collection<PojoField> res = new ArrayList<>();
-
-        Set<String> desc = tbl.descendingColumns();
-
-        for (PojoField field : fields)
-            if (field.use() && desc.contains(field.dbName()))
-                res.add(field);
-
-        return res;
-    }
-
-    /**
-     * Gets indexes groups.
-     */
-    public Map<String, Map<String, IndexItem>> groups() {
-        Map<String, Map<String, Boolean>> idxs = tbl.indexes();
-
-        Map<String, Map<String, IndexItem>> groups = new LinkedHashMap<>(idxs.size());
-
-        for (Map.Entry<String, Map<String, Boolean>> idx : idxs.entrySet()) {
-            String idxName = idx.getKey();
-
-            Map<String, Boolean> idxCols = idx.getValue();
-
-            Map<String, IndexItem> grp = new LinkedHashMap<>();
-
-            groups.put(idxName, grp);
-
-            for (Map.Entry<String, Boolean> idxCol : idxCols.entrySet()) {
-                PojoField fld = fieldsMap.get(idxCol.getKey());
-
-                grp.put(fld.javaName(), new IndexItem(fld.javaTypeName(), idxCol.getValue()));
-            }
-        }
-
-        return groups;
+    public Collection<QueryIndex> indexes() {
+        return tbl.indexes();
     }
 
     /**
@@ -450,24 +427,32 @@ public class PojoDescriptor {
     /**
      * Convert JDBC data type to java type.
      *
-     * @param type JDBC SQL data type.
-     * @param nullable {@code true} if {@code NULL} is allowed for this field in database.
+     * @param col Database column descriptor.
      * @return Java data type.
      */
-    private static Class<?> toJavaType(int type, boolean nullable) {
-        switch (type) {
+    private static Class<?> toJavaType(DbColumn col) {
+        boolean nullable = col.nullable();
+        boolean unsigned = col.unsigned();
+
+        switch (col.type()) {
             case BIT:
             case BOOLEAN:
                 return nullable ? Boolean.class : boolean.class;
 
             case TINYINT:
-                return nullable ? Byte.class : byte.class;
+                return unsigned
+                    ? (nullable ? Short.class : short.class)
+                    : (nullable ? Byte.class : byte.class);
 
             case SMALLINT:
-                return nullable ? Short.class : short.class;
+                return unsigned
+                    ? (nullable ? Integer.class : int.class)
+                    : (nullable ? Short.class : short.class);
 
             case INTEGER:
-                return nullable ? Integer.class : int.class;
+                return unsigned
+                    ? (nullable ? Long.class : long.class)
+                    : (nullable ? Integer.class : int.class);
 
             case BIGINT:
                 return nullable ? Long.class : long.class;
@@ -489,6 +474,9 @@ public class PojoDescriptor {
             case NCHAR:
             case NVARCHAR:
             case LONGNVARCHAR:
+            case CLOB:
+            case NCLOB:
+            case SQLXML:
                 return String.class;
 
             case DATE:
@@ -500,8 +488,8 @@ public class PojoDescriptor {
             case TIMESTAMP:
                 return java.sql.Timestamp.class;
 
-            // BINARY, VARBINARY, LONGVARBINARY, ARRAY, BLOB, CLOB, NCLOB, NULL, DATALINK
-            // OTHER, JAVA_OBJECT, DISTINCT, STRUCT, REF, ROWID, SQLXML
+            // BINARY, VARBINARY, LONGVARBINARY, ARRAY, BLOB, NULL, DATALINK
+            // OTHER, JAVA_OBJECT, DISTINCT, STRUCT, REF, ROWID
             default:
                 return Object.class;
         }

@@ -17,18 +17,27 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.internal.client.balancer.*;
-import org.apache.ignite.internal.client.marshaller.*;
-import org.apache.ignite.internal.client.marshaller.optimized.*;
-import org.apache.ignite.internal.client.ssl.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.security.*;
-import org.jetbrains.annotations.*;
-
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.client.balancer.GridClientLoadBalancer;
+import org.apache.ignite.internal.client.balancer.GridClientRandomBalancer;
+import org.apache.ignite.internal.client.balancer.GridClientRoundRobinBalancer;
+import org.apache.ignite.internal.client.marshaller.GridClientMarshaller;
+import org.apache.ignite.internal.client.marshaller.optimized.GridClientOptimizedMarshaller;
+import org.apache.ignite.internal.client.ssl.GridSslBasicContextFactory;
+import org.apache.ignite.internal.client.ssl.GridSslContextFactory;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.plugin.security.SecurityCredentials;
+import org.apache.ignite.plugin.security.SecurityCredentialsBasicProvider;
+import org.apache.ignite.plugin.security.SecurityCredentialsProvider;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Java client configuration.
@@ -104,13 +113,13 @@ public class GridClientConfiguration {
     private Map<String, GridClientDataConfiguration> dataCfgs = Collections.emptyMap();
 
     /** Credentials. */
-    private GridSecurityCredentialsProvider credProvider;
+    private SecurityCredentialsProvider credProvider;
 
     /** Executor. */
     private ExecutorService executor;
 
     /** Marshaller. */
-    private GridClientMarshaller marshaller = new GridClientOptimizedMarshaller();
+    private GridClientMarshaller marshaller = new GridClientOptimizedMarshaller(U.allPluginProviders());
 
     /** Daemon flag. */
     private boolean daemon;
@@ -148,7 +157,6 @@ public class GridClientConfiguration {
         tcpNoDelay = cfg.isTcpNoDelay();
         topRefreshFreq = cfg.getTopologyRefreshFrequency();
         daemon = cfg.isDaemon();
-        marshaller = cfg.getMarshaller();
 
         setDataConfigurations(cfg.getDataConfigurations());
     }
@@ -160,7 +168,7 @@ public class GridClientConfiguration {
      * @throws GridClientException If parsing configuration failed.
      */
     public GridClientConfiguration(Properties in) throws GridClientException {
-        this("gg.client", in);
+        this("ignite.client", in);
     }
 
     /**
@@ -347,7 +355,7 @@ public class GridClientConfiguration {
      *
      * @return Credentials provider.
      */
-    public GridSecurityCredentialsProvider getSecurityCredentialsProvider() {
+    public SecurityCredentialsProvider getSecurityCredentialsProvider() {
         return credProvider;
     }
 
@@ -356,7 +364,7 @@ public class GridClientConfiguration {
      *
      * @param credProvider Client credentials provider.
      */
-    public void setSecurityCredentialsProvider(GridSecurityCredentialsProvider credProvider) {
+    public void setSecurityCredentialsProvider(SecurityCredentialsProvider credProvider) {
         this.credProvider = credProvider;
     }
 
@@ -606,7 +614,7 @@ public class GridClientConfiguration {
      * Options, that can be used out-of-the-box:
      * <ul>
      *     <li>{@link GridClientOptimizedMarshaller} (default) - Ignite's optimized marshaller.</li>
-     *     <li>{@code GridClientPortableMarshaller} - Marshaller that supports portable objects.</li>
+     *     <li>{@code GridClientBinaryMarshaller} - Marshaller that supports binary objects.</li>
      *     <li>{@link org.apache.ignite.internal.client.marshaller.jdk.GridClientJdkMarshaller} - JDK marshaller (not recommended).</li>
      * </ul>
      *
@@ -674,12 +682,12 @@ public class GridClientConfiguration {
             int idx = cred.indexOf(':');
 
             if (idx >= 0 && idx < cred.length() - 1) {
-                setSecurityCredentialsProvider(new GridSecurityCredentialsBasicProvider(
-                    new GridSecurityCredentials(cred.substring(0, idx), cred.substring(idx + 1))));
+                setSecurityCredentialsProvider(new SecurityCredentialsBasicProvider(
+                    new SecurityCredentials(cred.substring(0, idx), cred.substring(idx + 1))));
             }
             else {
-                setSecurityCredentialsProvider(new GridSecurityCredentialsBasicProvider(
-                    new GridSecurityCredentials(null, null, cred)));
+                setSecurityCredentialsProvider(new SecurityCredentialsBasicProvider(
+                    new SecurityCredentials(null, null, cred)));
             }
         }
 

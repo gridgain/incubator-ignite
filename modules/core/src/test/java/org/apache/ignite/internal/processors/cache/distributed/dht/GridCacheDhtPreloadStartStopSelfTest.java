@@ -17,27 +17,33 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.Collection;
+import java.util.LinkedList;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.cache.CacheRebalanceMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.GridCachePartitionExchangeManager;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPreloader;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.configuration.CacheConfiguration.*;
-import static org.apache.ignite.configuration.DeploymentMode.*;
-import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.ASYNC;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.configuration.CacheConfiguration.DFLT_REBALANCE_BATCH_SIZE;
+import static org.apache.ignite.configuration.DeploymentMode.CONTINUOUS;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.OWNING;
 
 /**
  * Test cases for partitioned cache {@link GridDhtPreloader preloader}.
@@ -98,7 +104,7 @@ public class GridCacheDhtPreloadStartStopSelfTest extends GridCommonAbstractTest
             cacheCfg.setRebalanceBatchSize(preloadBatchSize);
             cacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
             cacheCfg.setRebalanceMode(preloadMode);
-            cacheCfg.setAffinity(new CacheRendezvousAffinityFunction(false, partitions));
+            cacheCfg.setAffinity(new RendezvousAffinityFunction(false, partitions));
             cacheCfg.setBackups(backups);
             cacheCfg.setAtomicityMode(TRANSACTIONAL);
 
@@ -179,7 +185,7 @@ public class GridCacheDhtPreloadStartStopSelfTest extends GridCommonAbstractTest
         try {
             Ignite g1 = startGrid(0);
 
-            IgniteCache<Integer, String> c1 = g1.jcache(null);
+            IgniteCache<Integer, String> c1 = g1.cache(null);
 
             putKeys(c1, keyCnt);
             checkKeys(c1, keyCnt);
@@ -190,7 +196,7 @@ public class GridCacheDhtPreloadStartStopSelfTest extends GridCommonAbstractTest
 
             // Check all nodes.
             for (Ignite g : ignites) {
-                IgniteCache<Integer, String> c = g.jcache(null);
+                IgniteCache<Integer, String> c = g.cache(null);
 
                 checkKeys(c, keyCnt);
             }
@@ -210,7 +216,7 @@ public class GridCacheDhtPreloadStartStopSelfTest extends GridCommonAbstractTest
             for (IgniteInternalFuture<?> fut : exchMgr.exchangeFutures())
                 fut.get();
 
-            CacheAffinity<Integer> aff = affinity(c1);
+            Affinity<Integer> aff = affinity(c1);
 
             for (int i = 0; i < keyCnt; i++) {
                 if (aff.mapPartitionToPrimaryAndBackups(aff.partition(i)).contains(g1.cluster().localNode())) {
@@ -240,7 +246,7 @@ public class GridCacheDhtPreloadStartStopSelfTest extends GridCommonAbstractTest
      * @param cnt Key count.
      */
     private void checkKeys(IgniteCache<Integer, String> c, int cnt) {
-        CacheAffinity<Integer> aff = affinity(c);
+        Affinity<Integer> aff = affinity(c);
 
         boolean sync = isSync(c);
 

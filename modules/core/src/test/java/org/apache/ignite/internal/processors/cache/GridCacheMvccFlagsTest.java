@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.UUID;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  * Tests flags correctness.
@@ -82,13 +82,14 @@ public class GridCacheMvccFlagsTest extends GridCommonAbstractTest {
             ver,
             1,
             ver,
-            0,
             true,
             true,
             true,
             true,
             true,
-            true
+            true,
+            null,
+            false
         );
 
         c.setOwner();
@@ -122,12 +123,13 @@ public class GridCacheMvccFlagsTest extends GridCommonAbstractTest {
             ver,
             1,
             ver,
-            0,
             false,
             false,
             false,
             false,
             false,
+            false,
+            null,
             false
         );
 

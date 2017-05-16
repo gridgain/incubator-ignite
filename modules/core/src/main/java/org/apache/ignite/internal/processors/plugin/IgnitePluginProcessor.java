@@ -17,17 +17,29 @@
 
 package org.apache.ignite.internal.processors.plugin;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.*;
-import org.jetbrains.annotations.*;
-
-import java.lang.reflect.*;
-import java.util.*;
+import java.io.Serializable;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.GridPluginContext;
+import org.apache.ignite.internal.processors.GridProcessorAdapter;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.plugin.Extension;
+import org.apache.ignite.plugin.ExtensionRegistry;
+import org.apache.ignite.plugin.PluginContext;
+import org.apache.ignite.plugin.PluginProvider;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -46,60 +58,31 @@ public class IgnitePluginProcessor extends GridProcessorAdapter {
      *
      * @param ctx Kernal context.
      * @param cfg Ignite configuration.
+     * @param providers Plugin providers.
      */
     @SuppressWarnings("TypeMayBeWeakened")
-    public IgnitePluginProcessor(GridKernalContext ctx, IgniteConfiguration cfg) {
+    public IgnitePluginProcessor(GridKernalContext ctx, IgniteConfiguration cfg, List<PluginProvider> providers) {
         super(ctx);
 
         ExtensionRegistryImpl registry = new ExtensionRegistryImpl();
 
-        if (cfg.getPluginConfigurations() != null) {
-            for (PluginConfiguration pluginCfg : cfg.getPluginConfigurations()) {
-                GridPluginContext pluginCtx = new GridPluginContext(ctx, pluginCfg, cfg);
+        for (PluginProvider provider : providers) {
+            GridPluginContext pluginCtx = new GridPluginContext(ctx, cfg);
 
-                PluginProvider provider;
+            if (F.isEmpty(provider.name()))
+                throw new IgniteException("Plugin name can not be empty.");
 
-                try {
-                    if (pluginCfg.providerClass() == null)
-                        throw new IgniteException("Provider class is null.");
+            if (plugins.containsKey(provider.name()))
+                throw new IgniteException("Duplicated plugin name: " + provider.name());
 
-                    try {
-                        Constructor<? extends PluginProvider> ctr =
-                            pluginCfg.providerClass().getConstructor(PluginContext.class);
+            plugins.put(provider.name(), provider);
 
-                        provider = ctr.newInstance(pluginCtx);
-                    }
-                    catch (NoSuchMethodException ignore) {
-                        try {
-                            Constructor<? extends PluginProvider> ctr =
-                                pluginCfg.providerClass().getConstructor(pluginCfg.getClass());
+            pluginCtxMap.put(provider, pluginCtx);
 
-                            provider = ctr.newInstance(pluginCfg);
-                        }
-                        catch (NoSuchMethodException ignored) {
-                            provider = pluginCfg.providerClass().newInstance();
-                        }
-                    }
-                }
-                catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                    throw new IgniteException("Failed to create plugin provider instance.", e);
-                }
+            provider.initExtensions(pluginCtx, registry);
 
-                if (F.isEmpty(provider.name()))
-                    throw new IgniteException("Plugin name can not be empty.");
-
-                if (provider.plugin() == null)
-                    throw new IgniteException("Plugin is null.");
-
-                if (plugins.containsKey(provider.name()))
-                    throw new IgniteException("Duplicated plugin name: " + provider.name());
-
-                plugins.put(provider.name(), provider);
-
-                pluginCtxMap.put(provider, pluginCtx);
-
-                provider.initExtensions(pluginCtx, registry);
-            }
+            if (provider.plugin() == null)
+                throw new IgniteException("Plugin is null.");
         }
 
         extensions = registry.createExtensionMap();
@@ -169,11 +152,11 @@ public class IgnitePluginProcessor extends GridProcessorAdapter {
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public Object collectDiscoveryData(UUID nodeId) {
-        Map<String, Object> discData = null;
+    @Nullable @Override public Serializable collectDiscoveryData(UUID nodeId) {
+        HashMap<String, Serializable> discData = null;
 
         for (Map.Entry<String, PluginProvider> e : plugins.entrySet()) {
-            Object data = e.getValue().provideDiscoveryData(nodeId);
+            Serializable data = e.getValue().provideDiscoveryData(nodeId);
 
             if (data != null) {
                 if (discData == null)
@@ -187,11 +170,11 @@ public class IgnitePluginProcessor extends GridProcessorAdapter {
     }
 
     /** {@inheritDoc} */
-    @Override public void onDiscoveryDataReceived(UUID nodeId, Object data) {
-        Map<String, Object> discData = (Map<String, Object>)data;
+    @Override public void onDiscoveryDataReceived(UUID nodeId, UUID rmtNodeId, Serializable data) {
+        Map<String, Serializable> discData = (Map<String, Serializable>)data;
 
         if (discData != null) {
-            for (Map.Entry<String, Object> e : discData.entrySet()) {
+            for (Map.Entry<String, Serializable> e : discData.entrySet()) {
                 PluginProvider provider = plugins.get(e.getKey());
 
                 if (provider != null)
@@ -203,7 +186,7 @@ public class IgnitePluginProcessor extends GridProcessorAdapter {
     }
 
     /**
-     * Print plugin information.
+     * Print plugins information.
      */
     private void ackPluginsInfo() {
         U.quietAndInfo(log, "Configured plugins:");

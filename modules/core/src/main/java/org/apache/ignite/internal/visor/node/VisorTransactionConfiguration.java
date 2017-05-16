@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.visor.node;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.transactions.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
 
 /**
  * Data transfer object for transaction configuration.
  */
-public class VisorTransactionConfiguration implements Serializable {
+public class VisorTransactionConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 

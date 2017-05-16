@@ -17,11 +17,12 @@
 
 package org.apache.ignite.examples.misc.springbean;
 
-import org.apache.ignite.*;
-import org.apache.ignite.examples.*;
-import org.springframework.context.support.*;
-
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.examples.ExampleNodeStartup;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 /**
  * Demonstrates a simple use of Ignite configured with Spring.
@@ -36,10 +37,10 @@ import java.util.concurrent.*;
  * apply ignite bean destructor and stop the ignite.
  * <p>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-compute.xml'}.
+ * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link ComputeNodeStartup} in another JVM which will start node
- * with {@code examples/config/example-compute.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will start node
+ * with {@code examples/config/example-ignite.xml} configuration.
  */
 public final class SpringBeanExample {
     /**

@@ -17,18 +17,22 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.lifecycle.*;
-import org.jetbrains.annotations.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.util.Collections;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lifecycle.LifecycleAware;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.util.*;
-
-import static org.apache.ignite.IgniteSystemProperties.*;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_LOG_GRID_NAME;
 
 /**
  *
@@ -40,7 +44,7 @@ public class GridLoggerProxy implements IgniteLogger, LifecycleAware, Externaliz
     /** */
     private static ThreadLocal<IgniteBiTuple<String, Object>> stash = new ThreadLocal<IgniteBiTuple<String, Object>>() {
         @Override protected IgniteBiTuple<String, Object> initialValue() {
-            return F.t2();
+            return new IgniteBiTuple<>();
         }
     };
 
@@ -198,10 +202,11 @@ public class GridLoggerProxy implements IgniteLogger, LifecycleAware, Externaliz
         try {
             IgniteBiTuple<String, Object> t = stash.get();
 
-            String gridNameR = t.get1();
             Object ctgrR = t.get2();
 
-            return IgnitionEx.gridx(gridNameR).log().getLogger(ctgrR);
+            IgniteLogger log = IgnitionEx.localIgnite().log();
+
+            return ctgrR != null ? log.getLogger(ctgrR) : log;
         }
         catch (IllegalStateException e) {
             throw U.withCause(new InvalidObjectException(e.getMessage()), e);

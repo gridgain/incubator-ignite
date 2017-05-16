@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.nio.*;
+import java.nio.ByteBuffer;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectTransient;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  * Entry information that gets passed over wire.
@@ -193,6 +195,11 @@ public class GridCacheEntryInfo implements Message {
     }
 
     /** {@inheritDoc} */
+    @Override public void onAckReceived() {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean writeTo(ByteBuffer buf, MessageWriter writer) {
         writer.setBuffer(buf);
 
@@ -317,7 +324,7 @@ public class GridCacheEntryInfo implements Message {
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridCacheEntryInfo.class);
     }
 
     /** {@inheritDoc} */
@@ -400,7 +407,7 @@ public class GridCacheEntryInfo implements Message {
 
             Object key0 = ctx.cacheObjects().unmarshal(cacheObjCtx, keyBytes, clsLdr);
 
-            key = ctx.cacheObjects().toCacheKeyObject(cacheObjCtx, key0, false);
+            key = ctx.cacheObjects().toCacheKeyObject(cacheObjCtx, ctx, key0, false);
         }
         else
             key.finishUnmarshal(ctx.cacheObjectContext(), clsLdr);

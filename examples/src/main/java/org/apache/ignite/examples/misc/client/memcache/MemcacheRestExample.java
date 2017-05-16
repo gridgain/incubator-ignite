@@ -17,12 +17,15 @@
 
 package org.apache.ignite.examples.misc.client.memcache;
 
-import net.spy.memcached.*;
-import org.apache.ignite.*;
-
-import java.io.*;
-import java.net.*;
-import java.util.*;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.Arrays;
+import net.spy.memcached.BinaryConnectionFactory;
+import net.spy.memcached.MemcachedClient;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteAtomicLong;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.Ignition;
 
 /**
  * This example shows how to use Memcache client for manipulating Ignite cache.
@@ -49,7 +52,7 @@ public class MemcacheRestExample {
             System.out.println();
             System.out.println(">>> Memcache REST example started.");
 
-            IgniteCache<String, Object> cache = ignite.jcache(null);
+            IgniteCache<String, Object> cache = ignite.cache(null);
 
             client = startMemcachedClient(host, port);
 
@@ -85,22 +88,22 @@ public class MemcacheRestExample {
             // Check that cache is empty.
             System.out.println(">>> Current cache size: " + cache.size() + " (expected: 0).");
 
-            // Create atomic long.
-            IgniteAtomicLong l = ignite.atomicLong("atomicLong", 10, true);
+            // Create atomic long and close it after test is done.
+            try (IgniteAtomicLong l = ignite.atomicLong("atomicLong", 10, true)) {
+                // Increment atomic long by 5 using Memcache client.
+                if (client.incr("atomicLong", 5, 0) == 15)
+                    System.out.println(">>> Successfully incremented atomic long by 5.");
 
-            // Increment atomic long by 5 using Memcache client.
-            if (client.incr("atomicLong", 5, 0) == 15)
-                System.out.println(">>> Successfully incremented atomic long by 5.");
+                // Increment atomic long using Ignite API and check that value is correct.
+                System.out.println(">>> New atomic long value: " + l.incrementAndGet() + " (expected: 16).");
 
-            // Increment atomic long using Ignite API and check that value is correct.
-            System.out.println(">>> New atomic long value: " + l.incrementAndGet() + " (expected: 16).");
+                // Decrement atomic long by 3 using Memcache client.
+                if (client.decr("atomicLong", 3, 0) == 13)
+                    System.out.println(">>> Successfully decremented atomic long by 3.");
 
-            // Decrement atomic long by 3 using Memcache client.
-            if (client.decr("atomicLong", 3, 0) == 13)
-                System.out.println(">>> Successfully decremented atomic long by 3.");
-
-            // Decrement atomic long using Ignite API and check that value is correct.
-            System.out.println(">>> New atomic long value: " + l.decrementAndGet() + " (expected: 12).");
+                // Decrement atomic long using Ignite API and check that value is correct.
+                System.out.println(">>> New atomic long value: " + l.decrementAndGet() + " (expected: 12).");
+            }
         }
         finally {
             if (client != null)

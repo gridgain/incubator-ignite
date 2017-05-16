@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.h2.sql;
 
-import org.h2.util.*;
+import org.h2.util.StatementBuilder;
+import org.h2.util.StringUtils;
 
 /**
  * Operation type.
@@ -70,6 +71,8 @@ public enum GridSqlOperationType {
      * @param sqlGenerator sqlGenerator.
      */
     GridSqlOperationType(int childrenCnt, SqlGenerator sqlGenerator) {
+        assert childrenCnt > 0 || sqlGenerator instanceof ConditionInSqlGenerator : childrenCnt;
+
         this.childrenCnt = childrenCnt;
         this.sqlGenerator = sqlGenerator;
     }
@@ -116,7 +119,7 @@ public enum GridSqlOperationType {
 
         /** {@inheritDoc} */
         @Override public String getSql(GridSqlOperation operation) {
-            assert operation.opType().childrenCnt == 2;
+            assert operation.operationType().childrenCnt == 2;
 
             return '(' + operation.child(0).getSQL() + " " + delim + " " + operation.child(1).getSQL() + ')';
         }
@@ -129,9 +132,9 @@ public enum GridSqlOperationType {
 
         /** {@inheritDoc} */
         @Override public String getSql(GridSqlOperation operation) {
-            assert operation.opType().childrenCnt == 2;
+            assert operation.operationType().childrenCnt == 2;
 
-            return "(INTERSECTS(" + operation.child(0) + ", " + operation.child(1) + "))";
+            return "(INTERSECTS(" + operation.child(0).getSQL() + ", " + operation.child(1).getSQL() + "))";
         }
     }
 
@@ -151,7 +154,7 @@ public enum GridSqlOperationType {
 
         /** {@inheritDoc} */
         @Override public String getSql(GridSqlOperation operation) {
-            assert operation.opType().childrenCnt == 1;
+            assert operation.operationType().childrenCnt == 1;
 
             return '(' + text + ' ' + operation.child().getSQL() + ')';
         }
@@ -173,7 +176,7 @@ public enum GridSqlOperationType {
 
         /** {@inheritDoc} */
         @Override public String getSql(GridSqlOperation operation) {
-            assert operation.opType().childrenCnt == 1;
+            assert operation.operationType().childrenCnt == 1;
 
             return '(' + operation.child().getSQL() + ' ' + text + ')';
         }

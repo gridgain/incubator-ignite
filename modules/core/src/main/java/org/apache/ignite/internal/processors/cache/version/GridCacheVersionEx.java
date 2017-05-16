@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.processors.cache.version;
 
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.io.*;
-import java.nio.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.nio.ByteBuffer;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  * Extended cache version which also has additional DR version.
@@ -76,7 +79,7 @@ public class GridCacheVersionEx extends GridCacheVersion {
     }
 
     /** {@inheritDoc} */
-    public GridCacheVersion conflictVersion() {
+    @Override public GridCacheVersion conflictVersion() {
         return drVer;
     }
 
@@ -137,7 +140,7 @@ public class GridCacheVersionEx extends GridCacheVersion {
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridCacheVersionEx.class);
     }
 
     /** {@inheritDoc} */
@@ -154,5 +157,14 @@ public class GridCacheVersionEx extends GridCacheVersion {
         super.writeExternal(out);
 
         drVer.writeExternal(out);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return "GridCacheVersionEx [topVer=" + topologyVersion() +
+            ", time=" + globalTime() +
+            ", order=" + order() +
+            ", nodeOrder=" + nodeOrder() +
+            ", drVer=" + drVer + ']';
     }
 }

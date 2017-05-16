@@ -17,10 +17,21 @@
 
 package org.apache.ignite.testsuites;
 
-import junit.framework.*;
-import org.apache.ignite.internal.util.io.*;
-import org.apache.ignite.marshaller.jdk.*;
-import org.apache.ignite.marshaller.optimized.*;
+import java.util.Set;
+import junit.framework.TestSuite;
+import org.apache.ignite.internal.direct.stream.v2.DirectByteBufferStreamImplV2ByteOrderSelfTest;
+import org.apache.ignite.internal.util.GridHandleTableSelfTest;
+import org.apache.ignite.internal.util.io.GridUnsafeDataInputOutputByteOrderSelfTest;
+import org.apache.ignite.internal.util.io.GridUnsafeDataOutputArraySizingSelfTest;
+import org.apache.ignite.marshaller.jdk.GridJdkMarshallerSelfTest;
+import org.apache.ignite.marshaller.optimized.OptimizedMarshallerEnumSelfTest;
+import org.apache.ignite.marshaller.optimized.OptimizedMarshallerNodeFailoverTest;
+import org.apache.ignite.marshaller.optimized.OptimizedMarshallerPooledSelfTest;
+import org.apache.ignite.marshaller.optimized.OptimizedMarshallerSelfTest;
+import org.apache.ignite.marshaller.optimized.OptimizedMarshallerSerialPersistentFieldsSelfTest;
+import org.apache.ignite.marshaller.optimized.OptimizedMarshallerTest;
+import org.apache.ignite.marshaller.optimized.OptimizedObjectStreamSelfTest;
+import org.apache.ignite.testframework.GridTestUtils;
 
 /**
  * Test suite for all marshallers.
@@ -31,15 +42,29 @@ public class IgniteMarshallerSelfTestSuite extends TestSuite {
      * @throws Exception If failed.
      */
     public static TestSuite suite() throws Exception {
+        return suite(null);
+    }
+
+    /**
+     * @param ignoredTests Ignored tests.
+     * @return Test suite.
+     * @throws Exception Thrown in case of the failure.
+     */
+    public static TestSuite suite(Set<Class> ignoredTests) throws Exception {
         TestSuite suite = new TestSuite("Ignite Marshaller Test Suite");
 
-        suite.addTest(new TestSuite(GridJdkMarshallerSelfTest.class));
-        suite.addTest(new TestSuite(OptimizedMarshallerEnumSelfTest.class));
-        suite.addTest(new TestSuite(OptimizedMarshallerSelfTest.class));
-        suite.addTest(new TestSuite(OptimizedMarshallerTest.class));
-        suite.addTest(new TestSuite(OptimizedObjectStreamSelfTest.class));
-        suite.addTest(new TestSuite(GridUnsafeDataOutputArraySizingSelfTest.class));
-        suite.addTest(new TestSuite(OptimizedMarshallerNodeFailoverTest.class));
+        GridTestUtils.addTestIfNeeded(suite, GridUnsafeDataOutputArraySizingSelfTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, GridJdkMarshallerSelfTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, OptimizedMarshallerEnumSelfTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, OptimizedMarshallerSelfTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, OptimizedMarshallerTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, OptimizedObjectStreamSelfTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, GridUnsafeDataInputOutputByteOrderSelfTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, OptimizedMarshallerNodeFailoverTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, OptimizedMarshallerSerialPersistentFieldsSelfTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, DirectByteBufferStreamImplV2ByteOrderSelfTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, GridHandleTableSelfTest.class, ignoredTests);
+        GridTestUtils.addTestIfNeeded(suite, OptimizedMarshallerPooledSelfTest.class, ignoredTests);
 
         return suite;
     }

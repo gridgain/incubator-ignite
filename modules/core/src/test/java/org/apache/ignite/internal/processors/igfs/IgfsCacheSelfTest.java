@@ -17,19 +17,25 @@
 
 package org.apache.ignite.internal.processors.igfs;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.*;
+import java.util.Collection;
+import java.util.concurrent.Callable;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.FileSystemConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.igfs.IgfsGroupDataBlocksKeyMapper;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
+import org.apache.ignite.internal.util.typedef.C1;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestUtils;
 
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  * Tests ensuring that IGFS data and meta caches are not "visible" through public API.
@@ -78,7 +84,7 @@ public class IgfsCacheSelfTest extends IgfsCommonAbstractTest {
             cacheCfg.setCacheMode(REPLICATED);
         else {
             cacheCfg.setCacheMode(PARTITIONED);
-            cacheCfg.setDistributionMode(CacheDistributionMode.PARTITIONED_ONLY);
+            cacheCfg.setNearConfiguration(null);
 
             cacheCfg.setBackups(0);
             cacheCfg.setAffinityMapper(new IgfsGroupDataBlocksKeyMapper(128));
@@ -108,13 +114,21 @@ public class IgfsCacheSelfTest extends IgfsCommonAbstractTest {
     public void testCache() throws Exception {
         final Ignite g = grid();
 
-        assert ((IgniteKernal)g).caches().size() == 1;
+        Collection<IgniteCacheProxy<?, ?>> caches = ((IgniteKernal)g).caches();
 
-        assert CACHE_NAME.equals(((IgniteKernal)g).caches().iterator().next().name());
+        info("Caches: " + F.viewReadOnly(caches, new C1<IgniteCacheProxy<?, ?>, Object>() {
+            @Override public Object apply(IgniteCacheProxy<?, ?> c) {
+                return c.getName();
+            }
+        }));
+
+        assertEquals(1, caches.size());
+
+        assert CACHE_NAME.equals(caches.iterator().next().getName());
 
         GridTestUtils.assertThrows(log(), new Callable<Object>() {
             @Override public Object call() throws Exception {
-                g.jcache(META_CACHE_NAME);
+                g.cache(META_CACHE_NAME);
 
                 return null;
             }
@@ -122,12 +136,12 @@ public class IgfsCacheSelfTest extends IgfsCommonAbstractTest {
 
         GridTestUtils.assertThrows(log(), new Callable<Object>() {
             @Override public Object call() throws Exception {
-                g.jcache(DATA_CACHE_NAME);
+                g.cache(DATA_CACHE_NAME);
 
                 return null;
             }
         }, IllegalStateException.class, null);
 
-        assert g.jcache(CACHE_NAME) != null;
+        assert g.cache(CACHE_NAME) != null;
     }
 }

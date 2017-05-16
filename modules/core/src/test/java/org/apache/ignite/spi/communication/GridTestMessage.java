@@ -17,11 +17,12 @@
 
 package org.apache.ignite.spi.communication;
 
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.nio.*;
-import java.util.*;
+import java.nio.ByteBuffer;
+import java.util.UUID;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  * Test message for communication SPI tests.
@@ -91,6 +92,11 @@ public class GridTestMessage implements Message {
      */
     public byte[] payload() {
         return payload;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onAckReceived() {
+        // No-op.
     }
 
     /** {@inheritDoc} */

@@ -17,29 +17,38 @@
 
 package org.apache.ignite.loadtests.communication;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.apache.ignite.spi.communication.*;
-import org.apache.ignite.spi.communication.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jdk8.backport.*;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.managers.communication.GridIoManager;
+import org.apache.ignite.internal.managers.communication.GridMessageListener;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.spi.communication.CommunicationSpi;
+import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jsr166.ConcurrentHashMap8;
+import org.jsr166.LongAdder8;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.internal.managers.communication.GridIoPolicy.*;
+import static org.apache.ignite.internal.managers.communication.GridIoPolicy.PUBLIC_POOL;
 
 /**
  *
@@ -114,7 +123,7 @@ public class GridIoManagerBenchmark0 extends GridCommonAbstractTest {
         info("Messages: " + CONCUR_MSGS);
 
         final Semaphore sem = new Semaphore(CONCUR_MSGS);
-        final LongAdder msgCntr = new LongAdder();
+        final LongAdder8 msgCntr = new LongAdder8();
 
         final String topic = "test-topic";
 
@@ -206,7 +215,7 @@ public class GridIoManagerBenchmark0 extends GridCommonAbstractTest {
         final GridIoManager snd = sndKernal.context().io();
         final GridIoManager rcv = rcvKernal.context().io();
 
-        final LongAdder msgCntr = new LongAdder();
+        final LongAdder8 msgCntr = new LongAdder8();
 
         final Integer topic = 1;
 
@@ -306,7 +315,7 @@ public class GridIoManagerBenchmark0 extends GridCommonAbstractTest {
         info("Messages: " + CONCUR_MSGS);
 
         final Semaphore sem = new Semaphore(CONCUR_MSGS);
-        final LongAdder msgCntr = new LongAdder();
+        final LongAdder8 msgCntr = new LongAdder8();
 
         final String topic = "test-topic";
 
@@ -455,6 +464,7 @@ public class GridIoManagerBenchmark0 extends GridCommonAbstractTest {
 
         spi.setTcpNoDelay(true);
         spi.setConnectionBufferSize(0);
+        spi.setSharedMemoryPort(-1);
 
         info("Comm SPI: " + spi);
 

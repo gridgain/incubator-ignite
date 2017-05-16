@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.processors.cache.datastructures;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.transactions.*;
+import java.util.Random;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteAtomicLong;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.transactions.Transaction;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 
 /**
  * Cache atomic long api test.
@@ -90,7 +93,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
 
             fail();
         }
-        catch (IllegalStateException e) {
+        catch (IllegalStateException | IgniteException e) {
             info("Caught expected exception: " + e.getMessage());
         }
     }
@@ -249,7 +252,7 @@ public abstract class IgniteAtomicLongApiAbstractSelfTest extends IgniteAtomicsA
 
         IgniteAtomicLong atomic = ignite.atomicLong("atomic", 0, true);
 
-        IgniteCache<Object, Object> cache = ignite.jcache(TRANSACTIONAL_CACHE_NAME);
+        IgniteCache<Object, Object> cache = ignite.cache(TRANSACTIONAL_CACHE_NAME);
 
         try (Transaction tx = ignite.transactions().txStart()) {
             cache.put(1, 1);

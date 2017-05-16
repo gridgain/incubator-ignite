@@ -17,11 +17,10 @@
 
 package org.apache.ignite.testframework.junits.cache;
 
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.transactions.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.Map;
+import org.apache.ignite.cache.store.CacheStoreSession;
+import org.apache.ignite.transactions.Transaction;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -51,6 +50,21 @@ public class TestThreadLocalCacheSession implements CacheStoreSession {
     /** {@inheritDoc} */
     @Override public boolean isWithinTransaction() {
         return transaction() != null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Object attach(@Nullable Object attachment) {
+        TestCacheSession ses = sesHolder.get();
+
+        return ses != null ? ses.attach(attachment) : null;
+    }
+
+    /** {@inheritDoc} */
+    @SuppressWarnings("unchecked")
+    @Nullable @Override public <T> T attachment() {
+        TestCacheSession ses = sesHolder.get();
+
+        return ses!= null ? (T)ses.attachment() : null;
     }
 
     /** {@inheritDoc} */

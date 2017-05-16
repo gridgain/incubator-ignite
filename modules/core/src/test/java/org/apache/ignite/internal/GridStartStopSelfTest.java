@@ -17,20 +17,22 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.concurrent.CountDownLatch;
+import javax.cache.CacheException;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
+import org.apache.ignite.transactions.Transaction;
 
-import java.util.concurrent.*;
-
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.IgniteSystemProperties.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_OVERRIDE_MCAST_GRP;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Checks basic node start/stop operations.
@@ -68,10 +70,9 @@ public class GridStartStopSelfTest extends GridCommonAbstractTest {
     }
 
     /**
-     * TODO: GG-7704
      * @throws Exception If failed.
      */
-    public void _testStopWhileInUse() throws Exception {
+    public void testStopWhileInUse() throws Exception {
         IgniteConfiguration cfg = new IgniteConfiguration();
 
         cfg.setConnectorConfiguration(null);
@@ -104,7 +105,7 @@ public class GridStartStopSelfTest extends GridCommonAbstractTest {
             @Override public void run() {
                 try {
                     try (Transaction ignored = g0.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                        g0.jcache(null).get(1);
+                        g0.cache(null).get(1);
 
                         latch.countDown();
 
@@ -127,7 +128,12 @@ public class GridStartStopSelfTest extends GridCommonAbstractTest {
 
         info("Before remove.");
 
-        g1.jcache(null).remove(1);
+        try {
+            g1.cache(null).remove(1);
+        }
+        catch (CacheException ignore) {
+            // No-op.
+        }
     }
 
     /**

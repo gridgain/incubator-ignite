@@ -17,28 +17,50 @@
 
 package org.apache.ignite.spi;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.apache.ignite.plugin.security.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.swapspace.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import java.text.DateFormat;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.management.JMException;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.IgniteNodeAttributes;
+import org.apache.ignite.internal.managers.communication.GridMessageListener;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.timeout.GridSpiTimeoutObject;
+import org.apache.ignite.internal.util.IgniteExceptionRegistry;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.plugin.extensions.communication.MessageFactory;
+import org.apache.ignite.plugin.extensions.communication.MessageFormatter;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.apache.ignite.plugin.security.SecuritySubject;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.jetbrains.annotations.Nullable;
 
-import javax.management.*;
-import java.io.*;
-import java.text.*;
-import java.util.*;
-
-import static org.apache.ignite.IgniteSystemProperties.*;
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_SKIP_CONFIGURATION_CONSISTENCY_CHECK;
+import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
 
 /**
  * This class provides convenient adapter for SPI implementations.
@@ -54,18 +76,35 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
     @LoggerResource
     private IgniteLogger log;
 
-    /** Ignite instance */
-    @IgniteInstanceResource
+    /** Ignite instance. */
     protected Ignite ignite;
+
+    /** Grid instance name. */
+    protected String gridName;
 
     /** SPI name. */
     private String name;
 
     /** Grid SPI context. */
-    private volatile IgniteSpiContext spiCtx = new GridDummySpiContext(null);
+    private volatile IgniteSpiContext spiCtx = new GridDummySpiContext(null, false, null);
 
     /** Discovery listener. */
     private GridLocalEventListener paramsLsnr;
+
+    /** Local node. */
+    private ClusterNode locNode;
+
+    /** Failure detection timeout usage switch. */
+    private boolean failureDetectionTimeoutEnabled = true;
+
+    /**
+     * Failure detection timeout. Initialized with the value of
+     * {@link IgniteConfiguration#getFailureDetectionTimeout()}.
+     */
+    private long failureDetectionTimeout;
+
+    /** Start flag to deny repeating start attempts. */
+    private final AtomicBoolean startedFlag = new AtomicBoolean();
 
     /**
      * Creates new adapter and initializes it from the current (this) class.
@@ -81,6 +120,26 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
      */
     protected void startStopwatch() {
         startTstamp = U.currentTimeMillis();
+    }
+
+    /**
+     * This method is called by built-in managers implementation to avoid
+     * repeating SPI start attempts.
+     */
+    public final void onBeforeStart() {
+        if (!startedFlag.compareAndSet(false, true))
+            throw new IllegalStateException("SPI has already been started " +
+                "(always create new configuration instance for each starting Ignite instances) " +
+                "[spi=" + this + ']');
+    }
+
+    /**
+     * Checks if {@link #onBeforeStart()} has been called on this SPI instance.
+     *
+     * @return {@code True} if {@link #onBeforeStart()} has already been called.
+     */
+    public final boolean started() {
+        return startedFlag.get();
     }
 
     /** {@inheritDoc} */
@@ -105,7 +164,19 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
 
     /** {@inheritDoc} */
     @Override public UUID getLocalNodeId() {
-        return ignite.configuration().getNodeId();
+        return ignite.cluster().localNode().id();
+    }
+
+    /**
+     * @return Local node.
+     */
+    protected ClusterNode getLocalNode() {
+        if (locNode != null)
+            return locNode;
+
+        locNode = getSpiContext().localNode();
+
+        return locNode;
     }
 
     /** {@inheritDoc} */
@@ -185,7 +256,30 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
         ClusterNode locNode = spiCtx == null ? null : spiCtx.localNode();
 
         // Set dummy no-op context.
-        spiCtx = new GridDummySpiContext(locNode);
+        spiCtx = new GridDummySpiContext(locNode, true, spiCtx);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onClientDisconnected(IgniteFuture<?> reconnectFut) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onClientReconnected(boolean clusterRestarted) {
+        // No-op.
+    }
+
+    /**
+     * Inject ignite instance.
+     *
+     * @param ignite Ignite instance.
+     */
+    @IgniteInstanceResource
+    protected void injectResources(Ignite ignite) {
+        this.ignite = ignite;
+
+        if (ignite != null)
+            gridName = ignite.name();
     }
 
     /**
@@ -357,6 +451,13 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
     }
 
     /**
+     * @return {@code True} if node is stopping.
+     */
+    protected final boolean isNodeStopping() {
+        return spiCtx.isStopping();
+    }
+
+    /**
      * @return {@code true} if this check is optional.
      */
     private boolean checkOptional() {
@@ -370,6 +471,15 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
      */
     private boolean checkEnabled() {
         return U.getAnnotation(getClass(), IgniteSpiConsistencyChecked.class) != null;
+    }
+
+    /**
+     * @return {@code true} if client cluster nodes should be checked.
+     */
+    private boolean checkClient() {
+        IgniteSpiConsistencyChecked ann = U.getAnnotation(getClass(), IgniteSpiConsistencyChecked.class);
+
+        return ann != null && ann.checkClient();
     }
 
     /**
@@ -405,8 +515,12 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
          */
         boolean optional = checkOptional();
         boolean enabled = checkEnabled();
+        boolean checkClient = checkClient();
 
         if (!enabled)
+            return;
+
+        if (!checkClient && (CU.clientNode(getLocalNode()) || CU.clientNode(node)))
             return;
 
         String clsAttr = createSpiAttributeName(IgniteNodeAttributes.ATTR_SPI_CLASS);
@@ -428,19 +542,20 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
 
         boolean isSpiConsistent = false;
 
-        String tipStr = " (fix configuration or set " + "-D" + IGNITE_SKIP_CONFIGURATION_CONSISTENCY_CHECK + "=true system property)";
+        String tipStr = " (fix configuration or set " +
+            "-D" + IGNITE_SKIP_CONFIGURATION_CONSISTENCY_CHECK + "=true system property)";
 
         if (rmtCls == null) {
             if (!optional && starting)
-                throw new IgniteSpiException("Remote SPI with the same name is not configured" + tipStr + " [name=" + name +
-                    ", loc=" + locCls + ']');
+                throw new IgniteSpiException("Remote SPI with the same name is not configured" + tipStr +
+                    " [name=" + name + ", loc=" + locCls + ']');
 
             sb.a(format(">>> Remote SPI with the same name is not configured: " + name, locCls));
         }
         else if (!locCls.equals(rmtCls)) {
             if (!optional && starting)
-                throw new IgniteSpiException("Remote SPI with the same name is of different type" + tipStr + " [name=" + name +
-                    ", loc=" + locCls + ", rmt=" + rmtCls + ']');
+                throw new IgniteSpiException("Remote SPI with the same name is of different type" + tipStr +
+                    " [name=" + name + ", loc=" + locCls + ", rmt=" + rmtCls + ']');
 
             sb.a(format(">>> Remote SPI with the same name is of different type: " + name, locCls, rmtCls));
         }
@@ -517,19 +632,121 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
     }
 
     /**
+     * @param obj Timeout object.
+     * @see IgniteSpiContext#addTimeoutObject(IgniteSpiTimeoutObject)
+     */
+    protected void addTimeoutObject(IgniteSpiTimeoutObject obj) {
+        spiCtx.addTimeoutObject(obj);
+    }
+
+    /**
+     * @param obj Timeout object.
+     * @see IgniteSpiContext#removeTimeoutObject(IgniteSpiTimeoutObject)
+     */
+    protected void removeTimeoutObject(IgniteSpiTimeoutObject obj) {
+        spiCtx.removeTimeoutObject(obj);
+    }
+
+    /**
+     * Initiates and checks failure detection timeout value.
+     */
+    protected void initFailureDetectionTimeout() {
+        if (failureDetectionTimeoutEnabled) {
+            failureDetectionTimeout = ignite.configuration().getFailureDetectionTimeout();
+
+            if (failureDetectionTimeout <= 0)
+                throw new IgniteSpiException("Invalid failure detection timeout value: " + failureDetectionTimeout);
+            else if (failureDetectionTimeout <= 10)
+                // Because U.currentTimeInMillis() is updated once in 10 milliseconds.
+                log.warning("Failure detection timeout is too low, it may lead to unpredictable behaviour " +
+                    "[failureDetectionTimeout=" + failureDetectionTimeout + ']');
+        }
+        // Intentionally compare references using '!=' below
+        else if (ignite.configuration().getFailureDetectionTimeout() !=
+                IgniteConfiguration.DFLT_FAILURE_DETECTION_TIMEOUT)
+            log.warning("Failure detection timeout will be ignored (one of SPI parameters has been set explicitly)");
+
+    }
+
+    /**
+     * Enables or disables failure detection timeout.
+     *
+     * @param enabled {@code true} if enable, {@code false} otherwise.
+     */
+    public void failureDetectionTimeoutEnabled(boolean enabled) {
+        failureDetectionTimeoutEnabled = enabled;
+    }
+
+    /**
+     * Checks whether failure detection timeout is enabled for this {@link IgniteSpi}.
+     *
+     * @return {@code true} if enabled, {@code false} otherwise.
+     */
+    public boolean failureDetectionTimeoutEnabled() {
+        return failureDetectionTimeoutEnabled;
+    }
+
+    /**
+     * Returns failure detection timeout set to use for network related operations.
+     *
+     * @return failure detection timeout in milliseconds or {@code 0} if the timeout is disabled.
+     */
+    public long failureDetectionTimeout() {
+        return failureDetectionTimeout;
+    }
+
+    /**
      * Temporarily SPI context.
      */
-    private static class GridDummySpiContext implements IgniteSpiContext {
+    private class GridDummySpiContext implements IgniteSpiContext {
         /** */
         private final ClusterNode locNode;
+
+        /** */
+        private final boolean stopping;
+
+        /** */
+        private final MessageFactory msgFactory;
+
+        /** */
+        private final MessageFormatter msgFormatter;
 
         /**
          * Create temp SPI context.
          *
          * @param locNode Local node.
+         * @param stopping Node stopping flag.
+         * @param spiCtx SPI context.
          */
-        GridDummySpiContext(ClusterNode locNode) {
+        GridDummySpiContext(ClusterNode locNode, boolean stopping, @Nullable IgniteSpiContext spiCtx) {
             this.locNode = locNode;
+            this.stopping = stopping;
+
+            MessageFactory msgFactory0 = spiCtx != null ? spiCtx.messageFactory() : null;
+            MessageFormatter msgFormatter0 = spiCtx != null ? spiCtx.messageFormatter() : null;
+
+            if (msgFactory0 == null) {
+                msgFactory0 = new MessageFactory() {
+                    @Nullable @Override public Message create(byte type) {
+                        throw new IgniteException("Failed to read message, node is not started.");
+                    }
+                };
+            }
+
+            if (msgFormatter0 == null) {
+                msgFormatter0 = new MessageFormatter() {
+                    @Override public MessageWriter writer(UUID rmtNodeId) {
+                        throw new IgniteException("Failed to write message, node is not started.");
+                    }
+
+                    @Override public MessageReader reader(UUID rmtNodeId, MessageFactory msgFactory) {
+                        throw new IgniteException("Failed to read message, node is not started.");
+                    }
+                };
+            }
+
+            this.msgFactory = msgFactory0;
+            this.msgFormatter = msgFormatter0;
         }
 
         /** {@inheritDoc} */
@@ -539,6 +756,11 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
 
         /** {@inheritDoc} */
         @Override public void addMessageListener(GridMessageListener lsnr, String topic) {
+            /* No-op. */
+        }
+
+        /** {@inheritDoc} */
+        @Override public void addLocalMessageListener(Object topic, IgniteBiPredicate<UUID, ?> p) {
             /* No-op. */
         }
 
@@ -588,24 +810,8 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
         }
 
         /** {@inheritDoc} */
-        @Override public void writeToSwap(String spaceName, Object key, @Nullable Object val,
-            @Nullable ClassLoader ldr) {
-            /* No-op. */
-        }
-
-        /** {@inheritDoc} */
-        @Override public <T> T readFromSwap(String spaceName, SwapKey key, @Nullable ClassLoader ldr) {
-            return null;
-        }
-
-        /** {@inheritDoc} */
         @Override public int partition(String cacheName, Object key) {
             return -1;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void removeFromSwap(String spaceName, Object key, @Nullable ClassLoader ldr) {
-            // No-op.
         }
 
         /** {@inheritDoc} */
@@ -649,6 +855,11 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
         }
 
         /** {@inheritDoc} */
+        @Override public void removeLocalMessageListener(Object topic, IgniteBiPredicate<UUID, ?> p) {
+             /* No-op. */
+        }
+
+        /** {@inheritDoc} */
         @Override public boolean removeMessageListener(GridMessageListener lsnr, String topic) {
             return false;
         }
@@ -659,34 +870,63 @@ public abstract class IgniteSpiAdapter implements IgniteSpi, IgniteSpiManagement
         }
 
         /** {@inheritDoc} */
-        @Nullable @Override public IgniteSpiNodeValidationResult validateNode(ClusterNode node) {
+        @Nullable @Override public IgniteNodeValidationResult validateNode(ClusterNode node) {
             return null;
         }
 
         /** {@inheritDoc} */
-        @Override public Collection<GridSecuritySubject> authenticatedSubjects() {
+        @Override public Collection<SecuritySubject> authenticatedSubjects() {
             return Collections.emptyList();
         }
 
         /** {@inheritDoc} */
-        @Override public GridSecuritySubject authenticatedSubject(UUID subjId) {
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Nullable @Override public <T> T readValueFromOffheapAndSwap(@Nullable String spaceName, Object key,
-            @Nullable ClassLoader ldr) {
+        @Override public SecuritySubject authenticatedSubject(UUID subjId) {
             return null;
         }
 
         /** {@inheritDoc} */
         @Override public MessageFormatter messageFormatter() {
-            return null;
+            return msgFormatter;
         }
 
         /** {@inheritDoc} */
         @Override public MessageFactory messageFactory() {
-            return null;
+            return msgFactory;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean isStopping() {
+            return stopping;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean tryFailNode(UUID nodeId, @Nullable String warning) {
+            return false;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void failNode(UUID nodeId, @Nullable String warning) {
+            // No-op.
+        }
+
+        /** {@inheritDoc} */
+        @Override public void addTimeoutObject(IgniteSpiTimeoutObject obj) {
+            Ignite ignite0 = ignite;
+
+            if (!(ignite0 instanceof IgniteKernal))
+                throw new IgniteSpiException("Wrong Ignite instance is set: " + ignite0);
+
+            ((IgniteKernal)ignite0).context().timeout().addTimeoutObject(new GridSpiTimeoutObject(obj));
+        }
+
+        /** {@inheritDoc} */
+        @Override public void removeTimeoutObject(IgniteSpiTimeoutObject obj) {
+            Ignite ignite0 = ignite;
+
+            if (!(ignite0 instanceof IgniteKernal))
+                throw new IgniteSpiException("Wrong Ignite instance is set: " + ignite0);
+
+            ((IgniteKernal)ignite0).context().timeout().removeTimeoutObject(new GridSpiTimeoutObject(obj));
         }
     }
 }

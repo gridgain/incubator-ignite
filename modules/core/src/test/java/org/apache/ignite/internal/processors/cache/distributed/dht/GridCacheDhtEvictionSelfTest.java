@@ -17,29 +17,35 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.eviction.fifo.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.distributed.near.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.eviction.fifo.FifoEvictionPolicy;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheAdapter;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.P1;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.NONE;
+import static org.apache.ignite.events.EventType.EVT_CACHE_ENTRY_EVICTED;
 
 /**
  * Tests for dht cache eviction.
@@ -73,16 +79,25 @@ public class GridCacheDhtEvictionSelfTest extends GridCommonAbstractTest {
         cacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
         cacheCfg.setSwapEnabled(false);
         cacheCfg.setEvictSynchronized(true);
-        cacheCfg.setEvictNearSynchronized(true);
         cacheCfg.setAtomicityMode(TRANSACTIONAL);
-        cacheCfg.setDistributionMode(NEAR_PARTITIONED);
         cacheCfg.setBackups(1);
+
+        NearCacheConfiguration nearCfg = new NearCacheConfiguration();
+
+        FifoEvictionPolicy nearPlc = new FifoEvictionPolicy();
+        nearPlc.setMaxSize(10000);
+
+        nearCfg.setNearEvictionPolicy(nearPlc);
+        cacheCfg.setNearConfiguration(nearCfg);
 
         // Set eviction queue size explicitly.
         cacheCfg.setEvictMaxOverflowRatio(0);
         cacheCfg.setEvictSynchronizedKeyBufferSize(1);
-        cacheCfg.setEvictionPolicy(new CacheFifoEvictionPolicy(10000));
-        cacheCfg.setNearEvictionPolicy(new CacheFifoEvictionPolicy(10000));
+
+        FifoEvictionPolicy plc = new FifoEvictionPolicy();
+        plc.setMaxSize(10000);
+
+        cacheCfg.setEvictionPolicy(plc);
 
         cfg.setCacheConfiguration(cacheCfg);
 
@@ -128,14 +143,6 @@ public class GridCacheDhtEvictionSelfTest extends GridCommonAbstractTest {
             assert near(grid(i)).isEmpty() : "Near cache is not empty [idx=" + i + "]";
             assert dht(grid(i)).isEmpty() : "Dht cache is not empty [idx=" + i + "]";
         }
-    }
-
-    /**
-     * @param node Node.
-     * @return Grid for the given node.
-     */
-    private Ignite grid(ClusterNode node) {
-        return G.ignite(node.id());
     }
 
     /**
@@ -215,13 +222,13 @@ public class GridCacheDhtEvictionSelfTest extends GridCommonAbstractTest {
         String val = "v1";
 
         // Put on primary node.
-        nearPrimary.put(key, val, null);
+        nearPrimary.getAndPut(key, val, null);
 
-        assertEquals(val, nearPrimary.peek(key));
-        assertEquals(val, dhtPrimary.peek(key));
+        assertEquals(val, localPeek(nearPrimary, key));
+        assertEquals(val, localPeek(dhtPrimary, key));
 
-        assertEquals(val, nearBackup.peek(key));
-        assertEquals(val, dhtBackup.peek(key));
+        assertEquals(val, localPeek(nearBackup, key));
+        assertEquals(val, localPeek(dhtBackup, key));
 
         GridDhtCacheEntry entryPrimary = (GridDhtCacheEntry)dhtPrimary.peekEx(key);
         GridDhtCacheEntry entryBackup = (GridDhtCacheEntry)dhtBackup.peekEx(key);
@@ -240,11 +247,11 @@ public class GridCacheDhtEvictionSelfTest extends GridCommonAbstractTest {
 
         // Evict on primary node.
         // It should trigger dht eviction and eviction on backup node.
-        grid(primary).jcache(null).localEvict(Collections.<Object>singleton(key));
+        grid(primary).cache(null).localEvict(Collections.<Object>singleton(key));
 
-        // Give 5 seconds for eviction event to occur on backup and primary node.
-        futBackup.get(3000);
-        futPrimary.get(3000);
+        // Give some time for eviction event to occur on backup and primary node.
+        futBackup.get(10_000);
+        futPrimary.get(10_000);
 
         assertEquals(0, nearPrimary.size());
 
@@ -275,24 +282,25 @@ public class GridCacheDhtEvictionSelfTest extends GridCommonAbstractTest {
 
         Collection<Integer> keys = new ArrayList<>(keyCnt);
 
-        for (int key = 0; keys.size() < keyCnt; key++)
+        for (int key = 0; keys.size() < keyCnt; key++) {
             if (F.eqNodes(primaryIgnite.cluster().localNode(), F.first(keyNodes(key))))
                 keys.add(key++);
+        }
 
         info("Test keys: " + keys);
 
         // Put on primary node.
         for (Integer key : keys)
-            nearPrimary.put(key, "v" + key, null);
+            nearPrimary.getAndPut(key, "v" + key, null);
 
         for (Integer key : keys) {
             String val = "v" + key;
 
-            assertEquals(val, nearPrimary.peek(key));
-            assertEquals(val, dhtPrimary.peek(key));
+            assertEquals(val, localPeek(nearPrimary, key));
+            assertEquals(val, localPeek(dhtPrimary, key));
 
-            assertEquals(val, nearBackup.peek(key));
-            assertEquals(val, dhtBackup.peek(key));
+            assertEquals(val, localPeek(nearBackup, key));
+            assertEquals(val, localPeek(dhtBackup, key));
         }
 
         final AtomicInteger cntBackup = new AtomicInteger();
@@ -316,11 +324,11 @@ public class GridCacheDhtEvictionSelfTest extends GridCommonAbstractTest {
         // Evict on primary node.
         // Eviction of the last key should trigger queue processing.
         for (Integer key : keys)
-            primaryIgnite.jcache(null).localEvict(Collections.<Object>singleton(key));
+            primaryIgnite.cache(null).localEvict(Collections.<Object>singleton(key));
 
-        // Give 5 seconds for eviction events to occur on backup and primary node.
-        futBackup.get(3000);
-        futPrimary.get(3000);
+        // Give some time for eviction events to occur on backup and primary node.
+        futBackup.get(10_000);
+        futPrimary.get(10_000);
 
         info("nearBackupSize: " + nearBackup.size());
         info("dhtBackupSize: " + dhtBackup.size());
@@ -331,8 +339,8 @@ public class GridCacheDhtEvictionSelfTest extends GridCommonAbstractTest {
         for (Integer key : keys) {
             String msg = "Failed key: " + key;
 
-            assertNull(msg, nearBackup.peek(key));
-            assertNull(msg, dhtBackup.peek(key));
+            assertNull(msg, localPeek(nearBackup, key));
+            assertNull(msg, localPeek(dhtBackup, key));
             assertNull(msg, nearBackup.peekEx(key));
             assertNull(msg, dhtBackup.peekEx(key));
         }
@@ -340,8 +348,8 @@ public class GridCacheDhtEvictionSelfTest extends GridCommonAbstractTest {
         for (Integer key : keys) {
             String msg = "Failed key: " + key;
 
-            assertNull(msg, nearPrimary.peek(key));
-            assertNull(msg, dhtPrimary.peek(key));
+            assertNull(msg, localPeek(nearPrimary, key));
+            assertNull(msg, localPeek(dhtPrimary, key));
             assertNull(msg, nearPrimary.peekEx(key));
             assertNull(dhtPrimary.peekEx(key));
         }

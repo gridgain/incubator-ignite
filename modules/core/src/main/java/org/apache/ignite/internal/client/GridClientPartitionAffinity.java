@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.internal.client.util.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.internal.client.util.GridClientConsistentHash;
+import org.apache.ignite.internal.client.util.GridClientUtils;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Affinity function for partitioned cache. This function supports the following
@@ -349,12 +352,8 @@ public class GridClientPartitionAffinity implements GridClientDataAffinity, Grid
         @Override public int compareTo(NodeInfo o) {
             int diff = nodeId.compareTo(o.nodeId);
 
-            if (diff == 0) {
-                int h1 = hashCode();
-                int h2 = o.hashCode();
-
-                diff = h1 == h2 ? 0 : (h1 < h2 ? -1 : 1);
-            }
+            if (diff == 0)
+                diff = Integer.compare(hashCode(), o.hashCode());
 
             return diff;
         }

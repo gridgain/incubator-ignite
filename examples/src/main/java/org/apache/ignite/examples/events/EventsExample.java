@@ -17,26 +17,29 @@
 
 package org.apache.ignite.examples.events;
 
-import org.apache.ignite.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.examples.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
+import java.util.UUID;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.compute.ComputeTaskSession;
+import org.apache.ignite.events.TaskEvent;
+import org.apache.ignite.examples.ExampleNodeStartup;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.resources.TaskSessionResource;
 
-import java.util.*;
-
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.events.EventType.EVTS_TASK_EXECUTION;
 
 /**
  * Demonstrates event consume API that allows to register event listeners on remote nodes.
  * Note that ignite events are disabled by default and must be specifically enabled,
- * just like in {@code examples/config/example-compute.xml} file.
+ * just like in {@code examples/config/example-ignite.xml} file.
  * <p>
- * Remote nodes should always be started with configuration: {@code 'ignite.sh examples/config/example-compute.xml'}.
+ * Remote nodes should always be started with configuration: {@code 'ignite.sh examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link ComputeNodeStartup} in another JVM which will start
- * node with {@code examples/config/example-compute.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will start
+ * node with {@code examples/config/example-ignite.xml} configuration.
  */
 public class EventsExample {
     /**
@@ -46,7 +49,7 @@ public class EventsExample {
      * @throws Exception If example execution failed.
      */
     public static void main(String[] args) throws Exception {
-        try (Ignite ignite = Ignition.start("examples/config/example-compute.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             System.out.println();
             System.out.println(">>> Events API example started.");
 

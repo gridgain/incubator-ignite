@@ -17,19 +17,36 @@
 
 package org.apache.ignite.internal.processors.query.h2.opt;
 
-import org.apache.ignite.testframework.junits.common.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.h2.Driver;
-import org.h2.index.*;
-import org.h2.result.*;
-import org.h2.table.*;
-import org.h2.value.*;
-import org.jetbrains.annotations.*;
-import org.junit.*;
-
-import java.sql.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import org.h2.index.Index;
+import org.h2.result.Row;
+import org.h2.result.SearchRow;
+import org.h2.result.SortOrder;
+import org.h2.table.IndexColumn;
+import org.h2.value.ValueLong;
+import org.h2.value.ValueString;
+import org.h2.value.ValueTimestamp;
+import org.h2.value.ValueUuid;
+import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
 
 /**
  * Tests H2 Table.
@@ -79,9 +96,9 @@ public class GridH2TableSelfTest extends GridCommonAbstractTest {
                 IndexColumn str = tbl.indexColumn(2, SortOrder.DESCENDING);
                 IndexColumn x = tbl.indexColumn(3, SortOrder.DESCENDING);
 
-                idxs.add(new GridH2TreeIndex(PK_NAME, tbl, true, 0, 1, id));
-                idxs.add(new GridH2TreeIndex(NON_UNIQUE_IDX_NAME, tbl, false, 0, 1, x, t));
-                idxs.add(new GridH2TreeIndex(STR_IDX_NAME, tbl, false, 0, 1, str));
+                idxs.add(new GridH2TreeIndex(PK_NAME, tbl, true, F.asList(id)));
+                idxs.add(new GridH2TreeIndex(NON_UNIQUE_IDX_NAME, tbl, false, F.asList(x, t, id)));
+                idxs.add(new GridH2TreeIndex(STR_IDX_NAME, tbl, false, F.asList(str, id)));
 
                 return idxs;
             }
@@ -104,7 +121,8 @@ public class GridH2TableSelfTest extends GridCommonAbstractTest {
      * @return New row.
      */
     private GridH2Row row(UUID id, long t, String str, long x) {
-        return new GridH2Row(ValueUuid.get(id.getMostSignificantBits(), id.getLeastSignificantBits()),
+        return GridH2RowFactory.create(
+            ValueUuid.get(id.getMostSignificantBits(), id.getLeastSignificantBits()),
             ValueTimestamp.get(new Timestamp(t)),
             ValueString.get(str),
             ValueLong.get(x));

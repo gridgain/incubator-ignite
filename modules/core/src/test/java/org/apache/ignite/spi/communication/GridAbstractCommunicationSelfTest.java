@@ -17,22 +17,33 @@
 
 package org.apache.ignite.spi.communication;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.*;
-import org.apache.ignite.testframework.junits.spi.*;
+import java.net.BindException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.UUID;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.managers.communication.GridIoMessageFactory;
+import org.apache.ignite.internal.util.typedef.CO;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.testframework.GridSpiTestContext;
+import org.apache.ignite.testframework.GridTestNode;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.IgniteMock;
+import org.apache.ignite.testframework.junits.IgniteTestResources;
+import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
 
-import java.net.*;
-import java.util.*;
-import java.util.Map.*;
-
-import static org.apache.ignite.internal.IgniteNodeAttributes.*;
+import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_MACS;
 
 /**
  * Super class for all communication self tests.
@@ -57,6 +68,9 @@ public abstract class GridAbstractCommunicationSelfTest<T extends CommunicationS
 
     /** */
     private static final Object mux = new Object();
+
+    /** */
+    protected boolean useSsl = false;
 
     /**
      *
@@ -269,8 +283,6 @@ public abstract class GridAbstractCommunicationSelfTest<T extends CommunicationS
      * @throws Exception If failed.
      */
     private void startSpis() throws Exception {
-        U.setWorkDirectory(null, U.getIgniteHome());
-
         spis.clear();
         nodes.clear();
         spiRsrcs.clear();
@@ -280,7 +292,7 @@ public abstract class GridAbstractCommunicationSelfTest<T extends CommunicationS
         for (int i = 0; i < getSpiCount(); i++) {
             CommunicationSpi<Message> spi = getSpi(i);
 
-            GridTestUtils.setFieldValue(spi, "gridName", "grid-" + i);
+            GridTestUtils.setFieldValue(spi, IgniteSpiAdapter.class, "gridName", "grid-" + i);
 
             IgniteTestResources rsrcs = new IgniteTestResources();
 
@@ -297,6 +309,15 @@ public abstract class GridAbstractCommunicationSelfTest<T extends CommunicationS
             spiRsrcs.add(rsrcs);
 
             rsrcs.inject(spi);
+
+            if (useSsl) {
+                IgniteMock ignite = GridTestUtils.getFieldValue(spi, IgniteSpiAdapter.class, "ignite");
+
+                IgniteConfiguration cfg = ignite.configuration()
+                    .setSslContextFactory(GridTestUtils.sslFactory());
+
+                ignite.setStaticCfg(cfg);
+            }
 
             spi.setListener(new MessageListener(rsrcs.getNodeId()));
 

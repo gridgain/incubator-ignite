@@ -17,28 +17,89 @@
 
 package org.apache.ignite.marshaller.optimized;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.io.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.marshaller.*;
-import sun.misc.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.NotActiveException;
+import java.io.ObjectInputStream;
+import java.io.ObjectInputValidation;
+import java.io.ObjectStreamClass;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Properties;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.util.GridUnsafe;
+import org.apache.ignite.internal.util.io.GridDataInput;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.marshaller.MarshallerContext;
 
-import java.io.*;
-import java.lang.reflect.*;
-import java.util.*;
-
-import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.*;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.ARRAY_LIST;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.BOOLEAN;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.BOOLEAN_ARR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.BYTE;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.BYTE_ARR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.CHAR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.CHAR_ARR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.CLS;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.DATE;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.DOUBLE;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.DOUBLE_ARR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.ENUM;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.EXTERNALIZABLE;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.FLOAT;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.FLOAT_ARR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.HANDLE;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.HASH_MAP;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.HASH_SET;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.HASH_SET_MAP_OFF;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.INT;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.INT_ARR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.JDK;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.JDK_MARSH;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.LINKED_HASH_MAP;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.LINKED_HASH_SET;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.LINKED_LIST;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.LONG;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.LONG_ARR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.NULL;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.OBJ_ARR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.PROPS;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.PROXY;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.SERIALIZABLE;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.SHORT;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.SHORT_ARR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.STR;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.UUID;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.classDescriptor;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.setBoolean;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.setByte;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.setChar;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.setDouble;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.setFloat;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.setInt;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.setLong;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.setObject;
+import static org.apache.ignite.marshaller.optimized.OptimizedMarshallerUtils.setShort;
 
 /**
  * Optimized object input stream.
  */
 class OptimizedObjectInputStream extends ObjectInputStream {
-    /** Unsafe. */
-    private static final Unsafe UNSAFE = GridUnsafe.unsafe();
-
     /** Dummy object for HashSet. */
     private static final Object DUMMY = new Object();
 
@@ -61,16 +122,13 @@ class OptimizedObjectInputStream extends ObjectInputStream {
     private Object curObj;
 
     /** */
-    private List<T2<OptimizedFieldType, Long>> curFields;
-
-    /** */
-    private List<IgniteBiTuple<Integer, OptimizedFieldType>> curFieldInfoList;
-
-    /** */
-    private Map<String, IgniteBiTuple<Integer, OptimizedFieldType>> curFieldInfoMap;
+    private OptimizedClassDescriptor.ClassFields curFields;
 
     /** */
     private Class<?> curCls;
+
+    /** */
+    private ConcurrentMap<Class, OptimizedClassDescriptor> clsMap;
 
     /**
      * @param in Input.
@@ -81,11 +139,18 @@ class OptimizedObjectInputStream extends ObjectInputStream {
     }
 
     /**
+     * @param clsMap Class descriptors by class map.
      * @param ctx Context.
      * @param mapper ID mapper.
      * @param clsLdr Class loader.
      */
-    void context(MarshallerContext ctx, OptimizedMarshallerIdMapper mapper, ClassLoader clsLdr) {
+    void context(
+        ConcurrentMap<Class, OptimizedClassDescriptor> clsMap,
+        MarshallerContext ctx,
+        OptimizedMarshallerIdMapper mapper,
+        ClassLoader clsLdr)
+    {
+        this.clsMap = clsMap;
         this.ctx = ctx;
         this.mapper = mapper;
         this.clsLdr = clsLdr;
@@ -111,6 +176,7 @@ class OptimizedObjectInputStream extends ObjectInputStream {
 
         ctx = null;
         clsLdr = null;
+        clsMap = null;
     }
 
     /** {@inheritDoc} */
@@ -121,16 +187,12 @@ class OptimizedObjectInputStream extends ObjectInputStream {
 
         curObj = null;
         curFields = null;
-        curFieldInfoList = null;
-        curFieldInfoMap = null;
     }
 
     /** {@inheritDoc} */
     @Override public Object readObjectOverride() throws ClassNotFoundException, IOException {
         curObj = null;
         curFields = null;
-        curFieldInfoList = null;
-        curFieldInfoMap = null;
 
         byte ref = in.readByte();
 
@@ -238,14 +300,24 @@ class OptimizedObjectInputStream extends ObjectInputStream {
             case CLS:
                 return readClass();
 
+            case PROXY:
+                Class<?>[] intfs = new Class<?>[readInt()];
+
+                for (int i = 0; i < intfs.length; i++)
+                    intfs[i] = readClass();
+
+                InvocationHandler ih = (InvocationHandler)readObject();
+
+                return Proxy.newProxyInstance(clsLdr != null ? clsLdr : U.gridClassLoader(), intfs, ih);
+
             case ENUM:
             case EXTERNALIZABLE:
             case SERIALIZABLE:
                 int typeId = readInt();
 
                 OptimizedClassDescriptor desc = typeId == 0 ?
-                    classDescriptor(U.forName(readUTF(), clsLdr), ctx, mapper):
-                    classDescriptor(typeId, clsLdr, ctx, mapper);
+                    classDescriptor(clsMap, U.forName(readUTF(), clsLdr), ctx, mapper):
+                    classDescriptor(clsMap, typeId, clsLdr, ctx, mapper);
 
                 curCls = desc.describedClass();
 
@@ -275,7 +347,7 @@ class OptimizedObjectInputStream extends ObjectInputStream {
         int compTypeId = readInt();
 
         return compTypeId == 0 ? U.forName(readUTF(), clsLdr) :
-            classDescriptor(compTypeId, clsLdr, ctx, mapper).describedClass();
+            classDescriptor(clsMap, compTypeId, clsLdr, ctx, mapper).describedClass();
     }
 
     /**
@@ -345,54 +417,81 @@ class OptimizedObjectInputStream extends ObjectInputStream {
      * @throws IOException In case of error.
      */
     @SuppressWarnings("ForLoopReplaceableByForEach")
-    void readFields(Object obj, List<T2<OptimizedFieldType, Long>> fieldOffs) throws ClassNotFoundException,
+    void readFields(Object obj, OptimizedClassDescriptor.ClassFields fieldOffs) throws ClassNotFoundException,
         IOException {
         for (int i = 0; i < fieldOffs.size(); i++) {
-            T2<OptimizedFieldType, Long> t = fieldOffs.get(i);
+            OptimizedClassDescriptor.FieldInfo t = fieldOffs.get(i);
 
-            switch ((t.get1())) {
+            switch ((t.type())) {
                 case BYTE:
-                    setByte(obj, t.get2(), readByte());
+                    byte resByte = readByte();
+
+                    if (t.field() != null)
+                        setByte(obj, t.offset(), resByte);
 
                     break;
 
                 case SHORT:
-                    setShort(obj, t.get2(), readShort());
+                    short resShort = readShort();
+
+                    if (t.field() != null)
+                        setShort(obj, t.offset(), resShort);
 
                     break;
 
                 case INT:
-                    setInt(obj, t.get2(), readInt());
+                    int resInt = readInt();
+
+                    if (t.field() != null)
+                        setInt(obj, t.offset(), resInt);
 
                     break;
 
                 case LONG:
-                    setLong(obj, t.get2(), readLong());
+                    long resLong = readLong();
+
+                    if (t.field() != null)
+                        setLong(obj, t.offset(), resLong);
 
                     break;
 
                 case FLOAT:
-                    setFloat(obj, t.get2(), readFloat());
+                    float resFloat = readFloat();
+
+                    if (t.field() != null)
+                        setFloat(obj, t.offset(), resFloat);
 
                     break;
 
                 case DOUBLE:
-                    setDouble(obj, t.get2(), readDouble());
+                    double resDouble = readDouble();
+
+                    if (t.field() != null)
+                        setDouble(obj, t.offset(), resDouble);
 
                     break;
 
                 case CHAR:
-                    setChar(obj, t.get2(), readChar());
+                    char resChar = readChar();
+
+                    if (t.field() != null)
+                        setChar(obj, t.offset(), resChar);
 
                     break;
 
                 case BOOLEAN:
-                    setBoolean(obj, t.get2(), readBoolean());
+                    boolean resBoolean = readBoolean();
+
+                    if (t.field() != null)
+                        setBoolean(obj, t.offset(), resBoolean);
 
                     break;
 
                 case OTHER:
-                    setObject(obj, t.get2(), readObject());
+                    Object resObject = readObject();
+
+                    if (t.field() != null)
+                        setObject(obj, t.offset(), resObject);
             }
         }
     }
@@ -454,7 +553,7 @@ class OptimizedObjectInputStream extends ObjectInputStream {
         Object obj;
 
         try {
-            obj = UNSAFE.allocateInstance(cls);
+            obj = GridUnsafe.allocateInstance(cls);
         }
         catch (InstantiationException e) {
             throw new IOException(e);
@@ -467,9 +566,7 @@ class OptimizedObjectInputStream extends ObjectInputStream {
 
             if (mtd != null) {
                 curObj = obj;
-                curFields = fields.fieldOffs(i);
-                curFieldInfoList = fields.fieldInfoList(i);
-                curFieldInfoMap = fields.fieldInfoMap(i);
+                curFields = fields.fields(i);
 
                 try {
                     mtd.invoke(obj, this);
@@ -479,7 +576,7 @@ class OptimizedObjectInputStream extends ObjectInputStream {
                 }
             }
             else
-                readFields(obj, fields.fieldOffs(i));
+                readFields(obj, fields.fields(i));
         }
 
         if (readResolveMtd != null) {
@@ -554,7 +651,7 @@ class OptimizedObjectInputStream extends ObjectInputStream {
     @SuppressWarnings("unchecked")
     HashSet<?> readHashSet(long mapFieldOff) throws ClassNotFoundException, IOException {
         try {
-            HashSet<Object> set = (HashSet<Object>)UNSAFE.allocateInstance(HashSet.class);
+            HashSet<Object> set = (HashSet<Object>)GridUnsafe.allocateInstance(HashSet.class);
 
             handles.assign(set);
 
@@ -626,7 +723,7 @@ class OptimizedObjectInputStream extends ObjectInputStream {
     @SuppressWarnings("unchecked")
     LinkedHashSet<?> readLinkedHashSet(long mapFieldOff) throws ClassNotFoundException, IOException {
         try {
-            LinkedHashSet<Object> set = (LinkedHashSet<Object>)UNSAFE.allocateInstance(LinkedHashSet.class);
+            LinkedHashSet<Object> set = (LinkedHashSet<Object>)GridUnsafe.allocateInstance(LinkedHashSet.class);
 
             handles.assign(set);
 
@@ -995,8 +1092,8 @@ class OptimizedObjectInputStream extends ObjectInputStream {
      * {@link GetField} implementation.
      */
     private static class GetFieldImpl extends GetField {
-        /** Field info map. */
-        private final Map<String, IgniteBiTuple<Integer, OptimizedFieldType>> fieldInfoMap;
+        /** Field info. */
+        private final OptimizedClassDescriptor.ClassFields fieldInfo;
 
         /** Values. */
         private final Object[] objs;
@@ -1008,18 +1105,16 @@ class OptimizedObjectInputStream extends ObjectInputStream {
          */
         @SuppressWarnings("ForLoopReplaceableByForEach")
         private GetFieldImpl(OptimizedObjectInputStream in) throws IOException, ClassNotFoundException {
-            fieldInfoMap = in.curFieldInfoMap;
+            fieldInfo = in.curFields;
 
-            List<IgniteBiTuple<Integer, OptimizedFieldType>> infos = in.curFieldInfoList;
+            objs = new Object[fieldInfo.size()];
 
-            objs = new Object[infos.size()];
-
-            for (int i = 0; i < infos.size(); i++) {
-                IgniteBiTuple<Integer, OptimizedFieldType> t = infos.get(i);
+            for (int i = 0; i < fieldInfo.size(); i++) {
+                OptimizedClassDescriptor.FieldInfo t = fieldInfo.get(i);
 
                 Object obj = null;
 
-                switch (t.get2()) {
+                switch (t.type()) {
                     case BYTE:
                         obj = in.readByte();
 
@@ -1064,7 +1159,7 @@ class OptimizedObjectInputStream extends ObjectInputStream {
                         obj = in.readObject();
                 }
 
-                objs[t.get1()] = obj;
+                objs[i] = obj;
             }
         }
 
@@ -1075,7 +1170,7 @@ class OptimizedObjectInputStream extends ObjectInputStream {
 
         /** {@inheritDoc} */
         @Override public boolean defaulted(String name) throws IOException {
-            return objs[fieldInfoMap.get(name).get1()] == null;
+            return objs[fieldInfo.getIndex(name)] == null;
         }
 
         /** {@inheritDoc} */
@@ -1130,7 +1225,7 @@ class OptimizedObjectInputStream extends ObjectInputStream {
          */
         @SuppressWarnings("unchecked")
         private <T> T value(String name, T dflt) {
-            return objs[fieldInfoMap.get(name).get1()] != null ? (T)objs[fieldInfoMap.get(name).get1()] : dflt;
+            return objs[fieldInfo.getIndex(name)] != null ? (T)objs[fieldInfo.getIndex(name)] : dflt;
         }
     }
 }

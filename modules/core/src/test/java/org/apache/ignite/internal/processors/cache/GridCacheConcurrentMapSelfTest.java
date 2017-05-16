@@ -17,21 +17,23 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.cache.Cache;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import javax.cache.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Grid cache concurrent hash map self test.
@@ -75,7 +77,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testRehash() throws Exception {
-        IgniteCache<Integer, String> c = grid().jcache(null);
+        IgniteCache<Integer, String> c = grid().cache(null);
 
         int cnt = 100 * 1024;
 
@@ -106,7 +108,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testRehashRandom() throws Exception {
-        IgniteCache<Integer, String> c = grid().jcache(null);
+        IgniteCache<Integer, String> c = grid().cache(null);
 
         int cnt = 100 * 1024;
 
@@ -154,7 +156,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
         multithreaded(new Callable<Object>() {
             @SuppressWarnings("UnusedAssignment")
             @Override public Object call() throws Exception {
-                IgniteCache<Integer, String> c = grid().jcache(null);
+                IgniteCache<Integer, String> c = grid().cache(null);
 
                 int tid = tidGen.getAndIncrement();
 
@@ -162,17 +164,11 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
 
                 Iterator<Cache.Entry<Integer, String>> it = null;
 
-                boolean created = false;
-
                 for (int i = start; i < start + cnt; i++) {
                     int key = i % cnt;
 
-                    if (!created && i >= start + tid * 100) {
-                        if (it == null)
-                            it = c.iterator();
-
-                        created = true;
-                    }
+                    if (it == null && i >= start + tid * 100)
+                        it = c.iterator();
 
                     c.put(key, Integer.toString(key));
 
@@ -217,8 +213,6 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
         Thread.sleep(1000);
 
         jcache().get(rand.nextInt(cnt));
-
-        assertEquals(0, local().map.iteratorMapSize());
     }
 
     /**
@@ -234,7 +228,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
         multithreaded(new Callable<Object>() {
             @SuppressWarnings("UnusedAssignment")
             @Override public Object call() throws Exception {
-                IgniteCache<Integer, String> c = grid().jcache(null);
+                IgniteCache<Integer, String> c = grid().cache(null);
 
                 int tid = tidGen.getAndIncrement();
 
@@ -312,8 +306,6 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
         Thread.sleep(1000);
 
         jcache().get(rand.nextInt(cnt));
-
-        assertEquals(0, local().map.iteratorMapSize());
     }
 
     /**
@@ -321,7 +313,7 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
      */
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
     public void testEmptyWeakIterator() throws Exception {
-        final IgniteCache<Integer, String> c = grid().jcache(null);
+        final IgniteCache<Integer, String> c = grid().cache(null);
 
         for (int i = 0; i < 10; i++) {
             multithreaded(new Callable<Object>() {
@@ -343,20 +335,13 @@ public class GridCacheConcurrentMapSelfTest extends GridCommonAbstractTest {
 
                     return null;
                 }
-            }, Runtime.getRuntime().availableProcessors());
+            }, Math.min(16, Runtime.getRuntime().availableProcessors()));
 
             for (int r = 0; r < 10; r++) {
                 System.gc();
 
                 c.get(100);
-
-                if (local().map.iteratorMapSize() == 0)
-                    break;
-                else
-                    U.sleep(500);
             }
-
-            assertEquals(0, local().map.iteratorMapSize());
         }
     }
 }

@@ -17,16 +17,25 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.managers.deployment.*;
-import org.apache.ignite.internal.processors.continuous.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.managers.deployment.GridDeployment;
+import org.apache.ignite.internal.managers.deployment.GridDeploymentInfoBean;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.continuous.GridContinuousBatch;
+import org.apache.ignite.internal.processors.continuous.GridContinuousBatchAdapter;
+import org.apache.ignite.internal.processors.continuous.GridContinuousHandler;
+import org.apache.ignite.internal.util.lang.GridPeerDeployAware;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Continuous handler for message subscription.
@@ -74,31 +83,59 @@ public class GridMessageListenHandler implements GridContinuousHandler {
         this.pred = pred;
     }
 
+    /**
+     *
+     * @param orig Handler to be copied.
+     */
+    public GridMessageListenHandler(GridMessageListenHandler orig) {
+        assert orig != null;
+
+        this.clsName = orig.clsName;
+        this.depInfo = orig.depInfo;
+        this.pred = orig.pred;
+        this.predBytes = orig.predBytes;
+        this.topic = orig.topic;
+        this.topicBytes = orig.topicBytes;
+        this.depEnabled = false;
+    }
+
     /** {@inheritDoc} */
-    @Override public boolean isForEvents() {
+    @Override public boolean isEvents() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isForMessaging() {
+    @Override public boolean isMessaging() {
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isForQuery() {
+    @Override public boolean isQuery() {
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean register(UUID nodeId, UUID routineId, final GridKernalContext ctx) throws IgniteCheckedException {
+    @Override public boolean keepBinary() {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String cacheName() {
+        throw new IllegalStateException();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void updateCounters(AffinityTopologyVersion topVer, Map<UUID, Map<Integer, Long>> cntrsPerNode,
+        Map<Integer, Long> cntrs) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public RegisterStatus register(UUID nodeId, UUID routineId, final GridKernalContext ctx)
+        throws IgniteCheckedException {
         ctx.io().addUserMessageListener(topic, pred);
 
-        return true;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onListenerRegistered(UUID routineId, GridKernalContext ctx) {
-        // No-op.
+        return RegisterStatus.REGISTERED;
     }
 
     /** {@inheritDoc} */
@@ -117,9 +154,9 @@ public class GridMessageListenHandler implements GridContinuousHandler {
         assert ctx.config().isPeerClassLoadingEnabled();
 
         if (topic != null)
-            topicBytes = ctx.config().getMarshaller().marshal(topic);
+            topicBytes = U.marshal(ctx.config().getMarshaller(), topic);
 
-        predBytes = ctx.config().getMarshaller().marshal(pred);
+        predBytes = U.marshal(ctx.config().getMarshaller(), pred);
 
         // Deploy only listener, as it is very likely to be of some user class.
         GridPeerDeployAware pda = U.peerDeployAware(pred);
@@ -151,9 +188,19 @@ public class GridMessageListenHandler implements GridContinuousHandler {
         ClassLoader ldr = dep.classLoader();
 
         if (topicBytes != null)
-            topic = ctx.config().getMarshaller().unmarshal(topicBytes, ldr);
+            topic = U.unmarshal(ctx, topicBytes, U.resolveClassLoader(ldr, ctx.config()));
 
-        pred = ctx.config().getMarshaller().unmarshal(predBytes, ldr);
+        pred = U.unmarshal(ctx, predBytes, U.resolveClassLoader(ldr, ctx.config()));
+    }
+
+    /** {@inheritDoc} */
+    @Override public GridContinuousBatch createBatch() {
+        return new GridContinuousBatchAdapter();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onBatchAcknowledged(UUID routineId, GridContinuousBatch batch, GridKernalContext ctx) {
+        // No-op.
     }
 
     /** {@inheritDoc} */
@@ -169,6 +216,11 @@ public class GridMessageListenHandler implements GridContinuousHandler {
         catch (CloneNotSupportedException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onNodeLeft() {
+        // No-op.
     }
 
     /** {@inheritDoc} */

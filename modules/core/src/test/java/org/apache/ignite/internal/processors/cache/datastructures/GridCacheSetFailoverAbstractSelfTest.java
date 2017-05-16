@@ -17,20 +17,26 @@
 
 package org.apache.ignite.internal.processors.cache.datastructures;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.datastructures.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.testframework.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteSet;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.processors.cache.GridCacheMapEntry;
+import org.apache.ignite.internal.processors.datastructures.SetItemKey;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.testframework.GridTestUtils;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Set failover tests.
@@ -109,7 +115,7 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
                     try {
                         int size = set.size();
 
-                        // TODO: GG-7952, check for equality when GG-7952 fixed.
+                        // TODO: IGNITE-584, check for equality when IGNITE-584 fixed.
                         assertTrue(size > 0);
                     }
                     catch (IgniteException ignore) {
@@ -127,7 +133,7 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
                             cnt++;
                         }
 
-                        // TODO: GG-7952, check for equality when GG-7952 fixed.
+                        // TODO: IGNITE-584, check for equality when IGNITE-584 fixed.
                         assertTrue(cnt > 0);
                     }
                     catch (IgniteException ignore) {
@@ -162,14 +168,14 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
 
         set.close();
 
-        if (false) { // TODO GG-8962: enable check when fixed.
+        if (false) { // TODO IGNITE-600: enable check when fixed.
             int cnt = 0;
 
             Set<IgniteUuid> setIds = new HashSet<>();
 
             for (int i = 0; i < gridCount(); i++) {
-                Iterator<GridCacheEntryEx> entries =
-                    ((IgniteKernal)grid(i)).context().cache().internalCache().map().allEntries0().iterator();
+                Iterator<GridCacheMapEntry> entries =
+                    grid(i).context().cache().internalCache().map().entries().iterator();
 
                 while (entries.hasNext()) {
                     GridCacheEntryEx entry = entries.next();
@@ -177,8 +183,8 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
                     if (entry.hasValue()) {
                         cnt++;
 
-                        if (entry.key() instanceof GridCacheSetItemKey) {
-                            GridCacheSetItemKey setItem = (GridCacheSetItemKey)entry.key();
+                        if (entry.key() instanceof SetItemKey) {
+                            SetItemKey setItem = (SetItemKey)entry.key();
 
                             if (setIds.add(setItem.setId()))
                                 log.info("Unexpected set item [setId=" + setItem.setId() +

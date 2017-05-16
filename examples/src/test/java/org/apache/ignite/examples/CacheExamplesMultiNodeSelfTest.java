@@ -23,7 +23,7 @@ package org.apache.ignite.examples;
 public class CacheExamplesMultiNodeSelfTest extends CacheExamplesSelfTest {
     /** {@inheritDoc} */
     @Override protected String defaultConfig() {
-        return "examples/config/example-cache.xml";
+        return "examples/config/example-ignite.xml";
     }
 
     /** {@inheritDoc} */
@@ -37,12 +37,9 @@ public class CacheExamplesMultiNodeSelfTest extends CacheExamplesSelfTest {
     }
 
     /** {@inheritDoc} */
-    @Override public void testCacheStoreExample() throws Exception {
-        // No-op.
-    }
+    @Override public void testCacheLockExample() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-4309");
 
-    /** {@inheritDoc} */
-    @Override public void testCacheStoreLoaderExample() throws Exception {
-        // No-op.
+        super.testCacheLockExample();
     }
 }

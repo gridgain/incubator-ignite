@@ -17,26 +17,45 @@
 
 package org.apache.ignite.spi.communication.tcp;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.nio.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.apache.ignite.spi.communication.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.*;
-import org.apache.ignite.testframework.junits.spi.*;
-import org.eclipse.jetty.util.*;
-
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.net.BindException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.managers.communication.GridIoMessageFactory;
+import org.apache.ignite.internal.util.lang.GridAbsPredicate;
+import org.apache.ignite.internal.util.nio.GridCommunicationClient;
+import org.apache.ignite.internal.util.nio.GridNioServer;
+import org.apache.ignite.internal.util.typedef.CO;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.communication.CommunicationListener;
+import org.apache.ignite.spi.communication.CommunicationSpi;
+import org.apache.ignite.spi.communication.GridTestMessage;
+import org.apache.ignite.testframework.GridSpiTestContext;
+import org.apache.ignite.testframework.GridTestNode;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.IgniteMock;
+import org.apache.ignite.testframework.junits.IgniteTestResources;
+import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
+import org.apache.ignite.testframework.junits.spi.GridSpiTest;
+import org.eclipse.jetty.util.ConcurrentHashSet;
 
 /**
  *
@@ -61,6 +80,15 @@ public class GridTcpCommunicationSpiConcurrentConnectSelfTest<T extends Communic
 
     /** */
     private static int port = 60_000;
+
+    /** Use ssl. */
+    protected boolean useSsl;
+
+    /** */
+    private int connectionsPerNode = 1;
+
+    /** */
+    private boolean pairedConnections = true;
 
     /**
      *
@@ -142,6 +170,34 @@ public class GridTcpCommunicationSpiConcurrentConnectSelfTest<T extends Communic
     /**
      * @throws Exception If failed.
      */
+    public void testMultithreaded_10Connections() throws Exception {
+        connectionsPerNode = 10;
+
+        testMultithreaded();
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testMultithreaded_NoPairedConnections() throws Exception {
+        pairedConnections = false;
+
+        testMultithreaded();
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testMultithreaded_10ConnectionsNoPaired() throws Exception {
+        pairedConnections = false;
+        connectionsPerNode = 10;
+
+        testMultithreaded();
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
     public void testWithLoad() throws Exception {
         int threads = Runtime.getRuntime().availableProcessors() * 5;
 
@@ -180,8 +236,7 @@ public class GridTcpCommunicationSpiConcurrentConnectSelfTest<T extends Communic
 
         if (load) {
             loadFut = GridTestUtils.runMultiThreadedAsync(new Callable<Long>() {
-                @Override
-                public Long call() throws Exception {
+                @Override public Long call() throws Exception {
                     long dummyRes = 0;
 
                     List<String> list = new ArrayList<>();
@@ -224,7 +279,7 @@ public class GridTcpCommunicationSpiConcurrentConnectSelfTest<T extends Communic
                 final AtomicInteger idx = new AtomicInteger();
 
                 try {
-                    GridTestUtils.runMultiThreaded(new Callable<Void>() {
+                    final Callable<Void> c = new Callable<Void>() {
                         @Override public Void call() throws Exception {
                             int idx0 = idx.getAndIncrement();
 
@@ -250,28 +305,63 @@ public class GridTcpCommunicationSpiConcurrentConnectSelfTest<T extends Communic
 
                             return null;
                         }
-                    }, threads, "test");
+                    };
+
+                    List<Thread> threadsList = new ArrayList<>();
+
+                    final AtomicBoolean fail = new AtomicBoolean();
+
+                    final AtomicLong tId = new AtomicLong();
+
+                    for (int t = 0; t < threads; t++) {
+                        Thread t0 = new Thread(new Runnable() {
+                            @Override public void run() {
+                                try {
+                                    c.call();
+                                }
+                                catch (Throwable e) {
+                                    log.error("Unexpected error: " + e, e);
+
+                                    fail.set(true);
+                                }
+                            }
+                        }) {
+                            @Override public long getId() {
+                                // Override getId to use all connections.
+                                return tId.getAndIncrement();
+                            }
+                        };
+
+                        threadsList.add(t0);
+
+                        t0.start();
+                    }
+
+                    for (Thread t0 : threadsList)
+                        t0.join();
 
                     assertTrue(latch.await(10, TimeUnit.SECONDS));
 
                     for (CommunicationSpi spi : spis) {
-                        ConcurrentMap<UUID, GridTcpCommunicationClient> clients = U.field(spi, "clients");
+                        ConcurrentMap<UUID, GridCommunicationClient> clients = U.field(spi, "clients");
 
                         assertEquals(1, clients.size());
 
                         final GridNioServer srv = U.field(spi, "nioSrvr");
 
+                        final int conns = pairedConnections ? 2 : 1;
+
                         GridTestUtils.waitForCondition(new GridAbsPredicate() {
                             @Override public boolean apply() {
                                 Collection sessions = U.field(srv, "sessions");
 
-                                return sessions.size() == 1;
+                                return sessions.size() == conns * connectionsPerNode;
                             }
                         }, 5000);
 
                         Collection sessions = U.field(srv, "sessions");
 
-                        assertEquals(1, sessions.size());
+                        assertEquals(conns * connectionsPerNode, sessions.size());
                     }
 
                     assertEquals(expMsgs, lsnr.cntr.get());
@@ -299,6 +389,9 @@ public class GridTcpCommunicationSpiConcurrentConnectSelfTest<T extends Communic
         spi.setLocalPort(port++);
         spi.setIdleConnectionTimeout(60_000);
         spi.setConnectTimeout(10_000);
+        spi.setSharedMemoryPort(-1);
+        spi.setConnectionsPerNode(connectionsPerNode);
+        spi.setUsePairedConnections(pairedConnections);
 
         return spi;
     }
@@ -317,7 +410,7 @@ public class GridTcpCommunicationSpiConcurrentConnectSelfTest<T extends Communic
         for (int i = 0; i < SPI_CNT; i++) {
             CommunicationSpi<Message> spi = createSpi();
 
-            GridTestUtils.setFieldValue(spi, "gridName", "grid-" + i);
+            GridTestUtils.setFieldValue(spi, IgniteSpiAdapter.class, "gridName", "grid-" + i);
 
             IgniteTestResources rsrcs = new IgniteTestResources();
 
@@ -334,6 +427,15 @@ public class GridTcpCommunicationSpiConcurrentConnectSelfTest<T extends Communic
             spiRsrcs.add(rsrcs);
 
             rsrcs.inject(spi);
+
+            if (useSsl) {
+                IgniteMock ignite = GridTestUtils.getFieldValue(spi, IgniteSpiAdapter.class, "ignite");
+
+                IgniteConfiguration cfg = ignite.configuration()
+                    .setSslContextFactory(GridTestUtils.sslFactory());
+
+                ignite.setStaticCfg(cfg);
+            }
 
             spi.setListener(lsnr);
 

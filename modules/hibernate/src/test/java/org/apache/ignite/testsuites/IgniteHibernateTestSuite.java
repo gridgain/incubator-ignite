@@ -17,9 +17,15 @@
 
 package org.apache.ignite.testsuites;
 
-import junit.framework.*;
-import org.apache.ignite.cache.hibernate.*;
-import org.apache.ignite.cache.store.hibernate.*;
+import junit.framework.TestSuite;
+import org.apache.ignite.cache.hibernate.HibernateL2CacheConfigurationSelfTest;
+import org.apache.ignite.cache.hibernate.HibernateL2CacheSelfTest;
+import org.apache.ignite.cache.hibernate.HibernateL2CacheTransactionalSelfTest;
+import org.apache.ignite.cache.hibernate.HibernateL2CacheTransactionalUseSyncSelfTest;
+import org.apache.ignite.cache.store.hibernate.CacheHibernateBlobStoreNodeRestartTest;
+import org.apache.ignite.cache.store.hibernate.CacheHibernateBlobStoreSelfTest;
+import org.apache.ignite.cache.store.hibernate.CacheHibernateStoreFactorySelfTest;
+import org.apache.ignite.cache.store.hibernate.CacheHibernateStoreSessionListenerSelfTest;
 
 /**
  * Hibernate integration tests.
@@ -33,11 +39,18 @@ public class IgniteHibernateTestSuite extends TestSuite {
         TestSuite suite = new TestSuite("Hibernate Integration Test Suite");
 
         // Hibernate L2 cache.
-//        suite.addTestSuite(HibernateL2CacheSelfTest.class); // TODO GG-9141
-//        suite.addTestSuite(HibernateL2CacheTransactionalSelfTest.class);
+        suite.addTestSuite(HibernateL2CacheSelfTest.class);
+        suite.addTestSuite(HibernateL2CacheTransactionalSelfTest.class);
+        suite.addTestSuite(HibernateL2CacheTransactionalUseSyncSelfTest.class);
         suite.addTestSuite(HibernateL2CacheConfigurationSelfTest.class);
 
         suite.addTestSuite(CacheHibernateBlobStoreSelfTest.class);
+
+        suite.addTestSuite(CacheHibernateBlobStoreNodeRestartTest.class);
+
+        suite.addTestSuite(CacheHibernateStoreSessionListenerSelfTest.class);
+
+        suite.addTestSuite(CacheHibernateStoreFactorySelfTest.class);
 
         return suite;
     }

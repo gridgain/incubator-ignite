@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.processors.cache.version;
 
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Conflict context implementation.
@@ -176,7 +178,7 @@ public class GridCacheVersionConflictContext<K, V> {
     /** {@inheritDoc} */
     @Override public String toString() {
         return state == State.MERGE ?
-            S.toString(GridCacheVersionConflictContext.class, this, "mergeValue", mergeVal) :
+            S.toString(GridCacheVersionConflictContext.class, this, "mergeValue", mergeVal, true) :
             S.toString(GridCacheVersionConflictContext.class, this);
     }
 

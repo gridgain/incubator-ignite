@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.transactions.*;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.cache.GridCacheAbstractSelfTest;
+import org.apache.ignite.transactions.Transaction;
 
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
 
 /**
  *
@@ -37,8 +39,8 @@ public class IgniteCacheNearReadCommittedTest extends GridCacheAbstractSelfTest 
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return CacheDistributionMode.NEAR_PARTITIONED;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return new NearCacheConfiguration();
     }
 
     /** {@inheritDoc} */
@@ -50,13 +52,13 @@ public class IgniteCacheNearReadCommittedTest extends GridCacheAbstractSelfTest 
      * @throws Exception If failed.
      */
     public void testReadCommittedCacheCleanup() throws Exception {
-        IgniteCache<Integer, Integer> cache = ignite(0).jcache(null);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(null);
 
         Integer key = backupKey(cache);
 
         cache.put(key, key);
 
-        assertEquals(1, cache.localSize());
+        assertEquals(1, cache.localSize(CachePeekMode.ALL));
 
         try (Transaction tx = ignite(0).transactions().txStart(PESSIMISTIC, READ_COMMITTED)) {
             assertEquals(key, cache.get(key));
@@ -64,8 +66,8 @@ public class IgniteCacheNearReadCommittedTest extends GridCacheAbstractSelfTest 
             tx.commit();
         }
 
-        ignite(1).jcache(null).remove(key); // Remove from primary node.
+        ignite(1).cache(null).remove(key); // Remove from primary node.
 
-        assertEquals(0, cache.localSize());
+        assertEquals(0, cache.localSize(CachePeekMode.ALL));
     }
 }

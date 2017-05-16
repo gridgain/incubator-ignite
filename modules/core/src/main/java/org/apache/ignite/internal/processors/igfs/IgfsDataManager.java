@@ -17,67 +17,91 @@
 
 package org.apache.ignite.internal.processors.igfs;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.igfs.secondary.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.cluster.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.transactions.*;
-import org.apache.ignite.internal.processors.datastreamer.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.util.worker.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.thread.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.util.concurrent.Executor;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteInterruptedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cache.affinity.AffinityKeyMapper;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.FileSystemConfiguration;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.igfs.IgfsBlockLocation;
+import org.apache.ignite.igfs.IgfsException;
+import org.apache.ignite.igfs.IgfsGroupDataBlocksKeyMapper;
+import org.apache.ignite.igfs.IgfsOutOfSpaceException;
+import org.apache.ignite.igfs.IgfsPath;
+import org.apache.ignite.igfs.secondary.IgfsSecondaryFileSystemPositionedReadable;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
+import org.apache.ignite.internal.managers.communication.GridIoPolicy;
+import org.apache.ignite.internal.managers.communication.GridMessageListener;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.processors.datastreamer.DataStreamerCacheUpdaters;
+import org.apache.ignite.internal.processors.igfs.data.IgfsDataPutProcessor;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.future.GridFinishedFuture;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.typedef.CI1;
+import org.apache.ignite.internal.util.typedef.CX1;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.worker.GridWorker;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteUuid;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
-import javax.cache.processor.*;
-import java.io.*;
-import java.nio.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-import java.util.concurrent.locks.*;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.MutableEntry;
+import java.io.DataInput;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.events.EventType.*;
-import static org.apache.ignite.internal.GridTopic.*;
-import static org.apache.ignite.internal.managers.communication.GridIoPolicy.*;
-import static org.apache.ignite.internal.processors.cache.GridCacheUtils.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
+import static org.apache.ignite.internal.GridTopic.TOPIC_IGFS;
+import static org.apache.ignite.internal.managers.communication.GridIoPolicy.IGFS_POOL;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Cache based file's data container.
  */
 public class IgfsDataManager extends IgfsManager {
-    /** IGFS. */
-    private IgfsEx igfs;
-
-    /** Data cache projection. */
-    private GridCacheProjectionEx<IgfsBlockKey, byte[]> dataCachePrj;
+    /** Data internal cache. */
+    private IgniteInternalCache<IgfsBlockKey, byte[]> dataCachePrj;
 
     /** Data cache. */
-    private GridCache<Object, Object> dataCache;
+    private IgniteInternalCache<Object, Object> dataCache;
 
     /** */
-    private IgniteInternalFuture<?> dataCacheStartFut;
-
-    /** Local IGFS metrics. */
-    private IgfsLocalMetrics metrics;
+    private CountDownLatch dataCacheStartLatch;
 
     /** Group block size. */
     private long grpBlockSize;
@@ -97,9 +121,6 @@ public class IgfsDataManager extends IgfsManager {
     /** Affinity key generator. */
     private AtomicLong affKeyGen = new AtomicLong();
 
-    /** IGFS executor service. */
-    private ExecutorService igfsSvc;
-
     /** Request ID counter for write messages. */
     private AtomicLong reqIdCtr = new AtomicLong();
 
@@ -109,70 +130,25 @@ public class IgfsDataManager extends IgfsManager {
     /** Async file delete worker. */
     private AsyncDeleteWorker delWorker;
 
-    /** Trash purge timeout. */
-    private long trashPurgeTimeout;
-
     /** On-going remote reads futures. */
     private final ConcurrentHashMap8<IgfsBlockKey, IgniteInternalFuture<byte[]>> rmtReadFuts =
         new ConcurrentHashMap8<>();
-
-    /** Executor service for puts in dual mode */
-    private volatile ExecutorService putExecSvc;
-
-    /** Executor service for puts in dual mode shutdown flag. */
-    private volatile boolean putExecSvcShutdown;
-
-    /** Maximum amount of data in pending puts. */
-    private volatile long maxPendingPuts;
-
-    /** Current amount of data in pending puts. */
-    private long curPendingPuts;
-
-    /** Lock for pending puts. */
-    private final Lock pendingPutsLock = new ReentrantLock();
-
-    /** Condition for pending puts. */
-    private final Condition pendingPutsCond = pendingPutsLock.newCondition();
 
     /**
      *
      */
     void awaitInit() {
-        if (!dataCacheStartFut.isDone()) {
-            try {
-                dataCacheStartFut.get();
-            }
-            catch (IgniteCheckedException e) {
-                throw new IgniteException(e);
-            }
+        try {
+            dataCacheStartLatch.await();
+        }
+        catch (InterruptedException e) {
+            throw new IgniteInterruptedException(e);
         }
     }
 
     /** {@inheritDoc} */
     @Override protected void start0() throws IgniteCheckedException {
-        igfs = igfsCtx.igfs();
-
-        dataCachePrj = igfsCtx.kernalContext().cache().internalCache(igfsCtx.configuration().getDataCacheName());
-        dataCache = igfsCtx.kernalContext().cache().internalCache(igfsCtx.configuration().getDataCacheName());
-
-        dataCacheStartFut = igfsCtx.kernalContext().cache().internalCache(igfsCtx.configuration().getDataCacheName())
-            .preloader().startFuture();
-
-        if (dataCache.configuration().getAtomicityMode() != TRANSACTIONAL)
-            throw new IgniteCheckedException("Data cache should be transactional: " +
-                igfsCtx.configuration().getDataCacheName());
-
-        metrics = igfsCtx.igfs().localMetrics();
-
-        assert dataCachePrj != null;
-
-        CacheAffinityKeyMapper mapper = igfsCtx.kernalContext().cache()
-            .internalCache(igfsCtx.configuration().getDataCacheName()).configuration().getAffinityMapper();
-
-        grpSize = mapper instanceof IgfsGroupDataBlocksKeyMapper ?
-            ((IgfsGroupDataBlocksKeyMapper)mapper).groupSize() : 1;
-
-        grpBlockSize = igfsCtx.configuration().getBlockSize() * grpSize;
+        dataCacheStartLatch = new CountDownLatch(1);
 
         String igfsName = igfsCtx.configuration().getName();
 
@@ -202,31 +178,36 @@ public class IgfsDataManager extends IgfsManager {
             }
         }, EVT_NODE_LEFT, EVT_NODE_FAILED);
 
-        igfsSvc = igfsCtx.kernalContext().getIgfsExecutorService();
-
-        trashPurgeTimeout = igfsCtx.configuration().getTrashPurgeTimeout();
-
-        putExecSvc = igfsCtx.configuration().getDualModePutExecutorService();
-
-        if (putExecSvc != null)
-            putExecSvcShutdown = igfsCtx.configuration().getDualModePutExecutorServiceShutdown();
-        else {
-            int coresCnt = Runtime.getRuntime().availableProcessors();
-
-            // Note that we do not pre-start threads here as IGFS pool may not be needed.
-            putExecSvc = new IgniteThreadPoolExecutor(coresCnt, coresCnt, 0, new LinkedBlockingDeque<Runnable>());
-
-            putExecSvcShutdown = true;
-        }
-
-        maxPendingPuts = igfsCtx.configuration().getDualModeMaxPendingPutsSize();
-
         delWorker = new AsyncDeleteWorker(igfsCtx.kernalContext().gridName(),
             "igfs-" + igfsName + "-delete-worker", log);
     }
 
     /** {@inheritDoc} */
+    @SuppressWarnings("unchecked")
     @Override protected void onKernalStart0() throws IgniteCheckedException {
+        dataCachePrj = igfsCtx.kernalContext().cache().getOrStartCache(igfsCtx.configuration().getDataCacheName());
+
+        assert dataCachePrj != null;
+
+        dataCache = (IgniteInternalCache)dataCachePrj;
+
+        AffinityKeyMapper mapper = igfsCtx.kernalContext().cache()
+            .internalCache(igfsCtx.configuration().getDataCacheName()).configuration().getAffinityMapper();
+
+        grpSize = mapper instanceof IgfsGroupDataBlocksKeyMapper ?
+            ((IgfsGroupDataBlocksKeyMapper)mapper).getGroupSize() : 1;
+
+        grpBlockSize = igfsCtx.configuration().getBlockSize() * grpSize;
+
+        assert grpBlockSize != 0;
+
+        igfsCtx.kernalContext().cache().internalCache(igfsCtx.configuration().getDataCacheName()).preloader()
+            .startFuture().listen(new CI1<IgniteInternalFuture<Object>>() {
+            @Override public void apply(IgniteInternalFuture<Object> f) {
+                dataCacheStartLatch.countDown();
+            }
+        });
+
         new Thread(delWorker).start();
     }
 
@@ -244,9 +225,6 @@ public class IgfsDataManager extends IgfsManager {
         catch (IgniteInterruptedCheckedException e) {
             log.warning("Got interrupter while waiting for delete worker to stop (will continue stopping).", e);
         }
-
-        if (putExecSvcShutdown)
-            U.shutdownNow(getClass(), putExecSvc, log);
     }
 
     /**
@@ -260,7 +238,7 @@ public class IgfsDataManager extends IgfsManager {
      * @return Maximum number of bytes for IGFS data cache.
      */
     public long maxSpaceSize() {
-        return dataCachePrj.igfsDataSpaceMax();
+        return (igfsCtx.configuration().getMaxSpaceSize() <= 0) ? 0 : dataCachePrj.igfsDataSpaceMax();
     }
 
     /**
@@ -270,9 +248,10 @@ public class IgfsDataManager extends IgfsManager {
      * @param prevAffKey Affinity key of previous block.
      * @return Affinity key.
      */
+    @SuppressWarnings("ConstantConditions")
     public IgniteUuid nextAffinityKey(@Nullable IgniteUuid prevAffKey) {
         // Do not generate affinity key for non-affinity nodes.
-        if (!isAffinityNode(dataCache.configuration()))
+        if (!dataCache.context().affinityNode())
             return null;
 
         UUID nodeId = igfsCtx.kernalContext().localNodeId();
@@ -315,61 +294,9 @@ public class IgfsDataManager extends IgfsManager {
         if (cfg.getPerNodeParallelBatchCount() > 0)
             ldr.perNodeParallelOperations(cfg.getPerNodeParallelBatchCount());
 
-        ldr.updater(DataStreamerCacheUpdaters.<IgfsBlockKey, byte[]>batchedSorted());
+        ldr.receiver(DataStreamerCacheUpdaters.<IgfsBlockKey, byte[]>batchedSorted());
 
         return ldr;
-    }
-
-    /**
-     * Get list of local data blocks of the given file.
-     *
-     * @param fileInfo File info.
-     * @return List of local data block indices.
-     * @throws IgniteCheckedException If failed.
-     */
-    public List<Long> listLocalDataBlocks(IgfsFileInfo fileInfo)
-        throws IgniteCheckedException {
-        assert fileInfo != null;
-
-        int prevGrpIdx = 0; // Block index within affinity group.
-
-        boolean prevPrimaryFlag = false; // Whether previous block was primary.
-
-        List<Long> res = new ArrayList<>();
-
-        for (long i = 0; i < fileInfo.blocksCount(); i++) {
-            // Determine group index.
-            int grpIdx = (int)(i % grpSize);
-
-            if (prevGrpIdx < grpIdx) {
-                // Reuse existing affinity result.
-                if (prevPrimaryFlag)
-                    res.add(i);
-            }
-            else {
-                // Re-calculate affinity result.
-                IgfsBlockKey key = new IgfsBlockKey(fileInfo.id(), fileInfo.affinityKey(),
-                    fileInfo.evictExclude(), i);
-
-                Collection<ClusterNode> affNodes = dataCache.affinity().mapKeyToPrimaryAndBackups(key);
-
-                assert affNodes != null && !affNodes.isEmpty();
-
-                ClusterNode primaryNode = affNodes.iterator().next();
-
-                if (primaryNode.id().equals(igfsCtx.kernalContext().localNodeId())) {
-                    res.add(i);
-
-                    prevPrimaryFlag = true;
-                }
-                else
-                    prevPrimaryFlag = false;
-            }
-
-            prevGrpIdx = grpIdx;
-        }
-
-        return res;
     }
 
     /**
@@ -382,11 +309,9 @@ public class IgfsDataManager extends IgfsManager {
      * @return Requested data block or {@code null} if nothing found.
      * @throws IgniteCheckedException If failed.
      */
-    @Nullable public IgniteInternalFuture<byte[]> dataBlock(final IgfsFileInfo fileInfo, final IgfsPath path,
+    @Nullable public IgniteInternalFuture<byte[]> dataBlock(final IgfsEntryInfo fileInfo, final IgfsPath path,
         final long blockIdx, @Nullable final IgfsSecondaryFileSystemPositionedReadable secReader)
         throws IgniteCheckedException {
-        //assert validTxState(any); // Allow this method call for any transaction state.
-
         assert fileInfo != null;
         assert blockIdx >= 0;
 
@@ -402,6 +327,8 @@ public class IgfsDataManager extends IgfsManager {
         IgniteInternalFuture<byte[]> fut = dataCachePrj.getAsync(key);
 
         if (secReader != null) {
+            Executor exec = igfsCtx.kernalContext().pools().poolForPolicy(GridIoPolicy.IGFS_POOL);
+
             fut = fut.chain(new CX1<IgniteInternalFuture<byte[]>, byte[]>() {
                 @Override public byte[] applyx(IgniteInternalFuture<byte[]> fut) throws IgniteCheckedException {
                     byte[] res = fut.get();
@@ -413,45 +340,11 @@ public class IgfsDataManager extends IgfsManager {
 
                         if (oldRmtReadFut == null) {
                             try {
-                                if (log.isDebugEnabled())
-                                    log.debug("Reading non-local data block in the secondary file system [path=" +
-                                        path + ", fileInfo=" + fileInfo + ", blockIdx=" + blockIdx + ']');
-
-                                int blockSize = fileInfo.blockSize();
-
-                                long pos = blockIdx * blockSize; // Calculate position for Hadoop
-
-                                res = new byte[blockSize];
-
-                                int read = 0;
-
-                                synchronized (secReader) {
-                                    try {
-                                        // Delegate to the secondary file system.
-                                        while (read < blockSize) {
-                                            int r = secReader.read(pos + read, res, read, blockSize - read);
-
-                                            if (r < 0)
-                                                break;
-
-                                            read += r;
-                                        }
-                                    }
-                                    catch (IOException e) {
-                                        throw new IgniteCheckedException("Failed to read data due to secondary file system " +
-                                            "exception: " + e.getMessage(), e);
-                                    }
-                                }
-
-                                // If we did not read full block at the end of the file - trim it.
-                                if (read != blockSize)
-                                    res = Arrays.copyOf(res, read);
+                                res = secondaryDataBlock(path, blockIdx, secReader, fileInfo.blockSize());
 
                                 rmtReadFut.onDone(res);
 
-                                putSafe(key, res);
-
-                                metrics.addReadBlocks(1, 1);
+                                putBlock(fileInfo.blockSize(), key, res);
                             }
                             catch (IgniteCheckedException e) {
                                 rmtReadFut.onDone(e);
@@ -468,37 +361,105 @@ public class IgfsDataManager extends IgfsManager {
                             // Wait for existing future to finish and get it's result.
                             res = oldRmtReadFut.get();
 
-                            metrics.addReadBlocks(1, 0);
+                            igfsCtx.metrics().addReadBlocks(1, 0);
                         }
                     }
                     else
-                        metrics.addReadBlocks(1, 0);
+                        igfsCtx.metrics().addReadBlocks(1, 0);
 
                     return res;
                 }
-            });
+            }, exec);
         }
         else
-            metrics.addReadBlocks(1, 0);
+            igfsCtx.metrics().addReadBlocks(1, 0);
 
         return fut;
     }
 
     /**
+     * Get data block for specified block index from secondary reader.
+     *
+     * @param path Path reading from.
+     * @param blockIdx Block index.
+     * @param secReader Optional secondary file system reader.
+     * @param blockSize Block size.
+     * @return Requested data block or {@code null} if nothing found.
+     * @throws IgniteCheckedException If failed.
+     */
+    @Nullable public byte[] secondaryDataBlock(IgfsPath path, long blockIdx,
+        IgfsSecondaryFileSystemPositionedReadable secReader, int blockSize) throws IgniteCheckedException {
+        if (log.isDebugEnabled())
+            log.debug("Reading non-local data block in the secondary file system [path=" +
+                path + ", blockIdx=" + blockIdx + ']');
+
+        long pos = blockIdx * blockSize; // Calculate position for Hadoop
+
+        byte[] res = new byte[blockSize];
+
+        int read = 0;
+
+        try {
+            // Delegate to the secondary file system.
+            while (read < blockSize) {
+                int r = secReader.read(pos + read, res, read, blockSize - read);
+
+                if (r < 0)
+                    break;
+
+                read += r;
+            }
+        }
+        catch (IOException e) {
+            throw new IgniteCheckedException("Failed to read data due to secondary file system " +
+                "exception: " + e.getMessage(), e);
+        }
+
+        // If we did not read full block at the end of the file - trim it.
+        if (read != blockSize)
+            res = Arrays.copyOf(res, read);
+
+        igfsCtx.metrics().addReadBlocks(1, 1);
+
+        return res;
+    }
+
+    /**
+     * Stores the given block in data cache.
+     *
+     * @param blockSize The size of the block.
+     * @param key The data cache key of the block.
+     * @param data The new value of the block.
+     * @throws IgniteCheckedException If failed.
+     */
+    private void putBlock(int blockSize, IgfsBlockKey key, byte[] data) throws IgniteCheckedException {
+        if (data.length < blockSize)
+            // partial (incomplete) block:
+            dataCachePrj.invoke(key, new IgfsDataPutProcessor(data));
+        else {
+            // whole block:
+            assert data.length == blockSize;
+
+            dataCachePrj.put(key, data);
+        }
+    }
+
+
+    /**
      * Registers write future in igfs data manager.
      *
-     * @param fileInfo File info of file opened to write.
+     * @param fileId File ID.
      * @return Future that will be completed when all ack messages are received or when write failed.
      */
-    public IgniteInternalFuture<Boolean> writeStart(IgfsFileInfo fileInfo) {
-        WriteCompletionFuture fut = new WriteCompletionFuture(fileInfo.id());
+    public IgniteInternalFuture<Boolean> writeStart(IgniteUuid fileId) {
+        WriteCompletionFuture fut = new WriteCompletionFuture(fileId);
 
-        WriteCompletionFuture oldFut = pendingWrites.putIfAbsent(fileInfo.id(), fut);
+        WriteCompletionFuture oldFut = pendingWrites.putIfAbsent(fileId, fut);
 
-        assert oldFut == null : "Opened write that is being concurrently written: " + fileInfo;
+        assert oldFut == null : "Opened write that is being concurrently written: " + fileId;
 
         if (log.isDebugEnabled())
-            log.debug("Registered write completion future for file output stream [fileInfo=" + fileInfo +
+            log.debug("Registered write completion future for file output stream [fileId=" + fileId +
                 ", fut=" + fut + ']');
 
         return fut;
@@ -507,18 +468,14 @@ public class IgfsDataManager extends IgfsManager {
     /**
      * Notifies data manager that no further writes will be performed on stream.
      *
-     * @param fileInfo File info being written.
+     * @param fileId File ID.
+     * @throws IgniteCheckedException If failed.
      */
-    public void writeClose(IgfsFileInfo fileInfo) {
-        WriteCompletionFuture fut = pendingWrites.get(fileInfo.id());
+    public void writeClose(IgniteUuid fileId) throws IgniteCheckedException {
+        WriteCompletionFuture fut = pendingWrites.get(fileId);
 
         if (fut != null)
             fut.markWaitingLastAck();
-        else {
-            if (log.isDebugEnabled())
-                log.debug("Failed to find write completion future for file in pending write map (most likely it was " +
-                    "failed): " + fileInfo);
-        }
     }
 
     /**
@@ -538,7 +495,7 @@ public class IgfsDataManager extends IgfsManager {
      * @throws IgniteCheckedException If failed.
      */
     @Nullable public byte[] storeDataBlocks(
-        IgfsFileInfo fileInfo,
+        IgfsEntryInfo fileInfo,
         long reservedLen,
         @Nullable byte[] remainder,
         int remainderLen,
@@ -571,7 +528,7 @@ public class IgfsDataManager extends IgfsManager {
      * @throws IOException If store failed.
      */
     @Nullable public byte[] storeDataBlocks(
-        IgfsFileInfo fileInfo,
+        IgfsEntryInfo fileInfo,
         long reservedLen,
         @Nullable byte[] remainder,
         int remainderLen,
@@ -593,9 +550,7 @@ public class IgfsDataManager extends IgfsManager {
      * @param fileInfo File details to remove data for.
      * @return Delete future that will be completed when file is actually erased.
      */
-    public IgniteInternalFuture<Object> delete(IgfsFileInfo fileInfo) {
-        //assert validTxState(any); // Allow this method call for any transaction state.
-
+    public IgniteInternalFuture<Object> delete(IgfsEntryInfo fileInfo) {
         if (!fileInfo.isFile()) {
             if (log.isDebugEnabled())
                 log.debug("Cannot delete content of not-data file: " + fileInfo);
@@ -611,7 +566,7 @@ public class IgfsDataManager extends IgfsManager {
      * @param fileInfo File info.
      * @return Block key.
      */
-    public IgfsBlockKey blockKey(long blockIdx, IgfsFileInfo fileInfo) {
+    public IgfsBlockKey blockKey(long blockIdx, IgfsEntryInfo fileInfo) {
         if (fileInfo.affinityKey() != null)
             return new IgfsBlockKey(fileInfo.id(), fileInfo.affinityKey(), fileInfo.evictExclude(), blockIdx);
 
@@ -632,7 +587,7 @@ public class IgfsDataManager extends IgfsManager {
      * @param range Range to clean up.
      * @param cleanNonColocated {@code True} if all blocks should be cleaned.
      */
-    public void cleanBlocks(IgfsFileInfo fileInfo, IgfsFileAffinityRange range, boolean cleanNonColocated) {
+    public void cleanBlocks(IgfsEntryInfo fileInfo, IgfsFileAffinityRange range, boolean cleanNonColocated) {
         long startIdx = range.startOffset() / fileInfo.blockSize();
 
         long endIdx = range.endOffset() / fileInfo.blockSize();
@@ -658,11 +613,11 @@ public class IgfsDataManager extends IgfsManager {
     }
 
     /**
-     * Moves all colocated blocks in range to non-colocated keys.
+     * Moves all collocated blocks in range to non-colocated keys.
      * @param fileInfo File info to move data for.
      * @param range Range to move.
      */
-    public void spreadBlocks(IgfsFileInfo fileInfo, IgfsFileAffinityRange range) {
+    public void spreadBlocks(IgfsEntryInfo fileInfo, IgfsFileAffinityRange range) {
         long startIdx = range.startOffset() / fileInfo.blockSize();
 
         long endIdx = range.endOffset() / fileInfo.blockSize();
@@ -690,7 +645,7 @@ public class IgfsDataManager extends IgfsManager {
                                 byte[] val = vals.get(colocatedKey);
 
                                 if (val != null) {
-                                    dataCachePrj.putx(key, val);
+                                    putBlock(fileInfo.blockSize(), key, val);
 
                                     tx.commit();
                                 }
@@ -737,7 +692,7 @@ public class IgfsDataManager extends IgfsManager {
      * @return Affinity blocks locations.
      * @throws IgniteCheckedException If failed.
      */
-    public Collection<IgfsBlockLocation> affinity(IgfsFileInfo info, long start, long len)
+    public Collection<IgfsBlockLocation> affinity(IgfsEntryInfo info, long start, long len)
         throws IgniteCheckedException {
         return affinity(info, start, len, 0);
     }
@@ -752,9 +707,8 @@ public class IgfsDataManager extends IgfsManager {
      * @return Affinity blocks locations.
      * @throws IgniteCheckedException If failed.
      */
-    public Collection<IgfsBlockLocation> affinity(IgfsFileInfo info, long start, long len, long maxLen)
+    public Collection<IgfsBlockLocation> affinity(IgfsEntryInfo info, long start, long len, long maxLen)
         throws IgniteCheckedException {
-        assert validTxState(false);
         assert info.isFile() : "Failed to get affinity (not a file): " + info;
         assert start >= 0 : "Start position should not be negative: " + start;
         assert len >= 0 : "Part length should not be negative: " + len;
@@ -861,7 +815,7 @@ public class IgfsDataManager extends IgfsManager {
      * @param maxLen Maximum allowed split length.
      * @param res Result collection to add regions to.
      */
-    private void affinity0(IgfsFileInfo info, long start, long len, long maxLen, Deque<IgfsBlockLocation> res) {
+    private void affinity0(IgfsEntryInfo info, long start, long len, long maxLen, Deque<IgfsBlockLocation> res) {
         long firstGrpIdx = start / grpBlockSize;
         long limitGrpIdx = (start + len + grpBlockSize - 1) / grpBlockSize;
 
@@ -984,21 +938,6 @@ public class IgfsDataManager extends IgfsManager {
     }
 
     /**
-     * Check transaction is (not) started.
-     *
-     * @param inTx Expected transaction state.
-     * @return Transaction state is correct.
-     */
-    private boolean validTxState(boolean inTx) {
-        boolean txState = inTx == (dataCachePrj.tx() != null);
-
-        assert txState : (inTx ? "Method cannot be called outside transaction: " :
-            "Method cannot be called in transaction: ") + dataCachePrj.tx();
-
-        return txState;
-    }
-
-    /**
      * @param fileId File ID.
      * @param node Node to process blocks on.
      * @param blocks Blocks to put in cache.
@@ -1029,26 +968,18 @@ public class IgfsDataManager extends IgfsManager {
         if (!node.isLocal()) {
             final IgfsBlocksMessage msg = new IgfsBlocksMessage(fileId, batchId, blocks);
 
-            callIgfsLocalSafe(new GridPlainCallable<Object>() {
-                @Override @Nullable public Object call() throws Exception {
-                    try {
-                        igfsCtx.send(nodeId, topic, msg, SYSTEM_POOL);
-                    } catch (IgniteCheckedException e) {
-                        completionFut.onError(nodeId, e);
-                    }
-
-                    return null;
-                }
-            });
+            try {
+                igfsCtx.send(nodeId, topic, msg, IGFS_POOL);
+            }
+            catch (IgniteCheckedException e) {
+                completionFut.onError(nodeId, e);
+            }
         }
         else {
-            callIgfsLocalSafe(new GridPlainCallable<Object>() {
-                @Override
-                @Nullable
-                public Object call() throws Exception {
+            igfsCtx.runInIgfsThreadPool(new Runnable() {
+                @Override public void run() {
                     storeBlocksAsync(blocks).listen(new CI1<IgniteInternalFuture<?>>() {
-                        @Override
-                        public void apply(IgniteInternalFuture<?> fut) {
+                        @Override public void apply(IgniteInternalFuture<?> fut) {
                             try {
                                 fut.get();
 
@@ -1059,8 +990,6 @@ public class IgfsDataManager extends IgfsManager {
                             }
                         }
                     });
-
-                    return null;
                 }
             });
         }
@@ -1074,39 +1003,30 @@ public class IgfsDataManager extends IgfsManager {
      * @param colocatedKey Block key.
      * @param startOff Data start offset within block.
      * @param data Data to write.
+     * @param blockSize The block size.
      * @throws IgniteCheckedException If update failed.
      */
     private void processPartialBlockWrite(IgniteUuid fileId, IgfsBlockKey colocatedKey, int startOff,
-        byte[] data) throws IgniteCheckedException {
+        byte[] data, int blockSize) throws IgniteCheckedException {
         if (dataCachePrj.igfsDataSpaceUsed() >= dataCachePrj.igfsDataSpaceMax()) {
-            try {
-                igfs.awaitDeletesAsync().get(trashPurgeTimeout);
-            }
-            catch (IgniteFutureTimeoutCheckedException ignore) {
-                // Ignore.
-            }
+            final WriteCompletionFuture completionFut = pendingWrites.get(fileId);
 
-            // Additional size check.
-            if (dataCachePrj.igfsDataSpaceUsed() >= dataCachePrj.igfsDataSpaceMax()) {
-                final WriteCompletionFuture completionFut = pendingWrites.get(fileId);
-
-                if (completionFut == null) {
-                    if (log.isDebugEnabled())
-                        log.debug("Missing completion future for file write request (most likely exception occurred " +
-                            "which will be thrown upon stream close) [fileId=" + fileId + ']');
-
-                    return;
-                }
-
-                IgfsOutOfSpaceException e = new IgfsOutOfSpaceException("Failed to write data block " +
-                    "(IGFS maximum data size exceeded) [used=" + dataCachePrj.igfsDataSpaceUsed() +
-                    ", allowed=" + dataCachePrj.igfsDataSpaceMax() + ']');
-
-                completionFut.onDone(new IgniteCheckedException("Failed to write data (not enough space on node): " +
-                    igfsCtx.kernalContext().localNodeId(), e));
+            if (completionFut == null) {
+                if (log.isDebugEnabled())
+                    log.debug("Missing completion future for file write request (most likely exception occurred " +
+                        "which will be thrown upon stream close) [fileId=" + fileId + ']');
 
                 return;
             }
+
+            IgfsOutOfSpaceException e = new IgfsOutOfSpaceException("Failed to write data block " +
+                "(IGFS maximum data size exceeded) [used=" + dataCachePrj.igfsDataSpaceUsed() +
+                ", allowed=" + dataCachePrj.igfsDataSpaceMax() + ']');
+
+            completionFut.onDone(new IgniteCheckedException("Failed to write data (not enough space on node): " +
+                igfsCtx.kernalContext().localNodeId(), e));
+
+            return;
         }
 
         // No affinity key present, just concat and return.
@@ -1118,7 +1038,7 @@ public class IgfsDataManager extends IgfsManager {
 
         // If writing from block beginning, just put and return.
         if (startOff == 0) {
-            dataCachePrj.putx(colocatedKey, data);
+            putBlock(blockSize, colocatedKey, data);
 
             return;
         }
@@ -1157,89 +1077,6 @@ public class IgfsDataManager extends IgfsManager {
     }
 
     /**
-     * Executes callable in IGFS executor service. If execution rejected, callable will be executed
-     * in caller thread.
-     *
-     * @param c Callable to execute.
-     */
-    private <T> void callIgfsLocalSafe(Callable<T> c) {
-        try {
-            igfsSvc.submit(c);
-        }
-        catch (RejectedExecutionException ignored) {
-            // This exception will happen if network speed is too low and data comes faster
-            // than we can send it to remote nodes.
-            try {
-                c.call();
-            }
-            catch (Exception e) {
-                log.warning("Failed to execute IGFS callable: " + c, e);
-            }
-        }
-    }
-
-    /**
-     * Put data block read from the secondary file system to the cache.
-     *
-     * @param key Key.
-     * @param data Data.
-     * @throws IgniteCheckedException If failed.
-     */
-    private void putSafe(final IgfsBlockKey key, final byte[] data) throws IgniteCheckedException {
-        assert key != null;
-        assert data != null;
-
-        if (maxPendingPuts > 0) {
-            pendingPutsLock.lock();
-
-            try {
-                while (curPendingPuts > maxPendingPuts)
-                    pendingPutsCond.await(2000, TimeUnit.MILLISECONDS);
-
-                curPendingPuts += data.length;
-            }
-            catch (InterruptedException ignore) {
-                throw new IgniteCheckedException("Failed to put IGFS data block into cache due to interruption: " + key);
-            }
-            finally {
-                pendingPutsLock.unlock();
-            }
-        }
-
-        Runnable task = new Runnable() {
-            @Override public void run() {
-                try {
-                    dataCachePrj.putx(key, data);
-                }
-                catch (IgniteCheckedException e) {
-                    U.warn(log, "Failed to put IGFS data block into cache [key=" + key + ", err=" + e + ']');
-                }
-                finally {
-                    if (maxPendingPuts > 0) {
-                        pendingPutsLock.lock();
-
-                        try {
-                            curPendingPuts -= data.length;
-
-                            pendingPutsCond.signalAll();
-                        }
-                        finally {
-                            pendingPutsLock.unlock();
-                        }
-                    }
-                }
-            }
-        };
-
-        try {
-            putExecSvc.submit(task);
-        }
-        catch (RejectedExecutionException ignore) {
-            task.run();
-        }
-    }
-
-    /**
      * @param blocks Blocks to write.
      * @return Future that will be completed after put is done.
      */
@@ -1248,26 +1085,10 @@ public class IgfsDataManager extends IgfsManager {
         assert !blocks.isEmpty();
 
         if (dataCachePrj.igfsDataSpaceUsed() >= dataCachePrj.igfsDataSpaceMax()) {
-            try {
-                try {
-                    igfs.awaitDeletesAsync().get(trashPurgeTimeout);
-                }
-                catch (IgniteFutureTimeoutCheckedException ignore) {
-                    // Ignore.
-                }
-
-                // Additional size check.
-                if (dataCachePrj.igfsDataSpaceUsed() >= dataCachePrj.igfsDataSpaceMax())
-                    return new GridFinishedFuture<Object>(
-                        new IgfsOutOfSpaceException("Failed to write data block (IGFS maximum data size " +
-                            "exceeded) [used=" + dataCachePrj.igfsDataSpaceUsed() +
-                            ", allowed=" + dataCachePrj.igfsDataSpaceMax() + ']'));
-
-            }
-            catch (IgniteCheckedException e) {
-                return new GridFinishedFuture<>(new IgniteCheckedException("Failed to store data " +
-                    "block due to unexpected exception.", e));
-            }
+            return new GridFinishedFuture<Object>(
+                new IgfsOutOfSpaceException("Failed to write data block (IGFS maximum data size " +
+                    "exceeded) [used=" + dataCachePrj.igfsDataSpaceUsed() +
+                    ", allowed=" + dataCachePrj.igfsDataSpaceMax() + ']'));
         }
 
         return dataCachePrj.putAllAsync(blocks);
@@ -1291,8 +1112,7 @@ public class IgfsDataManager extends IgfsManager {
 
                 try {
                     // Send reply back to node.
-                    igfsCtx.send(nodeId, topic, new IgfsAckMessage(blocksMsg.fileId(), blocksMsg.id(), err),
-                        SYSTEM_POOL);
+                    igfsCtx.send(nodeId, topic, new IgfsAckMessage(blocksMsg.fileId(), blocksMsg.id(), err), IGFS_POOL);
                 }
                 catch (IgniteCheckedException e) {
                     U.warn(log, "Failed to send batch acknowledgement (did node leave the grid?) [nodeId=" + nodeId +
@@ -1306,6 +1126,7 @@ public class IgfsDataManager extends IgfsManager {
      * @param nodeId Node ID.
      * @param ackMsg Write acknowledgement message.
      */
+    @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
     private void processAckMessage(UUID nodeId, IgfsAckMessage ackMsg) {
         try {
             ackMsg.finishUnmarshal(igfsCtx.kernalContext().config().getMarshaller(), null);
@@ -1343,7 +1164,7 @@ public class IgfsDataManager extends IgfsManager {
      */
     private IgfsBlockKey createBlockKey(
         long block,
-        IgfsFileInfo fileInfo,
+        IgfsEntryInfo fileInfo,
         IgfsFileAffinityRange locRange
     ) {
         // If affinityKey is present, return block key as is.
@@ -1351,7 +1172,7 @@ public class IgfsDataManager extends IgfsManager {
             return new IgfsBlockKey(fileInfo.id(), fileInfo.affinityKey(), fileInfo.evictExclude(), block);
 
         // If range is done, no colocated writes are attempted.
-        if (locRange == null || locRange.done())
+        if (locRange == null)
             return new IgfsBlockKey(fileInfo.id(), null, fileInfo.evictExclude(), block);
 
         long blockStart = block * fileInfo.blockSize();
@@ -1361,15 +1182,6 @@ public class IgfsDataManager extends IgfsManager {
             IgniteUuid affKey = fileInfo.fileMap().affinityKey(blockStart, false);
 
             return new IgfsBlockKey(fileInfo.id(), affKey, fileInfo.evictExclude(), block);
-        }
-
-        // Check if we have enough free space to do colocated writes.
-        if (dataCachePrj.igfsDataSpaceUsed() > dataCachePrj.igfsDataSpaceMax() *
-            igfsCtx.configuration().getFragmentizerLocalWritesRatio()) {
-            // Forbid further co-location.
-            locRange.markDone();
-
-            return new IgfsBlockKey(fileInfo.id(), null, fileInfo.evictExclude(), block);
         }
 
         if (!locRange.belongs(blockStart))
@@ -1397,8 +1209,9 @@ public class IgfsDataManager extends IgfsManager {
          * @throws IgniteCheckedException If failed.
          * @return Data remainder if {@code flush} flag is {@code false}.
          */
+        @SuppressWarnings("ConstantConditions")
         @Nullable public byte[] storeDataBlocks(
-            IgfsFileInfo fileInfo,
+            IgfsEntryInfo fileInfo,
             long reservedLen,
             @Nullable byte[] remainder,
             final int remainderLen,
@@ -1475,7 +1288,7 @@ public class IgfsDataManager extends IgfsManager {
                         if (!nodeBlocks.isEmpty()) {
                             processBatch(id, node, nodeBlocks);
 
-                            metrics.addWriteBlocks(1, 0);
+                            igfsCtx.metrics().addWriteBlocks(1, 0);
                         }
 
                         return portion;
@@ -1510,14 +1323,14 @@ public class IgfsDataManager extends IgfsManager {
 
                 if (size != blockSize) {
                     // Partial writes must be always synchronous.
-                    processPartialBlockWrite(id, key, block == first ? off : 0, portion);
+                    processPartialBlockWrite(id, key, block == first ? off : 0, portion, blockSize);
 
                     writtenTotal++;
                 }
                 else
                     nodeBlocks.put(key, portion);
 
-                metrics.addWriteBlocks(writtenTotal, writtenSecondary);
+                igfsCtx.metrics().addWriteBlocks(writtenTotal, writtenSecondary);
 
                 written += portion.length;
             }
@@ -1526,7 +1339,7 @@ public class IgfsDataManager extends IgfsManager {
             if (!nodeBlocks.isEmpty()) {
                 processBatch(id, node, nodeBlocks);
 
-                metrics.addWriteBlocks(nodeBlocks.size(), 0);
+                igfsCtx.metrics().addWriteBlocks(nodeBlocks.size(), 0);
             }
 
             assert written == len;
@@ -1657,10 +1470,10 @@ public class IgfsDataManager extends IgfsManager {
      */
     private class AsyncDeleteWorker extends GridWorker {
         /** File info for stop request. */
-        private final IgfsFileInfo stopInfo = new IgfsFileInfo();
+        private final IgfsEntryInfo stopInfo;
 
         /** Delete requests queue. */
-        private BlockingQueue<IgniteBiTuple<GridFutureAdapter<Object>, IgfsFileInfo>> delReqs =
+        private BlockingQueue<IgniteBiTuple<GridFutureAdapter<Object>, IgfsEntryInfo>> delReqs =
             new LinkedBlockingQueue<>();
 
         /**
@@ -1670,6 +1483,8 @@ public class IgfsDataManager extends IgfsManager {
          */
         protected AsyncDeleteWorker(@Nullable String gridName, String name, IgniteLogger log) {
             super(gridName, name, log);
+
+            stopInfo = IgfsUtils.createDirectory(IgniteUuid.randomUuid());
         }
 
         /**
@@ -1683,7 +1498,7 @@ public class IgfsDataManager extends IgfsManager {
          * @param info File info to delete.
          * @return Future which completes when entry is actually removed.
          */
-        private IgniteInternalFuture<Object> deleteAsync(IgfsFileInfo info) {
+        private IgniteInternalFuture<Object> deleteAsync(IgfsEntryInfo info) {
             GridFutureAdapter<Object> fut = new GridFutureAdapter<>();
 
             delReqs.offer(F.t(fut, info));
@@ -1692,13 +1507,14 @@ public class IgfsDataManager extends IgfsManager {
         }
 
         /** {@inheritDoc} */
+        @SuppressWarnings("ConstantConditions")
         @Override protected void body() throws InterruptedException, IgniteInterruptedCheckedException {
             try {
                 while (!isCancelled()) {
-                    IgniteBiTuple<GridFutureAdapter<Object>, IgfsFileInfo> req = delReqs.take();
+                    IgniteBiTuple<GridFutureAdapter<Object>, IgfsEntryInfo> req = delReqs.take();
 
                     GridFutureAdapter<Object> fut = req.get1();
-                    IgfsFileInfo fileInfo = req.get2();
+                    IgfsEntryInfo fileInfo = req.get2();
 
                     // Identity check.
                     if (fileInfo == stopInfo) {
@@ -1759,7 +1575,7 @@ public class IgfsDataManager extends IgfsManager {
                 if (log.isDebugEnabled())
                     log.debug("Stopping asynchronous igfs file delete thread: " + name());
 
-                IgniteBiTuple<GridFutureAdapter<Object>, IgfsFileInfo> req = delReqs.poll();
+                IgniteBiTuple<GridFutureAdapter<Object>, IgfsEntryInfo> req = delReqs.poll();
 
                 while (req != null) {
                     req.get1().onCancelled();
@@ -1771,6 +1587,19 @@ public class IgfsDataManager extends IgfsManager {
     }
 
     /**
+     * Allows output stream to await for all current acks.
+     *
+     * @param fileId File ID.
+     * @throws IgniteInterruptedCheckedException In case of interrupt.
+     */
+    void awaitAllAcksReceived(IgniteUuid fileId) throws IgniteInterruptedCheckedException {
+        WriteCompletionFuture fut = pendingWrites.get(fileId);
+
+        if (fut != null)
+            fut.awaitAllAcksReceived();
+    }
+
+    /**
      * Future that is completed when all participating
      */
     private class WriteCompletionFuture extends GridFutureAdapter<Boolean> {
@@ -1778,10 +1607,16 @@ public class IgfsDataManager extends IgfsManager {
         private static final long serialVersionUID = 0L;
 
         /** File id to remove future from map. */
-        private IgniteUuid fileId;
+        private final IgniteUuid fileId;
 
         /** Pending acks. */
-        private ConcurrentMap<UUID, Set<Long>> pendingAcks = new ConcurrentHashMap8<>();
+        private final ConcurrentMap<Long, UUID> ackMap = new ConcurrentHashMap8<>();
+
+        /** Lock for map-related conditions. */
+        private final Lock lock = new ReentrantLock();
+
+        /** Condition to wait for empty map. */
+        private final Condition allAcksRcvCond = lock.newCondition();
 
         /** Flag indicating future is waiting for last ack. */
         private volatile boolean awaitingLast;
@@ -1793,6 +1628,23 @@ public class IgfsDataManager extends IgfsManager {
             assert fileId != null;
 
             this.fileId = fileId;
+        }
+
+        /**
+         * Await all pending data blockes to be acked.
+         *
+         * @throws IgniteInterruptedCheckedException In case of interrupt.
+         */
+        public void awaitAllAcksReceived() throws IgniteInterruptedCheckedException {
+            lock.lock();
+
+            try {
+                while (!ackMap.isEmpty())
+                    U.await(allAcksRcvCond);
+            }
+            finally {
+                lock.unlock();
+            }
         }
 
         /** {@inheritDoc} */
@@ -1815,13 +1667,26 @@ public class IgfsDataManager extends IgfsManager {
          */
         private void onWriteRequest(UUID nodeId, long batchId) {
             if (!isDone()) {
-                Set<Long> reqIds = pendingAcks.get(nodeId);
+                UUID pushedOut = ackMap.putIfAbsent(batchId, nodeId);
 
-                if (reqIds == null)
-                    reqIds = F.addIfAbsent(pendingAcks, nodeId, new GridConcurrentHashSet<Long>());
-
-                reqIds.add(batchId);
+                assert pushedOut == null;
             }
+        }
+
+        /**
+         * Answers if there are some batches for the specified node we're currently waiting acks for.
+         *
+         * @param nodeId The node Id.
+         * @return If there are acks awaited from this node.
+         */
+        private boolean hasPendingAcks(UUID nodeId) {
+            assert nodeId != null;
+
+            for (Map.Entry<Long, UUID> e : ackMap.entrySet())
+                if (nodeId.equals(e.getValue()))
+                    return true;
+
+            return false;
         }
 
         /**
@@ -1831,10 +1696,12 @@ public class IgfsDataManager extends IgfsManager {
          * @param e Caught exception.
          */
         private void onError(UUID nodeId, IgniteCheckedException e) {
-            Set<Long> reqIds = pendingAcks.get(nodeId);
-
             // If waiting for ack from this node.
-            if (reqIds != null && !reqIds.isEmpty()) {
+            if (hasPendingAcks(nodeId)) {
+                ackMap.clear();
+
+                signalNoAcks();
+
                 if (e.hasCause(IgfsOutOfSpaceException.class))
                     onDone(new IgniteCheckedException("Failed to write data (not enough space on node): " + nodeId, e));
                 else
@@ -1851,18 +1718,31 @@ public class IgfsDataManager extends IgfsManager {
          */
         private void onWriteAck(UUID nodeId, long batchId) {
             if (!isDone()) {
-                Set<Long> reqIds = pendingAcks.get(nodeId);
-
-                assert reqIds != null : "Received acknowledgement message for not registered node [nodeId=" +
-                    nodeId + ", batchId=" + batchId + ']';
-
-                boolean rmv = reqIds.remove(batchId);
+                boolean rmv = ackMap.remove(batchId, nodeId);
 
                 assert rmv : "Received acknowledgement message for not registered batch [nodeId=" +
                     nodeId + ", batchId=" + batchId + ']';
 
-                if (awaitingLast && checkCompleted())
-                    onDone(true);
+                if (ackMap.isEmpty()) {
+                    signalNoAcks();
+
+                    if (awaitingLast)
+                        onDone(true);
+                }
+            }
+        }
+
+        /**
+         * Signal that currenlty there are no more pending acks.
+         */
+        private void signalNoAcks() {
+            lock.lock();
+
+            try {
+                allAcksRcvCond.signalAll();
+            }
+            finally {
+                lock.unlock();
             }
         }
 
@@ -1875,24 +1755,8 @@ public class IgfsDataManager extends IgfsManager {
             if (log.isDebugEnabled())
                 log.debug("Marked write completion future as awaiting last ack: " + fileId);
 
-            if (checkCompleted())
+            if (ackMap.isEmpty())
                 onDone(true);
-        }
-
-        /**
-         * @return True if received all request acknowledgements after {@link #markWaitingLastAck()} was called.
-         */
-        private boolean checkCompleted() {
-            for (Map.Entry<UUID, Set<Long>> entry : pendingAcks.entrySet()) {
-                Set<Long> reqIds = entry.getValue();
-
-                // If still waiting for some acks.
-                if (!reqIds.isEmpty())
-                    return false;
-            }
-
-            // Got match for each entry in sent map.
-            return true;
         }
     }
 }

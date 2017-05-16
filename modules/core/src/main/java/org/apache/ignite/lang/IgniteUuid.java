@@ -17,13 +17,17 @@
 
 package org.apache.ignite.lang;
 
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Collections;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.util.lang.GridIterator;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * This is a faster performing version of {@link UUID}. On basic tests this version is at least
@@ -172,7 +176,12 @@ public final class IgniteUuid implements Comparable<IgniteUuid>, Iterable<Ignite
         if (o == null)
             return 1;
 
-        return locId < o.locId ? -1 : locId > o.locId ? 1 : gid.compareTo(o.globalId());
+        int res = Long.compare(locId, o.locId);
+
+        if (res == 0)
+            res = gid.compareTo(o.globalId());
+
+        return res;
     }
 
     /** {@inheritDoc} */

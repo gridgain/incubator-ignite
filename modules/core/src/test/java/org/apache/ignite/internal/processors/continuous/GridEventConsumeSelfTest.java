@@ -17,32 +17,57 @@
 
 package org.apache.ignite.internal.processors.continuous;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.marshaller.optimized.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCompute;
+import org.apache.ignite.IgniteEvents;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.cluster.ClusterTopologyException;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.events.JobEvent;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.util.GridConcurrentHashSet;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.P1;
+import org.apache.ignite.internal.util.typedef.P2;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.events.EventType.*;
-import static org.apache.ignite.internal.processors.continuous.GridContinuousProcessor.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.events.EventType.EVTS_ALL;
+import static org.apache.ignite.events.EventType.EVTS_DISCOVERY;
+import static org.apache.ignite.events.EventType.EVT_JOB_FINISHED;
+import static org.apache.ignite.events.EventType.EVT_JOB_STARTED;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
+import static org.apache.ignite.internal.processors.continuous.GridContinuousProcessor.LocalRoutineInfo;
 
 /**
  * Event consume test.
  */
-public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements Serializable {
+public class GridEventConsumeSelfTest extends GridCommonAbstractTest {
     /** */
     private static final String PRJ_PRED_CLS_NAME = "org.apache.ignite.tests.p2p.GridEventConsumeProjectionPredicate";
 
@@ -54,6 +79,9 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
 
     /** Number of created consumes per thread in multithreaded test. */
     private static final int CONSUME_CNT = 500;
+
+    /** */
+    private static final TcpDiscoveryIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
 
     /** Consume latch. */
     private static volatile CountDownLatch consumeLatch;
@@ -71,21 +99,27 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
 
+        TcpDiscoverySpi disc = new TcpDiscoverySpi();
+
+        disc.setIpFinder(IP_FINDER);
+
+        cfg.setDiscoverySpi(disc);
+
+        ((TcpCommunicationSpi)cfg.getCommunicationSpi()).setSharedMemoryPort(-1);
+
         if (include)
             cfg.setUserAttributes(F.asMap("include", true));
-
-        cfg.setMarshaller(new OptimizedMarshaller(false));
 
         return cfg;
     }
 
     /** {@inheritDoc} */
-    @Override protected void beforeTestsStarted() throws Exception {
+    @Override protected void beforeTest() throws Exception {
         assertTrue(GRID_CNT > 1);
 
         include = true;
 
-        startGridsMultiThreaded(GRID_CNT - 1);
+        startGrids(GRID_CNT - 1);
 
         include = false;
 
@@ -93,32 +127,34 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
     }
 
     /** {@inheritDoc} */
-    @Override protected void afterTestsStopped() throws Exception {
-        stopAllGrids();
-    }
-
-    /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        assertEquals(GRID_CNT, grid(0).cluster().nodes().size());
+        try {
+            assertEquals(GRID_CNT, grid(0).cluster().nodes().size());
 
-        for (int i = 0; i < GRID_CNT; i++) {
-            IgniteKernal grid = (IgniteKernal)grid(i);
+            for (int i = 0; i < GRID_CNT; i++) {
+                IgniteEx grid = grid(i);
 
-            GridContinuousProcessor proc = grid.context().continuous();
+                GridContinuousProcessor proc = grid.context().continuous();
 
-            if (noAutoUnsubscribe) {
-                localRoutines(proc).clear();
+                try {
+                    if (!noAutoUnsubscribe) {
+                        Map rmtInfos = U.field(proc, "rmtInfos");
 
-                U.<Map>field(proc, "rmtInfos").clear();
+                        assertTrue("Unexpected remote infos: " + rmtInfos, rmtInfos.isEmpty());
+                    }
+                }
+                finally {
+                    U.<Map>field(proc, "rmtInfos").clear();
+                }
+
+                assertEquals(0, U.<Map>field(proc, "rmtInfos").size());
+                assertEquals(0, U.<Map>field(proc, "startFuts").size());
+                assertEquals(0, U.<Map>field(proc, "stopFuts").size());
+                assertEquals(0, U.<Map>field(proc, "bufCheckThreads").size());
             }
-
-            assertEquals(0, localRoutines(proc).size());
-            assertEquals(0, U.<Map>field(proc, "rmtInfos").size());
-            assertEquals(0, U.<Map>field(proc, "startFuts").size());
-            assertEquals(0, U.<Map>field(proc, "waitForStartAck").size());
-            assertEquals(0, U.<Map>field(proc, "stopFuts").size());
-            assertEquals(0, U.<Map>field(proc, "waitForStopAck").size());
-            assertEquals(0, U.<Map>field(proc, "pending").size());
+        }
+        finally {
+            stopAllGrids();
         }
     }
 
@@ -130,7 +166,7 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
         return F.view(U.<Map<UUID, LocalRoutineInfo>>field(proc, "locInfos").values(),
             new IgnitePredicate<LocalRoutineInfo>() {
                 @Override public boolean apply(LocalRoutineInfo info) {
-                    return info.handler().isForEvents();
+                    return info.handler().isEvents();
                 }
             });
     }
@@ -511,28 +547,6 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
     /**
      * @throws Exception If failed.
      */
-    public void testEmptyProjection() throws Exception {
-        try {
-            events(grid(0).cluster().forPredicate(F.<ClusterNode>alwaysFalse())).remoteListen(
-                new P2<UUID, Event>() {
-                    @Override public boolean apply(UUID nodeId, Event evt) {
-                        return true;
-                    }
-                },
-                null
-            );
-
-            assert false : "Exception was not thrown.";
-        }
-        catch (IgniteException e) {
-            assertTrue(e.getMessage().startsWith(
-                "Failed to register remote continuous listener (projection is empty)."));
-        }
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
     public void testStopByCallback() throws Exception {
         final Collection<UUID> nodeIds = new HashSet<>();
         final AtomicInteger cnt = new AtomicInteger();
@@ -665,7 +679,7 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
         final CountDownLatch latch = new CountDownLatch(GRID_CNT + 1);
 
         UUID consumeId = grid(0).events().remoteListen(
-            new P2<UUID, Event>() {
+            notSerializableProxy(new P2<UUID, Event>() {
                 @Override public boolean apply(UUID nodeId, Event evt) {
                     info("Event from " + nodeId + " [" + evt.shortDisplay() + ']');
 
@@ -677,12 +691,12 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
 
                     return true;
                 }
-            },
-            new P1<Event>() {
+            }),
+            notSerializableProxy(new P1<Event>() {
                 @Override public boolean apply(Event evt) {
                     return evt.type() == EVT_JOB_STARTED;
                 }
-            },
+            }),
             EVT_JOB_STARTED, EVT_JOB_FINISHED
         );
 
@@ -760,10 +774,13 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
     }
 
     /**
+     * TODO: IGNITE-585.
+     *
      * @throws Exception If failed.
      */
-    // TODO: GG-6730
-    public void _testNodeJoinWithP2P() throws Exception {
+    public void testNodeJoinWithP2P() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-585");
+
         final Collection<UUID> nodeIds = new HashSet<>();
         final AtomicInteger cnt = new AtomicInteger();
         final CountDownLatch latch = new CountDownLatch(GRID_CNT + 1);
@@ -800,8 +817,7 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
             assertEquals(GRID_CNT + 1, cnt.get());
         }
         finally {
-            stopGrid("anotherGrid1");
-            stopGrid("anotherGrid2");
+            stopGrid("anotherGrid");
 
             grid(0).events().stopRemoteListen(consumeId);
         }
@@ -865,35 +881,39 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
      * @throws Exception If failed.
      */
     public void testMasterNodeLeave() throws Exception {
-        Ignite g = startGrid("anotherGrid");
-
-        final UUID nodeId = g.cluster().localNode().id();
         final CountDownLatch latch = new CountDownLatch(GRID_CNT);
 
-        for (int i = 0; i < GRID_CNT; i++) {
-            grid(0).events().localListen(new IgnitePredicate<Event>() {
-                @Override public boolean apply(Event evt) {
-                    if (nodeId.equals(((DiscoveryEvent) evt).eventNode().id()))
-                        latch.countDown();
+        Ignite g = startGrid("anotherGrid");
 
-                    return true;
-                }
-            }, EVT_NODE_LEFT);
+        try {
+            final UUID nodeId = g.cluster().localNode().id();
+            for (int i = 0; i < GRID_CNT; i++) {
+                grid(i).events().localListen(new IgnitePredicate<Event>() {
+                    @Override public boolean apply(Event evt) {
+                        if (nodeId.equals(((DiscoveryEvent)evt).eventNode().id()))
+                            latch.countDown();
+
+                        return true;
+                    }
+                }, EVT_NODE_LEFT, EVT_NODE_FAILED);
+            }
+
+            g.events().remoteListen(
+                null,
+                new P1<Event>() {
+                    @Override public boolean apply(Event evt) {
+                        return true;
+                    }
+                },
+                EVTS_ALL
+            );
+
+        }
+        finally {
+            stopGrid("anotherGrid");
         }
 
-        g.events().remoteListen(
-            null,
-            new P1<Event>() {
-                @Override public boolean apply(Event evt) {
-                    return true;
-                }
-            },
-            EVTS_ALL
-        );
-
-        stopGrid("anotherGrid");
-
-        latch.await();
+        assert latch.await(3000, MILLISECONDS);
     }
 
     /**
@@ -902,44 +922,49 @@ public class GridEventConsumeSelfTest extends GridCommonAbstractTest implements 
     public void testMasterNodeLeaveNoAutoUnsubscribe() throws Exception {
         Ignite g = startGrid("anotherGrid");
 
-        final UUID nodeId = g.cluster().localNode().id();
-        final CountDownLatch discoLatch = new CountDownLatch(GRID_CNT);
+        final CountDownLatch discoLatch;
 
-        for (int i = 0; i < GRID_CNT; i++) {
-            grid(0).events().localListen(new IgnitePredicate<Event>() {
-                @Override public boolean apply(Event evt) {
-                    if (nodeId.equals(((DiscoveryEvent) evt).eventNode().id()))
-                        discoLatch.countDown();
+        try {
+            final UUID nodeId = g.cluster().localNode().id();
+            discoLatch = new CountDownLatch(GRID_CNT);
 
-                    return true;
-                }
-            }, EVT_NODE_LEFT);
+            for (int i = 0; i < GRID_CNT; i++) {
+                grid(0).events().localListen(new IgnitePredicate<Event>() {
+                    @Override public boolean apply(Event evt) {
+                        if (nodeId.equals(((DiscoveryEvent) evt).eventNode().id()))
+                            discoLatch.countDown();
+
+                        return true;
+                    }
+                }, EVT_NODE_LEFT);
+            }
+
+            consumeLatch = new CountDownLatch(GRID_CNT * 2 + 1);
+            consumeCnt = new AtomicInteger();
+
+            noAutoUnsubscribe = true;
+
+            g.events().remoteListen(
+                1, 0, false,
+                null,
+                new P1<Event>() {
+                    @Override public boolean apply(Event evt) {
+                        consumeLatch.countDown();
+                        consumeCnt.incrementAndGet();
+
+                        return true;
+                    }
+                },
+                EVT_JOB_STARTED
+            );
+
+            grid(0).compute().broadcast(F.noop());
+        }
+        finally {
+            stopGrid("anotherGrid");
         }
 
-        consumeLatch = new CountDownLatch(GRID_CNT * 2 + 1);
-        consumeCnt = new AtomicInteger();
-
-        noAutoUnsubscribe = true;
-
-        g.events().remoteListen(
-            1, 0, false,
-            null,
-            new P1<Event>() {
-                @Override public boolean apply(Event evt) {
-                    consumeLatch.countDown();
-                    consumeCnt.incrementAndGet();
-
-                    return true;
-                }
-            },
-            EVT_JOB_STARTED
-        );
-
-        grid(0).compute().broadcast(F.noop());
-
-        stopGrid("anotherGrid");
-
-        discoLatch.await();
+        discoLatch.await(3000, MILLISECONDS);
 
         grid(0).compute().broadcast(F.noop());
 

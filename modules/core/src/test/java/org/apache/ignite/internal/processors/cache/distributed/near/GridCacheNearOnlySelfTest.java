@@ -17,26 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.internal.processors.cache.distributed.GridCacheClientModesAbstractSelfTest;
 
-import static org.apache.ignite.cache.CacheDistributionMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  * Near only self test.
  */
-public class GridCacheNearOnlySelfTest extends GridCacheClientModesAbstractSelfTest {
-    /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return NEAR_PARTITIONED;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected boolean clientOnly() {
-        return false;
-    }
-
+@SuppressWarnings("RedundantMethodOverride")
+public abstract class GridCacheNearOnlySelfTest extends GridCacheClientModesAbstractSelfTest {
     /**
      * @throws Exception If failed.
      */
@@ -64,6 +60,58 @@ public class GridCacheNearOnlySelfTest extends GridCacheClientModesAbstractSelfT
             assertEquals(i * i, nearOnlyCache.localPeek(i, CachePeekMode.ONHEAP));
 
             assertEquals(i * i, nearOnlyCache.get(i));
+        }
+    }
+
+    /** */
+    public static class CaseReplicatedAtomic extends GridCacheNearOnlySelfTest {
+        /** {@inheritDoc} */
+        @Override protected CacheMode cacheMode() {
+            return REPLICATED;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected CacheAtomicityMode atomicityMode() {
+            return ATOMIC;
+        }
+    }
+
+    /** */
+    public static class CaseReplicatedTransactional extends GridCacheNearOnlySelfTest {
+        /** {@inheritDoc} */
+        @Override protected CacheMode cacheMode() {
+            return REPLICATED;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected CacheAtomicityMode atomicityMode() {
+            return TRANSACTIONAL;
+        }
+    }
+
+    /** */
+    public static class CasePartitionedAtomic extends GridCacheNearOnlySelfTest {
+        /** {@inheritDoc} */
+        @Override protected CacheMode cacheMode() {
+            return PARTITIONED;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected CacheAtomicityMode atomicityMode() {
+            return ATOMIC;
+        }
+    }
+
+    /** */
+    public static class CasePartitionedTransactional extends GridCacheNearOnlySelfTest {
+        /** {@inheritDoc} */
+        @Override protected CacheMode cacheMode() {
+            return PARTITIONED;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected CacheAtomicityMode atomicityMode() {
+            return TRANSACTIONAL;
         }
     }
 }

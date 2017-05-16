@@ -17,20 +17,27 @@
 
 package org.apache.ignite.internal.processors.datastructures;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.transactions.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.util.concurrent.Callable;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
 
-import java.io.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.internal.util.typedef.internal.CU.retryTopologySafe;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Cache atomic long implementation.
@@ -43,7 +50,7 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
     private static final ThreadLocal<IgniteBiTuple<GridKernalContext, String>> stash =
         new ThreadLocal<IgniteBiTuple<GridKernalContext, String>>() {
             @Override protected IgniteBiTuple<GridKernalContext, String> initialValue() {
-                return F.t2();
+                return new IgniteBiTuple<>();
             }
         };
 
@@ -56,11 +63,14 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
     /** Removed flag.*/
     private volatile boolean rmvd;
 
+    /** Check removed flag. */
+    private boolean rmvCheck;
+
     /** Atomic long key. */
     private GridCacheInternalKey key;
 
     /** Atomic long projection. */
-    private CacheProjection<GridCacheInternalKey, GridCacheAtomicLongValue> atomicView;
+    private IgniteInternalCache<GridCacheInternalKey, GridCacheAtomicLongValue> atomicView;
 
     /** Cache context. */
     private GridCacheContext ctx;
@@ -78,7 +88,7 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
     };
 
     /** Callable for {@link #incrementAndGet()}. */
-    private final Callable<Long> incAndGetCall = new Callable<Long>() {
+    private final Callable<Long> incAndGetCall = retryTopologySafe(new Callable<Long>() {
         @Override public Long call() throws Exception {
             try (IgniteInternalTx tx = CU.txStartInternal(ctx, atomicView, PESSIMISTIC, REPEATABLE_READ)) {
                 GridCacheAtomicLongValue val = atomicView.get(key);
@@ -102,10 +112,10 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
                 throw e;
             }
         }
-    };
+    });
 
     /** Callable for {@link #getAndIncrement()}. */
-    private final Callable<Long> getAndIncCall = new Callable<Long>() {
+    private final Callable<Long> getAndIncCall = retryTopologySafe(new Callable<Long>() {
         @Override public Long call() throws Exception {
             try (IgniteInternalTx tx = CU.txStartInternal(ctx, atomicView, PESSIMISTIC, REPEATABLE_READ)) {
                 GridCacheAtomicLongValue val = atomicView.get(key);
@@ -129,10 +139,10 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
                 throw e;
             }
         }
-    };
+    });
 
     /** Callable for {@link #decrementAndGet()}. */
-    private final Callable<Long> decAndGetCall = new Callable<Long>() {
+    private final Callable<Long> decAndGetCall = retryTopologySafe(new Callable<Long>() {
         @Override public Long call() throws Exception {
             try (IgniteInternalTx tx = CU.txStartInternal(ctx, atomicView, PESSIMISTIC, REPEATABLE_READ)) {
                 GridCacheAtomicLongValue val = atomicView.get(key);
@@ -156,10 +166,10 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
                 throw e;
             }
         }
-    };
+    });
 
     /** Callable for {@link #getAndDecrement()}. */
-    private final Callable<Long> getAndDecCall = new Callable<Long>() {
+    private final Callable<Long> getAndDecCall = retryTopologySafe(new Callable<Long>() {
         @Override public Long call() throws Exception {
             try (IgniteInternalTx tx = CU.txStartInternal(ctx, atomicView, PESSIMISTIC, REPEATABLE_READ)) {
                 GridCacheAtomicLongValue val = atomicView.get(key);
@@ -183,7 +193,7 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
                 throw e;
             }
         }
-    };
+    });
 
     /**
      * Empty constructor required by {@link Externalizable}.
@@ -201,7 +211,7 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
      * @param ctx CacheContext.
      */
     public GridCacheAtomicLongImpl(String name, GridCacheInternalKey key,
-        CacheProjection<GridCacheInternalKey, GridCacheAtomicLongValue> atomicView, GridCacheContext ctx) {
+        IgniteInternalCache<GridCacheInternalKey, GridCacheAtomicLongValue> atomicView, GridCacheContext ctx) {
         assert key != null;
         assert atomicView != null;
         assert ctx != null;
@@ -212,7 +222,7 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
         this.atomicView = atomicView;
         this.name = name;
 
-        log = ctx.gridConfig().getGridLogger().getLogger(getClass());
+        log = ctx.logger(getClass());
     }
 
     /** {@inheritDoc} */
@@ -321,7 +331,23 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
         checkRemoved();
 
         try {
-            return CU.outTx(internalCompareAndSet(expVal, newVal), ctx);
+            return CU.outTx(internalCompareAndSetAndGet(expVal, newVal) , ctx) == expVal;
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+    }
+
+    /**
+     * @param expVal Expected value.
+     * @param newVal New value.
+     * @return Old value.
+     */
+    public long compareAndSetAndGet(long expVal, long newVal) {
+        checkRemoved();
+
+        try {
+            return CU.outTx(internalCompareAndSetAndGet(expVal, newVal), ctx);
         }
         catch (IgniteCheckedException e) {
             throw U.convertException(e);
@@ -335,7 +361,31 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
      */
     private void checkRemoved() throws IllegalStateException {
         if (rmvd)
-            throw new IllegalStateException("Atomic long was removed from cache: " + name);
+            throw removedError();
+
+        if (rmvCheck) {
+            try {
+                rmvd = atomicView.get(key) == null;
+            }
+            catch (IgniteCheckedException e) {
+                throw U.convertException(e);
+            }
+
+            rmvCheck = false;
+
+            if (rmvd) {
+                ctx.kernalContext().dataStructures().onRemoved(key, this);
+
+                throw removedError();
+            }
+        }
+    }
+
+    /**
+     * @return Error.
+     */
+    private IllegalStateException removedError() {
+        return new IllegalStateException("Atomic long was removed from cache: " + name);
     }
 
     /** {@inheritDoc} */
@@ -344,8 +394,8 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
     }
 
     /** {@inheritDoc} */
-    @Override public void onInvalid(@Nullable Exception err) {
-        // No-op.
+    @Override public void needCheckNotRemoved() {
+        rmvCheck = true;
     }
 
     /** {@inheritDoc} */
@@ -378,7 +428,7 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
      * @return Callable for execution in async and sync mode.
      */
     private Callable<Long> internalAddAndGet(final long l) {
-        return new Callable<Long>() {
+        return retryTopologySafe(new Callable<Long>() {
             @Override public Long call() throws Exception {
                 try (IgniteInternalTx tx = CU.txStartInternal(ctx, atomicView, PESSIMISTIC, REPEATABLE_READ)) {
                     GridCacheAtomicLongValue val = atomicView.get(key);
@@ -402,7 +452,7 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
                     throw e;
                 }
             }
-        };
+        });
     }
 
     /**
@@ -412,7 +462,7 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
      * @return Callable for execution in async and sync mode.
      */
     private Callable<Long> internalGetAndAdd(final long l) {
-        return new Callable<Long>() {
+        return retryTopologySafe(new Callable<Long>() {
             @Override public Long call() throws Exception {
                 try (IgniteInternalTx tx = CU.txStartInternal(ctx, atomicView, PESSIMISTIC, REPEATABLE_READ)) {
                     GridCacheAtomicLongValue val = atomicView.get(key);
@@ -436,7 +486,7 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
                     throw e;
                 }
             }
-        };
+        });
     }
 
     /**
@@ -474,28 +524,28 @@ public final class GridCacheAtomicLongImpl implements GridCacheAtomicLongEx, Ext
     }
 
     /**
-     * Method returns callable for execution {@link #compareAndSet(long, long)}
+     * Method returns callable for execution {@link #compareAndSetAndGet(long, long)}
      * operation in async and sync mode.
      *
      * @param expVal Expected atomic long value.
      * @param newVal New atomic long value.
      * @return Callable for execution in async and sync mode.
      */
-    private Callable<Boolean> internalCompareAndSet(final long expVal, final long newVal) {
-        return new Callable<Boolean>() {
-            @Override public Boolean call() throws Exception {
+    private Callable<Long> internalCompareAndSetAndGet(final long expVal, final long newVal) {
+        return new Callable<Long>() {
+            @Override public Long call() throws Exception {
                 try (IgniteInternalTx tx = CU.txStartInternal(ctx, atomicView, PESSIMISTIC, REPEATABLE_READ)) {
                     GridCacheAtomicLongValue val = atomicView.get(key);
 
                     if (val == null)
                         throw new IgniteCheckedException("Failed to find atomic long with given name: " + name);
 
-                    boolean retVal = val.get() == expVal;
+                    long retVal = val.get();
 
-                    if (retVal) {
+                    if (retVal == expVal) {
                         val.set(newVal);
 
-                        atomicView.put(key, val);
+                        atomicView.getAndPut(key, val);
 
                         tx.commit();
                     }

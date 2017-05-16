@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.visor.debug;
 
-import java.io.*;
-import java.lang.management.*;
+import java.io.Serializable;
+import java.lang.management.ThreadInfo;
+import org.apache.ignite.internal.LessNamingBean;
 
 /**
  * Data transfer object for Visor {@link ThreadInfo}.
  */
-public class VisorThreadInfo implements Serializable {
+public class VisorThreadInfo implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 

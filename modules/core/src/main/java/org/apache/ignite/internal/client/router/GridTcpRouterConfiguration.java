@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.client.router;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.client.ssl.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.security.*;
-import org.jetbrains.annotations.*;
-
-import java.net.*;
-import java.util.*;
+import java.net.Socket;
+import java.util.Collection;
+import java.util.Collections;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.configuration.ConnectorConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.client.ssl.GridSslContextFactory;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.plugin.security.SecurityCredentialsProvider;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class defines runtime configuration for TCP router.
@@ -83,7 +85,7 @@ public class GridTcpRouterConfiguration {
     private IgniteLogger log;
 
     /** Credentials. */
-    private GridSecurityCredentialsProvider credsProvider;
+    private SecurityCredentialsProvider credsProvider;
 
     /**
      * Gets TCP host or IP address for router to bind to.
@@ -197,7 +199,7 @@ public class GridTcpRouterConfiguration {
      *
      * @return Credentials.
      */
-    @Nullable public GridSecurityCredentialsProvider getSecurityCredentialsProvider() {
+    @Nullable public SecurityCredentialsProvider getSecurityCredentialsProvider() {
         return credsProvider;
     }
 
@@ -295,7 +297,7 @@ public class GridTcpRouterConfiguration {
      *
      * @param credsProvider Credentials provider.
      */
-    public void setSecurityCredentialsProvider(GridSecurityCredentialsProvider credsProvider) {
+    public void setSecurityCredentialsProvider(SecurityCredentialsProvider credsProvider) {
         this.credsProvider = credsProvider;
     }
 

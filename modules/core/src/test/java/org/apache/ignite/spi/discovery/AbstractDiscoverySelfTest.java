@@ -17,22 +17,38 @@
 
 package org.apache.ignite.spi.discovery;
 
-import mx4j.tools.adaptor.http.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.testframework.config.*;
-import org.apache.ignite.testframework.junits.*;
-import org.apache.ignite.testframework.junits.spi.*;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.management.MBeanServer;
+import javax.management.MBeanServerFactory;
+import javax.management.ObjectName;
+import mx4j.tools.adaptor.http.HttpAdaptor;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.spi.IgniteSpi;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.testframework.GridSpiTestContext;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.config.GridTestProperties;
+import org.apache.ignite.testframework.junits.IgniteMock;
+import org.apache.ignite.testframework.junits.IgniteTestResources;
+import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
+import org.jetbrains.annotations.Nullable;
 
-import javax.management.*;
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.events.EventType.*;
-import static org.apache.ignite.lang.IgniteProductVersion.*;
+import static org.apache.ignite.events.EventType.EVT_NODE_METRICS_UPDATED;
+import static org.apache.ignite.lang.IgniteProductVersion.fromString;
 
 /**
  * Base discovery self-test class.
@@ -41,10 +57,16 @@ import static org.apache.ignite.lang.IgniteProductVersion.*;
 @SuppressWarnings({"JUnitAbstractTestClassNamingConvention"})
 public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends GridSpiAbstractTest<T> {
     /** */
-    private static final List<DiscoverySpi> spis = new ArrayList<>();
+    private static final String HTTP_ADAPTOR_MBEAN_NAME = "mbeanAdaptor:protocol=HTTP";
+
+    /** */
+    protected static final List<DiscoverySpi> spis = new ArrayList<>();
 
     /** */
     private static final Collection<IgniteTestResources> spiRsrcs = new ArrayList<>();
+
+    /** */
+    private static final List<HttpAdaptor> httpAdaptors = new ArrayList<>();
 
     /** */
     private static long spiStartTime;
@@ -54,6 +76,9 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
 
     /** */
     private static final String TEST_ATTRIBUTE_NAME = "test.node.prop";
+
+    /** */
+    protected boolean useSsl = false;
 
     /** */
     protected AbstractDiscoverySelfTest() {
@@ -132,7 +157,7 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
 
         /** {@inheritDoc} */
         @Override public void onDiscovery(int type, long topVer, ClusterNode node, Collection<ClusterNode> topSnapshot,
-            Map<Long, Collection<ClusterNode>> topHist, Serializable data) {
+            Map<Long, Collection<ClusterNode>> topHist, @Nullable DiscoverySpiCustomMessage data) {
             if (type == EVT_NODE_METRICS_UPDATED)
                 isMetricsUpdate = true;
         }
@@ -205,7 +230,7 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
             DiscoverySpiListener locHeartbeatLsnr = new DiscoverySpiListener() {
                 @Override public void onDiscovery(int type, long topVer, ClusterNode node,
                     Collection<ClusterNode> topSnapshot, Map<Long, Collection<ClusterNode>> topHist,
-                    Serializable data) {
+                    @Nullable DiscoverySpiCustomMessage data) {
                     // If METRICS_UPDATED came from local node
                     if (type == EVT_NODE_METRICS_UPDATED
                         && node.id().equals(spi.getLocalNode().id()))
@@ -266,9 +291,8 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
 
             Collection<UUID> nodeIds = new HashSet<>();
 
-            for (IgniteTestResources rsrc : spiRsrcs) {
+            for (IgniteTestResources rsrc : spiRsrcs)
                 nodeIds.add(rsrc.getNodeId());
-            }
 
             for (ClusterNode node : spi.getRemoteNodes()) {
                 if (nodeIds.contains(node.id())) {
@@ -369,7 +393,8 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
                 spi.setListener(new DiscoverySpiListener() {
                     @SuppressWarnings({"NakedNotify"})
                     @Override public void onDiscovery(int type, long topVer, ClusterNode node,
-                        Collection<ClusterNode> topSnapshot, Map<Long, Collection<ClusterNode>> topHist, Serializable data) {
+                        Collection<ClusterNode> topSnapshot, Map<Long, Collection<ClusterNode>> topHist,
+                        @Nullable DiscoverySpiCustomMessage data) {
                         info("Discovery event [type=" + type + ", node=" + node + ']');
 
                         synchronized (mux) {
@@ -379,14 +404,27 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
                 });
 
                 spi.setDataExchange(new DiscoverySpiDataExchange() {
-                    @Override public Map<Integer, Object> collect(UUID nodeId) {
+                    @Override public Map<Integer, Serializable> collect(UUID nodeId) {
                         return new HashMap<>();
                     }
 
-                    @Override public void onExchange(UUID nodeId, Map<Integer, Object> data) {
+                    @Override public void onExchange(UUID joiningNodeId, UUID nodeId, Map<Integer, Serializable> data) {
                         // No-op.
                     }
                 });
+
+                GridSpiTestContext ctx = initSpiContext();
+
+                GridTestUtils.setFieldValue(spi, IgniteSpiAdapter.class, "spiCtx", ctx);
+
+                if (useSsl) {
+                    IgniteMock ignite = GridTestUtils.getFieldValue(spi, IgniteSpiAdapter.class, "ignite");
+
+                    IgniteConfiguration cfg = ignite.configuration()
+                        .setSslContextFactory(GridTestUtils.sslFactory());
+
+                    ignite.setStaticCfg(cfg);
+                }
 
                 spi.spiStart(getTestGridName() + i);
 
@@ -395,7 +433,7 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
                 spiRsrcs.add(rsrcMgr);
 
                 // Force to use test context instead of default dummy context.
-                spi.onContextInitialized(initSpiContext());
+                spi.onContextInitialized(ctx);
             }
         }
         catch (Throwable e) {
@@ -418,9 +456,11 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
         adaptor.setPort(Integer.valueOf(GridTestProperties.getProperty("discovery.mbeanserver.selftest.baseport")) +
             idx);
 
-        srv.registerMBean(adaptor, new ObjectName("mbeanAdaptor:protocol=HTTP"));
+        srv.registerMBean(adaptor, new ObjectName(HTTP_ADAPTOR_MBEAN_NAME));
 
         adaptor.start();
+
+        httpAdaptors.add(adaptor);
 
         return srv;
     }
@@ -437,12 +477,20 @@ public abstract class AbstractDiscoverySelfTest<T extends IgniteSpi> extends Gri
         }
 
         for (IgniteTestResources rscrs : spiRsrcs) {
+            MBeanServer mBeanServer = rscrs.getMBeanServer();
+
+            mBeanServer.unregisterMBean(new ObjectName(HTTP_ADAPTOR_MBEAN_NAME));
+
             rscrs.stopThreads();
         }
+
+        for (HttpAdaptor adaptor : httpAdaptors)
+            adaptor.stop();
 
         // Clear.
         spis.clear();
         spiRsrcs.clear();
+        httpAdaptors.clear();
 
         spiStartTime = 0;
 

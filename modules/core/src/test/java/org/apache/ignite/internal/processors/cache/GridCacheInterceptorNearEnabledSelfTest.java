@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.cache.*;
+import org.apache.ignite.cache.CacheInterceptor;
+import org.apache.ignite.configuration.NearCacheConfiguration;
 
 /**
- * Tests {@link org.apache.ignite.cache.CacheInterceptor}.
+ * Tests {@link CacheInterceptor}.
  */
 public class GridCacheInterceptorNearEnabledSelfTest extends GridCacheInterceptorSelfTest {
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return CacheDistributionMode.NEAR_PARTITIONED;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return new NearCacheConfiguration();
     }
 }

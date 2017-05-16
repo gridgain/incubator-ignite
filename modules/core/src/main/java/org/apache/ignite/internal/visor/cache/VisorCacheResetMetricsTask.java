@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.*;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.visor.VisorJob;
+import org.apache.ignite.internal.visor.VisorOneNodeTask;
 
 /**
  * Reset compute grid metrics.
@@ -53,10 +53,10 @@ public class VisorCacheResetMetricsTask extends VisorOneNodeTask<String, Void> {
 
         /** {@inheritDoc} */
         @Override protected Void run(String cacheName) {
-            GridCache cache = ignite.cachex(cacheName);
+            IgniteInternalCache cache = ignite.cachex(cacheName);
 
             if (cache != null)
-                cache.mxBean().clear();
+                cache.localMxBean().clear();
 
             return null;
         }

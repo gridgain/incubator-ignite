@@ -17,10 +17,8 @@
 
 package org.apache.ignite.spi.discovery.tcp.messages;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
-import java.util.*;
+import java.util.UUID;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Handshake response.
@@ -31,13 +29,6 @@ public class TcpDiscoveryHandshakeResponse extends TcpDiscoveryAbstractMessage {
 
     /** */
     private long order;
-
-    /**
-     * Public default no-arg constructor for {@link Externalizable} interface.
-     */
-    public TcpDiscoveryHandshakeResponse() {
-        // No-op.
-    }
 
     /**
      * Constructor.
@@ -69,18 +60,18 @@ public class TcpDiscoveryHandshakeResponse extends TcpDiscoveryAbstractMessage {
         this.order = order;
     }
 
-    /** {@inheritDoc} */
-    @Override public void writeExternal(ObjectOutput out) throws IOException {
-        super.writeExternal(out);
-
-        out.writeLong(order);
+    /**
+     * @return {@code True} if server supports client message acknowledge.
+     */
+    public boolean clientAck() {
+        return getFlag(CLIENT_ACK_FLAG_POS);
     }
 
-    /** {@inheritDoc} */
-    @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        super.readExternal(in);
-
-        order = in.readLong();
+    /**
+     * @param clientAck {@code True} if server supports client message acknowledge.
+     */
+    public void clientAck(boolean clientAck) {
+        setFlag(CLIENT_ACK_FLAG_POS, clientAck);
     }
 
     /** {@inheritDoc} */

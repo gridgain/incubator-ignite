@@ -17,18 +17,27 @@
 
 package org.apache.ignite.internal.processors.datastructures;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.concurrent.Callable;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteSet;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheGateway;
+import org.apache.ignite.internal.util.GridSpinBusyLock;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Cache set proxy.
@@ -41,7 +50,7 @@ public class GridCacheSetProxy<T> implements IgniteSet<T>, Externalizable {
     private static final ThreadLocal<IgniteBiTuple<GridKernalContext, String>> stash =
         new ThreadLocal<IgniteBiTuple<GridKernalContext, String>>() {
             @Override protected IgniteBiTuple<GridKernalContext, String> initialValue() {
-                return F.t2();
+                return new IgniteBiTuple<>();
             }
         };
 
@@ -56,6 +65,9 @@ public class GridCacheSetProxy<T> implements IgniteSet<T>, Externalizable {
 
     /** Busy lock. */
     private GridSpinBusyLock busyLock;
+
+    /** Check removed flag. */
+    private boolean rmvCheck;
 
     /**
      * Required by {@link Externalizable}.
@@ -75,6 +87,13 @@ public class GridCacheSetProxy<T> implements IgniteSet<T>, Externalizable {
         gate = cctx.gate();
 
         busyLock = new GridSpinBusyLock();
+    }
+
+    /**
+     * @return Set delegate.
+     */
+    public GridCacheSetImpl delegate() {
+        return delegate;
     }
 
     /**
@@ -506,12 +525,57 @@ public class GridCacheSetProxy<T> implements IgniteSet<T>, Externalizable {
         return delegate.removed();
     }
 
+    /** {@inheritDoc} */
+    @Override public void affinityRun(final IgniteRunnable job) {
+        delegate.affinityRun(job);
+    }
+
+    /** {@inheritDoc} */
+    @Override public <R> R affinityCall(final IgniteCallable<R> job) {
+        return delegate.affinityCall(job);
+    }
+
     /**
      * Enters busy state.
      */
     private void enterBusy() {
+        boolean rmvd;
+
+        if (rmvCheck) {
+            try {
+                rmvd = !delegate().checkHeader();
+            }
+            catch (IgniteCheckedException e) {
+                throw U.convertException(e);
+            }
+
+            rmvCheck = false;
+
+            if (rmvd) {
+                delegate.removed(true);
+
+                cctx.dataStructures().onRemoved(this);
+
+                throw removedError();
+            }
+        }
+
         if (!busyLock.enterBusy())
-            throw new IllegalStateException("Set has been removed from cache: " + delegate);
+            throw removedError();
+    }
+
+    /**
+     *
+     */
+    public void needCheckNotRemoved() {
+        rmvCheck = true;
+    }
+
+    /**
+     * @return Error.
+     */
+    private IllegalStateException removedError() {
+        return new IllegalStateException("Set has been removed from cache: " + delegate);
     }
 
     /**

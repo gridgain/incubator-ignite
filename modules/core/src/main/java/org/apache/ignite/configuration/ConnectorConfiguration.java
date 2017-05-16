@@ -17,11 +17,13 @@
 
 package org.apache.ignite.configuration;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.client.ssl.*;
-import org.jetbrains.annotations.*;
-
-import java.net.*;
+import java.net.Socket;
+import javax.cache.configuration.Factory;
+import javax.net.ssl.SSLContext;
+import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.internal.client.ssl.GridSslContextFactory;
+import org.apache.ignite.ssl.SslContextFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * REST access configuration.
@@ -57,6 +59,12 @@ public class ConnectorConfiguration {
     /** Default socket send and receive buffer size. */
     public static final int DFLT_SOCK_BUF_SIZE = 32 * 1024;
 
+    /** Default REST idle timeout for query cursor. */
+    private static final long DFLT_IDLE_QRY_CUR_TIMEOUT = 10 * 60 * 1000;
+
+    /** Default REST check frequency for idle query cursor. */
+    private static final long DFLT_IDLE_QRY_CUR_CHECK_FRQ = 60 * 1000;
+
     /** Jetty XML configuration path. */
     private String jettyPath;
 
@@ -81,6 +89,12 @@ public class ConnectorConfiguration {
     /** REST TCP receive buffer size. */
     private int rcvBufSize = DFLT_SOCK_BUF_SIZE;
 
+    /** REST idle timeout for query cursor. */
+    private long idleQryCurTimeout = DFLT_IDLE_QRY_CUR_TIMEOUT;
+
+    /** REST idle check frequency for query cursor. */
+    private long idleQryCurCheckFreq = DFLT_IDLE_QRY_CUR_CHECK_FRQ;
+
     /** REST TCP send queue limit. */
     private int sndQueueLimit;
 
@@ -98,6 +112,9 @@ public class ConnectorConfiguration {
 
     /** SSL context factory for rest binary server. */
     private GridSslContextFactory sslCtxFactory;
+
+    /** SSL context factory for rest binary server. */
+    private Factory<SSLContext> sslFactory;
 
     /** Port range */
     private int portRange = DFLT_PORT_RANGE;
@@ -141,6 +158,9 @@ public class ConnectorConfiguration {
         sslClientAuth = cfg.isSslClientAuth();
         sslCtxFactory = cfg.getSslContextFactory();
         sslEnabled = cfg.isSslEnabled();
+        sslFactory = cfg.getSslFactory();
+        idleQryCurTimeout = cfg.getIdleQueryCursorTimeout();
+        idleQryCurCheckFreq = cfg.getIdleQueryCursorCheckFrequency();
     }
 
     /**
@@ -397,7 +417,7 @@ public class ConnectorConfiguration {
      * Sets whether Secure Socket Layer should be enabled for REST TCP binary protocol.
      * <p/>
      * Note that if this flag is set to {@code true}, then a valid instance of {@link GridSslContextFactory}
-     * should be provided in {@code GridConfiguration}. Otherwise, TCP binary protocol will fail to start.
+     * should be provided in {@link IgniteConfiguration}. Otherwise, TCP binary protocol will fail to start.
      *
      * @param sslEnabled {@code True} if SSL should be enabled.
      */
@@ -429,7 +449,9 @@ public class ConnectorConfiguration {
      *
      * @return SslContextFactory instance.
      * @see GridSslContextFactory
+     * @deprecated Use {@link #getSslFactory()} instead.
      */
+    @Deprecated
     public GridSslContextFactory getSslContextFactory() {
         return sslCtxFactory;
     }
@@ -440,13 +462,39 @@ public class ConnectorConfiguration {
      * {@link #setSslEnabled(boolean)} is set to {@code true}.
      *
      * @param sslCtxFactory Instance of {@link GridSslContextFactory}
+     * @deprecated Use {@link #setSslFactory(Factory)} instead.
      */
+    @Deprecated
     public void setSslContextFactory(GridSslContextFactory sslCtxFactory) {
         this.sslCtxFactory = sslCtxFactory;
     }
 
     /**
+     * Gets context factory that will be used for creating a secure socket layer of rest binary server.
+     *
+     * @return SSL context factory instance.
+     * @see SslContextFactory
+     */
+    public Factory<SSLContext> getSslFactory() {
+        return sslFactory;
+    }
+
+    /**
+     * Sets instance of {@link Factory} that will be used to create an instance of {@code SSLContext}
+     * for Secure Socket Layer on TCP binary protocol. This factory will only be used if
+     * {@link #setSslEnabled(boolean)} is set to {@code true}.
+     *
+     * @param sslFactory Instance of {@link Factory}
+     */
+    public void setSslFactory(Factory<SSLContext> sslFactory) {
+        this.sslFactory = sslFactory;
+    }
+
+    /**
      * Gets number of ports to try if configured port is already in use.
+     *
+     * If port range value is <tt>0</tt>, then implementation will try bind only to the port provided by
+     * {@link #setPort(int)} method and fail if binding to this port did not succeed.
      *
      * @return Number of ports to try.
      */
@@ -514,5 +562,50 @@ public class ConnectorConfiguration {
      */
     public void setMessageInterceptor(ConnectorMessageInterceptor interceptor) {
         msgInterceptor = interceptor;
+    }
+
+    /**
+     * Sets idle query cursors timeout.
+     *
+     * @param idleQryCurTimeout Idle query cursors timeout in milliseconds.
+     * @see #getIdleQueryCursorTimeout()
+     */
+    public void setIdleQueryCursorTimeout(long idleQryCurTimeout) {
+        this.idleQryCurTimeout = idleQryCurTimeout;
+    }
+
+    /**
+     * Gets idle query cursors timeout in milliseconds.
+     * <p>
+     * This setting is used to reject open query cursors that is not used. If no fetch query request
+     * come within idle timeout, it will be removed on next check for old query cursors
+     * (see {@link #getIdleQueryCursorCheckFrequency()}).
+     *
+     * @return Idle query cursors timeout in milliseconds
+     */
+    public long getIdleQueryCursorTimeout() {
+        return idleQryCurTimeout;
+    }
+
+    /**
+     * Sets idle query cursor check frequency.
+     *
+     * @param idleQryCurCheckFreq Idle query check frequency in milliseconds.
+     * @see #getIdleQueryCursorCheckFrequency()
+     */
+    public void setIdleQueryCursorCheckFrequency(long idleQryCurCheckFreq) {
+        this.idleQryCurCheckFreq = idleQryCurCheckFreq;
+    }
+
+    /**
+     * Gets idle query cursors check frequency.
+     * This setting is used to reject open query cursors that is not used.
+     * <p>
+     * Scheduler tries with specified period to close queries' cursors that are overtime.
+     *
+     * @return Idle query cursor check frequency in milliseconds.
+     */
+    public long getIdleQueryCursorCheckFrequency() {
+        return idleQryCurCheckFreq;
     }
 }

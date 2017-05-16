@@ -17,22 +17,24 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.replicated;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.processors.cache.distributed.GridCacheAbstractNodeRestartSelfTest;
 
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Tests node restart.
  */
 public class GridCacheReplicatedNodeRestartSelfTest extends GridCacheAbstractNodeRestartSelfTest {
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration c = super.getConfiguration(gridName);
-
+    @Override protected CacheConfiguration cacheConfiguration() {
         CacheConfiguration cc = defaultCacheConfiguration();
+
+        cc.setNearConfiguration(null);
+
+        cc.setAtomicityMode(atomicityMode());
 
         cc.setName(CACHE_NAME);
 
@@ -46,8 +48,86 @@ public class GridCacheReplicatedNodeRestartSelfTest extends GridCacheAbstractNod
 
         cc.setRebalanceBatchSize(20);
 
-        c.setCacheConfiguration(cc);
+        return cc;
+    }
 
-        return c;
+    /** {@inheritDoc} */
+    @Override public void testRestartWithPutTwoNodesNoBackups() throws Throwable {
+        super.testRestartWithPutTwoNodesNoBackups();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithPutTwoNodesOneBackup() throws Throwable {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithPutFourNodesOneBackups() throws Throwable {
+        super.testRestartWithPutFourNodesOneBackups();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithPutFourNodesNoBackups() throws Throwable {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithPutSixNodesTwoBackups() throws Throwable {
+        super.testRestartWithPutSixNodesTwoBackups();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithPutEightNodesTwoBackups() throws Throwable {
+        super.testRestartWithPutEightNodesTwoBackups();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithPutTenNodesTwoBackups() throws Throwable {
+        super.testRestartWithPutTenNodesTwoBackups();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithTxTwoNodesNoBackups() throws Throwable {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithTxTwoNodesOneBackup() throws Throwable {
+        super.testRestartWithTxTwoNodesOneBackup();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithTxFourNodesOneBackups() throws Throwable {
+        super.testRestartWithTxFourNodesOneBackups();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithTxFourNodesNoBackups() throws Throwable {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithTxSixNodesTwoBackups() throws Throwable {
+        super.testRestartWithTxSixNodesTwoBackups();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithTxEightNodesTwoBackups() throws Throwable {
+        super.testRestartWithTxEightNodesTwoBackups();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithTxTenNodesTwoBackups() throws Throwable {
+        super.testRestartWithTxTenNodesTwoBackups();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithTxPutAllTenNodesTwoBackups() throws Throwable {
+        super.testRestartWithTxPutAllTenNodesTwoBackups();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testRestartWithTxPutAllFourNodesTwoBackups() throws Throwable {
+        super.testRestartWithTxPutAllFourNodesTwoBackups();
     }
 }

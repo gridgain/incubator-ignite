@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.processors.hadoop;
 
-import org.apache.ignite.*;
-
-import java.util.*;
+import java.util.Collection;
+import java.util.UUID;
+import org.apache.ignite.IgniteCheckedException;
 
 /**
  * Hadoop job.
@@ -98,5 +98,10 @@ public interface HadoopJob {
     /**
      * Cleans up the job staging directory.
      */
-    void cleanupStagingDirectory();
+    public void cleanupStagingDirectory();
+
+    /**
+     * @return Ignite work directory.
+     */
+    public String igniteWorkDirectory();
 }

@@ -17,19 +17,22 @@
 
 package org.apache.ignite.jdbc;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.util.Properties;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.ConnectorConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.sql.*;
-import java.util.*;
-
-import static org.apache.ignite.IgniteJdbcDriver.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.IgniteJdbcDriver.PROP_NODE_ID;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Test JDBC with several local caches.
@@ -74,14 +77,14 @@ public class JdbcLocalCachesSelfTest extends GridCommonAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         startGridsMultiThreaded(2);
 
-        IgniteCache<Object, Object> cache1 = grid(0).jcache(CACHE_NAME);
+        IgniteCache<Object, Object> cache1 = grid(0).cache(CACHE_NAME);
 
         assert cache1 != null;
 
         cache1.put("key1", 1);
         cache1.put("key2", 2);
 
-        IgniteCache<Object, Object> cache2 = grid(1).jcache(CACHE_NAME);
+        IgniteCache<Object, Object> cache2 = grid(1).cache(CACHE_NAME);
 
         assert cache2 != null;
 

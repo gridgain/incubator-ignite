@@ -17,17 +17,25 @@
 
 package org.apache.ignite.internal.util;
 
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.lang.management.*;
-import java.nio.charset.*;
-import java.text.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.lang.management.ManagementFactory;
+import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for debugging.
@@ -173,10 +181,22 @@ public class GridDebug {
     }
 
     /**
-     * Dump collected data to stdout.
+     * Dumps given number of last events.
+     *
+     * @param n Number of last elements to dump.
      */
-    public static void dump() {
-        dump(que.get());
+    public static void dumpLastAndStop(int n) {
+        ConcurrentLinkedQueue<Item> q = que.getAndSet(null);
+
+        if (q == null)
+            return;
+
+        int size = q.size();
+
+        while (size-- > n)
+            q.poll();
+
+        dump(q);
     }
 
     /**
@@ -185,7 +205,7 @@ public class GridDebug {
      * @param que Queue.
      */
     @SuppressWarnings("TypeMayBeWeakened")
-    public static void dump(ConcurrentLinkedQueue<Item> que) {
+    public static void dump(Collection<Item> que) {
         if (que == null)
             return;
 
@@ -207,7 +227,7 @@ public class GridDebug {
      */
     public static String dumpWithStop(Object... x) {
         debug(x);
-        return dumpWithReset(null);
+        return dumpWithReset(null, null);
     }
 
     /**
@@ -216,16 +236,20 @@ public class GridDebug {
      * @return Empty string (useful for assertions like {@code assert x == 0 : D.dumpWithReset();} ).
      */
     public static String dumpWithReset() {
-        return dumpWithReset(new ConcurrentLinkedQueue<Item>());
+        return dumpWithReset(new ConcurrentLinkedQueue<Item>(), null);
     }
 
     /**
      * Dump existing queue to stdout and atomically replace it with given.
      *
      * @param q2 Queue.
+     * @param filter Filter for logged debug items.
      * @return Empty string.
      */
-    private static String dumpWithReset(@Nullable ConcurrentLinkedQueue<Item> q2) {
+    public static String dumpWithReset(
+        @Nullable ConcurrentLinkedQueue<Item> q2,
+        @Nullable IgnitePredicate<Item> filter
+    ) {
         ConcurrentLinkedQueue<Item> q;
 
         do {
@@ -236,7 +260,20 @@ public class GridDebug {
         }
         while (!que.compareAndSet(q, q2));
 
-        dump(q);
+        Collection<Item> col = null;
+
+        if (filter == null)
+            col = q;
+        else if (q != null) {
+            col = new ArrayList<>();
+
+            for (Item item : q) {
+                if (filter.apply(item))
+                    col.add(item);
+            }
+        }
+
+        dump(col);
 
         return "";
     }
@@ -262,7 +299,7 @@ public class GridDebug {
      */
     private static String formatEntry(long ts, String threadName, long threadId, Object... data) {
         return "<" + DEBUG_DATE_FMT.format(new Date(ts)) + "><~DBG~><" + threadName + " id:" + threadId + "> " +
-            Arrays.toString(data);
+            Arrays.deepToString(data);
     }
 
     /**

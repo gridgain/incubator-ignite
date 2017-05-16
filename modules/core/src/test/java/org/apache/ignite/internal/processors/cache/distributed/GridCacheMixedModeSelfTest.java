@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.testframework.junits.common.*;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 /**
  * Tests cache puts in mixed mode.
@@ -31,7 +33,12 @@ public class GridCacheMixedModeSelfTest extends GridCommonAbstractTest {
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
 
+        ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setForceServerMode(true);
+
         cfg.setCacheConfiguration(cacheConfiguration(gridName));
+
+        if (F.eq(gridName, getTestGridName(0)))
+            cfg.setClientMode(true);
 
         return cfg;
     }
@@ -44,9 +51,6 @@ public class GridCacheMixedModeSelfTest extends GridCommonAbstractTest {
         CacheConfiguration cfg = new CacheConfiguration();
 
         cfg.setCacheMode(CacheMode.PARTITIONED);
-
-        if (F.eq(gridName, getTestGridName(0)))
-            cfg.setDistributionMode(CacheDistributionMode.NEAR_ONLY);
 
         return cfg;
     }
@@ -65,7 +69,7 @@ public class GridCacheMixedModeSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testBasicOps() throws Exception {
-        IgniteCache<Object, Object> cache = grid(0).jcache(null);
+        IgniteCache<Object, Object> cache = grid(0).cache(null);
 
         for (int i = 0; i < 1000; i++)
             cache.put(i, i);

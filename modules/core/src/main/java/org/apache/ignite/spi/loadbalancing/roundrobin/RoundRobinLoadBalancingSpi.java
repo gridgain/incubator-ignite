@@ -17,35 +17,47 @@
 
 package org.apache.ignite.spi.loadbalancing.roundrobin;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.loadbalancing.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeTaskSession;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.events.JobEvent;
+import org.apache.ignite.events.TaskEvent;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.IgniteSpiConfiguration;
+import org.apache.ignite.spi.IgniteSpiContext;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.IgniteSpiMultipleInstancesSupport;
+import org.apache.ignite.spi.loadbalancing.LoadBalancingSpi;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
-import java.util.*;
-
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.events.EventType.EVT_JOB_MAPPED;
+import static org.apache.ignite.events.EventType.EVT_TASK_FAILED;
+import static org.apache.ignite.events.EventType.EVT_TASK_FINISHED;
 
 /**
  * This SPI iterates through nodes in round-robin fashion and pick the next
  * sequential node. Two modes of operation are supported: per-task and global
- * (see {@link #setPerTask(boolean)} configuration).
+ * (see {@link #setPerTask(boolean)} configuration). Global mode is used be default.
  * <p>
- * When configured in per-task mode, implementation will pick a random starting
- * node at the beginning of every task execution and then sequentially iterate through all
- * nodes in topology starting from the picked node. This is the default configuration
- * and should fit most of the use cases as it provides a fairly well-distributed
- * split and also ensures that jobs within a single task are spread out across
- * nodes to the maximum. For cases when split size is equal to the number of nodes,
- * this mode guarantees that all nodes will participate in the split.
+ * When configured in per-task mode, implementation will pick a random node at the
+ * beginning of every task execution and then sequentially iterate through all
+ * nodes in topology starting from the picked node. For cases when split size
+ * is equal to the number of nodes, this mode guarantees that all nodes will
+ * participate in the split.
  * <p>
  * When configured in global mode, a single sequential queue of nodes is maintained for
  * all tasks and the next node in the queue is picked every time. In this mode (unlike in
@@ -57,7 +69,7 @@ import static org.apache.ignite.events.EventType.*;
  * is transparent to your code and is handled automatically by the adapter.
  * Here is an example of how your task will look:
  * <pre name="code" class="java">
- * public class MyFooBarTask extends GridComputeTaskSplitAdapter&lt;Object, Object&gt; {
+ * public class MyFooBarTask extends ComputeTaskSplitAdapter&lt;Object, Object&gt; {
  *    &#64;Override
  *    protected Collection&lt;? extends ComputeJob&gt; split(int gridSize, Object arg) throws IgniteCheckedException {
  *        List&lt;MyFooBarJob&gt; jobs = new ArrayList&lt;MyFooBarJob&gt;(gridSize);
@@ -85,8 +97,8 @@ import static org.apache.ignite.events.EventType.*;
  *    ComputeLoadBalancer balancer;
  *
  *    // Map jobs to grid nodes.
- *    public Map&lt;? extends ComputeJob, GridNode&gt; map(List&lt;GridNode&gt; subgrid, String arg) throws IgniteCheckedException {
- *        Map&lt;MyFooBarJob, GridNode&gt; jobs = new HashMap&lt;MyFooBarJob, GridNode&gt;(subgrid.size());
+ *    public Map&lt;? extends ComputeJob, ClusterNode&gt; map(List&lt;ClusterNode&gt; subgrid, String arg) throws IgniteCheckedException {
+ *        Map&lt;MyFooBarJob, ClusterNode&gt; jobs = new HashMap&lt;MyFooBarJob, ClusterNode&gt;(subgrid.size());
  *
  *        // In more complex cases, you can actually do
  *        // more complicated assignments of jobs to nodes.
@@ -118,7 +130,7 @@ import static org.apache.ignite.events.EventType.*;
  * <p>
  * <h1 class="header">Configuration</h1>
  * In order to use this load balancer, you should configure your grid instance
- * to use {@code GridRoundRobinLoadBalancingSpi} either from Spring XML file or
+ * to use {@link RoundRobinLoadBalancingSpi} either from Spring XML file or
  * directly. The following configuration parameters are supported:
  * <h2 class="header">Mandatory</h2>
  * This SPI has no mandatory configuration parameters.
@@ -132,12 +144,12 @@ import static org.apache.ignite.events.EventType.*;
  * </ul>
  * Below is Java configuration example:
  * <pre name="code" class="java">
- * GridRandomLoadBalancingSpi = new GridRandomLoadBalancingSpi();
+ * RoundRobinLoadBalancingSpi spi = new RoundRobinLoadBalancingSpi();
  *
  * // Configure SPI to use global round-robin mode.
  * spi.setPerTask(false);
  *
- * GridConfiguration cfg = new GridConfiguration();
+ * IgniteConfiguration cfg = new IgniteConfiguration();
  *
  * // Override default load balancing SPI.
  * cfg.setLoadBalancingSpi(spi);
@@ -145,17 +157,17 @@ import static org.apache.ignite.events.EventType.*;
  * // Starts grid.
  * G.start(cfg);
  * </pre>
- * Here is how you can configure {@code GridRandomLoadBalancingSpi} using Spring XML configuration:
+ * Here is how you can configure {@link RoundRobinLoadBalancingSpi} using Spring XML configuration:
  * <pre name="code" class="xml">
  * &lt;property name="loadBalancingSpi"&gt;
- *     &lt;bean class="org.apache.ignite.spi.loadBalancing.roundrobin.GridRoundRobinLoadBalancingSpi"&gt;
+ *     &lt;bean class="org.apache.ignite.spi.loadBalancing.roundrobin.RoundRobinLoadBalancingSpi"&gt;
  *         &lt;!-- Set to global round-robin mode. --&gt;
  *         &lt;property name="perTask" value="false"/&gt;
  *     &lt;/bean&gt;
  * &lt;/property&gt;
  * </pre>
  * <p>
- * <img src="http://ignite.incubator.apache.org/images/spring-small.png">
+ * <img src="http://ignite.apache.org/images/spring-small.png">
  * <br>
  * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
  */

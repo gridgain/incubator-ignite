@@ -17,26 +17,37 @@
 
 package org.apache.ignite.internal.processors.clock;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.managers.discovery.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.processors.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.util.worker.*;
-import org.apache.ignite.thread.*;
+import java.net.InetAddress;
+import java.util.Collection;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.UUID;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.events.EventType;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.managers.communication.GridMessageListener;
+import org.apache.ignite.internal.managers.discovery.GridDiscoveryTopologySnapshot;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.GridProcessorAdapter;
+import org.apache.ignite.internal.util.GridBoundedConcurrentOrderedMap;
+import org.apache.ignite.internal.util.GridSpinReadWriteLock;
+import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.worker.GridWorker;
+import org.apache.ignite.thread.IgniteThread;
 
-import java.net.*;
-import java.util.*;
-
-import static org.apache.ignite.events.EventType.*;
-import static org.apache.ignite.internal.GridTopic.*;
-import static org.apache.ignite.internal.IgniteNodeAttributes.*;
-import static org.apache.ignite.internal.managers.communication.GridIoPolicy.*;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
+import static org.apache.ignite.internal.GridTopic.TOPIC_TIME_SYNC;
+import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_TIME_SERVER_HOST;
+import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_TIME_SERVER_PORT;
+import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
 
 /**
  * Time synchronization processor.
@@ -57,9 +68,12 @@ public class GridClockSyncProcessor extends GridProcessorAdapter {
     /** Time coordinator thread. */
     private volatile TimeCoordinator timeCoord;
 
-    /** Time delta history. Constructed on coorinator. */
+    /** Time delta history. Constructed on coordinator. */
     private NavigableMap<GridClockDeltaVersion, GridClockDeltaSnapshot> timeSyncHist =
         new GridBoundedConcurrentOrderedMap<>(MAX_TIME_SYNC_HISTORY);
+
+    /** Last recorded. */
+    private volatile T2<GridClockDeltaVersion, GridClockDeltaSnapshot> lastSnapshot;
 
     /** Time source. */
     private GridClockSource clockSrc;
@@ -89,7 +103,11 @@ public class GridClockSyncProcessor extends GridProcessorAdapter {
 
                 GridClockDeltaVersion ver = msg0.snapshotVersion();
 
-                timeSyncHist.put(ver, new GridClockDeltaSnapshot(ver, msg0.deltas()));
+                GridClockDeltaSnapshot snap = new GridClockDeltaSnapshot(ver, msg0.deltas());
+
+                lastSnapshot = new T2<>(ver, snap);
+
+                timeSyncHist.put(ver, snap);
             }
         });
 
@@ -222,7 +240,7 @@ public class GridClockSyncProcessor extends GridProcessorAdapter {
                         minNodeOrder = node.order();
                 }
 
-                ClusterNode locNode = ctx.grid().localNode();
+                ClusterNode locNode = ctx.discovery().localNode();
 
                 if (locNode.order() == minNodeOrder) {
                     if (log.isDebugEnabled())
@@ -255,16 +273,24 @@ public class GridClockSyncProcessor extends GridProcessorAdapter {
      * @return Adjusted time.
      */
     public long adjustedTime(long topVer) {
-        // Get last synchronized time on given topology version.
-        Map.Entry<GridClockDeltaVersion, GridClockDeltaSnapshot> entry = timeSyncHistory().lowerEntry(
-            new GridClockDeltaVersion(0, topVer + 1));
+        T2<GridClockDeltaVersion, GridClockDeltaSnapshot> fastSnap = lastSnapshot;
 
-        GridClockDeltaSnapshot snap = entry == null ? null : entry.getValue();
+        GridClockDeltaSnapshot snap;
+
+        if (fastSnap != null && fastSnap.get1().topologyVersion() == topVer)
+            snap = fastSnap.get2();
+        else {
+            // Get last synchronized time on given topology version.
+            Map.Entry<GridClockDeltaVersion, GridClockDeltaSnapshot> entry = timeSyncHistory().lowerEntry(
+                new GridClockDeltaVersion(0, topVer + 1));
+
+            snap = entry == null ? null : entry.getValue();
+        }
 
         long now = clockSrc.currentTimeMillis();
 
         if (snap == null)
-            return System.currentTimeMillis();
+            return now;
 
         Long delta = snap.deltas().get(ctx.localNodeId());
 
@@ -285,6 +311,8 @@ public class GridClockSyncProcessor extends GridProcessorAdapter {
             return;
 
         try {
+            lastSnapshot = new T2<>(snapshot.version(), snapshot);
+
             timeSyncHist.put(snapshot.version(), snapshot);
 
             for (ClusterNode n : top.topologyNodes()) {
@@ -295,7 +323,7 @@ public class GridClockSyncProcessor extends GridProcessorAdapter {
                     ctx.io().send(n, TOPIC_TIME_SYNC, msg, SYSTEM_POOL);
                 }
                 catch (IgniteCheckedException e) {
-                    if (ctx.discovery().pingNode(n.id()))
+                    if (ctx.discovery().pingNodeNoError(n.id()))
                         U.error(log, "Failed to send time sync snapshot to remote node (did not leave grid?) " +
                             "[nodeId=" + n.id() + ", msg=" + msg + ", err=" + e.getMessage() + ']');
                     else if (log.isDebugEnabled())
@@ -328,7 +356,7 @@ public class GridClockSyncProcessor extends GridProcessorAdapter {
          * @param evt Discovery event on which this node became a coordinator.
          */
         protected TimeCoordinator(DiscoveryEvent evt) {
-            super(ctx.gridName(), "grid-time-coordinator", log);
+            super(ctx.gridName(), "grid-time-coordinator", GridClockSyncProcessor.this.log);
 
             lastSnapshot = new GridDiscoveryTopologySnapshot(evt.topologyVersion(), evt.topologyNodes());
         }
@@ -430,7 +458,7 @@ public class GridClockSyncProcessor extends GridProcessorAdapter {
                     srv.sendPacket(req, addr, port);
                 }
                 catch (IgniteCheckedException e) {
-                    LT.warn(log, e, "Failed to send time request to remote node [rmtNodeId=" + rmtNodeId +
+                    LT.error(log, e, "Failed to send time request to remote node [rmtNodeId=" + rmtNodeId +
                         ", addr=" + addr + ", port=" + port + ']');
                 }
             }

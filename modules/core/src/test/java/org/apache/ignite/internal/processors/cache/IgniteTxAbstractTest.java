@@ -17,24 +17,33 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
+import org.apache.ignite.transactions.TransactionOptimisticException;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 
 /**
  * Tests for local transactions.
@@ -165,9 +174,7 @@ abstract class IgniteTxAbstractTest extends GridCommonAbstractTest {
         for (int i = 0; i < iterations(); i++) {
             IgniteCache<Integer, String> cache = jcache(gridIdx);
 
-            Transaction tx = ignite(gridIdx).transactions().txStart(concurrency, isolation, 0, 0);
-
-            try {
+            try (Transaction tx = ignite(gridIdx).transactions().txStart(concurrency, isolation, 0, 0)) {
                 int prevKey = -1;
 
                 for (Integer key : getKeys()) {
@@ -175,7 +182,7 @@ abstract class IgniteTxAbstractTest extends GridCommonAbstractTest {
                     assert key >= prevKey : "key: " + key + ", prevKey: " + prevKey;
 
                     if (isTestDebug()) {
-                        CacheAffinityFunction aff = cache.getConfiguration(CacheConfiguration.class).getAffinity();
+                        AffinityFunction aff = cache.getConfiguration(CacheConfiguration.class).getAffinity();
 
                         int part = aff.partition(key);
 
@@ -226,46 +233,22 @@ abstract class IgniteTxAbstractTest extends GridCommonAbstractTest {
                     debug("Committed transaction [i=" + i + ", tx=" + tx + ']');
             }
             catch (TransactionOptimisticException e) {
-                if (concurrency != OPTIMISTIC || isolation != SERIALIZABLE) {
-                    error("Received invalid optimistic failure.", e);
+                if (!(concurrency == OPTIMISTIC && isolation == SERIALIZABLE)) {
+                    log.error("Unexpected error: " + e, e);
 
                     throw e;
                 }
-
-                if (isTestDebug())
-                    info("Optimistic transaction failure (will rollback) [i=" + i + ", msg=" + e.getMessage() +
-                        ", tx=" + tx.xid() + ']');
-
-                try {
-                    tx.rollback();
-                }
-                catch (IgniteException ex) {
-                    error("Failed to rollback optimistic failure: " + tx, ex);
-
-                    throw ex;
-                }
             }
-            catch (Exception e) {
-                error("Transaction failed (will rollback): " + tx, e);
-
-                tx.rollback();
+            catch (Throwable e) {
+                log.error("Unexpected error: " + e, e);
 
                 throw e;
-            }
-            catch (Error e) {
-                error("Error when executing transaction (will rollback): " + tx, e);
-
-                tx.rollback();
-
-                throw e;
-            }
-            finally {
-                Transaction t = ignite(gridIdx).transactions().tx();
-
-                assert t == null : "Thread should not have transaction upon completion ['t==tx'=" + (t == tx) +
-                    ", t=" + t + (t != tx ? "tx=" + tx : "tx=''") + ']';
             }
         }
+
+        Transaction tx = ignite(gridIdx).transactions().tx();
+
+        assertNull("Thread should not have transaction upon completion", tx);
 
         if (printMemoryStats()) {
             if (cntr.getAndIncrement() % 100 == 0)
@@ -307,7 +290,7 @@ abstract class IgniteTxAbstractTest extends GridCommonAbstractTest {
             try {
                 for (Integer key : getKeys()) {
                     if (isTestDebug()) {
-                        CacheAffinityFunction aff = cache.getConfiguration(CacheConfiguration.class).getAffinity();
+                        AffinityFunction aff = cache.getConfiguration(CacheConfiguration.class).getAffinity();
 
                         int part = aff.partition(key);
 

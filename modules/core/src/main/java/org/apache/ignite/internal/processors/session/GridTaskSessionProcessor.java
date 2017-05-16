@@ -17,18 +17,20 @@
 
 package org.apache.ignite.internal.processors.session;
 
-import org.apache.ignite.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.deployment.*;
-import org.apache.ignite.internal.processors.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.compute.ComputeJobSibling;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.GridTaskSessionImpl;
+import org.apache.ignite.internal.managers.deployment.GridDeployment;
+import org.apache.ignite.internal.processors.GridProcessorAdapter;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.lang.IgniteUuid;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
 /**
  */
@@ -71,8 +73,8 @@ public class GridTaskSessionProcessor extends GridProcessorAdapter {
      * @param endTime Execution end time.
      * @param siblings Collection of siblings.
      * @param attrs Map of attributes.
-     * @param fullSup {@code True} to enable distributed session attributes
-     *      and checkpoints.
+     * @param fullSup {@code True} to enable distributed session attributes and checkpoints.
+     * @param internal {@code True} in case of internal task.
      * @param subjId Subject ID.
      * @return New session if one did not exist, or existing one.
      */
@@ -88,6 +90,7 @@ public class GridTaskSessionProcessor extends GridProcessorAdapter {
         Collection<ComputeJobSibling> siblings,
         Map<Object, Object> attrs,
         boolean fullSup,
+        boolean internal,
         UUID subjId) {
         if (!fullSup) {
             return new GridTaskSessionImpl(
@@ -103,6 +106,7 @@ public class GridTaskSessionProcessor extends GridProcessorAdapter {
                 attrs,
                 ctx,
                 false,
+                internal,
                 subjId);
         }
 
@@ -125,6 +129,7 @@ public class GridTaskSessionProcessor extends GridProcessorAdapter {
                         attrs,
                         ctx,
                         true,
+                        internal,
                         subjId));
 
                 if (old != null)

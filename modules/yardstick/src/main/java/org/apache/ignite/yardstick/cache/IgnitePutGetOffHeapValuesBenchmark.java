@@ -17,8 +17,8 @@
 
 package org.apache.ignite.yardstick.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMemoryMode;
 
 /**
  * Ignite benchmark that performs put and get operations
@@ -27,6 +27,6 @@ import org.apache.ignite.cache.*;
 public class IgnitePutGetOffHeapValuesBenchmark extends IgnitePutGetBenchmark {
     /** {@inheritDoc} */
     @Override protected IgniteCache<Integer, Object> cache() {
-        return ignite().jcache("atomic-offheap-values");
+        return ignite().cache("atomic-offheap-values");
     }
 }

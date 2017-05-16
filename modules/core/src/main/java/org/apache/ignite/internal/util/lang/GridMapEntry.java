@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.util.lang;
 
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Serializable;
+import java.util.Map;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- * Simple {@link Map.Entry} implementation.
+ * Simple {@link java.util.Map.Entry} implementation.
  */
 public class GridMapEntry<K, V> implements Map.Entry<K, V>, Serializable {
     /** */

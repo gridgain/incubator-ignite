@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.processors.cache.datastructures;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.marshaller.optimized.*;
-
-import java.util.*;
+import java.util.UUID;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteAtomicReference;
+import org.apache.ignite.IgniteAtomicStamped;
+import org.apache.ignite.lang.IgniteCallable;
 
 /**
  * AtomicReference and AtomicStamped multi node tests.
@@ -34,15 +33,6 @@ public abstract class GridCacheAtomicReferenceMultiNodeAbstractTest extends Igni
     /** {@inheritDoc} */
     @Override protected int gridCount() {
         return GRID_CNT;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
-
-        cfg.setMarshaller(new OptimizedMarshaller(false));
-
-        return cfg;
     }
 
     /**

@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.nio.*;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.GridCacheMessage;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Affinity assignment request.
@@ -31,7 +33,7 @@ public class GridDhtAffinityAssignmentRequest extends GridCacheMessage {
     private static final long serialVersionUID = 0L;
 
     /** Topology version being queried. */
-    private long topVer;
+    private AffinityTopologyVersion topVer;
 
     /**
      * Empty constructor.
@@ -44,20 +46,25 @@ public class GridDhtAffinityAssignmentRequest extends GridCacheMessage {
      * @param cacheId Cache ID.
      * @param topVer Topology version.
      */
-    public GridDhtAffinityAssignmentRequest(int cacheId, long topVer) {
+    public GridDhtAffinityAssignmentRequest(int cacheId, @NotNull AffinityTopologyVersion topVer) {
         this.cacheId = cacheId;
         this.topVer = topVer;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean allowForStartup() {
+    @Override public boolean addDeploymentInfo() {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean partitionExchangeMessage() {
         return true;
     }
 
     /**
      * @return Requested topology version.
      */
-    @Override public long topologyVersion() {
+    @Override public AffinityTopologyVersion topologyVersion() {
         return topVer;
     }
 
@@ -87,7 +94,7 @@ public class GridDhtAffinityAssignmentRequest extends GridCacheMessage {
 
         switch (writer.state()) {
             case 3:
-                if (!writer.writeLong("topVer", topVer))
+                if (!writer.writeMessage("topVer", topVer))
                     return false;
 
                 writer.incrementState();
@@ -109,7 +116,7 @@ public class GridDhtAffinityAssignmentRequest extends GridCacheMessage {
 
         switch (reader.state()) {
             case 3:
-                topVer = reader.readLong("topVer");
+                topVer = reader.readMessage("topVer");
 
                 if (!reader.isLastRead())
                     return false;
@@ -118,11 +125,11 @@ public class GridDhtAffinityAssignmentRequest extends GridCacheMessage {
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridDhtAffinityAssignmentRequest.class);
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(GridDhtAffinityAssignmentRequest.class, this);
+        return S.toString(GridDhtAffinityAssignmentRequest.class, this, super.toString());
     }
 }

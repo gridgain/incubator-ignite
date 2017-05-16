@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.processors.rest;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.ConnectorConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 /**
  * Abstract class for REST protocols tests.
@@ -72,6 +73,11 @@ abstract class AbstractRestProcessorSelfTest extends GridCommonAbstractTest {
 
         ConnectorConfiguration clientCfg = new ConnectorConfiguration();
 
+        clientCfg.setJettyPath("modules/clients/src/test/resources/jetty/rest-jetty.xml");
+
+        clientCfg.setIdleQueryCursorTimeout(5000);
+        clientCfg.setIdleQueryCursorCheckFrequency(5000);
+
         cfg.setConnectorConfiguration(clientCfg);
 
         TcpDiscoverySpi disco = new TcpDiscoverySpi();
@@ -83,6 +89,7 @@ abstract class AbstractRestProcessorSelfTest extends GridCommonAbstractTest {
         CacheConfiguration ccfg = defaultCacheConfiguration();
 
         ccfg.setStatisticsEnabled(true);
+        ccfg.setIndexedTypes(String.class, String.class);
 
         cfg.setCacheConfiguration(ccfg);
 
@@ -92,15 +99,7 @@ abstract class AbstractRestProcessorSelfTest extends GridCommonAbstractTest {
     /**
      * @return Cache.
      */
-    @Deprecated
-    @Override protected <K, V> GridCache<K, V> cache() {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * @return Cache.
-     */
     @Override protected <K, V> IgniteCache<K, V> jcache() {
-        return grid(0).jcache(null);
+        return grid(0).cache(null);
     }
 }

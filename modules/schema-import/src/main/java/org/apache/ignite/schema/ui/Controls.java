@@ -17,20 +17,52 @@
 
 package org.apache.ignite.schema.ui;
 
-import com.sun.javafx.scene.control.skin.*;
-import javafx.application.*;
-import javafx.beans.value.*;
-import javafx.collections.*;
-import javafx.event.*;
-import javafx.geometry.*;
-import javafx.scene.*;
-import javafx.scene.control.*;
-import javafx.scene.control.cell.*;
-import javafx.scene.image.*;
-import javafx.scene.input.*;
-import javafx.scene.layout.*;
-import javafx.scene.text.*;
-import javafx.util.*;
+import com.sun.javafx.scene.control.skin.VirtualFlow;
+import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Control;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.SelectionMode;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
+import javafx.scene.control.Tooltip;
+import javafx.scene.control.cell.CheckBoxListCell;
+import javafx.scene.control.cell.CheckBoxTableCell;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.control.cell.TextFieldTableCell;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
+import javafx.util.Callback;
+import javafx.util.converter.DefaultStringConverter;
 
 /**
  * Utility class to create controls.
@@ -349,14 +381,37 @@ public class Controls {
      *
      * @param title Title.
      * @param node Node.
+     * @param collapsible Collapsible flag.
      * @return New {@code TitledPane} instance.
      */
-    public static TitledPane titledPane(String title, Node node) {
+    public static TitledPane titledPane(String title, Node node, boolean collapsible) {
         TitledPane tp = new TitledPane(title, node);
 
+        tp.setCollapsible(collapsible);
         tp.setExpanded(false);
 
         return tp;
+    }
+
+    /**
+     * Create list view.
+     *
+     * @param tip Tooltip text.
+     * @param cb Callback function for list view cell data binding.
+     * @param <T> Type of showed by viewer element.
+     * @return New {@code ListView} instance.
+     */
+    public static <T> ListView<T> list(String tip, Callback<T, ObservableValue<Boolean>> cb) {
+        ListView lst = new ListView<>();
+
+        lst.setCellFactory(CheckBoxListCell.forListView(cb));
+
+        lst.setMinHeight(70);
+        lst.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+
+        tooltip(lst, tip);
+
+        return lst;
     }
 
     /**
@@ -541,10 +596,6 @@ public class Controls {
         /** */
         private final TextColumnValidator<S> validator;
         /** */
-        private boolean cancelling;
-        /** */
-        private boolean hardCancel;
-        /** */
         private String curTxt = "";
 
         /** Row value. */
@@ -566,6 +617,8 @@ public class Controls {
          * @param validator Input text validator.
          */
         private TextFieldTableCellEx(TextColumnValidator<S> validator) {
+            super(new DefaultStringConverter());
+
             this.validator = validator;
         }
 
@@ -580,14 +633,12 @@ public class Controls {
 
             rowVal = getTableView().getSelectionModel().getSelectedItem();
 
-            curTxt = "";
-
-            hardCancel = false;
-
             Node g = getGraphic();
 
             if (g != null) {
                 final TextField tf = (TextField)g;
+
+                curTxt = tf.getText();
 
                 tf.textProperty().addListener(new ChangeListener<String>() {
                     @Override public void changed(ObservableValue<? extends String> val, String oldVal, String newVal) {
@@ -597,13 +648,8 @@ public class Controls {
 
                 tf.setOnKeyPressed(new EventHandler<KeyEvent>() {
                     @Override public void handle(KeyEvent evt) {
-                        if (KeyCode.ENTER == evt.getCode())
+                        if (KeyCode.ENTER == evt.getCode() || KeyCode.ESCAPE == evt.getCode())
                             cancelEdit();
-                        else if (KeyCode.ESCAPE == evt.getCode()) {
-                            hardCancel = true;
-
-                            cancelEdit();
-                        }
                     }
                 });
 
@@ -640,22 +686,12 @@ public class Controls {
 
         /** {@inheritDoc} */
         @Override public void cancelEdit() {
-            if (cancelling)
-                super.cancelEdit();
-            else
-                try {
-                    cancelling = true;
+            boolean editing = isEditing();
 
-                    if (hardCancel || curTxt.trim().isEmpty())
-                        super.cancelEdit();
-                    else if (validator.valid(rowVal, curTxt))
-                        commitEdit(curTxt);
-                    else
-                        super.cancelEdit();
-                }
-                finally {
-                    cancelling = false;
-                }
+            super.cancelEdit();
+
+            if (editing && validator.valid(rowVal, curTxt))
+                updateItem(curTxt, false);
         }
     }
 }

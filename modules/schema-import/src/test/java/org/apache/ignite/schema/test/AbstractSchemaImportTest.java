@@ -17,16 +17,23 @@
 
 package org.apache.ignite.schema.test;
 
-import junit.framework.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import junit.framework.TestCase;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.schema.model.PojoDescriptor;
 import org.apache.ignite.schema.parser.DatabaseMetadataParser;
-import org.apache.ignite.schema.ui.*;
-
-import java.io.*;
-import java.sql.*;
-import java.util.List;
-
-import static org.apache.ignite.schema.ui.MessageBox.Result.*;
+import org.apache.ignite.schema.ui.ConfirmCallable;
+import org.apache.ignite.schema.ui.MessageBox;
 
 /**
  * Base functional for Ignite Schema Import utility tests.
@@ -39,28 +46,17 @@ public abstract class AbstractSchemaImportTest extends TestCase {
     protected static final String OUT_DIR_PATH = System.getProperty("java.io.tmpdir") + "/ignite-schema-import/out";
 
     /** Auto confirmation of file conflicts. */
-    protected ConfirmCallable askOverwrite = new ConfirmCallable(null, "") {
+    protected static final ConfirmCallable YES_TO_ALL = new ConfirmCallable(null, "") {
         @Override public MessageBox.Result confirm(String msg) {
-            return YES_TO_ALL;
+            return MessageBox.Result.YES_TO_ALL;
         }
     };
 
-    /** List of generated for test database POJO objects. */
-    protected List<PojoDescriptor> pojos;
+    /** List of ALL object parsed from test database. */
+    protected List<PojoDescriptor> all;
 
-    /**
-     * Quietly closes given resource ignoring possible checked exception.
-     *
-     * @param rsrc Resource to close.
-     */
-    private void closeQuiet(AutoCloseable rsrc) {
-        try {
-            rsrc.close();
-        }
-        catch (Exception ignored) {
-            // No-op.
-        }
-    }
+    /** List of ONLY POJO descriptors. */
+    protected List<PojoDescriptor> pojos;
 
     /** {@inheritDoc} */
     @Override public void setUp() throws Exception {
@@ -84,7 +80,8 @@ public abstract class AbstractSchemaImportTest extends TestCase {
             " dateCol DATE," +
             " timeCol TIME," +
             " tsCol TIMESTAMP, " +
-            " arrCol BINARY(10))");
+            " arrCol BINARY(10)," +
+            " FIELD_WITH_ALIAS VARCHAR(10))");
 
         stmt.executeUpdate("CREATE TABLE IF NOT EXISTS OBJECTS (pk INTEGER PRIMARY KEY, " +
             " boolCol BOOLEAN," +
@@ -100,15 +97,51 @@ public abstract class AbstractSchemaImportTest extends TestCase {
             " dateCol DATE," +
             " timeCol TIME," +
             " tsCol TIMESTAMP," +
-            " arrCol BINARY(10))");
+            " arrCol BINARY(10)," +
+            " FIELD_WITH_ALIAS VARCHAR(10))");
+
+        stmt.executeUpdate("CREATE INDEX IF NOT EXISTS IDX_1 ON OBJECTS (INTCOL ASC, LONGCOL ASC)");
+
+        stmt.executeUpdate("CREATE INDEX IF NOT EXISTS IDX_2 ON OBJECTS (INTCOL ASC, LONGCOL DESC)");
+
+        stmt.executeUpdate("CREATE SCHEMA IF NOT EXISTS TESTSCHEMA");
+
+        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS TESTSCHEMA.TST(pk INTEGER PRIMARY KEY, " +
+            " boolCol BOOLEAN NOT NULL," +
+            " byteCol TINYINT NOT NULL," +
+            " shortCol SMALLINT NOT NULL," +
+            " intCol INTEGER NOT NULL, " +
+            " longCol BIGINT NOT NULL," +
+            " floatCol REAL NOT NULL," +
+            " doubleCol DOUBLE NOT NULL," +
+            " doubleCol2 DOUBLE NOT NULL, " +
+            " bigDecimalCol DECIMAL(10, 0)," +
+            " strCol VARCHAR(10)," +
+            " dateCol DATE," +
+            " timeCol TIME," +
+            " tsCol TIMESTAMP, " +
+            " arrCol BINARY(10)," +
+            " FIELD_WITH_ALIAS VARCHAR(10))");
+
+        stmt.executeUpdate("CREATE INDEX IF NOT EXISTS IDX_3 ON TESTSCHEMA.TST (INTCOL ASC, LONGCOL ASC)");
+
+        stmt.executeUpdate("CREATE INDEX IF NOT EXISTS IDX_4 ON TESTSCHEMA.TST (INTCOL ASC, LONGCOL DESC)");
 
         conn.commit();
 
-        closeQuiet(stmt);
+        U.closeQuiet(stmt);
 
-        pojos = DatabaseMetadataParser.parse(conn, false);
+        List<String> schemas = new ArrayList<>();
 
-        closeQuiet(conn);
+        all = DatabaseMetadataParser.parse(conn, schemas, false);
+
+        pojos = new ArrayList<>();
+
+        for (PojoDescriptor pojo : all)
+            if (pojo.parent() != null)
+                pojos.add(pojo);
+
+        U.closeQuiet(conn);
     }
 
     /**
@@ -129,6 +162,7 @@ public abstract class AbstractSchemaImportTest extends TestCase {
 
                     if (!baseLine.equals(generatedLine) && !baseLine.contains(excludePtrn)
                             && !generatedLine.contains(excludePtrn)) {
+                        System.out.println("Generated file: " + generated.toString());
                         System.out.println("Expected: " + baseLine);
                         System.out.println("Generated: " + generatedLine);
 

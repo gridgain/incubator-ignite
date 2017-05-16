@@ -17,10 +17,12 @@
 
 package org.apache.ignite.igfs;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
-import static org.apache.ignite.igfs.IgfsIpcEndpointType.*;
+import static org.apache.ignite.igfs.IgfsIpcEndpointType.SHMEM;
+import static org.apache.ignite.igfs.IgfsIpcEndpointType.TCP;
 
 /**
  * IGFS IPC endpoint configuration.
@@ -47,6 +49,9 @@ public class IgfsIpcEndpointConfiguration {
      */
     public static final String DFLT_TOKEN_DIR_PATH = "ipc/shmem";
 
+    /** Default threads count. */
+    public static final int DFLT_THREAD_CNT = IgniteConfiguration.AVAILABLE_PROC_CNT;
+
     /** Endpoint type. */
     private IgfsIpcEndpointType type = DFLT_TYPE;
 
@@ -61,6 +66,9 @@ public class IgfsIpcEndpointConfiguration {
 
     /** Token directory path. */
     private String tokenDirPath = DFLT_TOKEN_DIR_PATH;
+
+    /** Thread count. */
+    private int threadCnt = DFLT_THREAD_CNT;
 
     /**
      * Default constructor.
@@ -232,6 +240,28 @@ public class IgfsIpcEndpointConfiguration {
      */
     public void setTokenDirectoryPath(String tokenDirPath) {
         this.tokenDirPath = tokenDirPath;
+    }
+
+    /**
+     * Get number of threads used by this endpoint to process incoming requests.
+     * <p>
+     * Defaults to {@link #DFLT_THREAD_CNT}.
+     *
+     * @return Number of threads used by this endpoint to process incoming requests.
+     */
+    public int getThreadCount() {
+        return threadCnt;
+    }
+
+    /**
+     * Set number of threads used by this endpoint to process incoming requests.
+     * <p>
+     * See {@link #getThreadCount()} for more information.
+     *
+     * @param threadCnt Number of threads used by this endpoint to process incoming requests.
+     */
+    public void setThreadCount(int threadCnt) {
+        this.threadCnt = threadCnt;
     }
 
     /** {@inheritDoc} */

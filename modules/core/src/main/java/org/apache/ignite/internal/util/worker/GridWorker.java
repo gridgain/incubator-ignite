@@ -17,20 +17,23 @@
 
 package org.apache.ignite.internal.util.worker;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
-
-import java.util.concurrent.*;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
+import org.apache.ignite.IgniteInterruptedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Extension to standard {@link Runnable} interface. Adds proper details to be used
  * with {@link Executor} implementations. Only for internal use.
  */
 public abstract class GridWorker implements Runnable {
-    /** Grid logger. */
-    protected static volatile IgniteLogger log;
+    /** Ignite logger. */
+    protected final IgniteLogger log;
 
     /** Thread name. */
     private final String name;
@@ -50,9 +53,6 @@ public abstract class GridWorker implements Runnable {
     /** Actual thread runner. */
     private volatile Thread runner;
 
-    /** Parent thread. */
-    private final Thread parent;
-
     /** */
     private final Object mux = new Object();
 
@@ -70,18 +70,10 @@ public abstract class GridWorker implements Runnable {
         assert name != null;
         assert log != null;
 
-        parent = Thread.currentThread();
-
         this.gridName = gridName;
         this.name = name;
         this.lsnr = lsnr;
-
-        if (GridWorker.log == null) {
-            synchronized (GridWorker.class) {
-                if (GridWorker.log == null)
-                    GridWorker.log = log.getLogger(GridWorker.class);
-            }
-        }
+        this.log = log;
     }
 
     /**
@@ -102,8 +94,6 @@ public abstract class GridWorker implements Runnable {
         // Runner thread must be recorded first as other operations
         // may depend on it being present.
         runner = Thread.currentThread();
-
-        IgniteLogger log = GridWorker.log;
 
         if (log.isDebugEnabled())
             log.debug("Grid runnable started: " + name);
@@ -132,7 +122,13 @@ public abstract class GridWorker implements Runnable {
         // Catch everything to make sure that it gets logged properly and
         // not to kill any threads from the underlying thread pool.
         catch (Throwable e) {
-            U.error(log, "Runtime error caught during grid runnable execution: " + this, e);
+            if (!X.hasCause(e, InterruptedException.class) && !X.hasCause(e, IgniteInterruptedCheckedException.class) && !X.hasCause(e, IgniteInterruptedException.class))
+                U.error(log, "Runtime error caught during grid runnable execution: " + this, e);
+            else
+                U.warn(log, "Runtime exception occurred during grid runnable execution caused by thread interruption: " + e.getMessage());
+
+            if (e instanceof Error)
+                throw e;
         }
         finally {
             synchronized (mux) {
@@ -176,13 +172,6 @@ public abstract class GridWorker implements Runnable {
      */
     protected void cleanup() {
         /* No-op. */
-    }
-
-    /**
-     * @return Parent thread.
-     */
-    public Thread parent() {
-        return parent;
     }
 
     /**

@@ -17,24 +17,32 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.node.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import java.util.Collection;
+import org.apache.ignite.cache.CacheAtomicWriteOrderMode;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMemoryMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.lang.IgniteProductVersion;
 
-import java.io.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactClass;
 
 /**
  * Data transfer object for cache configuration properties.
  */
-public class VisorCacheConfiguration implements Serializable {
+public class VisorCacheConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
+
+    /** */
+    private static final IgniteProductVersion VER_1_4_1 = IgniteProductVersion.fromString("1.4.1");
 
     /** Cache name. */
     private String name;
@@ -42,16 +50,13 @@ public class VisorCacheConfiguration implements Serializable {
     /** Cache mode. */
     private CacheMode mode;
 
-    /** Distribution mode. */
-    private CacheDistributionMode distributionMode;
-
-    /** Cache atomicity mode */
+    /** Cache atomicity mode. */
     private CacheAtomicityMode atomicityMode;
 
     /** Cache atomicity write ordering mode. */
     private CacheAtomicWriteOrderMode atomicWriteOrderMode;
 
-    /** Eager ttl flag */
+    /** Eager ttl flag. */
     private boolean eagerTtl;
 
     /** Write synchronization mode. */
@@ -60,25 +65,16 @@ public class VisorCacheConfiguration implements Serializable {
     /** Swap enabled flag. */
     private boolean swapEnabled;
 
-    /** Flag indicating whether Ignite should attempt to index value and/or key instances stored in cache. */
-    private boolean qryIdxEnabled;
-
     /** Invalidate. */
     private boolean invalidate;
 
     /** Start size. */
     private int startSize;
 
-    /** Name of class implementing GridCacheTmLookup. */
-    private String tmLookupClsName;
-
     /** Off-heap max memory. */
     private long offHeapMaxMemory;
 
-    /** Max query iterator count */
-    private int maxQryIterCnt;
-
-    /** Max concurrent async operations */
+    /** Max concurrent async operations. */
     private int maxConcurrentAsyncOps;
 
     /** Memory mode. */
@@ -91,7 +87,7 @@ public class VisorCacheConfiguration implements Serializable {
     private VisorCacheAffinityConfiguration affinityCfg;
 
     /** Preload config. */
-    private VisorCachePreloadConfiguration preloadCfg;
+    private VisorCacheRebalanceConfiguration rebalanceCfg;
 
     /** Eviction config. */
     private VisorCacheEvictionConfiguration evictCfg;
@@ -99,10 +95,10 @@ public class VisorCacheConfiguration implements Serializable {
     /** Near cache config. */
     private VisorCacheNearConfiguration nearCfg;
 
-    /** Default config */
+    /** Default config. */
     private VisorCacheDefaultConfiguration dfltCfg;
 
-    /** Store config */
+    /** Store config. */
     private VisorCacheStoreConfiguration storeCfg;
 
     /** Collection of type metadata. */
@@ -126,62 +122,58 @@ public class VisorCacheConfiguration implements Serializable {
     /** Query configuration. */
     private VisorCacheQueryConfiguration qryCfg;
 
+    /** System cache flag. */
+    private boolean sys;
+
     /**
      * @param ignite Grid.
      * @param ccfg Cache configuration.
      * @return Data transfer object for cache configuration properties.
      */
-    public static VisorCacheConfiguration from(Ignite ignite, CacheConfiguration ccfg) {
-        VisorCacheConfiguration cfg = new VisorCacheConfiguration();
+    public VisorCacheConfiguration from(IgniteEx ignite, CacheConfiguration ccfg) {
+        name = ccfg.getName();
+        mode = ccfg.getCacheMode();
+        atomicityMode = ccfg.getAtomicityMode();
+        atomicWriteOrderMode = ccfg.getAtomicWriteOrderMode();
+        eagerTtl = ccfg.isEagerTtl();
+        writeSynchronizationMode = ccfg.getWriteSynchronizationMode();
+        swapEnabled = ccfg.isSwapEnabled();
+        invalidate = ccfg.isInvalidate();
+        startSize = ccfg.getStartSize();
+        offHeapMaxMemory = ccfg.getOffHeapMaxMemory();
+        maxConcurrentAsyncOps = ccfg.getMaxConcurrentAsyncOperations();
+        memoryMode = ccfg.getMemoryMode();
+        interceptor = compactClass(ccfg.getInterceptor());
+        typeMeta = VisorCacheTypeMetadata.list(ccfg.getQueryEntities(), ccfg.getCacheStoreFactory(), ccfg.getTypeMetadata());
+        statisticsEnabled = ccfg.isStatisticsEnabled();
+        mgmtEnabled = ccfg.isManagementEnabled();
+        ldrFactory = compactClass(ccfg.getCacheLoaderFactory());
+        writerFactory = compactClass(ccfg.getCacheWriterFactory());
+        expiryPlcFactory = compactClass(ccfg.getExpiryPolicyFactory());
+        sys = ignite.context().cache().systemCache(ccfg.getName());
 
-        cfg.name = ccfg.getName();
-        cfg.mode = ccfg.getCacheMode();
-        cfg.distributionMode = ccfg.getDistributionMode();
-        cfg.atomicityMode = ccfg.getAtomicityMode();
-        cfg.atomicWriteOrderMode = ccfg.getAtomicWriteOrderMode();
-        cfg.eagerTtl = ccfg.isEagerTtl();
-        cfg.writeSynchronizationMode = ccfg.getWriteSynchronizationMode();
-        cfg.swapEnabled = ccfg.isSwapEnabled();
-        cfg.invalidate = ccfg.isInvalidate();
-        cfg.startSize = ccfg.getStartSize();
-        cfg.tmLookupClsName = ccfg.getTransactionManagerLookupClassName();
-        cfg.offHeapMaxMemory = ccfg.getOffHeapMaxMemory();
-        cfg.maxConcurrentAsyncOps = ccfg.getMaxConcurrentAsyncOperations();
-        cfg.memoryMode = ccfg.getMemoryMode();
-        cfg.interceptor = compactClass(ccfg.getInterceptor());
-        cfg.typeMeta = VisorCacheTypeMetadata.list(ccfg.getTypeMetadata());
-        cfg.statisticsEnabled = ccfg.isStatisticsEnabled();
-        cfg.mgmtEnabled = ccfg.isManagementEnabled();
-        cfg.ldrFactory = compactClass(ccfg.getCacheLoaderFactory());
-        cfg.writerFactory = compactClass(ccfg.getCacheWriterFactory());
-        cfg.expiryPlcFactory = compactClass(ccfg.getExpiryPolicyFactory());
+        affinityCfg = VisorCacheAffinityConfiguration.from(ccfg);
+        rebalanceCfg = VisorCacheRebalanceConfiguration.from(ccfg);
+        evictCfg = VisorCacheEvictionConfiguration.from(ccfg);
+        nearCfg = VisorCacheNearConfiguration.from(ccfg);
+        dfltCfg = VisorCacheDefaultConfiguration.from(ccfg);
 
-        cfg.affinityCfg = VisorCacheAffinityConfiguration.from(ccfg);
-        cfg.preloadCfg = VisorCachePreloadConfiguration.from(ccfg);
-        cfg.evictCfg = VisorCacheEvictionConfiguration.from(ccfg);
-        cfg.nearCfg = VisorCacheNearConfiguration.from(ccfg);
-        cfg.dfltCfg = VisorCacheDefaultConfiguration.from(ccfg);
-        cfg.storeCfg = VisorCacheStoreConfiguration.from(ignite, ccfg);
-        cfg.qryCfg = VisorCacheQueryConfiguration.from(ccfg);
+        boolean compatibility = false;
 
-        return cfg;
-    }
+        for (ClusterNode node : ignite.cluster().nodes()) {
+            if (node.version().compareToIgnoreTimestamp(VER_1_4_1) <= 0) {
+                compatibility = true;
 
-    /**
-     * @param ignite Grid.
-     * @param caches Cache configurations.
-     * @return Data transfer object for cache configurations properties.
-     */
-    public static Iterable<VisorCacheConfiguration> list(Ignite ignite, CacheConfiguration[] caches) {
-        if (caches == null)
-            return Collections.emptyList();
+                break;
+            }
+        }
 
-        final Collection<VisorCacheConfiguration> cfgs = new ArrayList<>(caches.length);
+        storeCfg = (compatibility ? new VisorCacheStoreConfiguration() : new VisorCacheStoreConfigurationV2())
+            .from(ignite, ccfg);
 
-        for (CacheConfiguration cache : caches)
-            cfgs.add(from(ignite, cache));
+        qryCfg = (compatibility ? new VisorCacheQueryConfiguration() : new VisorCacheQueryConfigurationV2()).from(ccfg);
 
-        return cfgs;
+        return this;
     }
 
     /**
@@ -196,13 +188,6 @@ public class VisorCacheConfiguration implements Serializable {
      */
     public CacheMode mode() {
         return mode;
-    }
-
-    /**
-     * @return Distribution mode.
-     */
-    public CacheDistributionMode distributionMode() {
-        return distributionMode;
     }
 
     /**
@@ -241,13 +226,6 @@ public class VisorCacheConfiguration implements Serializable {
     }
 
     /**
-     * @return Flag indicating whether Ignite should attempt to index value and/or key instances stored in cache.
-     */
-    public boolean queryIndexEnabled() {
-        return qryIdxEnabled;
-    }
-
-    /**
      * @return Invalidate.
      */
     public boolean invalidate() {
@@ -262,24 +240,10 @@ public class VisorCacheConfiguration implements Serializable {
     }
 
     /**
-     * @return Name of class implementing GridCacheTmLookup.
-     */
-    @Nullable public String transactionManagerLookupClassName() {
-        return tmLookupClsName;
-    }
-
-    /**
      * @return Off-heap max memory.
      */
     public long offsetHeapMaxMemory() {
         return offHeapMaxMemory;
-    }
-
-    /**
-     * @return Max query iterator count
-     */
-    public int maxQueryIteratorCount() {
-        return maxQryIterCnt;
     }
 
     /**
@@ -294,13 +258,6 @@ public class VisorCacheConfiguration implements Serializable {
      */
     public CacheMemoryMode memoryMode() {
         return memoryMode;
-    }
-
-    /**
-     * @param memoryMode New memory mode.
-     */
-    public void memoryMode(CacheMemoryMode memoryMode) {
-        this.memoryMode = memoryMode;
     }
 
     /**
@@ -362,8 +319,8 @@ public class VisorCacheConfiguration implements Serializable {
     /**
      * @return Preload config.
      */
-    public VisorCachePreloadConfiguration preloadConfiguration() {
-        return preloadCfg;
+    public VisorCacheRebalanceConfiguration rebalanceConfiguration() {
+        return rebalanceCfg;
     }
 
     /**
@@ -399,6 +356,13 @@ public class VisorCacheConfiguration implements Serializable {
      */
     public VisorCacheQueryConfiguration queryConfiguration() {
         return qryCfg;
+    }
+
+    /**
+     * @return System cache state.
+     */
+    public boolean system() {
+        return sys;
     }
 
     /** {@inheritDoc} */

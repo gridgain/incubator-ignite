@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.configuration.*;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMemoryMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMemoryMode.OFFHEAP_TIERED;
 
 /**
  * Tests deployment with off-heap storage.
@@ -31,10 +31,10 @@ public class GridCacheDeploymentOffHeapSelfTest extends GridCacheDeploymentSelfT
     @Override protected CacheConfiguration cacheConfiguration() throws Exception {
         CacheConfiguration cacheCfg = super.cacheConfiguration();
 
-        cacheCfg.setMemoryMode(OFFHEAP_VALUES);
+        cacheCfg.setMemoryMode(OFFHEAP_TIERED);
         cacheCfg.setOffHeapMaxMemory(0);
         cacheCfg.setAtomicityMode(TRANSACTIONAL);
-        cacheCfg.setDistributionMode(NEAR_PARTITIONED);
+        cacheCfg.setNearConfiguration(new NearCacheConfiguration());
 
         return cacheCfg;
     }

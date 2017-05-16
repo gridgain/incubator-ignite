@@ -17,26 +17,30 @@
 
 package org.apache.ignite.internal.processors.cache.eviction;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.eviction.fifo.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.eviction.fifo.FifoEvictionPolicy;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.processors.cache.distributed.GridCacheModuloAffinityFunction;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
 
 /**
  *
@@ -58,9 +62,6 @@ public class GridCacheDistributedEvictionsSelfTest extends GridCommonAbstractTes
     private boolean evictSync;
 
     /** */
-    private boolean evictNearSync;
-
-    /** */
     private final AtomicInteger idxGen = new AtomicInteger();
 
     /** {@inheritDoc} */
@@ -79,16 +80,22 @@ public class GridCacheDistributedEvictionsSelfTest extends GridCommonAbstractTes
         cc.setCacheMode(mode);
         cc.setAtomicityMode(TRANSACTIONAL);
 
-        cc.setDistributionMode(nearEnabled ? NEAR_PARTITIONED : PARTITIONED_ONLY);
+        if (nearEnabled) {
+            NearCacheConfiguration nearCfg = new NearCacheConfiguration();
+
+            cc.setNearConfiguration(nearCfg);
+        }
 
         cc.setSwapEnabled(false);
 
         cc.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
 
         // Set only DHT policy, leave default near policy.
-        cc.setEvictionPolicy(new CacheFifoEvictionPolicy<>(10));
+        FifoEvictionPolicy plc = new FifoEvictionPolicy();
+        plc.setMaxSize(10);
+
+        cc.setEvictionPolicy(plc);
         cc.setEvictSynchronized(evictSync);
-        cc.setEvictNearSynchronized(evictNearSync);
         cc.setEvictSynchronizedKeyBufferSize(1);
 
         cc.setAffinity(new GridCacheModuloAffinityFunction(gridCnt, 1));
@@ -114,43 +121,13 @@ public class GridCacheDistributedEvictionsSelfTest extends GridCommonAbstractTes
     }
 
     /** @throws Throwable If failed. */
-    public void testNearSyncBackupUnsync() throws Throwable {
-        gridCnt = 3;
-        mode = PARTITIONED;
-        evictNearSync = true;
-        evictSync = false;
-        nearEnabled = true;
-
-        checkEvictions();
-    }
-
-    /** @throws Throwable If failed. */
     public void testNearSyncBackupSync() throws Throwable {
         gridCnt = 3;
         mode = PARTITIONED;
-        evictNearSync = true;
         evictSync = true;
         nearEnabled = true;
 
         checkEvictions();
-    }
-
-    /** @throws Throwable If failed. */
-    public void testNearUnsyncBackupSync() throws Throwable {
-        gridCnt = 1;
-        mode = PARTITIONED;
-        evictNearSync = false;
-        evictSync = true;
-        nearEnabled = true;
-
-        try {
-            startGrid(0);
-
-            assert false : "Grid was started with illegal configuration.";
-        }
-        catch (IgniteCheckedException e) {
-            info("Caught expected exception: " + e);
-        }
     }
 
     /**
@@ -159,13 +136,12 @@ public class GridCacheDistributedEvictionsSelfTest extends GridCommonAbstractTes
     public void testLocalSync() throws Throwable {
         gridCnt = 1;
         mode = LOCAL;
-        evictNearSync = true;
         evictSync = true;
         nearEnabled = true;
 
         Ignite g = startGrid(0);
 
-        final IgniteCache<Integer, Integer> cache = g.jcache(null);
+        final IgniteCache<Integer, Integer> cache = g.cache(null);
 
         for (int i = 1; i < 20; i++) {
             cache.put(i * gridCnt, i * gridCnt);
@@ -181,7 +157,7 @@ public class GridCacheDistributedEvictionsSelfTest extends GridCommonAbstractTes
 
             Ignite ignite = grid(0);
 
-            final IgniteCache<Integer, Integer> cache = ignite.jcache(null);
+            final IgniteCache<Integer, Integer> cache = ignite.cache(null);
 
             // Put 1 entry to primary node.
             cache.put(0, 0);

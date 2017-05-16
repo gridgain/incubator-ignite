@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.processors.query.h2.sql;
 
+import java.util.ArrayList;
+
+import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlOperationType.IN;
+
 /**
  * Unary or binary operation.
  */
@@ -28,6 +32,9 @@ public class GridSqlOperation extends GridSqlElement {
      * @param opType Operation type.
      */
     public GridSqlOperation(GridSqlOperationType opType) {
+        super(opType == IN ? new ArrayList<GridSqlElement>() :
+            new ArrayList<GridSqlElement>(opType.childrenCount()));
+
         this.opType = opType;
     }
 
@@ -54,23 +61,9 @@ public class GridSqlOperation extends GridSqlElement {
     }
 
     /**
-     * @return Left.
-     */
-    public GridSqlElement left() {
-        return child(0);
-    }
-
-    /**
-     * @return Right.
-     */
-    public GridSqlElement right() {
-        return child(1);
-    }
-
-    /**
      * @return Operation type.
      */
-    public GridSqlOperationType opType() {
+    public GridSqlOperationType operationType() {
         return opType;
     }
 

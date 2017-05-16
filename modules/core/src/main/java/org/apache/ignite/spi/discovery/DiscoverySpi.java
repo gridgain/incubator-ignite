@@ -17,13 +17,16 @@
 
 package org.apache.ignite.spi.discovery;
 
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.lang.IgniteProductVersion;
+import org.apache.ignite.spi.IgniteSpi;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Grid discovery SPI allows to discover remote nodes in grid.
@@ -101,8 +104,9 @@ public interface DiscoverySpi extends IgniteSpi {
      * Sets a handler for initial data exchange between Ignite nodes.
      *
      * @param exchange Discovery data exchange handler.
+     * @return {@code this} for chaining.
      */
-    public void setDataExchange(DiscoverySpiDataExchange exchange);
+    public TcpDiscoverySpi setDataExchange(DiscoverySpiDataExchange exchange);
 
     /**
      * Sets discovery metrics provider. Use metrics provided by
@@ -110,8 +114,9 @@ public interface DiscoverySpi extends IgniteSpi {
      * dynamic metrics between nodes.
      *
      * @param metricsProvider Provider of metrics data.
+     * @return {@code this} for chaining.
      */
-    public void setMetricsProvider(DiscoveryMetricsProvider metricsProvider);
+    public TcpDiscoverySpi setMetricsProvider(DiscoveryMetricsProvider metricsProvider);
 
     /**
      * Tells discovery SPI to disconnect from topology. This is very close to calling
@@ -141,7 +146,24 @@ public interface DiscoverySpi extends IgniteSpi {
 
     /**
      * Sends custom message across the ring.
-     * @param evt Event.
+     * @param msg Custom message.
+     * @throws IgniteException if failed to marshal evt.
      */
-    public void sendCustomEvent(Serializable evt);
+    public void sendCustomEvent(DiscoverySpiCustomMessage msg) throws IgniteException;
+
+    /**
+     * Initiates failure of provided node.
+     *
+     * @param nodeId Node ID.
+     * @param warning Warning to be shown on all cluster nodes.
+     */
+    public void failNode(UUID nodeId, @Nullable String warning);
+
+    /**
+     * Whether or not discovery is started in client mode.
+     *
+     * @return {@code true} if node is in client mode.
+     * @throws IllegalStateException If discovery SPI has not started.
+     */
+    public boolean isClientMode() throws IllegalStateException;
 }

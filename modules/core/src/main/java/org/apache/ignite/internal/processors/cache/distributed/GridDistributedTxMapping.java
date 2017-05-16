@@ -17,18 +17,24 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.transactions.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction node mapping.
@@ -51,17 +57,14 @@ public class GridDistributedTxMapping implements Externalizable {
     /** DHT version. */
     private GridCacheVersion dhtVer;
 
-    /** Copy on remove flag. */
-    private boolean readOnly;
-
     /** {@code True} if this is last mapping for node. */
     private boolean last;
 
-    /** IDs of backup nodes receiving last prepare request during this mapping. */
-    private Collection<UUID> lastBackups;
-
     /** {@code True} if mapping is for near caches, {@code false} otherwise. */
     private boolean near;
+
+    /** {@code True} if this is first mapping for optimistic tx on client node. */
+    private boolean clientFirst;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -76,21 +79,7 @@ public class GridDistributedTxMapping implements Externalizable {
     public GridDistributedTxMapping(ClusterNode node) {
         this.node = node;
 
-        entries = new GridConcurrentLinkedHashSet<>();
-    }
-
-    /**
-     * @return IDs of backup nodes receiving last prepare request during this mapping.
-     */
-    @Nullable public Collection<UUID> lastBackups() {
-        return lastBackups;
-    }
-
-    /**
-     * @param lastBackups IDs of backup nodes receiving last prepare request during this mapping.
-     */
-    public void lastBackups(@Nullable Collection<UUID> lastBackups) {
-        this.lastBackups = lastBackups;
+        entries = new LinkedHashSet<>();
     }
 
     /**
@@ -105,6 +94,20 @@ public class GridDistributedTxMapping implements Externalizable {
      */
     public void last(boolean last) {
         this.last = last;
+    }
+
+    /**
+     * @return {@code True} if this is first mapping for optimistic tx on client node.
+     */
+    public boolean clientFirst() {
+        return clientFirst;
+    }
+
+    /**
+     * @param clientFirst {@code True} if this is first mapping for optimistic tx on client node.
+     */
+    public void clientFirst(boolean clientFirst) {
+        this.clientFirst = clientFirst;
     }
 
     /**
@@ -136,17 +139,6 @@ public class GridDistributedTxMapping implements Externalizable {
     }
 
     /**
-     * @param entries Mapped entries.
-     * @param readOnly Flag indicating that passed in collection is read-only.
-     */
-    public void entries(Collection<IgniteTxEntry> entries, boolean readOnly) {
-        this.entries = entries;
-
-        // Set copy on remove flag as passed in collection is unmodifiable.
-        this.readOnly = true;
-    }
-
-    /**
      * @return {@code True} if lock is explicit.
      */
     public boolean explicitLock() {
@@ -169,12 +161,13 @@ public class GridDistributedTxMapping implements Externalizable {
 
     /**
      * @param dhtVer DHT version.
+     * @param writeVer DHT writeVersion.
      */
-    public void dhtVersion(GridCacheVersion dhtVer) {
+    public void dhtVersion(GridCacheVersion dhtVer, GridCacheVersion writeVer) {
         this.dhtVer = dhtVer;
 
         for (IgniteTxEntry e : entries)
-            e.dhtVersion(dhtVer);
+            e.dhtVersion(writeVer);
     }
 
     /**
@@ -195,8 +188,6 @@ public class GridDistributedTxMapping implements Externalizable {
      * @param entry Adds entry.
      */
     public void add(IgniteTxEntry entry) {
-        ensureModifiable();
-
         entries.add(entry);
     }
 
@@ -205,37 +196,7 @@ public class GridDistributedTxMapping implements Externalizable {
      * @return {@code True} if entry was removed.
      */
     public boolean removeEntry(IgniteTxEntry entry) {
-        ensureModifiable();
-
         return entries.remove(entry);
-    }
-
-    /**
-     * @param parts Evicts partitions from mapping.
-     */
-    public void evictPartitions(@Nullable int[] parts) {
-        if (!F.isEmpty(parts)) {
-            ensureModifiable();
-
-            evictPartitions(parts, entries);
-        }
-    }
-
-    /**
-     * @param parts Partitions.
-     * @param c Collection.
-     */
-    private void evictPartitions(int[] parts, Collection<IgniteTxEntry> c) {
-        assert parts != null;
-
-        for (Iterator<IgniteTxEntry> it = c.iterator(); it.hasNext();) {
-            IgniteTxEntry e = it.next();
-
-            GridCacheEntryEx cached = e.cached();
-
-            if (U.containsIntArray(parts, cached.partition()))
-                it.remove();
-        }
     }
 
     /**
@@ -244,8 +205,6 @@ public class GridDistributedTxMapping implements Externalizable {
     public void evictReaders(@Nullable Collection<IgniteTxKey> keys) {
         if (keys == null || keys.isEmpty())
             return;
-
-        ensureModifiable();
 
         evictReaders(keys, entries);
     }
@@ -267,17 +226,10 @@ public class GridDistributedTxMapping implements Externalizable {
     }
 
     /**
-     * Copies collection of entries if it is read-only.
+     * Whether empty or not.
+     *
+     * @return Empty or not.
      */
-    private void ensureModifiable() {
-        if (readOnly) {
-            entries = new GridConcurrentLinkedHashSet<>(entries);
-
-            readOnly = false;
-        }
-    }
-
-    /** {@inheritDoc} */
     public boolean empty() {
         return entries.isEmpty();
     }

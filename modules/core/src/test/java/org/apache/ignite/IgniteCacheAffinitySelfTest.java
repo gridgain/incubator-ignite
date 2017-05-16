@@ -17,26 +17,32 @@
 
 package org.apache.ignite;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.affinity.fair.*;
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cache.affinity.fair.FairAffinityFunction;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.affinity.GridAffinityProcessor;
+import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractTest;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
- * Tests for {@link org.apache.ignite.internal.processors.affinity.GridAffinityProcessor.CacheAffinityProxy}.
+ * Tests for {@link GridAffinityProcessor.CacheAffinityProxy}.
  */
 public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
     /** Initial grid count. */
-    private int GRID_COUNT = 3;
+    private int GRID_CNT = 3;
 
     /** Cache name */
     private final String CACHE1 = "Fair";
@@ -46,7 +52,7 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected int gridCount() {
-        return GRID_COUNT;
+        return GRID_CNT;
     }
 
     /** {@inheritDoc} */
@@ -57,11 +63,11 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
 
         CacheConfiguration cache1 = cacheConfiguration(null);
         cache1.setName(CACHE1);
-        cache1.setAffinity(new CachePartitionFairAffinity());
+        cache1.setAffinity(new FairAffinityFunction());
 
         CacheConfiguration cache2 = cacheConfiguration(null);
         cache2.setName(CACHE2);
-        cache2.setAffinity(new CacheRendezvousAffinityFunction());
+        cache2.setAffinity(new RendezvousAffinityFunction());
 
         if (gridName.contains("0"))
             cfg.setCacheConfiguration(cache0);
@@ -82,12 +88,12 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return NEAR_PARTITIONED;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return new NearCacheConfiguration();
     }
 
     /**
-     * Throws Exception if failed.
+     * @throws Exception if failed.
      */
     public void testAffinity() throws Exception {
         checkAffinity();
@@ -97,7 +103,7 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
         startGrid(gridCount() - 1);
         startGrid(gridCount());
 
-        GRID_COUNT += 1;
+        GRID_CNT += 1;
 
         checkAffinity();
     }
@@ -106,17 +112,17 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
      * Check CacheAffinityProxy methods.
      */
     private void checkAffinity() {
-        checkAffinity(grid(0).affinity(null), cache(1, null).affinity());
-        checkAffinity(grid(0).affinity(CACHE1), cache(1, CACHE1).affinity());
-        checkAffinity(grid(0).affinity(CACHE1), cache(1, CACHE1).affinity());
-        checkAffinity(grid(0).affinity(CACHE2), cache(1, CACHE2).affinity());
+        checkAffinity(grid(0).affinity(null), internalCache(1, null).affinity());
+        checkAffinity(grid(0).affinity(CACHE1), internalCache(1, CACHE1).affinity());
+        checkAffinity(grid(0).affinity(CACHE1), internalCache(1, CACHE1).affinity());
+        checkAffinity(grid(0).affinity(CACHE2), internalCache(1, CACHE2).affinity());
     }
 
     /**
      * @param testAff Cache affinity to test.
      * @param aff Cache affinity.
      */
-    private void checkAffinity(CacheAffinity testAff, CacheAffinity aff) {
+    private void checkAffinity(Affinity testAff, Affinity aff) {
         checkAffinityKey(testAff, aff);
         checkPartitions(testAff, aff);
         checkIsBackupOrPrimary(testAff, aff);
@@ -128,16 +134,22 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
 
     /**
      * Check affinityKey method.
+     *
+     * @param testAff Affinity1.
+     * @param aff Affinity2.
      */
-    private void checkAffinityKey(CacheAffinity testAff,CacheAffinity aff) {
+    private void checkAffinityKey(Affinity testAff, Affinity aff) {
         for (int i = 0; i < 10000; i++)
             assertEquals(testAff.affinityKey(i), aff.affinityKey(i));
     }
 
     /**
      * Check allPartitions, backupPartitions and primaryPartitions methods.
+     *
+     * @param testAff Affinity1.
+     * @param aff Affinity2.
      */
-    private void checkPartitions(CacheAffinity testAff, CacheAffinity aff) {
+    private void checkPartitions(Affinity testAff, Affinity aff) {
         for (ClusterNode n : nodes()) {
             checkEqualIntArray(testAff.allPartitions(n), aff.allPartitions(n));
 
@@ -149,8 +161,11 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
 
     /**
      * Check isBackup, isPrimary and isPrimaryOrBackup methods.
+     *
+     * @param testAff Affinity1.
+     * @param aff Affinity2.
      */
-    private void checkIsBackupOrPrimary(CacheAffinity testAff, CacheAffinity aff) {
+    private void checkIsBackupOrPrimary(Affinity testAff, Affinity aff) {
         for (int i = 0; i < 10000; i++)
             for (ClusterNode n : nodes()) {
                 assertEquals(testAff.isBackup(n, i), aff.isBackup(n, i));
@@ -163,8 +178,11 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
 
     /**
      * Check mapKeyToNode, mapKeyToPrimaryAndBackups methods.
+     *
+     * @param testAff Affinity1.
+     * @param aff Affinity2.
      */
-    private void checkMapKeyToNode(CacheAffinity testAff, CacheAffinity aff) {
+    private void checkMapKeyToNode(Affinity testAff, Affinity aff) {
         for (int i = 0; i < 10000; i++) {
             assertEquals(testAff.mapKeyToNode(i).id(), aff.mapKeyToNode(i).id());
 
@@ -174,8 +192,11 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
 
     /**
      * Check mapPartitionToPrimaryAndBackups and mapPartitionToNode methods.
+     *
+     * @param testAff Affinity1.
+     * @param aff Affinity2.
      */
-    private void checkMapPartitionToNode(CacheAffinity testAff, CacheAffinity aff) {
+    private void checkMapPartitionToNode(Affinity testAff, Affinity aff) {
         assertEquals(aff.partitions(), testAff.partitions());
 
         for (int part = 0; part < aff.partitions(); ++part) {
@@ -188,8 +209,11 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
 
     /**
      * Check mapKeysToNodes methods.
+     *
+     * @param testAff Affinity1.
+     * @param aff Affinity2.
      */
-    private void checkMapKeysToNodes(CacheAffinity testAff, CacheAffinity aff) {
+    private void checkMapKeysToNodes(Affinity testAff, Affinity aff) {
         List<Integer> keys = new ArrayList<>(10000);
 
         for (int i = 0; i < 10000; ++i)
@@ -200,8 +224,11 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
 
     /**
      * Check mapPartitionsToNodes methods.
+     *
+     * @param testAff Affinity1.
+     * @param aff Affinity2.
      */
-    private void checkMapPartitionsToNodes(CacheAffinity testAff, CacheAffinity aff) {
+    private void checkMapPartitionsToNodes(Affinity testAff, Affinity aff) {
         List<Integer> parts = new ArrayList<>(aff.partitions());
 
         for (int i = 0; i < aff.partitions(); ++i)
@@ -212,6 +239,9 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
 
     /**
      * Check equal arrays.
+     *
+     * @param arr1 Array 1.
+     * @param arr2 Array 2.
      */
     private static void checkEqualIntArray(int[] arr1, int[] arr2) {
         assertEquals(arr1.length, arr2.length);
@@ -232,6 +262,9 @@ public class IgniteCacheAffinitySelfTest extends IgniteCacheAbstractTest {
 
     /**
      * Check equal collections.
+     *
+     * @param col1 Collection 1.
+     * @param col2 Collection 2.
      */
     private static void checkEqualCollection(Collection<ClusterNode> col1, Collection<ClusterNode> col2) {
         assertEquals(col1.size(), col2.size());

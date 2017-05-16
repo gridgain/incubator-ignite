@@ -17,15 +17,21 @@
 
 package org.apache.ignite.internal.processors.security.os;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.*;
-import org.apache.ignite.internal.processors.security.*;
-import org.apache.ignite.plugin.security.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.UUID;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.processors.GridProcessorAdapter;
+import org.apache.ignite.internal.processors.security.GridSecurityProcessor;
+import org.apache.ignite.internal.processors.security.SecurityContext;
+import org.apache.ignite.plugin.security.AuthenticationContext;
+import org.apache.ignite.plugin.security.SecurityCredentials;
+import org.apache.ignite.plugin.security.SecurityException;
+import org.apache.ignite.plugin.security.SecurityPermission;
+import org.apache.ignite.plugin.security.SecuritySubject;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * No-op implementation for {@link GridSecurityProcessor}.
@@ -39,7 +45,7 @@ public class GridOsSecurityProcessor extends GridProcessorAdapter implements Gri
     }
 
     /** {@inheritDoc} */
-    @Override public SecurityContext authenticateNode(ClusterNode node, GridSecurityCredentials cred)
+    @Override public SecurityContext authenticateNode(ClusterNode node, SecurityCredentials cred)
         throws IgniteCheckedException {
         return null;
     }
@@ -55,18 +61,18 @@ public class GridOsSecurityProcessor extends GridProcessorAdapter implements Gri
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<GridSecuritySubject> authenticatedSubjects() {
+    @Override public Collection<SecuritySubject> authenticatedSubjects() {
         return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
-    @Override public GridSecuritySubject authenticatedSubject(UUID nodeId) {
+    @Override public SecuritySubject authenticatedSubject(UUID nodeId) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public void authorize(String name, GridSecurityPermission perm, @Nullable SecurityContext securityCtx)
-        throws GridSecurityException {
+    @Override public void authorize(String name, SecurityPermission perm, @Nullable SecurityContext securityCtx)
+        throws SecurityException {
         // No-op.
     }
 

@@ -17,26 +17,34 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.marshaller.optimized.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jdk8.backport.*;
+import java.util.Map;
+import javax.cache.Cache;
+import javax.cache.configuration.Factory;
+import javax.cache.integration.CacheLoader;
+import javax.cache.integration.CacheWriter;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheAtomicWriteOrderMode;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.cache.store.CacheStoreAdapter;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.spi.eventstorage.memory.MemoryEventStorageSpi;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jsr166.ConcurrentHashMap8;
 
-import javax.cache.*;
-import javax.cache.configuration.*;
-import javax.cache.integration.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Abstract class for cache tests.
@@ -46,7 +54,7 @@ public abstract class IgniteCacheAbstractTest extends GridCommonAbstractTest {
     private static TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
 
     /** */
-    protected static final Map<Object, Object> storeMap = new ConcurrentHashMap8<>();
+    public static final Map<Object, Object> storeMap = new ConcurrentHashMap8<>();
 
     /**
      * @return Grids count to start.
@@ -82,7 +90,9 @@ public abstract class IgniteCacheAbstractTest extends GridCommonAbstractTest {
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
 
-        TcpDiscoverySpi disco = new TcpDiscoverySpi();
+        ((TcpCommunicationSpi)cfg.getCommunicationSpi()).setSharedMemoryPort(-1);
+
+        TcpDiscoverySpi disco = new TcpDiscoverySpi().setForceServerMode(true);
 
         disco.setMaxMissedHeartbeats(Integer.MAX_VALUE);
 
@@ -91,11 +101,14 @@ public abstract class IgniteCacheAbstractTest extends GridCommonAbstractTest {
         if (isDebug())
             disco.setAckTimeout(Integer.MAX_VALUE);
 
+        MemoryEventStorageSpi eventSpi = new MemoryEventStorageSpi();
+        eventSpi.setExpireCount(100);
+
+        cfg.setEventStorageSpi(eventSpi);
+
         cfg.setDiscoverySpi(disco);
 
         cfg.setCacheConfiguration(cacheConfiguration(gridName));
-
-        cfg.setMarshaller(new OptimizedMarshaller(false));
 
         return cfg;
     }
@@ -120,7 +133,7 @@ public abstract class IgniteCacheAbstractTest extends GridCommonAbstractTest {
         }
 
         cfg.setWriteSynchronizationMode(writeSynchronization());
-        cfg.setDistributionMode(distributionMode());
+        cfg.setNearConfiguration(nearConfiguration());
 
         cfg.setCacheLoaderFactory(loaderFactory());
 
@@ -132,10 +145,10 @@ public abstract class IgniteCacheAbstractTest extends GridCommonAbstractTest {
         if (cfg.getCacheWriterFactory() != null)
             cfg.setWriteThrough(true);
 
-        CacheStore<?, ?> store = cacheStore();
+        Factory<CacheStore> storeFactory = cacheStoreFactory();
 
-        if (store != null) {
-            cfg.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(store));
+        if (storeFactory != null) {
+            cfg.setCacheStoreFactory(storeFactory);
             cfg.setReadThrough(true);
             cfg.setWriteThrough(true);
             cfg.setLoadPreviousValue(true);
@@ -150,7 +163,7 @@ public abstract class IgniteCacheAbstractTest extends GridCommonAbstractTest {
     /**
      * @return Cache store.
      */
-    protected CacheStore<?, ?> cacheStore() {
+    protected Factory<CacheStore> cacheStoreFactory() {
         return null;
     }
 
@@ -188,7 +201,7 @@ public abstract class IgniteCacheAbstractTest extends GridCommonAbstractTest {
     /**
      * @return Partitioned mode.
      */
-    protected abstract CacheDistributionMode distributionMode();
+    protected abstract NearCacheConfiguration nearConfiguration();
 
     /**
      * @return Write synchronization.
@@ -216,13 +229,23 @@ public abstract class IgniteCacheAbstractTest extends GridCommonAbstractTest {
      * @return Cache.
      */
     protected <K, V> IgniteCache<K, V> jcache(int idx) {
-        return grid(idx).jcache(null);
+        return grid(idx).cache(null);
     }
 
     /**
      *
      */
-    public class TestStore extends CacheStoreAdapter<Object, Object> {
+    public static class TestStoreFactory implements Factory<CacheStore> {
+        /** {@inheritDoc} */
+        @Override public CacheStore create() {
+            return new TestStore();
+        }
+    }
+
+    /**
+     *
+     */
+    public static class TestStore extends CacheStoreAdapter<Object, Object> {
         /** {@inheritDoc} */
         @Override public void loadCache(IgniteBiInClosure<Object, Object> clo, Object... args) {
             for (Map.Entry<Object, Object> e : storeMap.entrySet())

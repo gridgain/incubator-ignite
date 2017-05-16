@@ -17,18 +17,24 @@
 
 package org.apache.ignite.internal.processors.cache.affinity;
 
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.util.Collection;
+import java.util.Map;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.processors.cache.CacheOperationContext;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheGateway;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Affinity interface implementation.
  */
-public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externalizable {
+public class GridCacheAffinityProxy<K, V> implements Affinity<K>, Externalizable {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -36,7 +42,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
     private GridCacheGateway<K, V> gate;
 
     /** Affinity delegate. */
-    private CacheAffinity<K> delegate;
+    private Affinity<K> delegate;
 
     /** Context. */
     private GridCacheContext<K, V> cctx;
@@ -52,7 +58,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
      * @param cctx Context.
      * @param delegate Delegate object.
      */
-    public GridCacheAffinityProxy(GridCacheContext<K, V> cctx, CacheAffinity<K> delegate) {
+    public GridCacheAffinityProxy(GridCacheContext<K, V> cctx, Affinity<K> delegate) {
         gate = cctx.gate();
         this.delegate = delegate;
         this.cctx = cctx;
@@ -60,7 +66,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public int partitions() {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.partitions();
@@ -72,7 +78,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public int partition(K key) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.partition(key);
@@ -84,7 +90,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public boolean isPrimary(ClusterNode n, K key) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.isPrimary(n, key);
@@ -96,7 +102,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public boolean isBackup(ClusterNode n, K key) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.isBackup(n, key);
@@ -108,7 +114,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public boolean isPrimaryOrBackup(ClusterNode n, K key) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.isPrimaryOrBackup(n, key);
@@ -120,7 +126,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public int[] primaryPartitions(ClusterNode n) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.primaryPartitions(n);
@@ -132,7 +138,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public int[] backupPartitions(ClusterNode n) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.backupPartitions(n);
@@ -144,7 +150,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public int[] allPartitions(ClusterNode n) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.allPartitions(n);
@@ -156,7 +162,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public ClusterNode mapPartitionToNode(int part) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.mapPartitionToNode(part);
@@ -168,7 +174,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public Map<Integer, ClusterNode> mapPartitionsToNodes(Collection<Integer> parts) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.mapPartitionsToNodes(parts);
@@ -180,7 +186,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public Object affinityKey(K key) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.affinityKey(key);
@@ -193,7 +199,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override @Nullable public ClusterNode mapKeyToNode(K key) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.mapKeyToNode(key);
@@ -205,7 +211,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public Map<ClusterNode, Collection<K>> mapKeysToNodes(@Nullable Collection<? extends K> keys) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.mapKeysToNodes(keys);
@@ -217,7 +223,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public Collection<ClusterNode> mapKeyToPrimaryAndBackups(K key) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.mapKeyToPrimaryAndBackups(key);
@@ -229,7 +235,7 @@ public class GridCacheAffinityProxy<K, V> implements CacheAffinity<K>, Externali
 
     /** {@inheritDoc} */
     @Override public Collection<ClusterNode> mapPartitionToPrimaryAndBackups(int part) {
-        GridCacheProjectionImpl<K, V> old = gate.enter(null);
+        CacheOperationContext old = gate.enter(null);
 
         try {
             return delegate.mapPartitionToPrimaryAndBackups(part);

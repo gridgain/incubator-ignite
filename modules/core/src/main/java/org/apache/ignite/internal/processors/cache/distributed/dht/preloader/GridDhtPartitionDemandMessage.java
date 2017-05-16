@@ -17,16 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.HashSet;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectCollection;
+import org.apache.ignite.internal.GridDirectTransient;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.GridCacheMessage;
+import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Partition demand request.
@@ -39,7 +45,6 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
     private long updateSeq;
 
     /** Partition. */
-    @GridToStringInclude
     @GridDirectCollection(int.class)
     private Collection<Integer> parts;
 
@@ -57,15 +62,14 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
     private int workerId = -1;
 
     /** Topology version. */
-    private long topVer;
+    private AffinityTopologyVersion topVer;
 
     /**
      * @param updateSeq Update sequence for this node.
      * @param topVer Topology version.
+     * @param cacheId Cache ID.
      */
-    GridDhtPartitionDemandMessage(long updateSeq, long topVer, int cacheId) {
-        assert updateSeq > 0;
-
+    GridDhtPartitionDemandMessage(long updateSeq, @NotNull AffinityTopologyVersion topVer, int cacheId) {
         this.cacheId = cacheId;
         this.updateSeq = updateSeq;
         this.topVer = topVer;
@@ -73,6 +77,7 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
 
     /**
      * @param cp Message to copy from.
+     * @param parts Partitions.
      */
     GridDhtPartitionDemandMessage(GridDhtPartitionDemandMessage cp, Collection<Integer> parts) {
         cacheId = cp.cacheId;
@@ -93,11 +98,6 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
         // No-op.
     }
 
-    /** {@inheritDoc} */
-    @Override public boolean allowForStartup() {
-        return true;
-    }
-
     /**
      * @param p Partition.
      */
@@ -114,6 +114,13 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
      */
     Collection<Integer> partitions() {
         return parts;
+    }
+
+    /**
+     * @param updateSeq Update sequence.
+     */
+    void updateSequence(long updateSeq) {
+        this.updateSeq = updateSeq;
     }
 
     /**
@@ -168,7 +175,7 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
     /**
      * @return Topology version for which demand message is sent.
      */
-    @Override public long topologyVersion() {
+    @Override public AffinityTopologyVersion topologyVersion() {
         return topVer;
     }
 
@@ -177,16 +184,21 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
     @Override public void prepareMarshal(GridCacheSharedContext ctx) throws IgniteCheckedException {
         super.prepareMarshal(ctx);
 
-        if (topic != null)
-            topicBytes = ctx.marshaller().marshal(topic);
+        if (topic != null && topicBytes == null)
+            topicBytes = U.marshal(ctx, topic);
     }
 
     /** {@inheritDoc} */
     @Override public void finishUnmarshal(GridCacheSharedContext ctx, ClassLoader ldr) throws IgniteCheckedException {
         super.finishUnmarshal(ctx, ldr);
 
-        if (topicBytes != null)
-            topic = ctx.marshaller().unmarshal(topicBytes, ldr);
+        if (topicBytes != null && topic == null)
+            topic = U.unmarshal(ctx, topicBytes, U.resolveClassLoader(ldr, ctx.gridConfig()));
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean addDeploymentInfo() {
+        return false;
     }
 
     /** {@inheritDoc} */
@@ -217,7 +229,7 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
                 writer.incrementState();
 
             case 5:
-                if (!writer.writeLong("topVer", topVer))
+                if (!writer.writeMessage("topVer", topVer))
                     return false;
 
                 writer.incrementState();
@@ -273,7 +285,7 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
                 reader.incrementState();
 
             case 5:
-                topVer = reader.readLong("topVer");
+                topVer = reader.readMessage("topVer");
 
                 if (!reader.isLastRead())
                     return false;
@@ -306,7 +318,7 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridDhtPartitionDemandMessage.class);
     }
 
     /** {@inheritDoc} */
@@ -321,7 +333,8 @@ public class GridDhtPartitionDemandMessage extends GridCacheMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(GridDhtPartitionDemandMessage.class, this, "partCnt", parts.size(), "super",
-            super.toString());
+        return S.toString(GridDhtPartitionDemandMessage.class, this,
+            "partCnt", parts != null ? parts.size() : 0,
+            "super", super.toString());
     }
 }

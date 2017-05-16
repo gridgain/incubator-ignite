@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.atomic;
 
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.GridDirectCollection;
+import org.apache.ignite.internal.processors.cache.GridCacheDeployable;
+import org.apache.ignite.internal.processors.cache.GridCacheMessage;
+import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  * Deferred dht atomic update response.
@@ -56,13 +60,21 @@ public class GridDhtAtomicDeferredUpdateResponse extends GridCacheMessage implem
     /**
      * Constructor.
      *
+     * @param cacheId Cache ID.
      * @param futVers Future versions.
+     * @param addDepInfo Deployment info.
      */
-    public GridDhtAtomicDeferredUpdateResponse(int cacheId, Collection<GridCacheVersion> futVers) {
+    public GridDhtAtomicDeferredUpdateResponse(int cacheId, Collection<GridCacheVersion> futVers, boolean addDepInfo) {
         assert !F.isEmpty(futVers);
 
         this.cacheId = cacheId;
         this.futVers = futVers;
+        this.addDepInfo = addDepInfo;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean addDeploymentInfo() {
+        return addDepInfo;
     }
 
     /**
@@ -70,6 +82,11 @@ public class GridDhtAtomicDeferredUpdateResponse extends GridCacheMessage implem
      */
     public Collection<GridCacheVersion> futureVersions() {
         return futVers;
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteLogger messageLogger(GridCacheSharedContext ctx) {
+        return ctx.atomicMessageLogger();
     }
 
     /** {@inheritDoc} */
@@ -119,7 +136,7 @@ public class GridDhtAtomicDeferredUpdateResponse extends GridCacheMessage implem
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridDhtAtomicDeferredUpdateResponse.class);
     }
 
     /** {@inheritDoc} */

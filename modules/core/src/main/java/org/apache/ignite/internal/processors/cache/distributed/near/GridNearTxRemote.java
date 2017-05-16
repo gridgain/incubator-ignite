@@ -17,23 +17,32 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
-import org.apache.ignite.internal.processors.cache.transactions.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.transactions.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.processors.cache.GridCachePeekMode.*;
+import java.io.Externalizable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedException;
+import org.apache.ignite.internal.processors.cache.GridCacheOperation;
+import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxRemoteAdapter;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxRemoteStateImpl;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.GridLeanMap;
+import org.apache.ignite.internal.util.tostring.GridToStringBuilder;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction created by system implicitly on remote nodes.
@@ -54,9 +63,6 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
     /** Owned versions. */
     private Map<IgniteTxKey, GridCacheVersion> owned;
 
-    /** Group lock flag. */
-    private boolean grpLock;
-
     /**
      * Empty constructor required for {@link Externalizable}.
      */
@@ -67,13 +73,14 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
     /**
      * This constructor is meant for optimistic transactions.
      *
+     * @param topVer Transaction topology version.
      * @param ldr Class loader.
      * @param nodeId Node ID.
      * @param nearNodeId Near node ID.
-     * @param rmtThreadId Remote thread ID.
      * @param xidVer XID version.
      * @param commitVer Commit version.
      * @param sys System flag.
+     * @param plc IO policy.
      * @param concurrency Concurrency level (should be pessimistic).
      * @param isolation Transaction isolation.
      * @param invalidate Invalidate flag.
@@ -81,96 +88,132 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
      * @param writeEntries Write entries.
      * @param ctx Cache registry.
      * @param txSize Expected transaction size.
-     * @param grpLockKey Group lock key if this is a group-lock transaction.
+     * @param subjId Subject ID.
+     * @param taskNameHash Task name hash code.
      * @throws IgniteCheckedException If unmarshalling failed.
      */
     public GridNearTxRemote(
         GridCacheSharedContext ctx,
+        AffinityTopologyVersion topVer,
         ClassLoader ldr,
         UUID nodeId,
         UUID nearNodeId,
-        long rmtThreadId,
         GridCacheVersion xidVer,
         GridCacheVersion commitVer,
         boolean sys,
-        GridIoPolicy plc,
+        byte plc,
         TransactionConcurrency concurrency,
         TransactionIsolation isolation,
         boolean invalidate,
         long timeout,
         Collection<IgniteTxEntry> writeEntries,
         int txSize,
-        @Nullable IgniteTxKey grpLockKey,
         @Nullable UUID subjId,
         int taskNameHash
     ) throws IgniteCheckedException {
-        super(ctx, nodeId, rmtThreadId, xidVer, commitVer, sys, plc, concurrency, isolation, invalidate, timeout,
-            txSize, grpLockKey, subjId, taskNameHash);
+        super(
+            ctx, 
+            nodeId, 
+            xidVer,
+            commitVer, 
+            sys, 
+            plc, 
+            concurrency, 
+            isolation, 
+            invalidate, 
+            timeout,
+            txSize,
+            subjId, 
+            taskNameHash
+        );
 
         assert nearNodeId != null;
 
         this.nearNodeId = nearNodeId;
 
-        readMap = Collections.emptyMap();
+        int writeSize = writeEntries != null ? Math.max(txSize, writeEntries.size()) : txSize;
 
-        writeMap = new LinkedHashMap<>(
-            writeEntries != null ? Math.max(txSize, writeEntries.size()) : txSize, 1.0f);
+        txState = new IgniteTxRemoteStateImpl(Collections.<IgniteTxKey, IgniteTxEntry>emptyMap(),
+            U.<IgniteTxKey, IgniteTxEntry>newLinkedHashMap(writeSize));
 
-        if (writeEntries != null)
+        if (writeEntries != null) {
             for (IgniteTxEntry entry : writeEntries) {
                 entry.unmarshal(ctx, true, ldr);
 
                 addEntry(entry);
             }
+        }
+
+        assert topVer != null && topVer.topologyVersion() > 0 : topVer;
+
+        topologyVersion(topVer);
     }
 
     /**
      * This constructor is meant for pessimistic transactions.
      *
+     * @param topVer Transaction topology version.
      * @param nodeId Node ID.
      * @param nearNodeId Near node ID.
      * @param nearXidVer Near transaction ID.
-     * @param rmtThreadId Remote thread ID.
      * @param xidVer XID version.
      * @param commitVer Commit version.
      * @param sys System flag.
+     * @param plc IO policy.
      * @param concurrency Concurrency level (should be pessimistic).
      * @param isolation Transaction isolation.
      * @param invalidate Invalidate flag.
      * @param timeout Timeout.
      * @param ctx Cache registry.
      * @param txSize Expected transaction size.
-     * @param grpLockKey Collection of group lock keys if this is a group-lock transaction.
+     * @param subjId Subject ID.
+     * @param taskNameHash Task name hash code.
      */
     public GridNearTxRemote(
         GridCacheSharedContext ctx,
+        AffinityTopologyVersion topVer,
         UUID nodeId,
         UUID nearNodeId,
         GridCacheVersion nearXidVer,
-        long rmtThreadId,
         GridCacheVersion xidVer,
         GridCacheVersion commitVer,
         boolean sys,
-        GridIoPolicy plc,
+        byte plc,
         TransactionConcurrency concurrency,
         TransactionIsolation isolation,
         boolean invalidate,
         long timeout,
         int txSize,
-        @Nullable IgniteTxKey grpLockKey,
         @Nullable UUID subjId,
         int taskNameHash
     ) {
-        super(ctx, nodeId, rmtThreadId, xidVer, commitVer, sys, plc, concurrency, isolation, invalidate, timeout,
-            txSize, grpLockKey, subjId, taskNameHash);
+        super(
+            ctx, 
+            nodeId, 
+            xidVer,
+            commitVer,
+            sys,
+            plc,
+            concurrency, 
+            isolation, 
+            invalidate, 
+            timeout,
+            txSize,
+            subjId,
+            taskNameHash
+        );
 
         assert nearNodeId != null;
 
         this.nearXidVer = nearXidVer;
         this.nearNodeId = nearNodeId;
 
-        readMap = new LinkedHashMap<>(1, 1.0f);
-        writeMap = new LinkedHashMap<>(txSize, 1.0f);
+        txState = new IgniteTxRemoteStateImpl(U.<IgniteTxKey, IgniteTxEntry>newLinkedHashMap(1),
+            U.<IgniteTxKey, IgniteTxEntry>newLinkedHashMap(txSize));
+
+        assert topVer != null && topVer.topologyVersion() > 0 : topVer;
+
+        topologyVersion(topVer);
     }
 
     /** {@inheritDoc} */
@@ -184,26 +227,8 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean enforceSerializable() {
-        return false; // Serializable will be enforced on primary mode.
-    }
-
-    /** {@inheritDoc} */
     @Override public GridCacheVersion ownedVersion(IgniteTxKey key) {
         return owned == null ? null : owned.get(key);
-    }
-
-    /**
-     * Marks near local transaction as group lock. Note that near remote transaction may be
-     * marked as group lock even if it does not contain any locked key.
-     */
-    public void markGroupLock() {
-        grpLock = true;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean groupLock() {
-        return grpLock || super.groupLock();
     }
 
     /**
@@ -211,6 +236,13 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
      */
     @Override public GridCacheVersion nearXidVersion() {
         return nearXidVer;
+    }
+
+    /**
+     * @param cntrs Partition indexes.
+     */
+    @Override public void setPartitionUpdateCounters(long[] cntrs) {
+        // No-op.
     }
 
     /**
@@ -237,7 +269,12 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
 
     /** {@inheritDoc} */
     @Override public Collection<UUID> masterNodeIds() {
-        return Arrays.asList(nodeId, nearNodeId);
+        Collection<UUID> res = new ArrayList<>(2);
+
+        res.add(nodeId);
+        res.add(nearNodeId);
+
+        return res;
     }
 
     /**
@@ -292,10 +329,12 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
             return false;
         }
         else {
-            cached.unswap();
-
             try {
-                if (cached.peek(GLOBAL, CU.empty0()) == null && cached.evictInternal(false, xidVer, null)) {
+                cached.unswap();
+
+                CacheObject val = cached.peek(true, false, false, null);
+
+                if (val == null && cached.evictInternal(false, xidVer, null)) {
                     evicted.add(entry.txKey());
 
                     return false;
@@ -304,7 +343,7 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
                     // Initialize cache entry.
                     entry.cached(cached);
 
-                    writeMap.put(entry.txKey(), entry);
+                    txState.addWriteEntry(entry.txKey(), entry);
 
                     addExplicit(entry);
 
@@ -323,9 +362,12 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
     }
 
     /**
+     * @param cacheCtx Cache context.
      * @param key Key to add to read set.
+     * @param op Operation.
      * @param val Value.
      * @param drVer Data center replication version.
+     * @param skipStore Skip store flag.
      * @throws IgniteCheckedException If failed.
      * @return {@code True} if entry has been enlisted.
      */
@@ -334,7 +376,9 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
         IgniteTxKey key,
         GridCacheOperation op,
         CacheObject val,
-        @Nullable GridCacheVersion drVer
+        @Nullable GridCacheVersion drVer,
+        boolean skipStore,
+        boolean keepBinary
     ) throws IgniteCheckedException {
         checkInternal(key);
 
@@ -349,7 +393,9 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
             else {
                 cached.unswap();
 
-                if (cached.peek(GLOBAL, CU.empty0()) == null && cached.evictInternal(false, xidVer, null)) {
+                CacheObject peek = cached.peek(true, false, false, null);
+
+                if (peek == null && cached.evictInternal(false, xidVer, null)) {
                     cached.context().cache().removeIfObsolete(key.key());
 
                     evicted.add(key);
@@ -364,9 +410,11 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
                         -1L,
                         -1L,
                         cached,
-                        drVer);
+                        drVer,
+                        skipStore,
+                        keepBinary);
 
-                    writeMap.put(key, txEntry);
+                    txState.addWriteEntry(key, txEntry);
 
                     return true;
                 }

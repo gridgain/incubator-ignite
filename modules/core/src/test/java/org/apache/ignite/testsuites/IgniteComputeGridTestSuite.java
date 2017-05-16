@@ -17,11 +17,65 @@
 
 package org.apache.ignite.testsuites;
 
-import junit.framework.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.checkpoint.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.p2p.*;
+import junit.framework.TestSuite;
+import org.apache.ignite.internal.ClusterNodeMetricsSelfTest;
+import org.apache.ignite.internal.GridAffinityNoCacheSelfTest;
+import org.apache.ignite.internal.GridAffinitySelfTest;
+import org.apache.ignite.internal.GridAlwaysFailoverSpiFailSelfTest;
+import org.apache.ignite.internal.GridCancelOnGridStopSelfTest;
+import org.apache.ignite.internal.GridCancelUnusedJobSelfTest;
+import org.apache.ignite.internal.GridCancelledJobsMetricsSelfTest;
+import org.apache.ignite.internal.GridCollisionJobsContextSelfTest;
+import org.apache.ignite.internal.GridDeploymentMultiThreadedSelfTest;
+import org.apache.ignite.internal.GridDeploymentSelfTest;
+import org.apache.ignite.internal.GridEventStorageCheckAllEventsSelfTest;
+import org.apache.ignite.internal.GridEventStorageRuntimeConfigurationSelfTest;
+import org.apache.ignite.internal.GridEventStorageSelfTest;
+import org.apache.ignite.internal.GridFailoverCustomTopologySelfTest;
+import org.apache.ignite.internal.GridFailoverSelfTest;
+import org.apache.ignite.internal.GridFailoverTaskWithPredicateSelfTest;
+import org.apache.ignite.internal.GridFailoverTopologySelfTest;
+import org.apache.ignite.internal.GridJobCheckpointCleanupSelfTest;
+import org.apache.ignite.internal.GridJobCollisionCancelSelfTest;
+import org.apache.ignite.internal.GridJobContextSelfTest;
+import org.apache.ignite.internal.GridJobMasterLeaveAwareSelfTest;
+import org.apache.ignite.internal.GridJobStealingSelfTest;
+import org.apache.ignite.internal.GridJobStealingZeroActiveJobsSelfTest;
+import org.apache.ignite.internal.GridJobSubjectIdSelfTest;
+import org.apache.ignite.internal.GridMultipleJobsSelfTest;
+import org.apache.ignite.internal.GridMultipleSpisSelfTest;
+import org.apache.ignite.internal.GridMultipleVersionsDeploymentSelfTest;
+import org.apache.ignite.internal.GridMultithreadedJobStealingSelfTest;
+import org.apache.ignite.internal.GridNonHistoryMetricsSelfTest;
+import org.apache.ignite.internal.GridProjectionLocalJobMultipleArgumentsSelfTest;
+import org.apache.ignite.internal.GridStopWithWaitSelfTest;
+import org.apache.ignite.internal.GridTaskCancelSingleNodeSelfTest;
+import org.apache.ignite.internal.GridTaskExecutionSelfTest;
+import org.apache.ignite.internal.GridTaskFailoverAffinityRunTest;
+import org.apache.ignite.internal.GridTaskFailoverSelfTest;
+import org.apache.ignite.internal.GridTaskFutureImplStopGridSelfTest;
+import org.apache.ignite.internal.GridTaskInstanceExecutionSelfTest;
+import org.apache.ignite.internal.GridTaskInstantiationSelfTest;
+import org.apache.ignite.internal.GridTaskJobRejectSelfTest;
+import org.apache.ignite.internal.GridTaskListenerSelfTest;
+import org.apache.ignite.internal.GridTaskMapAsyncSelfTest;
+import org.apache.ignite.internal.GridTaskNameAnnotationSelfTest;
+import org.apache.ignite.internal.GridTaskResultCacheSelfTest;
+import org.apache.ignite.internal.GridTaskTimeoutSelfTest;
+import org.apache.ignite.internal.IgniteComputeEmptyClusterGroupTest;
+import org.apache.ignite.internal.IgniteComputeTopologyExceptionTest;
+import org.apache.ignite.internal.IgniteExecutorServiceTest;
+import org.apache.ignite.internal.IgniteExplicitImplicitDeploymentSelfTest;
+import org.apache.ignite.internal.IgniteRoundRobinErrorAfterClientReconnectTest;
+import org.apache.ignite.internal.TaskNodeRestartTest;
+import org.apache.ignite.internal.managers.checkpoint.GridCheckpointManagerSelfTest;
+import org.apache.ignite.internal.managers.checkpoint.GridCheckpointTaskSelfTest;
+import org.apache.ignite.internal.managers.communication.GridCommunicationManagerListenersSelfTest;
+import org.apache.ignite.internal.processors.compute.PublicThreadpoolStarvationTest;
+import org.apache.ignite.p2p.GridMultinodeRedeployContinuousModeSelfTest;
+import org.apache.ignite.p2p.GridMultinodeRedeployIsolatedModeSelfTest;
+import org.apache.ignite.p2p.GridMultinodeRedeployPrivateModeSelfTest;
+import org.apache.ignite.p2p.GridMultinodeRedeploySharedModeSelfTest;
 
 /**
  * Compute grid test suite.
@@ -86,6 +140,7 @@ public class IgniteComputeGridTestSuite {
         suite.addTestSuite(GridFailoverTaskWithPredicateSelfTest.class);
         suite.addTestSuite(GridProjectionLocalJobMultipleArgumentsSelfTest.class);
         suite.addTestSuite(GridAffinitySelfTest.class);
+        suite.addTestSuite(GridAffinityNoCacheSelfTest.class);
         suite.addTestSuite(GridEventStorageRuntimeConfigurationSelfTest.class);
         suite.addTestSuite(GridMultinodeRedeployContinuousModeSelfTest.class);
         suite.addTestSuite(GridMultinodeRedeploySharedModeSelfTest.class);
@@ -93,6 +148,10 @@ public class IgniteComputeGridTestSuite {
         suite.addTestSuite(GridMultinodeRedeployIsolatedModeSelfTest.class);
         suite.addTestSuite(IgniteComputeEmptyClusterGroupTest.class);
         suite.addTestSuite(IgniteComputeTopologyExceptionTest.class);
+        suite.addTestSuite(GridTaskFailoverAffinityRunTest.class);
+        suite.addTestSuite(TaskNodeRestartTest.class);
+        suite.addTestSuite(IgniteRoundRobinErrorAfterClientReconnectTest.class);
+        suite.addTestSuite(PublicThreadpoolStarvationTest.class);
 
         return suite;
     }

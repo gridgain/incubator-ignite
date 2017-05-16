@@ -17,29 +17,28 @@
 
 package org.apache.ignite.marshaller.optimized;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.marshaller.jdk.*;
-import org.jdk8.backport.*;
-import sun.misc.*;
-
-import java.io.*;
-import java.lang.reflect.*;
-import java.nio.charset.*;
-import java.security.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.io.IOException;
+import java.io.ObjectStreamClass;
+import java.io.Serializable;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.nio.charset.Charset;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.internal.util.GridUnsafe;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.marshaller.MarshallerContext;
+import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 
 /**
  * Miscellaneous utility methods to facilitate {@link OptimizedMarshaller}.
  */
 class OptimizedMarshallerUtils {
-    /** */
-    private static final Unsafe UNSAFE = GridUnsafe.unsafe();
-
     /** */
     static final long HASH_SET_MAP_OFF;
 
@@ -137,6 +136,9 @@ class OptimizedMarshallerUtils {
     static final byte CLS = 28;
 
     /** */
+    static final byte PROXY = 29;
+
+    /** */
     static final byte ENUM = 100;
 
     /** */
@@ -151,16 +153,23 @@ class OptimizedMarshallerUtils {
     /** JDK marshaller. */
     static final JdkMarshaller JDK_MARSH = new JdkMarshaller();
 
-    /** Class descriptors by class. */
-    private static final ConcurrentMap<Class, OptimizedClassDescriptor> DESC_BY_CLS = new ConcurrentHashMap8<>();
-
     static {
+        long mapOff;
+
         try {
-            HASH_SET_MAP_OFF = UNSAFE.objectFieldOffset(HashSet.class.getDeclaredField("map"));
+            mapOff = GridUnsafe.objectFieldOffset(HashSet.class.getDeclaredField("map"));
         }
-        catch (NoSuchFieldException e) {
-            throw new IgniteException("Initialization failure.", e);
+        catch (NoSuchFieldException ignored) {
+            try {
+                // Workaround for legacy IBM JRE.
+                mapOff = GridUnsafe.objectFieldOffset(HashSet.class.getDeclaredField("backingMap"));
+            }
+            catch (NoSuchFieldException e2) {
+                throw new IgniteException("Initialization failure.", e2);
+            }
         }
+
+        HASH_SET_MAP_OFF = mapOff;
     }
 
     /**
@@ -172,18 +181,21 @@ class OptimizedMarshallerUtils {
     /**
      * Gets descriptor for provided class.
      *
+     * @param clsMap Class descriptors by class map.
      * @param cls Class.
      * @param ctx Context.
      * @param mapper ID mapper.
      * @return Descriptor.
      * @throws IOException In case of error.
      */
-    static OptimizedClassDescriptor classDescriptor(Class cls,
+    static OptimizedClassDescriptor classDescriptor(
+        ConcurrentMap<Class, OptimizedClassDescriptor> clsMap,
+        Class cls,
         MarshallerContext ctx,
         OptimizedMarshallerIdMapper mapper)
         throws IOException
     {
-        OptimizedClassDescriptor desc = DESC_BY_CLS.get(cls);
+        OptimizedClassDescriptor desc = clsMap.get(cls);
 
         if (desc == null) {
             int typeId = resolveTypeId(cls.getName(), mapper);
@@ -193,14 +205,14 @@ class OptimizedMarshallerUtils {
             try {
                 registered = ctx.registerClass(typeId, cls);
             }
-            catch (Exception e) {
+            catch (IgniteCheckedException e) {
                 throw new IOException("Failed to register class: " + cls.getName(), e);
             }
 
-            desc = new OptimizedClassDescriptor(cls, registered ? typeId : 0, ctx, mapper);
+            desc = new OptimizedClassDescriptor(cls, registered ? typeId : 0, clsMap, ctx, mapper);
 
             if (registered) {
-                OptimizedClassDescriptor old = DESC_BY_CLS.putIfAbsent(cls, desc);
+                OptimizedClassDescriptor old = clsMap.putIfAbsent(cls, desc);
 
                 if (old != null)
                     desc = old;
@@ -233,6 +245,7 @@ class OptimizedMarshallerUtils {
     /**
      * Gets descriptor for provided ID.
      *
+     * @param clsMap Class descriptors by class map.
      * @param id ID.
      * @param ldr Class loader.
      * @param ctx Context.
@@ -241,15 +254,26 @@ class OptimizedMarshallerUtils {
      * @throws IOException In case of error.
      * @throws ClassNotFoundException If class was not found.
      */
-    static OptimizedClassDescriptor classDescriptor(int id, ClassLoader ldr, MarshallerContext ctx,
+    static OptimizedClassDescriptor classDescriptor(
+        ConcurrentMap<Class, OptimizedClassDescriptor> clsMap,
+        int id,
+        ClassLoader ldr,
+        MarshallerContext ctx,
         OptimizedMarshallerIdMapper mapper) throws IOException, ClassNotFoundException {
-        Class cls = ctx.getClass(id, ldr);
+        Class cls;
 
-        OptimizedClassDescriptor desc = DESC_BY_CLS.get(cls);
+        try {
+            cls = ctx.getClass(id, ldr);
+        }
+        catch (IgniteCheckedException e) {
+            throw new IOException("Failed to resolve class for ID: " + id, e);
+        }
+
+        OptimizedClassDescriptor desc = clsMap.get(cls);
 
         if (desc == null) {
-            OptimizedClassDescriptor old = DESC_BY_CLS.putIfAbsent(cls, desc =
-                new OptimizedClassDescriptor(cls, resolveTypeId(cls.getName(), mapper), ctx, mapper));
+            OptimizedClassDescriptor old = clsMap.putIfAbsent(cls, desc =
+                new OptimizedClassDescriptor(cls, resolveTypeId(cls.getName(), mapper), clsMap, ctx, mapper));
 
             if (old != null)
                 desc = old;
@@ -259,31 +283,8 @@ class OptimizedMarshallerUtils {
     }
 
     /**
-     * Undeployment callback.
-     *
-     * @param ldr Undeployed class loader.
-     */
-    public static void onUndeploy(ClassLoader ldr) {
-        for (Class<?> cls : DESC_BY_CLS.keySet()) {
-            if (ldr.equals(cls.getClassLoader()))
-                DESC_BY_CLS.remove(cls);
-        }
-
-        U.clearClassCache(ldr);
-    }
-
-    /**
-     * Intended for test purposes only.
-     */
-    public static void clearCache() {
-        DESC_BY_CLS.clear();
-
-        U.clearClassCache();
-    }
-
-    /**
-     * Computes the serial version UID value for the given class.
-     * The code is taken from {@link ObjectStreamClass#computeDefaultSUID(Class)}.
+     * Computes the serial version UID value for the given class. The code is taken from {@link
+     * ObjectStreamClass#computeDefaultSUID(Class)}.
      *
      * @param cls A class.
      * @param fields Fields.
@@ -292,8 +293,30 @@ class OptimizedMarshallerUtils {
      */
     @SuppressWarnings("ForLoopReplaceableByForEach")
     static short computeSerialVersionUid(Class cls, List<Field> fields) throws IOException {
-        if (Serializable.class.isAssignableFrom(cls) && !Enum.class.isAssignableFrom(cls))
-            return (short)ObjectStreamClass.lookup(cls).getSerialVersionUID();
+        if (Serializable.class.isAssignableFrom(cls) && !Enum.class.isAssignableFrom(cls)) {
+            try {
+                Field field = cls.getDeclaredField("serialVersionUID");
+
+                if (field.getType() == long.class) {
+                    int mod = field.getModifiers();
+
+                    if (Modifier.isStatic(mod) && Modifier.isFinal(mod)) {
+                        field.setAccessible(true);
+
+                        return (short)field.getLong(null);
+                    }
+                }
+            }
+            catch (NoSuchFieldException ignored) {
+                // No-op.
+            }
+            catch (IllegalAccessException e) {
+                throw new IOException(e);
+            }
+
+            if (OptimizedMarshaller.USE_DFLT_SUID)
+                return (short)ObjectStreamClass.lookup(cls).getSerialVersionUID();
+        }
 
         MessageDigest md;
 
@@ -334,7 +357,7 @@ class OptimizedMarshallerUtils {
      * @return Byte value.
      */
     static byte getByte(Object obj, long off) {
-        return UNSAFE.getByte(obj, off);
+        return GridUnsafe.getByteField(obj, off);
     }
 
     /**
@@ -345,7 +368,7 @@ class OptimizedMarshallerUtils {
      * @param val Value.
      */
     static void setByte(Object obj, long off, byte val) {
-        UNSAFE.putByte(obj, off, val);
+        GridUnsafe.putByteField(obj, off, val);
     }
 
     /**
@@ -356,7 +379,7 @@ class OptimizedMarshallerUtils {
      * @return Short value.
      */
     static short getShort(Object obj, long off) {
-        return UNSAFE.getShort(obj, off);
+        return GridUnsafe.getShortField(obj, off);
     }
 
     /**
@@ -367,7 +390,7 @@ class OptimizedMarshallerUtils {
      * @param val Value.
      */
     static void setShort(Object obj, long off, short val) {
-        UNSAFE.putShort(obj, off, val);
+        GridUnsafe.putShortField(obj, off, val);
     }
 
     /**
@@ -378,7 +401,7 @@ class OptimizedMarshallerUtils {
      * @return Integer value.
      */
     static int getInt(Object obj, long off) {
-        return UNSAFE.getInt(obj, off);
+        return GridUnsafe.getIntField(obj, off);
     }
 
     /**
@@ -389,7 +412,7 @@ class OptimizedMarshallerUtils {
      * @param val Value.
      */
     static void setInt(Object obj, long off, int val) {
-        UNSAFE.putInt(obj, off, val);
+        GridUnsafe.putIntField(obj, off, val);
     }
 
     /**
@@ -400,7 +423,7 @@ class OptimizedMarshallerUtils {
      * @return Long value.
      */
     static long getLong(Object obj, long off) {
-        return UNSAFE.getLong(obj, off);
+        return GridUnsafe.getLongField(obj, off);
     }
 
     /**
@@ -411,7 +434,7 @@ class OptimizedMarshallerUtils {
      * @param val Value.
      */
     static void setLong(Object obj, long off, long val) {
-        UNSAFE.putLong(obj, off, val);
+        GridUnsafe.putLongField(obj, off, val);
     }
 
     /**
@@ -422,7 +445,7 @@ class OptimizedMarshallerUtils {
      * @return Float value.
      */
     static float getFloat(Object obj, long off) {
-        return UNSAFE.getFloat(obj, off);
+        return GridUnsafe.getFloatField(obj, off);
     }
 
     /**
@@ -433,7 +456,7 @@ class OptimizedMarshallerUtils {
      * @param val Value.
      */
     static void setFloat(Object obj, long off, float val) {
-        UNSAFE.putFloat(obj, off, val);
+        GridUnsafe.putFloatField(obj, off, val);
     }
 
     /**
@@ -444,7 +467,7 @@ class OptimizedMarshallerUtils {
      * @return Double value.
      */
     static double getDouble(Object obj, long off) {
-        return UNSAFE.getDouble(obj, off);
+        return GridUnsafe.getDoubleField(obj, off);
     }
 
     /**
@@ -455,7 +478,7 @@ class OptimizedMarshallerUtils {
      * @param val Value.
      */
     static void setDouble(Object obj, long off, double val) {
-        UNSAFE.putDouble(obj, off, val);
+        GridUnsafe.putDoubleField(obj, off, val);
     }
 
     /**
@@ -466,7 +489,7 @@ class OptimizedMarshallerUtils {
      * @return Char value.
      */
     static char getChar(Object obj, long off) {
-        return UNSAFE.getChar(obj, off);
+        return GridUnsafe.getCharField(obj, off);
     }
 
     /**
@@ -477,7 +500,7 @@ class OptimizedMarshallerUtils {
      * @param val Value.
      */
     static void setChar(Object obj, long off, char val) {
-        UNSAFE.putChar(obj, off, val);
+        GridUnsafe.putCharField(obj, off, val);
     }
 
     /**
@@ -488,7 +511,7 @@ class OptimizedMarshallerUtils {
      * @return Boolean value.
      */
     static boolean getBoolean(Object obj, long off) {
-        return UNSAFE.getBoolean(obj, off);
+        return GridUnsafe.getBooleanField(obj, off);
     }
 
     /**
@@ -499,7 +522,7 @@ class OptimizedMarshallerUtils {
      * @param val Value.
      */
     static void setBoolean(Object obj, long off, boolean val) {
-        UNSAFE.putBoolean(obj, off, val);
+        GridUnsafe.putBooleanField(obj, off, val);
     }
 
     /**
@@ -510,7 +533,7 @@ class OptimizedMarshallerUtils {
      * @return Value.
      */
     static Object getObject(Object obj, long off) {
-        return UNSAFE.getObject(obj, off);
+        return GridUnsafe.getObjectField(obj, off);
     }
 
     /**
@@ -521,6 +544,6 @@ class OptimizedMarshallerUtils {
      * @param val Value.
      */
     static void setObject(Object obj, long off, Object val) {
-        UNSAFE.putObject(obj, off, val);
+        GridUnsafe.putObjectField(obj, off, val);
     }
 }

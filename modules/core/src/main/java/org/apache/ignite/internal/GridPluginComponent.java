@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.plugin.*;
-import org.apache.ignite.spi.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.io.Serializable;
+import java.util.UUID;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.plugin.PluginProvider;
+import org.apache.ignite.plugin.PluginValidationException;
+import org.apache.ignite.spi.IgniteNodeValidationResult;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -63,6 +65,16 @@ public class GridPluginComponent implements GridComponent {
     }
 
     /** {@inheritDoc} */
+    @Override public void onDisconnected(IgniteFuture<?> reconnectFut) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteInternalFuture<?> onReconnected(boolean clusterRestarted) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public void onKernalStop(boolean cancel) {
         plugin.onIgniteStop(cancel);
     }
@@ -73,24 +85,24 @@ public class GridPluginComponent implements GridComponent {
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public Object collectDiscoveryData(UUID nodeId) {
+    @Nullable @Override public Serializable collectDiscoveryData(UUID nodeId) {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Override public void onDiscoveryDataReceived(UUID nodeId, Object data) {
+    @Override public void onDiscoveryDataReceived(UUID joiningNodeId, UUID rmtNodeId, Serializable data) {
         // No-op.
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public IgniteSpiNodeValidationResult validateNode(ClusterNode node) {
+    @Nullable @Override public IgniteNodeValidationResult validateNode(ClusterNode node) {
         try {
             plugin.validateNewNode(node);
 
             return null;
         }
         catch (PluginValidationException e) {
-            return new IgniteSpiNodeValidationResult(e.nodeId(), e.getMessage(), e.remoteMessage());
+            return new IgniteNodeValidationResult(e.nodeId(), e.getMessage(), e.remoteMessage());
         }
     }
 

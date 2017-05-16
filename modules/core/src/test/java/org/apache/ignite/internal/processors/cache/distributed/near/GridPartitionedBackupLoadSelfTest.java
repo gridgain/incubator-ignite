@@ -17,23 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.spi.discovery.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.cache.store.CacheStoreAdapter;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.DiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import javax.cache.configuration.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Test that persistent store is not used when loading invalidated entry from backup node.
@@ -81,7 +80,7 @@ public class GridPartitionedBackupLoadSelfTest extends GridCommonAbstractTest {
 
         cfg.setCacheMode(PARTITIONED);
         cfg.setBackups(1);
-        cfg.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(store));
+        cfg.setCacheStoreFactory(singletonFactory(store));
         cfg.setReadThrough(true);
         cfg.setWriteThrough(true);
         cfg.setLoadPreviousValue(true);
@@ -104,7 +103,7 @@ public class GridPartitionedBackupLoadSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testBackupLoad() throws Exception {
-        grid(0).jcache(null).put(1, 1);
+        grid(0).cache(null).put(1, 1);
 
         assert store.get(1) == 1;
 
@@ -114,7 +113,7 @@ public class GridPartitionedBackupLoadSelfTest extends GridCommonAbstractTest {
             if (grid(i).affinity(null).isBackup(grid(i).localNode(), 1)) {
                 assert cache.localPeek(1, CachePeekMode.ONHEAP) == 1;
 
-                cache(i).clearLocally(1);
+                jcache(i).localClear(1);
 
                 assert cache.localPeek(1, CachePeekMode.ONHEAP) == null;
 

@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.processors.cache.distributed.GridCacheAbstractNodeRestartSelfTest;
 
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 
 /**
  * Test node restart.
@@ -36,21 +36,25 @@ public class GridCachePartitionedNodeRestartTest extends GridCacheAbstractNodeRe
 
         c.getTransactionConfiguration().setDefaultTxConcurrency(PESSIMISTIC);
 
+        return c;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected CacheConfiguration cacheConfiguration() {
         CacheConfiguration cc = defaultCacheConfiguration();
 
         cc.setName(CACHE_NAME);
+        cc.setAtomicityMode(atomicityMode());
         cc.setCacheMode(PARTITIONED);
-        cc.setWriteSynchronizationMode(FULL_ASYNC);
-        cc.setDistributionMode(PARTITIONED_ONLY);
+        cc.setWriteSynchronizationMode(FULL_SYNC);
+        cc.setNearConfiguration(null);
         cc.setStartSize(20);
-        cc.setRebalanceMode(preloadMode);
-        cc.setRebalanceBatchSize(preloadBatchSize);
-        cc.setAffinity(new CacheRendezvousAffinityFunction(false, partitions));
+        cc.setRebalanceMode(rebalancMode);
+        cc.setRebalanceBatchSize(rebalancBatchSize);
+        cc.setAffinity(new RendezvousAffinityFunction(false, partitions));
         cc.setBackups(backups);
 
-        c.setCacheConfiguration(cc);
-
-        return c;
+        return cc;
     }
 
     /** {@inheritDoc} */

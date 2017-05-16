@@ -17,20 +17,27 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.transactions.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.transactions.*;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.GridCacheAbstractSelfTest;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxManager;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.transactions.Transaction;
 
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Tests that system transactions do not interact with user transactions.
@@ -67,22 +74,22 @@ public class IgniteCacheSystemTransactionsSelfTest extends GridCacheAbstractSelf
     public void testSystemTxInsideUserTx() throws Exception {
         IgniteKernal ignite = (IgniteKernal)grid(0);
 
-        IgniteCache<Object, Object> jcache = ignite.jcache(null);
+        IgniteCache<Object, Object> jcache = ignite.cache(null);
 
         try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             jcache.get("1");
             jcache.put("1", "11");
 
-            GridCacheAdapter<Object, Object> utilityCache = ignite.context().cache().utilityCache();
+            IgniteInternalCache<Object, Object> utilityCache = ignite.context().cache().utilityCache();
 
-            utilityCache.putIfAbsent("2", "2");
+            utilityCache.getAndPutIfAbsent("2", "2");
 
             try (IgniteInternalTx itx = utilityCache.txStartEx(PESSIMISTIC, REPEATABLE_READ)) {
                 assertEquals(null, utilityCache.get("1"));
                 assertEquals("2", utilityCache.get("2"));
                 assertEquals(null, utilityCache.get("3"));
 
-                utilityCache.put("3", "3");
+                utilityCache.getAndPut("3", "3");
 
                 itx.commit();
             }
@@ -101,38 +108,17 @@ public class IgniteCacheSystemTransactionsSelfTest extends GridCacheAbstractSelf
     /**
      * @throws Exception If failed.
      */
-    public void testSystemMarshallerTxInsideSystemTx() throws Exception {
+    public void testMarshallerCacheShouldNotStartTx() throws Exception {
         IgniteKernal ignite = (IgniteKernal)grid(0);
 
-        GridCacheAdapter<Object, Object> utilityCache = ignite.context().cache().utilityCache();
+        final GridCacheAdapter<String,String> marshallerCache = (GridCacheAdapter<String, String>)(GridCacheAdapter)
+            ignite.context().cache().marshallerCache();
 
-        try (IgniteInternalTx tx = utilityCache.txStartEx(PESSIMISTIC, REPEATABLE_READ)) {
-            utilityCache.get("1");
-            utilityCache.put("1", "11");
-
-            CacheProjection<String,String> marshallerCache = (GridCacheAdapter<String, String>)(GridCacheAdapter)ignite.context().cache().marshallerCache();
-
-            marshallerCache.putIfAbsent("2", "2");
-
-            try (IgniteInternalTx itx = marshallerCache.txStartEx(PESSIMISTIC, REPEATABLE_READ)) {
-                assertEquals(null, marshallerCache.get("1"));
-                assertEquals("2", marshallerCache.get("2"));
-                assertEquals(null, marshallerCache.get("3"));
-
-                marshallerCache.put("3", "3");
-
-                itx.commit();
+        GridTestUtils.assertThrows(log, new Callable<Object>() {
+            @Override public Object call() throws Exception {
+                return marshallerCache.txStartEx(PESSIMISTIC, REPEATABLE_READ);
             }
-
-            utilityCache.put("2", "22");
-
-            tx.commit();
-        }
-
-        checkTransactionsCommitted();
-
-        checkEntries(CU.UTILITY_CACHE_NAME, 1, "11", 2, "22", 3, null);
-        checkEntries(CU.MARSH_CACHE_NAME,   1, null, 2, "2",  3, "3");
+        }, IgniteException.class, null);
     }
 
     /**

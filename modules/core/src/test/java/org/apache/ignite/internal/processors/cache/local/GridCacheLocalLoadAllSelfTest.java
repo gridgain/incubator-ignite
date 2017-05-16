@@ -17,19 +17,19 @@
 
 package org.apache.ignite.internal.processors.cache.local;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.Collections;
+import java.util.Map;
+import javax.cache.Cache;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.cache.store.CacheStoreAdapter;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import javax.cache.*;
-import javax.cache.configuration.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
 
 /**
  * Load-All self test.
@@ -51,7 +51,7 @@ public class GridCacheLocalLoadAllSelfTest extends GridCommonAbstractTest {
 
         assert ignite != null;
 
-        ignite.jcache("test-cache").getAll(Collections.singleton(1));
+        ignite.cache("test-cache").getAll(Collections.singleton(1));
     }
 
     /** {@inheritDoc} */
@@ -69,7 +69,7 @@ public class GridCacheLocalLoadAllSelfTest extends GridCommonAbstractTest {
 
         ccfg.setName("test-cache");
         ccfg.setCacheMode(LOCAL);
-        ccfg.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(new TestStore()));
+        ccfg.setCacheStoreFactory(singletonFactory(new TestStore()));
         ccfg.setReadThrough(true);
         ccfg.setWriteThrough(true);
         ccfg.setLoadPreviousValue(true);

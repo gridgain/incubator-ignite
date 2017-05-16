@@ -17,9 +17,11 @@
 
 package org.apache.ignite.thread;
 
-import org.jetbrains.annotations.*;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import java.util.concurrent.*;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * This class provides implementation of {@link ThreadFactory} factory
@@ -31,6 +33,9 @@ public class IgniteThreadFactory implements ThreadFactory {
 
     /** Thread name. */
     private final String threadName;
+
+    /** Index generator for threads. */
+    private final AtomicInteger idxGen = new AtomicInteger();
 
     /**
      * Constructs new thread factory for given grid. All threads will belong
@@ -56,6 +61,11 @@ public class IgniteThreadFactory implements ThreadFactory {
 
     /** {@inheritDoc} */
     @Override public Thread newThread(@NotNull Runnable r) {
-        return new IgniteThread(gridName, threadName, r);
+        return new IgniteThread(gridName, threadName, r, idxGen.incrementAndGet());
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(IgniteThreadFactory.class, this, super.toString());
     }
 }

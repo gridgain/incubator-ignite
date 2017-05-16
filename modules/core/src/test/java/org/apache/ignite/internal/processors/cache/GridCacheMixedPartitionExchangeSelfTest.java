@@ -17,29 +17,39 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
-import java.util.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Test case checks partition exchange when non-cache node joins topology (partition
  * exchange should be skipped in this case).
  */
+@SuppressWarnings("unchecked")
 public class GridCacheMixedPartitionExchangeSelfTest extends GridCommonAbstractTest {
+    /** VM ip finder for TCP discovery. */
+    private static TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
+
     /** Flag indicating whether to include cache to the node configuration. */
     private boolean cache;
 
@@ -47,8 +57,12 @@ public class GridCacheMixedPartitionExchangeSelfTest extends GridCommonAbstractT
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
 
+        ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(ipFinder).setForceServerMode(true);
+
         if (cache)
             cfg.setCacheConfiguration(cacheConfiguration());
+        else
+            cfg.setClientMode(true);
 
         return cfg;
     }
@@ -61,7 +75,7 @@ public class GridCacheMixedPartitionExchangeSelfTest extends GridCommonAbstractT
 
         ccfg.setCacheMode(PARTITIONED);
         ccfg.setAtomicityMode(TRANSACTIONAL);
-        ccfg.setDistributionMode(PARTITIONED_ONLY);
+        ccfg.setNearConfiguration(null);
         ccfg.setBackups(1);
 
         return ccfg;
@@ -91,16 +105,22 @@ public class GridCacheMixedPartitionExchangeSelfTest extends GridCommonAbstractT
 
                         int key = rnd.nextInt(keys);
 
-                        IgniteCache<Integer, Integer> prj = grid(g).jcache(null);
+                        IgniteCache<Integer, Integer> prj = grid(g).cache(null);
 
-                        try (Transaction tx = grid(g).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                            Integer val = prj.get(key);
+                        try {
+                            try (Transaction tx = grid(g).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+                                Integer val = prj.get(key);
 
-                            val = val == null ? 1 : val + 1;
+                                val = val == null ? 1 : val + 1;
 
-                            prj.put(key, val);
+                                prj.put(key, val);
 
-                            tx.commit();
+                                tx.commit();
+                            }
+                        }
+                        catch (Exception e) {
+                            if (!X.hasCause(e, ClusterTopologyCheckedException.class))
+                                throw e;
                         }
                     }
 
@@ -129,9 +149,9 @@ public class GridCacheMixedPartitionExchangeSelfTest extends GridCommonAbstractT
 
             fut.get();
 
-            long topVer = grid(0).cluster().topologyVersion();
+            AffinityTopologyVersion topVer = new AffinityTopologyVersion(grid(0).cluster().topologyVersion());
 
-            assertEquals(29, topVer);
+            assertEquals(29, topVer.topologyVersion());
 
             // Check all grids have all exchange futures completed.
             for (int i = 0; i < 4; i++) {
@@ -139,10 +159,10 @@ public class GridCacheMixedPartitionExchangeSelfTest extends GridCommonAbstractT
 
                 GridCacheContext<Object, Object> cctx = grid.internalCache(null).context();
 
-                IgniteInternalFuture<Long> verFut = cctx.affinity().affinityReadyFuture(topVer);
+                IgniteInternalFuture<AffinityTopologyVersion> verFut = cctx.affinity().affinityReadyFuture(topVer);
 
-                assertEquals((Long)topVer, verFut.get());
-                assertEquals((Long)topVer, cctx.topologyVersionFuture().get());
+                assertEquals(topVer, verFut.get());
+                assertEquals(topVer, cctx.topologyVersionFuture().get());
             }
         }
         finally {

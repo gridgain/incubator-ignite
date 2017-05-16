@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.visor.query;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Result for cache query tasks.
@@ -35,12 +36,12 @@ public class VisorQueryResultEx extends VisorQueryResult {
     private final String qryId;
 
     /** Query columns descriptors. */
-    private final VisorQueryField[] colNames;
+    private final Collection<VisorQueryField> cols;
 
     /**
      * @param resNodeId Node where query executed.
      * @param qryId Query ID for future extraction in nextPage() access.
-     * @param colNames Columns types and names.
+     * @param cols Columns descriptors.
      * @param rows Rows fetched from query.
      * @param hasMore Whether query has more rows to fetch.
      * @param duration Query duration.
@@ -48,16 +49,16 @@ public class VisorQueryResultEx extends VisorQueryResult {
     public VisorQueryResultEx(
         UUID resNodeId,
         String qryId,
-        VisorQueryField[] colNames,
+        Collection<VisorQueryField> cols,
         List<Object[]> rows,
-        Boolean hasMore,
+        boolean hasMore,
         long duration
     ) {
         super(rows, hasMore, duration);
 
         this.resNodeId = resNodeId;
         this.qryId = qryId;
-        this.colNames = colNames;
+        this.cols = cols;
     }
 
     /**
@@ -75,10 +76,10 @@ public class VisorQueryResultEx extends VisorQueryResult {
     }
 
     /**
-     * @return Columns names.
+     * @return Columns.
      */
-    public VisorQueryField[] columnNames() {
-        return colNames;
+    public Collection<VisorQueryField> columns() {
+        return cols;
     }
 
     /** {@inheritDoc} */

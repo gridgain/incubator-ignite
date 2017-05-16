@@ -17,12 +17,12 @@
 
 package org.apache.ignite.cache.hibernate;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.hibernate.cache.*;
-import org.hibernate.cache.spi.*;
-
-import java.util.*;
+import java.util.Collections;
+import java.util.Map;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.hibernate.cache.CacheException;
+import org.hibernate.cache.spi.Region;
 
 /**
  * Implementation of {@link Region}. This interface defines base contract for all L2 cache regions.
@@ -35,7 +35,7 @@ public class HibernateRegion implements Region {
     private final String name;
 
     /** Cache instance. */
-    protected final GridCache<Object, Object> cache;
+    protected final IgniteInternalCache<Object, Object> cache;
 
     /** Grid instance. */
     protected Ignite ignite;
@@ -47,7 +47,7 @@ public class HibernateRegion implements Region {
      * @param cache Region cache.
      */
     public HibernateRegion(HibernateRegionFactory factory, String name, Ignite ignite,
-        GridCache<Object, Object> cache) {
+        IgniteInternalCache<Object, Object> cache) {
         this.factory = factory;
         this.name = name;
         this.ignite = ignite;
@@ -86,7 +86,7 @@ public class HibernateRegion implements Region {
 
     /** {@inheritDoc} */
     @Override public Map toMap() {
-        return cache.toMap();
+        return Collections.emptyMap();
     }
 
     /** {@inheritDoc} */

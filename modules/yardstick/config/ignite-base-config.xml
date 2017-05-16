@@ -27,6 +27,8 @@
     <bean id="base-ignite.cfg" class="org.apache.ignite.configuration.IgniteConfiguration" abstract="true">
         <property name="peerClassLoadingEnabled" value="false"/>
 
+        <property name="metricsLogFrequency" value="5000"/>
+
         <property name="cacheConfiguration">
             <list>
                 <bean class="org.apache.ignite.configuration.CacheConfiguration">
@@ -102,7 +104,7 @@
                 </bean>
 
                 <bean class="org.apache.ignite.configuration.CacheConfiguration">
-                    <property name="name" value="query"/>
+                    <property name="name" value="atomic-index"/>
 
                     <property name="cacheMode" value="PARTITIONED"/>
 
@@ -113,10 +115,67 @@
                     <property name="indexedTypes">
                         <list>
                             <value>java.lang.Integer</value>
+                            <value>org.apache.ignite.yardstick.cache.model.Person1</value>
+
+                            <value>java.lang.Integer</value>
+                            <value>org.apache.ignite.yardstick.cache.model.Person2</value>
+
+                            <value>java.lang.Integer</value>
+                            <value>org.apache.ignite.yardstick.cache.model.Person8</value>
+                        </list>
+                    </property>
+                </bean>
+
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="atomic-index-with-eviction"/>
+
+                    <property name="evictionPolicy">
+                        <bean class="org.apache.ignite.cache.eviction.fifo.FifoEvictionPolicy">
+                            <!-- default range (1000000) x (1 + default backups number (1)) / default nodes number (4) -->
+                            <constructor-arg value="500000"/>
+                        </bean>
+                    </property>
+
+                    <property name="cacheMode" value="PARTITIONED"/>
+
+                    <property name="atomicityMode" value="ATOMIC"/>
+
+                    <property name="swapEnabled" value="false"/>
+
+                    <property name="indexedTypes">
+                        <list>
+                            <value>java.lang.Integer</value>
+                            <value>org.apache.ignite.yardstick.cache.model.Person1</value>
+
+                            <value>java.lang.Integer</value>
+                            <value>org.apache.ignite.yardstick.cache.model.Person2</value>
+
+                            <value>java.lang.Integer</value>
+                            <value>org.apache.ignite.yardstick.cache.model.Person8</value>
+                        </list>
+                    </property>
+                </bean>
+
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="query"/>
+
+                    <property name="cacheMode" value="PARTITIONED"/>
+
+                    <property name="atomicityMode" value="ATOMIC"/>
+
+                    <property name="indexedTypes">
+                        <list>
+                            <value>java.lang.Integer</value>
                             <value>org.apache.ignite.yardstick.cache.model.Organization</value>
 
                             <value>java.lang.Integer</value>
                             <value>org.apache.ignite.yardstick.cache.model.Person</value>
+
+                            <value>java.lang.Integer</value>
+                            <value>org.apache.ignite.yardstick.cache.model.SampleValue</value>
+
+                            <value>java.lang.Integer</value>
+                            <value>java.lang.Integer</value>
                         </list>
                     </property>
                 </bean>
@@ -154,8 +213,6 @@
                 </bean>
             </list>
         </property>
-
-        <property name="connectorConfiguration"><null/></property>
 
         <property name="includeEventTypes">
             <list/>

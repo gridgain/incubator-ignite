@@ -17,27 +17,34 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jetbrains.annotations.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Lock;
+import javax.cache.expiry.Duration;
+import javax.cache.expiry.ExpiryPolicy;
+import javax.cache.expiry.TouchedExpiryPolicy;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestThread;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jetbrains.annotations.Nullable;
 
-import javax.cache.expiry.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-import java.util.concurrent.locks.*;
-
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.events.EventType.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.events.EventType.EVTS_CACHE;
+import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_PUT;
+import static org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_REMOVED;
 
 /**
  * Test cases for multi-threaded tests.
@@ -82,7 +89,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      * @throws Exception If test failed.
      */
     public void testBasicLock() throws Exception {
-        IgniteCache<Integer, String> cache = ignite.jcache(null);
+        IgniteCache<Integer, String> cache = ignite.cache(null);
 
         Lock lock = cache.lock(1);
 
@@ -99,7 +106,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      * @throws IgniteCheckedException If test failed.
      */
     public void testSingleLockReentry() throws IgniteCheckedException {
-        IgniteCache<Integer, String> cache = ignite.jcache(null);
+        IgniteCache<Integer, String> cache = ignite.cache(null);
 
         Lock lock = cache.lock(1);
 
@@ -127,7 +134,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      * @throws Exception If test failed.
      */
     public void testReentry() throws Exception {
-        IgniteCache<Integer, String> cache = ignite.jcache(null);
+        IgniteCache<Integer, String> cache = ignite.cache(null);
 
         Lock lock = cache.lock(1);
 
@@ -166,7 +173,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      *
      */
     public void testInterruptLock() throws InterruptedException {
-        final IgniteCache<Integer, String> cache = ignite.jcache(null);
+        final IgniteCache<Integer, String> cache = ignite.cache(null);
 
         final Lock lock = cache.lock(1);
 
@@ -210,12 +217,12 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      *
      */
     public void testInterruptLockWithTimeout() throws Exception {
-        final IgniteCache<Integer, String> cache = ignite.jcache(null);
+        final IgniteCache<Integer, String> cache = ignite.cache(null);
 
         startGrid(1);
 
         try {
-            final List<Integer> keys = primaryKeys(grid(1).jcache(null), 2, 1);
+            final List<Integer> keys = primaryKeys(grid(1).cache(null), 2, 1);
 
             Lock lock1 = cache.lock(keys.get(1));
 
@@ -230,10 +237,10 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
                     try {
                         latch.countDown();
 
-                        cache.lockAll(Arrays.asList(keys.get(0), keys.get(1))).tryLock(50000, MILLISECONDS);
+                        isOk.set(!cache.lockAll(Arrays.asList(keys.get(0), keys.get(1))).tryLock(5000, MILLISECONDS));
                     }
                     catch (InterruptedException ignored) {
-                        isOk.set(true);
+                        isOk.set(false);
                     }
                 }
             });
@@ -255,8 +262,8 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
             assertFalse(cache.isLocalLocked(keys.get(0), false));
             assertFalse(cache.isLocalLocked(keys.get(1), false));
 
-            assertFalse(grid(1).jcache(null).isLocalLocked(keys.get(0), false));
-            assertFalse(grid(1).jcache(null).isLocalLocked(keys.get(1), false));
+            assertFalse(grid(1).cache(null).isLocalLocked(keys.get(0), false));
+            assertFalse(grid(1).cache(null).isLocalLocked(keys.get(1), false));
 
             assertTrue(isOk.get());
         }
@@ -269,7 +276,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      * @throws IgniteCheckedException If test failed.
      */
     public void testManyLockReentries() throws IgniteCheckedException {
-        IgniteCache<Integer, String> cache = ignite.jcache(null);
+        IgniteCache<Integer, String> cache = ignite.cache(null);
 
         Integer key = 1;
 
@@ -312,7 +319,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      * @throws Exception If test failed.
      */
     public void testLockMultithreaded() throws Exception {
-        final IgniteCache<Integer, String> cache = ignite.jcache(null);
+        final IgniteCache<Integer, String> cache = ignite.cache(null);
 
         final CountDownLatch l1 = new CountDownLatch(1);
         final CountDownLatch l2 = new CountDownLatch(1);
@@ -430,7 +437,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      * @throws Exception If error occur.
      */
     public void testBasicOps() throws Exception {
-        IgniteCache<Integer, String> cache = ignite.jcache(null);
+        IgniteCache<Integer, String> cache = ignite.cache(null);
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -491,7 +498,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      * @throws Exception If error occur.
      */
     public void testBasicOpsWithReentry() throws Exception {
-        IgniteCache<Integer, String> cache = ignite.jcache(null);
+        IgniteCache<Integer, String> cache = ignite.cache(null);
 
         int key = (int)System.currentTimeMillis();
 
@@ -563,7 +570,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      * @throws Exception If test failed.
      */
     public void testMultiLocks() throws Exception {
-        IgniteCache<Integer, String> cache = ignite.jcache(null);
+        IgniteCache<Integer, String> cache = ignite.cache(null);
 
         Collection<Integer> keys = Arrays.asList(1, 2, 3);
 
@@ -594,7 +601,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      * @throws IgniteCheckedException If test failed.
      */
     public void testGetPutRemove() throws IgniteCheckedException {
-        IgniteCache<Integer, String> cache = ignite.jcache(null);
+        IgniteCache<Integer, String> cache = ignite.cache(null);
 
         int key = (int)System.currentTimeMillis();
 
@@ -618,7 +625,7 @@ public abstract class GridCacheBasicApiAbstractTest extends GridCommonAbstractTe
      * @throws Exception In case of error.
      */
     public void testPutWithExpiration() throws Exception {
-        IgniteCache<Integer, String> cache = ignite.jcache(null);
+        IgniteCache<Integer, String> cache = ignite.cache(null);
 
         CacheEventListener lsnr = new CacheEventListener(new CountDownLatch(1));
 

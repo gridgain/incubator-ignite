@@ -20,17 +20,18 @@ package org.apache.ignite.visor.commands.vvm
 import org.apache.ignite.IgniteSystemProperties
 import org.apache.ignite.cluster.ClusterNode
 import org.apache.ignite.internal.IgniteNodeAttributes._
+import org.apache.ignite.internal.util.scala.impl
 import org.apache.ignite.internal.util.{IgniteUtils => U}
-import org.apache.ignite.internal.visor.util.{VisorTaskUtils => TU}
+import org.apache.ignite.visor.VisorTag
+import org.apache.ignite.visor.commands.common.VisorConsoleCommand
+import org.apache.ignite.visor.visor._
 
 import org.jetbrains.annotations.Nullable
 
 import java.io.File
 import java.net._
 
-import org.apache.ignite.visor.VisorTag
-import org.apache.ignite.visor.commands.VisorConsoleCommand
-import org.apache.ignite.visor.visor._
+import org.apache.ignite.internal.visor.util.{VisorTaskUtils => TU}
 
 import scala.collection.JavaConversions._
 import scala.language.{implicitConversions, reflectiveCalls}
@@ -59,7 +60,10 @@ import scala.util.control.Breaks._
  *         If not specified, PATH and JAVA_HOME will be searched.
  *     -id8=<node-id8>
  *         ID8 of node.
- *         Either '-id8' or '-id' can be specified.
+ *         Note that either '-id8' or '-id' should be specified.
+ *         You can also use '@n0' ... '@nn' variables as a shortcut for <node-id8>.
+ *         To specify oldest node on the same host as visor use variable '@nl'.
+ *         To specify oldest node on other hosts that are not running visor use variable '@nr'.
  *     -id=<node-id>
  *         Full ID of node.
  *         Either '-id8' or '-id' can be specified.
@@ -77,18 +81,8 @@ import scala.util.control.Breaks._
  *         Opens VisualVM connected to all nodes.
  * }}}
  */
-class VisorVvmCommand {
-    /**
-     * Prints error message and advise.
-     *
-     * @param errMsgs Error messages.
-     */
-    private def scold(errMsgs: Any*) {
-        assert(errMsgs != null)
-
-        warn(errMsgs: _*)
-        warn("Type 'help vvm' to see how to use this command.")
-    }
+class VisorVvmCommand extends VisorConsoleCommand {
+    @impl protected val name = "vvm"
 
     /**
      * ===Command===
@@ -254,6 +248,9 @@ class VisorVvmCommand {
  * Companion object that does initialization of the command.
  */
 object VisorVvmCommand {
+    /** Singleton command. */
+    private val cmd = new VisorVvmCommand
+
     // Adds command's help to visor.
     addHelp(
         name = "vvm",
@@ -266,8 +263,10 @@ object VisorVvmCommand {
             ),
             "-id8=<node-id8>" -> List(
                 "ID8 of node.",
-                "Note that either '-id8' or '-id' can be specified and " +
-                    "you can also use '@n0' ... '@nn' variables as shortcut to <node-id8>."
+                "Note that either '-id8' or '-id' should be specified.",
+                "You can also use '@n0' ... '@nn' variables as a shortcut for <node-id8>.",
+                "To specify oldest node on the same host as visor use variable '@nl'.",
+                "To specify oldest node on other hosts that are not running visor use variable '@nr'."
             ),
             "-id=<node-id>" -> List(
                 "Full ID of node.",
@@ -286,11 +285,9 @@ object VisorVvmCommand {
             "vvm" ->
                 "Opens VisualVM connected to all nodes."
         ),
-        ref = VisorConsoleCommand(cmd.vvm, cmd.vvm)
+        emptyArgs = cmd.vvm,
+        withArgs = cmd.vvm
     )
-
-    /** Singleton command. */
-    private val cmd = new VisorVvmCommand
 
     /**
      * Singleton.

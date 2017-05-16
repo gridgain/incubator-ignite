@@ -17,33 +17,84 @@
 
 package org.apache.ignite.hadoop.fs.v2;
 
-import org.apache.commons.logging.*;
-import org.apache.hadoop.conf.*;
-import org.apache.hadoop.fs.*;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.AbstractFileSystem;
+import org.apache.hadoop.fs.BlockLocation;
+import org.apache.hadoop.fs.CreateFlag;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileChecksum;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FsServerDefaults;
+import org.apache.hadoop.fs.FsStatus;
+import org.apache.hadoop.fs.InvalidPathException;
 import org.apache.hadoop.fs.Options;
-import org.apache.hadoop.fs.permission.*;
-import org.apache.hadoop.mapreduce.*;
-import org.apache.hadoop.util.*;
-import org.apache.ignite.*;
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.internal.igfs.common.*;
-import org.apache.ignite.internal.processors.hadoop.*;
-import org.apache.ignite.internal.processors.hadoop.igfs.*;
-import org.apache.ignite.internal.processors.igfs.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.util.DataChecksum;
+import org.apache.hadoop.util.Progressable;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.configuration.FileSystemConfiguration;
+import org.apache.ignite.hadoop.fs.HadoopFileSystemFactory;
+import org.apache.ignite.hadoop.fs.IgniteHadoopIgfsSecondaryFileSystem;
+import org.apache.ignite.igfs.IgfsBlockLocation;
+import org.apache.ignite.igfs.IgfsFile;
+import org.apache.ignite.igfs.IgfsMode;
+import org.apache.ignite.igfs.IgfsPath;
+import org.apache.ignite.internal.igfs.common.IgfsLogger;
+import org.apache.ignite.internal.processors.hadoop.delegate.HadoopDelegateUtils;
+import org.apache.ignite.internal.processors.hadoop.delegate.HadoopFileSystemFactoryDelegate;
+import org.apache.ignite.internal.processors.hadoop.igfs.HadoopIgfsEndpoint;
+import org.apache.ignite.internal.processors.hadoop.impl.igfs.HadoopIgfsInputStream;
+import org.apache.ignite.internal.processors.hadoop.impl.igfs.HadoopIgfsOutputStream;
+import org.apache.ignite.internal.processors.hadoop.impl.igfs.HadoopIgfsProxyInputStream;
+import org.apache.ignite.internal.processors.hadoop.impl.igfs.HadoopIgfsProxyOutputStream;
+import org.apache.ignite.internal.processors.hadoop.impl.igfs.HadoopIgfsStreamDelegate;
+import org.apache.ignite.internal.processors.hadoop.impl.igfs.HadoopIgfsWrapper;
+import org.apache.ignite.internal.processors.igfs.IgfsHandshakeResponse;
+import org.apache.ignite.internal.processors.igfs.IgfsModeResolver;
+import org.apache.ignite.internal.processors.igfs.IgfsPaths;
+import org.apache.ignite.internal.processors.igfs.IgfsStatus;
+import org.apache.ignite.internal.processors.igfs.IgfsUtils;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
+import java.io.BufferedOutputStream;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.apache.ignite.configuration.FileSystemConfiguration.*;
-import static org.apache.ignite.igfs.IgfsMode.*;
-import static org.apache.ignite.internal.processors.hadoop.fs.HadoopParameters.*;
-import static org.apache.ignite.internal.processors.hadoop.igfs.HadoopIgfsUtils.*;
-import static org.apache.ignite.internal.processors.igfs.IgfsEx.*;
+import static org.apache.ignite.configuration.FileSystemConfiguration.DFLT_IGFS_LOG_BATCH_SIZE;
+import static org.apache.ignite.configuration.FileSystemConfiguration.DFLT_IGFS_LOG_DIR;
+import static org.apache.ignite.hadoop.fs.v1.IgniteHadoopFileSystem.getFsHadoopUser;
+import static org.apache.ignite.igfs.IgfsMode.PROXY;
+import static org.apache.ignite.internal.processors.hadoop.impl.fs.HadoopParameters.PARAM_IGFS_COLOCATED_WRITES;
+import static org.apache.ignite.internal.processors.hadoop.impl.fs.HadoopParameters.PARAM_IGFS_LOG_BATCH_SIZE;
+import static org.apache.ignite.internal.processors.hadoop.impl.fs.HadoopParameters.PARAM_IGFS_LOG_DIR;
+import static org.apache.ignite.internal.processors.hadoop.impl.fs.HadoopParameters.PARAM_IGFS_LOG_ENABLED;
+import static org.apache.ignite.internal.processors.hadoop.impl.fs.HadoopParameters.PARAM_IGFS_PREFER_LOCAL_WRITES;
+import static org.apache.ignite.internal.processors.hadoop.impl.fs.HadoopParameters.PARAM_IGFS_SEQ_READS_BEFORE_PREFETCH;
+import static org.apache.ignite.internal.processors.hadoop.impl.igfs.HadoopIgfsUtils.parameter;
+import static org.apache.ignite.internal.processors.igfs.IgfsEx.IGFS_SCHEME;
 
 /**
  * {@code IGFS} Hadoop 2.x file system driver over file system API. To use
@@ -91,11 +142,14 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
     /** Grid remote client. */
     private HadoopIgfsWrapper rmtClient;
 
+    /** The name of the user this File System created on behalf of. */
+    private final String user;
+
     /** Working directory. */
     private IgfsPath workingDir;
 
     /** URI. */
-    private URI uri;
+    private final URI uri;
 
     /** Authority. */
     private String uriAuthority;
@@ -115,8 +169,8 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
     /** Mode resolver. */
     private IgfsModeResolver modeRslvr;
 
-    /** Secondary file system instance. */
-    private AbstractFileSystem secondaryFs;
+    /** The secondary file system factory. */
+    private HadoopFileSystemFactoryDelegate factory;
 
     /** Whether custom sequential reads before prefetch value is provided. */
     private boolean seqReadsBeforePrefetchOverride;
@@ -141,6 +195,8 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
 
         uri = name;
 
+        user = getFsHadoopUser();
+
         try {
             initialize(name, cfg);
         }
@@ -152,7 +208,7 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
             throw e;
         }
 
-        workingDir = new IgfsPath("/user/" + cfg.get(MRJobConfig.USER_NAME, DFLT_USER_NAME));
+        workingDir = new IgfsPath("/user/" + user);
     }
 
     /** {@inheritDoc} */
@@ -240,7 +296,7 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
 
             String logDir = logDirFile != null ? logDirFile.getAbsolutePath() : null;
 
-            rmtClient = new HadoopIgfsWrapper(uriAuthority, logDir, cfg, LOG);
+            rmtClient = new HadoopIgfsWrapper(uriAuthority, logDir, cfg, LOG, user);
 
             // Handshake.
             IgfsHandshakeResponse handshake = rmtClient.handshake(logDir);
@@ -263,7 +319,12 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
             else
                 clientLog = IgfsLogger.disabledLogger();
 
-            modeRslvr = new IgfsModeResolver(paths.defaultMode(), paths.pathModes());
+            try {
+                modeRslvr = new IgfsModeResolver(paths.defaultMode(), paths.pathModes());
+            }
+            catch (IgniteCheckedException ice) {
+                throw new IOException(ice);
+            }
 
             boolean initSecondary = paths.defaultMode() == PROXY;
 
@@ -280,19 +341,34 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
             }
 
             if (initSecondary) {
-                Map<String, String> props = paths.properties();
+                try {
+                    HadoopFileSystemFactory factory0 =
+                        (HadoopFileSystemFactory) paths.getPayload(getClass().getClassLoader());
 
-                String secUri = props.get(SECONDARY_FS_URI);
-                String secConfPath = props.get(SECONDARY_FS_CONFIG_PATH);
+                    factory = HadoopDelegateUtils.fileSystemFactoryDelegate(getClass().getClassLoader(), factory0);
+                }
+                catch (IgniteCheckedException e) {
+                    throw new IOException("Failed to get secondary file system factory.", e);
+                }
+
+                if (factory == null)
+                    throw new IOException("Failed to get secondary file system factory (did you set " +
+                        IgniteHadoopIgfsSecondaryFileSystem.class.getName() + " as \"secondaryFIleSystem\" in " +
+                        FileSystemConfiguration.class.getName() + "?)");
+
+                assert factory != null;
+
+                factory.start();
 
                 try {
-                    SecondaryFileSystemProvider secProvider = new SecondaryFileSystemProvider(secUri, secConfPath);
+                    FileSystem secFs = (FileSystem)factory.get(user);
 
-                    secondaryFs = secProvider.createAbstractFileSystem();
-                    secondaryUri = secProvider.uri();
+                    secondaryUri = secFs.getUri();
+
+                    A.ensure(secondaryUri != null, "Secondary file system uri should not be null.");
                 }
                 catch (IOException e) {
-                    throw new IOException("Failed to connect to the secondary file system: " + secUri, e);
+                    throw new IOException("Failed to connect to the secondary file system: " + secondaryUri, e);
                 }
             }
         }
@@ -311,6 +387,9 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
 
             if (clientLog.isLogEnabled())
                 clientLog.close();
+
+            if (factory != null)
+                factory.stop();
 
             // Reset initialized resources.
             rmtClient = null;
@@ -335,13 +414,13 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
 
     /** {@inheritDoc} */
     @Override public boolean setReplication(Path f, short replication) throws IOException {
-        return mode(f) == PROXY && secondaryFs.setReplication(f, replication);
+        return mode(f) == PROXY && secondaryFileSystem().setReplication(f, replication);
     }
 
     /** {@inheritDoc} */
     @Override public void setTimes(Path f, long mtime, long atime) throws IOException {
         if (mode(f) == PROXY)
-            secondaryFs.setTimes(f, mtime, atime);
+            secondaryFileSystem().setTimes(f, mtime, atime);
         else {
             if (mtime == -1 && atime == -1)
                 return;
@@ -365,7 +444,7 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
             A.notNull(p, "p");
 
             if (mode(p) == PROXY)
-                secondaryFs.setPermission(toSecondary(p), perm);
+                secondaryFileSystem().setPermission(toSecondary(p), perm);
             else {
                 if (rmtClient.update(convert(p), permission(perm)) == null)
                     throw new IOException("Failed to set file permission (file not found?)" +
@@ -387,10 +466,12 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
 
         try {
             if (mode(p) == PROXY)
-                secondaryFs.setOwner(toSecondary(p), usr, grp);
-            else if (rmtClient.update(convert(p), F.asMap(PROP_USER_NAME, usr, PROP_GROUP_NAME, grp)) == null)
+                secondaryFileSystem().setOwner(toSecondary(p), usr, grp);
+            else if (rmtClient.update(convert(p), F.asMap(IgfsUtils.PROP_USER_NAME, usr,
+                IgfsUtils.PROP_GROUP_NAME, grp)) == null) {
                 throw new IOException("Failed to set file permission (file not found?)" +
                     " [path=" + p + ", username=" + usr + ", grpName=" + grp + ']');
+            }
         }
         finally {
             leaveBusy();
@@ -408,11 +489,11 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
             IgfsMode mode = modeRslvr.resolveMode(path);
 
             if (mode == PROXY) {
-                FSDataInputStream is = secondaryFs.open(toSecondary(f), bufSize);
+                FSDataInputStream is = secondaryFileSystem().open(toSecondary(f), bufSize);
 
                 if (clientLog.isLogEnabled()) {
                     // At this point we do not know file size, so we perform additional request to remote FS to get it.
-                    FileStatus status = secondaryFs.getFileStatus(toSecondary(f));
+                    FileStatus status = secondaryFileSystem().getFileStatus(toSecondary(f));
 
                     long size = status != null ? status.getLen() : -1;
 
@@ -487,8 +568,8 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
                     path + ", overwrite=" + overwrite + ", bufSize=" + bufSize + ']');
 
             if (mode == PROXY) {
-                FSDataOutputStream os = secondaryFs.createInternal(toSecondary(f), flag, perm, bufSize,
-                    replication, blockSize, progress, checksumOpt, createParent);
+                FSDataOutputStream os = secondaryFileSystem().create(toSecondary(f), perm, flag, bufSize,
+                    replication, blockSize, progress);
 
                 if (clientLog.isLogEnabled()) {
                     long logId = IgfsLogger.nextId();
@@ -504,8 +585,8 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
                     return os;
             }
             else {
-                Map<String, String> permMap = F.asMap(PROP_PERMISSION, toString(perm),
-                    PROP_PREFER_LOCAL_WRITES, Boolean.toString(preferLocFileWrites));
+                Map<String, String> permMap = F.asMap(IgfsUtils.PROP_PERMISSION, toString(perm),
+                    IgfsUtils.PROP_PREFER_LOCAL_WRITES, Boolean.toString(preferLocFileWrites));
 
                 // Create stream and close it in the 'finally' section if any sequential operation failed.
                 HadoopIgfsStreamDelegate stream;
@@ -579,21 +660,16 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
         try {
             IgfsPath srcPath = convert(src);
             IgfsPath dstPath = convert(dst);
-            Set<IgfsMode> childrenModes = modeRslvr.resolveChildrenModes(srcPath);
 
-            if (childrenModes.contains(PROXY)) {
-                if (clientLog.isLogEnabled())
-                    clientLog.logRename(srcPath, PROXY, dstPath);
+            IgfsMode srcMode = modeRslvr.resolveMode(srcPath);
 
-                secondaryFs.renameInternal(toSecondary(src), toSecondary(dst));
-            }
-            else {
-                if (clientLog.isLogEnabled())
-                    clientLog.logRename(srcPath, modeRslvr.resolveMode(srcPath), dstPath);
+            if (clientLog.isLogEnabled())
+                clientLog.logRename(srcPath, srcMode, dstPath);
 
+            if (srcMode == PROXY)
+                secondaryFileSystem().rename(toSecondary(src), toSecondary(dst));
+            else
                 rmtClient.rename(srcPath, dstPath);
-            }
-
         }
         finally {
             leaveBusy();
@@ -608,14 +684,14 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
 
         try {
             IgfsPath path = convert(f);
-            IgfsMode mode = modeRslvr.resolveMode(path);
-            Set<IgfsMode> childrenModes = modeRslvr.resolveChildrenModes(path);
 
-            if (childrenModes.contains(PROXY)) {
+            IgfsMode mode = modeRslvr.resolveMode(path);
+
+            if (mode == PROXY) {
                 if (clientLog.isLogEnabled())
                     clientLog.logDelete(path, PROXY, recursive);
 
-                return secondaryFs.delete(toSecondary(f), recursive);
+                return secondaryFileSystem().delete(toSecondary(f), recursive);
             }
 
             boolean res = rmtClient.delete(path, recursive);
@@ -633,14 +709,14 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
     /** {@inheritDoc} */
     @Override public void setVerifyChecksum(boolean verifyChecksum) throws IOException {
         // Checksum has effect for secondary FS only.
-        if (secondaryFs != null)
-            secondaryFs.setVerifyChecksum(verifyChecksum);
+        if (factory != null)
+            secondaryFileSystem().setVerifyChecksum(verifyChecksum);
     }
 
     /** {@inheritDoc} */
     @Override public FileChecksum getFileChecksum(Path f) throws IOException {
         if (mode(f) == PROXY)
-            return secondaryFs.getFileChecksum(f);
+            return secondaryFileSystem().getFileChecksum(f);
 
         return null;
     }
@@ -656,7 +732,7 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
             IgfsMode mode = modeRslvr.resolveMode(path);
 
             if (mode == PROXY) {
-                FileStatus[] arr = secondaryFs.listStatus(toSecondary(f));
+                FileStatus[] arr = secondaryFileSystem().listStatus(toSecondary(f));
 
                 if (arr == null)
                     throw new FileNotFoundException("File " + f + " does not exist.");
@@ -719,7 +795,7 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
                 if (clientLog.isLogEnabled())
                     clientLog.logMakeDirectory(path, PROXY);
 
-                secondaryFs.mkdir(toSecondary(f), perm, createParent);
+                secondaryFileSystem().mkdirs(toSecondary(f), perm);
             }
             else {
                 rmtClient.mkdirs(path, permission(perm));
@@ -741,7 +817,7 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
 
         try {
             if (mode(f) == PROXY)
-                return toPrimary(secondaryFs.getFileStatus(toSecondary(f)));
+                return toPrimary(secondaryFileSystem().getFileStatus(toSecondary(f)));
             else {
                 IgfsFile info = rmtClient.info(convert(f));
 
@@ -766,7 +842,7 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
 
         try {
             if (modeRslvr.resolveMode(igfsPath) == PROXY)
-                return secondaryFs.getFileBlockLocations(path, start, len);
+                return secondaryFileSystem().getFileBlockLocations(path, start, len);
             else {
                 long now = System.currentTimeMillis();
 
@@ -817,7 +893,7 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
      * @return Secondary file system path.
      */
     private Path toSecondary(Path path) {
-        assert secondaryFs != null;
+        assert factory != null;
         assert secondaryUri != null;
 
         return convertPath(path, secondaryUri);
@@ -927,8 +1003,8 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
             file.modificationTime(),
             file.accessTime(),
             permission(file),
-            file.property(PROP_USER_NAME, DFLT_USER_NAME),
-            file.property(PROP_GROUP_NAME, "users"),
+            file.property(IgfsUtils.PROP_USER_NAME, user),
+            file.property(IgfsUtils.PROP_GROUP_NAME, "users"),
             convert(file.path())) {
             @Override public String toString() {
                 return "FileStatus [path=" + getPath() + ", isDir=" + isDirectory() + ", len=" + getLen() + "]";
@@ -946,7 +1022,7 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
         if (perm == null)
             perm = FsPermission.getDefault();
 
-        return F.asMap(PROP_PERMISSION, toString(perm));
+        return F.asMap(IgfsUtils.PROP_PERMISSION, toString(perm));
     }
 
     /**
@@ -964,7 +1040,7 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
      * @return Hadoop permission.
      */
     private FsPermission permission(IgfsFile file) {
-        String perm = file.property(PROP_PERMISSION, null);
+        String perm = file.property(IgfsUtils.PROP_PERMISSION, null);
 
         if (perm == null)
             return FsPermission.getDefault();
@@ -980,5 +1056,24 @@ public class IgniteHadoopFileSystem extends AbstractFileSystem implements Closea
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(IgniteHadoopFileSystem.class, this);
+    }
+
+    /**
+     * Returns the user name this File System is created on behalf of.
+     * @return the user name
+     */
+    public String user() {
+        return user;
+    }
+
+    /**
+     * Gets cached or creates a {@link FileSystem}.
+     *
+     * @return The secondary file system.
+     */
+    private FileSystem secondaryFileSystem() throws IOException{
+        assert factory != null;
+
+        return (FileSystem)factory.get(user);
     }
 }

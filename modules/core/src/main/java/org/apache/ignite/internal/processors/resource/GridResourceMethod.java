@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.processors.resource;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.lang.annotation.*;
-import java.lang.reflect.*;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
+import java.util.Collection;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Wrapper for data where resource should be injected.
@@ -48,6 +48,8 @@ class GridResourceMethod {
 
         this.mtd = mtd;
         this.ann = ann;
+
+        mtd.setAccessible(true);
     }
 
     /**
@@ -66,6 +68,16 @@ class GridResourceMethod {
      */
     public Annotation getAnnotation() {
         return ann;
+    }
+
+    /**
+     * @param c Closure.
+     */
+    public static GridResourceMethod[] toArray(Collection<GridResourceMethod> c) {
+        if (c.isEmpty())
+            return EMPTY_ARRAY;
+
+        return c.toArray(new GridResourceMethod[c.size()]);
     }
 
     /** {@inheritDoc} */

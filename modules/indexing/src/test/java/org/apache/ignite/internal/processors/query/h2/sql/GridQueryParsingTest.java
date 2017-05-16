@@ -17,31 +17,33 @@
 
 package org.apache.ignite.internal.processors.query.h2.sql;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.query.annotations.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.query.*;
-import org.apache.ignite.internal.processors.query.h2.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.marshaller.optimized.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.h2.command.*;
-import org.h2.command.dml.*;
-import org.h2.engine.*;
-import org.h2.jdbc.*;
+import java.io.Serializable;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.query.annotations.QuerySqlField;
+import org.apache.ignite.cache.query.annotations.QuerySqlFunction;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.query.GridQueryProcessor;
+import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.h2.command.Prepared;
+import org.h2.engine.Session;
+import org.h2.jdbc.JdbcConnection;
 
-import java.io.*;
-import java.sql.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  *
@@ -64,14 +66,12 @@ public class GridQueryParsingTest extends GridCommonAbstractTest {
 
         c.setDiscoverySpi(disco);
 
-        c.setMarshaller(new OptimizedMarshaller(true));
-
         // Cache.
         CacheConfiguration cc = defaultCacheConfiguration();
 
         cc.setCacheMode(CacheMode.PARTITIONED);
         cc.setAtomicityMode(CacheAtomicityMode.ATOMIC);
-        cc.setDistributionMode(PARTITIONED_ONLY);
+        cc.setNearConfiguration(null);
         cc.setWriteSynchronizationMode(FULL_SYNC);
         cc.setRebalanceMode(SYNC);
         cc.setSwapEnabled(false);
@@ -86,17 +86,55 @@ public class GridQueryParsingTest extends GridCommonAbstractTest {
         return c;
     }
 
-    /** */
+    /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
         ignite = startGrid();
     }
 
+    /** {@inheritDoc} */
+    @Override protected void afterTestsStopped() throws Exception {
+        stopAllGrids();
+
+        ignite = null;
+
+        super.afterTestsStopped();
+    }
+
     /**
-     *
+     * @throws Exception If failed.
      */
-    public void testAllExamples() throws Exception {
+    public void testParseSelectAndUnion() throws Exception {
+        checkQuery("select 42");
+        checkQuery("select ()");
+        checkQuery("select (1)");
+        checkQuery("select (1 + 1)");
+        checkQuery("select (1,)");
+        checkQuery("select (?)");
+        checkQuery("select (?,)");
+        checkQuery("select (1, 2)");
+        checkQuery("select (?, ? + 1, 2 + 2) as z");
+        checkQuery("select (1,(1,(1,(1,(1,?)))))");
+        checkQuery("select (select 1)");
+        checkQuery("select (select 1, select ?)");
+        checkQuery("select ((select 1), select ? + ?)");
+        checkQuery("select CURRENT_DATE");
+        checkQuery("select CURRENT_DATE()");
+
+        checkQuery("select extract(year from ?)");
+        checkQuery("select convert(?, timestamp)");
+
+        checkQuery("select * from table(id bigint = 1)");
+        checkQuery("select * from table(id bigint = (1))");
+        checkQuery("select * from table(id bigint = (1,))");
+        checkQuery("select * from table(id bigint = (1,), name varchar = 'asd')");
+        checkQuery("select * from table(id bigint = (1,2), name varchar = 'asd')");
+        checkQuery("select * from table(id bigint = (1,2), name varchar = ('asd',))");
+        checkQuery("select * from table(id bigint = (1,2), name varchar = ?)");
+        checkQuery("select * from table(id bigint = (1,2), name varchar = (?,))");
+        checkQuery("select * from table(id bigint = ?, name varchar = ('abc', 'def', 100, ?)) t");
+
         checkQuery("select ? limit ? offset ?");
 
         checkQuery("select cool1()");
@@ -119,6 +157,8 @@ public class GridQueryParsingTest extends GridCommonAbstractTest {
 
         checkQuery("select avg(old) from Person left join Address where Person.addrId = Address.id " +
             "and lower(Address.street) = lower(?)");
+        checkQuery("select avg(old) from Person right join Address where Person.addrId = Address.id " +
+            "and lower(Address.street) = lower(?)");
 
         checkQuery("select avg(old) from Person, Address where Person.addrId = Address.id " +
             "and lower(Address.street) = lower(?)");
@@ -136,6 +176,7 @@ public class GridQueryParsingTest extends GridCommonAbstractTest {
         checkQuery("select person.* from Person, Address a");
         checkQuery("select p.*, street from Person p, Address a");
         checkQuery("select p.name, a.street from Person p, Address a");
+        checkQuery("select p.name, a.street from Address a, Person p");
         checkQuery("select distinct p.name, a.street from Person p, Address a");
         checkQuery("select distinct name, street from Person, Address group by old");
         checkQuery("select distinct name, street from Person, Address");
@@ -171,9 +212,10 @@ public class GridQueryParsingTest extends GridCommonAbstractTest {
 
         checkQuery("select p.name, ? from Person p where name regexp ? and p.old < ?");
 
-        checkQuery("select count(*) as a from Person");
+        checkQuery("select count(*) as a from Person having a > 10");
         checkQuery("select count(*) as a, count(p.*), count(p.name) from Person p");
         checkQuery("select count(distinct p.name) from Person p");
+        checkQuery("select name, count(*) cnt from Person group by name order by cnt desc limit 10");
 
         checkQuery("select p.name, avg(p.old), max(p.old) from Person p group by p.name");
         checkQuery("select p.name n, avg(p.old) a, max(p.old) m from Person p group by p.name");
@@ -199,27 +241,134 @@ public class GridQueryParsingTest extends GridCommonAbstractTest {
         checkQuery("select addr.street from Person p, (select a.street from Address a where a.street is not null) addr");
 
         checkQuery("select p.name n from \"\".Person p order by p.old + 10");
+
+        checkQuery("select case when p.name is null then 'Vasya' end x from \"\".Person p");
+        checkQuery("select case when p.name like 'V%' then 'Vasya' else 'Other' end x from \"\".Person p");
+        checkQuery("select case when upper(p.name) = 'VASYA' then 'Vasya' when p.name is not null then p.name else 'Other' end x from \"\".Person p");
+
+        checkQuery("select case p.name when 'Vasya' then 1 end z from \"\".Person p");
+        checkQuery("select case p.name when 'Vasya' then 1 when 'Petya' then 2 end z from \"\".Person p");
+        checkQuery("select case p.name when 'Vasya' then 1 when 'Petya' then 2 else 3 end z from \"\".Person p");
+        checkQuery("select case p.name when 'Vasya' then 1 else 3 end z from \"\".Person p");
+
+        checkQuery("select count(*) as a from Person union select count(*) as a from Address");
+        checkQuery("select old, count(*) as a from Person group by old union select 1, count(*) as a from Address");
+        checkQuery("select name from Person MINUS select street from Address");
+        checkQuery("select name from Person EXCEPT select street from Address");
+        checkQuery("select name from Person INTERSECT select street from Address");
+        checkQuery("select name from Person UNION select street from Address limit 5");
+        checkQuery("select name from Person UNION select street from Address limit ?");
+        checkQuery("select name from Person UNION select street from Address limit ? offset ?");
+        checkQuery("(select name from Person limit 4) UNION (select street from Address limit 1) limit ? offset ?");
+        checkQuery("(select 2 a) union all (select 1) order by 1");
+        checkQuery("(select 2 a) union all (select 1) order by a desc nulls first limit ? offset ?");
     }
 
-    /**
-     *
-     */
-    public void testExample1() throws Exception {
-        Select select = parse("select p.name n, max(p.old) maxOld, min(p.old) minOld from Person p group by p.name having maxOld > 10 and min(p.old) < 1");
+    /** */
+    public void testParseMerge() throws Exception {
+        /* Plain rows w/functions, operators, defaults, and placeholders. */
+        checkQuery("merge into Person(old, name) values(5, 'John')");
+        checkQuery("merge into Person(name) values(DEFAULT)");
+        checkQuery("merge into Person(name) values(DEFAULT), (null)");
+        checkQuery("merge into Person(name, parentName) values(DEFAULT, null), (?, ?)");
+        checkQuery("merge into Person(old, name) values(5, 'John',), (6, 'Jack')");
+        checkQuery("merge into Person(old, name) values(5 * 3, DEFAULT,)");
+        checkQuery("merge into Person(old, name) values(ABS(-8), 'Max')");
+        checkQuery("merge into Person(old, name) values(5, 'Jane'), (DEFAULT, DEFAULT), (6, 'Jill')");
+        checkQuery("merge into Person(old, name, parentName) values(8 * 7, DEFAULT, 'Unknown')");
+        checkQuery("merge into Person(old, name, parentName) values" +
+            "(2016 - 1828, CONCAT('Leo', 'Tolstoy'), CONCAT(?, 'Tolstoy'))," +
+            "(?, 'AlexanderPushkin', null)," +
+            "(ABS(1821 - 2016), CONCAT('Fyodor', null, UPPER(CONCAT(SQRT(?), 'dostoevsky'))), DEFAULT)");
+        checkQuery("merge into Person(date, old, name, parentName, addrId) values " +
+            "('20160112', 1233, 'Ivan Ivanov', 'Peter Ivanov', 123)");
+        checkQuery("merge into Person(date, old, name, parentName, addrId) values " +
+            "(CURRENT_DATE(), RAND(), ASCII('Hi'), INSERT('Leo Tolstoy', 4, 4, 'Max'), ASCII('HI'))");
+        checkQuery("merge into Person(date, old, name, parentName, addrId) values " +
+            "(TRUNCATE(TIMESTAMP '2015-12-31 23:59:59'), POWER(3,12), NULL, DEFAULT, DEFAULT)");
+        checkQuery("merge into Person(old, name) select ASCII(parentName), INSERT(parentName, 4, 4, 'Max') from " +
+            "Person where date='20110312'");
 
-        GridSqlQueryParser ses = new GridSqlQueryParser();
+        /* Subqueries. */
+        checkQuery("merge into Person(old, name) select old, parentName from Person");
+        checkQuery("merge into Person(old, name) select old, parentName from Person where old > 5");
+        checkQuery("merge into Person(old, name) select 5, 'John'");
+        checkQuery("merge into Person(old, name) select p1.old, 'Name' from person p1 join person p2 on " +
+            "p2.name = p1.parentName where p2.old > 30");
+        checkQuery("merge into Person(old) select 5 from Person UNION select street from Address limit ? offset ?");
+    }
 
-        GridSqlSelect gridSelect = ses.parse(select);
+    /** */
+    public void testParseInsert() throws Exception {
+        /* Plain rows w/functions, operators, defaults, and placeholders. */
+        checkQuery("insert into Person(old, name) values(5, 'John')");
+        checkQuery("insert into Person(name) values(DEFAULT)");
+        checkQuery("insert into Person default values");
+        checkQuery("insert into Person() values()");
+        checkQuery("insert into Person(name) values(DEFAULT), (null)");
+        checkQuery("insert into Person(name) values(DEFAULT),");
+        checkQuery("insert into Person(name, parentName) values(DEFAULT, null), (?, ?)");
+        checkQuery("insert into Person(old, name) values(5, 'John',), (6, 'Jack')");
+        checkQuery("insert into Person(old, name) values(5 * 3, DEFAULT,)");
+        checkQuery("insert into Person(old, name) values(ABS(-8), 'Max')");
+        checkQuery("insert into Person(old, name) values(5, 'Jane'), (DEFAULT, DEFAULT), (6, 'Jill')");
+        checkQuery("insert into Person(old, name, parentName) values(8 * 7, DEFAULT, 'Unknown')");
+        checkQuery("insert into Person(old, name, parentName) values" +
+            "(2016 - 1828, CONCAT('Leo', 'Tolstoy'), CONCAT(?, 'Tolstoy'))," +
+            "(?, 'AlexanderPushkin', null)," +
+            "(ABS(1821 - 2016), CONCAT('Fyodor', null, UPPER(CONCAT(SQRT(?), 'dostoevsky'))), DEFAULT),");
+        checkQuery("insert into Person(date, old, name, parentName, addrId) values " +
+            "('20160112', 1233, 'Ivan Ivanov', 'Peter Ivanov', 123)");
+        checkQuery("insert into Person(date, old, name, parentName, addrId) values " +
+            "(CURRENT_DATE(), RAND(), ASCII('Hi'), INSERT('Leo Tolstoy', 4, 4, 'Max'), ASCII('HI'))");
+        checkQuery("insert into Person(date, old, name, parentName, addrId) values " +
+            "(TRUNCATE(TIMESTAMP '2015-12-31 23:59:59'), POWER(3,12), NULL, DEFAULT, DEFAULT)");
+        checkQuery("insert into Person SET old = 5, name = 'John'");
+        checkQuery("insert into Person SET name = CONCAT('Fyodor', null, UPPER(CONCAT(SQRT(?), 'dostoevsky'))), old = " +
+            "select (5, 6)");
+        checkQuery("insert into Person(old, name) select ASCII(parentName), INSERT(parentName, 4, 4, 'Max') from " +
+            "Person where date='20110312'");
 
-        //System.out.println(select.getPlanSQL());
-        System.out.println(gridSelect.getSQL());
+        /* Subqueries. */
+        checkQuery("insert into Person(old, name) select old, parentName from Person");
+        checkQuery("insert into Person(old, name) direct sorted select old, parentName from Person");
+        checkQuery("insert into Person(old, name) sorted select old, parentName from Person where old > 5");
+        checkQuery("insert into Person(old, name) select 5, 'John'");
+        checkQuery("insert into Person(old, name) select p1.old, 'Name' from person p1 join person p2 on " +
+            "p2.name = p1.parentName where p2.old > 30");
+        checkQuery("insert into Person(old) select 5 from Person UNION select street from Address limit ? offset ?");
+    }
+
+    /** */
+    public void testParseDelete() throws Exception {
+        checkQuery("delete from Person");
+        checkQuery("delete from Person p where p.old > ?");
+        checkQuery("delete from Person where old in (select (40, 41, 42))");
+        checkQuery("delete top 5 from Person where old in (select (40, 41, 42))");
+        checkQuery("delete top ? from Person where old > 5 and length(name) < ?");
+        checkQuery("delete from Person where name in ('Ivan', 'Peter') limit 20");
+        checkQuery("delete from Person where name in ('Ivan', ?) limit ?");
+    }
+
+    /** */
+    public void testParseUpdate() throws Exception {
+        checkQuery("update Person set name='Peter'");
+        checkQuery("update Person per set name='Peter', old = 5");
+        checkQuery("update Person p set name='Peter' limit 20");
+        checkQuery("update Person p set name='Peter', old = length('zzz') limit 20");
+        checkQuery("update Person p set name=DEFAULT, old = null limit ?");
+        checkQuery("update Person p set name=? where old >= ? and old < ? limit ?");
+        checkQuery("update Person p set name=(select a.Street from Address a where a.id=p.addrId), old = (select 42)" +
+            " where old = sqrt(?)");
+        checkQuery("update Person p set (name, old) = (select 'Peter', 42)");
+        checkQuery("update Person p set (name, old) = (select street, id from Address where id > 5 and id <= ?)");
     }
 
     /**
      *
      */
     private JdbcConnection connection() throws Exception {
-        GridKernalContext ctx = ((IgniteKernal)ignite).context();
+        GridKernalContext ctx = ((IgniteEx)ignite).context();
 
         GridQueryProcessor qryProcessor = ctx.query();
 
@@ -242,7 +391,10 @@ public class GridQueryParsingTest extends GridCommonAbstractTest {
      * @param sql2 Sql 2.
      */
     private void assertSqlEquals(String sql1, String sql2) {
-        assertEquals(normalizeSql(sql1), normalizeSql(sql2));
+        String nsql1 = normalizeSql(sql1);
+        String nsql2 = normalizeSql(sql2);
+
+        assertEquals(nsql1, nsql2);
     }
 
     /**
@@ -251,7 +403,7 @@ public class GridQueryParsingTest extends GridCommonAbstractTest {
     private static String normalizeSql(String sql) {
         return sql.toLowerCase()
             .replaceAll("/\\*(?:.|\r|\n)*?\\*/", " ")
-            .replaceAll("\\s*on\\s+1\\s*=\\s*1\\s*", " ")
+            .replaceAll("\\s*on\\s+1\\s*=\\s*1\\s*", " on true ")
             .replaceAll("\\s+", " ")
             .replaceAll("\\( +", "(")
             .replaceAll(" +\\)", ")")
@@ -264,18 +416,13 @@ public class GridQueryParsingTest extends GridCommonAbstractTest {
     private void checkQuery(String qry) throws Exception {
         Prepared prepared = parse(qry);
 
-        GridSqlQueryParser ses = new GridSqlQueryParser();
+        GridSqlStatement gQry = new GridSqlQueryParser().parse(prepared);
 
-        String res;
-
-        if (prepared instanceof Select)
-            res = ses.parse((Select) prepared).getSQL();
-        else
-            throw new UnsupportedOperationException();
-
-        assertSqlEquals(prepared.getPlanSQL(), res);
+        String res = gQry.getSQL();
 
         System.out.println(normalizeSql(res));
+
+        assertSqlEquals(prepared.getPlanSQL(), res);
     }
 
     @QuerySqlFunction

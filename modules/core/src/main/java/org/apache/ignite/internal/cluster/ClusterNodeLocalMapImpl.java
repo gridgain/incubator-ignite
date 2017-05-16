@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.cluster;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jdk8.backport.*;
-
-import java.io.*;
-import java.util.concurrent.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.IgniteCluster;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgnitionEx;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jsr166.ConcurrentHashMap8;
 
 /**
  * Implementation for node-local storage.
@@ -83,7 +89,7 @@ public class ClusterNodeLocalMapImpl<K, V> extends ConcurrentHashMap8<K, V> impl
      */
     protected Object readResolve() throws ObjectStreamException {
         try {
-            return IgnitionEx.gridx(stash.get()).cluster().nodeLocalMap();
+            return IgnitionEx.localIgnite().cluster().nodeLocalMap();
         }
         catch (IllegalStateException e) {
             throw U.withCause(new InvalidObjectException(e.getMessage()), e);
@@ -98,4 +104,3 @@ public class ClusterNodeLocalMapImpl<K, V> extends ConcurrentHashMap8<K, V> impl
         return S.toString(ClusterNodeLocalMapImpl.class, this);
     }
 }
-

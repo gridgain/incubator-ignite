@@ -17,16 +17,24 @@
 
 package org.apache.ignite.internal.util.future;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.locks.*;
+import java.util.Arrays;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.AbstractQueuedSynchronizer;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.IgniteFutureCancelledCheckedException;
+import org.apache.ignite.internal.IgniteFutureTimeoutCheckedException;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgniteInClosure;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Future adapter.
@@ -54,7 +62,7 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
     private byte resFlag;
 
     /** Result. */
-    @GridToStringInclude
+    @GridToStringInclude(sensitive = true)
     private Object res;
 
     /** Future start time. */
@@ -64,6 +72,10 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
     private volatile long endTime;
 
     /** */
+    private boolean ignoreInterrupts;
+
+    /** */
+    @GridToStringExclude
     private IgniteInClosure<? super IgniteInternalFuture<R>> lsnr;
 
     /** {@inheritDoc} */
@@ -76,6 +88,13 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
         long endTime = this.endTime;
 
         return endTime == 0 ? U.currentTimeMillis() - startTime : endTime - startTime;
+    }
+
+    /**
+     * @param ignoreInterrupts Ignore interrupts flag.
+     */
+    public void ignoreInterrupts(boolean ignoreInterrupts) {
+        this.ignoreInterrupts = ignoreInterrupts;
     }
 
     /**
@@ -97,25 +116,12 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
 
     /** {@inheritDoc} */
     @Override public R get() throws IgniteCheckedException {
-        try {
-            if (endTime == 0)
-                acquireSharedInterruptibly(0);
+        return get0(ignoreInterrupts);
+    }
 
-            if (getState() == CANCELLED)
-                throw new IgniteFutureCancelledCheckedException("Future was cancelled: " + this);
-
-            assert resFlag != 0;
-
-            if (resFlag == ERR)
-                throw U.cast((Throwable)res);
-
-            return (R)res;
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new IgniteInterruptedCheckedException(e);
-        }
+    /** {@inheritDoc} */
+    @Override public R getUninterruptibly() throws IgniteCheckedException {
+        return get0(true);
     }
 
     /** {@inheritDoc} */
@@ -136,6 +142,39 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
             Thread.currentThread().interrupt();
 
             throw new IgniteInterruptedCheckedException("Got interrupted while waiting for future to complete.", e);
+        }
+    }
+
+    /**
+     * Internal get routine.
+     *
+     * @param ignoreInterrupts Whether to ignore interrupts.
+     * @return Result.
+     * @throws IgniteCheckedException If failed.
+     */
+    private R get0(boolean ignoreInterrupts) throws IgniteCheckedException {
+        try {
+            if (endTime == 0) {
+                if (ignoreInterrupts)
+                    acquireShared(0);
+                else
+                    acquireSharedInterruptibly(0);
+            }
+
+            if (getState() == CANCELLED)
+                throw new IgniteFutureCancelledCheckedException("Future was cancelled: " + this);
+
+            assert resFlag != 0;
+
+            if (resFlag == ERR)
+                throw U.cast((Throwable)res);
+
+            return (R)res;
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new IgniteInterruptedCheckedException(e);
         }
     }
 
@@ -176,9 +215,8 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
                         lsnr = lsnr0;
                     else if (lsnr instanceof ArrayListener)
                         ((ArrayListener)lsnr).add(lsnr0);
-                    else {
+                    else
                         lsnr = (IgniteInClosure)new ArrayListener<IgniteInternalFuture>(lsnr, lsnr0);
-                    }
 
                     return;
                 }
@@ -192,7 +230,13 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
 
     /** {@inheritDoc} */
     @Override public <T> IgniteInternalFuture<T> chain(final IgniteClosure<? super IgniteInternalFuture<R>, T> doneCb) {
-        return new ChainFuture<>(this, doneCb);
+        return new ChainFuture<>(this, doneCb, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override public <T> IgniteInternalFuture<T> chain(final IgniteClosure<? super IgniteInternalFuture<R>, T> doneCb,
+        Executor exec) {
+        return new ChainFuture<>(this, doneCb, exec);
     }
 
     /**
@@ -227,11 +271,11 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
             lsnr.apply(this);
         }
         catch (IllegalStateException e) {
-            U.warn(null, "Failed to notify listener (is grid stopped?) [fut=" + this +
-                ", lsnr=" + lsnr + ", err=" + e.getMessage() + ']');
+            U.error(logger(), "Failed to notify listener (is grid stopped?) [fut=" + this +
+                ", lsnr=" + lsnr + ", err=" + e.getMessage() + ']', e);
         }
         catch (RuntimeException | Error e) {
-            U.error(null, "Failed to notify listener: " + lsnr, e);
+            U.error(logger(), "Failed to notify listener: " + lsnr, e);
 
             throw e;
         }
@@ -377,6 +421,13 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
         return s == INIT ? "INIT" : s == CANCELLED ? "CANCELLED" : "DONE";
     }
 
+    /**
+     * @return Logger instance.
+     */
+    @Nullable public IgniteLogger logger() {
+        return null;
+    }
+
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(GridFutureAdapter.class, this, "state", state());
@@ -416,7 +467,7 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
 
         /** {@inheritDoc} */
         @Override public String toString() {
-            return S.toString(ArrayListener.class, this, "arr", Arrays.toString(arr));
+            return S.toString(ArrayListener.class, this, "arrSize", arr.length);
         }
     }
 
@@ -443,15 +494,17 @@ public class GridFutureAdapter<R> extends AbstractQueuedSynchronizer implements 
         /**
          * @param fut Future.
          * @param doneCb Closure.
+         * @param cbExec Optional executor to run callback.
          */
         ChainFuture(
             GridFutureAdapter<R> fut,
-            IgniteClosure<? super IgniteInternalFuture<R>, T> doneCb
+            IgniteClosure<? super IgniteInternalFuture<R>, T> doneCb,
+            @Nullable Executor cbExec
         ) {
             this.fut = fut;
             this.doneCb = doneCb;
 
-            fut.listen(new GridFutureChainListener<>(this, doneCb));
+            fut.listen(new GridFutureChainListener<>(this, doneCb, cbExec));
         }
 
         /** {@inheritDoc} */

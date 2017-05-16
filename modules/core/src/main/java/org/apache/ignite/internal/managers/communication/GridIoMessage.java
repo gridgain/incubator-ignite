@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.managers.communication;
 
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.io.*;
-import java.nio.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.GridDirectTransient;
+import org.apache.ignite.internal.processors.cache.GridCacheMessage;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  * Wrapper for all grid messages.
@@ -33,7 +35,7 @@ public class GridIoMessage implements Message {
     private static final long serialVersionUID = 0L;
 
     /** Policy. */
-    private GridIoPolicy plc;
+    private byte plc;
 
     /** Message topic. */
     @GridToStringInclude
@@ -76,7 +78,7 @@ public class GridIoMessage implements Message {
      * @param skipOnTimeout Whether message can be skipped on timeout.
      */
     public GridIoMessage(
-        GridIoPolicy plc,
+        byte plc,
         Object topic,
         int topicOrd,
         Message msg,
@@ -84,7 +86,6 @@ public class GridIoMessage implements Message {
         long timeout,
         boolean skipOnTimeout
     ) {
-        assert plc != null;
         assert topic != null;
         assert topicOrd <= Byte.MAX_VALUE;
         assert msg != null;
@@ -101,7 +102,7 @@ public class GridIoMessage implements Message {
     /**
      * @return Policy.
      */
-    GridIoPolicy policy() {
+    byte policy() {
         return plc;
     }
 
@@ -143,7 +144,7 @@ public class GridIoMessage implements Message {
     /**
      * @return Message.
      */
-    public Object message() {
+    public Message message() {
         return msg;
     }
 
@@ -166,6 +167,11 @@ public class GridIoMessage implements Message {
      */
     boolean isOrdered() {
         return ordered;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onAckReceived() {
+        msg.onAckReceived();
     }
 
     /** {@inheritDoc} */
@@ -203,7 +209,7 @@ public class GridIoMessage implements Message {
                 writer.incrementState();
 
             case 2:
-                if (!writer.writeByte("plc", plc != null ? (byte)plc.ordinal() : -1))
+                if (!writer.writeByte("plc", plc))
                     return false;
 
                 writer.incrementState();
@@ -262,14 +268,10 @@ public class GridIoMessage implements Message {
                 reader.incrementState();
 
             case 2:
-                byte plcOrd;
-
-                plcOrd = reader.readByte("plc");
+                plc = reader.readByte("plc");
 
                 if (!reader.isLastRead())
                     return false;
-
-                plc = GridIoPolicy.fromOrdinal(plcOrd);
 
                 reader.incrementState();
 
@@ -307,7 +309,7 @@ public class GridIoMessage implements Message {
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridIoMessage.class);
     }
 
     /** {@inheritDoc} */
@@ -318,6 +320,18 @@ public class GridIoMessage implements Message {
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
         return 7;
+    }
+
+    /**
+     * Get single partition for this message (if applicable).
+     *
+     * @return Partition ID.
+     */
+    public int partition() {
+        if (msg instanceof GridCacheMessage)
+            return ((GridCacheMessage)msg).partition();
+        else
+            return Integer.MIN_VALUE;
     }
 
     /** {@inheritDoc} */

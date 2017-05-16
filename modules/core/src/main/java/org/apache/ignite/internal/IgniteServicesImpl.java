@@ -17,18 +17,26 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.cluster.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.services.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.util.Collection;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteServices;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.internal.cluster.ClusterGroupAdapter;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.services.Service;
+import org.apache.ignite.services.ServiceConfiguration;
+import org.apache.ignite.services.ServiceDescriptor;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link org.apache.ignite.IgniteCompute} implementation.
+ * {@link org.apache.ignite.IgniteServices} implementation.
  */
 public class IgniteServicesImpl extends AsyncSupportAdapter implements IgniteServices, Externalizable {
     /** */
@@ -214,14 +222,21 @@ public class IgniteServicesImpl extends AsyncSupportAdapter implements IgniteSer
     /** {@inheritDoc} */
     @Override public <T> T serviceProxy(String name, Class<? super T> svcItf, boolean sticky)
         throws IgniteException {
+        return (T) serviceProxy(name, svcItf, sticky, 0);
+    }
+
+    /** {@inheritDoc} */
+    @Override public <T> T serviceProxy(final String name, final Class<? super T> svcItf, final boolean sticky,
+        final long timeout) throws IgniteException {
         A.notNull(name, "name");
         A.notNull(svcItf, "svcItf");
         A.ensure(svcItf.isInterface(), "Service class must be an interface: " + svcItf);
+        A.ensure(timeout >= 0, "Timeout cannot be negative: " + timeout);
 
         guard();
 
         try {
-            return ctx.service().serviceProxy(prj, name, svcItf, sticky);
+            return (T)ctx.service().serviceProxy(prj, name, svcItf, sticky, timeout);
         }
         finally {
             unguard();

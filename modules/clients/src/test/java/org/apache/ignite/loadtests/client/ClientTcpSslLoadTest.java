@@ -17,9 +17,9 @@
 
 package org.apache.ignite.loadtests.client;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.client.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.internal.client.ClientTcpSslMultiThreadedSelfTest;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Makes a long run to ensure stability and absence of memory leaks.
@@ -46,8 +46,6 @@ public class ClientTcpSslLoadTest extends ClientTcpSslMultiThreadedSelfTest {
             clearCaches();
 
             testMultithreadedTaskRun();
-
-            testMultithreadedCachePut();
 
             long now = System.currentTimeMillis();
 
@@ -80,7 +78,7 @@ public class ClientTcpSslLoadTest extends ClientTcpSslMultiThreadedSelfTest {
     private void clearCaches() {
         for (int i = 0; i < NODES_CNT; i++)
             try {
-                grid(i).jcache(PARTITIONED_CACHE_NAME).clear();
+                grid(i).cache(PARTITIONED_CACHE_NAME).clear();
             } catch (IgniteException e) {
                 log.error("Cache clear failed.", e);
             }

@@ -17,20 +17,35 @@
 
 package org.apache.ignite.internal.processors.igfs;
 
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.jetbrains.annotations.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import org.apache.ignite.binary.BinaryObjectException;
+import org.apache.ignite.binary.BinaryRawReader;
+import org.apache.ignite.binary.BinaryRawWriter;
+import org.apache.ignite.binary.BinaryReader;
+import org.apache.ignite.binary.BinaryWriter;
+import org.apache.ignite.binary.Binarylizable;
+import org.apache.ignite.internal.binary.BinaryUtils;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Affinity range.
  */
-public class IgfsFileAffinityRange implements Message, Externalizable {
+public class IgfsFileAffinityRange implements Message, Externalizable, Binarylizable {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -56,7 +71,7 @@ public class IgfsFileAffinityRange implements Message, Externalizable {
     /** Range end offset (endOff + 1 divisible by block size). */
     private long endOff;
 
-    /** Transient flag indicating no further writes should be made to this range. */
+    /** Field kept for backward compatibility. */
     private boolean done;
 
     /**
@@ -219,20 +234,6 @@ public class IgfsFileAffinityRange implements Message, Externalizable {
     }
 
     /**
-     * Marks this range as done.
-     */
-    public void markDone() {
-        done = true;
-    }
-
-    /**
-     * @return Done flag.
-     */
-    public boolean done() {
-        return done;
-    }
-
-    /**
      * Checks if range regions are equal.
      *
      * @param other Other range to check against.
@@ -243,11 +244,14 @@ public class IgfsFileAffinityRange implements Message, Externalizable {
     }
 
     /** {@inheritDoc} */
+    @Override public void onAckReceived() {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
     @Override public void writeExternal(ObjectOutput out) throws IOException {
         U.writeGridUuid(out, affKey);
-
         out.writeInt(status);
-
         out.writeLong(startOff);
         out.writeLong(endOff);
     }
@@ -255,11 +259,47 @@ public class IgfsFileAffinityRange implements Message, Externalizable {
     /** {@inheritDoc} */
     @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         affKey = U.readGridUuid(in);
-
         status = in.readInt();
-
         startOff = in.readLong();
         endOff = in.readLong();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void writeBinary(BinaryWriter writer) throws BinaryObjectException {
+        writeRawBinary(writer.rawWriter());
+    }
+
+    /** {@inheritDoc} */
+    @Override public void readBinary(BinaryReader reader) throws BinaryObjectException {
+        readRawBinary(reader.rawReader());
+    }
+
+    /**
+     * Writes fields to provided writer.
+     *
+     * @param writer Writer.
+     * @throws BinaryObjectException If fails.
+     */
+    public void writeRawBinary(BinaryRawWriter writer) throws BinaryObjectException {
+        BinaryUtils.writeIgniteUuid(writer, affKey);
+
+        writer.writeInt(status);
+        writer.writeLong(startOff);
+        writer.writeLong(endOff);
+    }
+
+    /**
+     * Reads fields from provided reader.
+     *
+     * @param reader Reader.
+     * @throws BinaryObjectException If fails.
+     */
+    public void readRawBinary(BinaryRawReader reader) throws BinaryObjectException {
+        affKey = BinaryUtils.readIgniteUuid(reader);
+
+        status = reader.readInt();
+        startOff = reader.readLong();
+        endOff = reader.readLong();
     }
 
     /** {@inheritDoc} */
@@ -359,7 +399,7 @@ public class IgfsFileAffinityRange implements Message, Externalizable {
 
         }
 
-        return true;
+        return reader.afterMessageRead(IgfsFileAffinityRange.class);
     }
 
     /** {@inheritDoc} */

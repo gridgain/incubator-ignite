@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.colocated;
 
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheEntry;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Cache entry for colocated cache.
@@ -31,20 +34,15 @@ public class GridDhtColocatedCacheEntry extends GridDhtCacheEntry {
      * @param key Cache key.
      * @param hash Key hash value.
      * @param val Entry value.
-     * @param next Next entry in the linked list.
-     * @param ttl Time to live.
-     * @param hdrId Header id.
      */
-    public GridDhtColocatedCacheEntry(GridCacheContext ctx,
-        long topVer,
+    public GridDhtColocatedCacheEntry(
+        GridCacheContext ctx,
+        AffinityTopologyVersion topVer,
         KeyCacheObject key,
         int hash,
-        CacheObject val,
-        GridCacheMapEntry next,
-        long ttl,
-        int hdrId)
-    {
-        super(ctx, topVer, key, hash, val, next, ttl, hdrId);
+        CacheObject val
+    ) {
+        super(ctx, topVer, key, hash, val);
     }
 
     /** {@inheritDoc} */

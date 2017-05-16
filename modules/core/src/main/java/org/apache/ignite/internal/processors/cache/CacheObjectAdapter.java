@@ -17,20 +17,27 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.io.*;
-import java.nio.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.GridDirectTransient;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  *
  */
 public abstract class CacheObjectAdapter implements CacheObject, Externalizable {
     /** */
-    @GridToStringInclude
+    private static final long serialVersionUID = 2006765505127197251L;
+
+    /** */
+    @GridToStringInclude(sensitive = true)
     @GridDirectTransient
     protected Object val;
 
@@ -46,7 +53,7 @@ public abstract class CacheObjectAdapter implements CacheObject, Externalizable 
     }
 
     /** {@inheritDoc} */
-    @Override public byte type() {
+    @Override public byte cacheObjectType() {
         return TYPE_REGULAR;
     }
 
@@ -80,7 +87,7 @@ public abstract class CacheObjectAdapter implements CacheObject, Externalizable 
 
         }
 
-        return true;
+        return reader.afterMessageRead(CacheObjectAdapter.class);
     }
 
     /** {@inheritDoc} */
@@ -113,6 +120,8 @@ public abstract class CacheObjectAdapter implements CacheObject, Externalizable 
 
     /** {@inheritDoc} */
     public String toString() {
-        return getClass().getSimpleName() + " [val=" + val + ", hasValBytes=" + (valBytes != null) + ']';
+        return S.toString(S.INCLUDE_SENSITIVE ? getClass().getSimpleName() : "CacheObject",
+            "val", val, true,
+            "hasValBytes", valBytes != null, false);
     }
 }

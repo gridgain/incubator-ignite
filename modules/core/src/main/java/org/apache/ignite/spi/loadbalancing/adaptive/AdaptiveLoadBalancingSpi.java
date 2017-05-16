@@ -17,26 +17,51 @@
 
 package org.apache.ignite.spi.loadbalancing.adaptive;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.loadbalancing.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeTaskSession;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.events.JobEvent;
+import org.apache.ignite.events.TaskEvent;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.IgniteSpiConfiguration;
+import org.apache.ignite.spi.IgniteSpiContext;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.IgniteSpiMultipleInstancesSupport;
+import org.apache.ignite.spi.loadbalancing.LoadBalancingSpi;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-import java.util.concurrent.locks.*;
-
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.events.EventType.EVT_JOB_MAPPED;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
+import static org.apache.ignite.events.EventType.EVT_NODE_METRICS_UPDATED;
+import static org.apache.ignite.events.EventType.EVT_TASK_FAILED;
+import static org.apache.ignite.events.EventType.EVT_TASK_FINISHED;
 
 /**
  * Load balancing SPI that adapts to overall node performance. It
@@ -91,7 +116,7 @@ import static org.apache.ignite.events.EventType.*;
  *     }
  *
  *     // Calculate load based on number of active and waiting jobs.
- *     public double getLoad(GridNode node, int jobsSentSinceLastUpdate) {
+ *     public double getLoad(ClusterNode node, int jobsSentSinceLastUpdate) {
  *         GridNodeMetrics metrics = node.getMetrics();
  *
  *         if (useAvg) {
@@ -118,7 +143,7 @@ import static org.apache.ignite.events.EventType.*;
  * is transparent to your code and is handled automatically by the adapter.
  * Here is an example of how your task will look:
  * <pre name="code" class="java">
- * public class MyFooBarTask extends GridComputeTaskSplitAdapter&lt;Object, Object&gt; {
+ * public class MyFooBarTask extends ComputeTaskSplitAdapter&lt;Object, Object&gt; {
  *    &#64;Override
  *    protected Collection&lt;? extends ComputeJob&gt; split(int gridSize, Object arg) throws IgniteCheckedException {
  *        List&lt;MyFooBarJob&gt; jobs = new ArrayList&lt;MyFooBarJob&gt;(gridSize);
@@ -140,14 +165,14 @@ import static org.apache.ignite.events.EventType.*;
  * case we manually inject load balancer and use it to pick the best node. Doing it in
  * such way would allow user to map some jobs manually and for others use load balancer.
  * <pre name="code" class="java">
- * public class MyFooBarTask extends GridComputeTaskAdapter&lt;String, String&gt; {
+ * public class MyFooBarTask extends ComputeTaskAdapter&lt;String, String&gt; {
  *    // Inject load balancer.
  *    &#64;LoadBalancerResource
  *    ComputeLoadBalancer balancer;
  *
  *    // Map jobs to grid nodes.
- *    public Map&lt;? extends ComputeJob, GridNode&gt; map(List&lt;GridNode&gt; subgrid, String arg) throws IgniteCheckedException {
- *        Map&lt;MyFooBarJob, GridNode&gt; jobs = new HashMap&lt;MyFooBarJob, GridNode&gt;(subgrid.size());
+ *    public Map&lt;? extends ComputeJob, ClusterNode&gt; map(List&lt;ClusterNode&gt; subgrid, String arg) throws IgniteCheckedException {
+ *        Map&lt;MyFooBarJob, ClusterNode&gt; jobs = new HashMap&lt;MyFooBarJob, ClusterNode&gt;(subgrid.size());
  *
  *        // In more complex cases, you can actually do
  *        // more complicated assignments of jobs to nodes.
@@ -160,13 +185,13 @@ import static org.apache.ignite.events.EventType.*;
  *    }
  *
  *    // Aggregate results into one compound result.
- *    public String reduce(List&lt;GridComputeJobResult&gt; results) throws IgniteCheckedException {
+ *    public String reduce(List&lt;ComputeJobResult&gt; results) throws IgniteCheckedException {
  *        // For the purpose of this example we simply
  *        // concatenate string representation of every
  *        // job result
  *        StringBuilder buf = new StringBuilder();
  *
- *        for (GridComputeJobResult res : results) {
+ *        for (ComputeJobResult res : results) {
  *            // Append string representation of result
  *            // returned by every job.
  *            buf.append(res.getData().string());
@@ -179,7 +204,7 @@ import static org.apache.ignite.events.EventType.*;
  * <p>
  * <h1 class="header">Configuration</h1>
  * In order to use this load balancer, you should configure your grid instance
- * to use {@code GridJobsLoadBalancingSpi} either from Spring XML file or
+ * to use {@code JobsLoadBalancingSpi} either from Spring XML file or
  * directly. The following configuration parameters are supported:
  * <h2 class="header">Mandatory</h2>
  * This SPI has no mandatory configuration parameters.
@@ -196,14 +221,14 @@ import static org.apache.ignite.events.EventType.*;
  * <p>
  * Below is Java configuration example:
  * <pre name="code" class="java">
- * GridAdaptiveLoadBalancingSpi spi = new GridAdaptiveLoadBalancingSpi();
+ * AdaptiveLoadBalancingSpi spi = new AdaptiveLoadBalancingSpi();
  *
  * // Configure probe to use latest job execution time vs. average.
- * GridAdaptiveProcessingTimeLoadProbe probe = new GridAdaptiveProcessingTimeLoadProbe(false);
+ * AdaptiveProcessingTimeLoadProbe probe = new AdaptiveProcessingTimeLoadProbe(false);
  *
  * spi.setLoadProbe(probe);
  *
- * GridConfiguration cfg = new GridConfiguration();
+ * IgniteConfiguration cfg = new IgniteConfiguration();
  *
  * // Override default load balancing SPI.
  * cfg.setLoadBalancingSpi(spi);
@@ -214,9 +239,9 @@ import static org.apache.ignite.events.EventType.*;
  * Here is how you can configure {@code GridJobsLoadBalancingSpi} using Spring XML configuration:
  * <pre name="code" class="xml">
  * &lt;property name="loadBalancingSpi"&gt;
- *     &lt;bean class="org.apache.ignite.spi.loadBalancing.adaptive.GridAdaptiveLoadBalancingSpi"&gt;
+ *     &lt;bean class="org.apache.ignite.spi.loadBalancing.adaptive.AdaptiveLoadBalancingSpi"&gt;
  *         &lt;property name="loadProbe"&gt;
- *             &lt;bean class="org.apache.ignite.spi.loadBalancing.adaptive.GridAdaptiveProcessingTimeLoadProbe"&gt;
+ *             &lt;bean class="org.apache.ignite.spi.loadBalancing.adaptive.AdaptiveProcessingTimeLoadProbe"&gt;
  *                 &lt;constructor-arg value="false"/&gt;
  *             &lt;/bean&gt;
  *         &lt;/property&gt;
@@ -224,7 +249,7 @@ import static org.apache.ignite.events.EventType.*;
  * &lt;/property&gt;
  * </pre>
  * <p>
- * <img src="http://ignite.incubator.apache.org/images/spring-small.png">
+ * <img src="http://ignite.apache.org/images/spring-small.png">
  * <br>
  * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
  */
@@ -326,7 +351,7 @@ public class AdaptiveLoadBalancingSpi extends IgniteSpiAdapter implements LoadBa
                     }
 
                     case EVT_JOB_MAPPED: {
-                        // We should keep topology and use cache in GridComputeTask#map() method to
+                        // We should keep topology and use cache in ComputeTask#map() method to
                         // avoid O(n*n/2) complexity, after that we can drop caches.
                         // Here we set mapped property and later cache will be ignored
                         JobEvent jobEvt = (JobEvent)evt;
@@ -423,11 +448,11 @@ public class AdaptiveLoadBalancingSpi extends IgniteSpiAdapter implements LoadBa
         // Create new cached topology if there is no one. Do not
         // use cached topology after task has been mapped.
         if (weightedTop == null)
-            // Called from GridComputeTask#map(). Put new topology and false as not mapped yet.
+            // Called from ComputeTask#map(). Put new topology and false as not mapped yet.
             taskTops.put(ses.getId(), weightedTop = F.t(false, new WeightedTopology(top)));
         // We have topology - check if task has been mapped.
         else if (weightedTop.get1())
-            // Do not use cache after GridComputeTask#map().
+            // Do not use cache after ComputeTask#map().
             return new WeightedTopology(top).pickWeightedNode();
 
         return weightedTop.get2().pickWeightedNode();

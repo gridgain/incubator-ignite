@@ -17,20 +17,29 @@
 
 package org.apache.ignite.internal.processors.cache.integration;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.transactions.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import javax.cache.configuration.Factory;
+import javax.cache.integration.CompletionListenerFuture;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.MutableEntry;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractTest;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
 
-import javax.cache.integration.*;
-import javax.cache.processor.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  * Test for configuration property {@link CacheConfiguration#isReadThrough}.
@@ -40,32 +49,11 @@ public abstract class IgniteCacheNoReadThroughAbstractTest extends IgniteCacheAb
     private Integer lastKey = 0;
 
     /** */
-    private boolean allowLoad;
+    private static boolean allowLoad;
 
     /** {@inheritDoc} */
-    @Override protected CacheStore<?, ?> cacheStore() {
-        return new TestStore() {
-            @Override public void loadCache(IgniteBiInClosure<Object, Object> clo, Object... args) {
-                if (!allowLoad)
-                    fail();
-
-                super.loadCache(clo, args);
-            }
-
-            @Override public Object load(Object key) {
-                if (!allowLoad)
-                    fail();
-
-                return super.load(key);
-            }
-
-            @Override public Map<Object, Object> loadAll(Iterable<?> keys) {
-                if (!allowLoad)
-                    fail();
-
-                return super.loadAll(keys);
-            }
-        };
+    @Override protected Factory<CacheStore> cacheStoreFactory() {
+        return new NoReadThroughStoreFactory();
     }
 
     /** {@inheritDoc} */
@@ -88,6 +76,11 @@ public abstract class IgniteCacheNoReadThroughAbstractTest extends IgniteCacheAb
         ccfg.setLoadPreviousValue(true);
 
         return ccfg;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void beforeTest() throws Exception {
+        allowLoad = false;
     }
 
     /**
@@ -316,5 +309,35 @@ public abstract class IgniteCacheNoReadThroughAbstractTest extends IgniteCacheAb
         lastKey = Collections.max(keys) + 1;
 
         return keys;
+    }
+
+    /**
+     *
+     */
+    private static class NoReadThroughStoreFactory implements Factory<CacheStore> {
+        @Override public CacheStore create() {
+            return new TestStore() {
+                @Override public void loadCache(IgniteBiInClosure<Object, Object> clo, Object... args) {
+                    if (!allowLoad)
+                        fail();
+
+                    super.loadCache(clo, args);
+                }
+
+                @Override public Object load(Object key) {
+                    if (!allowLoad)
+                        fail();
+
+                    return super.load(key);
+                }
+
+                @Override public Map<Object, Object> loadAll(Iterable<?> keys) {
+                    if (!allowLoad)
+                        fail();
+
+                    return super.loadAll(keys);
+                }
+            };
+        }
     }
 }

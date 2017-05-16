@@ -17,21 +17,31 @@
 
 package org.apache.ignite.cache.store;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.jetbrains.annotations.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadPoolExecutor;
+import javax.cache.Cache;
+import javax.cache.integration.CacheLoaderException;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.resources.LoggerResource;
+import org.jetbrains.annotations.Nullable;
 
-import javax.cache.*;
-import javax.cache.integration.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static java.util.concurrent.TimeUnit.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
- * This adepter designed to support stores with bulk loading from stream-like source.
+ * This adapter designed to support stores with bulk loading from stream-like source.
  * <p>
  * This class processes input data in the following way:
  * <ul>
@@ -100,7 +110,7 @@ public abstract class CacheLoadOnlyStoreAdapter<K, V, I> implements CacheStore<K
      * Note that returned iterator doesn't have to be thread-safe. Thus it could
      * operate on raw streams, DB connections, etc. without additional synchronization.
      *
-     * @param args Arguments passes into {@link org.apache.ignite.internal.processors.cache.GridCache#loadCache(IgniteBiPredicate, long, Object...)} method.
+     * @param args Arguments passes into {@link IgniteCache#loadCache(IgniteBiPredicate, Object...)} method.
      * @return Iterator over input records.
      * @throws CacheLoaderException If iterator can't be created with the given arguments.
      */
@@ -113,7 +123,7 @@ public abstract class CacheLoadOnlyStoreAdapter<K, V, I> implements CacheStore<K
      * If {@code null} is returned then this record will be just skipped.
      *
      * @param rec A raw data record.
-     * @param args Arguments passed into {@link org.apache.ignite.internal.processors.cache.GridCache#loadCache(IgniteBiPredicate, long, Object...)} method.
+     * @param args Arguments passed into {@link IgniteCache#loadCache(IgniteBiPredicate, Object...)} method.
      * @return Cache entry to be saved in cache or {@code null} if no entry could be produced from this record.
      */
     @Nullable protected abstract IgniteBiTuple<K, V> parse(I rec, @Nullable Object... args);
@@ -143,14 +153,14 @@ public abstract class CacheLoadOnlyStoreAdapter<K, V, I> implements CacheStore<K
                 buf.add(iter.next());
 
                 if (buf.size() == batchSize) {
-                    exec.submit(new Worker(c, buf, args));
+                    exec.execute(new Worker(c, buf, args));
 
                     buf = new ArrayList<>(batchSize);
                 }
             }
 
             if (!buf.isEmpty())
-                exec.submit(new Worker(c, buf, args));
+                exec.execute(new Worker(c, buf, args));
         }
         catch (RejectedExecutionException ignored) {
             // Because of custom RejectedExecutionHandler.
@@ -255,7 +265,7 @@ public abstract class CacheLoadOnlyStoreAdapter<K, V, I> implements CacheStore<K
     }
 
     /** {@inheritDoc} */
-    @Override public void txEnd(boolean commit) {
+    @Override public void sessionEnd(boolean commit) {
         // No-op.
     }
 
@@ -275,7 +285,7 @@ public abstract class CacheLoadOnlyStoreAdapter<K, V, I> implements CacheStore<K
         /**
          * @param c Closure for loaded entries.
          * @param buf Set of input records to process.
-         * @param args Arguments passed into {@link org.apache.ignite.internal.processors.cache.GridCache#loadCache(IgniteBiPredicate, long, Object...)} method.
+         * @param args Arguments passed into {@link IgniteCache#loadCache(IgniteBiPredicate, Object...)} method.
          */
         Worker(IgniteBiInClosure<K, V> c, Collection<I> buf, Object[] args) {
             this.c = c;

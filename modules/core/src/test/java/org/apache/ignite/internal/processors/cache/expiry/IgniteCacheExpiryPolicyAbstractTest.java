@@ -17,37 +17,64 @@
 
 package org.apache.ignite.internal.processors.cache.expiry;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.transactions.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import javax.cache.Cache;
+import javax.cache.configuration.Factory;
+import javax.cache.configuration.FactoryBuilder;
+import javax.cache.expiry.CreatedExpiryPolicy;
+import javax.cache.expiry.Duration;
+import javax.cache.expiry.EternalExpiryPolicy;
+import javax.cache.expiry.ExpiryPolicy;
+import javax.cache.expiry.ModifiedExpiryPolicy;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.MutableEntry;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.CacheMemoryMode;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedException;
+import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractTest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtInvalidPartitionException;
+import org.apache.ignite.internal.util.lang.GridAbsPredicate;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.PAX;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.jetbrains.annotations.Nullable;
 
-import javax.cache.*;
-import javax.cache.configuration.*;
-import javax.cache.expiry.*;
-import javax.cache.processor.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.CLOCK;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  *
  */
 public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbstractTest {
+    /** */
+    private static final long TTL_FOR_EXPIRE = 500L;
+
     /** */
     private Factory<? extends ExpiryPolicy> factory;
 
@@ -55,10 +82,10 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
     private boolean nearCache;
 
     /** */
-    private Integer lastKey = 0;
+    private boolean disableEagerTtl;
 
     /** */
-    private static final long TTL_FOR_EXPIRE = 500L;
+    private Integer lastKey = 0;
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
@@ -69,11 +96,70 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
     @Override protected void afterTest() throws Exception {
         stopAllGrids();
 
+        factory = null;
+
         storeMap.clear();
     }
 
+    /** {@inheritDoc} */
+    @Override protected CacheConfiguration cacheConfiguration(String gridName) throws Exception {
+        CacheConfiguration cfg = super.cacheConfiguration(gridName);
+
+        if (nearCache)
+            cfg.setNearConfiguration(new NearCacheConfiguration());
+
+        cfg.setExpiryPolicyFactory(factory);
+
+        cfg.setMemoryMode(memoryMode());
+
+        if (memoryMode() == CacheMemoryMode.OFFHEAP_TIERED)
+            cfg.setOffHeapMaxMemory(0);
+
+        if (disableEagerTtl)
+            cfg.setEagerTtl(false);
+
+        return cfg;
+    }
+
     /**
-     * @throws Exception If failed.
+     * @return Cache memory mode.
+     */
+    protected CacheMemoryMode memoryMode() {
+        return CacheMemoryMode.ONHEAP_TIERED;
+    }
+
+    /**
+     * @throws Exception if failed.
+     */
+    public void testCreateUpdate0() throws Exception {
+        startGrids(1);
+
+        long ttl = 60L;
+
+        final String key = "key1";
+
+        final IgniteCache<String, String> cache = jcache();
+
+        for (int i = 0; i < 1000; i++) {
+            final IgniteCache<String, String> cache0 = cache.withExpiryPolicy(new ModifiedExpiryPolicy(new Duration(TimeUnit.HOURS, ttl)));
+
+            cache0.put(key, key);
+
+            info("PUT DONE");
+        }
+
+        int pSize = grid(0).context().cache().internalCache(null).context().ttl().pendingSize();
+
+        assertTrue("Too many pending entries: " + pSize, pSize <= 1);
+
+        cache.remove(key);
+
+        pSize = grid(0).context().cache().internalCache(null).context().ttl().pendingSize();
+
+        assertEquals(0, pSize);
+    }
+
+    /**     * @throws Exception If failed.
      */
     public void testZeroOnCreate() throws Exception {
         factory = CreatedExpiryPolicy.factoryOf(Duration.ZERO);
@@ -143,6 +229,45 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
 
             zeroOnAccess(key);
         }
+
+        final IgniteCache<Integer, Object> cache = jcache(0);
+
+        Integer key = primaryKey(cache);
+
+        IgniteCache<Integer, Object> cache0 = cache.withExpiryPolicy(new TestPolicy(60_000L, 60_000L, 60_000L));
+
+        cache0.put(key, 1);
+
+        cache.get(key); // Access using get.
+
+        GridTestUtils.waitForCondition(new GridAbsPredicate() {
+            @Override public boolean apply() {
+                return !cache.iterator().hasNext();
+            }
+        }, 1000);
+
+        assertFalse(cache.iterator().hasNext());
+
+        cache0.put(key, 1);
+
+        assertNotNull(cache.iterator().next()); // Access using iterator.
+
+        GridTestUtils.waitForCondition(new GridAbsPredicate() {
+            @Override public boolean apply() {
+                return !cache.iterator().hasNext();
+            }
+        }, 1000);
+
+        assertFalse(cache.iterator().hasNext());
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testZeroOnAccessEagerTtlDisabled() throws Exception {
+        disableEagerTtl = true;
+
+        testZeroOnAccess();
     }
 
     /**
@@ -157,6 +282,8 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
         assertEquals((Integer)1, cache.get(key)); // Access should expire entry.
 
         waitExpired(F.asList(key));
+
+        assertFalse(cache.iterator().hasNext());
     }
 
     /**
@@ -281,6 +408,8 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
 
         Collection<Integer> putKeys = keys();
 
+        info("Put keys: " + putKeys);
+
         for (final Integer key : putKeys)
             cache.put(key, key);
 
@@ -291,10 +420,15 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
         while (it.hasNext())
             itKeys.add(it.next().getKey());
 
+        info("It keys: " + itKeys);
+
         assertTrue(itKeys.size() >= putKeys.size());
 
-        for (Integer key : itKeys)
+        for (Integer key : itKeys) {
+            info("Checking iterator key: " + key);
+
             checkTtl(key, 62_000L, true);
+        }
     }
 
     /**
@@ -607,7 +741,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
         checkTtl(key, 10_000L);
 
         for (int idx = 0; idx < gridCount(); idx++) {
-            assertEquals(1, cache(idx).get(key)); // Try get.
+            assertEquals(1, jcache(idx).get(key)); // Try get.
 
             checkTtl(key, 10_000L);
         }
@@ -668,7 +802,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
             checkTtl(key, 60_000L);
 
             for (int idx = 0; idx < gridCount(); idx++) {
-                assertEquals(1, cache(idx).get(key)); // Try get.
+                assertEquals(1, jcache(idx).get(key)); // Try get.
 
                 checkTtl(key, 60_000L);
             }
@@ -683,7 +817,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
             checkTtl(key, 61_000L);
 
             for (int idx = 0; idx < gridCount(); idx++) {
-                assertEquals(2, cache(idx).get(key)); // Try get.
+                assertEquals(2, jcache(idx).get(key)); // Try get.
 
                 checkTtl(key, 61_000L);
             }
@@ -696,7 +830,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
                 tx.commit();
 
             for (int idx = 0; idx < gridCount(); idx++)
-                assertNull(cache(idx).get(key));
+                assertNull(jcache(idx).get(key));
         }
     }
 
@@ -712,6 +846,8 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
      * @throws Exception If failed.
      */
     public void testNearCreateUpdate() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-518");
+
         if (cacheMode() != PARTITIONED)
             return;
 
@@ -734,7 +870,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
 
         IgniteCache<Integer, Integer> cache0 = jcache(0);
 
-        assertEquals(NEAR_PARTITIONED, jcache(0).getConfiguration(CacheConfiguration.class).getDistributionMode());
+        assertNotNull(jcache(0).getConfiguration(CacheConfiguration.class).getNearConfiguration());
 
         cache0.put(key, 1);
 
@@ -835,6 +971,8 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
      * @throws Exception If failed.
      */
     public void testNearAccess() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-518");
+
         if (cacheMode() != PARTITIONED)
             return;
 
@@ -869,7 +1007,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
         checkTtl(key, 60_000L);
 
         IgniteCache<Object, Object> cache =
-            cache(0).affinity().isPrimary(grid(1).localNode(), key) ? jcache(1) : jcache(2);
+            grid(0).affinity(null).isPrimary(grid(1).localNode(), key) ? jcache(1) : jcache(2);
 
         assertEquals(1, cache.get(key));
 
@@ -944,7 +1082,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
             ClusterNode node = grid(i).cluster().localNode();
 
             for (Integer key : keys) {
-                Object val = jcache(i).localPeek(key, CachePeekMode.ONHEAP);
+                Object val = jcache(i).localPeek(key, CachePeekMode.ONHEAP, CachePeekMode.OFFHEAP);
 
                 if (val != null) {
                     log.info("Unexpected value [grid=" + i +
@@ -987,59 +1125,93 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
 
             GridCacheAdapter<Object, Object> cache = grid.context().cache().internalCache();
 
-            GridCacheEntryEx e = cache.peekEx(key);
+            if (cache.context().isNear())
+                cache = cache.context().near().dht();
 
-            if (e == null && cache.context().isNear())
-                e = cache.context().near().dht().peekEx(key);
+            while (true) {
+                try {
+                    GridCacheEntryEx e = memoryMode() == CacheMemoryMode.ONHEAP_TIERED ?
+                        cache.peekEx(key) : cache.entryEx(key);
 
-            if (e == null)
-                assertTrue("Not found " + key, !cache.affinity().isPrimaryOrBackup(grid.localNode(), key));
-            else {
-                found = true;
+                    if (e != null && e.deleted()) {
+                        assertEquals(0, e.ttl());
 
-                if (wait) {
-                    final GridCacheEntryEx e0 = e;
+                        assertFalse("Invalid entry [e=" + e + ", node=" + i + ']',
+                            cache.affinity().isPrimaryOrBackup(grid.localNode(), key));
 
-                    GridTestUtils.waitForCondition(new PA() {
-                        @Override public boolean apply() {
-                            try {
-                                return e0.ttl() == ttl;
-                            }
-                            catch (Exception e) {
-                                fail("Unexpected error: " + e);
+                        continue;
+                    }
 
-                                return true;
-                            }
-                        }
-                    }, 3000);
+                    if (e == null)
+                        assertTrue("Not found " + key, !cache.affinity().isPrimaryOrBackup(grid.localNode(), key));
+                    else {
+                        e.unswap();
+
+                        found = true;
+
+                        if (wait)
+                            waitTtl(cache, key, ttl);
+
+                        boolean primary = cache.affinity().isPrimary(grid.localNode(), key);
+                        boolean backup = cache.affinity().isBackup(grid.localNode(), key);
+
+                        assertEquals("Unexpected ttl [grid=" + i + ", nodeId=" + grid.getLocalNodeId() +
+                            ", key=" + key + ", e=" + e + ", primary=" + primary + ", backup=" + backup + ']', ttl, e.ttl());
+
+                        if (ttl > 0)
+                            assertTrue(e.expireTime() > 0);
+                        else
+                            assertEquals(0, e.expireTime());
+                    }
+
+                    break;
                 }
-
-                boolean primary = cache.affinity().isPrimary(grid.localNode(), key);
-                boolean backup = cache.affinity().isBackup(grid.localNode(), key);
-
-                assertEquals("Unexpected ttl [grid=" + i + ", key=" + key + ", e=" + e +
-                    ", primary=" + primary + ", backup=" + backup + ']', ttl, e.ttl());
-
-                if (ttl > 0)
-                    assertTrue(e.expireTime() > 0);
-                else
-                    assertEquals(0, e.expireTime());
+                catch (GridCacheEntryRemovedException ignore) {
+                    info("RETRY");
+                    // Retry.
+                }
+                catch (GridDhtInvalidPartitionException ignore) {
+                    // No need to check.
+                    break;
+                }
             }
         }
 
         assertTrue(found);
     }
 
-    /** {@inheritDoc} */
-    @Override protected CacheConfiguration cacheConfiguration(String gridName) throws Exception {
-        CacheConfiguration cfg = super.cacheConfiguration(gridName);
+    /**
+     * @param cache Cache.
+     * @param key Key.
+     * @param ttl TTL to wait.
+     * @throws IgniteInterruptedCheckedException If wait has been interrupted.
+     */
+    private void waitTtl(final GridCacheAdapter<Object, Object> cache, final Object key, final long ttl)
+        throws IgniteInterruptedCheckedException {
+        GridTestUtils.waitForCondition(new PAX() {
+            @Override public boolean applyx() throws IgniteCheckedException {
+                GridCacheEntryEx entry;
 
-        if (nearCache && gridName.equals(getTestGridName(0)))
-            cfg.setDistributionMode(NEAR_PARTITIONED);
+                while (true) {
+                    try {
+                        entry = memoryMode() == CacheMemoryMode.ONHEAP_TIERED ?
+                                cache.peekEx(key) : cache.entryEx(key);
 
-        cfg.setExpiryPolicyFactory(factory);
+                        assert entry != null;
 
-        return cfg;
+                        entry.unswap();
+
+                        return entry.ttl() == ttl;
+                    }
+                    catch (GridCacheEntryRemovedException ignore) {
+                        // Retry.
+                    }
+                    catch (GridDhtInvalidPartitionException ignore) {
+                        return true;
+                    }
+                }
+            }
+        }, 3000);
     }
 
     /**
@@ -1055,7 +1227,7 @@ public abstract class IgniteCacheExpiryPolicyAbstractTest extends IgniteCacheAbs
     /**
      *
      */
-    private static class TestPolicy implements ExpiryPolicy {
+    private static class TestPolicy implements ExpiryPolicy, Serializable {
         /** */
         private Long create;
 

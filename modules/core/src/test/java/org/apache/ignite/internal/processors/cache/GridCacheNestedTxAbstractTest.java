@@ -17,22 +17,28 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-import java.util.concurrent.locks.*;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Nested transaction emulation.
@@ -85,9 +91,9 @@ public class GridCacheNestedTxAbstractTest extends GridCommonAbstractTest {
         super.afterTest();
 
         for (int i = 0; i < GRID_CNT; i++) {
-            grid(i).jcache(null).removeAll();
+            grid(i).cache(null).removeAll();
 
-            assert grid(i).jcache(null).localSize() == 0;
+            assert grid(i).cache(null).localSize() == 0;
         }
     }
 
@@ -105,7 +111,7 @@ public class GridCacheNestedTxAbstractTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testTwoTx() throws Exception {
-        final IgniteCache<String, Integer> c = grid(0).jcache(null);
+        final IgniteCache<String, Integer> c = grid(0).cache(null);
 
         GridKernalContext ctx = ((IgniteKernal)grid(0)).context();
 
@@ -136,7 +142,7 @@ public class GridCacheNestedTxAbstractTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testLockAndTx() throws Exception {
-        final IgniteCache<String, Integer> c = grid(0).jcache(null);
+        final IgniteCache<String, Integer> c = grid(0).cache(null);
 
         Collection<Thread> threads = new LinkedList<>();
 
@@ -212,9 +218,9 @@ public class GridCacheNestedTxAbstractTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testLockAndTx1() throws Exception {
-        final IgniteCache<String, Integer> c = grid(0).jcache(null);
+        final IgniteCache<String, Integer> c = grid(0).cache(null);
 
-        final IgniteCache<Integer, Integer> c1 = grid(0).jcache(null);
+        final IgniteCache<Integer, Integer> c1 = grid(0).cache(null);
 
         Collection<Thread> threads = new LinkedList<>();
 

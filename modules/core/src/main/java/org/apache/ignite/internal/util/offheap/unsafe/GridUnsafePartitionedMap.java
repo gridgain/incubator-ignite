@@ -17,16 +17,21 @@
 
 package org.apache.ignite.internal.util.offheap.unsafe;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.offheap.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.util.GridCloseableIteratorAdapter;
+import org.apache.ignite.internal.util.lang.GridCloseableIterator;
+import org.apache.ignite.internal.util.offheap.GridOffHeapEventListener;
+import org.apache.ignite.internal.util.offheap.GridOffHeapEvictListener;
+import org.apache.ignite.internal.util.offheap.GridOffHeapMap;
+import org.apache.ignite.internal.util.offheap.GridOffHeapPartitionedMap;
+import org.apache.ignite.internal.util.typedef.CX2;
+import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.LongAdder8;
 
 /**
  * Off-heap map based on {@code Unsafe} implementation.
@@ -60,7 +65,7 @@ public class GridUnsafePartitionedMap implements GridOffHeapPartitionedMap {
     private final int parts;
 
     /** */
-    private final LongAdder totalCnt = new LongAdder();
+    private final LongAdder8 totalCnt = new LongAdder8();
 
     /**
      * @param parts Partitions.
@@ -194,6 +199,14 @@ public class GridUnsafePartitionedMap implements GridOffHeapPartitionedMap {
     }
 
     /** {@inheritDoc} */
+    @Override public boolean removex(int part,
+        int hash,
+        byte[] keyBytes,
+        IgniteBiPredicate<Long, Integer> p) {
+        return mapFor(part).removex(hash, keyBytes, p);
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean put(int p, int hash, byte[] keyBytes, byte[] valBytes) {
         return mapFor(p).put(hash, keyBytes, valBytes);
     }
@@ -277,21 +290,8 @@ public class GridUnsafePartitionedMap implements GridOffHeapPartitionedMap {
 
     /** {@inheritDoc} */
     @Override public GridCloseableIterator<IgniteBiTuple<byte[], byte[]>> iterator() {
-        return new GridCloseableIteratorAdapter<IgniteBiTuple<byte[], byte[]>>() {
-            private int p;
-
-            private GridCloseableIterator<IgniteBiTuple<byte[], byte[]>> curIt;
-
-            {
-                try {
-                    advance();
-                }
-                catch (IgniteCheckedException e) {
-                    e.printStackTrace(); // Should never happen.
-                }
-            }
-
-            private void advance() throws IgniteCheckedException {
+        return new PartitionedMapCloseableIterator<IgniteBiTuple<byte[], byte[]>>() {
+            protected void advance() throws IgniteCheckedException {
                 curIt = null;
 
                 while (p < parts) {
@@ -305,34 +305,6 @@ public class GridUnsafePartitionedMap implements GridOffHeapPartitionedMap {
 
                 curIt = null;
             }
-
-            @Override protected IgniteBiTuple<byte[], byte[]> onNext() throws IgniteCheckedException {
-                if (curIt == null)
-                    throw new NoSuchElementException();
-
-                IgniteBiTuple<byte[], byte[]> t = curIt.next();
-
-                if (!curIt.hasNext()) {
-                    curIt.close();
-
-                    advance();
-                }
-
-                return t;
-            }
-
-            @Override protected boolean onHasNext() {
-                return curIt != null;
-            }
-
-            @Override protected void onRemove() {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override protected void onClose() throws IgniteCheckedException {
-                if (curIt != null)
-                    curIt.close();
-            }
         };
     }
 
@@ -340,21 +312,8 @@ public class GridUnsafePartitionedMap implements GridOffHeapPartitionedMap {
     @Override public <T> GridCloseableIterator<T> iterator(final CX2<T2<Long, Integer>, T2<Long, Integer>, T> c) {
         assert c != null;
 
-        return new GridCloseableIteratorAdapter<T>() {
-            private int p;
-
-            private GridCloseableIterator<T> curIt;
-
-            {
-                try {
-                    advance();
-                }
-                catch (IgniteCheckedException e) {
-                    e.printStackTrace(); // Should never happen.
-                }
-            }
-
-            private void advance() throws IgniteCheckedException {
+        return new PartitionedMapCloseableIterator<T>() {
+            protected void advance() throws IgniteCheckedException {
                 curIt = null;
 
                 while (p < parts) {
@@ -368,35 +327,13 @@ public class GridUnsafePartitionedMap implements GridOffHeapPartitionedMap {
 
                 curIt = null;
             }
-
-            @Override protected T onNext() throws IgniteCheckedException {
-                if (curIt == null)
-                    throw new NoSuchElementException();
-
-                T t = curIt.next();
-
-                if (!curIt.hasNext()) {
-                    curIt.close();
-
-                    advance();
-                }
-
-                return t;
-            }
-
-            @Override protected boolean onHasNext() {
-                return curIt != null;
-            }
-
-            @Override protected void onRemove() {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override protected void onClose() throws IgniteCheckedException {
-                if (curIt != null)
-                    curIt.close();
-            }
         };
+    }
+
+    /** {@inheritDoc} */
+    @Override public <T> GridCloseableIterator<T> iterator(final CX2<T2<Long, Integer>, T2<Long, Integer>, T> c,
+       int part) {
+       return mapFor(part).iterator(c);
     }
 
     /** {@inheritDoc} */
@@ -429,5 +366,64 @@ public class GridUnsafePartitionedMap implements GridOffHeapPartitionedMap {
      */
     public long lruSize() {
         return lru.size();
+    }
+
+    /**
+     *  Partitioned closable iterator.
+     */
+    private abstract class PartitionedMapCloseableIterator<T> extends GridCloseableIteratorAdapter<T> {
+        /** Current partition. */
+        protected int p;
+
+        /** Current iterator. */
+        protected GridCloseableIterator<T> curIt;
+
+        {
+            try {
+                advance();
+            }
+            catch (IgniteCheckedException e) {
+                e.printStackTrace(); // Should never happen.
+            }
+        }
+
+        /**
+         * Switch to next partition.
+         *
+         * @throws IgniteCheckedException If failed.
+         */
+        abstract void advance() throws IgniteCheckedException;
+
+        /** {@inheritDoc} */
+        @Override protected T onNext() throws IgniteCheckedException {
+            if (curIt == null)
+                throw new NoSuchElementException();
+
+            T t = curIt.next();
+
+            if (!curIt.hasNext()) {
+                curIt.close();
+
+                advance();
+            }
+
+            return t;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected boolean onHasNext() {
+            return curIt != null;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void onRemove() {
+            throw new UnsupportedOperationException();
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void onClose() throws IgniteCheckedException {
+            if (curIt != null)
+                curIt.close();
+        }
     }
 }

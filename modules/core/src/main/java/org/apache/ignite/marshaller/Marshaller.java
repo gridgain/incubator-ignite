@@ -17,30 +17,34 @@
 
 package org.apache.ignite.marshaller;
 
-import org.apache.ignite.*;
-import org.jetbrains.annotations.*;
+import java.io.InputStream;
+import java.io.OutputStream;
 
-import java.io.*;
+import org.apache.ignite.IgniteBinary;
+import org.apache.ignite.IgniteCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code GridMarshaller} allows to marshal or unmarshal objects in grid. It provides
+ * {@code Marshaller} allows to marshal or unmarshal objects in grid. It provides
  * serialization/deserialization mechanism for all instances that are sent across networks
  * or are otherwise serialized.
  * <p>
- * Ignite provides the following {@code GridMarshaller} implementations:
+ * Ignite provides the following {@code Marshaller} implementations:
  * <ul>
- * <li>{@link org.apache.ignite.marshaller.optimized.OptimizedMarshaller} - default</li>
+ * <li>Default binary marshaller. Will be used when no other marshaller is explicitly set to the
+ * configuration. For more information, see {@link IgniteBinary}.</li>
+ * <li>{@link org.apache.ignite.marshaller.optimized.OptimizedMarshaller}</li>
  * <li>{@link org.apache.ignite.marshaller.jdk.JdkMarshaller}</li>
  * </ul>
  * <p>
  * Below are examples of marshaller configuration, usage, and injection into tasks, jobs,
  * and SPI's.
  * <h2 class="header">Java Example</h2>
- * {@code GridMarshaller} can be explicitely configured in code.
+ * {@code Marshaller} can be explicitly configured in code.
  * <pre name="code" class="java">
- * GridJdkMarshaller marshaller = new GridJdkMarshaller();
+ * JdkMarshaller marshaller = new JdkMarshaller();
  *
- * GridConfiguration cfg = new GridConfiguration();
+ * IgniteConfiguration cfg = new IgniteConfiguration();
  *
  * // Override marshaller.
  * cfg.setMarshaller(marshaller);
@@ -49,18 +53,18 @@ import java.io.*;
  * G.start(cfg);
  * </pre>
  * <h2 class="header">Spring Example</h2>
- * GridMarshaller can be configured from Spring XML configuration file:
+ * Marshaller can be configured from Spring XML configuration file:
  * <pre name="code" class="xml">
  * &lt;bean id="grid.custom.cfg" class="org.apache.ignite.configuration.IgniteConfiguration" singleton="true"&gt;
  *     ...
  *     &lt;property name="marshaller"&gt;
- *         &lt;bean class="org.apache.ignite.marshaller.jdk.GridJdkMarshaller"/&gt;
+ *         &lt;bean class="org.apache.ignite.marshaller.jdk.JdkMarshaller"/&gt;
  *     &lt;/property&gt;
  *     ...
  * &lt;/bean&gt;
  * </pre>
  * <p>
- * <img src="http://ignite.incubator.apache.org/images/spring-small.png">
+ * <img src="http://ignite.apache.org/images/spring-small.png">
  * <br>
  * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
  */
@@ -92,7 +96,7 @@ public interface Marshaller {
     public byte[] marshal(@Nullable Object obj) throws IgniteCheckedException;
 
     /**
-     * Unmarshals object from the output stream using given class loader.
+     * Unmarshals object from the input stream using given class loader.
      * This method should not close given input stream.
      *
      * @param <T> Type of unmarshalled object.

@@ -17,32 +17,41 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.replicated;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.query.*;
-import org.apache.ignite.cache.query.annotations.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.query.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.transactions.*;
-import org.springframework.util.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
+import javax.cache.Cache;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.query.QueryCursor;
+import org.apache.ignite.cache.query.SqlQuery;
+import org.apache.ignite.cache.query.annotations.QuerySqlField;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.events.EventType;
+import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractQuerySelfTest;
+import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testsuites.IgniteIgnore;
+import org.apache.ignite.transactions.Transaction;
 
-import javax.cache.*;
-import java.io.*;
-import java.lang.reflect.*;
-import java.sql.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CachePeekMode.ALL;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
 
 /**
  * Tests replicated query.
@@ -92,16 +101,16 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
     }
 
     /** {@inheritDoc} */
-    @Override protected void beforeTest() throws Exception {
-        super.beforeTest();
+    @Override protected void beforeTestsStarted() throws Exception {
+        super.beforeTestsStarted();
 
         ignite1 = grid(0);
         ignite2 = grid(1);
         ignite3 = grid(2);
 
-        cache1 = ignite1.jcache(null);
-        cache2 = ignite2.jcache(null);
-        cache3 = ignite3.jcache(null);
+        cache1 = ignite1.cache(null);
+        cache2 = ignite2.cache(null);
+        cache3 = ignite3.cache(null);
     }
 
     /**
@@ -111,7 +120,7 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
         try {
             Ignite g = startGrid("client");
 
-            IgniteCache<Integer, Integer> c = g.jcache(null);
+            IgniteCache<Integer, Integer> c = g.cache(null);
 
             for (int i = 0; i < 10; i++)
                 c.put(i, i);
@@ -120,7 +129,7 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
             assertEquals(0, c.localSize());
 
             Collection<Cache.Entry<Integer, Integer>> res =
-                c.query(new SqlQuery(Integer.class, "_key >= 5 order by _key")).getAll();
+                c.query(new SqlQuery<Integer, Integer>(Integer.class, "_key >= 5 order by _key")).getAll();
 
             assertEquals(5, res.size());
 
@@ -149,12 +158,12 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
         for (int i = 0; i < keyCnt; i++)
             cache1.put(new CacheKey(i), new CacheValue("val" + i));
 
-        assertEquals(keyCnt, cache1.localSize());
-        assertEquals(keyCnt, cache2.localSize());
-        assertEquals(keyCnt, cache3.localSize());
+        assertEquals(keyCnt, cache1.localSize(ALL));
+        assertEquals(keyCnt, cache2.localSize(ALL));
+        assertEquals(keyCnt, cache3.localSize(ALL));
 
         QueryCursor<Cache.Entry<CacheKey, CacheValue>> qry =
-            cache1.query(new SqlQuery(CacheValue.class, "true"));
+            cache1.query(new SqlQuery<CacheKey, CacheValue>(CacheValue.class, "true"));
 
         Iterator<Cache.Entry<CacheKey, CacheValue>> iter = qry.iterator();
 
@@ -238,13 +247,13 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
         latch.await();
 
         QueryCursor<Cache.Entry<CacheKey, CacheValue>> qry =
-            cache1.query(new SqlQuery(CacheValue.class, "val > 1 and val < 4"));
+            cache1.query(new SqlQuery<CacheKey, CacheValue>(CacheValue.class, "val > 1 and val < 4"));
 
         // Distributed query.
         assertEquals(2, qry.getAll().size());
 
         // Create new query, old query cannot be modified after it has been executed.
-        qry = cache3.localQuery(new SqlQuery(CacheValue.class, "val > 1 and val < 4"));
+        qry = cache3.query(new SqlQuery<CacheKey, CacheValue>(CacheValue.class, "val > 1 and val < 4").setLocal(true));
 
         // Tests execute on node.
         Iterator<Cache.Entry<CacheKey, CacheValue>> iter = qry.iterator();
@@ -262,26 +271,6 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
     }
 
     /**
-     * Returns private field {@code qryIters} of {@link GridCacheQueryManager} for the given grid.
-     *
-     * @param g Grid which {@link GridCacheQueryManager} should be observed.
-     * @return {@code qryIters} of {@link GridCacheQueryManager}.
-     */
-    private ConcurrentMap<UUID,
-        Map<Long, GridFutureAdapter<GridCloseableIterator<IgniteBiTuple<CacheKey, CacheValue>>>>>
-        distributedQueryManagerQueryItersMap(Ignite g) {
-        GridCacheContext ctx = ((IgniteKernal)g).internalCache().context();
-
-        Field qryItersField = ReflectionUtils.findField(ctx.queries().getClass(), "qryIters");
-
-        qryItersField.setAccessible(true);
-
-        return (ConcurrentMap<UUID,
-            Map<Long, GridFutureAdapter<GridCloseableIterator<IgniteBiTuple<CacheKey, CacheValue>>>>>)
-            ReflectionUtils.getField(qryItersField, ctx.queries());
-    }
-
-    /**
      * @throws Exception If test failed.
      */
     public void testToString() throws Exception {
@@ -293,27 +282,25 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
         // Create query with key filter.
 
         QueryCursor<Cache.Entry<CacheKey, CacheValue>> qry =
-            cache1.query(new SqlQuery(CacheValue.class, "val > 0"));
+            cache1.query(new SqlQuery<CacheKey, CacheValue>(CacheValue.class, "val > 0"));
 
         assertEquals(keyCnt, qry.getAll().size());
     }
 
     /**
-     * TODO
-     *
      * @throws Exception If failed.
      */
-    public void _testLostIterator() throws Exception {
-        IgniteCache<Integer, Integer> cache = ignite.jcache(null);
+    public void testLostIterator() throws Exception {
+        IgniteCache<Integer, Integer> cache = ignite().cache(null);
 
         for (int i = 0; i < 1000; i++)
             cache.put(i, i);
 
         QueryCursor<Cache.Entry<Integer, Integer>> fut = null;
 
-        for (int i = 0; i < GridCacheQueryManager.MAX_ITERATORS + 1; i++) {
+        for (int i = 0; i < cache.getConfiguration(CacheConfiguration.class).getMaxQueryIteratorsCount() + 1; i++) {
             QueryCursor<Cache.Entry<Integer, Integer>> q =
-                cache.query(new SqlQuery(Integer.class, "_key >= 0 order by _key"));
+                cache.query(new SqlQuery<Integer, Integer>(Integer.class, "_key >= 0 order by _key"));
 
             assertEquals(0, (int)q.iterator().next().getKey());
 
@@ -338,49 +325,37 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
     }
 
     /**
-     * TODO enable
-     *
      * @throws Exception If failed.
      */
-    public void _testNodeLeft() throws Exception {
-        try {
-            Ignite g = startGrid();
+    @IgniteIgnore(value = "https://issues.apache.org/jira/browse/IGNITE-613", forceFailure = true)
+    public void testNodeLeft() throws Exception {
+        Ignite g = startGrid("client");
 
-            IgniteCache<Integer, Integer> cache = g.jcache(null);
+        try {
+            assertTrue(g.configuration().isClientMode());
+
+            IgniteCache<Integer, Integer> cache = g.cache(null);
 
             for (int i = 0; i < 1000; i++)
                 cache.put(i, i);
 
+            // Client cache should be empty.
+            assertEquals(0, cache.localSize());
+
             QueryCursor<Cache.Entry<Integer, Integer>> q =
-                cache.query(new SqlQuery(Integer.class, "_key >= 0 order by _key"));
+                cache.query(new SqlQuery<Integer, Integer>(Integer.class, "_key >= 0 order by _key").setPageSize(10));
 
-            assertEquals(0, (int) q.iterator().next().getKey());
+            assertEquals(0, (int)q.iterator().next().getKey());
 
-            final ConcurrentMap<UUID, Map<Long, GridFutureAdapter<GridCloseableIterator<
-                IgniteBiTuple<Integer, Integer>>>>> map =
-                U.field(((IgniteKernal)grid(0)).internalCache().context().queries(), "qryIters");
+            // Query for replicated cache was run on one of nodes.
+            ConcurrentMap<?, ?> mapNode1 = queryResultMap(0);
+            ConcurrentMap<?, ?> mapNode2 = queryResultMap(1);
+            ConcurrentMap<?, ?> mapNode3 = queryResultMap(2);
 
-            // fut.nextX() does not guarantee the request has completed on remote node
-            // (we could receive page from local one), so we need to wait.
-            assertTrue(GridTestUtils.waitForCondition(new PA() {
-                @Override public boolean apply() {
-                    return map.size() == 1;
-                }
-            }, getTestTimeout()));
-
-            Map<Long, GridFutureAdapter<GridCloseableIterator<IgniteBiTuple<Integer, Integer>>>> futs =
-                map.get(g.cluster().localNode().id());
-
-            assertEquals(1, futs.size());
-
-            GridCloseableIterator<IgniteBiTuple<Integer, Integer>> iter =
-                (GridCloseableIterator<IgniteBiTuple<Integer, Integer>>)((IgniteInternalFuture)F.first(futs.values()).get()).get();
-
-            ResultSet rs = U.field(iter, "data");
-
-            assertFalse(rs.isClosed());
+            assertEquals(1, mapNode1.size() + mapNode2.size() + mapNode3.size());
 
             final UUID nodeId = g.cluster().localNode().id();
+
             final CountDownLatch latch = new CountDownLatch(1);
 
             grid(0).events().localListen(new IgnitePredicate<Event>() {
@@ -392,17 +367,25 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
                 }
             }, EVT_NODE_LEFT);
 
-            stopGrid();
+            stopGrid("client");
 
             latch.await();
 
-            assertEquals(0, map.size());
-            assertTrue(rs.isClosed());
+            assertEquals(0, mapNode1.size());
+            assertEquals(0, mapNode2.size());
+            assertEquals(0, mapNode3.size());
         }
         finally {
-            // Ensure that additional node is stopped.
-            stopGrid();
+            stopGrid("client");
         }
+    }
+
+    /**
+     * @param node Node index.
+     * @return Query results map.
+     */
+    private ConcurrentMap<?, ?> queryResultMap(int node) {
+        return U.field(((IgniteH2Indexing)U.field(grid(node).context().query(), "idx")).mapQueryExecutor(), "qryRess");
     }
 
     /**
@@ -411,7 +394,7 @@ public class IgniteCacheReplicatedQuerySelfTest extends IgniteCacheAbstractQuery
      */
     private void checkQueryResults(IgniteCache<CacheKey, CacheValue> cache) throws Exception {
         QueryCursor<Cache.Entry<CacheKey, CacheValue>> qry =
-            cache.localQuery(new SqlQuery(CacheValue.class, "val > 1 and val < 4"));
+            cache.query(new SqlQuery<CacheKey, CacheValue>(CacheValue.class, "val > 1 and val < 4").setLocal(true));
 
         Iterator<Cache.Entry<CacheKey, CacheValue>> iter = qry.iterator();
 

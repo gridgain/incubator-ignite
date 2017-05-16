@@ -17,21 +17,30 @@
 
 package org.apache.ignite.internal.processors.query.h2.opt;
 
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.offheap.unsafe.*;
-import org.apache.ignite.internal.util.snaptree.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.indexing.*;
-import org.h2.engine.*;
-import org.h2.index.*;
-import org.h2.result.*;
-import org.h2.table.*;
-import org.h2.value.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NavigableMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import org.apache.ignite.internal.util.GridEmptyIterator;
+import org.apache.ignite.internal.util.offheap.unsafe.GridOffHeapSnapTreeMap;
+import org.apache.ignite.internal.util.offheap.unsafe.GridUnsafeGuard;
+import org.apache.ignite.internal.util.snaptree.SnapTreeMap;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.indexing.IndexingQueryFilter;
+import org.h2.engine.Session;
+import org.h2.index.Cursor;
+import org.h2.index.IndexType;
+import org.h2.message.DbException;
+import org.h2.result.SearchRow;
+import org.h2.result.SortOrder;
+import org.h2.table.IndexColumn;
+import org.h2.table.TableFilter;
+import org.h2.value.Value;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for snapshotable tree indexes.
@@ -39,11 +48,10 @@ import java.util.concurrent.*;
 @SuppressWarnings("ComparatorNotSerializable")
 public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridSearchRowPointer> {
     /** */
-    protected final ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row> tree;
+    private final ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row> tree;
 
     /** */
-    private final ThreadLocal<ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row>> snapshot =
-        new ThreadLocal<>();
+    private final boolean snapshotEnabled;
 
     /**
      * Constructor with index initialization.
@@ -51,107 +59,100 @@ public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridS
      * @param name Index name.
      * @param tbl Table.
      * @param pk If this index is primary key.
-     * @param keyCol Primary key column index.
-     * @param valCol Value column index.
-     * @param cols Index columns list.
+     * @param colsList Index columns list.
      */
     @SuppressWarnings("unchecked")
-    public GridH2TreeIndex(String name, GridH2Table tbl, boolean pk, int keyCol, int valCol, IndexColumn... cols) {
-        super(keyCol, valCol);
-        if (!pk) {
-            // For other indexes we add primary key at the end to avoid conflicts.
-            cols = Arrays.copyOf(cols, cols.length + 1);
-
-            cols[cols.length - 1] = tbl.indexColumn(keyCol, SortOrder.ASCENDING);
-        }
+    public GridH2TreeIndex(String name, GridH2Table tbl, boolean pk, List<IndexColumn> colsList) {
+        IndexColumn[] cols = colsList.toArray(new IndexColumn[colsList.size()]);
 
         IndexColumn.mapColumns(cols, tbl);
 
         initBaseIndex(tbl, 0, name, cols,
-            pk ? IndexType.createUnique(false, false) : IndexType.createNonUnique(false, false, false));
+            pk ? IndexType.createPrimaryKey(false, false) : IndexType.createNonUnique(false, false, false));
 
         final GridH2RowDescriptor desc = tbl.rowDescriptor();
 
-        tree = desc == null || desc.memory() == null ? new SnapTreeMap<GridSearchRowPointer, GridH2Row>(this) {
-            @Override protected void afterNodeUpdate_nl(Node<GridSearchRowPointer, GridH2Row> node, Object val) {
-                if (val != null)
-                    node.key = (GridSearchRowPointer)val;
+        if (desc == null || desc.memory() == null) {
+            snapshotEnabled = desc == null || desc.snapshotableIndex();
+
+            if (snapshotEnabled) {
+                tree = new SnapTreeMap<GridSearchRowPointer, GridH2Row>(this) {
+                    @Override protected void afterNodeUpdate_nl(Node<GridSearchRowPointer, GridH2Row> node, Object val) {
+                        if (val != null)
+                            node.key = (GridSearchRowPointer)val;
+                    }
+
+                    @Override protected Comparable<? super GridSearchRowPointer> comparable(Object key) {
+                        if (key instanceof ComparableRow)
+                            return (Comparable<? super SearchRow>)key;
+
+                        return super.comparable(key);
+                    }
+                };
             }
+            else {
+                tree = new ConcurrentSkipListMap<>(
+                        new Comparator<GridSearchRowPointer>() {
+                            @Override public int compare(GridSearchRowPointer o1, GridSearchRowPointer o2) {
+                                if (o1 instanceof ComparableRow)
+                                    return ((ComparableRow)o1).compareTo(o2);
 
-            @Override protected Comparable<? super GridSearchRowPointer> comparable(Object key) {
-                if (key instanceof ComparableRow)
-                    return (Comparable<? super SearchRow>)key;
+                                if (o2 instanceof ComparableRow)
+                                    return -((ComparableRow)o2).compareTo(o1);
 
-                return super.comparable(key);
-            }
-        } : new GridOffHeapSnapTreeMap<GridSearchRowPointer, GridH2Row>(desc, desc, desc.memory(), desc.guard(), this) {
-            @Override protected void afterNodeUpdate_nl(long node, GridH2Row val) {
-                final long oldKey = keyPtr(node);
-
-                if (val != null) {
-                    key(node, val);
-
-                    guard.finalizeLater(new Runnable() {
-                        @Override public void run() {
-                            desc.createPointer(oldKey).decrementRefCount();
+                                return compareRows(o1, o2);
+                            }
                         }
-                    });
+                );
+            }
+        }
+        else {
+            assert desc.snapshotableIndex() : desc;
+
+            snapshotEnabled = true;
+
+            tree = new GridOffHeapSnapTreeMap<GridSearchRowPointer, GridH2Row>(desc, desc, desc.memory(), desc.guard(), this) {
+                @Override protected void afterNodeUpdate_nl(long node, GridH2Row val) {
+                    final long oldKey = keyPtr(node);
+
+                    if (val != null) {
+                        key(node, val);
+
+                        guard.finalizeLater(new Runnable() {
+                            @Override public void run() {
+                                desc.createPointer(oldKey).decrementRefCount();
+                            }
+                        });
+                    }
                 }
-            }
 
-            @Override protected Comparable<? super GridSearchRowPointer> comparable(Object key) {
-                if (key instanceof ComparableRow)
-                    return (Comparable<? super SearchRow>)key;
+                @Override protected Comparable<? super GridSearchRowPointer> comparable(Object key) {
+                    if (key instanceof ComparableRow)
+                        return (Comparable<? super SearchRow>)key;
 
-                return super.comparable(key);
-            }
-        };
+                    return super.comparable(key);
+                }
+            };
+        }
+
+        initDistributedJoinMessaging(tbl);
     }
 
-    /**
-     * Closes index and releases resources.
-     */
-    public void close() {
-        if (tree instanceof Closeable)
-            U.closeQuiet((Closeable)tree);
+    /** {@inheritDoc} */
+    @Override protected Object doTakeSnapshot() {
+        assert snapshotEnabled;
+
+        return tree instanceof SnapTreeMap ?
+            ((SnapTreeMap)tree).clone() :
+            ((GridOffHeapSnapTreeMap)tree).clone();
     }
 
-    /**
-     * Takes snapshot to be used in current thread. If argument is null it will be taken from current trees.
-     *
-     * @param s Map to be used as snapshot if not null.
-     * @return Taken snapshot or given argument back.
-     */
-    @SuppressWarnings("unchecked")
-    @Override public Object takeSnapshot(@Nullable Object s) {
-        assert snapshot.get() == null;
+    /** {@inheritDoc} */
+    protected final ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row> treeForRead() {
+        if (!snapshotEnabled)
+            return tree;
 
-        if (s == null)
-            s = tree instanceof SnapTreeMap ? ((SnapTreeMap)tree).clone() :
-                ((GridOffHeapSnapTreeMap)tree).clone();
-
-        snapshot.set((ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row>)s);
-
-        return s;
-    }
-
-    /**
-     * Releases snapshot for current thread.
-     */
-    @Override public void releaseSnapshot() {
-        ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row> s = snapshot.get();
-
-        snapshot.remove();
-
-        if (s instanceof Closeable)
-            U.closeQuiet((Closeable)s);
-    }
-
-    /**
-     * @return Snapshot for current thread if there is one.
-     */
-    private ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row> treeForRead() {
-        ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row> res = snapshot.get();
+        ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row> res = threadLocalSnapshot();
 
         if (res == null)
             res = tree;
@@ -160,19 +161,21 @@ public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridS
     }
 
     /** {@inheritDoc} */
-    @Override public void close(Session ses) {
-        assert snapshot.get() == null;
+    @Override public void destroy() {
+        assert threadLocalSnapshot() == null;
 
-        if (tree instanceof Closeable)
-            U.closeQuiet((Closeable)tree);
+        if (tree instanceof AutoCloseable)
+            U.closeQuiet((AutoCloseable)tree);
+
+        super.destroy();
     }
 
     /** {@inheritDoc} */
     @Override public long getRowCount(@Nullable Session ses) {
-        IndexingQueryFilter f = filters.get();
+        IndexingQueryFilter f = threadLocalFilter();
 
         // Fast path if we don't need to perform any filtering.
-        if (f == null || f.forSpace(((GridH2Table)getTable()).spaceName()) == null)
+        if (f == null || f.forSpace((getTable()).spaceName()) == null)
             return treeForRead().size();
 
         Iterator<GridH2Row> iter = doFind(null, false, null);
@@ -190,7 +193,7 @@ public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridS
 
     /** {@inheritDoc} */
     @Override public long getRowCountApproximation() {
-        return tree.size();
+        return table.getRowCountApproximation();
     }
 
     /** {@inheritDoc} */
@@ -220,13 +223,17 @@ public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridS
     }
 
     /** {@inheritDoc} */
-    @Override public double getCost(Session ses, int[] masks, TableFilter filter, SortOrder sortOrder) {
-        return getCostRangeIndex(masks, getRowCountApproximation(), filter, sortOrder);
+    @Override public double getCost(Session ses, int[] masks, TableFilter[] filters, int filter, SortOrder sortOrder) {
+        long rowCnt = getRowCountApproximation();
+        double baseCost = getCostRangeIndex(masks, rowCnt, filters, filter, sortOrder, false);
+        int mul = getDistributedMultiplier(ses, filters, filter);
+
+        return mul * baseCost;
     }
 
     /** {@inheritDoc} */
     @Override public boolean canFindNext() {
-        return true;
+        return false;
     }
 
     /** {@inheritDoc} */
@@ -247,8 +254,8 @@ public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridS
      * @param row Search row.
      * @return Row.
      */
-    public GridH2AbstractKeyValueRow findOne(GridSearchRowPointer row) {
-        return (GridH2AbstractKeyValueRow)tree.get(row);
+    public GridH2Row findOne(GridSearchRowPointer row) {
+        return tree.get(row);
     }
 
     /**
@@ -260,10 +267,20 @@ public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridS
      * @return Iterator over rows in given range.
      */
     @SuppressWarnings("unchecked")
-    private Iterator<GridH2Row> doFind(@Nullable SearchRow first, boolean includeFirst,
-        @Nullable SearchRow last) {
+    private Iterator<GridH2Row> doFind(@Nullable SearchRow first, boolean includeFirst, @Nullable SearchRow last) {
         ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row> t = treeForRead();
 
+        return doFind0(t, first, includeFirst, last, threadLocalFilter());
+    }
+
+    /** {@inheritDoc} */
+    @Override protected final Iterator<GridH2Row> doFind0(
+        ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row> t,
+        @Nullable SearchRow first,
+        boolean includeFirst,
+        @Nullable SearchRow last,
+        IndexingQueryFilter filter
+    ) {
         includeFirst &= first != null;
 
         NavigableMap<GridSearchRowPointer, GridH2Row> range = subTree(t, comparable(first, includeFirst ? -1 : 1),
@@ -272,7 +289,7 @@ public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridS
         if (range == null)
             return new GridEmptyIterator<>();
 
-        return filter(range.values().iterator());
+        return filter(range.values().iterator(), filter);
     }
 
     /**
@@ -332,21 +349,12 @@ public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridS
 
     /** {@inheritDoc} */
     @Override public boolean canGetFirstOrLast() {
-        return true;
+        return false;
     }
 
     /** {@inheritDoc} */
     @Override public Cursor findFirstOrLast(Session ses, boolean first) {
-        ConcurrentNavigableMap<GridSearchRowPointer, GridH2Row> tree = treeForRead();
-
-        Iterator<GridH2Row> iter = filter(first ? tree.values().iterator() : tree.descendingMap().values().iterator());
-
-        GridSearchRowPointer res = null;
-
-        if (iter.hasNext())
-            res = iter.next();
-
-        return new SingleRowCursor((Row)res);
+        throw DbException.throwInternalError();
     }
 
     /** {@inheritDoc} */
@@ -363,7 +371,7 @@ public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridS
      * Comparable row with bias. Will be used for queries to have correct bounds (in case of multicolumn index
      * and query on few first columns we will multiple equal entries in tree).
      */
-    private class ComparableRow implements GridSearchRowPointer, Comparable<SearchRow> {
+    private final class ComparableRow implements GridSearchRowPointer, Comparable<SearchRow> {
         /** */
         private final SearchRow row;
 
@@ -454,11 +462,8 @@ public class GridH2TreeIndex extends GridH2IndexBase implements Comparator<GridS
     @Override public GridH2TreeIndex rebuild() throws InterruptedException {
         IndexColumn[] cols = getIndexColumns();
 
-        if (!getIndexType().isUnique())
-            cols = Arrays.copyOf(cols, cols.length - 1);
-
-        GridH2TreeIndex idx = new GridH2TreeIndex(getName(), (GridH2Table)getTable(), getIndexType().isUnique(),
-            keyCol, valCol, cols);
+        GridH2TreeIndex idx = new GridH2TreeIndex(getName(), getTable(),
+            getIndexType().isUnique(), F.asList(cols));
 
         Thread thread = Thread.currentThread();
 

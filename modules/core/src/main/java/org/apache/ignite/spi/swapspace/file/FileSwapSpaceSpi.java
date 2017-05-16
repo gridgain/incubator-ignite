@@ -17,27 +17,65 @@
 
 package org.apache.ignite.spi.swapspace.file;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.swapspace.*;
-import org.jdk8.backport.*;
-import org.jetbrains.annotations.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousCloseException;
+import java.nio.channels.ClosedByInterruptException;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.FileChannel;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.LockSupport;
+import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.util.GridAtomicInitializer;
+import org.apache.ignite.internal.util.GridCloseableIteratorAdapter;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.lang.IgniteInClosure;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.IgniteSpiCloseableIterator;
+import org.apache.ignite.spi.IgniteSpiConfiguration;
+import org.apache.ignite.spi.IgniteSpiConsistencyChecked;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.IgniteSpiMultipleInstancesSupport;
+import org.apache.ignite.spi.IgniteSpiThread;
+import org.apache.ignite.spi.swapspace.SwapContext;
+import org.apache.ignite.spi.swapspace.SwapKey;
+import org.apache.ignite.spi.swapspace.SwapSpaceSpi;
+import org.apache.ignite.spi.swapspace.SwapSpaceSpiListener;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
-import java.io.*;
-import java.nio.*;
-import java.nio.channels.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-import java.util.concurrent.locks.*;
-
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.events.EventType.EVT_SWAP_SPACE_CLEARED;
+import static org.apache.ignite.events.EventType.EVT_SWAP_SPACE_DATA_READ;
+import static org.apache.ignite.events.EventType.EVT_SWAP_SPACE_DATA_REMOVED;
+import static org.apache.ignite.events.EventType.EVT_SWAP_SPACE_DATA_STORED;
 
 /**
  * File-based swap space SPI implementation which holds keys in memory. This SPI is used by default.
@@ -64,15 +102,15 @@ import static org.apache.ignite.events.EventType.*;
  * </ul>
  *
  * <h2 class="header">Java Example</h2>
- * GridFileSwapSpaceSpi is configured by default and should be explicitly configured
+ * FileSwapSpaceSpi is configured by default and should be explicitly configured
  * only if some SPI configuration parameters need to be overridden.
  * <pre name="code" class="java">
- * GridFileSwapSpaceSpi spi = new GridFileSwapSpaceSpi();
+ * FileSwapSpaceSpi spi = new FileSwapSpaceSpi();
  *
  * // Configure root folder path.
  * spi.setBaseDirectory("/path/to/swap/folder");
  *
- * GridConfiguration cfg = new GridConfiguration();
+ * IgniteConfiguration cfg = new IgniteConfiguration();
  *
  * // Override default swap space SPI.
  * cfg.setSwapSpaceSpi(spi);
@@ -81,12 +119,12 @@ import static org.apache.ignite.events.EventType.*;
  * G.start(cfg);
  * </pre>
  * <h2 class="header">Spring Example</h2>
- * GridFileSwapSpaceSpi can be configured from Spring XML configuration file:
+ * FileSwapSpaceSpi can be configured from Spring XML configuration file:
  * <pre name="code" class="xml">
  * &lt;bean id=&quot;grid.cfg&quot; class=&quot;org.apache.ignite.configuration.IgniteConfiguration&quot; scope=&quot;singleton&quot;&gt;
  *     ...
  *     &lt;property name=&quot;swapSpaceSpi&quot;&gt;
- *         &lt;bean class=&quot;org.apache.ignite.spi.swapspace.file.GridFileSwapSpaceSpi&quot;&gt;
+ *         &lt;bean class=&quot;org.apache.ignite.spi.swapspace.file.FileSwapSpaceSpi&quot;&gt;
  *             &lt;property name=&quot;baseDirectory&quot; value=&quot;/path/to/swap/folder&quot;/&gt;
  *         &lt;/bean&gt;
  *     &lt;/property&gt;
@@ -94,12 +132,13 @@ import static org.apache.ignite.events.EventType.*;
  * &lt;/bean&gt;
  * </pre>
  * <p>
- * <img src="http://ignite.incubator.apache.org/images/spring-small.png">
+ * <img src="http://ignite.apache.org/images/spring-small.png">
  * <br>
  * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
  * @see org.apache.ignite.spi.swapspace.SwapSpaceSpi
  */
 @IgniteSpiMultipleInstancesSupport(true)
+@IgniteSpiConsistencyChecked(optional = false, checkClient = false)
 @SuppressWarnings({"PackageVisibleInnerClass", "PackageVisibleField"})
 public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, FileSwapSpaceSpiMBean {
     /**
@@ -260,7 +299,7 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
         String path = baseDir + File.separator + gridName + File.separator + ignite.configuration().getNodeId();
 
         try {
-            dir = U.resolveWorkDirectory(path, true);
+            dir = U.resolveWorkDirectory(ignite.configuration().getWorkDirectory(), path, true);
         }
         catch (IgniteCheckedException e) {
             throw new IgniteSpiException(e);
@@ -294,12 +333,7 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
 
     /** {@inheritDoc} */
     @Override public void clear(@Nullable String spaceName) throws IgniteSpiException {
-        Space space = space(spaceName, false);
-
-        if (space == null)
-            return;
-
-        space.clear();
+        destruct(spaceName);
 
         notifyListener(EVT_SWAP_SPACE_CLEARED, spaceName);
     }
@@ -387,15 +421,13 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
 
         Space space = space(spaceName, false);
 
-        if (space == null)
-            return;
-
-        byte[] val = space.remove(key, c != null);
+        byte[] val = space == null ? null : space.remove(key, c != null);
 
         if (c != null)
             c.apply(val);
 
-        notifyListener(EVT_SWAP_SPACE_DATA_REMOVED, spaceName);
+        if (space != null)
+             notifyListener(EVT_SWAP_SPACE_DATA_REMOVED, spaceName);
     }
 
     /** {@inheritDoc} */
@@ -559,7 +591,7 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
 
         if (keyBytes == null) {
             try {
-                keyBytes = ignite.configuration().getMarshaller().marshal(key.key());
+                keyBytes = U.marshal(ignite.configuration().getMarshaller(), key.key());
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteSpiException("Failed to marshal key: " + key.key(), e);
@@ -581,7 +613,7 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
         SwapSpaceSpiListener lsnr = evictLsnr;
 
         if (lsnr != null)
-            lsnr.onSwapEvent(evtType, spaceName, null);
+            lsnr.onSwapEvent(evtType, spaceName, null, null);
     }
 
     /**
@@ -593,7 +625,7 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
      * @throws org.apache.ignite.spi.IgniteSpiException In case of error.
      */
     @Nullable private Space space(@Nullable String name, boolean create) throws IgniteSpiException {
-        String masked = name != null ? name : DFLT_SPACE_NAME;
+        String masked = maskNull(name);
 
         assert masked != null;
 
@@ -602,7 +634,7 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
         if (space == null && create) {
             validateName(name);
 
-            Space old = spaces.putIfAbsent(masked, space = new Space(masked));
+            Space old = spaces.putIfAbsent(masked, space = new Space(masked, log));
 
             if (old != null)
                 space = old;
@@ -612,6 +644,36 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
             space.initialize();
 
         return space;
+    }
+
+    /**
+     * Destructs space.
+     *
+     * @param spaceName space name.
+     * */
+    private void destruct(@Nullable String spaceName) {
+        String masked = maskNull(spaceName);
+
+        Space space = spaces.remove(masked);
+
+        if (space != null) {
+            try {
+                space.stop();
+            }
+            catch (IgniteInterruptedCheckedException e) {
+                U.error(log, "Interrupted.", e);
+            }
+        }
+    }
+
+    /**
+     * Masks null space name with default space name.
+     *
+     * @param spaceName Space name.
+     * @return Space name or default space name if space name is null.
+     * */
+    private static String maskNull(String spaceName) {
+        return spaceName != null ? spaceName : DFLT_SPACE_NAME;
     }
 
     /**
@@ -796,13 +858,21 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
         /** */
         private final int maxSize;
 
+        /** */
+        private final IgniteLogger log;
+
+        /** */
+        private boolean queueSizeWarn;
+
         /**
          * @param minTakeSize Min size.
          * @param maxSize Max size.
+         * @param log logger
          */
-        private SwapValuesQueue(int minTakeSize, int maxSize) {
+        private SwapValuesQueue(int minTakeSize, int maxSize, IgniteLogger log) {
             this.minTakeSize = minTakeSize;
             this.maxSize = maxSize;
+            this.log = log;
         }
 
         /**
@@ -815,8 +885,24 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
             lock.lock();
 
             try {
-                while (size + val.len > maxSize)
-                    mayAdd.await();
+                boolean largeVal = val.len > maxSize;
+
+                if (largeVal) {
+                    if (!queueSizeWarn) {
+                        U.warn(log, "Trying to save in swap entry which have size more than write queue size. " +
+                            "You may wish to increase 'maxWriteQueueSize' in FileSwapSpaceSpi configuration " +
+                            "[queueMaxSize=" + maxSize + ", valSize=" + val.len + ']');
+
+                        queueSizeWarn = true;
+                    }
+
+                    while (size >= minTakeSize)
+                        mayAdd.await();
+                }
+                else {
+                    while (size + val.len > maxSize)
+                        mayAdd.await();
+                }
 
                 size += val.len;
 
@@ -1382,7 +1468,7 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
         private SwapFile right;
 
         /** */
-        private final SwapValuesQueue que = new SwapValuesQueue(writeBufSize, maxWriteQueSize);
+        private final SwapValuesQueue que;
 
         /** Partitions. */
         private final ConcurrentMap<Integer, ConcurrentMap<SwapKey, SwapValue>> parts =
@@ -1405,11 +1491,13 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
 
         /**
          * @param name Space name.
+         * @param log Logger.
          */
-        private Space(String name) {
+        private Space(String name, IgniteLogger log) {
             assert name != null;
 
             this.name = name;
+            this.que = new SwapValuesQueue(writeBufSize, maxWriteQueSize, log);
         }
 
         /**
@@ -1432,8 +1520,6 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
                         right = new SwapFile(new File(dir, name + ".right"), readStripesNum);
 
                         final Object mux = new Object();
-
-                        String gridName = ignite.name();
 
                         writer = new IgniteSpiThread(gridName,  "Swap writer: " + name, log) {
                             @Override protected void body() throws InterruptedException {
@@ -1559,18 +1645,6 @@ public class FileSwapSpaceSpi extends IgniteSpiAdapter implements SwapSpaceSpi, 
             }
 
             return cnt;
-        }
-
-        /**
-         * Clears space.
-         *
-         * @throws org.apache.ignite.spi.IgniteSpiException If failed.
-         */
-        public void clear() throws IgniteSpiException {
-            Iterator<Map.Entry<SwapKey, byte[]>> iter = entriesIterator();
-
-            while (iter.hasNext())
-                remove(iter.next().getKey(), false);
         }
 
         /**

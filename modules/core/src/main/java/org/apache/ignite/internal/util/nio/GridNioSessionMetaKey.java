@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.util.nio;
 
-import java.util.concurrent.atomic.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Meta keys for {@link GridNioSession}.
@@ -26,8 +26,8 @@ public enum GridNioSessionMetaKey {
     /** NIO parser state. */
     PARSER_STATE,
 
-    /** SSL handler. */
-    SSL_HANDLER,
+    /** SSL Meta. */
+    SSL_META,
 
     /** NIO operation (request type). */
     NIO_OPERATION,
@@ -42,7 +42,10 @@ public enum GridNioSessionMetaKey {
     MARSHALLER_ID,
 
     /** Message writer. */
-    MSG_WRITER;
+    MSG_WRITER,
+
+    /** Ack closure. */
+    ACK_CLOSURE;
 
     /** Maximum count of NIO session keys in system. */
     public static final int MAX_KEYS_CNT = 64;

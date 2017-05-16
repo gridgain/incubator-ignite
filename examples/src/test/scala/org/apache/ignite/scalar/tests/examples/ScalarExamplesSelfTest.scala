@@ -30,18 +30,13 @@ class ScalarExamplesSelfTest extends GridAbstractExamplesTest with JUnitSuiteLik
     private def EMPTY_ARGS = Array.empty[String]
 
     /** */
-    def testScalarCacheAffinityExample1() {
-        ScalarCacheAffinityExample1.main(EMPTY_ARGS)
-    }
-
-    /** */
-    def testScalarCacheAffinityExample2() {
-        ScalarCacheAffinityExample2.main(EMPTY_ARGS)
-    }
-
-    /** */
     def testScalarCacheAffinitySimpleExample() {
-        ScalarCacheAffinitySimpleExample.main(EMPTY_ARGS)
+        ScalarCacheAffinityExample.main(EMPTY_ARGS)
+    }
+
+    /** */
+    def testScalarCacheEntryProcessorExample() {
+        ScalarCacheEntryProcessorExample.main(EMPTY_ARGS)
     }
 
     /** */
@@ -70,11 +65,6 @@ class ScalarExamplesSelfTest extends GridAbstractExamplesTest with JUnitSuiteLik
     }
 
     /** */
-    def testScalarPiCalculationExample() {
-        ScalarPiCalculationExample.main(EMPTY_ARGS)
-    }
-
-    /** */
     def testScalarPingPongExample() {
         scalar("modules/scalar/src/test/resources/spring-ping-pong-partner.xml") {
             ScalarPingPongExample.main(EMPTY_ARGS)
@@ -89,11 +79,6 @@ class ScalarExamplesSelfTest extends GridAbstractExamplesTest with JUnitSuiteLik
     /** */
     def testScalarPrimeExample() {
         ScalarPrimeExample.main(EMPTY_ARGS)
-    }
-
-    /** */
-    def testScalarScheduleCallableExample() {
-        ScalarScheduleExample.main(EMPTY_ARGS)
     }
 
     /** */

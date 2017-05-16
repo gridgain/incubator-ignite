@@ -17,22 +17,22 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.cache.store.jdbc.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.cache.store.jdbc.CacheAbstractJdbcStore;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactClass;
 
 /**
  * Data transfer object for cache store configuration properties.
  */
-public class VisorCacheStoreConfiguration implements Serializable {
+public class VisorCacheStoreConfiguration implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -67,29 +67,30 @@ public class VisorCacheStoreConfiguration implements Serializable {
     private int flushThreadCnt;
 
     /**
+     * @param ignite Ignite instance.
      * @param ccfg Cache configuration.
      * @return Data transfer object for cache store configuration properties.
      */
-    public static VisorCacheStoreConfiguration from(Ignite ignite, CacheConfiguration ccfg) {
-        VisorCacheStoreConfiguration cfg = new VisorCacheStoreConfiguration();
+    public VisorCacheStoreConfiguration from(IgniteEx ignite, CacheConfiguration ccfg) {
+        IgniteCacheProxy<Object, Object> c = ignite.context().cache().jcache(ccfg.getName());
 
-        CacheStore store = ((IgniteKernal)ignite).internalCache(ccfg.getName()).context().store().configuredStore();
+        CacheStore cstore = c != null && c.context().started() ? c.context().store().configuredStore() : null;
 
-        cfg.jdbcStore = store instanceof CacheAbstractJdbcStore;
+        jdbcStore = cstore instanceof CacheAbstractJdbcStore;
 
-        cfg.store = compactClass(store);
-        cfg.storeFactory = compactClass(ccfg.getCacheStoreFactory());
+        store = compactClass(cstore);
+        storeFactory = compactClass(ccfg.getCacheStoreFactory());
 
-        cfg.readThrough = ccfg.isReadThrough();
-        cfg.writeThrough = ccfg.isWriteThrough();
+        readThrough = ccfg.isReadThrough();
+        writeThrough = ccfg.isWriteThrough();
 
-        cfg.writeBehindEnabled = ccfg.isWriteBehindEnabled();
-        cfg.batchSz = ccfg.getWriteBehindBatchSize();
-        cfg.flushFreq = ccfg.getWriteBehindFlushFrequency();
-        cfg.flushSz = ccfg.getWriteBehindFlushSize();
-        cfg.flushThreadCnt = ccfg.getWriteBehindFlushThreadCount();
+        writeBehindEnabled = ccfg.isWriteBehindEnabled();
+        batchSz = ccfg.getWriteBehindBatchSize();
+        flushFreq = ccfg.getWriteBehindFlushFrequency();
+        flushSz = ccfg.getWriteBehindFlushSize();
+        flushThreadCnt = ccfg.getWriteBehindFlushThreadCount();
 
-        return cfg;
+        return this;
     }
 
     /**
@@ -142,24 +143,10 @@ public class VisorCacheStoreConfiguration implements Serializable {
     }
 
     /**
-     * @param writeBehindEnabled New flag indicating whether write-behind behaviour should be used for the cache store.
-     */
-    public void writeBehindEnabled(boolean writeBehindEnabled) {
-        this.writeBehindEnabled = writeBehindEnabled;
-    }
-
-    /**
      * @return Maximum batch size for write-behind cache store operations.
      */
     public int batchSize() {
         return batchSz;
-    }
-
-    /**
-     * @param batchSize New maximum batch size for write-behind cache store operations.
-     */
-    public void batchSize(int batchSize) {
-        this.batchSz = batchSize;
     }
 
     /**
@@ -170,13 +157,6 @@ public class VisorCacheStoreConfiguration implements Serializable {
     }
 
     /**
-     * @param flushFreq New frequency with which write-behind cache is flushed to the cache store in milliseconds.
-     */
-    public void flushFrequency(long flushFreq) {
-        this.flushFreq = flushFreq;
-    }
-
-    /**
      * @return Maximum object count in write-behind cache.
      */
     public int flushSize() {
@@ -184,24 +164,10 @@ public class VisorCacheStoreConfiguration implements Serializable {
     }
 
     /**
-     * @param flushSize New maximum object count in write-behind cache.
-     */
-    public void flushSize(int flushSize) {
-        this.flushSz = flushSize;
-    }
-
-    /**
      * @return Number of threads that will perform cache flushing.
      */
     public int flushThreadCount() {
         return flushThreadCnt;
-    }
-
-    /**
-     * @param flushThreadCnt New number of threads that will perform cache flushing.
-     */
-    public void flushThreadCount(int flushThreadCnt) {
-        this.flushThreadCnt = flushThreadCnt;
     }
 
     /** {@inheritDoc} */

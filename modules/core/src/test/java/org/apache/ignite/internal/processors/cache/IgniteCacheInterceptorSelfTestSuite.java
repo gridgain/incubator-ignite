@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import junit.framework.*;
+import junit.framework.TestSuite;
 
 /**
  * Cache interceptor suite.
@@ -47,7 +47,7 @@ public class IgniteCacheInterceptorSelfTestSuite extends TestSuite {
 
         suite.addTestSuite(GridCacheInterceptorSelfTest.class);
         suite.addTestSuite(GridCacheInterceptorNearEnabledSelfTest.class);
-//        suite.addTestSuite(GridCacheInterceptorWithStoreSelfTest.class); TODO GG-9141
+        suite.addTestSuite(GridCacheInterceptorWithStoreSelfTest.class);
         suite.addTestSuite(GridCacheInterceptorReplicatedSelfTest.class);
         suite.addTestSuite(GridCacheInterceptorReplicatedWithStoreSelfTest.class);
 
@@ -55,6 +55,13 @@ public class IgniteCacheInterceptorSelfTestSuite extends TestSuite {
         suite.addTestSuite(GridCacheOnCopyFlagReplicatedSelfTest.class);
         suite.addTestSuite(GridCacheOnCopyFlagLocalSelfTest.class);
         suite.addTestSuite(GridCacheOnCopyFlagAtomicSelfTest.class);
+        suite.addTestSuite(CacheInterceptorPartitionCounterRandomOperationsTest.class);
+        suite.addTestSuite(CacheInterceptorPartitionCounterLocalSanityTest.class);
+
+        suite.addTestSuite(GridCacheInterceptorAtomicRebalanceTest.class);
+        suite.addTestSuite(GridCacheInterceptorTransactionalRebalanceTest.class);
+        suite.addTestSuite(GridCacheInterceptorAtomicOffheapRebalanceTest.class);
+        suite.addTestSuite(GridCacheInterceptorTransactionalOffheapRebalanceTest.class);
 
         return suite;
     }

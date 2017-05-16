@@ -17,24 +17,42 @@
 
 package org.apache.ignite.cache.store.hibernate;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.resources.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.cache.integration.CacheLoaderException;
+import javax.cache.integration.CacheWriterException;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.cache.store.CacheStoreAdapter;
+import org.apache.ignite.cache.store.CacheStoreSession;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.marshaller.jdk.JdkMarshaller;
+import org.apache.ignite.resources.CacheStoreSessionResource;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.transactions.Transaction;
-import org.hibernate.*;
-import org.hibernate.cfg.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.integration.*;
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import org.hibernate.HibernateException;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.SharedSessionContract;
+import org.hibernate.cfg.Configuration;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link CacheStore} implementation backed by Hibernate. This implementation
@@ -57,92 +75,8 @@ import java.util.concurrent.atomic.*;
  * <p>
  * If hibernate properties are provided, mapping
  * {@code GridCacheHibernateStoreEntry.hbm.xml} is included automatically.
- *
- * <h2 class="header">Java Example</h2>
- * In this example existing session factory is provided.
- * <pre name="code" class="java">
- *     ...
- *     CacheHibernateBlobStore&lt;String, String&gt; store = new CacheHibernateBlobStore&lt;String, String&gt;();
- *
- *     store.setSessionFactory(sesFactory);
- *     ...
- * </pre>
- *
- * <h2 class="header">Spring Example (using Spring ORM)</h2>
- * <pre name="code" class="xml">
- *   ...
- *   &lt;bean id=&quot;cache.hibernate.store&quot;
- *       class=&quot;org.apache.ignite.cache.store.hibernate.CacheHibernateBlobStore&quot;&gt;
- *       &lt;property name=&quot;sessionFactory&quot;&gt;
- *           &lt;bean class=&quot;org.springframework.orm.hibernate3.LocalSessionFactoryBean&quot;&gt;
- *               &lt;property name=&quot;hibernateProperties&quot;&gt;
- *                   &lt;value&gt;
- *                       connection.url=jdbc:h2:mem:
- *                       show_sql=true
- *                       hbm2ddl.auto=true
- *                       hibernate.dialect=org.hibernate.dialect.H2Dialect
- *                   &lt;/value&gt;
- *               &lt;/property&gt;
- *               &lt;property name=&quot;mappingResources&quot;&gt;
- *                   &lt;list&gt;
- *                       &lt;value&gt;
- *                           org/apache/ignite/cache/store/hibernate/CacheHibernateBlobStoreEntry.hbm.xml
- *                       &lt;/value&gt;
- *                   &lt;/list&gt;
- *               &lt;/property&gt;
- *           &lt;/bean&gt;
- *       &lt;/property&gt;
- *   &lt;/bean&gt;
- *   ...
- * </pre>
- *
- * <h2 class="header">Spring Example (using Spring ORM and persistent annotations)</h2>
- * <pre name="code" class="xml">
- *     ...
- *     &lt;bean id=&quot;cache.hibernate.store1&quot;
- *         class=&quot;org.apache.ignite.cache.store.hibernate.CacheHibernateBlobStore&quot;&gt;
- *         &lt;property name=&quot;sessionFactory&quot;&gt;
- *             &lt;bean class=&quot;org.springframework.orm.hibernate3.annotation.AnnotationSessionFactoryBean&quot;&gt;
- *                 &lt;property name=&quot;hibernateProperties&quot;&gt;
- *                     &lt;value&gt;
- *                         connection.url=jdbc:h2:mem:
- *                         show_sql=true
- *                         hbm2ddl.auto=true
- *                         hibernate.dialect=org.hibernate.dialect.H2Dialect
- *                     &lt;/value&gt;
- *                 &lt;/property&gt;
- *                 &lt;property name=&quot;annotatedClasses&quot;&gt;
- *                     &lt;list&gt;
- *                         &lt;value&gt;
- *                             org.apache.ignite.cache.store.hibernate.CacheHibernateBlobStoreEntry
- *                         &lt;/value&gt;
- *                     &lt;/list&gt;
- *                 &lt;/property&gt;
- *             &lt;/bean&gt;
- *         &lt;/property&gt;
- *     &lt;/bean&gt;
- *     ...
- * </pre>
- *
- * <h2 class="header">Spring Example</h2>
- * <pre name="code" class="xml">
- *     ...
- *     &lt;bean id=&quot;cache.hibernate.store2&quot;
- *         class=&quot;org.apache.ignite.cache.store.hibernate.CacheHibernateBlobStore&quot;&gt;
- *         &lt;property name=&quot;hibernateProperties&quot;&gt;
- *             &lt;props&gt;
- *                 &lt;prop key=&quot;connection.url&quot;&gt;jdbc:h2:mem:&lt;/prop&gt;
- *                 &lt;prop key=&quot;hbm2ddl.auto&quot;&gt;update&lt;/prop&gt;
- *                 &lt;prop key=&quot;show_sql&quot;&gt;true&lt;/prop&gt;
- *             &lt;/props&gt;
- *         &lt;/property&gt;
- *     &lt;/bean&gt;
- *     ...
- * </pre>
  * <p>
- * <img src="http://ignite.incubator.apache.org/images/spring-small.png">
- * <br>
- * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
+ * Use {@link CacheHibernateBlobStoreFactory} factory to pass {@link CacheHibernateBlobStore} to {@link CacheConfiguration}.
  */
 public class CacheHibernateBlobStore<K, V> extends CacheStoreAdapter<K, V> {
     /**
@@ -164,6 +98,9 @@ public class CacheHibernateBlobStore<K, V> extends CacheStoreAdapter<K, V> {
     /** Name of Hibarname mapping resource. */
     private static final String MAPPING_RESOURCE =
             "org/apache/ignite/cache/store/hibernate/CacheHibernateBlobStoreEntry.hbm.xml";
+
+    /** Marshaller. */
+    private static final Marshaller marsh = new JdkMarshaller();
 
     /** Init guard. */
     @GridToStringExclude
@@ -298,7 +235,7 @@ public class CacheHibernateBlobStore<K, V> extends CacheStoreAdapter<K, V> {
      */
     private void rollback(SharedSessionContract ses, Transaction tx) {
         // Rollback only if there is no cache transaction,
-        // otherwise txEnd() will do all required work.
+        // otherwise sessionEnd() will do all required work.
         if (tx == null) {
             org.hibernate.Transaction hTx = ses.getTransaction();
 
@@ -315,7 +252,7 @@ public class CacheHibernateBlobStore<K, V> extends CacheStoreAdapter<K, V> {
      */
     private void end(Session ses, Transaction tx) {
         // Commit only if there is no cache transaction,
-        // otherwise txEnd() will do all required work.
+        // otherwise sessionEnd() will do all required work.
         if (tx == null) {
             org.hibernate.Transaction hTx = ses.getTransaction();
 
@@ -327,7 +264,7 @@ public class CacheHibernateBlobStore<K, V> extends CacheStoreAdapter<K, V> {
     }
 
     /** {@inheritDoc} */
-    @Override public void txEnd(boolean commit) {
+    @Override public void sessionEnd(boolean commit) {
         init();
 
         Transaction tx = transaction();
@@ -569,7 +506,7 @@ public class CacheHibernateBlobStore<K, V> extends CacheStoreAdapter<K, V> {
      * @throws IgniteCheckedException If failed to convert.
      */
     protected byte[] toBytes(Object obj) throws IgniteCheckedException {
-        return ignite.configuration().getMarshaller().marshal(obj);
+        return U.marshal(marsh, obj);
     }
 
     /**
@@ -584,7 +521,7 @@ public class CacheHibernateBlobStore<K, V> extends CacheStoreAdapter<K, V> {
         if (bytes == null || bytes.length == 0)
             return null;
 
-        return ignite.configuration().getMarshaller().unmarshal(bytes, getClass().getClassLoader());
+        return U.unmarshal(marsh, bytes, getClass().getClassLoader());
     }
 
     /**

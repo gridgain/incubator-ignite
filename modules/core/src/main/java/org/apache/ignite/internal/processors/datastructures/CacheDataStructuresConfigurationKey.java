@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.processors.datastructures;
 
-import org.apache.ignite.internal.processors.cache.*;
-
-import java.io.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import org.apache.ignite.internal.processors.cache.GridCacheInternal;
 
 /**
  * Key used to store in utility cache information about all created data structures.
@@ -37,7 +39,7 @@ public class CacheDataStructuresConfigurationKey implements GridCacheInternal, E
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return 31;
+        return getClass().getName().hashCode();
     }
 
     /** {@inheritDoc} */

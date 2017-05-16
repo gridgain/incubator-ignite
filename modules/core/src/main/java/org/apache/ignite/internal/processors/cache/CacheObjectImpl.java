@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -46,6 +47,11 @@ public class CacheObjectImpl extends CacheObjectAdapter {
     }
 
     /** {@inheritDoc} */
+    @Override public boolean isPlatformType() {
+        return true;
+    }
+
+    /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     @Nullable @Override public <T> T value(CacheObjectContext ctx, boolean cpy) {
         cpy = cpy && needCopy(ctx);
@@ -67,13 +73,16 @@ public class CacheObjectImpl extends CacheObjectAdapter {
 
             assert valBytes != null;
 
-            val = ctx.processor().unmarshal(ctx, valBytes, ctx.kernalContext().config().getClassLoader());
+            Object val = ctx.processor().unmarshal(ctx, valBytes, ctx.kernalContext().config().getClassLoader());
+
+            if (ctx.storeValue())
+                this.val = val;
+
+            return (T)val;
         }
         catch (IgniteCheckedException e) {
-            throw new IgniteException("Failed to unmarshal object.", e);
+            throw new IgniteException("Failed to unmarshall object.", e);
         }
-
-        return (T)val;
     }
 
     /** {@inheritDoc} */
@@ -96,8 +105,13 @@ public class CacheObjectImpl extends CacheObjectAdapter {
     @Override public void finishUnmarshal(CacheObjectContext ctx, ClassLoader ldr) throws IgniteCheckedException {
         assert val != null || valBytes != null;
 
-        if (val == null && ctx.unmarshalValues())
+        if (val == null && ctx.storeValue())
             val = ctx.processor().unmarshal(ctx, valBytes, ldr);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onAckReceived() {
+        // No-op.
     }
 
     /** {@inheritDoc} */

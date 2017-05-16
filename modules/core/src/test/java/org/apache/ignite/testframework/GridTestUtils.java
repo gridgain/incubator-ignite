@@ -17,35 +17,90 @@
 
 package org.apache.ignite.testframework;
 
-import junit.framework.*;
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.client.ssl.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.*;
-import org.apache.ignite.internal.processors.cache.distributed.near.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.testframework.config.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.*;
-import javax.net.ssl.*;
-import java.io.*;
-import java.lang.annotation.*;
-import java.lang.reflect.*;
-import java.net.*;
-import java.nio.file.attribute.*;
-import java.security.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.SoftReference;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.net.InetAddress;
+import java.net.MulticastSocket;
+import java.nio.file.attribute.PosixFilePermission;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.cache.CacheException;
+import javax.cache.configuration.Factory;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import junit.framework.Test;
+import junit.framework.TestSuite;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.CacheMemoryMode;
+import org.apache.ignite.cache.eviction.lru.LruEvictionPolicy;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.client.ssl.GridSslBasicContextFactory;
+import org.apache.ignite.internal.client.ssl.GridSslContextFactory;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionTopology;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheAdapter;
+import org.apache.ignite.internal.util.GridBusyLock;
+import org.apache.ignite.internal.util.future.GridCompoundFuture;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.lang.GridAbsClosure;
+import org.apache.ignite.internal.util.lang.GridAbsPredicate;
+import org.apache.ignite.internal.util.lang.IgnitePair;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteInClosure;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.spi.swapspace.inmemory.GridTestSwapSpaceSpi;
+import org.apache.ignite.ssl.SslContextFactory;
+import org.apache.ignite.testframework.config.GridTestProperties;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for tests.
@@ -100,12 +155,65 @@ public final class GridTestUtils {
     /** */
     private static final GridBusyLock busyLock = new GridBusyLock();
 
+    /** */
+    public static final ConcurrentMap<IgnitePair<UUID>, IgnitePair<Queue<Message>>> msgMap = new ConcurrentHashMap<>();
+
     /**
      * Ensure singleton.
      */
     private GridTestUtils() {
         // No-op.
     }
+
+    /**
+     * @param from From node ID.
+     * @param to To node ID.
+     * @param msg Message.
+     * @param sent Sent or received.
+     */
+    public static void addMessage(UUID from, UUID to, Message msg, boolean sent) {
+        IgnitePair<UUID> key = new IgnitePair<>(from, to);
+
+        IgnitePair<Queue<Message>> val = msgMap.get(key);
+
+        if (val == null) {
+            IgnitePair<Queue<Message>> old = msgMap.putIfAbsent(key,
+                val = new IgnitePair<Queue<Message>>(
+                    new ConcurrentLinkedQueue<Message>(), new ConcurrentLinkedQueue<Message>()));
+
+            if (old != null)
+                val = old;
+        }
+
+        (sent ? val.get1() : val.get2()).add(msg);
+    }
+
+    /**
+     * Dumps all messages tracked with {@link #addMessage(UUID, UUID, Message, boolean)} to std out.
+     */
+    public static void dumpMessages() {
+        for (Map.Entry<IgnitePair<UUID>, IgnitePair<Queue<Message>>> entry : msgMap.entrySet()) {
+            U.debug("\n" + entry.getKey().get1() + " [sent to] " + entry.getKey().get2());
+
+            for (Message message : entry.getValue().get1())
+                U.debug("\t" + message);
+
+            U.debug(entry.getKey().get2() + " [received from] " + entry.getKey().get1());
+
+            for (Message message : entry.getValue().get2())
+                U.debug("\t" + message);
+        }
+    }
+
+//    static {
+//        new Thread(new Runnable() {
+//            @Override public void run() {
+//                JOptionPane.showMessageDialog(null, "Close this to dump messages.");
+//
+//                dumpMessages();
+//            }
+//        }).start();
+//    }
 
     /**
      * Checks whether callable throws expected exception or not.
@@ -136,7 +244,7 @@ public final class GridTestUtils {
                 }
             }
 
-            if (msg != null && (e.getMessage() == null || !e.getMessage().startsWith(msg))) {
+            if (msg != null && (e.getMessage() == null || !e.getMessage().contains(msg))) {
                 U.error(log, "Unexpected exception message.", e);
 
                 fail("Exception message is not as expected [expected=" + msg + ", actual=" + e.getMessage() + ']', e);
@@ -150,6 +258,43 @@ public final class GridTestUtils {
                 X.println("Caught expected exception: " + e.getMessage());
 
             return e;
+        }
+
+        throw new AssertionError("Exception has not been thrown.");
+    }
+
+    /**
+     * Checks whether callable throws an exception with specified cause.
+     *
+     * @param log Logger (optional).
+     * @param call Callable.
+     * @param cls Exception class.
+     * @param msg Exception message (optional). If provided exception message
+     *      and this message should be equal.
+     * @return Thrown throwable.
+     */
+    public static Throwable assertThrowsAnyCause(@Nullable IgniteLogger log, Callable<?> call,
+        Class<? extends Throwable> cls, @Nullable String msg) {
+        assert call != null;
+        assert cls != null;
+
+        try {
+            call.call();
+        }
+        catch (Throwable e) {
+            Throwable t = e;
+
+            while (t != null) {
+                if (cls == t.getClass() && (msg == null || (t.getMessage() != null || t.getMessage().contains(msg)))) {
+                    log.info("Caught expected exception: " + t.getMessage());
+
+                    return t;
+                }
+
+                t = t.getCause();
+            }
+
+            fail("Unexpected exception", e);
         }
 
         throw new AssertionError("Exception has not been thrown.");
@@ -480,6 +625,32 @@ public final class GridTestUtils {
     }
 
     /**
+     * @param call Closure that receives thread index.
+     * @param threadNum Number of threads.
+     * @param threadName Thread names.
+     * @return Execution time in milliseconds.
+     * @throws Exception If failed.
+     */
+    public static long runMultiThreaded(final IgniteInClosure<Integer> call, int threadNum, String threadName)
+        throws Exception {
+        List<Callable<?>> calls = new ArrayList<>(threadNum);
+
+        for (int i = 0; i < threadNum; i++) {
+            final int idx = i;
+
+            calls.add(new Callable<Void>() {
+                @Override public Void call() throws Exception {
+                    call.apply(idx);
+
+                    return null;
+                }
+            });
+        }
+
+        return runMultiThreaded(calls, threadName);
+    }
+
+    /**
      * Runs callable object in specified number of threads.
      *
      * @param call Callable.
@@ -515,10 +686,11 @@ public final class GridTestUtils {
         });
 
         // Compound future, that adds cancel() support to execution future.
-        GridCompoundFuture<Long, Long> compFut = new GridCompoundFuture<>();
+        GridCompoundFuture<Long, Long> compFut = new GridCompoundFuture<>(F.sumLongReducer());
 
-        compFut.addAll(cancelFut, runFut);
-        compFut.reducer(F.sumLongReducer());
+        compFut.add(cancelFut);
+        compFut.add(runFut);
+
         compFut.markInitialized();
 
         cancelFut.onDone();
@@ -587,11 +759,23 @@ public final class GridTestUtils {
      */
     @SuppressWarnings("ExternalizableWithoutPublicNoArgConstructor")
     public static <T> IgniteInternalFuture<T> runAsync(final Callable<T> task) {
+        return runAsync(task, "async-runner");
+    }
+
+    /**
+     * Runs callable task asyncronously.
+     *
+     * @param task Callable.
+     * @param threadName Thread name.
+     * @return Future with task result.
+     */
+    @SuppressWarnings("ExternalizableWithoutPublicNoArgConstructor")
+    public static <T> IgniteInternalFuture<T> runAsync(final Callable<T> task, String threadName) {
         if (!busyLock.enterBusy())
             throw new IllegalStateException("Failed to start new threads (test is being stopped).");
 
         try {
-            final GridTestSafeThreadFactory thrFactory = new GridTestSafeThreadFactory("async-runner");
+            final GridTestSafeThreadFactory thrFactory = new GridTestSafeThreadFactory(threadName);
 
             final GridFutureAdapter<T> fut = new GridFutureAdapter<T>() {
                 @Override public boolean cancel() throws IgniteCheckedException {
@@ -836,14 +1020,6 @@ public final class GridTestUtils {
      * @param cache Cache.
      * @return Cache context.
      */
-    public static <K, V> GridCacheContext<K, V> cacheContext(GridCache<K, V> cache) {
-        return ((IgniteKernal)cache.gridProjection().ignite()).<K, V>internalCache().context();
-    }
-
-    /**
-     * @param cache Cache.
-     * @return Cache context.
-     */
     public static <K, V> GridCacheContext<K, V> cacheContext(IgniteCache<K, V> cache) {
         return ((IgniteKernal)cache.unwrap(Ignite.class)).<K, V>internalCache().context();
     }
@@ -852,7 +1028,7 @@ public final class GridTestUtils {
      * @param cache Cache.
      * @return Near cache.
      */
-    public static <K, V> GridNearCacheAdapter<K, V> near(GridCache<K, V> cache) {
+    public static <K, V> GridNearCacheAdapter<K, V> near(IgniteCache<K, V> cache) {
         return cacheContext(cache).near();
     }
 
@@ -860,7 +1036,7 @@ public final class GridTestUtils {
      * @param cache Cache.
      * @return DHT cache.
      */
-    public static <K, V> GridDhtCacheAdapter<K, V> dht(GridCache<K, V> cache) {
+    public static <K, V> GridDhtCacheAdapter<K, V> dht(IgniteCache<K, V> cache) {
         return near(cache).dht();
     }
 
@@ -874,7 +1050,7 @@ public final class GridTestUtils {
     public static <K, V> void waitTopologyUpdate(@Nullable String cacheName, int backups, IgniteLogger log)
         throws Exception {
         for (Ignite g : Ignition.allGrids()) {
-            GridCache<K, V> cache = ((IgniteEx)g).cachex(cacheName);
+            IgniteCache<K, V> cache = ((IgniteEx)g).cache(cacheName);
 
             GridDhtPartitionTopology top = dht(cache).topology();
 
@@ -882,10 +1058,10 @@ public final class GridTestUtils {
                 boolean wait = false;
 
                 for (int p = 0; p < g.affinity(cacheName).partitions(); p++) {
-                    Collection<ClusterNode> nodes = top.nodes(p, -1);
+                    Collection<ClusterNode> nodes = top.nodes(p, AffinityTopologyVersion.NONE);
 
                     if (nodes.size() > backups + 1) {
-                        LT.warn(log, null, "Partition map was not updated yet (will wait) [grid=" + g.name() +
+                        LT.warn(log, "Partition map was not updated yet (will wait) [grid=" + g.name() +
                             ", p=" + p + ", nodes=" + F.nodeIds(nodes) + ']');
 
                         wait = true;
@@ -1089,7 +1265,6 @@ public final class GridTestUtils {
      */
     @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
     public static void setFieldValue(Object obj, Class cls, String fieldName, Object val) throws IgniteException {
-        assert obj != null;
         assert fieldName != null;
 
         try {
@@ -1099,9 +1274,21 @@ public final class GridTestUtils {
                 // Backup accessible field state.
                 boolean accessible = field.isAccessible();
 
+                boolean isFinal = (field.getModifiers() & Modifier.FINAL) > 0;
+
+                Field modifiersField = null;
+
+                if (isFinal)
+                    modifiersField = Field.class.getDeclaredField("modifiers");
+
                 try {
                     if (!accessible)
                         field.setAccessible(true);
+
+                    if (isFinal) {
+                        modifiersField.setAccessible(true);
+                        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
+                    }
 
                     field.set(obj, val);
                 }
@@ -1109,6 +1296,11 @@ public final class GridTestUtils {
                     // Recover accessible field state.
                     if (!accessible)
                         field.setAccessible(false);
+
+                    if (isFinal) {
+                        modifiersField.setInt(field, field.getModifiers() | Modifier.FINAL);
+                        modifiersField.setAccessible(false);
+                    }
                 }
             }
         }
@@ -1345,6 +1537,24 @@ public final class GridTestUtils {
         return factory;
     }
 
+
+    /**
+     * Creates test-purposed SSL context factory from test key store with disabled trust manager.
+     *
+     * @return SSL context factory used in test.
+     */
+    public static Factory<SSLContext> sslFactory() {
+        SslContextFactory factory = new SslContextFactory();
+
+        factory.setKeyStoreFilePath(
+            U.resolveIgnitePath(GridTestProperties.getProperty("ssl.keystore.path")).getAbsolutePath());
+        factory.setKeyStorePassword(GridTestProperties.getProperty("ssl.keystore.password").toCharArray());
+
+        factory.setTrustManagers(SslContextFactory.getDisabledTrustManager());
+
+        return factory;
+    }
+
     /**
      * @param o1 Object 1.
      * @param o2 Object 2.
@@ -1473,9 +1683,174 @@ public final class GridTestUtils {
     }
 
     /**
+     * Prompt to execute garbage collector.
+     * {@code System.gc();} is not guaranteed to garbage collection, this method try to fill memory to crowd out dead
+     * objects.
+     */
+    public static void runGC() {
+        System.gc();
+
+        ReferenceQueue<byte[]> queue = new ReferenceQueue<>();
+
+        Collection<SoftReference<byte[]>> refs = new ArrayList<>();
+
+        while (true) {
+            byte[] bytes = new byte[128 * 1024];
+
+            refs.add(new SoftReference<>(bytes, queue));
+
+            if (queue.poll() != null)
+                break;
+        }
+
+        System.gc();
+    }
+
+    /**
      * @return Path to apache ignite.
      */
     public static String apacheIgniteTestPath() {
         return System.getProperty("IGNITE_TEST_PATH", U.getIgniteHome() + "/target/ignite");
+    }
+
+    /**
+     * {@link Class#getSimpleName()} does not return outer class name prefix for inner classes, for example,
+     * getSimpleName() returns "RegularDiscovery" instead of "GridDiscoveryManagerSelfTest$RegularDiscovery"
+     * This method return correct simple name for inner classes.
+     *
+     * @param cls Class
+     * @return Simple name with outer class prefix.
+     */
+    public static String fullSimpleName(@NotNull Class cls) {
+        if (cls.getEnclosingClass() != null)
+            return cls.getEnclosingClass().getSimpleName() + "." + cls.getSimpleName();
+        else
+            return cls.getSimpleName();
+    }
+
+    /**
+     * Adds test to the suite only if it's not in {@code ignoredTests} set.
+     *
+     * @param suite TestSuite where to place the test.
+     * @param test Test.
+     * @param ignoredTests Tests to ignore.
+     */
+    public static void addTestIfNeeded(TestSuite suite, Class test, Set<Class> ignoredTests) {
+        if (ignoredTests != null && ignoredTests.contains(test))
+            return;
+
+        suite.addTestSuite(test);
+    }
+
+    /**
+     * Sets cache configuration parameters according to test memory mode.
+     *
+     * @param cfg Ignite configuration.
+     * @param ccfg Cache configuration.
+     * @param testMode Test memory mode.
+     * @param maxHeapCnt Maximum number of entries in heap (used if test mode involves eviction from heap).
+     * @param maxOffheapSize Maximum offheap memory size (used if test mode involves eviction from offheap to swap).
+     */
+    public static void setMemoryMode(IgniteConfiguration cfg, CacheConfiguration ccfg,
+        TestMemoryMode testMode,
+        int maxHeapCnt,
+        long maxOffheapSize) {
+        assert testMode != null;
+        assert ccfg != null;
+
+        CacheMemoryMode memMode;
+        boolean swap = false;
+        boolean evictionPlc = false;
+        long offheapMaxMem = -1L;
+
+        switch (testMode) {
+            case HEAP: {
+                memMode = CacheMemoryMode.ONHEAP_TIERED;
+                swap = false;
+
+                break;
+            }
+
+            case SWAP: {
+                memMode = CacheMemoryMode.ONHEAP_TIERED;
+                evictionPlc = true;
+                swap = true;
+
+                break;
+            }
+
+            case OFFHEAP_TIERED: {
+                memMode = CacheMemoryMode.OFFHEAP_TIERED;
+                offheapMaxMem = 0;
+
+                break;
+            }
+
+            case OFFHEAP_TIERED_SWAP: {
+                assert maxOffheapSize > 0 : maxOffheapSize;
+
+                memMode = CacheMemoryMode.OFFHEAP_TIERED;
+                offheapMaxMem = maxOffheapSize;
+                swap = true;
+
+                break;
+            }
+
+            case OFFHEAP_EVICT: {
+                memMode = CacheMemoryMode.ONHEAP_TIERED;
+                evictionPlc = true;
+                offheapMaxMem = 0;
+
+                break;
+            }
+
+            case OFFHEAP_EVICT_SWAP: {
+                assert maxOffheapSize > 0 : maxOffheapSize;
+
+                memMode = CacheMemoryMode.ONHEAP_TIERED;
+                swap = true;
+                evictionPlc = true;
+                offheapMaxMem = maxOffheapSize;
+
+                break;
+            }
+
+            default:
+                throw new IllegalArgumentException("Invalid mode: " + testMode);
+        }
+
+        ccfg.setMemoryMode(memMode);
+        ccfg.setSwapEnabled(swap);
+
+        if (swap && cfg != null)
+            cfg.setSwapSpaceSpi(new GridTestSwapSpaceSpi());
+
+        if (evictionPlc) {
+            LruEvictionPolicy plc = new LruEvictionPolicy();
+
+            plc.setMaxSize(maxHeapCnt);
+
+            ccfg.setEvictionPolicy(plc);
+        }
+
+        ccfg.setOffHeapMaxMemory(offheapMaxMem);
+    }
+
+    /**
+     *
+     */
+    public enum TestMemoryMode {
+        /** Heap only. */
+        HEAP,
+        /** Evict from heap to swap with eviction policy. */
+        SWAP,
+        /** Always evict to offheap, no swap. */
+        OFFHEAP_TIERED,
+        /** Always evict to offheap + evict from offheap to swap when max offheap memory limit is reached. */
+        OFFHEAP_TIERED_SWAP,
+        /** Evict to offheap with eviction policy, no swap. */
+        OFFHEAP_EVICT,
+        /** Evict to offheap with eviction policy + evict from offheap to swap when max offheap memory limit is reached. */
+        OFFHEAP_EVICT_SWAP,
     }
 }

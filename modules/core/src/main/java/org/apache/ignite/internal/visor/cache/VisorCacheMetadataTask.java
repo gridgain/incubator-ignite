@@ -17,16 +17,18 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.query.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.cache.query.GridCacheSqlMetadata;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorJob;
+import org.apache.ignite.internal.visor.VisorOneNodeTask;
 
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.escapeName;
 
 /**
  * Task to get cache SQL metadata.
@@ -59,13 +61,10 @@ public class VisorCacheMetadataTask extends VisorOneNodeTask<String, GridCacheSq
         /** {@inheritDoc} */
         @Override protected GridCacheSqlMetadata run(String cacheName) {
             try {
-                GridCache<Object, Object> cache = ignite.cachex(cacheName);
+                IgniteInternalCache<Object, Object> cache = ignite.cachex(cacheName);
 
-                if (cache != null) {
-                    GridCacheQueriesEx<Object, Object> queries = (GridCacheQueriesEx<Object, Object>)cache.queries();
-
-                    return F.first(queries.sqlMetadata());
-                }
+                if (cache != null)
+                    return F.first(cache.context().queries().sqlMetadata());
 
                 throw new IgniteException("Cache not found: " + escapeName(cacheName));
             }

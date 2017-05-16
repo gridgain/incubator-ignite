@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.HashSet;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectCollection;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  * Cache eviction response.
@@ -86,6 +88,11 @@ public class GridCacheEvictionResponse extends GridCacheMessage {
         finishUnmarshalCacheObjects(rejectedKeys, ctx.cacheContext(cacheId), ldr);
     }
 
+    /** {@inheritDoc} */
+    @Override public boolean addDeploymentInfo() {
+        return false;
+    }
+
     /**
      * @return Future ID.
      */
@@ -114,7 +121,7 @@ public class GridCacheEvictionResponse extends GridCacheMessage {
     /**
      * @return {@code True} if request processing has finished with error.
      */
-    boolean error() {
+    boolean evictError() {
         return err;
     }
 
@@ -198,7 +205,7 @@ public class GridCacheEvictionResponse extends GridCacheMessage {
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridCacheEvictionResponse.class);
     }
 
     /** {@inheritDoc} */

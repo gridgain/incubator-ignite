@@ -17,9 +17,11 @@
 
 package org.apache.ignite.configuration;
 
-import org.apache.ignite.transactions.*;
-
-import java.io.*;
+import java.io.Serializable;
+import javax.cache.configuration.Factory;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
 
 /**
  * Transactions configuration.
@@ -61,6 +63,18 @@ public class TransactionConfiguration implements Serializable {
     /** Pessimistic tx log linger. */
     private int pessimisticTxLogLinger = DFLT_PESSIMISTIC_TX_LOG_LINGER;
 
+    /** Name of class implementing GridCacheTmLookup. */
+    private String tmLookupClsName;
+
+    /** {@code javax.transaction.TransactionManager} factory. */
+    private Factory txManagerFactory;
+
+    /**
+     * Whether to use JTA {@code javax.transaction.Synchronization}
+     * instead of {@code javax.transaction.xa.XAResource}.
+     */
+    private boolean useJtaSync;
+
     /**
      * Empty constructor.
      */
@@ -78,6 +92,9 @@ public class TransactionConfiguration implements Serializable {
         pessimisticTxLogLinger = cfg.getPessimisticTxLogLinger();
         pessimisticTxLogSize = cfg.getPessimisticTxLogSize();
         txSerEnabled = cfg.isTxSerializableEnabled();
+        tmLookupClsName = cfg.getTxManagerLookupClassName();
+        txManagerFactory = cfg.getTxManagerFactory();
+        useJtaSync = cfg.isUseJtaSynchronization();
     }
 
     /**
@@ -87,15 +104,17 @@ public class TransactionConfiguration implements Serializable {
      *
      * @return {@code True} if serializable transactions are enabled, {@code false} otherwise.
      */
+    @Deprecated
     public boolean isTxSerializableEnabled() {
         return txSerEnabled;
     }
 
     /**
-     * Enables/disables serializable cache transactions. See {@link #isTxSerializableEnabled()} for more information.
-     *
      * @param txSerEnabled Flag to enable/disable serializable cache transactions.
+
+     * @deprecated This method has no effect, {@link TransactionIsolation#SERIALIZABLE} isolation is always enabled.
      */
+    @Deprecated
     public void setTxSerializableEnabled(boolean txSerEnabled) {
         this.txSerEnabled = txSerEnabled;
     }
@@ -201,5 +220,97 @@ public class TransactionConfiguration implements Serializable {
      */
     public void setPessimisticTxLogLinger(int pessimisticTxLogLinger) {
         this.pessimisticTxLogLinger = pessimisticTxLogLinger;
+    }
+
+    /**
+     * Gets class name of transaction manager finder for integration for JEE app servers.
+     *
+     * @return Transaction manager finder.
+     * @deprecated Use {@link #getTxManagerFactory()} instead.
+     */
+    @Deprecated
+    public String getTxManagerLookupClassName() {
+        return tmLookupClsName;
+    }
+
+    /**
+     * Sets look up mechanism for available {@code TransactionManager} implementation, if any.
+     *
+     * @param tmLookupClsName Name of class implementing GridCacheTmLookup interface that is used to
+     *      receive JTA transaction manager.
+     * @deprecated Use {@link #setTxManagerFactory(Factory)} instead.
+     */
+    @Deprecated
+    public void setTxManagerLookupClassName(String tmLookupClsName) {
+        this.tmLookupClsName = tmLookupClsName;
+    }
+
+    /**
+     * Gets transaction manager factory for integration with JEE app servers.
+     *
+     * @param <T> Instance of {@code javax.transaction.TransactionManager}.
+     * @return Transaction manager factory.
+     * @see #isUseJtaSynchronization()
+     */
+    @SuppressWarnings("unchecked")
+    public <T> Factory<T> getTxManagerFactory() {
+        return txManagerFactory;
+    }
+
+    /**
+     * Sets transaction manager factory for available {@code javax.transaction.TransactionManager} implementation,
+     * if any.
+     * <p>
+     * It allows to use different transactional systems. Implement factory that produce native
+     * {@code javax.transaction.TransactionManager} within your environment.
+     * <p>
+     * The following implementations are provided out of the box (jta module must be enabled):
+     * <ul>
+     * <li>
+     *  {@code org.apache.ignite.cache.jta.jndi.CacheJndiTmFactory} utilizes configured JNDI names to look up
+     *  a transaction manager.
+     * </li>
+     * <li>
+     *  {@code org.apache.ignite.cache.jta.websphere.WebSphereTmFactory} an implementation of Transaction Manager
+     *  factory to be used within WebSphere Application Server.
+     * </li>
+     * <li>
+     *  {@code org.apache.ignite.cache.jta.websphere.WebSphereLibertyTmFactory} an implementation of Transaction Manager
+     *  factory to be used within WebSphere Liberty.
+     * </li>
+     * </ul>
+     *
+     * Ignite will throw IgniteCheckedException if {@link Factory#create()} method throws any exception,
+     * returns {@code null}-value or returns non-{@code TransactionManager} instance.
+     *
+     * @param factory Transaction manager factory.
+     * @param <T> Instance of {@code javax.transaction.TransactionManager}.
+     * @see #setUseJtaSynchronization(boolean)
+     */
+    public <T> void setTxManagerFactory(Factory<T> factory) {
+        txManagerFactory = factory;
+    }
+
+    /**
+     * @return Whether to use JTA {@code javax.transaction.Synchronization}
+     *      instead of {@code javax.transaction.xa.XAResource}.
+     * @see #getTxManagerFactory()
+     */
+    public boolean isUseJtaSynchronization() {
+        return useJtaSync;
+    }
+
+    /**
+     * Sets the flag that defines whether to use lightweight JTA synchronization callback to enlist
+     * into JTA transaction instead of creating a separate XA resource. In some cases this can give
+     * performance improvement, but keep in mind that most of the transaction managers do not allow
+     * to add more that one callback to a single transaction.
+     *
+     * @param useJtaSync Whether to use JTA {@code javax.transaction.Synchronization}
+     *      instead of {@code javax.transaction.xa.XAResource}.
+     * @see #setTxManagerFactory(Factory)
+     */
+    public void setUseJtaSynchronization(boolean useJtaSync) {
+        this.useJtaSync = useJtaSync;
     }
 }

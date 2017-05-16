@@ -23,53 +23,93 @@ import org.scalatest._
 /**
  * Unit test for memory commands.
  */
-class VisorMemoryCommandSpec extends FlatSpec with Matchers {
-    "A 'mget' visor command" should "get correct value" in {
-        visor.mset("key", "value")
+class VisorMemoryCommandSpec extends FunSpec with Matchers {
+    describe("A 'mget' visor command") {
+        it("should get correct value") {
+            visor.mset("key", "value")
 
-        assertResult(Option("value"))(visor.mgetOpt("key"))
+            assertResult(Option("value"))(visor.mgetOpt("key"))
 
-        visor.mclear()
+            visor.mclear()
+        }
     }
 
-    "A 'mlist' visor command" should "list all variables" in {
-        visor.mset("key1", "value1")
-        visor.mset("key2", "value2")
-        visor.mset("key3", "value3")
+    describe("A 'mlist' visor command") {
+        it("should list all variables") {
+            visor.mset("key1", "value1")
+            visor.mset("key2", "value2")
+            visor.mset("key3", "value3")
 
-        visor.mlist()
-        visor.mclear()
+            visor.mlist()
+            visor.mclear()
+        }
+
+        it("should list ax and cx variables") {
+            visor.mset("a1", "1")
+            visor.mset("a2", "2")
+            visor.mset("b1", "3")
+            visor.mset("b2", "4")
+            visor.mset("c1", "5")
+            visor.mset("c2", "6")
+
+            visor.mlist("ac")
+            visor.mclear()
+        }
     }
 
-    "A 'mlist' visor command" should "list ax and cx variables" in {
-        visor.mset("a1", "1")
-        visor.mset("a2", "2")
-        visor.mset("b1", "3")
-        visor.mset("b2", "4")
-        visor.mset("c1", "5")
-        visor.mset("c2", "6")
+    describe("A 'mclear' visor command") {
+        it("should remove first two variables") {
+            visor.mset("key1", "value1")
+            visor.mset("key2", "value2")
+            visor.mset("key3", "value3")
 
-        visor.mlist("ac")
-        visor.mclear()
+            visor mclear "key1 key2"
+
+            visor.mlist()
+            visor.mclear()
+
+        }
+
+        it("should remove all variables") {
+            visor.mset("key1", "value1")
+            visor.mset("key2", "value2")
+            visor.mset("key3", "value3")
+
+            visor.mclear()
+            visor.mlist()
+        }
     }
 
-    "A 'mclear' visor command" should "remove first two variables" in {
-        visor.mset("key1", "value1")
-        visor.mset("key2", "value2")
-        visor.mset("key3", "value3")
+    describe("A 'mcompact' visor command") {
+        it("should compact variable") {
+            visor.mset("key1", "value1")
+            visor.mset("key3", "value3")
 
-        visor mclear "key1 key2"
+            visor.mset("n0", "value0")
+            visor.mset("n1", "value1")
+            visor.mset("n2", "value2")
+            visor.mset("n3", "value3")
 
-        visor.mlist()
-        visor.mclear()
-    }
+            visor.mset("c1", "value1")
+            visor.mset("c3", "value3")
 
-    "A 'mclear' visor command" should "remove all variables" in {
-        visor.mset("key1", "value1")
-        visor.mset("key2", "value2")
-        visor.mset("key3", "value3")
+            visor.mcompact()
 
-        visor.mclear()
-        visor.mlist()
+            assertResult(None)(visor.mgetOpt("key0"))
+            assertResult(Some("value1"))(visor.mgetOpt("key1"))
+            assertResult(None)(visor.mgetOpt("key2"))
+            assertResult(Some("value3"))(visor.mgetOpt("key3"))
+
+            assertResult(Some("value0"))(visor.mgetOpt("n0"))
+            assertResult(Some("value1"))(visor.mgetOpt("n1"))
+            assertResult(Some("value2"))(visor.mgetOpt("n2"))
+            assertResult(Some("value3"))(visor.mgetOpt("n3"))
+
+            assertResult(Some("value1"))(visor.mgetOpt("c0"))
+            assertResult(Some("value3"))(visor.mgetOpt("c1"))
+            assertResult(None)(visor.mgetOpt("c3"))
+
+            visor.mlist()
+        }
     }
 }

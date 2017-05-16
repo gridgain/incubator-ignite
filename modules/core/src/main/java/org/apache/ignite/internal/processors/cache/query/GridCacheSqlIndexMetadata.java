@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.processors.cache.query;
 
-import java.io.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.util.Collection;
+import org.apache.ignite.internal.LessNamingBean;
 
 /**
  * Ignite index descriptor.
@@ -27,7 +28,7 @@ import java.util.*;
  * {@link GridCacheSqlMetadata#indexes(String)} method.
  * @see GridCacheSqlMetadata
  */
-public interface GridCacheSqlIndexMetadata extends Externalizable {
+public interface GridCacheSqlIndexMetadata extends Externalizable, LessNamingBean {
     /**
      * Gets name of the index.
      *
@@ -49,6 +50,11 @@ public interface GridCacheSqlIndexMetadata extends Externalizable {
      * @return {@code True} if given field is indexed in descending order.
      */
     public boolean descending(String field);
+
+    /**
+     * @return Descendings.
+     */
+    public Collection<String> descendings();
 
     /**
      * Gets whether this is a unique index.

@@ -17,29 +17,41 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.GridCacheModuloAffinityFunction;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheEntry;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-import java.util.concurrent.atomic.*;
-import java.util.concurrent.locks.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.NONE;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Checks that readers are properly handled.
@@ -70,10 +82,12 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         cacheCfg.setAffinity(aff);
         cacheCfg.setSwapEnabled(false);
         cacheCfg.setEvictSynchronized(true);
-        cacheCfg.setEvictNearSynchronized(true);
         cacheCfg.setAtomicityMode(atomicityMode());
-        cacheCfg.setDistributionMode(NEAR_PARTITIONED);
         cacheCfg.setBackups(aff.backups());
+
+        NearCacheConfiguration nearCfg = new NearCacheConfiguration();
+
+        cacheCfg.setNearConfiguration(nearCfg);
 
         cfg.setCacheConfiguration(cacheCfg);
 
@@ -101,6 +115,8 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         assert aff.backups() >= 0;
 
         startGrids(grids);
+
+        awaitPartitionMapExchange();
     }
 
     /** {@inheritDoc} */
@@ -141,8 +157,8 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         Ignite g1 = grid(n1.id());
         Ignite g2 = grid(n2.id());
 
-        IgniteCache<Integer, String> cache1 = g1.jcache(null);
-        IgniteCache<Integer, String> cache2 = g2.jcache(null);
+        IgniteCache<Integer, String> cache1 = g1.cache(null);
+        IgniteCache<Integer, String> cache2 = g2.cache(null);
 
         // Store some values in cache.
         assertNull(cache1.getAndPut(1, "v1"));
@@ -156,13 +172,13 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         assertTrue(cache1.containsKey(1));
         assertTrue(cache1.containsKey(2));
 
-        assertNotNull(near(cache1).peek(1));
-        assertNotNull(near(cache1).peek(2));
-        assertNotNull(dht(cache1).peek(1));
-        assertNull(dht(cache1).peek(2));
+        assertNotNull(nearPeek(cache1, 1));
+        assertNotNull(nearPeek(cache1, 2));
+        assertNotNull(dhtPeek(cache1, 1));
+        assertNull(dhtPeek(cache1, 2));
 
-        assertNull(near(cache2).peek(1));
-        assertNotNull(dht(cache2).peek(2));
+        assertNull(nearPeek(cache2, 1));
+        assertNotNull(dhtPeek(cache2, 2));
 
         // Node2 should have node1 in reader's map, since request to
         // put key 2 came from node1.
@@ -175,7 +191,7 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         assertEquals("v1", cache2.get(1));
 
         // Check that key1 is in near cache of cache2.
-        assertNotNull(near(cache2).peek(1));
+        assertNotNull(nearPeek(cache2, 1));
 
         // Now node1 should have node2 in readers map.
         assertTrue(e1.readers().contains(n2.id()));
@@ -183,8 +199,8 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         // Evict locally from cache2.
         cache2.localEvict(Collections.singleton(1));
 
-        assertNull(near(cache2).peek(1));
-        assertNull(dht(cache2).peek(1));
+        assertNull(nearPeek(cache2, 1));
+        assertNull(dhtPeek(cache2, 1));
 
         // Node 1 still has node2 in readers map.
         assertTrue(e1.readers().contains(n2.id()));
@@ -220,11 +236,23 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
 
         List<KeyCacheObject> cacheKeys = F.asList(ctx.toCacheKeyObject(1), ctx.toCacheKeyObject(2));
 
-        ((IgniteKernal)g1).internalCache(null).preloader().request(cacheKeys, 2).get();
-        ((IgniteKernal)g2).internalCache(null).preloader().request(cacheKeys, 2).get();
+        IgniteInternalFuture<Object> f1 = ((IgniteKernal)g1).internalCache(null).preloader().request(
+            cacheKeys,
+            new AffinityTopologyVersion(2));
 
-        IgniteCache<Integer, String> cache1 = g1.jcache(null);
-        IgniteCache<Integer, String> cache2 = g2.jcache(null);
+        if (f1 != null)
+            f1.get();
+
+
+        IgniteInternalFuture<Object> f2 = ((IgniteKernal)g2).internalCache(null).preloader().request(
+            cacheKeys,
+            new AffinityTopologyVersion(2));
+
+        if (f2 != null)
+            f2.get();
+
+        IgniteCache<Integer, String> cache1 = g1.cache(null);
+        IgniteCache<Integer, String> cache2 = g2.cache(null);
 
         assertEquals(g1.affinity(null).mapKeyToNode(1), g1.cluster().localNode());
         assertFalse(g1.affinity(null).mapKeyToNode(2).equals(g1.cluster().localNode()));
@@ -238,13 +266,13 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         assertTrue(cache1.containsKey(1));
         assertTrue(cache2.containsKey(1));
 
-        assertEquals("v1", near(cache1).peek(1));
-        assertEquals("v1", near(cache2).peek(1));
-        assertEquals("v1", dht(cache1).peek(1));
-        assertEquals("v1", dht(cache2).peek(1));
+        assertEquals("v1", nearPeek(cache1, 1));
+        assertEquals("v1", nearPeek(cache2, 1));
+        assertEquals("v1", dhtPeek(cache1, 1));
+        assertEquals("v1", dhtPeek(cache2, 1));
 
-        assertNull(near(cache1).peekNearOnly(1));
-        assertNull(near(cache2).peekNearOnly(1));
+        assertNull(near(cache1).peekEx(1));
+        assertNull(near(cache2).peekEx(1));
 
         GridDhtCacheEntry e1 = (GridDhtCacheEntry)dht(cache1).entryEx(1);
 
@@ -254,13 +282,13 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         assertTrue(cache1.containsKey(2));
         assertTrue(cache2.containsKey(2));
 
-        assertEquals("v2", near(cache1).peek(2));
-        assertEquals("v2", near(cache2).peek(2));
-        assertEquals("v2", dht(cache1).peek(2));
-        assertEquals("v2", dht(cache2).peek(2));
+        assertEquals("v2", nearPeek(cache1, 2));
+        assertEquals("v2", nearPeek(cache2, 2));
+        assertEquals("v2", dhtPeek(cache1, 2));
+        assertEquals("v2", dhtPeek(cache2, 2));
 
-        assertNull(near(cache1).peekNearOnly(2));
-        assertNull(near(cache2).peekNearOnly(2));
+        assertNull(near(cache1).peekEx(2));
+        assertNull(near(cache2).peekEx(2));
 
         GridDhtCacheEntry c2e2 = (GridDhtCacheEntry)dht(cache2).entryEx(2);
 
@@ -272,7 +300,7 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         assertEquals("v1", cache2.get(1));
 
         // Since DHT cache2 has the value, Near cache2 should not have it.
-        assertNull(near(cache2).peekNearOnly(1));
+        assertNull(near(cache2).peekEx(1));
 
         // Since v1 was retrieved locally from cache2, cache1 should not know about it.
         assertFalse(e1.readers().contains(n2.id()));
@@ -281,16 +309,16 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         // It should not be successful since it's not allowed to evict entry on backup node.
         cache2.localEvict(Collections.singleton(1));
 
-        assertNull(near(cache2).peekNearOnly(1));
-        assertEquals("v1", dht(cache2).peek(1));
+        assertNull(near(cache2).peekEx(1));
+        assertEquals("v1", dhtPeek(cache2, 1));
 
         assertEquals("v1", cache1.getAndPut(1, "z1"));
 
         // Node 1 should not have node2 in readers map.
         assertFalse(e1.readers().contains(n2.id()));
 
-        assertNull(near(cache2).peekNearOnly(1));
-        assertEquals("z1", dht(cache2).peek(1));
+        assertNull(near(cache2).peekEx(1));
+        assertEquals("z1", dhtPeek(cache2, 1));
     }
 
     /** @throws Exception If failed. */
@@ -302,8 +330,8 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         startGrids();
 
         try {
-            IgniteCache<Object, Object> prj0 = grid(0).jcache(null);
-            IgniteCache<Object, Object> prj1 = grid(1).jcache(null);
+            IgniteCache<Object, Object> prj0 = grid(0).cache(null);
+            IgniteCache<Object, Object> prj1 = grid(1).cache(null);
 
             Map<Integer, Integer> putMap = new HashMap<>();
 
@@ -338,9 +366,9 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
         startGrids();
 
         try {
-            IgniteCache<Object, Object> prj0 = grid(0).jcache(null);
-            IgniteCache<Object, Object> prj1 = grid(1).jcache(null);
-            IgniteCache<Object, Object> prj2 = grid(2).jcache(null);
+            IgniteCache<Object, Object> prj0 = grid(0).cache(null);
+            IgniteCache<Object, Object> prj1 = grid(1).cache(null);
+            IgniteCache<Object, Object> prj2 = grid(2).cache(null);
 
             Map<Integer, Integer> putMap = new HashMap<>();
 
@@ -396,8 +424,8 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
 
         assertFalse("Nodes cannot be equal: " + primary, primary.equals(backup));
 
-        IgniteCache<Integer, String> cache1 = grid(primary.id()).jcache(null);
-        IgniteCache<Integer, String> cache2 = grid(backup.id()).jcache(null);
+        IgniteCache<Integer, String> cache1 = grid(primary.id()).cache(null);
+        IgniteCache<Integer, String> cache2 = grid(backup.id()).cache(null);
 
         // Store a values in cache.
         assertNull(cache1.getAndPut(1, "v1"));
@@ -441,55 +469,55 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
 
         assertNull(cache.getAndPut(key1, val1));
 
-        assertEquals(val1, dht(0).peek(key1));
-        assertEquals(val1, dht(1).peek(key1));
-        assertNull(dht(2).peek(key1));
+        assertEquals(val1, dhtPeek(0, key1));
+        assertEquals(val1, dhtPeek(1, key1));
+        assertNull(dhtPeek(2, key1));
 
-        assertNull(near(0).peekNearOnly(key1));
-        assertNull(near(1).peekNearOnly(key1));
-        assertNull(near(2).peekNearOnly(key1));
+        assertNull(near(0).peekEx(key1));
+        assertNull(near(1).peekEx(key1));
+        assertNull(near(2).peekEx(key1));
 
         cache.put(key2, val2);
 
-        assertNull(dht(0).peek(key2));
-        assertEquals(val2, dht(1).peek(key2));
-        assertEquals(val2, dht(2).peek(key2));
+        assertNull(dhtPeek(0, key2));
+        assertEquals(val2, dhtPeek(1, key2));
+        assertEquals(val2, dhtPeek(2, key2));
 
-        assertEquals(val2, near(0).peekNearOnly(key2));
-        assertNull(near(1).peekNearOnly(key2));
-        assertNull(near(2).peekNearOnly(key2));
+        assertEquals(val2, near(0).peekEx(key2).wrap().getValue());
+        assertNull(near(1).peekEx(key2));
+        assertNull(near(2).peekEx(key2));
 
         String val22 = val2 + "2";
 
         cache.put(key2, val22);
 
-        assertNull(dht(0).peek(key2));
-        assertEquals(val22, dht(1).peek(key2));
-        assertEquals(val22, dht(2).peek(key2));
+        assertNull(dhtPeek(0, key2));
+        assertEquals(val22, dhtPeek(1, key2));
+        assertEquals(val22, dhtPeek(2, key2));
 
-        assertEquals(val22, near(0).peekNearOnly(key2));
-        assertNull(near(1).peekNearOnly(key2));
-        assertNull(near(2).peekNearOnly(key2));
+        assertEquals(val22, near(0).peekEx(key2).wrap().getValue());
+        assertNull(near(1).peekEx(key2));
+        assertNull(near(2).peekEx(key2));
 
         cache.remove(key2);
 
-        assertNull(dht(0).peek(key2));
-        assertNull(dht(1).peek(key2));
-        assertNull(dht(2).peek(key2));
+        assertNull(dhtPeek(0, key2));
+        assertNull(dhtPeek(1, key2));
+        assertNull(dhtPeek(2, key2));
 
-        assertNull(near(0).peekNearOnly(key2));
-        assertNull(near(1).peekNearOnly(key2));
-        assertNull(near(2).peekNearOnly(key2));
+        assertTrue(near(0).peekEx(key2) == null || near(0).peekEx(key2).deleted());
+        assertNull(near(1).peekEx(key2));
+        assertNull(near(2).peekEx(key2));
 
         cache.remove(key1);
 
-        assertNull(dht(0).peek(key1));
-        assertNull(dht(1).peek(key1));
-        assertNull(dht(2).peek(key1));
+        assertNull(dhtPeek(0, key1));
+        assertNull(dhtPeek(1, key1));
+        assertNull(dhtPeek(2, key1));
 
-        assertNull(near(0).peekNearOnly(key1));
-        assertNull(near(1).peekNearOnly(key1));
-        assertNull(near(2).peekNearOnly(key1));
+        assertNull(near(0).peekEx(key1));
+        assertNull(near(1).peekEx(key1));
+        assertNull(near(2).peekEx(key1));
 
         for (int i = 0; i < grids; i++) {
             assert !jcache(i).isLocalLocked(key1, false);
@@ -534,44 +562,44 @@ public class GridCacheNearReadersSelfTest extends GridCommonAbstractTest {
             try {
                 assertNull(cache.getAndPut(key1, val1));
 
-                assertEquals(val1, dht(0).peek(key1));
-                assertEquals(val1, dht(1).peek(key1));
-                assertNull(dht(2).peek(key1));
+                assertEquals(val1, dhtPeek(0, key1));
+                assertEquals(val1, dhtPeek(1, key1));
+                assertNull(dhtPeek(2, key1));
 
                 // Since near entry holds the lock, it should
                 // contain correct value.
-                assertEquals(val1, near(0).peekNearOnly(key1));
+                assertEquals(val1, near(0).peekEx(key1).wrap().getValue());
 
-                assertNull(near(1).peekNearOnly(key1));
-                assertNull(near(2).peekNearOnly(key1));
+                assertNull(near(1).peekEx(key1));
+                assertNull(near(2).peekEx(key1));
 
                 cache.put(key2, val2);
 
-                assertNull(dht(0).peek(key2));
-                assertEquals(val2, dht(1).peek(key2));
-                assertEquals(val2, dht(2).peek(key2));
+                assertNull(dhtPeek(0, key2));
+                assertEquals(val2, dhtPeek(1, key2));
+                assertEquals(val2, dhtPeek(2, key2));
 
-                assertEquals(val2, near(0).peekNearOnly(key2));
-                assertNull(near(1).peekNearOnly(key2));
-                assertNull(near(2).peekNearOnly(key2));
+                assertEquals(val2, near(0).peekEx(key2).wrap().getValue());
+                assertNull(near(1).peekEx(key2));
+                assertNull(near(2).peekEx(key2));
 
                 String val22 = val2 + "2";
 
                 cache.put(key2, val22);
 
-                assertNull(dht(0).peek(key2));
-                assertEquals(val22, dht(1).peek(key2));
-                assertEquals(val22, dht(2).peek(key2));
+                assertNull(dhtPeek(0, key2));
+                assertEquals(val22, dhtPeek(1, key2));
+                assertEquals(val22, dhtPeek(2, key2));
 
-                assertEquals(val22, near(0).peekNearOnly(key2));
-                assertNull(near(1).peekNearOnly(key2));
-                assertNull(near(2).peekNearOnly(key2));
+                assertEquals(val22, near(0).peekEx(key2).wrap().getValue());
+                assertNull(near(1).peekEx(key2));
+                assertNull(near(2).peekEx(key2));
 
                 cache.remove(key2);
 
-                assertNull(dht(0).peek(key2));
-                assertNull(dht(1).peek(key2));
-                assertNull(dht(2).peek(key2));
+                assertNull(dhtPeek(0, key2));
+                assertNull(dhtPeek(1, key2));
+                assertNull(dhtPeek(2, key2));
 
                 assertNull(dht(0).peekEx(key2));
                 assertNotNull(dht(1).peekEx(key2));

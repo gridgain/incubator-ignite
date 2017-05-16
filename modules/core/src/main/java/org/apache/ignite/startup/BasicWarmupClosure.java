@@ -17,22 +17,34 @@
 
 package org.apache.ignite.startup;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.logger.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-
-import java.text.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.LinkedList;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteInClosure;
+import org.apache.ignite.logger.NullLogger;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
 /**
  * Basic warm-up closure which warm-ups cache operations.
@@ -245,8 +257,11 @@ public class BasicWarmupClosure implements IgniteInClosure<IgniteConfiguration> 
         ExecutorService svc = Executors.newFixedThreadPool(threadCnt);
 
         try {
-            for (CacheConfiguration cc : first.configuration().getCacheConfiguration()) {
-                GridCache<Object, Object> cache0 = ((IgniteKernal)first).cache(cc.getName());
+            for (IgniteCacheProxy cache : ((IgniteKernal)first).caches()) {
+                if (!cache.context().userCache())
+                    continue;
+
+                IgniteInternalCache<Object, Object> cache0 = cache.context().cache();
 
                 for (String warmupMethod : warmupMethods) {
                     Collection<Future> futs = new ArrayList<>(threadCnt);
@@ -304,13 +319,13 @@ public class BasicWarmupClosure implements IgniteInClosure<IgniteConfiguration> 
                         futs.add(svc.submit(call));
                     }
 
-                    out("Running warmup [cacheName=" + cc.getName() + ", method=" + warmupMethod + ']');
+                    out("Running warmup [cacheName=" + U.maskName(cache.getName()) + ", method=" + warmupMethod + ']');
 
                     for (Future fut : futs)
                         fut.get();
 
                     for (int key = 0; key < keyRange; key++)
-                        cache0.remove(key);
+                        cache0.getAndRemove(key);
                 }
             }
         }
@@ -351,11 +366,6 @@ public class BasicWarmupClosure implements IgniteInClosure<IgniteConfiguration> 
 
             if (!matches(reduced, ccfg)) {
                 CacheConfiguration ccfgCp = new CacheConfiguration(ccfg);
-
-                if (ccfgCp.getDistributionMode() == CacheDistributionMode.CLIENT_ONLY)
-                    ccfgCp.setDistributionMode(CacheDistributionMode.PARTITIONED_ONLY);
-                else if (ccfgCp.getDistributionMode() == CacheDistributionMode.NEAR_ONLY)
-                    ccfgCp.setDistributionMode(CacheDistributionMode.NEAR_PARTITIONED);
 
                 ccfgCp.setCacheStoreFactory(null);
                 ccfgCp.setWriteBehindEnabled(false);
@@ -405,8 +415,7 @@ public class BasicWarmupClosure implements IgniteInClosure<IgniteConfiguration> 
             F.eq(ccfg0.getBackups(), ccfg1.getBackups()) &&
             F.eq(ccfg0.getAtomicityMode(), ccfg1.getAtomicityMode()) &&
             F.eq(ccfg0.getAtomicWriteOrderMode(), ccfg1.getAtomicWriteOrderMode()) &&
-            F.eq(ccfg0.getMemoryMode(), ccfg1.getMemoryMode()) &&
-            F.eq(ccfg0.getDistributionMode(), ccfg1.getDistributionMode());
+            F.eq(ccfg0.getMemoryMode(), ccfg1.getMemoryMode());
     }
 
     /**
@@ -414,12 +423,12 @@ public class BasicWarmupClosure implements IgniteInClosure<IgniteConfiguration> 
      */
     private abstract class BaseWarmupCallable implements Callable<Object> {
         /** Cache. */
-        protected final GridCache<Object, Object> cache;
+        protected final IgniteInternalCache<Object, Object> cache;
 
         /**
          * @param cache Cache.
          */
-        protected BaseWarmupCallable(GridCache<Object, Object> cache) {
+        protected BaseWarmupCallable(IgniteInternalCache<Object, Object> cache) {
             this.cache = cache;
         }
 
@@ -449,7 +458,7 @@ public class BasicWarmupClosure implements IgniteInClosure<IgniteConfiguration> 
         /**
          * @param cache Cache.
          */
-        private GetCallable(GridCache<Object, Object> cache) {
+        private GetCallable(IgniteInternalCache<Object, Object> cache) {
             super(cache);
         }
 
@@ -466,7 +475,24 @@ public class BasicWarmupClosure implements IgniteInClosure<IgniteConfiguration> 
         /**
          * @param cache Cache.
          */
-        private PutCallable(GridCache<Object, Object> cache) {
+        private PutCallable(IgniteInternalCache<Object, Object> cache) {
+            super(cache);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void operation(int key) throws Exception {
+            cache.getAndPut(key, key);
+        }
+    }
+
+    /**
+     *
+     */
+    private class PutxCallable extends BaseWarmupCallable {
+        /**
+         * @param cache Cache.
+         */
+        private PutxCallable(IgniteInternalCache<Object, Object> cache) {
             super(cache);
         }
 
@@ -479,28 +505,28 @@ public class BasicWarmupClosure implements IgniteInClosure<IgniteConfiguration> 
     /**
      *
      */
-    private class PutxCallable extends BaseWarmupCallable {
+    private class RemoveCallable extends BaseWarmupCallable {
         /**
          * @param cache Cache.
          */
-        private PutxCallable(GridCache<Object, Object> cache) {
+        private RemoveCallable(IgniteInternalCache<Object, Object> cache) {
             super(cache);
         }
 
         /** {@inheritDoc} */
         @Override protected void operation(int key) throws Exception {
-            cache.putx(key, key);
+            cache.getAndRemove(key);
         }
     }
 
     /**
      *
      */
-    private class RemoveCallable extends BaseWarmupCallable {
+    private class RemovexCallable extends BaseWarmupCallable {
         /**
          * @param cache Cache.
          */
-        private RemoveCallable(GridCache<Object, Object> cache) {
+        private RemovexCallable(IgniteInternalCache<Object, Object> cache) {
             super(cache);
         }
 
@@ -513,34 +539,17 @@ public class BasicWarmupClosure implements IgniteInClosure<IgniteConfiguration> 
     /**
      *
      */
-    private class RemovexCallable extends BaseWarmupCallable {
-        /**
-         * @param cache Cache.
-         */
-        private RemovexCallable(GridCache<Object, Object> cache) {
-            super(cache);
-        }
-
-        /** {@inheritDoc} */
-        @Override protected void operation(int key) throws Exception {
-            cache.removex(key);
-        }
-    }
-
-    /**
-     *
-     */
     private class PutIfAbsentCallable extends BaseWarmupCallable {
         /**
          * @param cache Cache.
          */
-        private PutIfAbsentCallable(GridCache<Object, Object> cache) {
+        private PutIfAbsentCallable(IgniteInternalCache<Object, Object> cache) {
             super(cache);
         }
 
         /** {@inheritDoc} */
         @Override protected void operation(int key) throws Exception {
-            cache.putIfAbsent(key, key);
+            cache.getAndPutIfAbsent(key, key);
         }
     }
 
@@ -551,7 +560,7 @@ public class BasicWarmupClosure implements IgniteInClosure<IgniteConfiguration> 
         /**
          * @param cache Cache.
          */
-        private ReplaceCallable(GridCache<Object, Object> cache) {
+        private ReplaceCallable(IgniteInternalCache<Object, Object> cache) {
             super(cache);
         }
 

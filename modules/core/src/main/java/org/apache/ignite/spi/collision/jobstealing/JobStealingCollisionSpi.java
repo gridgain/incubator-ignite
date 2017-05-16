@@ -17,27 +17,49 @@
 
 package org.apache.ignite.spi.collision.jobstealing;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.collision.*;
-import org.jdk8.backport.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Queue;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJobContext;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.managers.communication.GridMessageListener;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.IgniteSpiConfiguration;
+import org.apache.ignite.spi.IgniteSpiConsistencyChecked;
+import org.apache.ignite.spi.IgniteSpiContext;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.IgniteSpiMultipleInstancesSupport;
+import org.apache.ignite.spi.collision.CollisionContext;
+import org.apache.ignite.spi.collision.CollisionExternalListener;
+import org.apache.ignite.spi.collision.CollisionJobContext;
+import org.apache.ignite.spi.collision.CollisionSpi;
+import org.jsr166.ConcurrentHashMap8;
+import org.jsr166.ConcurrentLinkedDeque8;
 
-import java.io.*;
-import java.util.*;
-import java.util.Map.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
 
 /**
  * Collision SPI that supports job stealing from over-utilized nodes to
@@ -58,25 +80,25 @@ import static org.apache.ignite.events.EventType.*;
  * when Node<sub>3</sub> becomes free, it steals Job<sub>13</sub> and Job<sub>23</sub>
  * from Node<sub>1</sub> and Node<sub>2</sub> respectively.
  * <p>
- * <center><img src="http://http://ignite.incubator.apache.org/images/job_stealing_white.gif"></center>
+ * <center><img src="http://http://ignite.apache.org/images/job_stealing_white.gif"></center>
  * <p>
  * <i>
  * Note that this SPI must always be used in conjunction with
- * {@link org.apache.ignite.spi.failover.jobstealing.JobStealingFailoverSpi}.
+ * {@link org.apache.ignite.spi.failover.jobstealing.JobStealingFailoverSpi JobStealingFailoverSpi}.
  * Also note that job metrics update should be enabled in order for this SPI
- * to work properly (i.e. {@link org.apache.ignite.configuration.IgniteConfiguration#getMetricsUpdateFrequency()}
+ * to work properly (i.e. {@link org.apache.ignite.configuration.IgniteConfiguration#getMetricsUpdateFrequency() IgniteConfiguration#getMetricsUpdateFrequency()}
  * should be set to {@code 0} or greater value).
  * The responsibility of Job Stealing Failover SPI is to properly route <b>stolen</b>
  * jobs to the nodes that initially requested (<b>stole</b>) these jobs. The
  * SPI maintains a counter of how many times a jobs was stolen and
- * hence traveled to another node. {@code GridJobStealingCollisionSpi}
+ * hence traveled to another node. {@link JobStealingCollisionSpi}
  * checks this counter and will not allow a job to be stolen if this counter
  * exceeds a certain threshold {@link JobStealingCollisionSpi#setMaximumStealingAttempts(int)}.
  * </i>
  * <p>
  * <h1 class="header">Configuration</h1>
  * In order to use this SPI, you should configure your grid instance
- * to use {@code GridJobStealingCollisionSpi} either from Spring XML file or
+ * to use {@link JobStealingCollisionSpi JobStealingCollisionSpi} either from Spring XML file or
  * directly. The following configuration parameters are supported:
  * <h2 class="header">Mandatory</h2>
  * This SPI has no mandatory configuration parameters.
@@ -110,7 +132,7 @@ import static org.apache.ignite.events.EventType.*;
  * </ul>
  * Below is example of configuring this SPI from Java code:
  * <pre name="code" class="java">
- * GridJobStealingCollisionSpi spi = new GridJobStealingCollisionSpi();
+ * JobStealingCollisionSpi spi = new JobStealingCollisionSpi();
  *
  * // Configure number of waiting jobs
  * // in the queue for job stealing.
@@ -133,7 +155,7 @@ import static org.apache.ignite.events.EventType.*;
  * // Set stealing attribute to steal from/to nodes that have it.
  * spi.setStealingAttributes(Collections.singletonMap("node.segment", "foobar"));
  *
- * GridConfiguration cfg = new GridConfiguration();
+ * IgniteConfiguration cfg = new IgniteConfiguration();
  *
  * // Override default Collision SPI.
  * cfg.setCollisionSpi(spi);
@@ -141,7 +163,7 @@ import static org.apache.ignite.events.EventType.*;
  * Here is an example of how this SPI can be configured from Spring XML configuration:
  * <pre name="code" class="xml">
  * &lt;property name="collisionSpi"&gt;
- *     &lt;bean class="org.apache.ignite.spi.collision.jobstealing.GridJobStealingCollisionSpi"&gt;
+ *     &lt;bean class="org.apache.ignite.spi.collision.jobstealing.JobStealingCollisionSpi"&gt;
  *         &lt;property name="activeJobsThreshold" value="100"/&gt;
  *         &lt;property name="waitJobsThreshold" value="0"/&gt;
  *         &lt;property name="messageExpireTime" value="1000"/&gt;
@@ -156,7 +178,7 @@ import static org.apache.ignite.events.EventType.*;
  * &lt;/property&gt;
  * </pre>
  * <p>
- * <img src="http://ignite.incubator.apache.org/images/spring-small.png">
+ * <img src="http://ignite.apache.org/images/spring-small.png">
  * <br>
  * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
  */
@@ -395,11 +417,14 @@ public class JobStealingCollisionSpi extends IgniteSpiAdapter implements Collisi
 
     /** {@inheritDoc} */
     @Override public Map<String, Object> getNodeAttributes() throws IgniteSpiException {
-        return F.<String, Object>asMap(
-            createSpiAttributeName(WAIT_JOBS_THRESHOLD_NODE_ATTR), waitJobsThreshold,
-            createSpiAttributeName(ACTIVE_JOBS_THRESHOLD_NODE_ATTR), activeJobsThreshold,
-            createSpiAttributeName(MAX_STEALING_ATTEMPT_ATTR), maxStealingAttempts,
-            createSpiAttributeName(MSG_EXPIRE_TIME_ATTR), msgExpireTime);
+        HashMap<String, Object> res = new HashMap<>(4);
+
+        res.put(createSpiAttributeName(WAIT_JOBS_THRESHOLD_NODE_ATTR), waitJobsThreshold);
+        res.put(createSpiAttributeName(ACTIVE_JOBS_THRESHOLD_NODE_ATTR), activeJobsThreshold);
+        res.put(createSpiAttributeName(MAX_STEALING_ATTEMPT_ATTR), maxStealingAttempts);
+        res.put(createSpiAttributeName(MSG_EXPIRE_TIME_ATTR), msgExpireTime);
+
+        return res;
     }
 
     /** {@inheritDoc} */
@@ -815,7 +840,7 @@ public class JobStealingCollisionSpi extends IgniteSpiAdapter implements Collisi
                     int p1 = getJobPriority(o1.getJobContext());
                     int p2 = getJobPriority(o2.getJobContext());
 
-                    return p1 < p2 ? 1 : p1 == p2 ? 0 : -1;
+                    return Integer.compare(p2, p1);
                 }
             };
         }

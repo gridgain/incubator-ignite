@@ -17,15 +17,20 @@
 
 package org.apache.ignite.loadtests.colocation;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.jdk8.backport.*;
-
-import javax.cache.integration.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import javax.cache.integration.CacheLoaderException;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cache.store.CacheStoreAdapter;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.jsr166.LongAdder8;
 
 /**
  * Accenture cache store.
@@ -58,11 +63,11 @@ public class GridTestCacheStore extends CacheStoreAdapter<GridTestKey, Long> {
         try {
             ExecutorCompletionService<Object> completeSvc = new ExecutorCompletionService<>(execSvc);
 
-            final IgniteCache<GridTestKey, Long> cache = ignite.jcache("partitioned");
+            final IgniteCache<GridTestKey, Long> cache = ignite.cache("partitioned");
 
             assert cache != null;
 
-            final LongAdder adder = new LongAdder();
+            final LongAdder8 adder = new LongAdder8();
 
             for (int i = 0; i < numThreads; i++) {
                 final int threadId = i;

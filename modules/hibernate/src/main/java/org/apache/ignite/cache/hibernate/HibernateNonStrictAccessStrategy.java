@@ -17,15 +17,18 @@
 
 package org.apache.ignite.cache.hibernate;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.hibernate.cache.*;
-import org.hibernate.cache.spi.access.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.Map;
+import java.util.Set;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.util.GridLeanMap;
+import org.apache.ignite.internal.util.GridLeanSet;
+import org.apache.ignite.internal.util.typedef.F;
+import org.hibernate.cache.CacheException;
+import org.hibernate.cache.spi.access.AccessType;
+import org.hibernate.cache.spi.access.SoftLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link AccessType#NONSTRICT_READ_WRITE} cache access strategy.
@@ -64,7 +67,7 @@ public class HibernateNonStrictAccessStrategy extends HibernateAccessStrategyAda
      * @param cache Cache.
      * @param writeCtx Thread local instance used to track updates done during one Hibernate transaction.
      */
-    protected HibernateNonStrictAccessStrategy(Ignite ignite, GridCache<Object, Object> cache, ThreadLocal writeCtx) {
+    protected HibernateNonStrictAccessStrategy(Ignite ignite, IgniteInternalCache<Object, Object> cache, ThreadLocal writeCtx) {
         super(ignite, cache);
 
         this.writeCtx = (ThreadLocal<WriteContext>)writeCtx;
@@ -126,7 +129,7 @@ public class HibernateNonStrictAccessStrategy extends HibernateAccessStrategyAda
     /** {@inheritDoc} */
     @Override protected boolean afterInsert(Object key, Object val) throws CacheException {
         try {
-            cache.putx(key, val);
+            cache.put(key, val);
 
             return true;
         }
@@ -209,7 +212,7 @@ public class HibernateNonStrictAccessStrategy extends HibernateAccessStrategyAda
          * @param cache Cache.
          * @throws IgniteCheckedException If failed.
          */
-        void updateCache(GridCache<Object, Object> cache) throws IgniteCheckedException {
+        void updateCache(IgniteInternalCache<Object, Object> cache) throws IgniteCheckedException {
             if (!F.isEmpty(rmvs))
                 cache.removeAll(rmvs);
 

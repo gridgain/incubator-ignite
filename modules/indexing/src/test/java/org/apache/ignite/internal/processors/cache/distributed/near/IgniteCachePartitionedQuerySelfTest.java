@@ -17,16 +17,21 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.query.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
 import javax.cache.Cache;
-import java.util.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.query.QueryCursor;
+import org.apache.ignite.cache.query.SqlFieldsQuery;
+import org.apache.ignite.cache.query.SqlQuery;
+import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractQuerySelfTest;
+import org.apache.ignite.internal.util.typedef.F;
 
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CachePeekMode.ALL;
 
 /**
  * Tests for partitioned cache queries.
@@ -53,25 +58,25 @@ public class IgniteCachePartitionedQuerySelfTest extends IgniteCacheAbstractQuer
 
         Ignite ignite0 = grid(0);
 
-        IgniteCache<UUID, Person> cache0 = ignite0.jcache(null);
+        IgniteCache<UUID, Person> cache0 = ignite0.cache(null);
 
         cache0.put(p1.id(), p1);
         cache0.put(p2.id(), p2);
         cache0.put(p3.id(), p3);
         cache0.put(p4.id(), p4);
 
-        assertEquals(4, cache0.localSize());
+        assertEquals(4, cache0.localSize(ALL));
 
         // Fields query
         QueryCursor<List<?>> qry = cache0
-            .queryFields(new SqlFieldsQuery("select name from Person where salary > ?").setArgs(1600));
+            .query(new SqlFieldsQuery("select name from Person where salary > ?").setArgs(1600));
 
         Collection<List<?>> res = qry.getAll();
 
         assertEquals(3, res.size());
 
         // Fields query count(*)
-        qry = cache0.queryFields(new SqlFieldsQuery("select count(*) from Person"));
+        qry = cache0.query(new SqlFieldsQuery("select count(*) from Person"));
 
         res = qry.getAll();
 
@@ -92,19 +97,19 @@ public class IgniteCachePartitionedQuerySelfTest extends IgniteCacheAbstractQuer
         Person p3 = new Person("Mike", 1800);
         Person p4 = new Person("Bob", 1900);
 
-        IgniteCache<UUID, Person> cache0 = grid(0).jcache(null);
+        IgniteCache<UUID, Person> cache0 = grid(0).cache(null);
 
         cache0.put(p1.id(), p1);
         cache0.put(p2.id(), p2);
         cache0.put(p3.id(), p3);
         cache0.put(p4.id(), p4);
 
-        assertEquals(4, cache0.localSize());
+        assertEquals(4, cache0.localSize(ALL));
 
         assert grid(0).cluster().nodes().size() == gridCount();
 
         QueryCursor<Cache.Entry<UUID, Person>> qry =
-            cache0.query(new SqlQuery(Person.class, "salary < 2000"));
+            cache0.query(new SqlQuery<UUID, Person>(Person.class, "salary < 2000"));
 
         // Execute on full projection, duplicates are expected.
         Collection<Cache.Entry<UUID, Person>> entries = qry.getAll();
@@ -127,7 +132,7 @@ public class IgniteCachePartitionedQuerySelfTest extends IgniteCacheAbstractQuer
         for (Cache.Entry<UUID, Person> entry : entries) {
             assertEquals(entry.getKey(), entry.getValue().id());
 
-            assert F.<Person>asList(persons).contains(entry.getValue());
+            assert F.asList(persons).contains(entry.getValue());
         }
     }
 }

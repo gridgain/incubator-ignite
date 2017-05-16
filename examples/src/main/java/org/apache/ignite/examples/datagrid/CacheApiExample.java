@@ -17,24 +17,27 @@
 
 package org.apache.ignite.examples.datagrid;
 
-import org.apache.ignite.*;
-import org.apache.ignite.lang.*;
-
-import javax.cache.processor.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentMap;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.MutableEntry;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.examples.ExampleNodeStartup;
 
 /**
  * This example demonstrates some of the cache rich API capabilities.
  * <p>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-cache.xml'}.
+ * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link CacheNodeStartup} in another JVM which will
- * start node with {@code examples/config/example-cache.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will
+ * start node with {@code examples/config/example-ignite.xml} configuration.
  */
 public class CacheApiExample {
     /** Cache name. */
-    private static final String CACHE_NAME = "partitioned";
+    private static final String CACHE_NAME = CacheApiExample.class.getSimpleName();
 
     /**
      * Executes example.
@@ -43,15 +46,19 @@ public class CacheApiExample {
      * @throws IgniteException If example execution failed.
      */
     public static void main(String[] args) throws IgniteException {
-        try (Ignite ignite = Ignition.start("examples/config/example-cache.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             System.out.println();
             System.out.println(">>> Cache API example started.");
 
-            // Clean up caches on all nodes before run.
-            ignite.jcache(CACHE_NAME).clear();
-
-            // Demonstrate atomic map operations.
-            atomicMapOperations();
+            // Auto-close cache at the end of the example.
+            try (IgniteCache<Integer, String> cache = ignite.getOrCreateCache(CACHE_NAME)) {
+                // Demonstrate atomic map operations.
+                atomicMapOperations(cache);
+            }
+            finally {
+                // Distributed cache could be removed from cluster only by #destroyCache() call.
+                ignite.destroyCache(CACHE_NAME);
+            }
         }
     }
 
@@ -61,42 +68,17 @@ public class CacheApiExample {
      *
      * @throws IgniteException If failed.
      */
-    private static void atomicMapOperations() throws IgniteException {
+    private static void atomicMapOperations(final IgniteCache<Integer, String> cache) throws IgniteException {
         System.out.println();
         System.out.println(">>> Cache atomic map operation examples.");
-
-        final IgniteCache<Integer, String> cache = Ignition.ignite().jcache(CACHE_NAME);
 
         // Put and return previous value.
         String v = cache.getAndPut(1, "1");
         assert v == null;
 
-        // Put and do not return previous value (all methods ending with 'x' return boolean).
+        // Put and do not return previous value.
         // Performs better when previous value is not needed.
         cache.put(2, "2");
-
-
-        // Put asynchronously.
-        final IgniteCache<Integer, String> asyncCache = cache.withAsync();
-
-        asyncCache.put(3, "3");
-
-        asyncCache.get(3);
-
-        IgniteFuture<String> fut = asyncCache.future();
-
-        //Asynchronously wait for result.
-        fut.listen(new IgniteInClosure<IgniteFuture<String>>() {
-            @Override
-            public void apply(IgniteFuture<String> fut) {
-                try {
-                    System.out.println("Put operation completed [previous-value=" + fut.get() + ']');
-                }
-                catch (IgniteException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
 
         // Put-if-absent.
         boolean b1 = cache.putIfAbsent(4, "4");

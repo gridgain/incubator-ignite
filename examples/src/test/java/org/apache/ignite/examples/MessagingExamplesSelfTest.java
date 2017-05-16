@@ -17,8 +17,10 @@
 
 package org.apache.ignite.examples;
 
-import org.apache.ignite.examples.messaging.*;
-import org.apache.ignite.testframework.junits.common.*;
+import org.apache.ignite.examples.messaging.MessagingExample;
+import org.apache.ignite.examples.messaging.MessagingPingPongExample;
+import org.apache.ignite.examples.messaging.MessagingPingPongListenActorExample;
+import org.apache.ignite.testframework.junits.common.GridAbstractExamplesTest;
 
 /**
  * Messaging examples self test.
@@ -46,7 +48,7 @@ public class MessagingExamplesSelfTest extends GridAbstractExamplesTest {
     /**
      * @throws Exception If failed.
      */
-    public void testessagingPingPongListenActorExample() throws Exception {
+    public void testMessagingPingPongListenActorExample() throws Exception {
         MessagingPingPongListenActorExample.main(EMPTY_ARGS);
     }
 }

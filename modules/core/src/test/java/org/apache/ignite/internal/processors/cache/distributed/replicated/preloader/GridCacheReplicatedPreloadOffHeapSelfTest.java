@@ -17,17 +17,16 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.replicated.preloader;
 
-import org.apache.ignite.configuration.*;
+import org.apache.ignite.configuration.CacheConfiguration;
 
-import static org.apache.ignite.cache.CacheMemoryMode.*;
+import static org.apache.ignite.cache.CacheMemoryMode.OFFHEAP_VALUES;
 
 /**
  * Tests for replicated cache preloader.
  */
 public class GridCacheReplicatedPreloadOffHeapSelfTest extends GridCacheReplicatedPreloadSelfTest {
     /** {@inheritDoc} */
-    @Override
-    CacheConfiguration cacheConfiguration(String gridName) {
+    @Override CacheConfiguration cacheConfiguration(String gridName) {
         CacheConfiguration cacheCfg = super.cacheConfiguration(gridName);
 
         cacheCfg.setMemoryMode(OFFHEAP_VALUES);

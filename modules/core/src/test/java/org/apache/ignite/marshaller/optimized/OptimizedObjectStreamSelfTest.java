@@ -17,24 +17,58 @@
 
 package org.apache.ignite.marshaller.optimized;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.io.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jetbrains.annotations.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.NotActiveException;
+import java.io.NotSerializableException;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
+import java.io.ObjectStreamException;
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.text.SimpleDateFormat;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Properties;
+import java.util.Queue;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.UUID;
+import java.util.Vector;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.util.io.GridUnsafeDataInput;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.marshaller.MarshallerContext;
+import org.apache.ignite.marshaller.MarshallerContextTestImpl;
+import org.apache.ignite.marshaller.MarshallerExclusions;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
-import java.io.*;
-import java.math.*;
-import java.net.*;
-import java.text.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
 
 /**
  * Test for optimized object streams.
@@ -42,6 +76,9 @@ import static org.junit.Assert.*;
 public class OptimizedObjectStreamSelfTest extends GridCommonAbstractTest {
     /** */
     private static final MarshallerContext CTX = new MarshallerContextTestImpl();
+
+    /** */
+    private ConcurrentMap<Class, OptimizedClassDescriptor> clsMap = new ConcurrentHashMap8<>();
 
     /**
      * @throws Exception If failed.
@@ -56,7 +93,7 @@ public class OptimizedObjectStreamSelfTest extends GridCommonAbstractTest {
     public void testByte() throws Exception {
         byte val = 10;
 
-        assertEquals(val, marshalUnmarshal(val));
+        assertEquals(new Byte(val), marshalUnmarshal(val));
     }
 
     /**
@@ -65,7 +102,7 @@ public class OptimizedObjectStreamSelfTest extends GridCommonAbstractTest {
     public void testShort() throws Exception {
         short val = 100;
 
-        assertEquals(val, marshalUnmarshal(val));
+        assertEquals(new Short(val), marshalUnmarshal(val));
     }
 
     /**
@@ -74,7 +111,7 @@ public class OptimizedObjectStreamSelfTest extends GridCommonAbstractTest {
     public void testInteger() throws Exception {
         int val = 100;
 
-        assertEquals(val, marshalUnmarshal(val));
+        assertEquals(new Integer(val), marshalUnmarshal(val));
     }
 
     /**
@@ -83,7 +120,7 @@ public class OptimizedObjectStreamSelfTest extends GridCommonAbstractTest {
     public void testLong() throws Exception {
         long val = 1000L;
 
-        assertEquals(val, marshalUnmarshal(val));
+        assertEquals(new Long(val), marshalUnmarshal(val));
     }
 
     /**
@@ -110,11 +147,11 @@ public class OptimizedObjectStreamSelfTest extends GridCommonAbstractTest {
     public void testBoolean() throws Exception {
         boolean val = true;
 
-        assertEquals(val, marshalUnmarshal(val));
+        assertEquals(new Boolean(val), marshalUnmarshal(val));
 
         val = false;
 
-        assertEquals(val, marshalUnmarshal(val));
+        assertEquals(new Boolean(val), marshalUnmarshal(val));
     }
 
     /**
@@ -123,7 +160,7 @@ public class OptimizedObjectStreamSelfTest extends GridCommonAbstractTest {
     public void testChar() throws Exception {
         char val = 10;
 
-        assertEquals(val, marshalUnmarshal(val));
+        assertEquals(new Character(val), marshalUnmarshal(val));
     }
 
     /**
@@ -1002,10 +1039,6 @@ public class OptimizedObjectStreamSelfTest extends GridCommonAbstractTest {
         Throwable t = new Throwable("Throwable");
 
         assertEquals(t.getMessage(), ((Throwable)marshalUnmarshal(t)).getMessage());
-
-        CacheFlagException flagEx = new CacheFlagException(CacheFlag.CLONE, CacheFlag.READ);
-
-        assertEquals(flagEx.flags(), ((CacheFlagException)marshalUnmarshal(flagEx)).flags());
     }
 
     /**
@@ -1022,7 +1055,7 @@ public class OptimizedObjectStreamSelfTest extends GridCommonAbstractTest {
         try {
             out = OptimizedObjectStreamRegistry.out();
 
-            out.context(CTX, null, true);
+            out.context(clsMap, CTX, null, true);
 
             out.writeObject(obj);
 
@@ -1030,7 +1063,7 @@ public class OptimizedObjectStreamSelfTest extends GridCommonAbstractTest {
 
             in = OptimizedObjectStreamRegistry.in();
 
-            in.context(CTX, null, getClass().getClassLoader());
+            in.context(clsMap, CTX, null, getClass().getClassLoader());
 
             in.in().bytes(arr, arr.length);
 

@@ -17,16 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache.transactions;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.dr.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.processor.*;
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import javax.cache.Cache;
+import javax.cache.expiry.ExpiryPolicy;
+import javax.cache.processor.EntryProcessor;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheEntryPredicate;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheReturn;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.dr.GridCacheDrInfo;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.lang.GridInClosure3;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Local transaction API.
@@ -43,11 +49,6 @@ public interface IgniteTxLocalEx extends IgniteInternalTx {
     @Nullable public Throwable commitError();
 
     /**
-     * @param e Commit error.
-     */
-    public void commitError(Throwable e);
-
-    /**
      * @throws IgniteCheckedException If commit failed.
      */
     public void userCommit() throws IgniteCheckedException;
@@ -58,53 +59,75 @@ public interface IgniteTxLocalEx extends IgniteInternalTx {
     public void userRollback() throws IgniteCheckedException;
 
     /**
-     * @return Group lock entry if this is a group-lock transaction.
-     */
-    @Nullable public IgniteTxEntry groupLockEntry();
-
-    /**
      * @param cacheCtx Cache context.
      * @param keys Keys to get.
-     * @param cached Cached entry if this method is called from entry wrapper.
-     *      Cached entry is passed if and only if there is only one key in collection of keys.
-     * @param deserializePortable Deserialize portable flag.
+     * @param deserializeBinary Deserialize binary flag.
      * @param skipVals Skip values flag.
      * @param keepCacheObjects Keep cache objects
+     * @param skipStore Skip store flag.
      * @return Future for this get.
      */
     public <K, V> IgniteInternalFuture<Map<K, V>> getAllAsync(
         GridCacheContext cacheCtx,
+        @Nullable AffinityTopologyVersion entryTopVer,
         Collection<KeyCacheObject> keys,
-        @Nullable GridCacheEntryEx cached,
-        boolean deserializePortable,
+        boolean deserializeBinary,
         boolean skipVals,
-        boolean keepCacheObjects);
+        boolean keepCacheObjects,
+        boolean skipStore,
+        boolean needVer);
 
     /**
      * @param cacheCtx Cache context.
      * @param map Map to put.
      * @param retval Flag indicating whether a value should be returned.
-     * @param cached Cached entry, if any. Will be provided only if map has size 1.
-     * @param filter Filter.
-     * @param ttl Time to live for entry. If negative, leave unchanged.
      * @return Future for put operation.
      */
     public <K, V> IgniteInternalFuture<GridCacheReturn> putAllAsync(
         GridCacheContext cacheCtx,
+        @Nullable AffinityTopologyVersion entryTopVer,
         Map<? extends K, ? extends V> map,
+        boolean retval);
+
+    /**
+     * @param cacheCtx Cache context.
+     * @param key Key.
+     * @param val Value.
+     * @param retval Return value flag.
+     * @param filter Filter.
+     * @return Future for put operation.
+     */
+    public <K, V> IgniteInternalFuture<GridCacheReturn> putAsync(
+        GridCacheContext cacheCtx,
+        @Nullable AffinityTopologyVersion entryTopVer,
+        K key,
+        V val,
         boolean retval,
-        @Nullable GridCacheEntryEx cached,
-        long ttl,
-        CacheEntryPredicate[] filter);
+        CacheEntryPredicate filter);
+
+    /**
+     * @param cacheCtx Cache context.
+     * @param key Key.
+     * @param entryProcessor Entry processor.
+     * @param invokeArgs Optional arguments for entry processor.
+     * @return Operation future.
+     */
+    public <K, V> IgniteInternalFuture<GridCacheReturn> invokeAsync(
+        GridCacheContext cacheCtx,
+        @Nullable AffinityTopologyVersion entryTopVer,
+        K key,
+        EntryProcessor<K, V, Object> entryProcessor,
+        Object... invokeArgs);
 
     /**
      * @param cacheCtx Cache context.
      * @param map Entry processors map.
      * @param invokeArgs Optional arguments for entry processor.
-     * @return Transform operation future.
+     * @return Operation future.
      */
     public <K, V, T> IgniteInternalFuture<GridCacheReturn> invokeAsync(
         GridCacheContext cacheCtx,
+        @Nullable AffinityTopologyVersion entryTopVer,
         Map<? extends K, ? extends EntryProcessor<K, V, Object>> map,
         Object... invokeArgs);
 
@@ -112,16 +135,17 @@ public interface IgniteTxLocalEx extends IgniteInternalTx {
      * @param cacheCtx Cache context.
      * @param keys Keys to remove.
      * @param retval Flag indicating whether a value should be returned.
-     * @param cached Cached entry, if any. Will be provided only if size of keys collection is 1.
      * @param filter Filter.
+     * @param singleRmv {@code True} for single key remove operation ({@link Cache#remove(Object)}.
      * @return Future for asynchronous remove.
      */
     public <K, V> IgniteInternalFuture<GridCacheReturn> removeAllAsync(
         GridCacheContext cacheCtx,
+        @Nullable AffinityTopologyVersion entryTopVer,
         Collection<? extends K> keys,
-        @Nullable GridCacheEntryEx cached,
         boolean retval,
-        CacheEntryPredicate[] filter);
+        CacheEntryPredicate filter,
+        boolean singleRmv);
 
     /**
      * @param cacheCtx Cache context.
@@ -142,25 +166,6 @@ public interface IgniteTxLocalEx extends IgniteInternalTx {
         Map<KeyCacheObject, GridCacheVersion> drMap);
 
     /**
-     * Performs keys locking for affinity-based group lock transactions.
-     *
-     * @param cacheCtx Cache context.
-     * @param keys Keys to lock.
-     * @return Lock future.
-     */
-    public <K> IgniteInternalFuture<?> groupLockAsync(GridCacheContext cacheCtx, Collection<K> keys);
-
-    /**
-     * @return {@code True} if keys from the same partition are allowed to be enlisted in group-lock transaction.
-     */
-    public boolean partitionLock();
-
-    /**
-     * @return Return value for
-     */
-    public GridCacheReturn implicitSingleResult();
-
-    /**
      * Finishes transaction (either commit or rollback).
      *
      * @param commit {@code True} if commit, {@code false} if rollback.
@@ -174,17 +179,21 @@ public interface IgniteTxLocalEx extends IgniteInternalTx {
      * @param readThrough Read through flag.
      * @param async if {@code True}, then loading will happen in a separate thread.
      * @param keys Keys.
-     * @param c Closure.
-     * @param deserializePortable Deserialize portable flag.
      * @param skipVals Skip values flag.
+     * @param needVer If {@code true} version is required for loaded values.
+     * @param c Closure to be applied for loaded values.
+     * @param expiryPlc Expiry policy.
      * @return Future with {@code True} value if loading took place.
      */
-    public IgniteInternalFuture<Boolean> loadMissing(
+    public IgniteInternalFuture<Void> loadMissing(
         GridCacheContext cacheCtx,
+        AffinityTopologyVersion topVer,
         boolean readThrough,
         boolean async,
         Collection<KeyCacheObject> keys,
-        boolean deserializePortable,
         boolean skipVals,
-        IgniteBiInClosure<KeyCacheObject, Object> c);
+        boolean needVer,
+        boolean keepBinary,
+        final ExpiryPolicy expiryPlc,
+        GridInClosure3<KeyCacheObject, Object, GridCacheVersion> c);
 }

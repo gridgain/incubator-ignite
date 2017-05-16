@@ -17,16 +17,20 @@
 
 package org.apache.ignite.yardstick;
 
-import org.apache.ignite.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.lang.*;
-import org.yardstickframework.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteState;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.yardstickframework.BenchmarkConfiguration;
+import org.yardstickframework.BenchmarkDriverAdapter;
+import org.yardstickframework.BenchmarkUtils;
 
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.events.EventType.*;
-import static org.yardstickframework.BenchmarkUtils.*;
+import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
+import static org.yardstickframework.BenchmarkUtils.jcommander;
+import static org.yardstickframework.BenchmarkUtils.println;
 
 /**
  * Abstract class for Ignite benchmarks.
@@ -34,6 +38,9 @@ import static org.yardstickframework.BenchmarkUtils.*;
 public abstract class IgniteAbstractBenchmark extends BenchmarkDriverAdapter {
     /** Arguments. */
     protected final IgniteBenchmarkArguments args = new IgniteBenchmarkArguments();
+
+    /** Logger */
+    private PreloadLogger lgr;
 
     /** Node. */
     private IgniteNode node;
@@ -45,15 +52,42 @@ public abstract class IgniteAbstractBenchmark extends BenchmarkDriverAdapter {
         jcommander(cfg.commandLineArguments(), args, "<ignite-driver>");
 
         if (Ignition.state() != IgniteState.STARTED) {
-            node = new IgniteNode(args.distributionMode() == CLIENT_ONLY);
+            node = new IgniteNode(args.isClientOnly() && !args.isNearCache());
 
             node.start(cfg);
         }
         else
             // Support for mixed benchmarks mode.
-            node = new IgniteNode(args.distributionMode() == CLIENT_ONLY, Ignition.ignite());
+            node = new IgniteNode(args.isClientOnly() && !args.isNearCache(), Ignition.ignite());
 
         waitForNodes();
+    }
+
+    /**
+     * Prints non-system caches sizes during preload.
+     *
+     * @param logInterval time interval between printing preload log. Required to be positive.
+     */
+    protected void startPreloadLogging(long logInterval) {
+        try {
+            if (node != null && cfg != null && logInterval >= 0)
+                lgr = IgniteBenchmarkUtils.startPreloadLogger(node, cfg, logInterval);
+            else
+                BenchmarkUtils.println("Failed to start preload logger [node=" + node + ", cfg = " + cfg +
+                    ", logInterval = " + logInterval + "]");
+        }
+        catch (Exception e) {
+            BenchmarkUtils.error("Failed to start preload logger [node=" + node + ", cfg = " + cfg +
+                ", logInterval = " + logInterval + "]", e);
+        }
+    }
+
+    /**
+     * Terminates printing preload log.
+     */
+    protected void stopPreloadLogging() {
+        if (lgr != null)
+            lgr.stopAndPrintStatistics();
     }
 
     /** {@inheritDoc} */

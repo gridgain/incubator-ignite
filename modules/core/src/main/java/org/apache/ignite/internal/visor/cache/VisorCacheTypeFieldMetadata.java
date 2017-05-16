@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.cache.CacheTypeFieldMetadata;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Data transfer object for {@link CacheTypeFieldMetadata}.
  */
-public class VisorCacheTypeFieldMetadata implements Serializable {
+public class VisorCacheTypeFieldMetadata implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -46,21 +46,30 @@ public class VisorCacheTypeFieldMetadata implements Serializable {
      * @return Data transfer object for given cache field metadata.
      */
     public static VisorCacheTypeFieldMetadata from(CacheTypeFieldMetadata f) {
-        VisorCacheTypeFieldMetadata fieldMetadata = new VisorCacheTypeFieldMetadata();
-
-        fieldMetadata.dbName(f.getDatabaseName());
-        fieldMetadata.dbType(f.getDatabaseType());
-        fieldMetadata.javaName(f.getJavaName());
-        fieldMetadata.javaType(U.compact(f.getJavaType().getName()));
-
-        return fieldMetadata;
+        return new VisorCacheTypeFieldMetadata(f.getDatabaseName(), f.getDatabaseType(),
+            f.getJavaName(), U.compact(f.getJavaType().getName()));
     }
 
     /**
-     * @param dbName New column name in database.
+     * Empty constructor.
      */
-    public void dbName(String dbName) {
+    public VisorCacheTypeFieldMetadata() {
+        // No-op.
+    }
+
+    /**
+     * Full constructor.
+     *
+     * @param dbName Column name in database.
+     * @param dbType Column JDBC type in database.
+     * @param javaName Field name in java object.
+     * @param javaType Corresponding java type.
+     */
+    public VisorCacheTypeFieldMetadata(String dbName, int dbType, String javaName, String javaType) {
         this.dbName = dbName;
+        this.dbType = dbType;
+        this.javaName = javaName;
+        this.javaType = javaType;
     }
 
     /**
@@ -71,13 +80,6 @@ public class VisorCacheTypeFieldMetadata implements Serializable {
     }
 
     /**
-     * @param dbType New column JDBC type in database.
-     */
-    public void dbType(int dbType) {
-        this.dbType = dbType;
-    }
-
-    /**
      * @return Column JDBC type in database.
      */
     public int dbType() {
@@ -85,24 +87,10 @@ public class VisorCacheTypeFieldMetadata implements Serializable {
     }
 
     /**
-     * @param javaName New field name in java object.
-     */
-    public void javaName(String javaName) {
-        this.javaName = javaName;
-    }
-
-    /**
      * @return Field name in java object.
      */
     public String javaName() {
         return javaName;
-    }
-
-    /**
-     * @param javaType New corresponding java type.
-     */
-    public void javaType(String javaType) {
-        this.javaType = javaType;
     }
 
     /**

@@ -17,14 +17,17 @@
 
 package org.apache.ignite.lang;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.text.*;
-import java.util.*;
-import java.util.regex.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Represents node version.
@@ -40,7 +43,7 @@ public class IgniteProductVersion implements Comparable<IgniteProductVersion>, E
 
     /** Regexp parse pattern. */
     private static final Pattern VER_PATTERN =
-        Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)(-([^0123456789][^-]+)(-SNAPSHOT)?)?(-(\\d+))?(-([\\da-f]+))?");
+        Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)([-.]([^0123456789][^-]+)(-SNAPSHOT)?)?(-(\\d+))?(-([\\da-f]+))?");
 
     /** Major version number. */
     private byte major;
@@ -176,18 +179,40 @@ public class IgniteProductVersion implements Comparable<IgniteProductVersion>, E
     /** {@inheritDoc} */
     @Override public int compareTo(@NotNull IgniteProductVersion o) {
         // NOTE: Unknown version is less than any other version.
-        if (major == o.major) {
-            if (minor == o.minor) {
-                if (maintenance == o.maintenance)
-                    return revTs != o.revTs ? revTs < o.revTs ? -1 : 1 : 0;
-                else
-                    return maintenance < o.maintenance ? -1 : 1;
-            }
-            else
-                return minor < o.minor ? -1 : 1;
-        }
-        else
-            return major < o.major ? -1 : 1;
+        int res = Integer.compare(major, o.major);
+
+        if (res != 0)
+            return res;
+
+        res = Integer.compare(minor, o.minor);
+
+        if (res != 0)
+            return res;
+
+        res = Integer.compare(maintenance, o.maintenance);
+
+        if (res != 0)
+            return res;
+
+        return Long.compare(revTs, o.revTs);
+    }
+
+    /**
+     * @param o Other version.
+     * @return Compare result.
+     */
+    public int compareToIgnoreTimestamp(@NotNull IgniteProductVersion o) {
+        int res = Integer.compare(major, o.major);
+
+        if (res != 0)
+            return res;
+
+        res = Integer.compare(minor, o.minor);
+
+        if (res != 0)
+            return res;
+
+        return Integer.compare(maintenance, o.maintenance);
     }
 
     /** {@inheritDoc} */
@@ -253,7 +278,7 @@ public class IgniteProductVersion implements Comparable<IgniteProductVersion>, E
     public static IgniteProductVersion fromString(String verStr) {
         assert verStr != null;
 
-        if (verStr.endsWith("-DEV")) // Development version, just cut it out.
+        if (verStr.endsWith("-DEV") || verStr.endsWith("-n/a")) // Development or built from source ZIP.
             verStr = verStr.substring(0, verStr.length() - 4);
 
         Matcher match = VER_PATTERN.matcher(verStr);

@@ -17,19 +17,19 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jetbrains.annotations.*;
+import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.cache.Cache;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jetbrains.annotations.Nullable;
 
-import javax.cache.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Grid cache concurrent hash map self test.
@@ -64,14 +64,14 @@ public class GridCacheConcurrentMapTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).jcache(null).removeAll();
+        grid(0).cache(null).removeAll();
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testRandomEntry() throws Exception {
-        IgniteCache<String, String> cache = grid(0).jcache(null);
+        IgniteCache<String, String> cache = grid(0).cache(null);
 
         for (int i = 0; i < 500; i++)
             cache.put("key" + i, "val" + i);
@@ -89,7 +89,7 @@ public class GridCacheConcurrentMapTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testRandomEntryMultiThreaded() throws Exception {
-        final IgniteCache<String, String> cache = grid(0).jcache(null);
+        final IgniteCache<String, String> cache = grid(0).cache(null);
 
         final AtomicBoolean done = new AtomicBoolean();
 

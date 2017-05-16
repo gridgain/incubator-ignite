@@ -17,12 +17,10 @@
 
 package org.apache.ignite.lang;
 
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.testframework.junits.common.*;
-
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import org.apache.ignite.internal.util.lang.GridMetadataAwareAdapter;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
 
 /**
  *
@@ -41,17 +39,19 @@ public class GridMetadataAwareAdapterSelfTest extends GridCommonAbstractTest {
     public void test() {
         GridMetadataAwareAdapter ma = new GridMetadataAwareAdapter();
 
-        UUID attr1 = UUID.randomUUID();
-        UUID attr2 = UUID.randomUUID();
-        UUID attr3 = UUID.randomUUID();
-        UUID attr4 = UUID.randomUUID();
-        UUID attr156 = UUID.randomUUID();
-        UUID k1 = UUID.randomUUID();
-        UUID k2 = UUID.randomUUID();
-        UUID k3 = UUID.randomUUID();
-        UUID a1 = UUID.randomUUID();
-        UUID a2 = UUID.randomUUID();
-        UUID a3 = UUID.randomUUID();
+        int cnt = 0;
+
+        int attr1 = cnt++;
+        int attr2 = cnt++;
+        int attr3 = cnt++;
+        int attr4 = cnt++;
+        int attr156 = cnt++;
+        int k1 = cnt++;
+        int k2 = cnt++;
+        int k3 = cnt++;
+        int a1 = cnt++;
+        int a2 = cnt++;
+        int a3 = cnt;
 
         // addMeta(name, val).
         assert ma.addMeta(attr1, "val1") == null;
@@ -67,16 +67,15 @@ public class GridMetadataAwareAdapterSelfTest extends GridCommonAbstractTest {
 
         // meta(name).
         assertEquals("val1", ma.meta(attr1));
-        assertEquals(1, ma.meta(attr2));
+        assertEquals(new Integer(1), ma.meta(attr2));
 
         // allMeta().
-        Map<UUID, Object> allMeta = ma.allMeta();
+        Object[] allMeta = ma.allMeta();
 
         assert allMeta != null;
-        assert allMeta.size() == 2;
 
-        assertEquals("val1", allMeta.get(attr1));
-        assertEquals(1, allMeta.get(attr2));
+        assertEquals("val1", allMeta[attr1]);
+        assertEquals(1, allMeta[attr2]);
 
         // addMetaIfAbsent(name, val).
         assert ma.addMetaIfAbsent(attr2, 2) == 1;
@@ -96,8 +95,8 @@ public class GridMetadataAwareAdapterSelfTest extends GridCommonAbstractTest {
         }) == 5;
 
         // removeMeta(name).
-        assertEquals(3, ma.removeMeta(attr3));
-        assertEquals(5, ma.removeMeta(attr4));
+        assertEquals(new Integer(3), ma.removeMeta(attr3));
+        assertEquals(new Integer(5), ma.removeMeta(attr4));
 
         assert ma.removeMeta(attr156) == null;
 
@@ -106,24 +105,37 @@ public class GridMetadataAwareAdapterSelfTest extends GridCommonAbstractTest {
         assert ma.replaceMeta(attr2, 1, 4);
 
         // copyMeta(from).
-        ma.copyMeta(new GridMetadataAwareAdapter(F.<UUID, Object>asMap(k1, "v1", k2, 2)));
+        GridMetadataAwareAdapter adapter = new GridMetadataAwareAdapter();
+        adapter.addMeta(k1, "v1");
+        adapter.addMeta(k2, 2);
+
+        ma.copyMeta(adapter);
+
+        allMeta = ma.allMeta();
 
         assertEquals("v1", ma.meta(k1));
-        assertEquals(2, ma.meta(k2));
-        assertEquals("val1", allMeta.get(attr1));
-        assertEquals(4, allMeta.get(attr2));
+        assertEquals(new Integer(2), ma.meta(k2));
+        assertEquals("val1", allMeta[attr1]);
+        assertEquals(4, allMeta[attr2]);
 
         assert !ma.hasMeta(k3);
 
         // copyMeta(from).
-        ma.copyMeta(F.asMap(a1, 1, a2, 2));
+        Object[] objs = new Object[20];
 
-        assertEquals(1, ma.meta(a1));
-        assertEquals(2, ma.meta(a2));
+        objs[a1] = 1;
+        objs[a2] = 2;
+        objs[19] = 19;
+
+        ma.copyMeta(objs);
+
+        assertEquals(new Integer(1), ma.meta(a1));
+        assertEquals(new Integer(2), ma.meta(a2));
         assertEquals("v1", ma.meta(k1));
-        assertEquals(2, ma.meta(k2));
-        assertEquals("val1", allMeta.get(attr1));
-        assertEquals(4, allMeta.get(attr2));
+        assertEquals(new Integer(2), ma.meta(k2));
+        assertEquals("val1", allMeta[attr1]);
+        assertEquals(4, allMeta[attr2]);
+        assertEquals(19, 19);
 
         assert !ma.hasMeta(a3);
     }

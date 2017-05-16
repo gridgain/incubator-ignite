@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.processors.clock;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.util.worker.*;
-import org.apache.ignite.thread.*;
-
-import java.io.*;
-import java.net.*;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.worker.GridWorker;
+import org.apache.ignite.thread.IgniteThread;
 
 /**
  * Time server that enables time synchronization between nodes.
@@ -60,11 +64,23 @@ public class GridClockServer {
 
         try {
             int startPort = ctx.config().getTimeServerPortBase();
-            int endPort = startPort + ctx.config().getTimeServerPortRange() - 1;
+            int portRange = ctx.config().getTimeServerPortRange();
+            int endPort = portRange == 0 ? startPort : startPort + portRange - 1;
 
-            InetAddress locHost = !F.isEmpty(ctx.config().getLocalHost()) ?
-                InetAddress.getByName(ctx.config().getLocalHost()) :
-                U.getLocalHost();
+            InetAddress locHost;
+
+            if (F.isEmpty(ctx.config().getLocalHost())) {
+                try {
+                    locHost = U.getLocalHost();
+                }
+                catch (IOException ignored) {
+                    locHost = InetAddress.getLoopbackAddress();
+
+                    U.warn(log, "Failed to get local host address, will use loopback address: " + locHost);
+                }
+            }
+            else
+                locHost = InetAddress.getByName(ctx.config().getLocalHost());
 
             for (int p = startPort; p <= endPort; p++) {
                 try {
@@ -83,8 +99,8 @@ public class GridClockServer {
             }
 
             if (sock == null)
-                throw new IgniteCheckedException("Failed to bind time server socket within specified port range [locHost=" +
-                    locHost + ", startPort=" + startPort + ", endPort=" + endPort + ']');
+                throw new IgniteCheckedException("Failed to bind time server socket within specified port range " +
+                    "[locHost=" + locHost + ", startPort=" + startPort + ", endPort=" + endPort + ']');
         }
         catch (IOException e) {
             throw new IgniteCheckedException("Failed to start time server (failed to get local host address)", e);
@@ -170,7 +186,7 @@ public class GridClockServer {
          * Creates read worker.
          */
         protected ReadWorker() {
-            super(ctx.gridName(), "grid-time-server-reader", log);
+            super(ctx.gridName(), "grid-time-server-reader", GridClockServer.this.log);
         }
 
         /** {@inheritDoc} */

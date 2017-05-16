@@ -17,16 +17,18 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Test cache closure execution.
@@ -55,11 +57,10 @@ public class GridCacheDhtEvictionsDisabledSelfTest extends GridCommonAbstractTes
         CacheConfiguration cc = defaultCacheConfiguration();
 
         cc.setName("test");
-        cc.setCacheMode(CacheMode.PARTITIONED);
-        cc.setDefaultTimeToLive(0);
-        cc.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+        cc.setCacheMode(PARTITIONED);
+        cc.setWriteSynchronizationMode(FULL_SYNC);
         cc.setAtomicityMode(TRANSACTIONAL);
-        cc.setDistributionMode(PARTITIONED_ONLY);
+        cc.setNearConfiguration(null);
 
         c.setCacheConfiguration(cc);
 
@@ -76,7 +77,7 @@ public class GridCacheDhtEvictionsDisabledSelfTest extends GridCommonAbstractTes
         checkNodes(startGridsMultiThreaded(1));
 
         assertEquals(26, colocated(0, "test").size());
-        assertEquals(26, cache(0, "test").size());
+        assertEquals(26, jcache(0, "test").localSize());
     }
 
     /** @throws Exception If failed. */
@@ -84,7 +85,7 @@ public class GridCacheDhtEvictionsDisabledSelfTest extends GridCommonAbstractTes
         checkNodes(startGridsMultiThreaded(2));
 
         assertTrue(colocated(0, "test").size() > 0);
-        assertTrue(cache(0, "test").size() > 0);
+        assertTrue(jcache(0, "test").localSize() > 0);
     }
 
     /** @throws Exception If failed. */
@@ -92,7 +93,7 @@ public class GridCacheDhtEvictionsDisabledSelfTest extends GridCommonAbstractTes
         checkNodes(startGridsMultiThreaded(3));
 
         assertTrue(colocated(0, "test").size() > 0);
-        assertTrue(cache(0, "test").size() > 0);
+        assertTrue(jcache(0, "test").localSize() > 0);
     }
 
     /**
@@ -100,7 +101,7 @@ public class GridCacheDhtEvictionsDisabledSelfTest extends GridCommonAbstractTes
      * @throws Exception If failed.
      */
     private void checkNodes(Ignite g) throws Exception {
-        IgniteCache<String, String> cache = g.jcache("test");
+        IgniteCache<String, String> cache = g.cache("test");
 
         for (char c = 'a'; c <= 'z'; c++) {
             String key = Character.toString(c);
@@ -116,10 +117,7 @@ public class GridCacheDhtEvictionsDisabledSelfTest extends GridCommonAbstractTes
             assertNotNull(v1);
             assertNotNull(v2);
 
-            if (affinity(cache).mapKeyToNode(key).isLocal())
-                assertSame(v1, v2);
-            else
-                assertEquals(v1, v2);
+            assertEquals(v1, v2);
         }
     }
 }

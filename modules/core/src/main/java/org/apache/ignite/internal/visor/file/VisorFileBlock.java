@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.visor.file;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Represents block of bytes from a file, could be optionally zipped.
  */
-public class VisorFileBlock implements Serializable {
+public class VisorFileBlock implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 

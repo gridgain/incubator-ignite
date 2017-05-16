@@ -17,15 +17,16 @@
 
 package org.apache.ignite.internal.visor.igfs;
 
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.IgniteFileSystem;
+import org.apache.ignite.igfs.IgfsMetrics;
+import org.apache.ignite.internal.LessNamingBean;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- * Data transfer object for {@link org.apache.ignite.igfs.IgfsMetrics}.
+ * Data transfer object for {@link IgfsMetrics}.
  */
-public class VisorIgfsMetrics implements Serializable {
+public class VisorIgfsMetrics implements Serializable, LessNamingBean {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -72,28 +73,30 @@ public class VisorIgfsMetrics implements Serializable {
     private long bytesWrtTm;
 
     /**
-     * @param m IGFS metrics.
+     * @param igfs Source IGFS.
      * @return Data transfer object for given IGFS metrics.
      */
-    public static VisorIgfsMetrics from(IgfsMetrics m) {
-        assert m != null;
+    public static VisorIgfsMetrics from(IgniteFileSystem igfs) {
+        assert igfs != null;
+
+        IgfsMetrics m = igfs.metrics();
 
         VisorIgfsMetrics metrics = new VisorIgfsMetrics();
 
-        metrics.totalSpaceSize(m.maxSpaceSize());
-        metrics.usedSpaceSize(m.localSpaceSize());
-        metrics.foldersCount(m.directoriesCount());
-        metrics.filesCount(m.filesCount());
-        metrics.filesOpenedForRead(m.filesOpenedForRead());
-        metrics.filesOpenedForWrite(m.filesOpenedForWrite());
-        metrics.blocksRead(m.blocksReadTotal());
-        metrics.blocksReadRemote(m.blocksReadRemote());
-        metrics.blocksWritten(m.blocksWrittenTotal());
-        metrics.blocksWrittenRemote(m.blocksWrittenRemote());
-        metrics.bytesRead(m.bytesRead());
-        metrics.bytesReadTime(m.bytesReadTime());
-        metrics.bytesWritten(m.bytesWritten());
-        metrics.bytesWriteTime(m.bytesWriteTime());
+        metrics.totalSpaceSz = igfs.configuration().getMaxSpaceSize();
+        metrics.usedSpaceSz = m.localSpaceSize();
+        metrics.foldersCnt = m.directoriesCount();
+        metrics.filesCnt = m.filesCount();
+        metrics.filesOpenedForRd = m.filesOpenedForRead();
+        metrics.filesOpenedForWrt = m.filesOpenedForWrite();
+        metrics.blocksRd = m.blocksReadTotal();
+        metrics.blocksRdRmt = m.blocksReadRemote();
+        metrics.blocksWrt = m.blocksWrittenTotal();
+        metrics.blocksWrtRmt = m.blocksWrittenRemote();
+        metrics.bytesRd = m.bytesRead();
+        metrics.bytesRdTm = m.bytesReadTime();
+        metrics.bytesWrt = m.bytesWritten();
+        metrics.bytesWrtTm = m.bytesWriteTime();
 
         return metrics;
     }
@@ -148,24 +151,10 @@ public class VisorIgfsMetrics implements Serializable {
     }
 
     /**
-     * @param totalSpaceSz New maximum amount of data that can be stored on local node.
-     */
-    public void totalSpaceSize(long totalSpaceSz) {
-        this.totalSpaceSz = totalSpaceSz;
-    }
-
-    /**
      * @return Local used space in bytes on local node.
      */
     public long usedSpaceSize() {
         return usedSpaceSz;
-    }
-
-    /**
-     * @param usedSpaceSz New local used space in bytes on local node.
-     */
-    public void usedSpaceSize(long usedSpaceSz) {
-        this.usedSpaceSz = usedSpaceSz;
     }
 
     /**
@@ -183,24 +172,10 @@ public class VisorIgfsMetrics implements Serializable {
     }
 
     /**
-     * @param foldersCnt New number of directories created in file system.
-     */
-    public void foldersCount(int foldersCnt) {
-        this.foldersCnt = foldersCnt;
-    }
-
-    /**
      * @return Number of files stored in file system.
      */
     public int filesCount() {
         return filesCnt;
-    }
-
-    /**
-     * @param filesCnt New number of files stored in file system.
-     */
-    public void filesCount(int filesCnt) {
-        this.filesCnt = filesCnt;
     }
 
     /**
@@ -211,24 +186,10 @@ public class VisorIgfsMetrics implements Serializable {
     }
 
     /**
-     * @param filesOpenedForRd New number of files that are currently opened for reading on local node.
-     */
-    public void filesOpenedForRead(int filesOpenedForRd) {
-        this.filesOpenedForRd = filesOpenedForRd;
-    }
-
-    /**
      * @return Number of files that are currently opened for writing on local node.
      */
     public int filesOpenedForWrite() {
         return filesOpenedForWrt;
-    }
-
-    /**
-     * @param filesOpenedForWrt New number of files that are currently opened for writing on local node.
-     */
-    public void filesOpenedForWrite(int filesOpenedForWrt) {
-        this.filesOpenedForWrt = filesOpenedForWrt;
     }
 
     /**
@@ -239,24 +200,10 @@ public class VisorIgfsMetrics implements Serializable {
     }
 
     /**
-     * @param blocksRd New total blocks read, local and remote.
-     */
-    public void blocksRead(long blocksRd) {
-        this.blocksRd = blocksRd;
-    }
-
-    /**
      * @return Total remote blocks read.
      */
     public long blocksReadRemote() {
         return blocksRdRmt;
-    }
-
-    /**
-     * @param blocksRdRmt New total remote blocks read.
-     */
-    public void blocksReadRemote(long blocksRdRmt) {
-        this.blocksRdRmt = blocksRdRmt;
     }
 
     /**
@@ -267,24 +214,10 @@ public class VisorIgfsMetrics implements Serializable {
     }
 
     /**
-     * @param blocksWrt New total blocks write, local and remote.
-     */
-    public void blocksWritten(long blocksWrt) {
-        this.blocksWrt = blocksWrt;
-    }
-
-    /**
      * @return Total remote blocks write.
      */
     public long blocksWrittenRemote() {
         return blocksWrtRmt;
-    }
-
-    /**
-     * @param blocksWrtRmt New total remote blocks write.
-     */
-    public void blocksWrittenRemote(long blocksWrtRmt) {
-        this.blocksWrtRmt = blocksWrtRmt;
     }
 
     /**
@@ -295,24 +228,10 @@ public class VisorIgfsMetrics implements Serializable {
     }
 
     /**
-     * @param bytesRd New total bytes read.
-     */
-    public void bytesRead(long bytesRd) {
-        this.bytesRd = bytesRd;
-    }
-
-    /**
      * @return Total bytes read time.
      */
     public long bytesReadTime() {
         return bytesRdTm;
-    }
-
-    /**
-     * @param bytesRdTm New total bytes read time.
-     */
-    public void bytesReadTime(long bytesRdTm) {
-        this.bytesRdTm = bytesRdTm;
     }
 
     /**
@@ -323,24 +242,10 @@ public class VisorIgfsMetrics implements Serializable {
     }
 
     /**
-     * @param bytesWrt New total bytes write.
-     */
-    public void bytesWritten(long bytesWrt) {
-        this.bytesWrt = bytesWrt;
-    }
-
-    /**
      * @return Total bytes write time.
      */
     public long bytesWriteTime() {
         return bytesWrtTm;
-    }
-
-    /**
-     * @param bytesWrtTm New total bytes write time.
-     */
-    public void bytesWriteTime(long bytesWrtTm) {
-        this.bytesWrtTm = bytesWrtTm;
     }
 
     /** {@inheritDoc} */

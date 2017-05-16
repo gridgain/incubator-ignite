@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.util.concurrent.atomic.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteFuture;
 
 /**
  * Convenience adapter for cache managers.
@@ -123,6 +124,11 @@ public class GridCacheManagerAdapter<K, V> implements GridCacheManager<K, V> {
      * @param cancel Cancel flag.
      */
     protected void onKernalStop0(boolean cancel) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onDisconnected(IgniteFuture<?> reconnectFut) {
         // No-op.
     }
 

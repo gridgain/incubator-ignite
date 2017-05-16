@@ -17,33 +17,57 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.*;
-import org.apache.ignite.internal.processors.cache.distributed.near.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import javax.cache.Cache;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.CacheAtomicWriteOrderMode;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheAdapter;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
-import javax.cache.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-import java.util.concurrent.locks.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  * Base test for all multithreaded cache scenarios w/ and w/o failover.
@@ -123,13 +147,6 @@ public class GridCacheMultithreadedFailoverAbstractTest extends GridCommonAbstra
     }
 
     /**
-     * @return Distribution mode.
-     */
-    protected CacheDistributionMode distributionMode() {
-        return NEAR_PARTITIONED;
-    }
-
-    /**
      * @return Number of data nodes.
      */
     protected int dataNodes() {
@@ -205,7 +222,6 @@ public class GridCacheMultithreadedFailoverAbstractTest extends GridCommonAbstra
         ccfg.setSwapEnabled(false);
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
         ccfg.setEvictionPolicy(null);
-        ccfg.setNearEvictionPolicy(null);
 
         if (cacheMode() == PARTITIONED)
             ccfg.setBackups(backups());
@@ -214,16 +230,10 @@ public class GridCacheMultithreadedFailoverAbstractTest extends GridCommonAbstra
             assert atomicWriteOrderMode() != null;
 
             ccfg.setAtomicWriteOrderMode(atomicWriteOrderMode());
-
-            if (cacheMode() == PARTITIONED)
-                ccfg.setDistributionMode(PARTITIONED_ONLY);
         }
         else {
-            if (cacheMode() == PARTITIONED) {
-                assert distributionMode() != null;
-
-                ccfg.setDistributionMode(distributionMode());
-            }
+            if (cacheMode() == PARTITIONED)
+                ccfg.setNearConfiguration(new NearCacheConfiguration());
         }
 
         IgniteConfiguration cfg = getConfiguration(nodeName(idx));
@@ -278,7 +288,7 @@ public class GridCacheMultithreadedFailoverAbstractTest extends GridCommonAbstra
 
                     Ignite ignite = G.ignite(nodeName(0));
 
-                    IgniteCache<Integer, Integer> cache = ignite.jcache(CACHE_NAME);
+                    IgniteCache<Integer, Integer> cache = ignite.cache(CACHE_NAME);
 
                     int startKey = keysPerThread * idx;
                     int endKey = keysPerThread * (idx + 1);
@@ -505,7 +515,7 @@ public class GridCacheMultithreadedFailoverAbstractTest extends GridCommonAbstra
         List<GridDhtCacheAdapter<Integer, Integer>> dhtCaches = null;
 
         for (int i = 0 ; i < dataNodes(); i++) {
-            IgniteCache<Integer, Integer> cache = G.ignite(nodeName(i)).jcache(CACHE_NAME);
+            IgniteCache<Integer, Integer> cache = G.ignite(nodeName(i)).cache(CACHE_NAME);
 
             assert cache != null;
 
@@ -513,7 +523,7 @@ public class GridCacheMultithreadedFailoverAbstractTest extends GridCommonAbstra
 
             GridCacheAdapter<Integer, Integer> cache0 =
                 (GridCacheAdapter<Integer, Integer>)((IgniteKernal)cache.unwrap(Ignite.class))
-                    .<Integer, Integer>cache(CACHE_NAME);
+                    .<Integer, Integer>getCache(CACHE_NAME);
 
             if (cache0.isNear()) {
                 if (dhtCaches == null)

@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.processors.cache.query;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.query.*;
+import java.util.List;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.query.QueryCursor;
+import org.apache.ignite.internal.processors.query.GridQueryFieldMetadata;
 
 /**
  * Extended query cursor interface allowing for "getAll" to output data into destination other than Collection.
@@ -30,6 +32,11 @@ public interface QueryCursorEx<T> extends QueryCursor<T> {
      * @param c Consumer.
      */
     public void getAll(Consumer<T> c) throws IgniteCheckedException;
+
+    /**
+     * @return Query metadata.
+     */
+    public List<GridQueryFieldMetadata> fieldsMeta();
 
     /**
      * Query value consumer.

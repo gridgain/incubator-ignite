@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-
-import javax.cache.*;
-import java.util.*;
+import java.util.Iterator;
+import javax.cache.Cache;
+import org.apache.ignite.internal.util.GridSerializableIterator;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgnitePredicate;
 
 /**
  * Cache-backed iterator.
@@ -82,6 +82,6 @@ public class GridCacheIterator<K, V, T> implements GridSerializableIterator<T> {
     @Override public void remove() {
         it.remove();
 
-        cctx.grid().jcache(cctx.name()).remove(cur.getKey(), cur.getValue());
+        cctx.grid().cache(cctx.name()).remove(cur.getKey(), cur.getValue());
     }
 }

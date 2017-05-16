@@ -17,16 +17,19 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.query.*;
-import org.apache.ignite.cache.query.annotations.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import javax.cache.Cache;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.query.QueryCursor;
+import org.apache.ignite.cache.query.SqlQuery;
+import org.apache.ignite.cache.query.annotations.QuerySqlField;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
-import javax.cache.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CachePeekMode.ALL;
 
 /**
  * Tests for cache query index.
@@ -52,7 +55,7 @@ public class IgniteCacheQueryIndexSelfTest extends GridCacheAbstractSelfTest {
      * @throws Exception If failed.
      */
     public void testWithoutStoreLoad() throws Exception {
-        IgniteCache<Integer, CacheValue> cache = grid(0).jcache(null);
+        IgniteCache<Integer, CacheValue> cache = grid(0).cache(null);
 
         for (int i = 0; i < ENTRY_CNT; i++)
             cache.put(i, new CacheValue(i));
@@ -71,9 +74,9 @@ public class IgniteCacheQueryIndexSelfTest extends GridCacheAbstractSelfTest {
      */
     public void testWithStoreLoad() throws Exception {
         for (int i = 0; i < ENTRY_CNT; i++)
-            putToStore(i, new CacheValue(i));
+            storeStgy.putToStore(i, new CacheValue(i));
 
-        IgniteCache<Integer, CacheValue> cache0 = grid(0).jcache(null);
+        IgniteCache<Integer, CacheValue> cache0 = grid(0).cache(null);
 
         cache0.loadCache(null);
 
@@ -94,7 +97,7 @@ public class IgniteCacheQueryIndexSelfTest extends GridCacheAbstractSelfTest {
         assert map.entrySet().size() == ENTRY_CNT : "Expected: " + ENTRY_CNT + ", but was: " + cache.size();
         assert map.keySet().size() == ENTRY_CNT : "Expected: " + ENTRY_CNT + ", but was: " + cache.size();
         assert map.values().size() == ENTRY_CNT : "Expected: " + ENTRY_CNT + ", but was: " + cache.size();
-        assert cache.localSize() == ENTRY_CNT : "Expected: " + ENTRY_CNT + ", but was: " + cache.localSize();
+        assert cache.localSize(ALL) == ENTRY_CNT : "Expected: " + ENTRY_CNT + ", but was: " + cache.localSize();
     }
 
     /**

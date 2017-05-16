@@ -17,18 +17,28 @@
 
 package org.apache.ignite.internal.processors.hadoop.taskexecutor;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.hadoop.*;
-import org.apache.ignite.internal.processors.hadoop.counter.*;
-import org.apache.ignite.internal.processors.hadoop.shuffle.collections.*;
-import org.apache.ignite.internal.util.offheap.unsafe.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.processors.hadoop.HadoopJob;
+import org.apache.ignite.internal.processors.hadoop.HadoopTaskCancelledException;
+import org.apache.ignite.internal.processors.hadoop.HadoopTaskContext;
+import org.apache.ignite.internal.processors.hadoop.HadoopTaskInfo;
+import org.apache.ignite.internal.processors.hadoop.HadoopTaskInput;
+import org.apache.ignite.internal.processors.hadoop.HadoopTaskOutput;
+import org.apache.ignite.internal.processors.hadoop.counter.HadoopPerformanceCounter;
+import org.apache.ignite.internal.processors.hadoop.shuffle.collections.HadoopHashMultimap;
+import org.apache.ignite.internal.processors.hadoop.shuffle.collections.HadoopMultimap;
+import org.apache.ignite.internal.processors.hadoop.shuffle.collections.HadoopSkipList;
+import org.apache.ignite.internal.util.offheap.unsafe.GridUnsafeMemory;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.internal.processors.hadoop.HadoopJobProperty.*;
-import static org.apache.ignite.internal.processors.hadoop.HadoopTaskType.*;
+import static org.apache.ignite.internal.processors.hadoop.HadoopJobProperty.COMBINER_HASHMAP_SIZE;
+import static org.apache.ignite.internal.processors.hadoop.HadoopJobProperty.SHUFFLE_COMBINER_NO_SORTING;
+import static org.apache.ignite.internal.processors.hadoop.HadoopJobProperty.get;
+import static org.apache.ignite.internal.processors.hadoop.HadoopTaskType.COMBINE;
+import static org.apache.ignite.internal.processors.hadoop.HadoopTaskType.MAP;
 
 /**
  * Runnable task.
@@ -99,6 +109,22 @@ public abstract class HadoopRunnableTask implements Callable<Void> {
 
     /** {@inheritDoc} */
     @Override public Void call() throws IgniteCheckedException {
+        ctx = job.getTaskContext(info);
+
+        return ctx.runAsJobOwner(new Callable<Void>() {
+            @Override public Void call() throws Exception {
+                call0();
+
+                return null;
+            }
+        });
+    }
+
+    /**
+     * Implements actual task running.
+     * @throws IgniteCheckedException On error.
+     */
+    void call0() throws IgniteCheckedException {
         execStartTs = U.currentTimeMillis();
 
         Throwable err = null;
@@ -108,8 +134,6 @@ public abstract class HadoopRunnableTask implements Callable<Void> {
         HadoopPerformanceCounter perfCntr = null;
 
         try {
-            ctx = job.getTaskContext(info);
-
             perfCntr = HadoopPerformanceCounter.getCounter(ctx.counters(), nodeId);
 
             perfCntr.onTaskSubmit(info, submitTs);
@@ -120,7 +144,15 @@ public abstract class HadoopRunnableTask implements Callable<Void> {
             runTask(perfCntr);
 
             if (info.type() == MAP && job.info().hasCombiner()) {
-                ctx.taskInfo(new HadoopTaskInfo(COMBINE, info.jobId(), info.taskNumber(), info.attempt(), null));
+                // Switch to combiner.
+                HadoopTaskInfo combineTaskInfo = new HadoopTaskInfo(COMBINE, info.jobId(), info.taskNumber(),
+                    info.attempt(), null);
+
+                // Mapper and combiner share the same index.
+                if (ctx.taskInfo().hasMapperIndex())
+                    combineTaskInfo.mapperIndex(ctx.taskInfo().mapperIndex());
+
+                ctx.taskInfo(combineTaskInfo);
 
                 try {
                     runTask(perfCntr);
@@ -138,6 +170,9 @@ public abstract class HadoopRunnableTask implements Callable<Void> {
             err = e;
 
             U.error(log, "Task execution failed.", e);
+
+            if (e instanceof Error)
+                throw e;
         }
         finally {
             execEndTs = U.currentTimeMillis();
@@ -153,8 +188,6 @@ public abstract class HadoopRunnableTask implements Callable<Void> {
             if (ctx != null)
                 ctx.cleanupTaskEnvironment();
         }
-
-        return null;
     }
 
     /**

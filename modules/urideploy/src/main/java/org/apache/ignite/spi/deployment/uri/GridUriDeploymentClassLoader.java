@@ -17,12 +17,13 @@
 
 package org.apache.ignite.spi.deployment.uri;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.net.*;
-import java.util.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Arrays;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Loads classes and resources from "unpacked" GAR file (GAR directory).
@@ -65,7 +66,7 @@ class GridUriDeploymentClassLoader extends URLClassLoader {
             }
             // Catch Throwable to secure against any errors resulted from
             // corrupted class definitions or other user errors.
-            catch (Throwable e) {
+            catch (Exception e) {
                 throw new ClassNotFoundException("Failed to load class due to unexpected error: " + name, e);
             }
         }
@@ -96,7 +97,7 @@ class GridUriDeploymentClassLoader extends URLClassLoader {
             }
             // Catch Throwable to secure against any errors resulted from
             // corrupted class definitions or other user errors.
-            catch (Throwable e) {
+            catch (Exception e) {
                 throw new ClassNotFoundException("Failed to load class due to unexpected error: " + name, e);
             }
         }

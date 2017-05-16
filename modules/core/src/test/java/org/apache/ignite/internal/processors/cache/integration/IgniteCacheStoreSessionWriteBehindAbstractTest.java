@@ -17,23 +17,26 @@
 
 package org.apache.ignite.internal.processors.cache.integration;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.*;
-import javax.cache.configuration.*;
-import javax.cache.integration.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import javax.cache.Cache;
+import javax.cache.integration.CacheLoaderException;
+import javax.cache.integration.CacheWriterException;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.cache.store.CacheStoreSession;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractTest;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.resources.CacheStoreSessionResource;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -59,8 +62,8 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return PARTITIONED_ONLY;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -79,7 +82,7 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
         ccfg0.setWriteBehindFlushFrequency(60_000);
         ccfg0.setWriteBehindEnabled(true);
 
-        ccfg0.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(new TestStore()));
+        ccfg0.setCacheStoreFactory(singletonFactory(new TestStore()));
 
         CacheConfiguration ccfg1 = cacheConfiguration(gridName);
 
@@ -92,7 +95,7 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
 
         ccfg1.setName(CACHE_NAME1);
 
-        ccfg1.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(new TestStore()));
+        ccfg1.setCacheStoreFactory(singletonFactory(new TestStore()));
 
         cfg.setCacheConfiguration(ccfg0, ccfg1);
 
@@ -113,7 +116,7 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
      * @throws Exception If failed.
      */
     private void testCache(String cacheName) throws Exception {
-        IgniteCache<Integer, Integer> cache = ignite(0).jcache(cacheName);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(cacheName);
 
         try {
             latch = new CountDownLatch(2);
@@ -162,7 +165,7 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
         }
 
         /** {@inheritDoc} */
-        @Override public void txEnd(boolean commit) throws CacheWriterException {
+        @Override public void sessionEnd(boolean commit) throws CacheWriterException {
             fail();
         }
 

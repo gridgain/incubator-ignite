@@ -17,18 +17,17 @@
 
 package org.apache.ignite.internal.processors.cache.local;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.cache.query.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.query.*;
-import org.apache.ignite.lang.*;
+import java.util.Iterator;
+import java.util.List;
+import javax.cache.Cache;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.query.QueryCursor;
+import org.apache.ignite.cache.query.SqlFieldsQuery;
+import org.apache.ignite.cache.query.SqlQuery;
+import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractQuerySelfTest;
 
-import javax.cache.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
 
 /**
  * Tests local query.
@@ -48,7 +47,7 @@ public class IgniteCacheLocalQuerySelfTest extends IgniteCacheAbstractQuerySelfT
      * @throws Exception If test failed.
      */
     public void testQueryLocal() throws Exception {
-        IgniteCache<Integer, String> cache = ignite.jcache(null);
+        IgniteCache<Integer, String> cache = ignite().cache(null);
 
         cache.put(1, "value1");
         cache.put(2, "value2");
@@ -58,7 +57,7 @@ public class IgniteCacheLocalQuerySelfTest extends IgniteCacheAbstractQuerySelfT
 
         // Tests equals query.
         QueryCursor<Cache.Entry<Integer, String>> qry =
-            cache.localQuery(new SqlQuery(String.class, "_val='value1'"));
+            cache.query(new SqlQuery<Integer, String>(String.class, "_val='value1'").setLocal(true));
 
         Iterator<Cache.Entry<Integer, String>> iter = qry.iterator();
 
@@ -71,7 +70,7 @@ public class IgniteCacheLocalQuerySelfTest extends IgniteCacheAbstractQuerySelfT
         assert "value1".equals(entry.getValue());
 
         // Tests like query.
-        qry = cache.localQuery(new SqlQuery(String.class, "_val like 'value%'"));
+        qry = cache.query(new SqlQuery<Integer, String>(String.class, "_val like 'value%'").setLocal(true));
 
         iter = qry.iterator();
 
@@ -81,5 +80,11 @@ public class IgniteCacheLocalQuerySelfTest extends IgniteCacheAbstractQuerySelfT
         assert iter.next() != null;
         assert iter.next() != null;
         assert !iter.hasNext();
+
+        // Test explain for primitive index.
+        List<List<?>> res = cache.query(new SqlFieldsQuery(
+            "explain select _key from String where _val > 'value1'").setLocal(true)).getAll();
+
+        assertTrue("__ explain: \n" + res, ((String)res.get(0).get(0)).contains("_val_idx"));
     }
 }

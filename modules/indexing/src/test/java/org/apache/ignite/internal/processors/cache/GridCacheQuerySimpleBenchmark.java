@@ -1,24 +1,46 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.query.*;
-import org.apache.ignite.cache.query.annotations.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jdk8.backport.*;
-
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMemoryMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.query.SqlFieldsQuery;
+import org.apache.ignite.cache.query.annotations.QuerySqlField;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.util.GridRandom;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jsr166.LongAdder8;
 
 /**
  *
@@ -80,7 +102,7 @@ public class GridCacheQuerySimpleBenchmark extends GridCommonAbstractTest {
     public void testPerformance() throws Exception {
         Random rnd = new GridRandom();
 
-        final IgniteCache<Long,Person> c = ignite.jcache("offheap-cache");
+        final IgniteCache<Long,Person> c = ignite.cache("offheap-cache");
 
         X.println("___ PUT start");
 
@@ -94,7 +116,7 @@ public class GridCacheQuerySimpleBenchmark extends GridCommonAbstractTest {
 
         final AtomicBoolean end = new AtomicBoolean();
 
-        final LongAdder puts = new LongAdder();
+        final LongAdder8 puts = new LongAdder8();
 
         IgniteInternalFuture<?> fut0 = multithreadedAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
@@ -112,7 +134,7 @@ public class GridCacheQuerySimpleBenchmark extends GridCommonAbstractTest {
             }
         }, 10);
 
-        final LongAdder qrys = new LongAdder();
+        final LongAdder8 qrys = new LongAdder8();
 
         IgniteInternalFuture<?> fut1 = multithreadedAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
@@ -121,7 +143,7 @@ public class GridCacheQuerySimpleBenchmark extends GridCommonAbstractTest {
                 while (!end.get()) {
                     int salary = rnd.nextInt(maxSalary);
 
-                    c.queryFields(new SqlFieldsQuery("select name from Person where salary = ?").setArgs(salary))
+                    c.query(new SqlFieldsQuery("select name from Person where salary = ?").setArgs(salary))
                         .getAll();
 
                     qrys.increment();

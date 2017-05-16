@@ -17,20 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.GridDirectCollection;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockResponse;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Near cache lock response.
@@ -58,6 +60,9 @@ public class GridNearLockResponse extends GridDistributedLockResponse {
     /** Filter evaluation results for fast-commit transactions. */
     private boolean[] filterRes;
 
+    /** {@code True} if client node should remap lock request. */
+    private AffinityTopologyVersion clientRemapVer;
+
     /**
      * Empty constructor (required by {@link Externalizable}).
      */
@@ -73,6 +78,8 @@ public class GridNearLockResponse extends GridDistributedLockResponse {
      * @param filterRes {@code True} if need to allocate array for filter evaluation results.
      * @param cnt Count.
      * @param err Error.
+     * @param clientRemapVer {@code True} if client node should remap lock request.
+     * @param addDepInfo Deployment info.
      */
     public GridNearLockResponse(
         int cacheId,
@@ -81,19 +88,29 @@ public class GridNearLockResponse extends GridDistributedLockResponse {
         IgniteUuid miniId,
         boolean filterRes,
         int cnt,
-        Throwable err
+        Throwable err,
+        AffinityTopologyVersion clientRemapVer,
+        boolean addDepInfo
     ) {
-        super(cacheId, lockVer, futId, cnt, err);
+        super(cacheId, lockVer, futId, cnt, err, addDepInfo);
 
         assert miniId != null;
 
         this.miniId = miniId;
+        this.clientRemapVer = clientRemapVer;
 
         dhtVers = new GridCacheVersion[cnt];
         mappedVers = new GridCacheVersion[cnt];
 
         if (filterRes)
             this.filterRes = new boolean[cnt];
+    }
+
+    /**
+     * @return {@code True} if client node should remap lock request.
+     */
+    @Nullable public AffinityTopologyVersion clientRemapVersion() {
+        return clientRemapVer;
     }
 
     /**
@@ -191,6 +208,12 @@ public class GridNearLockResponse extends GridDistributedLockResponse {
         }
 
         switch (writer.state()) {
+            case 10:
+                if (!writer.writeMessage("clientRemapVer", clientRemapVer))
+                    return false;
+
+                writer.incrementState();
+
             case 11:
                 if (!writer.writeObjectArray("dhtVers", dhtVers, MessageCollectionItemType.MSG))
                     return false;
@@ -237,6 +260,14 @@ public class GridNearLockResponse extends GridDistributedLockResponse {
             return false;
 
         switch (reader.state()) {
+            case 10:
+                clientRemapVer = reader.readMessage("clientRemapVer");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
             case 11:
                 dhtVers = reader.readObjectArray("dhtVers", MessageCollectionItemType.MSG, GridCacheVersion.class);
 
@@ -279,7 +310,7 @@ public class GridNearLockResponse extends GridDistributedLockResponse {
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridNearLockResponse.class);
     }
 
     /** {@inheritDoc} */
