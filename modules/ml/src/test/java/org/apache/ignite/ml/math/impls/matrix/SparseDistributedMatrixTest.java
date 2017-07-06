@@ -109,7 +109,7 @@ public class SparseDistributedMatrixTest extends GridCommonAbstractTest {
                 double v = Math.random();
                 cacheMatrix.set(i, j, v);
 
-                assertEquals("Unexpected value for matrix element["+ i +" " + j + "]", v, cacheMatrix.get(i, j), PRECISION);
+                assertEquals("Unexpected value for matrix element[" + i + " " + j + "]", v, cacheMatrix.get(i, j), PRECISION);
             }
         }
     }
@@ -224,7 +224,7 @@ public class SparseDistributedMatrixTest extends GridCommonAbstractTest {
     }
 
     /** */
-    public void testCacheBehaviour(){
+    public void testCacheBehaviour() {
         IgniteUtils.setCurrentIgniteName(ignite.configuration().getIgniteInstanceName());
 
         SparseDistributedMatrix cacheMatrix1 = new SparseDistributedMatrix(rows, cols, StorageConstants.ROW_STORAGE_MODE, StorageConstants.RANDOM_ACCESS_MODE);
@@ -242,17 +242,22 @@ public class SparseDistributedMatrixTest extends GridCommonAbstractTest {
         Set<IgniteBiTuple<Integer, IgniteUuid>> keySet1 = buildKeySet(cacheMatrix1);
         Set<IgniteBiTuple<Integer, IgniteUuid>> keySet2 = buildKeySet(cacheMatrix2);
 
-        assert cache.containsKeys(keySet1) || keySet1.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue().size() == 100));
-        assert cache.containsKeys(keySet2) || keySet2.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue().size() == 100));
+        assert cache.containsKeys(keySet1) ||
+            keySet1.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue().size() == 100));
+        assert cache.containsKeys(keySet2) ||
+            keySet2.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue().size() == 100));
 
         cacheMatrix2.destroy();
 
-        assert cache.containsKeys(keySet1) || keySet1.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue().size() == 100));
-        assert !cache.containsKeys(keySet2) && keySet2.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue() == null));
+        assert cache.containsKeys(keySet1) ||
+            keySet1.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue().size() == 100));
+        assert !cache.containsKeys(keySet2) &&
+            keySet2.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue() == null));
 
         cacheMatrix1.destroy();
 
-        assert !cache.containsKeys(keySet1) && keySet1.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue() == null));
+        assert !cache.containsKeys(keySet1) &&
+            keySet1.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue() == null));
     }
 
     /** */
@@ -288,7 +293,7 @@ public class SparseDistributedMatrixTest extends GridCommonAbstractTest {
     }
 
     /** Build key set for SparseDistributedMatrix. */
-    private Set<IgniteBiTuple<Integer, IgniteUuid>> buildKeySet(SparseDistributedMatrix m){
+    private Set<IgniteBiTuple<Integer, IgniteUuid>> buildKeySet(SparseDistributedMatrix m) {
         Set<IgniteBiTuple<Integer, IgniteUuid>> set = new HashSet<>();
 
         SparseDistributedMatrixStorage storage = (SparseDistributedMatrixStorage)m.getStorage();
