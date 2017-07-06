@@ -28,5 +28,5 @@ import org.junit.runners.Suite;
         KMeansDistributedClustererTest.class,
         KMeansLocalClustererTest.class
 })
-public class ClusteringTesetSuite {
+public class ClusteringTestSuite {
 }

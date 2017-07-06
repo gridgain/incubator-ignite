@@ -24,6 +24,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
@@ -236,22 +237,22 @@ public class SparseDistributedMatrixTest extends GridCommonAbstractTest {
 
         assert cacheNames.contains(SparseDistributedMatrixStorage.ML_CACHE_NAME);
 
-        IgniteCache<IgniteBiTuple<Integer, IgniteUuid>, Object> cache = ignite.getOrCreateCache(SparseDistributedMatrixStorage.ML_CACHE_NAME);
+        IgniteCache<IgniteBiTuple<Integer, IgniteUuid>, Map<Integer, Double>> cache = ignite.getOrCreateCache(SparseDistributedMatrixStorage.ML_CACHE_NAME);
 
         Set<IgniteBiTuple<Integer, IgniteUuid>> keySet1 = buildKeySet(cacheMatrix1);
         Set<IgniteBiTuple<Integer, IgniteUuid>> keySet2 = buildKeySet(cacheMatrix2);
 
-        assert cache.containsKeys(keySet1);
-        assert cache.containsKeys(keySet2);
+        assert cache.containsKeys(keySet1) || keySet1.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue().size() == 100));
+        assert cache.containsKeys(keySet2) || keySet2.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue().size() == 100));
 
         cacheMatrix2.destroy();
 
-        assert cache.containsKeys(keySet1);
-        assert !cache.containsKeys(keySet2);
+        assert cache.containsKeys(keySet1) || keySet1.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue().size() == 100));
+        assert !cache.containsKeys(keySet2) && keySet2.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue() == null));
 
         cacheMatrix1.destroy();
 
-        assert !cache.containsKeys(keySet1);
+        assert !cache.containsKeys(keySet1) && keySet1.stream().allMatch(k -> cache.invoke(k, (entry, arguments) -> entry.getKey().equals(k) && entry.getValue() == null));
     }
 
     /** */
