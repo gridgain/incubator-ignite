@@ -136,8 +136,9 @@ public class SparseDistributedMatrixTest extends GridCommonAbstractTest {
         assertEquals(MathTestConstants.VAL_NOT_EQUALS, objRestored.get(1, 1), 1.0, PRECISION);
     }
 
-    /** Test simple math. */
-    public void testMath() {
+    /** Test simple math. Temporarily ignored per https://issues.apache.org/jira/browse/IGNITE-6497. */
+    @SuppressWarnings("unused")
+    public void ignoredTestMath() {
         IgniteUtils.setCurrentIgniteName(ignite.configuration().getIgniteInstanceName());
 
         cacheMatrix = new SparseDistributedMatrix(rows, cols, StorageConstants.ROW_STORAGE_MODE, StorageConstants.RANDOM_ACCESS_MODE);
@@ -166,8 +167,9 @@ public class SparseDistributedMatrixTest extends GridCommonAbstractTest {
         assertEquals(UNEXPECTED_VAL, cacheMatrix.rowSize() * cacheMatrix.columnSize(), cacheMatrix.sum(), PRECISION);
     }
 
-    /** */
-    public void testMinMax() {
+    /** Temporarily ignored per https://issues.apache.org/jira/browse/IGNITE-6497. */
+    @SuppressWarnings("unused")
+    public void ignoredTestMinMax() {
         IgniteUtils.setCurrentIgniteName(ignite.configuration().getIgniteInstanceName());
 
         cacheMatrix = new SparseDistributedMatrix(rows, cols, StorageConstants.ROW_STORAGE_MODE, StorageConstants.RANDOM_ACCESS_MODE);
@@ -194,8 +196,9 @@ public class SparseDistributedMatrixTest extends GridCommonAbstractTest {
         assertEquals(UNEXPECTED_VAL, rows * cols - 1.0, cacheMatrix.maxValue(), PRECISION);
     }
 
-    /** */
-    public void testMap() {
+    /** Temporarily ignored per https://issues.apache.org/jira/browse/IGNITE-6497. */
+    @SuppressWarnings("unused")
+    public void ignoredTestMap() {
         IgniteUtils.setCurrentIgniteName(ignite.configuration().getIgniteInstanceName());
 
         cacheMatrix = new SparseDistributedMatrix(rows, cols, StorageConstants.ROW_STORAGE_MODE, StorageConstants.RANDOM_ACCESS_MODE);
@@ -223,8 +226,9 @@ public class SparseDistributedMatrixTest extends GridCommonAbstractTest {
         fail("UnsupportedOperationException expected.");
     }
 
-    /** */
-    public void testCacheBehaviour() {
+    /** Temporarily ignored per https://issues.apache.org/jira/browse/IGNITE-6497. */
+    @SuppressWarnings("unused")
+    public void ignoredTestCacheBehaviour() {
         IgniteUtils.setCurrentIgniteName(ignite.configuration().getIgniteInstanceName());
 
         SparseDistributedMatrix cacheMatrix1 = new SparseDistributedMatrix(rows, cols, StorageConstants.ROW_STORAGE_MODE, StorageConstants.RANDOM_ACCESS_MODE);
