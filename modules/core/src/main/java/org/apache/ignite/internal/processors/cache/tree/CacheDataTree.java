@@ -136,7 +136,7 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
                 return cmp;
 
             if (row.key() == null) {
-                assert row.getClass() == SearchRow.class : row;
+                assert row.getClass() == SearchRow.class || row.getClass() == MvccSearchRow.class : row;
 
                 // A search row with a cache ID only is used as a cache bound.
                 // The found position will be shifted until the exact cache bound is found;

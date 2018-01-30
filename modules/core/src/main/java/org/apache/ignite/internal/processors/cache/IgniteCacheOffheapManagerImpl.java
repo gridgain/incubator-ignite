@@ -2106,16 +2106,36 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             SearchRow lowerRow;
             SearchRow upperRow;
 
-            if (grp.sharedGroup()) {
-                assert cacheId != CU.UNDEFINED_CACHE_ID;
+            if (ver == null) {
+                if (grp.sharedGroup()) {
+                    assert cacheId != CU.UNDEFINED_CACHE_ID;
 
-                lowerRow = lower != null ? new SearchRow(cacheId, lower) : new SearchRow(cacheId);
-                upperRow = upper != null ? new SearchRow(cacheId, upper) : new SearchRow(cacheId);
+                    lowerRow = lower != null ? new SearchRow(cacheId, lower) : new SearchRow(cacheId);
+                    upperRow = upper != null ? new SearchRow(cacheId, upper) : new SearchRow(cacheId);
+                }
+                else {
+                    lowerRow = lower != null ? new SearchRow(CU.UNDEFINED_CACHE_ID, lower) : null;
+                    upperRow = upper != null ? new SearchRow(CU.UNDEFINED_CACHE_ID, upper) : null;
+                }
             }
             else {
-                lowerRow = lower != null ? new SearchRow(CU.UNDEFINED_CACHE_ID, lower) : null;
-                upperRow = upper != null ? new SearchRow(CU.UNDEFINED_CACHE_ID, upper) : null;
+                long crdVer = ver.coordinatorVersion();
+                long mvccCntr = ver.counter();
+
+                if (grp.sharedGroup()) {
+                    assert cacheId != CU.UNDEFINED_CACHE_ID;
+
+                    lowerRow = lower != null ? new MvccSearchRow(cacheId, lower, crdVer, mvccCntr) :
+                        new MvccSearchRow(cacheId, crdVer, mvccCntr);
+                    upperRow = upper != null ? new MvccSearchRow(cacheId, upper, crdVer, mvccCntr) :
+                        new MvccSearchRow(cacheId, crdVer, mvccCntr);
+                }
+                else {
+                    lowerRow = lower != null ? new MvccSearchRow(CU.UNDEFINED_CACHE_ID, lower, crdVer, mvccCntr) : null;
+                    upperRow = upper != null ? new MvccSearchRow(CU.UNDEFINED_CACHE_ID, upper, crdVer, mvccCntr) : null;
+                }
             }
+
 
             if (ver != null) {
                 assert grp.mvccEnabled();

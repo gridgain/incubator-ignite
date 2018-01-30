@@ -43,6 +43,18 @@ public class MvccSearchRow extends SearchRow {
         this.mvccCntr = mvccCntr;
     }
 
+    /**
+     * @param cacheId Cache ID.
+     * @param crdVer Coordinator version.
+     * @param mvccCntr Mvcc counter.
+     */
+    public MvccSearchRow(int cacheId, long crdVer, long mvccCntr) {
+        super(cacheId);
+
+        this.crdVer = crdVer;
+        this.mvccCntr = mvccCntr;
+    }
+
     /** {@inheritDoc} */
     @Override public long mvccCoordinatorVersion() {
         return crdVer;
