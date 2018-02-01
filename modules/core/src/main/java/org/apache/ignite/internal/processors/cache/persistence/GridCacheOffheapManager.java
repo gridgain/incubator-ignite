@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.persistence;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -158,6 +159,9 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
         boolean metaWasUpdated = false;
 
+        if (ctx.nextSnapshot())
+            System.err.println(Thread.currentThread() + " - onCheckpointBegin!!!" );
+
         for (CacheDataStore store : partDataStores.values()) {
             RowStore rowStore = store.rowStore();
 
@@ -166,6 +170,23 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
             metaWasUpdated |= saveStoreMetadata(store, ctx, !metaWasUpdated, false);
         }
+
+        if (ctx.nextSnapshot()) {
+            List<GridDhtLocalPartition> partitions = grp.topology().localPartitions();
+
+            for (int i = 0; i < partitions.size(); i++) {
+                GridDhtLocalPartition part = partitions.get(i);
+
+                if (part.state() == OWNING) {
+                    GroupPartitionId key = new GroupPartitionId(grp.groupId(), i);
+
+                    if (!ctx.partitionStatMap().containsKey(key))
+                        ctx.partitionStatMap().put(key, new PagesAllocationRange(0, 0));
+                }
+            }
+        }
+
+        System.err.println(Thread.currentThread().getName() + " -!!!!- " + ctx.partitionStatMap());
     }
 
     /**
