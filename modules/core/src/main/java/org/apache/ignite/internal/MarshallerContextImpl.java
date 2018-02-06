@@ -119,6 +119,11 @@ public class MarshallerContextImpl extends MarshallerContextAdapter {
 
         cache = ctx.cache().marshallerCache();
 
+        log.debug("marshaller cache: " + cache);
+        log.debug("config cache: " + cache.configuration());
+
+        U.dumpStack(log, "onMarshallerCacheStarted");
+
         if (ctx.cache().marshallerCache().context().affinityNode()) {
             ctx.cache().marshallerCache().context().continuousQueries().executeInternalQuery(
                 new ContinuousQueryListener(log, workDir),
@@ -158,25 +163,41 @@ public class MarshallerContextImpl extends MarshallerContextAdapter {
 
     /** {@inheritDoc} */
     @Override protected boolean registerClassName(int id, String clsName) throws IgniteCheckedException {
+        if(log.isDebugEnabled()) {
+            log.debug("Registering class: class name: " + clsName + ", id: " + id);
+            U.dumpStack(log, "Registering class");
+        }
         GridCacheAdapter<Integer, String> cache0 = cache;
 
-        if (cache0 == null)
+        if (cache0 == null) {
+            if(log.isDebugEnabled())
+                log.debug("cache0 == null (registerClassName)");
+
             return false;
+        }
 
         String old;
 
         try {
             old = cache0.tryGetAndPut(id, clsName);
 
-            if (old != null && !old.equals(clsName))
+            if (old != null && !old.equals(clsName)) {
+                if(log.isDebugEnabled())
+                    log.debug("Type ID collision detected [id=" + id + ", clsName1=" + clsName +
+                        ", clsName2=" + old + ']');
+
                 throw new IgniteCheckedException("Type ID collision detected [id=" + id + ", clsName1=" + clsName +
                     ", clsName2=" + old + ']');
+            }
 
             failedCnt = 0;
 
             return true;
         }
         catch (CachePartialUpdateCheckedException | GridCacheTryPutFailedException ignored) {
+            if(log.isDebugEnabled())
+                log.debug("Failed to register marshalled class: " + clsName);
+
             if (++failedCnt > 10) {
                 if (log.isQuiet())
                     U.quiet(false, "Failed to register marshalled class for more than 10 times in a row " +
@@ -191,6 +212,11 @@ public class MarshallerContextImpl extends MarshallerContextAdapter {
 
     /** {@inheritDoc} */
     @Override public String className(int id) throws IgniteCheckedException {
+        if(log.isDebugEnabled()) {
+            log.debug("className for id:" + id);
+            U.dumpStack(log, "onMarshallerCacheStarted");
+        }
+
         GridCacheAdapter<Integer, String> cache0 = cache;
 
         if (cache0 == null) {
@@ -198,14 +224,27 @@ public class MarshallerContextImpl extends MarshallerContextAdapter {
 
             cache0 = cache;
 
-            if (cache0 == null)
+            if (cache0 == null) {
+                if(log.isDebugEnabled())
+                    log.debug("[cache0 == null] Failed to initialize marshaller context (grid is stopping).");
+
                 throw new IllegalStateException("Failed to initialize marshaller context (grid is stopping).");
+            }
         }
 
         String clsName = null;
 
         for (int i = 0; i < CACHE_REREAD_TRIES; i++) {
+
+            if(log.isDebugEnabled())
+                log.debug("className id: '" + id + "', attempt: " + i );
+
+
             clsName = cache0.getTopologySafe(id);
+
+
+            if(log.isDebugEnabled())
+                log.debug("className id: '" + id + "', get from cache: " + clsName );
 
             if (clsName != null)
                 break;
@@ -215,6 +254,9 @@ public class MarshallerContextImpl extends MarshallerContextAdapter {
 
         if (clsName == null) {
             String fileName = id + ".classname";
+
+            if(log.isDebugEnabled())
+                log.debug("className id: '" + id + "', load file: " + fileName );
 
             // Class name may be not in the file yet.
             for (int i = 0; i < 2; i++) {
@@ -227,6 +269,9 @@ public class MarshallerContextImpl extends MarshallerContextAdapter {
                 try {
                     file = new File(workDir, fileName);
 
+                    if(log.isDebugEnabled())
+                        log.debug("className. file locked: '" + id + "', abs path: " + file.getAbsolutePath() );
+
                     try (FileInputStream in = new FileInputStream(file)) {
                         FileLock fileLock = fileLock(in.getChannel(), true);
 
@@ -237,25 +282,38 @@ public class MarshallerContextImpl extends MarshallerContextAdapter {
                         }
                     }
                     catch (IOException ignored) {
-                        // Will fail on last try.
+                        if(log.isDebugEnabled())
+                            log.debug("className. failed to read'" + id + "', exception:" + ignored.toString() );
+.
                     }
                 }
                 finally {
                     lock.unlock();
                 }
 
-                if (clsName != null)
+                if (clsName != null) {
+                    if (log.isDebugEnabled())
+                        log.debug("className. read from file: '" + id + "', className:" + clsName);
                     break;
+                }
 
                 // Fail on second unsuccessful try.
                 if (i == 1) {
+                    if(log.isDebugEnabled())
+                        log.debug("className. failed to read form file: '" + id + "', throw IgniteCheckedException");
                     throw new IgniteCheckedException("Class definition was not found " +
                         "at marshaller cache and local file. " +
                         "[id=" + id + ", file=" + file.getAbsolutePath() + ']');
                 }
 
+                if(log.isDebugEnabled())
+                    log.debug("className. failed to read file: '" + id + "', retry");
                 U.sleep(20);
             }
+
+            if(log.isDebugEnabled())
+                log.debug("className. successfully read from file. id: '" + id + "', className: '" + clsName + "'" );
+
 
             // Must explicitly put entry to cache to invoke other continuous queries.
             registerClassName(id, clsName);
@@ -317,6 +375,8 @@ public class MarshallerContextImpl extends MarshallerContextAdapter {
                 assert evt.getOldValue() == null || F.eq(evt.getOldValue(), evt.getValue()):
                     "Received cache entry update for system marshaller cache: " + evt;
 
+                log.debug("Received cache entry update for system marshaller cache: " + evt);
+
                 if (evt.getOldValue() == null) {
                     String fileName = evt.getKey() + ".classname";
 
@@ -326,6 +386,10 @@ public class MarshallerContextImpl extends MarshallerContextAdapter {
 
                     try {
                         File file = new File(workDir, fileName);
+
+                        log.debug("save class to file: [id=" + evt.getKey() +
+                        ", clsName=" + evt.getValue() + ", file=" + file.getAbsolutePath() + ']');
+
 
                         try (FileOutputStream out = new FileOutputStream(file)) {
                             FileLock fileLock = fileLock(out.getChannel(), false);
