@@ -284,7 +284,6 @@ public class MarshallerContextImpl extends MarshallerContextAdapter {
                     catch (IOException ignored) {
                         if(log.isDebugEnabled())
                             log.debug("className. failed to read'" + id + "', exception:" + ignored.toString() );
-.
                     }
                 }
                 finally {
