@@ -177,8 +177,12 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
                     if (needOld)
                         oldRow = ((CacheDataTree)tree).getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
                 }
+
+                ((CacheDataTree)tree).setNewVersion(io, pageAddr, idx, mvccVer);
             }
         }
+
+        // TODO check if old versions are marked with xid_max.
 
         // Suppose transactions on previous coordinator versions are done.
         if (checkActive && crdVer == rowCrdVer) {

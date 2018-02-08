@@ -30,9 +30,11 @@ import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.IncompleteCacheObject;
 import org.apache.ignite.internal.processors.cache.IncompleteObject;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.CacheVersionIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
@@ -43,6 +45,7 @@ import org.jetbrains.annotations.Nullable;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
 
 /**
  * Cache data row adapter.
@@ -71,6 +74,19 @@ public class CacheDataRowAdapter implements CacheDataRow {
     /** */
     @GridToStringInclude
     protected int cacheId;
+
+    /** Mvcc coordinator version. */
+    protected long dataMvccCrd;
+
+    /** Mvcc counter. */
+    protected long dataMvccCntr;
+
+    /** New mvcc coordinator version. */
+    protected long newDataMvccCrd;
+
+    /** New mvcc counter. */
+    protected long newDataMvccCntr;
+
 
     /**
      * @param link Link.
@@ -130,6 +146,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
         long nextLink = link;
         IncompleteObject<?> incomplete = null;
         boolean first = true;
+        boolean readMvcc = grp != null && grp.mvccEnabled();
 
         do {
             final long pageId = pageId(nextLink);
@@ -147,7 +164,8 @@ public class CacheDataRowAdapter implements CacheDataRow {
                 assert pageAddr != 0L : nextLink;
 
                 try {
-                    DataPageIO io = DataPageIO.VERSIONS.forPage(pageAddr);
+                    AbstractDataPageIO io = readMvcc ? MvccDataPageIO.VERSIONS.forPage(pageAddr) :
+                        DataPageIO.VERSIONS.forPage(pageAddr);
 
                     DataPagePayload data = io.readPayload(pageAddr,
                         itemId(nextLink),
@@ -158,7 +176,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
                     if (first) {
                         if (nextLink == 0) {
                             // Fast path for a single page row.
-                            readFullRow(sharedCtx, coctx, pageAddr + data.offset(), rowData, readCacheId);
+                            readFullRow(sharedCtx, coctx, pageAddr + data.offset(), rowData, readCacheId, readMvcc);
 
                             return;
                         }
@@ -173,7 +191,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
 
                     boolean keyOnly = rowData == RowData.KEY_ONLY;
 
-                    incomplete = readFragment(sharedCtx, coctx, buf, keyOnly, readCacheId, incomplete);
+                    incomplete = readFragment(sharedCtx, coctx, buf, keyOnly, readCacheId, incomplete, readMvcc);
 
                     if (keyOnly && key != null)
                         return;
@@ -198,6 +216,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
      * @param keyOnly {@code true} If need to read only key object.
      * @param readCacheId {@code true} If need to read cache ID.
      * @param incomplete Incomplete object.
+     * @param readMvcc {@code True} if need to read MVCC xid_min and xid_max.
      * @throws IgniteCheckedException If failed.
      * @return Read object.
      */
@@ -207,8 +226,18 @@ public class CacheDataRowAdapter implements CacheDataRow {
         ByteBuffer buf,
         boolean keyOnly,
         boolean readCacheId,
-        IncompleteObject<?> incomplete
+        IncompleteObject<?> incomplete,
+        boolean readMvcc
     ) throws IgniteCheckedException {
+        if (readMvcc && dataMvccCrd == 0 && dataMvccCntr == MVCC_COUNTER_NA) {
+            incomplete = readIncompleteMvccData(buf, incomplete);
+
+            if (dataMvccCrd == 0 && dataMvccCntr == MVCC_COUNTER_NA)
+                return incomplete;
+
+            incomplete = null;
+        }
+
         if (readCacheId && cacheId == 0) {
             incomplete = readIncompleteCacheId(buf, incomplete);
 
@@ -268,6 +297,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
      * @param addr Address.
      * @param rowData Required row data.
      * @param readCacheId {@code true} If need to read cache ID.
+     * @param readMvcc {@code True} if need to read MVCC xid_min and xid_max.
      * @throws IgniteCheckedException If failed.
      */
     private void readFullRow(
@@ -275,9 +305,24 @@ public class CacheDataRowAdapter implements CacheDataRow {
         CacheObjectContext coctx,
         long addr,
         RowData rowData,
-        boolean readCacheId)
+        boolean readCacheId,
+        boolean readMvcc)
         throws IgniteCheckedException {
         int off = 0;
+
+        if (readMvcc) {
+            // xid_min.
+            dataMvccCrd = PageUtils.getLong(addr, off);
+            dataMvccCntr = PageUtils.getLong(addr, off + 8);
+
+            // xid_max.
+            newDataMvccCrd = PageUtils.getLong(addr, off + 16);
+            newDataMvccCntr = PageUtils.getLong(addr, off + 24);
+
+            assert dataMvccCrd != 0 && dataMvccCntr != MVCC_COUNTER_NA;
+
+            off += MVCC_INFO_SIZE;
+        }
 
         if (readCacheId) {
             cacheId = PageUtils.getInt(addr, off);
@@ -463,6 +508,56 @@ public class CacheDataRowAdapter implements CacheDataRow {
      * @param buf Buffer.
      * @param incomplete Incomplete object.
      * @return Incomplete object.
+     */
+    private IncompleteObject<?> readIncompleteMvccData(
+        ByteBuffer buf,
+        IncompleteObject<?> incomplete
+    ) {
+        if (incomplete == null) {
+            int remaining = buf.remaining();
+
+            if (remaining == 0)
+                return null;
+
+            int size = MVCC_INFO_SIZE;
+
+            if (remaining >= size) {
+                // xid_min.
+                dataMvccCrd = buf.getLong();
+                dataMvccCntr = buf.getLong();
+
+                // xid_max.
+                newDataMvccCrd = buf.getLong();
+                newDataMvccCntr = buf.getLong();
+
+                assert dataMvccCrd != 0 && dataMvccCntr != MVCC_COUNTER_NA;
+
+                return null;
+            }
+
+            incomplete = new IncompleteObject<>(new byte[size]);
+        }
+
+        incomplete.readData(buf);
+
+        if (incomplete.isReady()) {
+            final ByteBuffer mvccBuf = ByteBuffer.wrap(incomplete.data());
+
+            mvccBuf.order(buf.order());
+
+            dataMvccCrd = mvccBuf.getLong();
+            dataMvccCntr = mvccBuf.getLong();
+
+            assert dataMvccCrd != 0 && dataMvccCntr != MVCC_COUNTER_NA;
+        }
+
+        return incomplete;
+    }
+
+    /**
+     * @param buf Buffer.
+     * @param incomplete Incomplete object.
+     * @return Incomplete object.
      * @throws IgniteCheckedException If failed.
      */
     private IncompleteObject<?> readIncompleteVersion(
@@ -578,6 +673,16 @@ public class CacheDataRowAdapter implements CacheDataRow {
     /** {@inheritDoc} */
     @Override public void mvccVersion(long crdVer, long mvccCntr) {
         throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override public long newMvccCoordinatorVersion() {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long newMvccCounter() {
+        return MVCC_COUNTER_NA;
     }
 
     /** {@inheritDoc} */

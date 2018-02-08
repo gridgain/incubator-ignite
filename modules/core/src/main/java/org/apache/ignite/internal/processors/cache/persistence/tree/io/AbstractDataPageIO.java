@@ -81,6 +81,7 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
     public static final int MIN_DATA_PAGE_OVERHEAD = ITEMS_OFF + ITEM_SIZE + PAYLOAD_LEN_SIZE + LINK_SIZE;
 
     /**
+     * @param type Page type.
      * @param ver Page format version.
      */
     protected AbstractDataPageIO(int type, int ver) {

@@ -80,6 +80,13 @@ public class DataRow extends CacheDataRowAdapter {
     }
 
     /**
+     * @param link Link.
+     */
+    protected DataRow(long link) {
+        super(link);
+    }
+
+    /**
      *
      */
     DataRow() {

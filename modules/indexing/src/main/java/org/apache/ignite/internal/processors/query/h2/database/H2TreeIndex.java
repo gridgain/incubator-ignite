@@ -410,14 +410,14 @@ public class H2TreeIndex extends GridH2IndexBase {
 
         IndexingQueryFilter f = qctx.filter();
         IndexingQueryCacheFilter p = f == null ? null : f.forCache(getTable().cacheName());
-        MvccVersion v =qctx.mvccVersion();
+        MvccVersion v = qctx.mvccVersion();
 
         assert !cctx.mvccEnabled() || v != null;
 
         if(p == null && v == null)
             return null;
 
-        return new H2TreeFilterClosure(p, v);
+        return new H2TreeFilterClosure(p, v, cctx);
     }
 
     /**

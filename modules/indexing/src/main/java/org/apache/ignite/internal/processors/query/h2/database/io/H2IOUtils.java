@@ -52,18 +52,6 @@ class H2IOUtils {
 
             PageUtils.putLong(pageAddr, off + 8, mvccCrdVer);
             PageUtils.putLong(pageAddr, off + 16, mvccCntr);
-
-            long newMvccCrdVer = row.newMvccCoordinatorVersion();
-
-            PageUtils.putLong(pageAddr, off + 24, newMvccCrdVer);
-
-            if (newMvccCrdVer != 0) {
-                long newMvccCntr = row.newMvccCounter();
-
-                assert assertMvccVersionValid(newMvccCrdVer, newMvccCntr);
-
-                PageUtils.putLong(pageAddr, off + 32, newMvccCntr);
-            }
         }
     }
 
@@ -97,17 +85,17 @@ class H2IOUtils {
             PageUtils.putLong(dstPageAddr, dstOff + 8, mvccCrdVer);
             PageUtils.putLong(dstPageAddr, dstOff + 16, mvccCntr);
 
-            long newMvccCrdVer = rowIo.getNewMvccCoordinatorVersion(srcPageAddr, srcIdx);
-
-            PageUtils.putLong(dstPageAddr, dstOff + 24, newMvccCrdVer);
-
-            if (newMvccCrdVer != 0) {
-                long newMvccCntr = rowIo.getNewMvccCounter(srcPageAddr, srcIdx);
-
-                assertMvccVersionValid(newMvccCrdVer, newMvccCntr);
-
-                PageUtils.putLong(dstPageAddr, dstOff + 32, newMvccCntr);
-            }
+//            long newMvccCrdVer = rowIo.getNewMvccCoordinatorVersion(srcPageAddr, srcIdx);
+//
+//            PageUtils.putLong(dstPageAddr, dstOff + 24, newMvccCrdVer);
+//
+//            if (newMvccCrdVer != 0) {
+//                long newMvccCntr = rowIo.getNewMvccCounter(srcPageAddr, srcIdx);
+//
+//                assertMvccVersionValid(newMvccCrdVer, newMvccCntr);
+//
+//                PageUtils.putLong(dstPageAddr, dstOff + 32, newMvccCntr);
+//            }
         }
     }
 }

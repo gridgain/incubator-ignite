@@ -1540,7 +1540,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 if (res == MvccUpdateRow.UpdateResult.VERSION_FOUND) {
                     assert !primary : updateRow;
 
-                    cleanup(cctx, updateRow.cleanupRows(), false);
+                    cleanup(cctx, updateRow.cleanupRows());
 
                     return null;
                 }
@@ -1575,7 +1575,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 updatePendingEntries(cctx, updateRow, oldRow);
 
-                cleanup(cctx, updateRow.cleanupRows(), false);
+                cleanup(cctx, updateRow.cleanupRows());
 
                 return updateRow.activeTransactions();
             }
@@ -1619,7 +1619,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 if (res == MvccUpdateRow.UpdateResult.VERSION_FOUND) {
                     assert !primary : updateRow;
 
-                    cleanup(cctx, updateRow.cleanupRows(), false);
+                    cleanup(cctx, updateRow.cleanupRows());
 
                     return null;
                 }
@@ -1627,21 +1627,17 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     if (res == MvccUpdateRow.UpdateResult.PREV_NOT_NULL)
                         decrementSize(cacheId);
 
-                    long rmvRowLink = cleanup(cctx, updateRow.cleanupRows(), true);
+                    cleanup(cctx, updateRow.cleanupRows());
 
-                    if (rmvRowLink == 0) {
-                        if (!grp.storeCacheIdInDataPage() && updateRow.cacheId() != CU.UNDEFINED_CACHE_ID) {
-                            updateRow.cacheId(CU.UNDEFINED_CACHE_ID);
+                    if (!grp.storeCacheIdInDataPage() && updateRow.cacheId() != CU.UNDEFINED_CACHE_ID) {
+                        updateRow.cacheId(CU.UNDEFINED_CACHE_ID);
 
-                            rowStore.addRow(updateRow);
+                        rowStore.addRow(updateRow);
 
-                            updateRow.cacheId(cacheId);
-                        }
-                        else
-                            rowStore.addRow(updateRow);
+                        updateRow.cacheId(cacheId);
                     }
                     else
-                        updateRow.link(rmvRowLink);
+                        rowStore.addRow(updateRow);
 
                     assert updateRow.link() != 0L;
 
@@ -1722,11 +1718,10 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         /**
          * @param cctx Cache context.
          * @param cleanupRows Rows to cleanup.
-         * @param findRmv {@code True} if need keep removed row entry.
          * @return Removed row link of {@code 0} if not found.
          * @throws IgniteCheckedException If failed.
          */
-        private long cleanup(GridCacheContext cctx, @Nullable List<MvccCleanupRow> cleanupRows, boolean findRmv)
+        private long cleanup(GridCacheContext cctx, @Nullable List<MvccCleanupRow> cleanupRows)
             throws IgniteCheckedException {
             long rmvRowLink = 0;
 
@@ -1751,13 +1746,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                         assert rmvd;
                     }
 
-                    if (findRmv &&
-                        rmvRowLink == 0 &&
-                        versionForRemovedValue(cleanupRow.mvccCoordinatorVersion())) {
-                        rmvRowLink = cleanupRow.link();
-                    }
-                    else
-                        rowStore.removeRow(cleanupRow.link());
+                    rowStore.removeRow(cleanupRow.link());
                 }
             }
 

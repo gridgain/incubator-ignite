@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.tree;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.assertMvccVersionValid;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.versionForRemovedValue;
 
@@ -31,13 +32,20 @@ public class MvccDataRow extends DataRow {
     private long crdVer;
 
     /** */
-    private long mvccCntr;
+    private long mvccCntr = MVCC_COUNTER_NA;
 
     /**
      *
      */
     private MvccDataRow() {
         // No-op.
+    }
+
+    /**
+     * @param link Link.
+     */
+    public MvccDataRow(long link) {
+        super(link);
     }
 
     /**
@@ -53,6 +61,8 @@ public class MvccDataRow extends DataRow {
         super(grp, hash, link, part, rowData);
 
         assertMvccVersionValid(crdVer, mvccCntr);
+
+        assert rowData == RowData.LINK_ONLY || dataMvccCrd == crdVer && dataMvccCntr == mvccCntr;
 
         this.crdVer = crdVer;
         this.mvccCntr = mvccCntr;
@@ -102,6 +112,16 @@ public class MvccDataRow extends DataRow {
     /** {@inheritDoc} */
     @Override public boolean removed() {
         return versionForRemovedValue(crdVer);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long newMvccCoordinatorVersion() {
+        return newDataMvccCrd;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long newMvccCounter() {
+        return newDataMvccCntr;
     }
 
     /** {@inheritDoc} */

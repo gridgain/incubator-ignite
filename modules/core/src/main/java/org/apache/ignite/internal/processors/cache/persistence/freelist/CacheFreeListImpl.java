@@ -25,7 +25,9 @@ import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetrics
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.IOVersions;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
+import org.apache.ignite.internal.processors.cache.tree.MvccUpdateRow;
 
 /**
  * FreeList implementation for cache.
@@ -48,8 +50,8 @@ public class CacheFreeListImpl extends AbstractFreeList<CacheDataRow> {
     }
 
     /** {@inheritDoc} */
-    @Override public IOVersions<? extends AbstractDataPageIO<CacheDataRow>> ioVersions() {
-        return DataPageIO.VERSIONS;
+    @Override public IOVersions<? extends AbstractDataPageIO<CacheDataRow>> ioVersions(CacheDataRow row) {
+        return row instanceof MvccUpdateRow ? MvccDataPageIO.VERSIONS : DataPageIO.VERSIONS;
     }
 
     /** {@inheritDoc} */

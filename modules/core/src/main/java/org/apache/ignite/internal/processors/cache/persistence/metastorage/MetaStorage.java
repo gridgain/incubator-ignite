@@ -424,7 +424,7 @@ public class MetaStorage implements DbCheckpointListener, ReadOnlyMetastorage, R
         }
 
         /** {@inheritDoc} */
-        @Override public IOVersions<? extends AbstractDataPageIO<MetastorageDataRow>> ioVersions() {
+        @Override public IOVersions<? extends AbstractDataPageIO<MetastorageDataRow>> ioVersions(MetastorageDataRow row) {
             return SimpleDataPageIO.VERSIONS;
         }
 
@@ -452,7 +452,7 @@ public class MetaStorage implements DbCheckpointListener, ReadOnlyMetastorage, R
                     assert pageAddr != 0L : nextLink;
 
                     try {
-                        SimpleDataPageIO io = (SimpleDataPageIO)ioVersions().forPage(pageAddr);
+                        SimpleDataPageIO io = (SimpleDataPageIO)ioVersions(null).forPage(pageAddr);
 
                         DataPagePayload data = io.readPayload(pageAddr, itemId(nextLink), pageMem.pageSize());
 

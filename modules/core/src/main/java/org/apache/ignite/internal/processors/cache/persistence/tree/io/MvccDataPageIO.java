@@ -23,68 +23,54 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.util.GridStringBuilder;
 
 /**
- * Data pages IO.
+ * Data page with MVCC xid_min and xid_max fields.
  */
-public class DataPageIO extends AbstractDataPageIO<CacheDataRow> {
+public class MvccDataPageIO extends AbstractDataPageIO<CacheDataRow> {
     /** */
-    public static final IOVersions<DataPageIO> VERSIONS = new IOVersions<>(
-        new DataPageIO(1)
+    public static final int MVCC_INFO_SIZE = 4 * 8;
+
+    /** */
+    public static final IOVersions<MvccDataPageIO> VERSIONS = new IOVersions<>(
+        new MvccDataPageIO(1)
     );
 
     /**
      * @param ver Page format version.
      */
-    protected DataPageIO(int ver) {
-        super(T_DATA, ver);
+    protected MvccDataPageIO(int ver) {
+        super(T_MVCC_DATA, ver);
     }
 
     /** {@inheritDoc} */
-    @Override
-    protected void writeFragmentData(
-        final CacheDataRow row,
-        final ByteBuffer buf,
-        final int rowOff,
-        final int payloadSize
-    ) throws IgniteCheckedException {
-        DataPageIOUtils.writeFragmentData(row, buf, rowOff, payloadSize, false);
+    @Override protected void writeFragmentData(CacheDataRow row, ByteBuffer buf, int rowOff,
+        int payloadSize) throws IgniteCheckedException {
+        DataPageIOUtils.writeFragmentData(row, buf, rowOff, payloadSize, true);
     }
 
     /** {@inheritDoc} */
-    @Override
-    protected void writeRowData(
-        long pageAddr,
-        int dataOff,
-        int payloadSize,
-        CacheDataRow row,
-        boolean newRow
-    ) throws IgniteCheckedException {
-        DataPageIOUtils.writeRowData(pageAddr, dataOff, payloadSize, row, newRow, false);
+    @Override protected void writeRowData(long pageAddr, int dataOff, int payloadSize, CacheDataRow row,
+        boolean newRow) throws IgniteCheckedException {
+        DataPageIOUtils.writeRowData(pageAddr, dataOff, payloadSize, row, newRow, true);
     }
 
     /** {@inheritDoc} */
     @Override public int getRowSize(CacheDataRow row) throws IgniteCheckedException {
-        return getRowSize(row, row.cacheId() != 0);
+        return DataPageIO.getRowSize(row, row.cacheId() != 0) + MVCC_INFO_SIZE;
     }
 
     /** {@inheritDoc} */
     @Override protected void printPage(long addr, int pageSize, GridStringBuilder sb) throws IgniteCheckedException {
-        sb.a("DataPageIO [\n");
+        // TODO Add xid_min/xid_max to layout.
+        sb.a("MvccDataPageIO [\n");
         printPageLayout(addr, pageSize, sb);
         sb.a("\n]");
     }
 
-    /**
-     * @param row Row.
-     * @param withCacheId If {@code true} adds cache ID size.
-     * @return Entry size on page.
-     * @throws IgniteCheckedException If failed.
-     */
-    public static int getRowSize(CacheDataRow row, boolean withCacheId) throws IgniteCheckedException {
-        int len = row.key().valueBytesLength(null);
+    /** {@inheritDoc} */
+    @Override public int getFreeSpace(long pageAddr) {
+        int freeSpace = super.getFreeSpace(pageAddr) - MVCC_INFO_SIZE;
 
-        if (!row.removed())
-            len += row.value().valueBytesLength(null) + CacheVersionIO.size(row.version(), false) + 8;
-
-        return len + (withCacheId ? 4 : 0);
+        return freeSpace < 0 ? 0 : freeSpace;
     }
+
 }

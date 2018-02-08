@@ -22,21 +22,26 @@ import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.IOVersions;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.assertMvccVersionValid;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.unmaskCoordinatorVersion;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
 
 /**
  *
@@ -220,7 +225,8 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
             assert pageAddr != 0L : link;
 
             try {
-                DataPageIO io = DataPageIO.VERSIONS.forPage(pageAddr);
+                AbstractDataPageIO io = grp.mvccEnabled() ? MvccDataPageIO.VERSIONS.forPage(pageAddr) :
+                    DataPageIO.VERSIONS.forPage(pageAddr);
 
                 DataPagePayload data = io.readPayload(pageAddr,
                     itemId(link),
@@ -228,6 +234,9 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
 
                 if (data.nextLink() == 0) {
                     long addr = pageAddr + data.offset();
+
+                    if (grp.mvccEnabled())
+                        addr += MVCC_INFO_SIZE; // Skip MVCC info.
 
                     if (grp.storeCacheIdInDataPage())
                         addr += 4; // Skip cache id.
@@ -310,5 +319,46 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
         }
 
         return 0;
+    }
+
+    public void setNewVersion(BPlusIO treeIo, long pageAddr, int idx,
+        MvccVersion newMvccVer) throws IgniteCheckedException {
+        assert grp.mvccEnabled() && newMvccVer != null;
+        assertMvccVersionValid(newMvccVer.coordinatorVersion(), newMvccVer.counter());
+
+        long link = ((RowLinkIO)treeIo).getLink(pageAddr, idx);
+
+        long pageId = pageId(link);
+        long page = acquirePage(pageId);
+
+        try {
+            long dataPageAddr = writeLock(pageId, page);
+
+            assert dataPageAddr != 0L : link;
+
+            try {
+                MvccDataPageIO dataIo = MvccDataPageIO.VERSIONS.forPage(dataPageAddr);
+
+                DataPagePayload data = dataIo.readPayload(dataPageAddr, itemId(link), pageSize());
+
+                assert data.payloadSize() >= MVCC_INFO_SIZE : "MVCC info should be fit on the very first data page.";
+
+                long addr = dataPageAddr + data.offset();
+
+                // Skip xid_min.
+                addr += 16;
+
+                PageUtils.putLong(addr, 0, newMvccVer.coordinatorVersion());
+                PageUtils.putLong(addr, 8, newMvccVer.counter());
+
+                addr++;
+            }
+            finally {
+                writeUnlock(pageId, page, dataPageAddr, true);
+            }
+        }
+        finally {
+            releasePage(pageId, page);
+        }
     }
 }

@@ -19,17 +19,25 @@ package org.apache.ignite.internal.processors.query.h2.database;
 
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
+import org.apache.ignite.internal.pagemem.PageMemory;
+import org.apache.ignite.internal.pagemem.PageUtils;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2RowLinkIO;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Row;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2SearchRow;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.spi.indexing.IndexingQueryCacheFilter;
 
+import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
+import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.assertMvccVersionValid;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.unmaskCoordinatorVersion;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
 
 /**
  *
@@ -37,18 +45,25 @@ import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.unm
 public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRow, GridH2Row> {
     /** */
     private final MvccVersion mvccVer;
+
     /** */
     private final IndexingQueryCacheFilter filter;
+
+    /** */
+    private final GridCacheContext cctx;
 
     /**
      * @param filter Cache filter.
      * @param mvccVer Mvcc version.
+     * @param cctx Cache context.
+     * @param lsnr Page lock listener.
      */
-    public H2TreeFilterClosure(IndexingQueryCacheFilter filter, MvccVersion mvccVer) {
-        assert filter != null || mvccVer != null;
+    public H2TreeFilterClosure(IndexingQueryCacheFilter filter, MvccVersion mvccVer, GridCacheContext cctx) {
+        assert (filter != null || mvccVer != null) && cctx != null ;
 
         this.filter = filter;
         this.mvccVer = mvccVer;
+        this.cctx = cctx;
     }
 
     /** {@inheritDoc} */
@@ -68,7 +83,7 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
     private boolean applyFilter(H2RowLinkIO io, long pageAddr, int idx) {
         assert filter != null;
 
-        return filter.applyPartition(PageIdUtils.partId(PageIdUtils.pageId(io.getLink(pageAddr, idx))));
+        return filter.applyPartition(PageIdUtils.partId(pageId(io.getLink(pageAddr, idx))));
     }
 
     /**
@@ -77,7 +92,7 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
      * @param idx Item index.
      * @return {@code True} if row passes the filter.
      */
-    private boolean applyMvcc(H2RowLinkIO io, long pageAddr, int idx) {
+    private boolean applyMvcc(H2RowLinkIO io, long pageAddr, int idx) throws IgniteCheckedException {
         assert io.storeMvccInfo() : io;
 
         long rowCrdVer = io.getMvccCoordinatorVersion(pageAddr, idx);
@@ -104,20 +119,52 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
      * @param rowIo Row IO.
      * @param pageAddr Page address.
      * @param idx Item index.
-     * @return {@code True}
+     * @return {@code True} if a new version is available.
      */
-    private boolean newVersionAvailable(H2RowLinkIO rowIo, long pageAddr, int idx) {
-        long newCrdVer = rowIo.getNewMvccCoordinatorVersion(pageAddr, idx);
+    private boolean newVersionAvailable(H2RowLinkIO rowIo, long pageAddr, int idx) throws IgniteCheckedException {
+        long newCrd;
+        long newCntr;
 
-        if (newCrdVer == 0)
+        PageMemory pageMem = cctx.dataRegion().pageMemory();
+        int grpId = cctx.groupId();
+
+        long link = rowIo.getLink(pageAddr, idx);
+        long pageId = pageId(link);
+        long page = pageMem.acquirePage(grpId, pageId);
+        // TODO Move to MvccIO
+        try {
+            long dataPageAddr = pageMem.readLock(grpId, pageId, page);
+
+            try{
+                MvccDataPageIO dataIo = MvccDataPageIO.VERSIONS.forPage(dataPageAddr);
+
+                DataPagePayload data = dataIo.readPayload(dataPageAddr, itemId(link), pageMem.pageSize());
+
+                assert data.payloadSize() >= MVCC_INFO_SIZE : "MVCC info should be fit on the very first data page.";
+
+                long addr = dataPageAddr + data.offset();
+
+                // Skip xid_min.
+                addr += 16;
+
+                newCrd = PageUtils.getLong(addr, 0);
+                newCntr = PageUtils.getLong(addr, 8);
+            }
+            finally {
+                pageMem.readUnlock(grpId, pageId, page);
+            }
+        }
+        finally {
+            pageMem.releasePage(grpId, pageId, page);
+        }
+
+        if (newCrd == 0)
             return false;
 
-        int cmp = Long.compare(mvccVer.coordinatorVersion(), newCrdVer);
+        int cmp = Long.compare(mvccVer.coordinatorVersion(), newCrd);
 
         if (cmp == 0) {
-            long newCntr = rowIo.getNewMvccCounter(pageAddr, idx);
-
-            assert assertMvccVersionValid(newCrdVer, newCntr);
+            assert assertMvccVersionValid(newCrd, newCntr);
 
             return newCntr <= mvccVer.counter() && !mvccVer.activeTransactions().contains(newCntr);
         }
