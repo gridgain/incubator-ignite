@@ -2750,7 +2750,9 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
          */
         private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> trackedCommitedTxs = new ConcurrentHashMap<>();
 
-        private volatile ConcurrentHashMap<KeyCacheObject, GridCacheVersion> trackedCommitedKeysToNearXidVer = new ConcurrentHashMap<>();
+        private volatile ConcurrentHashMap<KeyCacheObject, List<GridCacheVersion>> writtenKeysToNearXidVer = new ConcurrentHashMap<>();
+
+        private volatile ConcurrentHashMap<GridCacheVersion, Set<GridCacheVersion>> dependentTransactionsGraph = new ConcurrentHashMap<>();
 
         /** State rw-lock. */
         private final ReentrantReadWriteLock stateLock = new ReentrantReadWriteLock();
@@ -2850,13 +2852,37 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
         }
 
         public void onKeysWritten(GridCacheVersion nearXidVer, List<KeyCacheObject> keys) {
+            if (!trackCommited.get())
+                return;
 
+            for (KeyCacheObject key : keys) {
+                List<GridCacheVersion> keyTxs = writtenKeysToNearXidVer.computeIfAbsent(key, k -> new ArrayList<>());
+
+                for (GridCacheVersion previousTx : keyTxs) {
+                    Set<GridCacheVersion> dependentTxs = dependentTransactionsGraph.computeIfAbsent(previousTx, k -> new HashSet<>());
+
+                    dependentTxs.add(nearXidVer);
+                }
+
+                keyTxs.add(nearXidVer);
+            }
         }
 
         public void onKeysRead(GridCacheVersion nearXidVer, List<KeyCacheObject> keys) {
+            if (!trackCommited.get())
+                return;
 
+            for (KeyCacheObject key : keys) {
+                List<GridCacheVersion> keyTxs = writtenKeysToNearXidVer.getOrDefault(key, Collections.emptyList());
+
+                for (GridCacheVersion previousTx : keyTxs) {
+                    Set<GridCacheVersion> dependentTxs = dependentTransactionsGraph.computeIfAbsent(previousTx, k -> new HashSet<>());
+
+                    dependentTxs.add(nearXidVer);
+                }
+
+                keyTxs.add(nearXidVer);
+            }
         }
-
-
     }
 }
