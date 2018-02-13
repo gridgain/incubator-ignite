@@ -17,21 +17,18 @@
 
 package org.apache.ignite.internal.processors.bulkload;
 
-import java.util.LinkedList;
 import java.util.List;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.bulkload.pipeline.CharsetDecoderBlock;
 import org.apache.ignite.internal.processors.bulkload.pipeline.CsvParserBlock;
 import org.apache.ignite.internal.processors.bulkload.pipeline.PipelineBlock;
-import org.apache.ignite.internal.processors.bulkload.pipeline.StrListAppenderBlock;
 
 /** CSV parser for COPY command. */
 public class BulkLoadCsvParser extends BulkLoadParser {
     /** Processing pipeline input block: a decoder for the input stream of bytes */
     private final PipelineBlock<byte[], char[]> inputBlock;
 
-    /** A record collecting block that appends its input to {@code List<String>}. */
-    private final StrListAppenderBlock collectorBlock;
+    private final PipelineBlock<char[], List<Object>> csvParserBlock;
 
     /**
      * Creates bulk load CSV parser.
@@ -41,22 +38,19 @@ public class BulkLoadCsvParser extends BulkLoadParser {
     public BulkLoadCsvParser(BulkLoadCsvFormat format) {
         inputBlock = new CharsetDecoderBlock(BulkLoadFormat.DEFAULT_INPUT_CHARSET);
 
-        collectorBlock = new StrListAppenderBlock();
+        csvParserBlock = new CsvParserBlock();
 
         // Handling of the other options is to be implemented in IGNITE-7537.
-        inputBlock.append(new CsvParserBlock())
-                  .append(collectorBlock);
+        inputBlock.append(csvParserBlock);
+    }
+
+    @Override public void collectorBlock(PipelineBlock<List<Object>, Object> collectorBlock) {
+        csvParserBlock.append(collectorBlock);
     }
 
     /** {@inheritDoc} */
-    @Override protected List<List<Object>> parseBatch(byte[] batchData, boolean isLastBatch)
+    @Override protected void parseBatch(byte[] batchData, boolean isLastBatch)
         throws IgniteCheckedException {
-        List<List<Object>> res = new LinkedList<>();
-
-        collectorBlock.output(res);
-
         inputBlock.accept(batchData, isLastBatch);
-
-        return res;
     }
 }

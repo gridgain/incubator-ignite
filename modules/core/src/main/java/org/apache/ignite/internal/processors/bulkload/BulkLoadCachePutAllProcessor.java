@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.processors.bulkload;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.IgniteIllegalStateException;
+import org.apache.ignite.internal.processors.bulkload.pipeline.PipelineBlock;
 import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.util.lang.IgniteClosureX;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -34,6 +37,8 @@ import org.apache.ignite.lang.IgniteBiTuple;
 public class BulkLoadCachePutAllProcessor extends BulkLoadProcessor {
     /** The cache to put data to. */
     private final GridCacheAdapter cache;
+
+    private final CollectorBlock collectorBlock;
 
     /**
      * Creates bulk load processor.
@@ -48,6 +53,8 @@ public class BulkLoadCachePutAllProcessor extends BulkLoadProcessor {
         super(inputParser, dataConverter);
 
         this.cache = cache;
+        collectorBlock = new CollectorBlock();
+        inputParser.collectorBlock(collectorBlock);
     }
 
     /**
@@ -58,22 +65,7 @@ public class BulkLoadCachePutAllProcessor extends BulkLoadProcessor {
      * @throws IgniteIllegalStateException when called after {@link #close()}.
      */
     public void processBatch(byte[] batchData, boolean isLastBatch) throws IgniteCheckedException {
-        List<List<Object>> inputRecords = inputParser.parseBatch(batchData, isLastBatch);
-
-        if (inputRecords.isEmpty())
-            return;
-
-        Map<Object, Object> outRecs = new HashMap<>();
-
-        for (List<Object> record : inputRecords) {
-            IgniteBiTuple<?, ?> kv = dataConverter.apply(record);
-
-            outRecs.put(kv.getKey(), kv.getValue());
-        }
-
-        cache.putAll(outRecs);
-
-        updateCnt += outRecs.size();
+        inputParser.parseBatch(batchData, isLastBatch);
     }
 
     /**
@@ -81,5 +73,24 @@ public class BulkLoadCachePutAllProcessor extends BulkLoadProcessor {
      */
     @Override public void close() {
         // no-op
+    }
+
+    private class CollectorBlock extends PipelineBlock<List<Object>,Object> {
+        private static final int ITEMS_PER_THREAD = 5000;
+
+        Map<Object, Object> outRecs = new HashMap<>(ITEMS_PER_THREAD);
+
+        @Override public void accept(List<Object> inputPortion, boolean isLastPortion) throws IgniteCheckedException {
+            IgniteBiTuple<?, ?> kv = dataConverter.apply(inputPortion);
+
+            outRecs.put(kv.getKey(), kv.getValue());
+
+            if (outRecs.size() > ITEMS_PER_THREAD || isLastPortion) {
+                cache.putAll(outRecs);
+                outRecs.clear();
+            }
+
+            updateCnt += outRecs.size();
+        }
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.bulkload;
 import org.apache.ignite.IgniteCheckedException;
 
 import java.util.List;
+import org.apache.ignite.internal.processors.bulkload.pipeline.PipelineBlock;
 
 /**
  * Bulk load file format parser superclass + factory of known formats.
@@ -29,6 +30,9 @@ import java.util.List;
  * <p>The parser uses corresponding options from {@link BulkLoadFormat} subclass.
  */
 public abstract class BulkLoadParser {
+    /** FIXME SHQ */
+    public abstract void collectorBlock(PipelineBlock<List<Object>, Object> collectorBlock);
+
     /**
      * Parses a batch of input data and returns a list of records parsed
      * (in most cases this is a list of strings).
@@ -42,7 +46,7 @@ public abstract class BulkLoadParser {
      * @return The list of records.
      * @throws IgniteCheckedException If any processing error occurs.
      */
-    protected abstract List<List<Object>> parseBatch(byte[] batchData, boolean isLastBatch)
+    protected abstract void parseBatch(byte[] batchData, boolean isLastBatch)
         throws IgniteCheckedException;
 
     /**

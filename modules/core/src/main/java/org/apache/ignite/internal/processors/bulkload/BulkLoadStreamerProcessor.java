@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.processors.bulkload;
 
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.IgniteIllegalStateException;
+import org.apache.ignite.internal.processors.bulkload.pipeline.PipelineBlock;
 import org.apache.ignite.internal.util.lang.IgniteClosureX;
 import org.apache.ignite.lang.IgniteBiTuple;
 
@@ -29,14 +32,13 @@ import org.apache.ignite.lang.IgniteBiTuple;
  * received from the client side.
  */
 public class BulkLoadStreamerProcessor extends BulkLoadProcessor {
-    /** Number of parallel processing threads. */
-    private static final int STREAMER_THREADS = 8;
-
     /** Streamer that puts actual key/value into the cache. */
     private final IgniteDataStreamer<Object, Object> outputStreamer;
 
     /** Becomes true after {@link #close()} method is called. */
     private boolean isClosed;
+
+    private final CollectorBlock collectorBlock;
 
     /**
      * Creates bulk load processor.
@@ -46,12 +48,16 @@ public class BulkLoadStreamerProcessor extends BulkLoadProcessor {
      *     key+value entry to add to the cache.
      * @param outputStreamer Streamer that puts actual key/value into the cache.
      */
-    public BulkLoadStreamerProcessor(BulkLoadParser inputParser, IgniteClosureX<List<?>, IgniteBiTuple<?, ?>> dataConverter,
-        IgniteDataStreamer<Object, Object> outputStreamer) {
+    public BulkLoadStreamerProcessor(BulkLoadParser inputParser,
+        IgniteClosureX<List<?>, IgniteBiTuple<?, ?>> dataConverter, IgniteDataStreamer<Object, Object> outputStreamer) {
         super(inputParser, dataConverter);
 
         this.outputStreamer = outputStreamer;
         isClosed = false;
+
+        collectorBlock = new CollectorBlock();
+
+        inputParser.collectorBlock(collectorBlock);
     }
 
     /**
@@ -65,39 +71,7 @@ public class BulkLoadStreamerProcessor extends BulkLoadProcessor {
         if (isClosed)
             throw new IgniteIllegalStateException("Attempt to process a batch on a closed BulkLoadProcessor");
 
-        List<List<Object>> inputRecords = inputParser.parseBatch(batchData, isLastBatch);
-
-        if (inputRecords.isEmpty())
-            return;
-
-        StreamerThread[] threads = new StreamerThread[STREAMER_THREADS];
-
-        int strip = (inputRecords.size() + threads.length - 1) / threads.length;
-        int start = 0;
-        int end = start + strip;
-
-        for (int i = 0; i < threads.length; ++i) {
-            if (end > inputRecords.size())
-                end = inputRecords.size();
-
-            List<List<Object>> threadRecords = inputRecords.subList(start, end);
-
-            threads[i] = new StreamerThread(threadRecords);
-            threads[i].start();
-
-            start = end;
-            end += strip;
-        }
-
-        for (int i = 0; i < threads.length; ++i) {
-            try {
-                threads[i].join();
-                updateCnt += threads[i].threadUpdateCnt();
-            }
-            catch (InterruptedException e) {
-                // swallow
-            }
-        }
+        inputParser.parseBatch(batchData, isLastBatch);
     }
 
     /**
@@ -108,6 +82,8 @@ public class BulkLoadStreamerProcessor extends BulkLoadProcessor {
             return;
 
         isClosed = true;
+
+        collectorBlock.joinThreads();
 
         outputStreamer.close();
     }
@@ -133,6 +109,38 @@ public class BulkLoadStreamerProcessor extends BulkLoadProcessor {
 
         int threadUpdateCnt() {
             return threadUpdateCnt;
+        }
+    }
+
+    private class CollectorBlock extends PipelineBlock<List<Object>,Object> {
+        private static final int ITEMS_PER_THREAD = 3_000;
+
+        private List<List<Object>> input = new ArrayList<>(ITEMS_PER_THREAD);
+        private List<StreamerThread> threads = new LinkedList<>();
+
+        @Override public void accept(List<Object> inputPortion, boolean isLastPortion) throws IgniteCheckedException {
+            input.add(inputPortion);
+
+            if (input.size() >= ITEMS_PER_THREAD || isLastPortion) {
+                List<List<Object>> threadInput = input;
+
+                input = new ArrayList<>(ITEMS_PER_THREAD);
+
+                StreamerThread thr = new StreamerThread(threadInput);
+
+                threads.add(thr);
+
+                thr.start();
+            }
+        }
+
+        void joinThreads() throws InterruptedException {
+            for (StreamerThread thr : threads) {
+                thr.join();
+                updateCnt += thr.threadUpdateCnt();
+            }
+
+            threads.clear();
         }
     }
 }
