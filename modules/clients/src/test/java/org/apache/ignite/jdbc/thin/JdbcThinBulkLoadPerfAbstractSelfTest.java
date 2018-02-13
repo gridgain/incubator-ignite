@@ -147,23 +147,28 @@ public class JdbcThinBulkLoadPerfAbstractSelfTest extends JdbcThinAbstractDmlSta
         int tableFldCnt = 10;
         int fileFldCnt = 10;
         int fldSize = 10;
-//        DB db = DB.POSTGRESQL;
-        DB db = DB.IGNITE;
+        DB db = DB.POSTGRESQL;
+//        DB db = DB.IGNITE;
+//        DB db = DB.MYSQL;
+
+        String tableName;
 
         switch (db) {
             case IGNITE:
+                tableName = "public.FldTest";
                 break;
 
             case POSTGRESQL:
                 conn = DriverManager.getConnection("jdbc:postgresql://localhost/postgres", "postgres", "admin");
+                tableName = "public.FldTest";
                 stmt = conn.createStatement();
                 break;
 
             case MYSQL:
-                Class.forName("com.mysql.jdbc.Driver");
-                conn = DriverManager.getConnection("jdbc:mysql://localhost/mysql", "mysql", "admin");
+                Class.forName("com.mysql.cj.jdbc.Driver");
+                conn = DriverManager.getConnection("jdbc:mysql://localhost/mysql?serverTimezone=Europe/Moscow", "mysql", "admin");
                 stmt = conn.createStatement();
-                stmt.executeUpdate("SET GLOBAL time_zone = '+3:00'");
+                tableName = "FldTest";
                 break;
 
             default:
@@ -178,41 +183,40 @@ public class JdbcThinBulkLoadPerfAbstractSelfTest extends JdbcThinAbstractDmlSta
         generateCsv(fileName, lineCnt, fileFldCnt, fldSize);
 
         StringBuilder fieldsCreate = new StringBuilder();
-        fieldsCreate.append("f000000 VARCHAR PRIMARY KEY");
+        fieldsCreate.append("f000000 VARCHAR(").append(fldSize).append(") PRIMARY KEY");
         for (int i = 1; i < tableFldCnt; ++i)
-            fieldsCreate.append(",").append(String.format("f%06d VARCHAR", i));
+            fieldsCreate.append(",").append(String.format("f%06d VARCHAR(%d)", i, fldSize));
 
         System.out.println("Creating table");
-        stmt.executeUpdate("drop table if exists public.FldTest2");
+        stmt.executeUpdate("drop table if exists " + tableName);
         StringBuilder fieldsInsert = new StringBuilder();
         fieldsInsert.append("f000000");
         for (int i = 1; i < tableFldCnt; ++i)
             fieldsInsert.append(",").append(String.format("f%06d", i));
 
         for (int i = 0; i < 10; ++i) {
-            stmt.executeUpdate("create table public.FldTest2 (" + fieldsCreate.toString() + ")");
-
-            long startNs = System.nanoTime();
+            stmt.executeUpdate("create table " + tableName + " (" + fieldsCreate.toString() + ")");
 
             System.out.println("Running COPY");
             String sql;
             switch (db) {
                 case IGNITE:
-                    sql = "copy from \"" + fileName + "\" into public.FldTest2 " + "(" + fieldsInsert.toString() + ") format csv";
+                    sql = "copy from \"" + fileName + "\" into " + tableName + " (" + fieldsInsert.toString() + ") format csv";
                     break;
 
                 case POSTGRESQL:
-                    sql = "copy public.FldTest2 " + "(" + fieldsInsert.toString() + ") from '" + fileName + "' with (format csv)";
+                    sql = "copy " + tableName + " (" + fieldsInsert.toString() + ") from '" + fileName + "' with (format csv)";
                     break;
 
                 case MYSQL:
-                    sql = "load data infile '" + fileName + "' into table public.FldTest2";
+                    sql = "load data local infile '" + fileName + "' into table " + tableName;
                     break;
 
                 default:
                     throw new IllegalArgumentException();
             }
 
+            long startNs = System.nanoTime();
             long lines = stmt.executeUpdate(sql);
             long stopNs = System.nanoTime();
 
@@ -221,7 +225,7 @@ public class JdbcThinBulkLoadPerfAbstractSelfTest extends JdbcThinAbstractDmlSta
             int tries = 0;
             do {
                 Thread.sleep(100);
-                ResultSet rs = stmt.executeQuery("select count(*) from public.FldTest2");
+                ResultSet rs = stmt.executeQuery("select count(*) from " + tableName);
                 rs.next();
                 recCnt = rs.getInt(1);
                 System.out.printf("Imported entries into the cache: %d\n", recCnt);
@@ -232,11 +236,11 @@ public class JdbcThinBulkLoadPerfAbstractSelfTest extends JdbcThinAbstractDmlSta
             System.out.print(">>>>>>>>>>>\n" +
                 "    Elapsed  : " + String.format("%12.6f sec", (stopNs - startNs) / 10e9) + "\n" +
                 "    Lines    : " + lines + " => " + recCnt + "\n" +
-                "    Lines/sec: " + String.format("%12.6f sec", 10e9 * ((double)lineCnt / (stopNs - startNs))) + "\n" +
-                "    Sec/line : " + String.format("%12.6f us", 10e-3 * ((double)(stopNs - startNs) / lineCnt)) + "\n");
+                "    Lines/sec: " + String.format("%12.6f", 10e9 * ((double)lineCnt / (stopNs - startNs))) + "\n" +
+                "    Sec/line : " + String.format("%12.6f us", 10e-3 * (double)(stopNs - startNs) / lineCnt) + "\n");
 
             System.out.println("Dropping table");
-            stmt.executeUpdate("drop table public.FldTest2");
+            stmt.executeUpdate("drop table " + tableName);
         }
 
         System.out.println(">>>>>>>>>>>\n\n\n\n\n");
