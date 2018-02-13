@@ -1705,7 +1705,8 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         try {
             beforePut(cacheCtx, false);
 
-            final IgniteInternalFuture<Long> fut = enlistQuery(cacheCtx, cacheIds, parts, schema, qry, params, flags, pageSize, timeout);
+            final IgniteInternalFuture<Long> fut = enlistDmlOperation(cacheCtx, cacheIds, parts, schema, qry, params,
+                flags, pageSize, timeout);
 
             return nonInterruptable(new GridEmbeddedFuture<>(fut.chain(new CX1<IgniteInternalFuture<Long>, Boolean>() {
                 @Override public Boolean applyx(IgniteInternalFuture<Long> fut0) throws IgniteCheckedException {
@@ -1727,7 +1728,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         }
     }
 
-    private IgniteInternalFuture<Long> enlistQuery(final GridCacheContext cctx,
+    private IgniteInternalFuture<Long> enlistDmlOperation(final GridCacheContext cctx,
         final int[] cacheIds, final int[] parts, final String schema, final String qry, final Object[] params,
         final int flags, int pageSize, final long timeout) {
         assert qry != null;

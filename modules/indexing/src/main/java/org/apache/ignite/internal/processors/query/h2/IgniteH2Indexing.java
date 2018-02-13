@@ -2110,6 +2110,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         Object[] args = null;
 
+        boolean forUpdate = false;
+
         if (!DmlUtils.isBatched(qry) && paramsCnt > 0) {
             if (argsOrig == null || argsOrig.length < firstArg + paramsCnt) {
                 throw new IgniteException("Invalid number of query parameters. " +
@@ -2119,7 +2121,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             args = Arrays.copyOfRange(argsOrig, firstArg, firstArg + paramsCnt);
         }
 
-       if (prepared.isQuery()) {
+        if (prepared.isQuery()) {
             try {
                 bindParameters(stmt, F.asList(args));
             }
@@ -2275,7 +2277,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         fldsQry.setPageSize(pageSize);
         fldsQry.setLocal(true);
 
-        boolean local = true;
+        boolean loc = true;
 
         final boolean replicated = isFlagSet(flags, GridH2QueryRequest.FLAG_REPLICATED);
 
@@ -2287,7 +2289,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             && cctx0.config().getQueryParallelism() > 1) {
             fldsQry.setDistributedJoins(true);
 
-            local = false;
+            loc = false;
         }
 
         Connection conn = connectionForSchema(schema);
@@ -2297,9 +2299,15 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         PreparedStatement stmt = preparedStatementWithParams(conn, fldsQry.getSql(),
             F.asList(fldsQry.getArgs()), true);
 
-        return dmlProc.prepareDistributedUpdate(schema, conn, stmt, fldsQry, backupFilter(topVer, parts), cancel, local, topVer, mvccVer);
+        return dmlProc.prepareDistributedUpdate(schema, conn, stmt, fldsQry, backupFilter(topVer, parts), cancel, loc,
+            topVer, mvccVer);
     }
 
+    /**
+     * @param flags All flags.
+     * @param flag Flag to check.
+     * @return Whether flag is set or not.
+     */
     private boolean isFlagSet(int flags, int flag) {
         return (flags & flag) == flag;
     }
