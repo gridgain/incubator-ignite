@@ -28,10 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteClientDisconnectedException;
 import org.apache.ignite.IgniteSystemProperties;
@@ -44,7 +41,6 @@ import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.managers.communication.GridIoPolicy;
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
-import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.TxRecord;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheObjectsReleaseFuture;
@@ -58,7 +54,6 @@ import org.apache.ignite.internal.processors.cache.GridCacheVersionedFuture;
 import org.apache.ignite.internal.processors.cache.GridCacheReturnCompletableWrapper;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedManagerAdapter;
 import org.apache.ignite.internal.processors.cache.GridDeferredAckMessageSender;
-import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheMappedVersion;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxFinishSync;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryFuture;
@@ -80,7 +75,6 @@ import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedExceptio
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.GridBoundedConcurrentOrderedMap;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
-import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.lang.IgnitePair;
 import org.apache.ignite.internal.util.typedef.CI1;
@@ -293,7 +287,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
 
         this.logTxRecords = IgniteSystemProperties.getBoolean(IGNITE_WAL_LOG_TX_RECORDS, false);
 
-        this.pendingTracker = new LocalPendingTransactionsTracker();
+        this.pendingTracker = new LocalPendingTransactionsTracker(cctx);
     }
 
     /**
@@ -2732,235 +2726,4 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
         }
     }
 
-    /**
-     * Tracks pending transactions for purposes of consistent cut algorithm.
-     */
-    public static class LocalPendingTransactionsTracker {
-        /** Currently pending transactions. */
-        private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> currentlyPreparedTxs = new ConcurrentHashMap<>();
-
-        /**
-         * Transactions that were transitioned to pending state since last {@link #startTrackingPrepared()} call.
-         * Transaction remains in this map after commit/rollback.
-         */
-        private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> trackedPreparedTxs = new ConcurrentHashMap<>();
-
-        /**
-         * Transactions that were transitioned to commited state since last {@link #startTrackingCommited()} call.
-         */
-        private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> trackedCommitedTxs = new ConcurrentHashMap<>();
-
-        private volatile ConcurrentHashMap<KeyCacheObject, List<GridCacheVersion>> writtenKeysToNearXidVer = new ConcurrentHashMap<>();
-
-        private volatile ConcurrentHashMap<GridCacheVersion, Set<GridCacheVersion>> dependentTransactionsGraph = new ConcurrentHashMap<>();
-        // todo GG-13416: maybe handle local sequential consistency with threadId
-
-        /** State rw-lock. */
-        private final ReentrantReadWriteLock stateLock = new ReentrantReadWriteLock();
-
-        /** Track prepared flag. */
-        private final AtomicBoolean trackPrepared = new AtomicBoolean(false);
-
-        /** Track commited flag. */
-        private final AtomicBoolean trackCommited = new AtomicBoolean(false);
-
-        private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> failedToFinishInTimeoutTxs = null;
-
-        private volatile GridFutureAdapter<List<GridCacheVersion>> txFinishAwaitFut = null;
-        // todo GG-13416: handle timeout for hang in PREPARED txs
-
-        /**
-         *
-         */
-        public Map<GridCacheVersion, WALPointer> currentPendingTxs() {
-            assert stateLock.writeLock().isHeldByCurrentThread();
-
-            return U.sealMap(currentlyPreparedTxs);
-        }
-
-        public void startTrackingPrepared() {
-            assert stateLock.writeLock().isHeldByCurrentThread();
-
-            trackPrepared.set(true);
-        }
-
-        /**
-         * @return nearXidVer -> prepared WAL ptr
-         */
-        public Map<GridCacheVersion, WALPointer> stopTrackingPrepared() {
-            assert stateLock.writeLock().isHeldByCurrentThread();
-
-            trackPrepared.set(false);
-
-            Map<GridCacheVersion, WALPointer> res = U.sealMap(trackedPreparedTxs);
-
-            trackedPreparedTxs = new ConcurrentHashMap<>();
-
-            return res;
-        }
-
-        public void startTrackingCommited() {
-            assert stateLock.writeLock().isHeldByCurrentThread();
-
-            trackCommited.set(true);
-        }
-
-        /**
-         * @return nearXidVer -> prepared WAL ptr
-         */
-        public Map<GridCacheVersion, WALPointer> stopTrackingCommited() {
-            assert stateLock.writeLock().isHeldByCurrentThread();
-
-            trackCommited.set(false);
-
-            Map<GridCacheVersion, WALPointer> res = U.sealMap(trackedCommitedTxs);
-
-            trackedCommitedTxs = new ConcurrentHashMap<>();
-
-            return res;
-        }
-
-        /**
-         * @return Future with collection of transactions that failed to finish within timeout.
-         */
-        public IgniteInternalFuture<List<GridCacheVersion>> awaitFinishOfPreparedTxs() {
-            assert stateLock.writeLock().isHeldByCurrentThread();
-
-            assert txFinishAwaitFut == null : txFinishAwaitFut;
-
-            if (currentlyPreparedTxs.isEmpty())
-                return new GridFinishedFuture<>(Collections.emptyList());
-
-            failedToFinishInTimeoutTxs = new ConcurrentHashMap<>(currentlyPreparedTxs);
-
-            txFinishAwaitFut = new GridFutureAdapter<>();
-
-            return txFinishAwaitFut;
-        }
-
-        /**
-         * Freezes state of all tracker collections. Any active transactions that modify collections will
-         * wait on readLock().
-         * Can be used to obtain consistent snapshot of several collections.
-         */
-        public void writeLockState() {
-            stateLock.writeLock().lock();
-        }
-
-        /**
-         * Unfreezes state of all tracker collections, releases waiting transactions.
-         */
-        public void writeUnlockState() {
-            stateLock.writeLock().unlock();
-        }
-
-        public void onTxPrepared(GridCacheVersion nearXidVer, WALPointer preparedMarkerPtr) {
-            stateLock.readLock().lock();
-
-            try {
-                currentlyPreparedTxs.put(nearXidVer, preparedMarkerPtr);
-
-                if (trackPrepared.get())
-                    trackedPreparedTxs.put(nearXidVer, preparedMarkerPtr);
-            }
-            finally {
-                stateLock.readLock().unlock();
-            }
-        }
-
-        public void onTxCommited(GridCacheVersion nearXidVer) {
-            stateLock.readLock().lock();
-
-            try {
-                WALPointer preparedPtr = currentlyPreparedTxs.remove(nearXidVer);
-
-                assert preparedPtr != null;
-
-                if (trackCommited.get())
-                    trackedCommitedTxs.put(nearXidVer, preparedPtr);
-
-                checkTxFinishFutureDone(nearXidVer);
-            }
-            finally {
-                stateLock.readLock().unlock();
-            }
-
-        }
-
-        public void onTxRolledBack(GridCacheVersion nearXidVer) {
-            stateLock.readLock().lock();
-
-            try {
-                currentlyPreparedTxs.remove(nearXidVer);
-
-                if (trackPrepared.get())
-                    trackedPreparedTxs.remove(nearXidVer);
-
-                checkTxFinishFutureDone(nearXidVer);
-            }
-            finally {
-                stateLock.readLock().unlock();
-            }
-        }
-
-        public void onKeysWritten(GridCacheVersion nearXidVer, List<KeyCacheObject> keys) {
-            stateLock.readLock().lock();
-
-            try {
-                if (!trackCommited.get())
-                    return;
-
-                for (KeyCacheObject key : keys) {
-                    List<GridCacheVersion> keyTxs = writtenKeysToNearXidVer.computeIfAbsent(key, k -> new ArrayList<>());
-
-                    for (GridCacheVersion previousTx : keyTxs) {
-                        Set<GridCacheVersion> dependentTxs = dependentTransactionsGraph.computeIfAbsent(previousTx, k -> new HashSet<>());
-
-                        dependentTxs.add(nearXidVer);
-                    }
-
-                    keyTxs.add(nearXidVer);
-                }
-            }
-            finally {
-                stateLock.readLock().unlock();
-            }
-        }
-
-        public void onKeysRead(GridCacheVersion nearXidVer, List<KeyCacheObject> keys) {
-            stateLock.readLock().lock();
-
-            try {
-                if (!trackCommited.get())
-                    return;
-
-                for (KeyCacheObject key : keys) {
-                    List<GridCacheVersion> keyTxs = writtenKeysToNearXidVer.getOrDefault(key, Collections.emptyList());
-
-                    for (GridCacheVersion previousTx : keyTxs) {
-                        Set<GridCacheVersion> dependentTxs = dependentTransactionsGraph.computeIfAbsent(previousTx, k -> new HashSet<>());
-
-                        dependentTxs.add(nearXidVer);
-                    }
-                }
-            }
-            finally {
-                stateLock.readLock().unlock();
-            }
-        }
-
-        private void checkTxFinishFutureDone(GridCacheVersion nearXidVer) {
-            GridFutureAdapter<List<GridCacheVersion>> txFinishAwaitFut0 = txFinishAwaitFut;
-
-            if (txFinishAwaitFut0 != null) {
-                failedToFinishInTimeoutTxs.remove(nearXidVer);
-
-                if (failedToFinishInTimeoutTxs.isEmpty()) {
-                    txFinishAwaitFut0.onDone(Collections.emptyList());
-
-                    txFinishAwaitFut = null;
-                }
-            }
-        }
-    }
 }
