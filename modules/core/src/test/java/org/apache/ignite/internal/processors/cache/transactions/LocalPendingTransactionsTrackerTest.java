@@ -19,9 +19,11 @@ package org.apache.ignite.internal.processors.cache.transactions;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObjectImpl;
@@ -34,8 +36,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -73,20 +73,14 @@ public class LocalPendingTransactionsTrackerTest {
     @Before
     public void setUp() {
         GridTimeoutProcessor time = Mockito.mock(GridTimeoutProcessor.class);
-        Mockito.when(time.addTimeoutObject(Mockito.any())).thenAnswer(new Answer<Void>() {
-            @Override public Void answer(InvocationOnMock mock) throws Throwable {
-                GridTimeoutObject timeoutObj = (GridTimeoutObject)mock.getArguments()[0];
+        Mockito.when(time.addTimeoutObject(Mockito.any())).thenAnswer(mock -> {
+            GridTimeoutObject timeoutObj = (GridTimeoutObject)mock.getArguments()[0];
 
-                long endTime = timeoutObj.endTime();
+            long endTime = timeoutObj.endTime();
 
-                timeoutExecutor.schedule(new Runnable() {
-                    @Override public void run() {
-                        timeoutObj.onTimeout();
-                    }
-                }, endTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+            timeoutExecutor.schedule(timeoutObj::onTimeout, endTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
-                return null;
-            }
+            return null;
         });
 
         GridCacheSharedContext<?, ?> cctx = Mockito.mock(GridCacheSharedContext.class);
@@ -207,6 +201,183 @@ public class LocalPendingTransactionsTrackerTest {
     }
 
     /**
+     *
+     */
+    @Test
+    public void testRollback() {
+        txRollback(1); // Tx can be rolled back before prepare.
+
+        txPrepare(2);
+        txKeyWrite(2, 20);
+
+        txPrepare(3);
+        txKeyWrite(3, 30);
+        txPrepare(3);
+        txKeyWrite(3, 31);
+
+        txCommit(3);
+
+        txRollback(2);
+        txRollback(3);
+
+        tracker.writeLockState();
+
+        try {
+            Map<GridCacheVersion, WALPointer> currentlyPreparedTxs = tracker.currentlyPreparedTxs();
+
+            assertEquals(0, currentlyPreparedTxs.size());
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+    }
+
+    /**
+     *
+     */
+    @Test(timeout = 10_000)
+    public void testAwaitFinishOfPreparedTxs() throws Exception {
+        txPrepare(1);
+
+        txPrepare(2);
+        txPrepare(2);
+
+        txPrepare(3);
+        txPrepare(3);
+        txCommit(3);
+
+        txPrepare(4);
+        txCommit(4);
+
+        txPrepare(5);
+        txPrepare(5);
+        txPrepare(5);
+        txCommit(5);
+
+        tracker.writeLockState();
+
+        IgniteInternalFuture<Set<GridCacheVersion>> fut;
+        try {
+            fut = tracker.awaitFinishOfPreparedTxs(1_000);
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        Thread.sleep(100);
+
+        txCommit(5);
+        txCommit(2);
+        txCommit(2);
+
+        long curTs = System.currentTimeMillis();
+
+        Set<GridCacheVersion> pendingTxs = fut.get();
+
+        assertTrue("Waiting for awaitFinishOfPreparedTxs future too long", System.currentTimeMillis() - curTs < 1_000);
+
+        assertEquals(3, pendingTxs.size());
+        assertTrue(pendingTxs.contains(nearXidVersion(1)));
+        assertTrue(pendingTxs.contains(nearXidVersion(3)));
+        assertTrue(pendingTxs.contains(nearXidVersion(5)));
+
+        txCommit(1);
+        txCommit(3);
+        txCommit(5);
+
+        tracker.writeLockState();
+
+        try {
+            fut = tracker.awaitFinishOfPreparedTxs(1_000);
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        assertTrue(fut.get().isEmpty());
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void trackingCommittedTest() {
+        txPrepare(1);
+        txCommit(1);
+
+        txPrepare(2);
+
+        tracker.writeLockState();
+        try {
+            tracker.startTrackingCommitted();
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        txCommit(2);
+
+        txPrepare(3);
+        txCommit(3);
+
+        txPrepare(4);
+
+        tracker.writeLockState();
+
+        Map<GridCacheVersion, WALPointer> committedTxs;
+        try {
+            committedTxs = tracker.stopTrackingCommitted();
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        assertEquals(2, committedTxs.size());
+        assertTrue(committedTxs.containsKey(nearXidVersion(2)));
+        assertTrue(committedTxs.containsKey(nearXidVersion(3)));
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void trackingPreparedTest() {
+        txPrepare(1);
+        txCommit(1);
+
+        txPrepare(2);
+
+        tracker.writeLockState();
+        try {
+            tracker.startTrackingPrepared();
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        txCommit(2);
+
+        txPrepare(3);
+        txCommit(3);
+
+        txPrepare(4);
+
+        tracker.writeLockState();
+
+        Map<GridCacheVersion, WALPointer> committedTxs;
+        try {
+            committedTxs = tracker.stopTrackingPrepared();
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        assertEquals(2, committedTxs.size());
+        assertTrue(committedTxs.containsKey(nearXidVersion(3)));
+        assertTrue(committedTxs.containsKey(nearXidVersion(4)));
+    }
+
+    /**
      * @param txId Test transaction ID.
      */
     private void txPrepare(int txId) {
@@ -218,6 +389,13 @@ public class LocalPendingTransactionsTrackerTest {
      */
     private void txCommit(int txId) {
         tracker.onTxCommitted(nearXidVersion(txId));
+    }
+
+    /**
+     * @param txId Test transaction ID.
+     */
+    private void txRollback(int txId) {
+        tracker.onTxRolledBack(nearXidVersion(txId));
     }
 
     /**

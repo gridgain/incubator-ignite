@@ -39,10 +39,6 @@ import org.apache.ignite.internal.util.typedef.internal.U;
  * Tracks pending transactions for purposes of consistent cut algorithm.
  */
 public class LocalPendingTransactionsTracker {
-    /** Tx finish timeout. */
-    private static final int TX_FINISH_TIMEOUT = 10_000;
-    // todo GG-13416: introduce ignite constant
-
     /** Cctx. */
     private final GridCacheSharedContext<?, ?> cctx;
 
@@ -90,7 +86,7 @@ public class LocalPendingTransactionsTracker {
     private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> failedToFinishInTimeoutTxs = null;
 
     /** Tx finish await future. */
-    private volatile GridFutureAdapter<List<GridCacheVersion>> txFinishAwaitFut = null;
+    private volatile GridFutureAdapter<Set<GridCacheVersion>> txFinishAwaitFut = null;
     // todo GG-13416: handle timeout for hang in PREPARED txs
 
     /**
@@ -148,26 +144,27 @@ public class LocalPendingTransactionsTracker {
     }
 
     /**
+     * @param timeoutTs Timeout in milliseconds.
      * @return Future with collection of transactions that failed to finish within timeout.
      */
-    public IgniteInternalFuture<List<GridCacheVersion>> awaitFinishOfPreparedTxs() {
+    public IgniteInternalFuture<Set<GridCacheVersion>> awaitFinishOfPreparedTxs(long timeoutTs) {
         assert stateLock.writeLock().isHeldByCurrentThread();
 
         assert txFinishAwaitFut == null : txFinishAwaitFut;
 
         if (currentlyPreparedTxs.isEmpty())
-            return new GridFinishedFuture<>(Collections.emptyList());
+            return new GridFinishedFuture<>(Collections.emptySet());
 
         failedToFinishInTimeoutTxs = new ConcurrentHashMap<>(currentlyPreparedTxs);
 
-        final GridFutureAdapter<List<GridCacheVersion>> txFinishAwaitFut0 = new GridFutureAdapter<>();
+        final GridFutureAdapter<Set<GridCacheVersion>> txFinishAwaitFut0 = new GridFutureAdapter<>();
 
         txFinishAwaitFut = txFinishAwaitFut0;
 
-        cctx.time().addTimeoutObject(new GridTimeoutObjectAdapter(TX_FINISH_TIMEOUT) {
+        cctx.time().addTimeoutObject(new GridTimeoutObjectAdapter(timeoutTs) {
             @Override public void onTimeout() {
                 if (txFinishAwaitFut0 == txFinishAwaitFut && !txFinishAwaitFut0.isDone())
-                    txFinishAwaitFut0.onDone(U.sealList(failedToFinishInTimeoutTxs.keySet()));
+                    txFinishAwaitFut0.onDone(U.sealSet(failedToFinishInTimeoutTxs.keySet()));
             }
         });
 
@@ -321,13 +318,13 @@ public class LocalPendingTransactionsTracker {
      * @param nearXidVer Near xid version.
      */
     private void checkTxFinishFutureDone(GridCacheVersion nearXidVer) {
-        GridFutureAdapter<List<GridCacheVersion>> txFinishAwaitFut0 = txFinishAwaitFut;
+        GridFutureAdapter<Set<GridCacheVersion>> txFinishAwaitFut0 = txFinishAwaitFut;
 
         if (txFinishAwaitFut0 != null) {
             failedToFinishInTimeoutTxs.remove(nearXidVer);
 
             if (failedToFinishInTimeoutTxs.isEmpty()) {
-                txFinishAwaitFut0.onDone(Collections.emptyList());
+                txFinishAwaitFut0.onDone(Collections.emptySet());
 
                 txFinishAwaitFut = null;
             }
