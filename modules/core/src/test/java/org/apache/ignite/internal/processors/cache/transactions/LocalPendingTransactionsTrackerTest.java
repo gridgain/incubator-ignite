@@ -326,7 +326,7 @@ public class LocalPendingTransactionsTrackerTest {
 
         Map<GridCacheVersion, WALPointer> committedTxs;
         try {
-            committedTxs = tracker.stopTrackingCommitted();
+            committedTxs = tracker.stopTrackingCommitted().committedTxs();
         }
         finally {
             tracker.writeUnlockState();
@@ -375,6 +375,152 @@ public class LocalPendingTransactionsTrackerTest {
         assertEquals(2, committedTxs.size());
         assertTrue(committedTxs.containsKey(nearXidVersion(3)));
         assertTrue(committedTxs.containsKey(nearXidVersion(4)));
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void testConsistentCutUseCase() throws Exception {
+        txPrepare(1);
+        txPrepare(2);
+        txPrepare(3);
+
+        txCommit(3);
+
+        tracker.writeLockState(); // Cut 1.
+
+        IgniteInternalFuture<Set<GridCacheVersion>> awaitFutCut1;
+        try {
+            tracker.startTrackingCommitted();
+
+            awaitFutCut1 = tracker.awaitFinishOfPreparedTxs(1_000);
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        txCommit(1);
+
+        Set<GridCacheVersion> failedToFinish = awaitFutCut1.get();
+
+        assertEquals(1, failedToFinish.size());
+        assertTrue(failedToFinish.contains(nearXidVersion(2)));
+
+        txCommit(2);
+
+        txPrepare(4);
+        txCommit(4);
+
+        txPrepare(5);
+
+        txPrepare(6);
+
+        tracker.writeLockState(); // Cut 2.
+
+        Map<GridCacheVersion, WALPointer> committedFrom1to2;
+        try {
+            committedFrom1to2 = tracker.stopTrackingCommitted().committedTxs();
+
+            tracker.startTrackingPrepared();
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        assertEquals(3, committedFrom1to2.size());
+        assertTrue(committedFrom1to2.keySet().contains(nearXidVersion(1)));
+        assertTrue(committedFrom1to2.keySet().contains(nearXidVersion(2)));
+        assertTrue(committedFrom1to2.keySet().contains(nearXidVersion(4)));
+
+        txPrepare(7);
+        txPrepare(8);
+
+        txCommit(6);
+        txCommit(7);
+
+        tracker.writeLockState(); // Cut 3.
+        Map<GridCacheVersion, WALPointer> preparedFrom2to3;
+        try {
+            preparedFrom2to3 = tracker.stopTrackingPrepared();
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        assertEquals(2, preparedFrom2to3.size());
+        assertTrue(preparedFrom2to3.keySet().contains(nearXidVersion(7)));
+        assertTrue(preparedFrom2to3.keySet().contains(nearXidVersion(8)));
+    }
+
+    /**
+     *
+     */
+    @Test
+    public void testDependentTransactions() {
+        tracker.writeLockState();
+        try {
+            tracker.startTrackingCommitted();
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        txPrepare(1);
+        txKeyRead(1, 0);
+        txKeyWrite(1, 10);
+        txKeyRead(1, 20);
+        txCommit(1);
+
+        txPrepare(2);
+        txKeyWrite(2, 30);
+        txKeyWrite(2, 40);
+        txCommit(2);
+
+        txPrepare(3);
+        txKeyRead(3, 10); // (w -> r) is a dependency
+        txCommit(3);
+
+        txPrepare(4);
+        txKeyWrite(4, 20); // (r -> w) is not a dependency
+        txCommit(4);
+
+        txPrepare(5);
+        txKeyRead(5, 30); // (w -> r) is a dependency
+        txCommit(5);
+
+        txPrepare(6);
+        txKeyWrite(6, 40); // (w -> w) is a dependency
+        txCommit(6);
+
+        txPrepare(7);
+        txKeyRead(7, 0); // (r -> r) is not a dependency
+        txCommit(7);
+
+        tracker.writeLockState();
+
+        TrackCommittedResult res;
+        try {
+            res = tracker.stopTrackingCommitted();
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
+
+        assertEquals(7, res.committedTxs().size());
+        assertEquals(2, res.dependentTxsGraph().size());
+
+        assertTrue(res.dependentTxsGraph().containsKey(nearXidVersion(1)));
+        assertTrue(res.dependentTxsGraph().containsKey(nearXidVersion(2)));
+
+        Set<GridCacheVersion> dependentFrom1 = res.dependentTxsGraph().get(nearXidVersion(1));
+        assertEquals(1, dependentFrom1.size());
+        assertTrue(dependentFrom1.contains(nearXidVersion(3)));
+
+        Set<GridCacheVersion> dependentFrom2 = res.dependentTxsGraph().get(nearXidVersion(2));
+        assertEquals(2, dependentFrom2.size());
+        assertTrue(dependentFrom2.contains(nearXidVersion(5)));
+        assertTrue(dependentFrom2.contains(nearXidVersion(6)));
     }
 
     /**

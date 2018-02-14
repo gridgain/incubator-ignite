@@ -69,7 +69,7 @@ public class LocalPendingTransactionsTracker {
     /** Written keys to near xid version. */
     private volatile ConcurrentHashMap<KeyCacheObject, Set<GridCacheVersion>> writtenKeysToNearXidVer = new ConcurrentHashMap<>();
 
-    /** Dependent transactions graph. */
+    /** Graph of dependent (by keys) transactions. */
     private volatile ConcurrentHashMap<GridCacheVersion, Set<GridCacheVersion>> dependentTransactionsGraph = new ConcurrentHashMap<>();
     // todo GG-13416: maybe handle local sequential consistency with threadId
 
@@ -131,16 +131,20 @@ public class LocalPendingTransactionsTracker {
     /**
      * @return nearXidVer -> prepared WAL ptr
      */
-    public Map<GridCacheVersion, WALPointer> stopTrackingCommitted() {
+    public TrackCommittedResult stopTrackingCommitted() {
         assert stateLock.writeLock().isHeldByCurrentThread();
 
         trackCommitted.set(false);
 
-        Map<GridCacheVersion, WALPointer> res = U.sealMap(trackedCommittedTxs);
+        Map<GridCacheVersion, WALPointer> committedTxs = U.sealMap(trackedCommittedTxs);
+
+        Map<GridCacheVersion, Set<GridCacheVersion>> dependentTxs = U.sealMap(dependentTransactionsGraph);
 
         trackedCommittedTxs = new ConcurrentHashMap<>();
 
-        return res;
+        dependentTransactionsGraph = new ConcurrentHashMap<>();
+
+        return new TrackCommittedResult(committedTxs, dependentTxs);
     }
 
     /**
