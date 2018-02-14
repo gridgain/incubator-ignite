@@ -1124,7 +1124,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
                             else if (state == ROLLED_BACK)
                                 cctx.tm().pendingTxsTracker().onTxRolledBack(nearXidVersion());
                             else
-                                cctx.tm().pendingTxsTracker().onTxCommited(nearXidVersion());
+                                cctx.tm().pendingTxsTracker().onTxCommitted(nearXidVersion());
                         }
                         catch (IgniteCheckedException e) {
                             U.error(log, "Failed to log TxRecord: " + txRecord, e);

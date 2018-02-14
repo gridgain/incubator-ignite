@@ -16,7 +16,6 @@
 */
 package org.apache.ignite.internal.processors.cache.transactions;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -24,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
@@ -56,6 +56,9 @@ public class LocalPendingTransactionsTracker {
     /** Currently pending transactions. */
     private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> currentlyPreparedTxs = new ConcurrentHashMap<>();
 
+    /** +1 for prepared, -1 for committed */
+    private volatile ConcurrentHashMap<GridCacheVersion, AtomicInteger> preparedCommittedTxsCounters = new ConcurrentHashMap<>();
+
     /**
      * Transactions that were transitioned to pending state since last {@link #startTrackingPrepared()} call.
      * Transaction remains in this map after commit/rollback.
@@ -63,12 +66,12 @@ public class LocalPendingTransactionsTracker {
     private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> trackedPreparedTxs = new ConcurrentHashMap<>();
 
     /**
-     * Transactions that were transitioned to commited state since last {@link #startTrackingCommited()} call.
+     * Transactions that were transitioned to committed state since last {@link #startTrackingCommitted()} call.
      */
-    private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> trackedCommitedTxs = new ConcurrentHashMap<>();
+    private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> trackedCommittedTxs = new ConcurrentHashMap<>();
 
     /** Written keys to near xid version. */
-    private volatile ConcurrentHashMap<KeyCacheObject, List<GridCacheVersion>> writtenKeysToNearXidVer = new ConcurrentHashMap<>();
+    private volatile ConcurrentHashMap<KeyCacheObject, Set<GridCacheVersion>> writtenKeysToNearXidVer = new ConcurrentHashMap<>();
 
     /** Dependent transactions graph. */
     private volatile ConcurrentHashMap<GridCacheVersion, Set<GridCacheVersion>> dependentTransactionsGraph = new ConcurrentHashMap<>();
@@ -80,8 +83,8 @@ public class LocalPendingTransactionsTracker {
     /** Track prepared flag. */
     private final AtomicBoolean trackPrepared = new AtomicBoolean(false);
 
-    /** Track commited flag. */
-    private final AtomicBoolean trackCommited = new AtomicBoolean(false);
+    /** Track committed flag. */
+    private final AtomicBoolean trackCommitted = new AtomicBoolean(false);
 
     /** Failed to finish in timeout txs. */
     private volatile ConcurrentHashMap<GridCacheVersion, WALPointer> failedToFinishInTimeoutTxs = null;
@@ -93,7 +96,7 @@ public class LocalPendingTransactionsTracker {
     /**
      *
      */
-    public Map<GridCacheVersion, WALPointer> currentPendingTxs() {
+    public Map<GridCacheVersion, WALPointer> currentlyPreparedTxs() {
         assert stateLock.writeLock().isHeldByCurrentThread();
 
         return U.sealMap(currentlyPreparedTxs);
@@ -123,23 +126,23 @@ public class LocalPendingTransactionsTracker {
     /**
      *
      */
-    public void startTrackingCommited() {
+    public void startTrackingCommitted() {
         assert stateLock.writeLock().isHeldByCurrentThread();
 
-        trackCommited.set(true);
+        trackCommitted.set(true);
     }
 
     /**
      * @return nearXidVer -> prepared WAL ptr
      */
-    public Map<GridCacheVersion, WALPointer> stopTrackingCommited() {
+    public Map<GridCacheVersion, WALPointer> stopTrackingCommitted() {
         assert stateLock.writeLock().isHeldByCurrentThread();
 
-        trackCommited.set(false);
+        trackCommitted.set(false);
 
-        Map<GridCacheVersion, WALPointer> res = U.sealMap(trackedCommitedTxs);
+        Map<GridCacheVersion, WALPointer> res = U.sealMap(trackedCommittedTxs);
 
-        trackedCommitedTxs = new ConcurrentHashMap<>();
+        trackedCommittedTxs = new ConcurrentHashMap<>();
 
         return res;
     }
@@ -195,10 +198,14 @@ public class LocalPendingTransactionsTracker {
         stateLock.readLock().lock();
 
         try {
-            currentlyPreparedTxs.put(nearXidVer, preparedMarkerPtr);
+            currentlyPreparedTxs.putIfAbsent(nearXidVer, preparedMarkerPtr);
+
+            AtomicInteger cntr = preparedCommittedTxsCounters.computeIfAbsent(nearXidVer, k -> new AtomicInteger(0));
+
+            cntr.incrementAndGet();
 
             if (trackPrepared.get())
-                trackedPreparedTxs.put(nearXidVer, preparedMarkerPtr);
+                trackedPreparedTxs.putIfAbsent(nearXidVer, preparedMarkerPtr);
         }
         finally {
             stateLock.readLock().unlock();
@@ -208,18 +215,29 @@ public class LocalPendingTransactionsTracker {
     /**
      * @param nearXidVer Near xid version.
      */
-    public void onTxCommited(GridCacheVersion nearXidVer) {
+    public void onTxCommitted(GridCacheVersion nearXidVer) {
         stateLock.readLock().lock();
 
         try {
-            WALPointer preparedPtr = currentlyPreparedTxs.remove(nearXidVer);
+            AtomicInteger preparedCommittedCntr = preparedCommittedTxsCounters.get(nearXidVer);
 
-            assert preparedPtr != null;
+            if (preparedCommittedCntr == null)
+                return; // Tx was concurrently rolled back.
 
-            if (trackCommited.get())
-                trackedCommitedTxs.put(nearXidVer, preparedPtr);
+            int cnt = preparedCommittedCntr.decrementAndGet();
 
-            checkTxFinishFutureDone(nearXidVer);
+            assert cnt >= 0 : cnt;
+
+            if (cnt == 0) {
+                WALPointer preparedPtr = currentlyPreparedTxs.remove(nearXidVer);
+
+                assert preparedPtr != null;
+
+                if (trackCommitted.get())
+                    trackedCommittedTxs.put(nearXidVer, preparedPtr);
+
+                checkTxFinishFutureDone(nearXidVer);
+            }
         }
         finally {
             stateLock.readLock().unlock();
@@ -236,8 +254,7 @@ public class LocalPendingTransactionsTracker {
         try {
             currentlyPreparedTxs.remove(nearXidVer);
 
-            if (trackPrepared.get())
-                trackedPreparedTxs.remove(nearXidVer);
+            preparedCommittedTxsCounters.remove(nearXidVer);
 
             checkTxFinishFutureDone(nearXidVer);
         }
@@ -254,11 +271,11 @@ public class LocalPendingTransactionsTracker {
         stateLock.readLock().lock();
 
         try {
-            if (!trackCommited.get())
+            if (!trackCommitted.get())
                 return;
 
             for (KeyCacheObject key : keys) {
-                List<GridCacheVersion> keyTxs = writtenKeysToNearXidVer.computeIfAbsent(key, k -> new ArrayList<>());
+                Set<GridCacheVersion> keyTxs = writtenKeysToNearXidVer.computeIfAbsent(key, k -> new HashSet<>());
 
                 for (GridCacheVersion previousTx : keyTxs) {
                     Set<GridCacheVersion> dependentTxs = dependentTransactionsGraph.computeIfAbsent(previousTx, k -> new HashSet<>());
@@ -282,11 +299,11 @@ public class LocalPendingTransactionsTracker {
         stateLock.readLock().lock();
 
         try {
-            if (!trackCommited.get())
+            if (!trackCommitted.get())
                 return;
 
             for (KeyCacheObject key : keys) {
-                List<GridCacheVersion> keyTxs = writtenKeysToNearXidVer.getOrDefault(key, Collections.emptyList());
+                Set<GridCacheVersion> keyTxs = writtenKeysToNearXidVer.getOrDefault(key, Collections.emptySet());
 
                 for (GridCacheVersion previousTx : keyTxs) {
                     Set<GridCacheVersion> dependentTxs = dependentTransactionsGraph.computeIfAbsent(previousTx, k -> new HashSet<>());
