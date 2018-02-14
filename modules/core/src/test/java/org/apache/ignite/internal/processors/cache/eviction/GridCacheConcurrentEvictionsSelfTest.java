@@ -17,26 +17,28 @@
 
 package org.apache.ignite.internal.processors.cache.eviction;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.eviction.*;
-import org.apache.ignite.cache.eviction.fifo.*;
-import org.apache.ignite.cache.eviction.lru.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.eviction.EvictionPolicy;
+import org.apache.ignite.cache.eviction.fifo.FifoEvictionPolicy;
+import org.apache.ignite.cache.eviction.lru.LruEvictionPolicy;
+import org.apache.ignite.cache.eviction.sorted.SortedEvictionPolicy;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheMode.LOCAL;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
 
 /**
  *
@@ -49,10 +51,7 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
     private CacheMode mode = REPLICATED;
 
     /** */
-    private CacheEvictionPolicy<?, ?> plc;
-
-    /** */
-    private CacheEvictionPolicy<?, ?> nearPlc;
+    private EvictionPolicy<?, ?> plc;
 
     /** */
     private int warmUpPutsCnt;
@@ -61,8 +60,8 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
     private int iterCnt;
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration c = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration c = super.getConfiguration(igniteInstanceName);
 
         c.getTransactionConfiguration().setDefaultTxConcurrency(PESSIMISTIC);
         c.getTransactionConfiguration().setDefaultTxIsolation(READ_COMMITTED);
@@ -71,14 +70,12 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
 
         cc.setCacheMode(mode);
 
-        cc.setSwapEnabled(false);
-
         cc.setWriteSynchronizationMode(FULL_SYNC);
 
-        cc.setDistributionMode(PARTITIONED_ONLY);
+        cc.setNearConfiguration(null);
 
         cc.setEvictionPolicy(plc);
-        cc.setNearEvictionPolicy(nearPlc);
+        cc.setOnheapCacheEnabled(true);
 
         c.setCacheConfiguration(cc);
 
@@ -96,7 +93,6 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
         super.afterTest();
 
         plc = null;
-        nearPlc = null;
     }
 
     /**
@@ -104,8 +100,11 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
      */
     public void testConcurrentPutsFifoLocal() throws Exception {
         mode = LOCAL;
-        plc = new CacheFifoEvictionPolicy<Object, Object>(1000);
-        nearPlc = null;
+
+        FifoEvictionPolicy plc = new FifoEvictionPolicy();
+        plc.setMaxSize(1000);
+
+        this.plc = plc;
         warmUpPutsCnt = 100000;
         iterCnt = 100000;
 
@@ -117,8 +116,27 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
      */
     public void testConcurrentPutsLruLocal() throws Exception {
         mode = LOCAL;
-        plc = new CacheLruEvictionPolicy<Object, Object>(1000);
-        nearPlc = null;
+
+        LruEvictionPolicy plc = new LruEvictionPolicy();
+        plc.setMaxSize(1000);
+
+        this.plc = plc;
+        warmUpPutsCnt = 100000;
+        iterCnt = 100000;
+
+        checkConcurrentPuts();
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testConcurrentPutsSortedLocal() throws Exception {
+        mode = LOCAL;
+
+        SortedEvictionPolicy plc = new SortedEvictionPolicy();
+        plc.setMaxSize(1000);
+
+        this.plc = plc;
         warmUpPutsCnt = 100000;
         iterCnt = 100000;
 
@@ -132,7 +150,7 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
         try {
             Ignite ignite = startGrid(1);
 
-            final IgniteCache<Integer, Integer> cache = ignite.jcache(null);
+            final IgniteCache<Integer, Integer> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
             // Warm up.
             for (int i = 0; i < warmUpPutsCnt; i++) {

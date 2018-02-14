@@ -17,10 +17,10 @@
 
 package org.apache.ignite.logger.log4j;
 
-import junit.framework.*;
-import org.apache.ignite.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.log4j.*;
+import junit.framework.TestCase;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
+import org.apache.log4j.BasicConfigurator;
 
 /**
  * Log4j initialized test.
@@ -39,7 +39,12 @@ public class GridLog4jInitializedTest extends TestCase {
     public void testLogInitialize() {
         IgniteLogger log = new Log4JLogger();
 
-        assert log.isInfoEnabled() == true;
+        System.out.println(log.toString());
+
+        assertTrue(log.toString().contains("Log4JLogger"));
+        assertTrue(log.toString().contains("config=null"));
+
+        assertTrue(log.isInfoEnabled());
 
         if (log.isDebugEnabled())
             log.debug("This is 'debug' message.");

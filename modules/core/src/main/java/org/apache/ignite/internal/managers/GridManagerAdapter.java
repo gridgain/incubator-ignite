@@ -17,30 +17,55 @@
 
 package org.apache.ignite.internal.managers;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.managers.eventstorage.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.apache.ignite.plugin.security.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.swapspace.*;
-import org.jetbrains.annotations.*;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Map;
+import java.util.UUID;
+import javax.cache.expiry.Duration;
+import javax.cache.expiry.ExpiryPolicy;
+import javax.cache.expiry.TouchedExpiryPolicy;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.GridComponent;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.managers.communication.GridMessageListener;
+import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.timeout.GridSpiTimeoutObject;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.plugin.extensions.communication.MessageFactory;
+import org.apache.ignite.plugin.extensions.communication.MessageFormatter;
+import org.apache.ignite.plugin.security.SecuritySubject;
+import org.apache.ignite.spi.IgniteNodeValidationResult;
+import org.apache.ignite.spi.IgnitePortProtocol;
+import org.apache.ignite.spi.IgniteSpi;
+import org.apache.ignite.spi.IgniteSpiAdapter;
+import org.apache.ignite.spi.IgniteSpiContext;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.IgniteSpiNoop;
+import org.apache.ignite.spi.IgniteSpiTimeoutObject;
+import org.apache.ignite.spi.discovery.DiscoveryDataBag;
+import org.apache.ignite.spi.discovery.DiscoveryDataBag.GridDiscoveryData;
+import org.apache.ignite.spi.discovery.DiscoveryDataBag.JoiningNodeDiscoveryData;
+import org.jetbrains.annotations.Nullable;
 
-import javax.cache.expiry.*;
-import java.io.*;
-import java.util.*;
-
-import static java.util.Arrays.*;
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.internal.managers.communication.GridIoPolicy.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
 
 /**
  * Convenience adapter for grid managers.
@@ -63,6 +88,13 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
 
     /** Checks is SPI implementation is {@code NO-OP} or not. */
     private final boolean enabled;
+
+    /** */
+    private final Map<IgniteSpi, Boolean> spiMap = new IdentityHashMap<>();
+
+    /** */
+    @GridToStringExclude
+    private boolean injected;
 
     /**
      * @param ctx Kernal context.
@@ -166,6 +198,40 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
         // No-op.
     }
 
+    /** {@inheritDoc} */
+    @Override public void onDisconnected(IgniteFuture<?> reconnectFut) throws IgniteCheckedException {
+        for (T t : spis)
+            t.onClientDisconnected(reconnectFut);
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteInternalFuture<?> onReconnected(boolean clusterRestarted) throws IgniteCheckedException {
+        for (T t : spis)
+            t.onClientReconnected(clusterRestarted);
+
+        return null;
+    }
+
+    /**
+     * Injects resources to SPI.
+     *
+     * @throws IgniteCheckedException If failed.
+     */
+    protected void inject() throws IgniteCheckedException {
+        if (injected)
+            return;
+
+        for (T spi : spis) {
+            // Inject all spi resources.
+            ctx.resource().inject(spi);
+
+            // Inject SPI internal objects.
+            inject(spi);
+        }
+
+        injected = true;
+    }
+
     /**
      * Starts wrapped SPI.
      *
@@ -175,11 +241,21 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
         Collection<String> names = U.newHashSet(spis.length);
 
         for (T spi : spis) {
-            // Inject all spi resources.
-            ctx.resource().inject(spi);
+            if (spi instanceof IgniteSpiAdapter)
+                ((IgniteSpiAdapter)spi).onBeforeStart();
 
-            // Inject SPI internal objects.
-            inject(spi);
+            // Save SPI to map to make sure to stop it properly.
+            Boolean res = spiMap.put(spi, Boolean.TRUE);
+
+            assert res == null;
+
+            if (!injected) {
+                // Inject all spi resources.
+                ctx.resource().inject(spi);
+
+                // Inject SPI internal objects.
+                inject(spi);
+            }
 
             try {
                 Map<String, Object> retval = spi.getNodeAttributes();
@@ -218,7 +294,7 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
             onBeforeSpiStart();
 
             try {
-                spi.spiStart(ctx.gridName());
+                spi.spiStart(ctx.igniteInstanceName());
             }
             catch (IgniteSpiException e) {
                 throw new IgniteCheckedException("Failed to start SPI: " + spi, e);
@@ -229,6 +305,8 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
             if (log.isDebugEnabled())
                 log.debug("SPI module started OK: " + spi.getClass().getName());
         }
+
+        injected = true;
     }
 
     /**
@@ -238,6 +316,13 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
      */
     protected final void stopSpi() throws IgniteCheckedException {
         for (T spi : spis) {
+            if (spiMap.remove(spi) == null) {
+                if (log.isDebugEnabled())
+                    log.debug("Will not stop SPI since it has not been started by this manager: " + spi);
+
+                continue;
+            }
+
             if (log.isDebugEnabled())
                 log.debug("Stopping SPI: " + spi);
 
@@ -277,10 +362,14 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
     }
 
     /** {@inheritDoc} */
-    @Override public final void onKernalStart() throws IgniteCheckedException {
+    @Override public final void onKernalStart(boolean active) throws IgniteCheckedException {
         for (final IgniteSpi spi : spis) {
             try {
                 spi.onContextInitialized(new IgniteSpiContext() {
+                    @Override public boolean isStopping() {
+                        return ctx.isStopping();
+                    }
+
                     @Override public Collection<ClusterNode> remoteNodes() {
                         return ctx.discovery().remoteNodes();
                     }
@@ -314,7 +403,12 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
                     @Override public boolean pingNode(UUID nodeId) {
                         A.notNull(nodeId, "nodeId");
 
-                        return ctx.discovery().pingNode(nodeId);
+                        try {
+                            return ctx.discovery().pingNode(nodeId);
+                        }
+                        catch (IgniteCheckedException e) {
+                            throw U.convertException(e);
+                        }
                     }
 
                     @Override public void send(ClusterNode node, Serializable msg, String topic)
@@ -325,13 +419,27 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
 
                         try {
                             if (msg instanceof Message)
-                                ctx.io().send(node, topic, (Message)msg, SYSTEM_POOL);
+                                ctx.io().sendToCustomTopic(node, topic, (Message)msg, SYSTEM_POOL);
                             else
-                                ctx.io().sendUserMessage(asList(node), msg, topic, false, 0);
+                                ctx.io().sendUserMessage(Collections.singletonList(node), msg, topic, false, 0, false);
                         }
                         catch (IgniteCheckedException e) {
                             throw unwrapException(e);
                         }
+                    }
+
+                    @Override public void addLocalMessageListener(Object topic, IgniteBiPredicate<UUID, ?> p) {
+                        A.notNull(topic, "topic");
+                        A.notNull(p, "p");
+
+                        ctx.io().addUserMessageListener(topic, p);
+                    }
+
+                    @Override public void removeLocalMessageListener(Object topic, IgniteBiPredicate<UUID, ?> p) {
+                        A.notNull(topic, "topic");
+                        A.notNull(topic, "p");
+
+                        ctx.io().removeUserMessageListener(topic, p);
                     }
 
                     @SuppressWarnings("deprecation")
@@ -394,27 +502,37 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
                     }
 
                     @Nullable @Override public <K, V> V put(String cacheName, K key, V val, long ttl) {
-                        if (ttl > 0) {
-                            ExpiryPolicy plc = new TouchedExpiryPolicy(new Duration(MILLISECONDS, ttl));
+                        try {
+                            if (ttl > 0) {
+                                ExpiryPolicy plc = new TouchedExpiryPolicy(new Duration(MILLISECONDS, ttl));
 
-                            IgniteCache<K, V> cache = ctx.cache().<K, V>publicJCache(cacheName).withExpiryPolicy(plc);
+                                IgniteCache<K, V> cache = ctx.cache().<K, V>publicJCache(cacheName).withExpiryPolicy(plc);
 
-                            return cache.getAndPut(key, val);
+                                return cache.getAndPut(key, val);
+                            }
+                            else
+                                return ctx.cache().<K, V>jcache(cacheName).getAndPut(key, val);
                         }
-                        else
-                            return ctx.cache().<K, V>jcache(cacheName).getAndPut(key, val);
+                        catch (IgniteCheckedException e) {
+                            throw CU.convertToCacheException(e);
+                        }
                     }
 
                     @Nullable @Override public <K, V> V putIfAbsent(String cacheName, K key, V val, long ttl) {
-                        if (ttl > 0) {
-                            ExpiryPolicy plc = new TouchedExpiryPolicy(new Duration(MILLISECONDS, ttl));
+                        try {
+                            if (ttl > 0) {
+                                ExpiryPolicy plc = new TouchedExpiryPolicy(new Duration(MILLISECONDS, ttl));
 
-                            IgniteCache<K, V> cache = ctx.cache().<K, V>publicJCache(cacheName).withExpiryPolicy(plc);
+                                IgniteCache<K, V> cache = ctx.cache().<K, V>publicJCache(cacheName).withExpiryPolicy(plc);
 
-                            return cache.getAndPutIfAbsent(key, val);
+                                return cache.getAndPutIfAbsent(key, val);
+                            }
+                            else
+                                return ctx.cache().<K, V>jcache(cacheName).getAndPutIfAbsent(key, val);
                         }
-                        else
-                            return ctx.cache().<K, V>jcache(cacheName).getAndPutIfAbsent(key, val);
+                        catch (IgniteCheckedException e) {
+                            throw CU.convertToCacheException(e);
+                        }
                     }
 
                     @Nullable @Override public <K, V> V remove(String cacheName, K key) {
@@ -425,49 +543,13 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
                         return ctx.cache().cache(cacheName).containsKey(key);
                     }
 
-                    @Override public void writeToSwap(String spaceName, Object key, @Nullable Object val,
-                        @Nullable ClassLoader ldr) {
-                        assert ctx.swap().enabled();
-
-                        try {
-                            ctx.swap().write(spaceName, key, val, ldr);
-                        }
-                        catch (IgniteCheckedException e) {
-                            throw U.convertException(e);
-                        }
-                    }
-
-                    @SuppressWarnings({"unchecked"})
-                    @Nullable @Override public <T> T readFromSwap(String spaceName, SwapKey key,
-                        @Nullable ClassLoader ldr) {
-                        try {
-                            assert ctx.swap().enabled();
-
-                            return ctx.swap().readValue(spaceName, key, ldr);
-                        }
-                        catch (IgniteCheckedException e) {
-                            throw U.convertException(e);
-                        }
-                    }
-
                     @Override public int partition(String cacheName, Object key) {
                         return ctx.cache().cache(cacheName).affinity().partition(key);
                     }
 
-                    @Override public void removeFromSwap(String spaceName, Object key, @Nullable ClassLoader ldr) {
-                        try {
-                            assert ctx.swap().enabled();
-
-                            ctx.swap().remove(spaceName, key, null, ldr);
-                        }
-                        catch (IgniteCheckedException e) {
-                            throw U.convertException(e);
-                        }
-                    }
-
-                    @Override public IgniteSpiNodeValidationResult validateNode(ClusterNode node) {
+                    @Override public IgniteNodeValidationResult validateNode(ClusterNode node) {
                         for (GridComponent comp : ctx) {
-                            IgniteSpiNodeValidationResult err = comp.validateNode(node);
+                            IgniteNodeValidationResult err = comp.validateNode(node);
 
                             if (err != null)
                                 return err;
@@ -476,7 +558,21 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
                         return null;
                     }
 
-                    @Override public Collection<GridSecuritySubject> authenticatedSubjects() {
+                    @Nullable @Override public IgniteNodeValidationResult validateNode(ClusterNode node, DiscoveryDataBag discoData) {
+                        for (GridComponent comp : ctx) {
+                            if (comp.discoveryDataType() == null)
+                                continue;
+
+                            IgniteNodeValidationResult err = comp.validateNode(node, discoData.newJoinerDiscoveryData(comp.discoveryDataType().ordinal()));
+
+                            if (err != null)
+                                return err;
+                        }
+
+                        return null;
+                    }
+
+                    @Override public Collection<SecuritySubject> authenticatedSubjects() {
                         try {
                             return ctx.security().authenticatedSubjects();
                         }
@@ -485,29 +581,9 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
                         }
                     }
 
-                    @Override public GridSecuritySubject authenticatedSubject(UUID subjId) {
+                    @Override public SecuritySubject authenticatedSubject(UUID subjId) {
                         try {
                             return ctx.security().authenticatedSubject(subjId);
-                        }
-                        catch (IgniteCheckedException e) {
-                            throw U.convertException(e);
-                        }
-                    }
-
-                    @SuppressWarnings("unchecked")
-                    @Nullable @Override public <V> V readValueFromOffheapAndSwap(@Nullable String spaceName,
-                        Object key, @Nullable ClassLoader ldr) {
-                        try {
-                            GridCache<Object, V> cache = ctx.cache().cache(spaceName);
-
-                            GridCacheContext cctx = ((GridCacheProxyImpl)cache).context();
-
-                            if (cctx.isNear())
-                                cctx = cctx.near().dht().context();
-
-                            GridCacheSwapEntry e = cctx.swap().read(cctx.toCacheKeyObject(key), true, true);
-
-                            return e != null ? CU.<V>value(e.value(), cctx, true) : null;
                         }
                         catch (IgniteCheckedException e) {
                             throw U.convertException(e);
@@ -520,6 +596,26 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
 
                     @Override public MessageFactory messageFactory() {
                         return ctx.io().messageFactory();
+                    }
+
+                    @Override public boolean tryFailNode(UUID nodeId, @Nullable String warning) {
+                        return ctx.discovery().tryFailNode(nodeId, warning);
+                    }
+
+                    @Override public void failNode(UUID nodeId, @Nullable String warning) {
+                        ctx.discovery().failNode(nodeId, warning);
+                    }
+
+                    @Override public void addTimeoutObject(IgniteSpiTimeoutObject obj) {
+                        ctx.timeout().addTimeoutObject(new GridSpiTimeoutObject(obj));
+                    }
+
+                    @Override public void removeTimeoutObject(IgniteSpiTimeoutObject obj) {
+                        ctx.timeout().removeTimeoutObject(new GridSpiTimeoutObject(obj));
+                    }
+
+                    @Override public Map<String, Object> nodeAttributes() {
+                        return ctx.nodeAttributes();
                     }
 
                     /**
@@ -557,12 +653,22 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
     }
 
     /** {@inheritDoc} */
-    @Override @Nullable public Object collectDiscoveryData(UUID nodeId) {
-        return null;
+    @Override public void collectJoiningNodeData(DiscoveryDataBag dataBag) {
+        // No-op.
     }
 
     /** {@inheritDoc} */
-    @Override public void onDiscoveryDataReceived(UUID nodeId, Object data) {
+    @Override public void collectGridNodeData(DiscoveryDataBag dataBag) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onGridDataReceived(GridDiscoveryData data) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onJoiningNodeDataReceived(JoiningNodeDiscoveryData data) {
         // No-op.
     }
 
@@ -608,7 +714,12 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public IgniteSpiNodeValidationResult validateNode(ClusterNode node) {
+    @Nullable @Override public IgniteNodeValidationResult validateNode(ClusterNode node) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Nullable @Override public IgniteNodeValidationResult validateNode(ClusterNode node, DiscoveryDataBag.JoiningNodeDiscoveryData discoData) {
         return null;
     }
 

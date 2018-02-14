@@ -17,23 +17,39 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.marshaller.optimized.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.collision.jobstealing.*;
-import org.apache.ignite.spi.failover.jobstealing.*;
-import org.apache.ignite.testframework.config.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.net.*;
-import java.util.*;
+import java.io.Serializable;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeJobAdapter;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.compute.ComputeTaskAdapter;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.P1;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.spi.collision.jobstealing.JobStealingCollisionSpi;
+import org.apache.ignite.spi.failover.jobstealing.JobStealingFailoverSpi;
+import org.apache.ignite.testframework.config.GridTestProperties;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Job stealing test.
@@ -171,10 +187,13 @@ public class GridJobStealingSelfTest extends GridCommonAbstractTest {
     public void testProjectionPredicateInternalStealing() throws Exception {
         final Ignite ignite3 = startGrid(3);
 
+        final UUID node1 = ignite1.cluster().localNode().id();
+        final UUID node3 = ignite3.cluster().localNode().id();
+
         IgnitePredicate<ClusterNode> p = new P1<ClusterNode>() {
             @Override public boolean apply(ClusterNode e) {
-                return ignite1.cluster().localNode().id().equals(e.id()) ||
-                    ignite3.cluster().localNode().id().equals(e.id()); // Limit projection with only grid1 or grid3 node.
+                return node1.equals(e.id()) ||
+                    node3.equals(e.id()); // Limit projection with only grid1 or grid3 node.
             }
         };
 
@@ -273,8 +292,8 @@ public class GridJobStealingSelfTest extends GridCommonAbstractTest {
     }
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         JobStealingCollisionSpi colSpi = new JobStealingCollisionSpi();
 
@@ -289,8 +308,6 @@ public class GridJobStealingSelfTest extends GridCommonAbstractTest {
 
         cfg.setCollisionSpi(colSpi);
         cfg.setFailoverSpi(failSpi);
-
-        cfg.setMarshaller(new OptimizedMarshaller(false));
 
         return cfg;
     }

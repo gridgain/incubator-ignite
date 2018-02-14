@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.replicated;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.internal.processors.cache.distributed.GridCacheLockAbstractTest;
 
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  * Test cases for multi-threaded tests.
@@ -29,5 +29,10 @@ public class GridCacheReplicatedLockSelfTest extends GridCacheLockAbstractTest {
     /** {@inheritDoc} */
     @Override protected CacheMode cacheMode() {
         return REPLICATED;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void testLockReentrancy() throws Throwable {
+        fail("https://issues.apache.org/jira/browse/IGNITE-835");
     }
 }

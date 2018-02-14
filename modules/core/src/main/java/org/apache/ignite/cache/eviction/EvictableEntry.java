@@ -17,12 +17,11 @@
 
 package org.apache.ignite.cache.eviction;
 
-import org.jetbrains.annotations.*;
-
-import javax.cache.*;
+import javax.cache.Cache;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Evictable cache entry passed into {@link CacheEvictionPolicy}.
+ * Evictable cache entry passed into {@link EvictionPolicy}.
  *
  * @author @java.author
  * @version @java.version
@@ -44,6 +43,13 @@ public interface EvictableEntry<K, V> extends Cache.Entry<K, V> {
      * @return {@code True} if entry is in cache, {@code false} otherwise.
      */
     public boolean isCached();
+
+    /**
+     * Returns entry size in bytes.
+     *
+     * @return entry size in bytes.
+     */
+    public int size();
 
     /**
      * Gets metadata added by eviction policy.

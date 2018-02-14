@@ -17,14 +17,23 @@
 
 package org.apache.ignite.internal.visor.query;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.query.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.lang.*;
-
-import java.math.*;
-import java.net.*;
-import java.util.*;
+import java.math.BigDecimal;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.ConcurrentMap;
+import javax.cache.Cache;
+import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.binary.BinaryObjectException;
+import org.apache.ignite.binary.BinaryType;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.binary.BinaryObjectEx;
+import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.SB;
 
 /**
  * Contains utility methods for Visor query tasks and jobs.
@@ -40,10 +49,10 @@ public class VisorQueryUtils {
     public static final String SCAN_QRY_NAME = "VISOR_SCAN_QUERY";
 
     /** Columns for SCAN queries. */
-    public static final VisorQueryField[] SCAN_COL_NAMES = new VisorQueryField[] {
-        new VisorQueryField("", "Key Class"), new VisorQueryField("", "Key"),
-        new VisorQueryField("", "Value Class"), new VisorQueryField("", "Value")
-    };
+    public static final List<VisorQueryField> SCAN_COL_NAMES = Arrays.asList(
+        new VisorQueryField(null, null, "Key Class", ""), new VisorQueryField(null, null, "Key", ""),
+        new VisorQueryField(null, null, "Value Class", ""), new VisorQueryField(null, null, "Value", "")
+    );
 
     /**
      * @param o - Object.
@@ -67,12 +76,19 @@ public class VisorQueryUtils {
     private static String valueOf(Object o) {
         if (o == null)
             return "null";
+
         if (o instanceof byte[])
             return "size=" + ((byte[])o).length;
+
         if (o instanceof Byte[])
             return "size=" + ((Byte[])o).length;
+
         if (o instanceof Object[])
             return "size=" + ((Object[])o).length + ", values=[" + mkString((Object[])o, 120) + "]";
+
+        if (o instanceof BinaryObject)
+            return binaryToString((BinaryObject)o);
+
         return o.toString();
     }
 
@@ -86,7 +102,7 @@ public class VisorQueryUtils {
 
         StringBuilder sb = new StringBuilder();
 
-        Boolean first = true;
+        boolean first = true;
 
         for (Object v : arr) {
             if (first)
@@ -114,32 +130,27 @@ public class VisorQueryUtils {
     /**
      * Fetch rows from SCAN query future.
      *
-     * @param fut Query future to fetch rows from.
-     * @param savedNext Last processed element from future.
+     * @param cur Query future to fetch rows from.
      * @param pageSize Number of rows to fetch.
-     * @return Fetched rows and last processed element.
+     * @return Fetched rows.
      */
-    public static IgniteBiTuple<List<Object[]>, Map.Entry<Object, Object>> fetchScanQueryRows(
-        CacheQueryFuture<Map.Entry<Object, Object>> fut, Map.Entry<Object, Object> savedNext, int pageSize)
-        throws IgniteCheckedException {
+    public static List<Object[]> fetchScanQueryRows(VisorQueryCursor<Cache.Entry<Object, Object>> cur, int pageSize) {
         List<Object[]> rows = new ArrayList<>();
 
         int cnt = 0;
 
-        Map.Entry<Object, Object> next = savedNext != null ? savedNext : fut.next();
+        while (cur.hasNext() && cnt < pageSize) {
+            Cache.Entry<Object, Object> next = cur.next();
 
-        while (next != null && cnt < pageSize) {
             Object k = next.getKey();
             Object v = next.getValue();
 
             rows.add(new Object[] {typeOf(k), valueOf(k), typeOf(v), valueOf(v)});
 
             cnt++;
-
-            next = fut.next();
         }
 
-        return new IgniteBiTuple<>(rows, next);
+        return rows;
     }
 
     /**
@@ -148,7 +159,7 @@ public class VisorQueryUtils {
      * @param obj Object instance to check.
      * @return {@code true} if it is one of known types.
      */
-    private static Boolean isKnownType(Object obj) {
+    private static boolean isKnownType(Object obj) {
         return obj instanceof String ||
             obj instanceof Boolean ||
             obj instanceof Byte ||
@@ -163,42 +174,116 @@ public class VisorQueryUtils {
     }
 
     /**
+     * Convert Binary object to string.
+     *
+     * @param obj Binary object.
+     * @return String representation of Binary object.
+     */
+    public static String binaryToString(BinaryObject obj) {
+        int hash = obj.hashCode();
+
+        if (obj instanceof BinaryObjectEx) {
+            BinaryObjectEx objEx = (BinaryObjectEx)obj;
+
+            BinaryType meta;
+
+            try {
+                meta = ((BinaryObjectEx)obj).rawType();
+            }
+            catch (BinaryObjectException ignore) {
+                meta = null;
+            }
+
+            if (meta != null) {
+                SB buf = new SB(meta.typeName());
+
+                if (meta.fieldNames() != null) {
+                    buf.a(" [hash=").a(hash);
+
+                    for (String name : meta.fieldNames()) {
+                        Object val = objEx.field(name);
+
+                        buf.a(", ").a(name).a('=').a(val);
+                    }
+
+                    buf.a(']');
+
+                    return buf.toString();
+                }
+            }
+        }
+
+        return S.toString(obj.getClass().getSimpleName(),
+            "hash", hash, false,
+            "typeId", obj.type().typeId(), true);
+    }
+
+    public static Object convertValue(Object original) {
+        if (original == null)
+            return null;
+        else if (isKnownType(original))
+            return original;
+        else if (original instanceof BinaryObject)
+            return binaryToString((BinaryObject)original);
+        else
+            return original.getClass().isArray() ? "binary" : original.toString();
+    }
+
+    /**
      * Collects rows from sql query future, first time creates meta and column names arrays.
      *
-     * @param fut Query future to fetch rows from.
-     * @param savedNext Last processed element from future.
+     * @param cur Query cursor to fetch rows from.
      * @param pageSize Number of rows to fetch.
-     * @return Fetched rows and last processed element.
+     * @return Fetched rows.
      */
-    public static IgniteBiTuple<List<Object[]>, List<?>> fetchSqlQueryRows(CacheQueryFuture<List<?>> fut,
-        List<?> savedNext, int pageSize) throws IgniteCheckedException {
+    public static List<Object[]> fetchSqlQueryRows(VisorQueryCursor<List<?>> cur, int pageSize) {
         List<Object[]> rows = new ArrayList<>();
 
         int cnt = 0;
 
-        List<?> next = savedNext != null ? savedNext : fut.next();
+        while (cur.hasNext() && cnt < pageSize) {
+            List<?> next = cur.next();
 
-        while (next != null && cnt < pageSize) {
-            Object[] row = new Object[next.size()];
+            int sz = next.size();
 
-            for (int i = 0; i < next.size(); i++) {
-                Object o = next.get(i);
+            Object[] row = new Object[sz];
 
-                if (o == null)
-                    row[i] = null;
-                else if (isKnownType(o))
-                    row[i] = o;
-                else
-                    row[i] = o.getClass().isArray() ? "binary" : o.toString();
-            }
+            for (int i = 0; i < sz; i++)
+                row[i] = convertValue(next.get(i));
 
             rows.add(row);
 
             cnt++;
-
-            next = fut.next();
         }
 
-        return new IgniteBiTuple<List<Object[]>, List<?>>(rows, next);
+        return rows;
+    }
+
+    /**
+     * @param qryId Unique query result id.
+     */
+    public static void scheduleResultSetHolderRemoval(final String qryId, final IgniteEx ignite) {
+        ignite.context().timeout().addTimeoutObject(new GridTimeoutObjectAdapter(RMV_DELAY) {
+            @Override public void onTimeout() {
+                ConcurrentMap<String, VisorQueryCursor> storage = ignite.cluster().nodeLocalMap();
+
+                VisorQueryCursor cur = storage.get(qryId);
+
+                if (cur != null) {
+                    // If cursor was accessed since last scheduling, set access flag to false and reschedule.
+                    if (cur.accessed()) {
+                        cur.accessed(false);
+
+                        scheduleResultSetHolderRemoval(qryId, ignite);
+                    }
+                    else {
+                        // Remove stored cursor otherwise.
+                        storage.remove(qryId);
+
+                        cur.close();
+                    }
+                }
+            }
+        });
     }
 }

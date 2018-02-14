@@ -17,10 +17,12 @@
 
 package org.apache.ignite.cache.query;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
+import java.io.Serializable;
+import java.util.Arrays;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Base class for all Ignite cache queries.
@@ -28,16 +30,19 @@ import java.io.*;
  * text queries accordingly.
  *
  * @see IgniteCache#query(Query)
- * @see IgniteCache#localQuery(Query)
- * @see IgniteCache#queryFields(SqlFieldsQuery)
- * @see IgniteCache#localQueryFields(SqlFieldsQuery)
  */
-public abstract class Query<T extends Query> implements Serializable {
+public abstract class Query<R> implements Serializable {
     /** */
     private static final long serialVersionUID = 0L;
 
+    /** Default query page size. */
+    public static final int DFLT_PAGE_SIZE = 1024;
+
     /** Page size. */
-    private int pageSize;
+    private int pageSize = DFLT_PAGE_SIZE;
+
+    /** Local flag. */
+    private boolean loc;
 
     /**
      * Empty constructor.
@@ -59,13 +64,81 @@ public abstract class Query<T extends Query> implements Serializable {
      * Sets optional page size, if {@code 0}, then default is used.
      *
      * @param pageSize Optional page size.
-     * @return {@code this} For chaining.
+     * @return {@code this} for chaining.
      */
-    @SuppressWarnings("unchecked")
-    public T setPageSize(int pageSize) {
+    public Query<R> setPageSize(int pageSize) {
+        if (pageSize <= 0)
+            throw new IllegalArgumentException("Page size must be above zero.");
+
         this.pageSize = pageSize;
 
-        return (T)this;
+        return this;
+    }
+
+    /**
+     * Returns {@code true} if this query should be executed on local node only.
+     *
+     * @return Local flag.
+     */
+    public boolean isLocal() {
+        return loc;
+    }
+
+    /**
+     * Sets whether this query should be executed on local node only.
+     *
+     * @param loc Local flag.
+     * @return {@code this} for chaining.
+     */
+    public Query<R> setLocal(boolean loc) {
+        this.loc = loc;
+
+        return this;
+    }
+
+    /**
+     * Prepares the partitions.
+     *
+     * @param parts Partitions.
+     */
+    protected int[] prepare(int[] parts) {
+        if (parts == null)
+            return null;
+
+        A.notEmpty(parts, "Partitions");
+
+        boolean sorted = true;
+
+        // Try to do validation in one pass, if array is already sorted.
+        for (int i = 0; i < parts.length; i++) {
+            if (i < parts.length - 1)
+                if (parts[i] > parts[i + 1])
+                    sorted = false;
+                else if (sorted)
+                    validateDups(parts[i], parts[i + 1]);
+
+            A.ensure(0 <= parts[i] && parts[i] < CacheConfiguration.MAX_PARTITIONS_COUNT, "Illegal partition");
+        }
+
+        // Sort and validate again.
+        if (!sorted) {
+            Arrays.sort(parts);
+
+            for (int i = 0; i < parts.length; i++) {
+                if (i < parts.length - 1)
+                    validateDups(parts[i], parts[i + 1]);
+            }
+        }
+
+        return parts;
+    }
+
+    /**
+     * @param p1 Part 1.
+     * @param p2 Part 2.
+     */
+    private void validateDups(int p1, int p2) {
+        A.ensure(p1 != p2, "Partition duplicates are not allowed: " + p1);
     }
 
     /** {@inheritDoc} */

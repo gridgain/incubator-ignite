@@ -17,19 +17,19 @@
 
 package org.apache.ignite.internal.client.impl;
 
-import junit.framework.*;
-import org.apache.ignite.internal.client.*;
-import org.apache.ignite.internal.client.impl.connection.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.rest.handlers.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumSet;
+import junit.framework.TestCase;
+import org.apache.ignite.internal.client.GridClientCacheFlag;
+import org.apache.ignite.internal.client.impl.connection.GridClientConnection;
+import org.apache.ignite.internal.processors.rest.handlers.cache.GridCacheCommandHandler;
+import org.apache.ignite.internal.util.typedef.F;
 
-import java.util.*;
-
-import static org.apache.ignite.internal.client.GridClientCacheFlag.*;
+import static org.apache.ignite.internal.client.GridClientCacheFlag.KEEP_BINARIES;
 
 /**
- * Tests conversions between GridClientCacheFlag and CacheFlag.
+ * Tests conversions between GridClientCacheFlag.
  */
 public class ClientCacheFlagsCodecTest extends TestCase {
     /**
@@ -37,17 +37,16 @@ public class ClientCacheFlagsCodecTest extends TestCase {
      */
     public void testEncodingDecodingFullness() {
         for (GridClientCacheFlag f : GridClientCacheFlag.values()) {
-            if (f == KEEP_PORTABLES)
+            if (f == KEEP_BINARIES)
                 continue;
 
             int bits = GridClientConnection.encodeCacheFlags(Collections.singleton(f));
 
             assertTrue(bits != 0);
 
-            CacheFlag[] out = GridCacheCommandHandler.parseCacheFlags(bits);
-            assertEquals(1, out.length);
+            boolean out = GridCacheCommandHandler.parseCacheFlags(bits);
 
-            assertEquals(f.name(), out[0].name());
+            assertEquals(out, true);
         }
     }
 
@@ -59,8 +58,6 @@ public class ClientCacheFlagsCodecTest extends TestCase {
         doTestGroup(GridClientCacheFlag.values());
         // none
         doTestGroup();
-        // some
-        doTestGroup(GridClientCacheFlag.INVALIDATE);
     }
 
     /**
@@ -72,12 +69,10 @@ public class ClientCacheFlagsCodecTest extends TestCase {
 
         int bits = GridClientConnection.encodeCacheFlags(flagSet);
 
-        CacheFlag[] out = GridCacheCommandHandler.parseCacheFlags(bits);
+        boolean out = GridCacheCommandHandler.parseCacheFlags(bits);
 
-        assertEquals(flagSet.contains(KEEP_PORTABLES) ? flagSet.size() - 1 : flagSet.size(), out.length);
+        int length = flagSet.contains(KEEP_BINARIES) ? flagSet.size() - 1 : flagSet.size();
 
-        for (CacheFlag f : out) {
-            assertTrue(flagSet.contains(GridClientCacheFlag.valueOf(f.name())));
-        }
+        assertEquals(length > 0, out);
     }
 }

@@ -17,8 +17,12 @@
 
 package org.apache.ignite;
 
-import java.io.*;
-import java.util.*;
+import java.io.Closeable;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Set;
+import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.lang.IgniteRunnable;
 
 /**
  * Set implementation based on on In-Memory Data Grid.
@@ -31,7 +35,7 @@ import java.util.*;
  * (governed by {@code collocated} parameter). {@code Non-collocated} mode is provided only
  * for partitioned caches. If {@code collocated} parameter is {@code true}, then all set items
  * will be collocated on one node, otherwise items will be distributed through all grid nodes.
- * @see Ignite#set(String, CollectionConfiguration, boolean)
+ * @see Ignite#set(String, org.apache.ignite.configuration.CollectionConfiguration)
  */
 public interface IgniteSet<T> extends Set<T>, Closeable {
     /** {@inheritDoc} */
@@ -101,4 +105,26 @@ public interface IgniteSet<T> extends Set<T>, Closeable {
      * @return {@code True} if set was removed from cache {@code false} otherwise.
      */
     public boolean removed();
+
+    /**
+     * Executes given job on collocated set on the node where the set is located
+     * (a.k.a. affinity co-location).
+     * <p>
+     * This is not supported for non-collocated sets.
+     *
+     * @param job Job which will be co-located with the set.
+     * @throws IgniteException If job failed.
+     */
+    public void affinityRun(IgniteRunnable job) throws IgniteException;
+
+    /**
+     * Executes given job on collocated set on the node where the set is located
+     * (a.k.a. affinity co-location).
+     * <p>
+     * This is not supported for non-collocated sets.
+     *
+     * @param job Job which will be co-located with the set.
+     * @throws IgniteException If job failed.
+     */
+    public <R> R affinityCall(IgniteCallable<R> job) throws IgniteException;
 }

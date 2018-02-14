@@ -17,23 +17,26 @@
 
 package org.apache.ignite.internal.processors.cache.integration;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.*;
-import javax.cache.configuration.*;
-import javax.cache.integration.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import javax.cache.Cache;
+import javax.cache.integration.CacheLoaderException;
+import javax.cache.integration.CacheWriterException;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.cache.store.CacheStoreSession;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.cache.IgniteCacheAbstractTest;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.resources.CacheStoreSessionResource;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -44,6 +47,9 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
 
     /** */
     private static volatile CountDownLatch latch;
+
+    /** */
+    protected static volatile CountDownLatch entLatch;
 
     /** */
     private static volatile ExpectedData expData;
@@ -59,40 +65,46 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return PARTITIONED_ONLY;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return null;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * @param igniteInstanceName Ignite instance name.
+     * @return Cache configuration.
+     * @throws Exception In case of error.
+     */
     @SuppressWarnings("unchecked")
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
+    protected CacheConfiguration cacheConfiguration(String igniteInstanceName) throws Exception {
+        CacheConfiguration ccfg0 = super.cacheConfiguration(igniteInstanceName);
 
-        assert cfg.getCacheConfiguration().length == 1;
-
-        CacheConfiguration ccfg0 = cfg.getCacheConfiguration()[0];
 
         ccfg0.setReadThrough(true);
         ccfg0.setWriteThrough(true);
         ccfg0.setWriteBehindBatchSize(10);
         ccfg0.setWriteBehindFlushSize(10);
-        ccfg0.setWriteBehindFlushFrequency(60_000);
+        ccfg0.setWriteBehindFlushFrequency(600);
         ccfg0.setWriteBehindEnabled(true);
 
-        ccfg0.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(new TestStore()));
+        ccfg0.setCacheStoreFactory(singletonFactory(new TestStore()));
 
-        CacheConfiguration ccfg1 = cacheConfiguration(gridName);
+        return ccfg0;
+    }
 
-        ccfg1.setReadThrough(true);
-        ccfg1.setWriteThrough(true);
-        ccfg1.setWriteBehindBatchSize(10);
-        ccfg1.setWriteBehindFlushSize(10);
-        ccfg1.setWriteBehindFlushFrequency(60_000);
-        ccfg1.setWriteBehindEnabled(true);
+    /** {@inheritDoc} */
+    @SuppressWarnings("unchecked")
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
+
+        assert cfg.getCacheConfiguration().length == 1;
+
+        CacheConfiguration ccfg0 = cacheConfiguration(igniteInstanceName);
+
+        ccfg0.setName(DEFAULT_CACHE_NAME);
+
+        CacheConfiguration ccfg1 = cacheConfiguration(igniteInstanceName);
 
         ccfg1.setName(CACHE_NAME1);
-
-        ccfg1.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(new TestStore()));
 
         cfg.setCacheConfiguration(ccfg0, ccfg1);
 
@@ -103,7 +115,7 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
      * @throws Exception If failed.
      */
     public void testSession() throws Exception {
-        testCache(null);
+        testCache(DEFAULT_CACHE_NAME);
 
         testCache(CACHE_NAME1);
     }
@@ -113,10 +125,11 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
      * @throws Exception If failed.
      */
     private void testCache(String cacheName) throws Exception {
-        IgniteCache<Integer, Integer> cache = ignite(0).jcache(cacheName);
+        IgniteCache<Integer, Integer> cache = ignite(0).cache(cacheName);
 
         try {
             latch = new CountDownLatch(2);
+            entLatch = new CountDownLatch(11);
 
             expData = new ExpectedData("writeAll", cacheName);
 
@@ -124,13 +137,17 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
                 cache.put(i, i);
 
             assertTrue(latch.await(10_000, TimeUnit.MILLISECONDS));
+
+            assertTrue(entLatch.await(10_000,TimeUnit.MILLISECONDS));
         }
         finally {
             latch = null;
+            entLatch = null;
         }
 
         try {
             latch = new CountDownLatch(2);
+            entLatch = new CountDownLatch(11);
 
             expData = new ExpectedData("deleteAll", cacheName);
 
@@ -138,16 +155,20 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
                 cache.remove(i);
 
             assertTrue(latch.await(10_000, TimeUnit.MILLISECONDS));
+
+            assertTrue(entLatch.await(10_000,TimeUnit.MILLISECONDS));
         }
         finally {
             latch = null;
+            entLatch = null;
         }
     }
 
     /**
      *
      */
-    private class TestStore implements CacheStore<Object, Object> {
+    protected class TestStore implements CacheStore<Object, Object> {
+
         /** Auto-injected store session. */
         @CacheStoreSessionResource
         private CacheStoreSession ses;
@@ -162,7 +183,7 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
         }
 
         /** {@inheritDoc} */
-        @Override public void txEnd(boolean commit) throws CacheWriterException {
+        @Override public void sessionEnd(boolean commit) throws CacheWriterException {
             fail();
         }
 
@@ -188,10 +209,13 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
         /** {@inheritDoc} */
         @Override public void writeAll(Collection<Cache.Entry<?, ?>> entries) throws CacheWriterException {
             log.info("writeAll: " + entries);
-
+            
             assertTrue("Unexpected entries: " + entries, entries.size() == 10 || entries.size() == 1);
 
             checkSession("writeAll");
+
+            for (int i = 0; i < entries.size(); i++)
+                entLatch.countDown();
         }
 
         /** {@inheritDoc} */
@@ -206,6 +230,9 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
             assertTrue("Unexpected keys: " + keys, keys.size() == 10 || keys.size() == 1);
 
             checkSession("deleteAll");
+
+            for (int i = 0; i < keys.size(); i++)
+                entLatch.countDown();
         }
 
         /**
@@ -218,7 +245,7 @@ public abstract class IgniteCacheStoreSessionWriteBehindAbstractTest extends Ign
         /**
          * @param mtd Called stored method.
          */
-        private void checkSession(String mtd) {
+        protected void checkSession(String mtd) {
             assertNotNull(ignite);
 
             CacheStoreSession ses = session();

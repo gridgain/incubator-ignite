@@ -17,81 +17,70 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.node.*;
-import org.jetbrains.annotations.*;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.List;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.PartitionLossPolicy;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.DataRegionConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorDataTransferObject;
+import org.apache.ignite.internal.visor.query.VisorQueryConfiguration;
+import org.apache.ignite.internal.visor.query.VisorQueryEntity;
+import org.apache.ignite.lang.IgniteUuid;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactClass;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactIterable;
 
 /**
  * Data transfer object for cache configuration properties.
  */
-public class VisorCacheConfiguration implements Serializable {
+public class VisorCacheConfiguration extends VisorDataTransferObject {
     /** */
     private static final long serialVersionUID = 0L;
 
     /** Cache name. */
     private String name;
 
+    /** Cache group name. */
+    private String grpName;
+
     /** Cache mode. */
     private CacheMode mode;
 
-    /** Distribution mode. */
-    private CacheDistributionMode distributionMode;
-
-    /** Cache atomicity mode */
+    /** Cache atomicity mode. */
     private CacheAtomicityMode atomicityMode;
 
-    /** Cache atomicity write ordering mode. */
-    private CacheAtomicWriteOrderMode atomicWriteOrderMode;
-
-    /** Eager ttl flag */
+    /** Eager ttl flag. */
     private boolean eagerTtl;
 
     /** Write synchronization mode. */
     private CacheWriteSynchronizationMode writeSynchronizationMode;
 
-    /** Swap enabled flag. */
-    private boolean swapEnabled;
-
-    /** Flag indicating whether Ignite should attempt to index value and/or key instances stored in cache. */
-    private boolean qryIdxEnabled;
-
     /** Invalidate. */
     private boolean invalidate;
 
-    /** Start size. */
-    private int startSize;
-
-    /** Name of class implementing GridCacheTmLookup. */
-    private String tmLookupClsName;
-
-    /** Off-heap max memory. */
-    private long offHeapMaxMemory;
-
-    /** Max query iterator count */
-    private int maxQryIterCnt;
-
-    /** Max concurrent async operations */
+    /** Max concurrent async operations. */
     private int maxConcurrentAsyncOps;
-
-    /** Memory mode. */
-    private CacheMemoryMode memoryMode;
 
     /** Cache interceptor. */
     private String interceptor;
 
-    /** Cache affinityCfg config. */
+    /** Default lock acquisition timeout. */
+    private long dfltLockTimeout;
+
+    /** Cache affinity config. */
     private VisorCacheAffinityConfiguration affinityCfg;
 
     /** Preload config. */
-    private VisorCachePreloadConfiguration preloadCfg;
+    private VisorCacheRebalanceConfiguration rebalanceCfg;
 
     /** Eviction config. */
     private VisorCacheEvictionConfiguration evictCfg;
@@ -99,14 +88,14 @@ public class VisorCacheConfiguration implements Serializable {
     /** Near cache config. */
     private VisorCacheNearConfiguration nearCfg;
 
-    /** Default config */
-    private VisorCacheDefaultConfiguration dfltCfg;
-
-    /** Store config */
+    /** Store config. */
     private VisorCacheStoreConfiguration storeCfg;
 
+    /** Collection of query entities. */
+    private List<VisorQueryEntity> qryEntities;
+
     /** Collection of type metadata. */
-    private Collection<VisorCacheTypeMetadata> typeMeta;
+    private List<VisorCacheJdbcType> jdbcTypes;
 
     /** Whether statistics collection is enabled. */
     private boolean statisticsEnabled;
@@ -124,99 +113,147 @@ public class VisorCacheConfiguration implements Serializable {
     private String expiryPlcFactory;
 
     /** Query configuration. */
-    private VisorCacheQueryConfiguration qryCfg;
+    private VisorQueryConfiguration qryCfg;
+
+    /** System cache flag. */
+    private boolean sys;
+
+    /** Keep binary in store flag. */
+    private boolean storeKeepBinary;
+
+    /** On-heap cache enabled flag. */
+    private boolean onheapCache;
+
+    /** Partition loss policy. */
+    private PartitionLossPolicy partLossPlc;
+
+    /** Query parallelism. */
+    private int qryParallelism;
+
+    /** Copy on read flag. */
+    private boolean cpOnRead;
+
+    /** Eviction filter. */
+    private String evictFilter;
+
+    /** Listener configurations. */
+    private String lsnrConfigurations;
+
+    /** */
+    private boolean loadPrevVal;
+
+    /** Name of {@link DataRegionConfiguration} for this cache */
+    private String dataRegName;
+
+    /** Maximum inline size for sql indexes. */
+    private int sqlIdxMaxInlineSize;
+
+    /** Node filter specifying nodes on which this cache should be deployed. */
+    private String nodeFilter;
+
+    /** */
+    private int qryDetailMetricsSz;
+
+    /** Flag indicating whether data can be read from backup. */
+    private boolean readFromBackup;
+
+    /** Name of class implementing GridCacheTmLookup. */
+    private String tmLookupClsName;
+
+    /** Cache topology validator. */
+    private String topValidator;
+
+    /** Dynamic deployment ID. */
+    private IgniteUuid dynamicDeploymentId;
 
     /**
-     * @param ignite Grid.
-     * @param ccfg Cache configuration.
-     * @return Data transfer object for cache configuration properties.
+     * Default constructor.
      */
-    public static VisorCacheConfiguration from(Ignite ignite, CacheConfiguration ccfg) {
-        VisorCacheConfiguration cfg = new VisorCacheConfiguration();
-
-        cfg.name = ccfg.getName();
-        cfg.mode = ccfg.getCacheMode();
-        cfg.distributionMode = ccfg.getDistributionMode();
-        cfg.atomicityMode = ccfg.getAtomicityMode();
-        cfg.atomicWriteOrderMode = ccfg.getAtomicWriteOrderMode();
-        cfg.eagerTtl = ccfg.isEagerTtl();
-        cfg.writeSynchronizationMode = ccfg.getWriteSynchronizationMode();
-        cfg.swapEnabled = ccfg.isSwapEnabled();
-        cfg.invalidate = ccfg.isInvalidate();
-        cfg.startSize = ccfg.getStartSize();
-        cfg.tmLookupClsName = ccfg.getTransactionManagerLookupClassName();
-        cfg.offHeapMaxMemory = ccfg.getOffHeapMaxMemory();
-        cfg.maxConcurrentAsyncOps = ccfg.getMaxConcurrentAsyncOperations();
-        cfg.memoryMode = ccfg.getMemoryMode();
-        cfg.interceptor = compactClass(ccfg.getInterceptor());
-        cfg.typeMeta = VisorCacheTypeMetadata.list(ccfg.getTypeMetadata());
-        cfg.statisticsEnabled = ccfg.isStatisticsEnabled();
-        cfg.mgmtEnabled = ccfg.isManagementEnabled();
-        cfg.ldrFactory = compactClass(ccfg.getCacheLoaderFactory());
-        cfg.writerFactory = compactClass(ccfg.getCacheWriterFactory());
-        cfg.expiryPlcFactory = compactClass(ccfg.getExpiryPolicyFactory());
-
-        cfg.affinityCfg = VisorCacheAffinityConfiguration.from(ccfg);
-        cfg.preloadCfg = VisorCachePreloadConfiguration.from(ccfg);
-        cfg.evictCfg = VisorCacheEvictionConfiguration.from(ccfg);
-        cfg.nearCfg = VisorCacheNearConfiguration.from(ccfg);
-        cfg.dfltCfg = VisorCacheDefaultConfiguration.from(ccfg);
-        cfg.storeCfg = VisorCacheStoreConfiguration.from(ignite, ccfg);
-        cfg.qryCfg = VisorCacheQueryConfiguration.from(ccfg);
-
-        return cfg;
+    public VisorCacheConfiguration() {
+        // No-op.
     }
 
     /**
+     * Create data transfer object for cache configuration properties.
+     *
      * @param ignite Grid.
-     * @param caches Cache configurations.
-     * @return Data transfer object for cache configurations properties.
+     * @param ccfg Cache configuration.
+     * @param dynamicDeploymentId Dynamic deployment ID.
      */
-    public static Iterable<VisorCacheConfiguration> list(Ignite ignite, CacheConfiguration[] caches) {
-        if (caches == null)
-            return Collections.emptyList();
+    public VisorCacheConfiguration(IgniteEx ignite, CacheConfiguration ccfg, IgniteUuid dynamicDeploymentId) {
+        name = ccfg.getName();
+        grpName = ccfg.getGroupName();
+        this.dynamicDeploymentId = dynamicDeploymentId;
+        mode = ccfg.getCacheMode();
+        atomicityMode = ccfg.getAtomicityMode();
+        eagerTtl = ccfg.isEagerTtl();
+        writeSynchronizationMode = ccfg.getWriteSynchronizationMode();
+        invalidate = ccfg.isInvalidate();
+        maxConcurrentAsyncOps = ccfg.getMaxConcurrentAsyncOperations();
+        interceptor = compactClass(ccfg.getInterceptor());
+        dfltLockTimeout = ccfg.getDefaultLockTimeout();
+        qryEntities = VisorQueryEntity.list(ccfg.getQueryEntities());
+        jdbcTypes = VisorCacheJdbcType.list(ccfg.getCacheStoreFactory());
+        statisticsEnabled = ccfg.isStatisticsEnabled();
+        mgmtEnabled = ccfg.isManagementEnabled();
+        ldrFactory = compactClass(ccfg.getCacheLoaderFactory());
+        writerFactory = compactClass(ccfg.getCacheWriterFactory());
+        expiryPlcFactory = compactClass(ccfg.getExpiryPolicyFactory());
 
-        final Collection<VisorCacheConfiguration> cfgs = new ArrayList<>(caches.length);
+        sys = ignite.context().cache().systemCache(ccfg.getName());
+        storeKeepBinary = ccfg.isStoreKeepBinary();
+        onheapCache = ccfg.isOnheapCacheEnabled();
+        partLossPlc = ccfg.getPartitionLossPolicy();
+        qryParallelism = ccfg.getQueryParallelism();
 
-        for (CacheConfiguration cache : caches)
-            cfgs.add(from(ignite, cache));
+        affinityCfg = new VisorCacheAffinityConfiguration(ccfg);
+        rebalanceCfg = new VisorCacheRebalanceConfiguration(ccfg);
+        evictCfg = new VisorCacheEvictionConfiguration(ccfg);
+        nearCfg = new VisorCacheNearConfiguration(ccfg);
 
-        return cfgs;
+        storeCfg = new VisorCacheStoreConfiguration(ignite, ccfg);
+
+        qryCfg = new VisorQueryConfiguration(ccfg);
+
+        cpOnRead = ccfg.isCopyOnRead();
+        evictFilter = compactClass(ccfg.getEvictionFilter());
+        lsnrConfigurations = compactIterable(ccfg.getCacheEntryListenerConfigurations());
+        loadPrevVal = ccfg.isLoadPreviousValue();
+        dataRegName = ccfg.getDataRegionName();
+        sqlIdxMaxInlineSize = ccfg.getSqlIndexMaxInlineSize();
+        nodeFilter = compactClass(ccfg.getNodeFilter());
+        qryDetailMetricsSz = ccfg.getQueryDetailMetricsSize();
+        readFromBackup = ccfg.isReadFromBackup();
+        tmLookupClsName = ccfg.getTransactionManagerLookupClassName();
+        topValidator = compactClass(ccfg.getTopologyValidator());
     }
 
     /**
      * @return Cache name.
      */
-    @Nullable public String name() {
+    @Nullable public String getName() {
         return name;
+    }
+
+    /**
+     * @return Cache group name.
+     */
+    @Nullable public String getGroupName() {
+        return grpName;
     }
 
     /**
      * @return Cache mode.
      */
-    public CacheMode mode() {
+    public CacheMode getMode() {
         return mode;
     }
 
     /**
-     * @return Distribution mode.
+     * @return Cache atomicity mode.
      */
-    public CacheDistributionMode distributionMode() {
-        return distributionMode;
-    }
-
-    /**
-     * @return Cache atomicity mode
-     */
-    public CacheAtomicityMode atomicityMode() {
+    public CacheAtomicityMode getAtomicityMode() {
         return atomicityMode;
-    }
-
-    /**
-     * @return Cache atomicity write ordering mode.
-     */
-    public CacheAtomicWriteOrderMode atomicWriteOrderMode() {
-        return atomicWriteOrderMode;
     }
 
     /**
@@ -229,176 +266,344 @@ public class VisorCacheConfiguration implements Serializable {
     /**
      * @return Write synchronization mode.
      */
-    public CacheWriteSynchronizationMode writeSynchronizationMode() {
+    public CacheWriteSynchronizationMode getWriteSynchronizationMode() {
         return writeSynchronizationMode;
-    }
-
-    /**
-     * @return Swap enabled flag.
-     */
-    public boolean swapEnabled() {
-        return swapEnabled;
-    }
-
-    /**
-     * @return Flag indicating whether Ignite should attempt to index value and/or key instances stored in cache.
-     */
-    public boolean queryIndexEnabled() {
-        return qryIdxEnabled;
     }
 
     /**
      * @return Invalidate.
      */
-    public boolean invalidate() {
+    public boolean isInvalidate() {
         return invalidate;
-    }
-
-    /**
-     * @return Start size.
-     */
-    public int startSize() {
-        return startSize;
-    }
-
-    /**
-     * @return Name of class implementing GridCacheTmLookup.
-     */
-    @Nullable public String transactionManagerLookupClassName() {
-        return tmLookupClsName;
-    }
-
-    /**
-     * @return Off-heap max memory.
-     */
-    public long offsetHeapMaxMemory() {
-        return offHeapMaxMemory;
-    }
-
-    /**
-     * @return Max query iterator count
-     */
-    public int maxQueryIteratorCount() {
-        return maxQryIterCnt;
     }
 
     /**
      * @return Max concurrent async operations
      */
-    public int maxConcurrentAsyncOperations() {
+    public int getMaxConcurrentAsyncOperations() {
         return maxConcurrentAsyncOps;
-    }
-
-    /**
-     * @return Memory mode.
-     */
-    public CacheMemoryMode memoryMode() {
-        return memoryMode;
-    }
-
-    /**
-     * @param memoryMode New memory mode.
-     */
-    public void memoryMode(CacheMemoryMode memoryMode) {
-        this.memoryMode = memoryMode;
     }
 
     /**
      * @return Cache interceptor.
      */
-    @Nullable public String interceptor() {
+    @Nullable public String getInterceptor() {
         return interceptor;
+    }
+
+    /**
+     * @return Gets default lock acquisition timeout.
+     */
+    public long getDefaultLockTimeout() {
+        return dfltLockTimeout;
     }
 
     /**
      * @return Collection of type metadata.
      */
-    public Collection<VisorCacheTypeMetadata> typeMeta() {
-        return typeMeta;
+    public List<VisorCacheJdbcType> getJdbcTypes() {
+        return jdbcTypes;
     }
 
     /**
-     * @return {@code true} if cache statistics enabled.
+     * @return Near cache config.
      */
-    public boolean statisticsEnabled() {
+    public VisorCacheNearConfiguration getNearConfiguration() {
+        return nearCfg;
+    }
+
+    /**
+     * @return Eager ttl flag.
+     */
+    public boolean isEagerTtl() {
+        return eagerTtl;
+    }
+
+    /**
+     * @return {@code true} if cache statistics collection enabled.
+     */
+    public boolean isStatisticsEnabled() {
         return statisticsEnabled;
     }
 
     /**
      * @return Whether management is enabled.
      */
-    public boolean managementEnabled() {
+    public boolean isManagementEnabled() {
         return mgmtEnabled;
     }
 
     /**
      * @return Class name of cache loader factory.
      */
-    public String loaderFactory() {
+    public String getLoaderFactory() {
         return ldrFactory;
     }
 
     /**
      * @return Class name of cache writer factory.
      */
-    public String writerFactory() {
+    public String getWriterFactory() {
         return writerFactory;
     }
 
     /**
      * @return Class name of expiry policy factory.
      */
-    public String expiryPolicyFactory() {
+    public String getExpiryPolicyFactory() {
         return expiryPlcFactory;
     }
 
     /**
-     * @return Cache affinityCfg config.
+     * @return Cache affinity config.
      */
-    public VisorCacheAffinityConfiguration affinityConfiguration() {
+    public VisorCacheAffinityConfiguration getAffinityConfiguration() {
         return affinityCfg;
     }
 
     /**
      * @return Preload config.
      */
-    public VisorCachePreloadConfiguration preloadConfiguration() {
-        return preloadCfg;
+    public VisorCacheRebalanceConfiguration getRebalanceConfiguration() {
+        return rebalanceCfg;
     }
 
     /**
      * @return Eviction config.
      */
-    public VisorCacheEvictionConfiguration evictConfiguration() {
+    public VisorCacheEvictionConfiguration getEvictionConfiguration() {
         return evictCfg;
-    }
-
-    /**
-     * @return Near cache config.
-     */
-    public VisorCacheNearConfiguration nearConfiguration() {
-        return nearCfg;
-    }
-
-    /**
-     * @return Dgc config
-     */
-    public VisorCacheDefaultConfiguration defaultConfiguration() {
-        return dfltCfg;
     }
 
     /**
      * @return Store config
      */
-    public VisorCacheStoreConfiguration storeConfiguration() {
+    public VisorCacheStoreConfiguration getStoreConfiguration() {
         return storeCfg;
     }
 
     /**
-     * @return Cache query configuration.
+     * @return Collection of query entities.
      */
-    public VisorCacheQueryConfiguration queryConfiguration() {
+    public List<VisorQueryEntity> getQueryEntities() {
+        return qryEntities;
+    }
+
+    /**
+     * @return Collection of query entities.
+     */
+    public VisorQueryConfiguration getQueryConfiguration() {
         return qryCfg;
+    }
+
+    /**
+     * @return System cache flag.
+     */
+    public boolean isSystem() {
+        return sys;
+    }
+
+    /**
+     * @return Keep binary in store flag.
+     */
+    public Boolean isStoreKeepBinary() {
+        return storeKeepBinary;
+    }
+
+    /**
+     * @return On-heap cache enabled flag.
+     */
+    public boolean isOnheapCacheEnabled() {
+        return onheapCache;
+    }
+
+    /**
+     * @return Partition loss policy.
+     */
+    public PartitionLossPolicy getPartitionLossPolicy() {
+        return partLossPlc;
+    }
+
+    /**
+     * @return Query parallelism.
+     */
+    public int getQueryParallelism() {
+        return qryParallelism;
+    }
+
+    /**
+     * @return Copy on read flag.
+     */
+    public boolean isCopyOnRead() {
+        return cpOnRead;
+    }
+
+    /**
+     * @return Eviction filter or {@code null}.
+     */
+    public String getEvictionFilter() {
+        return evictFilter;
+    }
+
+    /**
+     * @return Listener configurations.
+     */
+    public String getListenerConfigurations() {
+        return lsnrConfigurations;
+    }
+
+    /**
+     * @return Load previous value flag.
+     */
+    public boolean isLoadPreviousValue() {
+        return loadPrevVal;
+    }
+
+    /**
+     * @return {@link DataRegionConfiguration} name.
+     */
+    @Deprecated
+    public String getMemoryPolicyName() {
+        return dataRegName;
+    }
+
+    /**
+     * @return Maximum payload size for offheap indexes.
+     */
+    public int getSqlIndexMaxInlineSize() {
+        return sqlIdxMaxInlineSize;
+    }
+
+    /**
+     * @return Predicate specifying on which nodes the cache should be started.
+     */
+    public String getNodeFilter() {
+        return nodeFilter;
+    }
+
+    /**
+     * @return Maximum number of query metrics that will be stored in memory.
+     */
+    public int getQueryDetailMetricsSize() {
+        return qryDetailMetricsSz;
+    }
+
+    /**
+     * @return {@code true} if data can be read from backup node or {@code false} if data always
+     *      should be read from primary node and never from backup.
+     */
+    public boolean isReadFromBackup() {
+        return readFromBackup;
+    }
+
+    /**
+     * @return Transaction manager finder.
+     */
+    @Deprecated
+    public String getTransactionManagerLookupClassName() {
+        return tmLookupClsName;
+    }
+
+    /**
+     * @return Topology validator.
+     */
+    public String getTopologyValidator() {
+        return topValidator;
+    }
+
+    /**
+     * @return Cache dynamic deployment ID.
+     */
+    public IgniteUuid getDynamicDeploymentId() {
+        return dynamicDeploymentId;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void writeExternalData(ObjectOutput out) throws IOException {
+        U.writeString(out, name);
+        U.writeString(out, grpName);
+        U.writeEnum(out, mode);
+        U.writeEnum(out, atomicityMode);
+        out.writeBoolean(eagerTtl);
+        U.writeEnum(out, writeSynchronizationMode);
+        out.writeBoolean(invalidate);
+        out.writeInt(maxConcurrentAsyncOps);
+        U.writeString(out, interceptor);
+        out.writeLong(dfltLockTimeout);
+        out.writeObject(affinityCfg);
+        out.writeObject(rebalanceCfg);
+        out.writeObject(evictCfg);
+        out.writeObject(nearCfg);
+        out.writeObject(storeCfg);
+        U.writeCollection(out, qryEntities);
+        U.writeCollection(out, jdbcTypes);
+        out.writeBoolean(statisticsEnabled);
+        out.writeBoolean(mgmtEnabled);
+        U.writeString(out, ldrFactory);
+        U.writeString(out, writerFactory);
+        U.writeString(out, expiryPlcFactory);
+        out.writeObject(qryCfg);
+        out.writeBoolean(sys);
+        out.writeBoolean(storeKeepBinary);
+        out.writeBoolean(onheapCache);
+        U.writeEnum(out, partLossPlc);
+        out.writeInt(qryParallelism);
+        out.writeBoolean(cpOnRead);
+        U.writeString(out, evictFilter);
+        U.writeString(out, lsnrConfigurations);
+        out.writeBoolean(loadPrevVal);
+        U.writeString(out, dataRegName);
+        out.writeInt(sqlIdxMaxInlineSize);
+        U.writeString(out, nodeFilter);
+        out.writeInt(qryDetailMetricsSz);
+        out.writeBoolean(readFromBackup);
+        U.writeString(out, tmLookupClsName);
+        U.writeString(out, topValidator);
+        U.writeGridUuid(out, dynamicDeploymentId);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
+        name = U.readString(in);
+        grpName = U.readString(in);
+        mode = CacheMode.fromOrdinal(in.readByte());
+        atomicityMode = CacheAtomicityMode.fromOrdinal(in.readByte());
+        eagerTtl = in.readBoolean();
+        writeSynchronizationMode = CacheWriteSynchronizationMode.fromOrdinal(in.readByte());
+        invalidate = in.readBoolean();
+        maxConcurrentAsyncOps = in.readInt();
+        interceptor = U.readString(in);
+        dfltLockTimeout = in.readLong();
+        affinityCfg = (VisorCacheAffinityConfiguration)in.readObject();
+        rebalanceCfg = (VisorCacheRebalanceConfiguration)in.readObject();
+        evictCfg = (VisorCacheEvictionConfiguration)in.readObject();
+        nearCfg = (VisorCacheNearConfiguration)in.readObject();
+        storeCfg = (VisorCacheStoreConfiguration)in.readObject();
+        qryEntities = U.readList(in);
+        jdbcTypes = U.readList(in);
+        statisticsEnabled = in.readBoolean();
+        mgmtEnabled = in.readBoolean();
+        ldrFactory = U.readString(in);
+        writerFactory = U.readString(in);
+        expiryPlcFactory = U.readString(in);
+        qryCfg = (VisorQueryConfiguration)in.readObject();
+        sys = in.readBoolean();
+        storeKeepBinary = in.readBoolean();
+        onheapCache = in.readBoolean();
+        partLossPlc = PartitionLossPolicy.fromOrdinal(in.readByte());
+        qryParallelism = in.readInt();
+        cpOnRead = in.readBoolean();
+        evictFilter = U.readString(in);
+        lsnrConfigurations = U.readString(in);
+        loadPrevVal = in.readBoolean();
+        dataRegName = U.readString(in);
+        sqlIdxMaxInlineSize = in.readInt();
+        nodeFilter = U.readString(in);
+        qryDetailMetricsSz = in.readInt();
+        readFromBackup = in.readBoolean();
+        tmLookupClsName = U.readString(in);
+        topValidator = U.readString(in);
+        dynamicDeploymentId = U.readGridUuid(in);
     }
 
     /** {@inheritDoc} */

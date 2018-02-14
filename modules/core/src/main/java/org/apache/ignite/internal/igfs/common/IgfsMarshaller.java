@@ -17,15 +17,22 @@
 
 package org.apache.ignite.internal.igfs.common;
 
-import org.apache.ignite.*;
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Arrays;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.igfs.IgfsPath;
+import org.apache.ignite.internal.processors.igfs.IgfsUtils;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.igfs.common.IgfsIpcCommand.*;
+import static org.apache.ignite.internal.igfs.common.IgfsIpcCommand.AFFINITY;
+import static org.apache.ignite.internal.igfs.common.IgfsIpcCommand.OPEN_CREATE;
+import static org.apache.ignite.internal.igfs.common.IgfsIpcCommand.OPEN_READ;
+import static org.apache.ignite.internal.igfs.common.IgfsIpcCommand.READ_BLOCK;
+import static org.apache.ignite.internal.igfs.common.IgfsIpcCommand.SET_TIMES;
+import static org.apache.ignite.internal.igfs.common.IgfsIpcCommand.WRITE_BLOCK;
 
 /**
  * Implementation of IGFS client message marshaller.
@@ -73,6 +80,7 @@ public class IgfsMarshaller {
     }
 
     /**
+     * Serializes the message and sends it into the given output stream.
      * @param msg Message.
      * @param hdr Message header.
      * @param out Output.
@@ -89,7 +97,6 @@ public class IgfsMarshaller {
 
                     IgfsHandshakeRequest req = (IgfsHandshakeRequest)msg;
 
-                    U.writeString(out, req.gridName());
                     U.writeString(out, req.igfsName());
                     U.writeString(out, req.logDirectory());
 
@@ -119,11 +126,12 @@ public class IgfsMarshaller {
 
                     IgfsPathControlRequest req = (IgfsPathControlRequest)msg;
 
+                    U.writeString(out, req.userName());
                     writePath(out, req.path());
                     writePath(out, req.destinationPath());
                     out.writeBoolean(req.flag());
                     out.writeBoolean(req.colocate());
-                    U.writeStringMap(out, req.properties());
+                    IgfsUtils.writeStringMap(out, req.properties());
 
                     // Minor optimization.
                     if (msg.command() == AFFINITY) {
@@ -174,6 +182,12 @@ public class IgfsMarshaller {
                     break;
                 }
 
+                case MODE_RESOLVER: {
+                    out.write(hdr);
+
+                    break;
+                }
+
                 default: {
                     assert false : "Invalid command: " + msg.command();
 
@@ -205,7 +219,6 @@ public class IgfsMarshaller {
                 case HANDSHAKE: {
                     IgfsHandshakeRequest req = new IgfsHandshakeRequest();
 
-                    req.gridName(U.readString(in));
                     req.igfsName(U.readString(in));
                     req.logDirectory(U.readString(in));
 
@@ -236,11 +249,12 @@ public class IgfsMarshaller {
                 case OPEN_CREATE: {
                     IgfsPathControlRequest req = new IgfsPathControlRequest();
 
+                    req.userName(U.readString(in));
                     req.path(readPath(in));
                     req.destinationPath(readPath(in));
                     req.flag(in.readBoolean());
                     req.colocate(in.readBoolean());
-                    req.properties(U.readStringMap(in));
+                    req.properties(IgfsUtils.readStringMap(in));
 
                     // Minor optimization.
                     if (cmd == AFFINITY) {
@@ -291,14 +305,18 @@ public class IgfsMarshaller {
                     break;
                 }
 
+                case MODE_RESOLVER: {
+                    msg = new IgfsModeResolverRequest();
+
+                    break;
+                }
+
                 default: {
                     assert false : "Invalid command: " + cmd;
 
                     throw new IllegalArgumentException("Failed to unmarshal message (invalid command): " + cmd);
                 }
             }
-
-            assert msg != null;
 
             msg.command(cmd);
 
@@ -324,51 +342,12 @@ public class IgfsMarshaller {
     }
 
     /**
-     * Reads IGFS path from data input that was written by {@link #writePath(ObjectOutput, org.apache.ignite.igfs.IgfsPath)}
-     * method.
+     * Reads IGFS path from data input that was written by {@link #writePath(ObjectOutput, IgfsPath)} method.
      *
      * @param in Data input.
      * @return Written path or {@code null}.
      */
     @Nullable private IgfsPath readPath(ObjectInput in) throws IOException {
-        if(in.readBoolean()) {
-            IgfsPath path = new IgfsPath();
-
-            path.readExternal(in);
-
-            return path;
-        }
-
-        return null;
-    }
-
-    /**
-     * Writes string to output.
-     *
-     * @param out Data output.
-     * @param str String.
-     * @throws IOException If write failed.
-     */
-    private void writeString(DataOutput out, @Nullable String str) throws IOException {
-        out.writeBoolean(str != null);
-
-        if (str != null)
-            out.writeUTF(str);
-    }
-
-    /**
-     * Reads string from input.
-     *
-     * @param in Data input.
-     * @return Read string.
-     * @throws IOException If read failed.
-     */
-    @Nullable private String readString(DataInput in) throws IOException {
-        boolean hasStr = in.readBoolean();
-
-        if (hasStr)
-            return in.readUTF();
-
-        return null;
+        return in.readBoolean() ? IgfsUtils.readPath(in) : null;
     }
 }

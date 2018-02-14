@@ -17,76 +17,285 @@
 
 package org.apache.ignite.internal.processors.query.h2.sql;
 
-import org.h2.util.*;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import org.h2.util.StatementBuilder;
+import org.h2.util.StringUtils;
 
 /**
- * Select query.
+ * Plain SELECT query.
  */
-public class GridSqlSelect implements Cloneable {
+public class GridSqlSelect extends GridSqlQuery {
+    /** */
+    public static final int FROM_CHILD = 2;
+
+    /** */
+    public static final int WHERE_CHILD = 3;
+
+    /** */
+    private static final int COLS_CHILD = 4;
+
+    /** */
+    private List<GridSqlAst> cols = new ArrayList<>();
+
+    /** */
+    private int visibleCols;
+
     /** */
     private boolean distinct;
-
-    /** */
-    private List<GridSqlElement> allExprs;
-
-    /** */
-    private List<GridSqlElement> select = new ArrayList<>();
-
-    /** */
-    private List<GridSqlElement> groups = new ArrayList<>();
 
     /** */
     private int[] grpCols;
 
     /** */
-    private GridSqlElement from;
+    private GridSqlAst from;
 
     /** */
-    private GridSqlElement where;
-
-    /** */
-    private GridSqlElement having;
+    private GridSqlAst where;
 
     /** */
     private int havingCol = -1;
 
-    /** */
-    private Map<GridSqlElement,GridSqlSortColumn> sort = new LinkedHashMap<>();
-
-    /** */
-    private GridSqlElement offset;
-
-    /** */
-    private GridSqlElement limit;
-
     /**
-     * @return Offset.
+     * @param colIdx Column index as for {@link #column(int)}.
+     * @return Child index for {@link #child(int)}.
      */
-    public GridSqlElement offset() {
-        return offset;
+    public static int childIndexForColumn(int colIdx) {
+        return colIdx + COLS_CHILD;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int size() {
+        return 4 + cols.size(); // + FROM + WHERE + OFFSET + LIMIT
+    }
+
+    /** {@inheritDoc} */
+    @SuppressWarnings("unchecked")
+    @Override public <E extends GridSqlAst> E child(int childIdx) {
+        if (childIdx < FROM_CHILD)
+            return super.child(childIdx);
+
+        switch (childIdx) {
+            case FROM_CHILD:
+                return maskNull(from, GridSqlPlaceholder.EMPTY);
+
+            case WHERE_CHILD:
+                return maskNull(where, GridSqlConst.TRUE);
+
+            default:
+                return (E)cols.get(childIdx - COLS_CHILD);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public <E extends GridSqlAst> void child(int childIdx, E child) {
+        if (childIdx < FROM_CHILD) {
+            super.child(childIdx, child);
+
+            return;
+        }
+
+        switch (childIdx) {
+            case FROM_CHILD:
+                from = child;
+
+                break;
+
+            case WHERE_CHILD:
+                where = child;
+
+                break;
+
+            default:
+                cols.set(childIdx - COLS_CHILD, child);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public int visibleColumns() {
+        return visibleCols;
     }
 
     /**
-     * @param offset Offset.
+     * @return Number of columns is select including invisible ones.
      */
-    public void offset(GridSqlElement offset) {
-        this.offset = offset;
+    public int allColumns() {
+        return cols.size();
+    }
+
+    /** {@inheritDoc} */
+    @Override protected GridSqlAst column(int col) {
+        return cols.get(col);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String getSQL() {
+        StatementBuilder buff = new StatementBuilder(explain() ? "EXPLAIN SELECT" : "SELECT");
+
+        if (distinct)
+            buff.append(" DISTINCT");
+
+        for (GridSqlAst expression : columns(true)) {
+            buff.appendExceptFirst(",");
+            buff.append('\n');
+            buff.append(expression.getSQL());
+        }
+
+        if (from != null)
+            buff.append("\nFROM ").append(from.getSQL());
+
+        if (where != null)
+            buff.append("\nWHERE ").append(StringUtils.unEnclose(where.getSQL()));
+
+        if (grpCols != null) {
+            buff.append("\nGROUP BY ");
+
+            buff.resetCount();
+
+            for (int grpCol : grpCols) {
+                buff.appendExceptFirst(", ");
+
+                addAlias(buff, cols.get(grpCol));
+            }
+        }
+
+        if (havingCol >= 0) {
+            buff.append("\nHAVING ");
+
+            addAlias(buff, cols.get(havingCol));
+        }
+
+        getSortLimitSQL(buff);
+
+        return buff.toString();
     }
 
     /**
-     * @param limit Limit.
+     * @return {@code True} if this simple SQL query like 'SELECT A, B, C from SOME_TABLE' without any conditions
+     *      and expressions.
      */
-    public void limit(GridSqlElement limit) {
-        this.limit = limit;
+    @Override public boolean simpleQuery() {
+        boolean simple = !distinct &&
+            from instanceof GridSqlTable &&
+            where == null &&
+            grpCols == null &&
+            havingCol < 0 &&
+            sort.isEmpty() &&
+            limit() == null &&
+            offset() == null;
+
+        if (simple) {
+            for (GridSqlAst expression : columns(true)) {
+                if (expression instanceof GridSqlAlias)
+                    expression = expression.child();
+
+                if (!(expression instanceof GridSqlColumn))
+                    return false;
+            }
+        }
+
+        return simple;
     }
 
     /**
-     * @return Limit.
+     * @param buff Statement builder.
+     * @param exp Alias expression.
      */
-    public GridSqlElement limit() {
-        return limit;
+    private static void addAlias(StatementBuilder buff, GridSqlAst exp) {
+        exp = GridSqlAlias.unwrap(exp);
+
+        buff.append(StringUtils.unEnclose(exp.getSQL()));
+    }
+
+    /**
+     * @param visibleOnly If only visible expressions needed.
+     * @return Select clause expressions.
+     */
+    public List<GridSqlAst> columns(boolean visibleOnly) {
+        assert visibleCols <= cols.size();
+
+        return visibleOnly && visibleCols != cols.size() ?
+            cols.subList(0, visibleCols) : cols;
+    }
+
+    /**
+     * Clears select expressions list.
+     * @return {@code this}.
+     */
+    public GridSqlSelect clearColumns() {
+        visibleCols = 0;
+        cols = new ArrayList<>();
+
+        return this;
+    }
+
+    /**
+     * @param expression Expression.
+     * @param visible Expression is visible in select phrase.
+     * @return {@code this}.
+     */
+    public GridSqlSelect addColumn(GridSqlAst expression, boolean visible) {
+        if (expression == null)
+            throw new NullPointerException();
+
+        if (visible) {
+            if (visibleCols != cols.size())
+                throw new IllegalStateException("Already started adding invisible columns.");
+
+            visibleCols++;
+        }
+
+        cols.add(expression);
+
+        return this;
+    }
+
+    /**
+     * @param colIdx Column index.
+     * @param expression Expression.
+     * @return {@code this}.
+     */
+    public GridSqlSelect setColumn(int colIdx, GridSqlAst expression) {
+        if (expression == null)
+            throw new NullPointerException();
+
+        cols.set(colIdx, expression);
+
+        return this;
+    }
+
+    /**
+     * @return Group columns.
+     */
+    public int[] groupColumns() {
+        return grpCols;
+    }
+
+    /**
+     * @param grpCols Group columns.
+     * @return {@code this}.
+     */
+    public GridSqlSelect groupColumns(int[] grpCols) {
+        this.grpCols = grpCols;
+
+        return this;
+    }
+
+    /**
+     * @return Tables.
+     */
+    public GridSqlAst from() {
+        return from;
+    }
+
+    /**
+     * @param from From element.
+     * @return {@code this}.
+     */
+    public GridSqlSelect from(GridSqlAst from) {
+        this.from = from;
+
+        return this;
     }
 
     /**
@@ -104,203 +313,33 @@ public class GridSqlSelect implements Cloneable {
     }
 
     /**
-     * @return Generate sql.
-     */
-    public String getSQL() {
-        StatementBuilder buff = new StatementBuilder("SELECT");
-
-        if (distinct)
-            buff.append(" DISTINCT");
-
-        for (GridSqlElement expression : select) {
-            buff.appendExceptFirst(",");
-            buff.append('\n');
-            buff.append(StringUtils.indent(expression.getSQL(), 4, false));
-        }
-
-        buff.append("\nFROM ").append(from.getSQL());
-
-        if (where != null)
-            buff.append("\nWHERE ").append(StringUtils.unEnclose(where.getSQL()));
-
-        if (!groups.isEmpty()) {
-            buff.append("\nGROUP BY ");
-
-            buff.resetCount();
-
-            for (GridSqlElement expression : groups) {
-                buff.appendExceptFirst(", ");
-
-                if (expression instanceof GridSqlAlias)
-                    buff.append(StringUtils.unEnclose((expression.child().getSQL())));
-                else
-                    buff.append(StringUtils.unEnclose(expression.getSQL()));
-            }
-        }
-
-        if (having != null)
-            buff.append("\nHAVING ").append(StringUtils.unEnclose(having.getSQL()));
-
-        if (!sort.isEmpty()) {
-            buff.append("\nORDER BY ");
-
-            buff.resetCount();
-
-            for (Map.Entry<GridSqlElement,GridSqlSortColumn> entry : sort.entrySet()) {
-                buff.appendExceptFirst(", ");
-
-                GridSqlElement expression = entry.getKey();
-
-                int idx = select.indexOf(expression);
-
-                if (idx >= 0)
-                    buff.append(idx + 1);
-                else
-                    buff.append('=').append(StringUtils.unEnclose(expression.getSQL()));
-
-                GridSqlSortColumn type = entry.getValue();
-
-                if (!type.asc())
-                    buff.append(" DESC");
-
-                if (type.nullsFirst())
-                    buff.append(" NULLS FIRST");
-                else if (type.nullsLast())
-                    buff.append(" NULLS LAST");
-            }
-        }
-
-        if (limit != null)
-            buff.append(" LIMIT ").append(StringUtils.unEnclose(limit.getSQL()));
-
-        if (offset != null)
-            buff.append(" OFFSET ").append(StringUtils.unEnclose(offset.getSQL()));
-
-        return buff.toString();
-    }
-
-    /**
-     * @param expression Expression.
-     */
-    public void addExpression(GridSqlElement expression) {
-        if (allExprs == null)
-            allExprs = new ArrayList<>();
-
-        allExprs.add(expression);
-    }
-
-    /**
-     * @return All expressions in select, group by, order by.
-     */
-    public List<GridSqlElement> allExpressions() {
-        return allExprs;
-    }
-
-    /**
-     * @return Expressions.
-     */
-    public List<GridSqlElement> select() {
-        return select;
-    }
-
-    /**
-     * Clears select list.
-     */
-    public void clearSelect() {
-        select = new ArrayList<>();
-    }
-
-    /**
-     * @param expression Expression.
-     */
-    public void addSelectExpression(GridSqlElement expression) {
-        if (expression == null)
-            throw new NullPointerException();
-
-        select.add(expression);
-    }
-
-    /**
-     * @return Expressions.
-     */
-    public List<GridSqlElement> groups() {
-        return groups;
-    }
-
-    /**
-     *
-     */
-    public void clearGroups() {
-        groups = new ArrayList<>();
-        grpCols = null;
-    }
-
-    /**
-     * @param expression Expression.
-     */
-    public void addGroupExpression(GridSqlElement expression) {
-        if (expression == null)
-            throw new NullPointerException();
-
-        groups.add(expression);
-    }
-
-    /**
-     * @return Group columns.
-     */
-    public int[] groupColumns() {
-        return grpCols;
-    }
-
-    /**
-     * @param grpCols Group columns.
-     */
-    public void groupColumns(int[] grpCols) {
-        this.grpCols = grpCols;
-    }
-
-    /**
-     * @return Tables.
-     */
-    public GridSqlElement from() {
-        return from;
-    }
-
-    /**
-     * @param from From element.
-     * @return {@code this}.
-     */
-    public GridSqlSelect from(GridSqlElement from) {
-        this.from = from;
-
-        return this;
-    }
-
-    /**
      * @return Where.
      */
-    public GridSqlElement where() {
+    public GridSqlAst where() {
         return where;
     }
 
     /**
      * @param where New where.
+     * @return {@code this}.
      */
-    public void where(GridSqlElement where) {
+    public GridSqlSelect where(GridSqlAst where) {
         this.where = where;
+
+        return this;
     }
 
     /**
-     * @param condition Adds new WHERE condition using AND operator.
+     * @param cond Adds new WHERE condition using AND operator.
      * @return {@code this}.
      */
-    public GridSqlSelect whereAnd(GridSqlElement condition) {
-        if (condition == null)
+    public GridSqlSelect whereAnd(GridSqlAst cond) {
+        if (cond == null)
             throw new NullPointerException();
 
-        GridSqlElement old = where();
+        GridSqlAst old = where();
 
-        where(old == null ? condition : new GridSqlOperation(GridSqlOperationType.AND, old, condition));
+        where(old == null ? cond : new GridSqlOperation(GridSqlOperationType.AND, old, cond));
 
         return this;
     }
@@ -308,22 +347,20 @@ public class GridSqlSelect implements Cloneable {
     /**
      * @return Having.
      */
-    public GridSqlElement having() {
-        return having;
-    }
-
-    /**
-     * @param having New having.
-     */
-    public void having(GridSqlElement having) {
-        this.having = having;
+    public GridSqlAst having() {
+        return havingCol >= 0 ? column(havingCol) : null;
     }
 
     /**
      * @param col Index of HAVING column.
+     * @return {@code this}.
      */
-    public void havingColumn(int col) {
-        this.havingCol = col;
+    public GridSqlSelect havingColumn(int col) {
+        assert col >= -1 : col;
+
+        havingCol = col;
+
+        return this;
     }
 
     /**
@@ -331,45 +368,5 @@ public class GridSqlSelect implements Cloneable {
      */
     public int havingColumn() {
         return havingCol;
-    }
-
-    /**
-     * @return Sort.
-     */
-    public Map<GridSqlElement,GridSqlSortColumn> sort() {
-        return sort;
-    }
-
-    /**
-     *
-     */
-    public void clearSort() {
-        sort = new LinkedHashMap<>();
-    }
-
-    /**
-     * @param expression Expression.
-     * @param sortType The sort type bit mask (SortOrder.DESCENDING, SortOrder.NULLS_FIRST, SortOrder.NULLS_LAST).
-     */
-    public void addSort(GridSqlElement expression, GridSqlSortColumn sortType) {
-        sort.put(expression, sortType);
-    }
-
-    /** {@inheritDoc} */
-    @SuppressWarnings({"CloneCallsConstructors", "CloneDoesntDeclareCloneNotSupportedException"})
-    @Override public GridSqlSelect clone() {
-        try {
-            GridSqlSelect res = (GridSqlSelect)super.clone();
-
-            res.select = new ArrayList<>(select);
-            res.groups = new ArrayList<>(groups);
-            res.sort = new LinkedHashMap<>(sort);
-            res.allExprs = null;
-
-            return res;
-        }
-        catch (CloneNotSupportedException e) {
-            throw new RuntimeException(e); // Never thrown.
-        }
     }
 }

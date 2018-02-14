@@ -17,26 +17,28 @@
 
 package org.apache.ignite.internal.managers.discovery;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.events.EventType;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  *
@@ -52,7 +54,7 @@ public class GridDiscoveryManagerAliveCacheSelfTest extends GridCommonAbstractTe
     private static final int TMP_NODES_CNT = 3;
 
     /** */
-    private static final int ITERATIONS = 20;
+    private static final int ITERATIONS = 10;
 
     /** */
     private int gridCntr;
@@ -62,6 +64,9 @@ public class GridDiscoveryManagerAliveCacheSelfTest extends GridCommonAbstractTe
 
     /** */
     private volatile CountDownLatch latch;
+
+    /** */
+    private boolean clientMode;
 
     /** */
     private final IgnitePredicate<Event> lsnr = new IgnitePredicate<Event>() {
@@ -75,23 +80,36 @@ public class GridDiscoveryManagerAliveCacheSelfTest extends GridCommonAbstractTe
     };
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
+    @Override protected long getTestTimeout() {
+        return 10 * 60 * 1000; //10 minutes.
+    }
+
+    /** {@inheritDoc} */
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         CacheConfiguration cCfg = defaultCacheConfiguration();
 
         cCfg.setCacheMode(PARTITIONED);
         cCfg.setBackups(1);
-        cCfg.setDistributionMode(NEAR_PARTITIONED);
+        cCfg.setNearConfiguration(new NearCacheConfiguration());
         cCfg.setRebalanceMode(SYNC);
         cCfg.setWriteSynchronizationMode(FULL_SYNC);
 
         TcpDiscoverySpi disc = new TcpDiscoverySpi();
 
+        if (clientMode && ((igniteInstanceName.charAt(igniteInstanceName.length() - 1) - '0') & 1) != 0)
+            cfg.setClientMode(true);
+        else
+            cfg.setClientFailureDetectionTimeout(50000);
+
         disc.setIpFinder(IP_FINDER);
+        disc.setAckTimeout(1000);
+        disc.setSocketTimeout(1000);
 
         cfg.setCacheConfiguration(cCfg);
         cfg.setDiscoverySpi(disc);
+        cfg.setMetricsUpdateFrequency(500);
 
         return cfg;
     }
@@ -101,13 +119,13 @@ public class GridDiscoveryManagerAliveCacheSelfTest extends GridCommonAbstractTe
         for (int i = 0; i < PERM_NODES_CNT; i++) {
             Ignite g = startGrid(gridCntr++);
 
-            g.events().localListen(lsnr, EventType.EVT_NODE_LEFT);
+            g.events().localListen(lsnr, EventType.EVT_NODE_LEFT, EventType.EVT_NODE_FAILED);
 
             alive.add(g);
         }
 
         for (int i = 0; i < PERM_NODES_CNT + TMP_NODES_CNT; i++)
-            F.rand(alive).jcache(null).put(i, String.valueOf(i));
+            F.rand(alive).cache(DEFAULT_CACHE_NAME).put(i, String.valueOf(i));
     }
 
     /** {@inheritDoc} */
@@ -118,7 +136,7 @@ public class GridDiscoveryManagerAliveCacheSelfTest extends GridCommonAbstractTe
     /**
      * @throws Exception If failed.
      */
-    public void testAlives() throws Exception {
+    private void doTestAlive() throws Exception {
         for (int i = 0; i < ITERATIONS; i++) {
             info("Performing iteration: " + i);
 
@@ -135,9 +153,25 @@ public class GridDiscoveryManagerAliveCacheSelfTest extends GridCommonAbstractTe
             stopTempNodes();
 
             latch.await();
-
-            validateAlives();
         }
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testAlives() throws Exception {
+        clientMode = false;
+
+        doTestAlive();
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testAlivesClient() throws Exception {
+        clientMode = true;
+
+        doTestAlive();
     }
 
     /**
@@ -149,46 +183,10 @@ public class GridDiscoveryManagerAliveCacheSelfTest extends GridCommonAbstractTe
     @SuppressWarnings("BusyWait")
     private void awaitDiscovery(long nodesCnt) throws InterruptedException {
         for (Ignite g : alive) {
+            ((TcpDiscoverySpi)g.configuration().getDiscoverySpi()).waitForClientMessagePrecessed();
+
             while (g.cluster().nodes().size() != nodesCnt)
                 Thread.sleep(10);
-        }
-    }
-
-    /**
-     * Validates that all node collections contain actual information.
-     */
-    @SuppressWarnings("SuspiciousMethodCalls")
-    private void validateAlives() {
-        for (Ignite g : alive)
-            assertEquals(PERM_NODES_CNT, g.cluster().nodes().size());
-
-        for (final Ignite g : alive) {
-            IgniteKernal k = (IgniteKernal)g;
-
-            GridDiscoveryManager discoMgr = k.context().discovery();
-
-            final Collection<ClusterNode> currTop = g.cluster().nodes();
-
-            long currVer = discoMgr.topologyVersion();
-
-            for (long v = currVer; v > currVer - GridDiscoveryManager.DISCOVERY_HISTORY_SIZE && v > 0; v--) {
-                F.forAll(discoMgr.aliveCacheNodes(null, v),
-                    new IgnitePredicate<ClusterNode>() {
-                        @Override public boolean apply(ClusterNode e) {
-                            return currTop.contains(e);
-                        }
-                    });
-
-                F.forAll(discoMgr.aliveRemoteCacheNodes(null, v),
-                    new IgnitePredicate<ClusterNode>() {
-                        @Override public boolean apply(ClusterNode e) {
-                            return currTop.contains(e) || g.cluster().localNode().equals(e);
-                        }
-                    });
-
-                assertTrue(
-                    currTop.contains(GridCacheUtils.oldest(k.internalCache().context(), currVer)));
-            }
         }
     }
 
@@ -205,7 +203,7 @@ public class GridDiscoveryManagerAliveCacheSelfTest extends GridCommonAbstractTe
 
             alive.add(newNode);
 
-            newNode.events().localListen(lsnr, EventType.EVT_NODE_LEFT);
+            newNode.events().localListen(lsnr, EventType.EVT_NODE_LEFT, EventType.EVT_NODE_FAILED);
         }
     }
 
@@ -213,23 +211,28 @@ public class GridDiscoveryManagerAliveCacheSelfTest extends GridCommonAbstractTe
      * Stops temporary nodes.
      */
     private void stopTempNodes() {
-        int rmv = 0;
+        Collection<Ignite> toRmv = new ArrayList<>(alive.subList(0, TMP_NODES_CNT));
 
-        Collection<Ignite> toRmv = new ArrayList<>(TMP_NODES_CNT);
-
-        for (Iterator<Ignite> iter = alive.iterator(); iter.hasNext() && rmv < TMP_NODES_CNT;) {
-            toRmv.add(iter.next());
-
-            iter.remove();
-
-            rmv++;
-        }
+        alive.removeAll(toRmv);
 
         // Remove listeners to avoid receiving events from stopping nodes.
         for (Ignite g : toRmv)
-            g.events().stopLocalListen(lsnr, EventType.EVT_NODE_LEFT);
+            g.events().stopLocalListen(lsnr, EventType.EVT_NODE_LEFT, EventType.EVT_NODE_FAILED);
 
-        for (Ignite g : toRmv)
+        for (Iterator<Ignite> itr = toRmv.iterator(); itr.hasNext(); ) {
+            Ignite g = itr.next();
+
+            if (g.cluster().localNode().isClient()) {
+                G.stop(g.name(), false);
+
+                itr.remove();
+            }
+        }
+
+        for (Ignite g : toRmv) {
+            assert !g.cluster().localNode().isClient();
+
             G.stop(g.name(), false);
+        }
     }
 }

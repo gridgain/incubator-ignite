@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.processors.cache.datastructures.replicated;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.processors.cache.datastructures.*;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.internal.processors.cache.datastructures.GridCacheAbstractDataStructuresFailoverSelfTest;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  * Failover tests for cache data structures.
@@ -36,5 +37,19 @@ public class GridCacheReplicatedDataStructuresFailoverSelfTest
     /** {@inheritDoc} */
     @Override protected CacheAtomicityMode collectionCacheAtomicityMode() {
         return TRANSACTIONAL;
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testFairReentrantLockConstantMultipleTopologyChangeNonFailoverSafe() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-6454");
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testReentrantLockConstantMultipleTopologyChangeNonFailoverSafe() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-6454");
     }
 }

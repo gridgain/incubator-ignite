@@ -17,43 +17,75 @@
 
 package org.apache.ignite.internal.processors.closure;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.*;
-import org.apache.ignite.internal.processors.resource.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.util.worker.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.resources.*;
-import org.jetbrains.annotations.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.binary.BinaryObjectException;
+import org.apache.ignite.binary.BinaryRawReader;
+import org.apache.ignite.binary.BinaryRawWriter;
+import org.apache.ignite.binary.BinaryReader;
+import org.apache.ignite.binary.BinaryWriter;
+import org.apache.ignite.binary.Binarylizable;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeJobMasterLeaveAware;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.compute.ComputeJobResultPolicy;
+import org.apache.ignite.compute.ComputeLoadBalancer;
+import org.apache.ignite.compute.ComputeTaskSession;
+import org.apache.ignite.internal.ComputeTaskInternalFuture;
+import org.apache.ignite.internal.GridClosureCallMode;
+import org.apache.ignite.internal.GridInternalWrapper;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.managers.communication.GridIoPolicy;
+import org.apache.ignite.internal.processors.GridProcessorAdapter;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.pool.PoolProcessor;
+import org.apache.ignite.internal.processors.resource.GridNoImplicitInjection;
+import org.apache.ignite.internal.util.GridSpinReadWriteLock;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.future.GridFinishedFuture;
+import org.apache.ignite.internal.util.lang.GridPeerDeployAware;
+import org.apache.ignite.internal.util.lang.GridPlainCallable;
+import org.apache.ignite.internal.util.lang.GridPlainRunnable;
+import org.apache.ignite.internal.util.lang.GridTuple3;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.worker.GridWorker;
+import org.apache.ignite.internal.util.worker.GridWorkerFuture;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgniteReducer;
+import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.resources.LoadBalancerResource;
+import org.apache.ignite.thread.IgniteThread;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.compute.ComputeJobResultPolicy.*;
-import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.*;
+import static org.apache.ignite.compute.ComputeJobResultPolicy.FAILOVER;
+import static org.apache.ignite.compute.ComputeJobResultPolicy.REDUCE;
+import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.TC_NO_FAILOVER;
+import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.TC_SKIP_AUTH;
+import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.TC_SUBGRID;
+import static org.apache.ignite.internal.processors.task.GridTaskThreadContextKey.TC_TIMEOUT;
 
 /**
  *
  */
 public class GridClosureProcessor extends GridProcessorAdapter {
-    /** */
-    private final Executor sysPool;
-
-    /** */
-    private final Executor pubPool;
-
-    /** */
-    private final Executor igfsPool;
+    /** Pool processor. */
+    private final PoolProcessor pools;
 
     /** Lock to control execution after stop. */
     private final GridSpinReadWriteLock busyLock = new GridSpinReadWriteLock();
@@ -67,9 +99,9 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     public GridClosureProcessor(GridKernalContext ctx) {
         super(ctx);
 
-        sysPool = ctx.getSystemExecutorService();
-        pubPool = ctx.getExecutorService();
-        igfsPool = ctx.getIgfsExecutorService();
+        pools = ctx.pools();
+
+        assert pools != null;
     }
 
     /** {@inheritDoc} */
@@ -116,11 +148,12 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param mode Distribution mode.
      * @param jobs Closures to execute.
      * @param nodes Grid nodes.
+     * @param execName Custom executor name.
      * @return Task execution future.
      */
     public ComputeTaskInternalFuture<?> runAsync(GridClosureCallMode mode, @Nullable Collection<? extends Runnable> jobs,
-        @Nullable Collection<ClusterNode> nodes) {
-        return runAsync(mode, jobs, nodes, false);
+        @Nullable Collection<ClusterNode> nodes, @Nullable String execName) {
+        return runAsync(mode, jobs, nodes, false, execName);
     }
 
     /**
@@ -128,12 +161,14 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param jobs Closures to execute.
      * @param nodes Grid nodes.
      * @param sys If {@code true}, then system pool will be used.
+     * @param execName Custom executor name.
      * @return Task execution future.
      */
     public ComputeTaskInternalFuture<?> runAsync(GridClosureCallMode mode,
         Collection<? extends Runnable> jobs,
         @Nullable Collection<ClusterNode> nodes,
-        boolean sys)
+        boolean sys,
+        @Nullable String execName)
     {
         assert mode != null;
         assert !F.isEmpty(jobs) : jobs;
@@ -143,7 +178,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
         try {
             if (stopping) {
                 return ComputeTaskInternalFuture.finishedFuture(ctx, T1.class,
-                    new IgniteCheckedException("Closure processor cannot be used on stopped grid: " + ctx.gridName()));
+                    new IgniteCheckedException("Closure processor cannot be used on stopped grid: " + ctx.igniteInstanceName()));
             }
 
             if (F.isEmpty(nodes))
@@ -151,7 +186,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T1(mode, jobs), null, sys);
+            return ctx.task().execute(new T1(mode, jobs), null, sys, execName);
         }
         finally {
             busyLock.readUnlock();
@@ -166,7 +201,19 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      */
     public ComputeTaskInternalFuture<?> runAsync(GridClosureCallMode mode, Runnable job,
         @Nullable Collection<ClusterNode> nodes) {
-        return runAsync(mode, job, nodes, false);
+        return runAsync(mode, job, nodes, null);
+    }
+
+    /**
+     * @param mode Distribution mode.
+     * @param job Closure to execute.
+     * @param nodes Grid nodes.
+     * @param execName Custom executor name.
+     * @return Task execution future.
+     */
+    public ComputeTaskInternalFuture<?> runAsync(GridClosureCallMode mode, Runnable job,
+        @Nullable Collection<ClusterNode> nodes, @Nullable String execName) {
+        return runAsync(mode, job, nodes, false, execName);
     }
 
     /**
@@ -174,12 +221,14 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param job Closure to execute.
      * @param nodes Grid nodes.
      * @param sys If {@code true}, then system pool will be used.
+     * @param execName Custom executor name.
      * @return Task execution future.
      */
     public ComputeTaskInternalFuture<?> runAsync(GridClosureCallMode mode,
         Runnable job,
         @Nullable Collection<ClusterNode> nodes,
-        boolean sys)
+        boolean sys,
+        @Nullable String execName)
     {
         assert mode != null;
         assert job != null;
@@ -192,7 +241,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T2(mode, job), null, sys);
+            return ctx.task().execute(new T2(mode, job), null, sys, execName);
         }
         finally {
             busyLock.readUnlock();
@@ -233,7 +282,9 @@ public class GridClosureProcessor extends GridProcessorAdapter {
                         for (Runnable r : jobs) {
                             ComputeJob job = job(r);
 
-                            mapper.map(job, lb.getBalancedNode(job, null));
+                            ClusterNode n = lb.getBalancedNode(job, null);
+
+                            mapper.map(job, n);
                         }
 
                         break;
@@ -285,7 +336,9 @@ public class GridClosureProcessor extends GridProcessorAdapter {
                         for (Callable<R> c : jobs) {
                             ComputeJob job = job(c);
 
-                            mapper.map(job, lb.getBalancedNode(job, null));
+                            ClusterNode n = lb.getBalancedNode(job, null);
+
+                            mapper.map(job, n);
                         }
 
                         break;
@@ -307,6 +360,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param jobs Closures to execute.
      * @param rdc Reducer.
      * @param nodes Grid nodes.
+     * @param execName Custom executor name.
      * @param <R1> Type.
      * @param <R2> Type.
      * @return Reduced result.
@@ -314,7 +368,8 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     public <R1, R2> ComputeTaskInternalFuture<R2> forkjoinAsync(GridClosureCallMode mode,
         Collection<? extends Callable<R1>> jobs,
         IgniteReducer<R1, R2> rdc,
-        @Nullable Collection<ClusterNode> nodes)
+        @Nullable Collection<ClusterNode> nodes,
+        @Nullable String execName)
     {
         assert mode != null;
         assert rdc != null;
@@ -328,7 +383,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T3<>(mode, jobs, rdc), null);
+            return ctx.task().execute(new T3<>(mode, jobs, rdc), null, execName);
         }
         finally {
             busyLock.readUnlock();
@@ -346,7 +401,23 @@ public class GridClosureProcessor extends GridProcessorAdapter {
         GridClosureCallMode mode,
         @Nullable Collection<? extends Callable<R>> jobs,
         @Nullable Collection<ClusterNode> nodes) {
-        return callAsync(mode, jobs, nodes, false);
+        return callAsync(mode, jobs, nodes, null);
+    }
+
+    /**
+     * @param mode Distribution mode.
+     * @param jobs Closures to execute.
+     * @param nodes Grid nodes.
+     * @param execName Custom executor name.
+     * @param <R> Type.
+     * @return Grid future for collection of closure results.
+     */
+    public <R> ComputeTaskInternalFuture<Collection<R>> callAsync(
+        GridClosureCallMode mode,
+        @Nullable Collection<? extends Callable<R>> jobs,
+        @Nullable Collection<ClusterNode> nodes,
+        @Nullable String execName) {
+        return callAsync(mode, jobs, nodes, false, execName);
     }
 
     /**
@@ -354,13 +425,15 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param jobs Closures to execute.
      * @param nodes Grid nodes.
      * @param sys If {@code true}, then system pool will be used.
+     * @param execName Custom executor name.
      * @param <R> Type.
      * @return Grid future for collection of closure results.
      */
     public <R> ComputeTaskInternalFuture<Collection<R>> callAsync(GridClosureCallMode mode,
         Collection<? extends Callable<R>> jobs,
         @Nullable Collection<ClusterNode> nodes,
-        boolean sys)
+        boolean sys,
+        @Nullable String execName)
     {
         assert mode != null;
         assert !F.isEmpty(jobs);
@@ -373,7 +446,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T6<>(mode, jobs), null, sys);
+            return ctx.task().execute(new T6<>(mode, jobs), null, sys, execName);
         }
         finally {
             busyLock.readUnlock();
@@ -381,7 +454,6 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     }
 
     /**
-     *
      * @param mode Distribution mode.
      * @param job Closure to execute.
      * @param nodes Grid nodes.
@@ -390,84 +462,122 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      */
     public <R> ComputeTaskInternalFuture<R> callAsync(GridClosureCallMode mode,
         @Nullable Callable<R> job, @Nullable Collection<ClusterNode> nodes) {
-        return callAsync(mode, job, nodes, false);
-    }
-
-    /**
-     * @param cacheName Cache name.
-     * @param affKey Affinity key.
-     * @param job Job.
-     * @param nodes Grid nodes.
-     * @return Job future.
-     */
-    public <R> ComputeTaskInternalFuture<R> affinityCall(@Nullable String cacheName, Object affKey, Callable<R> job,
-        @Nullable Collection<ClusterNode> nodes) {
-        busyLock.readLock();
-
-        try {
-            if (F.isEmpty(nodes))
-                return ComputeTaskInternalFuture.finishedFuture(ctx, T5.class, U.emptyTopologyException());
-
-            // In case cache key is passed instead of affinity key.
-            final Object affKey0 = ctx.affinity().affinityKey(cacheName, affKey);
-
-            final ClusterNode node = ctx.affinity().mapKeyToNode(cacheName, affKey0);
-
-            ctx.task().setThreadContext(TC_SUBGRID, nodes);
-
-            return ctx.task().execute(new T5(node, job), null, false);
-        }
-        catch (IgniteCheckedException e) {
-            return ComputeTaskInternalFuture.finishedFuture(ctx, T5.class, e);
-        }
-        finally {
-            busyLock.readUnlock();
-        }
-    }
-
-    /**
-     * @param cacheName Cache name.
-     * @param affKey Affinity key.
-     * @param job Job.
-     * @param nodes Grid nodes.
-     * @return Job future.
-     */
-    public ComputeTaskInternalFuture<?> affinityRun(@Nullable String cacheName, Object affKey, Runnable job,
-        @Nullable Collection<ClusterNode> nodes) {
-        busyLock.readLock();
-
-        try {
-            if (F.isEmpty(nodes))
-                return ComputeTaskInternalFuture.finishedFuture(ctx, T4.class, U.emptyTopologyException());
-
-            // In case cache key is passed instead of affinity key.
-            final Object affKey0 = ctx.affinity().affinityKey(cacheName, affKey);
-
-            final ClusterNode node = ctx.affinity().mapKeyToNode(cacheName, affKey0);
-
-            ctx.task().setThreadContext(TC_SUBGRID, nodes);
-
-            return ctx.task().execute(new T4(node, job), null, false);
-        }
-        catch (IgniteCheckedException e) {
-            return ComputeTaskInternalFuture.finishedFuture(ctx, T4.class, e);
-        }
-        finally {
-            busyLock.readUnlock();
-        }
+        return callAsync(mode, job, nodes, null);
     }
 
     /**
      * @param mode Distribution mode.
      * @param job Closure to execute.
      * @param nodes Grid nodes.
-     * @param sys If {@code true}, then system pool will be used.
+     * @param execName Custom executor name.
      * @param <R> Type.
      * @return Grid future for collection of closure results.
      */
-    public <R> IgniteInternalFuture<R> callAsyncNoFailover(GridClosureCallMode mode, @Nullable Callable<R> job,
-        @Nullable Collection<ClusterNode> nodes, boolean sys) {
+    public <R> ComputeTaskInternalFuture<R> callAsync(GridClosureCallMode mode,
+        @Nullable Callable<R> job, @Nullable Collection<ClusterNode> nodes,
+        @Nullable String execName) {
+        return callAsync(mode, job, nodes, false, execName);
+    }
+
+    /**
+     * @param cacheNames Cache names.
+     * @param partId Partition.
+     * @param job Closure to execute.
+     * @param nodes Grid nodes.
+     * @param execName Custom executor name.
+     * @return Grid future for collection of closure results.
+     * @throws IgniteCheckedException If failed.
+     */
+    public <R> ComputeTaskInternalFuture<R> affinityCall(@NotNull Collection<String> cacheNames,
+        int partId,
+        Callable<R> job,
+        @Nullable Collection<ClusterNode> nodes,
+        @Nullable String execName) throws IgniteCheckedException {
+        assert partId >= 0 : partId;
+
+        busyLock.readLock();
+
+        try {
+            if (F.isEmpty(nodes))
+                return ComputeTaskInternalFuture.finishedFuture(ctx, T5.class, U.emptyTopologyException());
+
+            final String cacheName = F.first(cacheNames);
+
+            final AffinityTopologyVersion mapTopVer = ctx.cache().context().exchange().readyAffinityVersion();
+            final ClusterNode node = ctx.affinity().mapPartitionToNode(cacheName, partId, mapTopVer);
+
+            if (node == null)
+                return ComputeTaskInternalFuture.finishedFuture(ctx, T5.class, U.emptyTopologyException());
+
+            ctx.task().setThreadContext(TC_SUBGRID, nodes);
+
+            return ctx.task().execute(new T5(node, job, cacheNames, partId, mapTopVer), null,
+                false, execName);
+        }
+        finally {
+            busyLock.readUnlock();
+        }
+    }
+
+    /**
+     * @param cacheNames Cache names.
+     * @param partId Partition.
+     * @param job Job.
+     * @param nodes Grid nodes.
+     * @param execName Custom executor name.
+     * @return Job future.
+     * @throws IgniteCheckedException If failed.
+     */
+    public ComputeTaskInternalFuture<?> affinityRun(@NotNull Collection<String> cacheNames,
+        int partId,
+        Runnable job,
+        @Nullable Collection<ClusterNode> nodes,
+        @Nullable String execName) throws IgniteCheckedException {
+        assert partId >= 0 : partId;
+
+        busyLock.readLock();
+
+        try {
+            if (F.isEmpty(nodes))
+                return ComputeTaskInternalFuture.finishedFuture(ctx, T4.class, U.emptyTopologyException());
+
+            final String cacheName = F.first(cacheNames);
+
+            final AffinityTopologyVersion mapTopVer = ctx.cache().context().exchange().readyAffinityVersion();
+            final ClusterNode node = ctx.affinity().mapPartitionToNode(cacheName, partId, mapTopVer);
+
+            if (node == null)
+                return ComputeTaskInternalFuture.finishedFuture(ctx, T4.class, U.emptyTopologyException());
+
+            ctx.task().setThreadContext(TC_SUBGRID, nodes);
+
+            return ctx.task().execute(new T4(node, job, cacheNames, partId, mapTopVer), null,
+                false, execName);
+        }
+        finally {
+            busyLock.readUnlock();
+        }
+    }
+
+    /**
+     * @param <R> Type.
+     * @param mode Distribution mode.
+     * @param job Closure to execute.
+     * @param nodes Grid nodes.
+     * @param sys If {@code true}, then system pool will be used.
+     * @param timeout Timeout.
+     * @param skipAuth Skip authorization check.
+     * @return Grid future for collection of closure results.
+     */
+    public <R> IgniteInternalFuture<R> callAsyncNoFailover(
+        GridClosureCallMode mode,
+        @Nullable Callable<R> job,
+        @Nullable Collection<ClusterNode> nodes,
+        boolean sys,
+        long timeout,
+        boolean skipAuth) {
         assert mode != null;
+        assert timeout >= 0 : timeout;
 
         busyLock.readLock();
 
@@ -481,6 +591,12 @@ public class GridClosureProcessor extends GridProcessorAdapter {
             ctx.task().setThreadContext(TC_NO_FAILOVER, true);
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
+            if (skipAuth)
+                ctx.task().setThreadContext(TC_SKIP_AUTH, true);
+
+            if (timeout > 0)
+                ctx.task().setThreadContext(TC_TIMEOUT, timeout);
+
             return ctx.task().execute(new T7<>(mode, job), null, sys);
         }
         finally {
@@ -493,13 +609,19 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param jobs Closures to execute.
      * @param nodes Grid nodes.
      * @param sys If {@code true}, then system pool will be used.
+     * @param timeout If greater than 0 limits task execution. Cannot be negative.
      * @param <R> Type.
      * @return Grid future for collection of closure results.
      */
-    public <R> IgniteInternalFuture<Collection<R>> callAsyncNoFailover(GridClosureCallMode mode,
-        @Nullable Collection<? extends Callable<R>> jobs, @Nullable Collection<ClusterNode> nodes,
-        boolean sys) {
+    public <R> IgniteInternalFuture<Collection<R>> callAsyncNoFailover(
+        GridClosureCallMode mode,
+        @Nullable Collection<? extends Callable<R>> jobs,
+        @Nullable Collection<ClusterNode> nodes,
+        boolean sys,
+        long timeout
+    ) {
         assert mode != null;
+        assert timeout >= 0 : timeout;
 
         busyLock.readLock();
 
@@ -513,6 +635,9 @@ public class GridClosureProcessor extends GridProcessorAdapter {
             ctx.task().setThreadContext(TC_NO_FAILOVER, true);
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
+            if (timeout > 0)
+                ctx.task().setThreadContext(TC_TIMEOUT, timeout);
+
             return ctx.task().execute(new T6<>(mode, jobs), null, sys);
         }
         finally {
@@ -525,13 +650,15 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param job Closure to execute.
      * @param nodes Grid nodes.
      * @param sys If {@code true}, then system pool will be used.
+     * @param execName Custom executor name.
      * @param <R> Type.
      * @return Grid future for collection of closure results.
      */
     public <R> ComputeTaskInternalFuture<R> callAsync(GridClosureCallMode mode,
         Callable<R> job,
         @Nullable Collection<ClusterNode> nodes,
-        boolean sys)
+        boolean sys,
+        @Nullable String execName)
     {
         assert mode != null;
         assert job != null;
@@ -544,7 +671,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T7<>(mode, job), null, sys);
+            return ctx.task().execute(new T7<>(mode, job), null, sys, execName);
         }
         finally {
             busyLock.readUnlock();
@@ -555,10 +682,11 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param job Job closure.
      * @param arg Optional job argument.
      * @param nodes Grid nodes.
+     * @param execName Custom executor name.
      * @return Grid future for execution result.
      */
     public <T, R> ComputeTaskInternalFuture<R> callAsync(IgniteClosure<T, R> job, @Nullable T arg,
-        @Nullable Collection<ClusterNode> nodes) {
+        @Nullable Collection<ClusterNode> nodes, @Nullable String execName) {
         busyLock.readLock();
 
         try {
@@ -567,7 +695,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T8(job, arg), null, false);
+            return ctx.task().execute(new T8(job, arg), null, false, execName);
         }
         finally {
             busyLock.readUnlock();
@@ -578,10 +706,11 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param job Job closure.
      * @param arg Optional job argument.
      * @param nodes Grid nodes.
+     * @param execName Custom executor name.
      * @return Grid future for execution result.
      */
     public <T, R> IgniteInternalFuture<Collection<R>> broadcast(IgniteClosure<T, R> job, @Nullable T arg,
-        @Nullable Collection<ClusterNode> nodes) {
+        @Nullable Collection<ClusterNode> nodes, @Nullable String execName) {
         busyLock.readLock();
 
         try {
@@ -590,31 +719,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T11<>(job), arg, false);
-        }
-        finally {
-            busyLock.readUnlock();
-        }
-    }
-
-    /**
-     * @param job Job closure.
-     * @param arg Optional job argument.
-     * @param nodes Grid nodes.
-     * @return Grid future for execution result.
-     */
-    public <T, R> IgniteInternalFuture<Collection<R>> broadcastNoFailover(IgniteClosure<T, R> job, @Nullable T arg,
-        @Nullable Collection<ClusterNode> nodes) {
-        busyLock.readLock();
-
-        try {
-            if (F.isEmpty(nodes))
-                return new GridFinishedFuture<>(U.emptyTopologyException());
-
-            ctx.task().setThreadContext(TC_SUBGRID, nodes);
-            ctx.task().setThreadContext(TC_NO_FAILOVER, true);
-
-            return ctx.task().execute(new T11<>(job), arg, false);
+            return ctx.task().execute(new T11<>(job), arg, false, execName);
         }
         finally {
             busyLock.readUnlock();
@@ -625,11 +730,13 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param job Job closure.
      * @param args Job arguments.
      * @param nodes Grid nodes.
+     * @param execName Custom executor name.
      * @return Grid future for execution result.
      */
     public <T, R> ComputeTaskInternalFuture<Collection<R>> callAsync(IgniteClosure<T, R> job,
         @Nullable Collection<? extends T> args,
-        @Nullable Collection<ClusterNode> nodes)
+        @Nullable Collection<ClusterNode> nodes,
+        @Nullable String execName)
     {
         busyLock.readLock();
 
@@ -639,7 +746,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T9<>(job, args), null, false);
+            return ctx.task().execute(new T9<>(job, args), null, false, execName);
         }
         finally {
             busyLock.readUnlock();
@@ -651,10 +758,12 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param args Job arguments.
      * @param rdc Reducer.
      * @param nodes Grid nodes.
+     * @param execName Custom executor name.
      * @return Grid future for execution result.
      */
     public <T, R1, R2> ComputeTaskInternalFuture<R2> callAsync(IgniteClosure<T, R1> job,
-        Collection<? extends T> args, IgniteReducer<R1, R2> rdc, @Nullable Collection<ClusterNode> nodes) {
+        Collection<? extends T> args, IgniteReducer<R1, R2> rdc, @Nullable Collection<ClusterNode> nodes,
+        @Nullable String execName) {
         busyLock.readLock();
 
         try {
@@ -663,7 +772,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T10<>(job, args, rdc), null, false);
+            return ctx.task().execute(new T10<>(job, args, rdc), null, false, execName);
         }
         finally {
             busyLock.readUnlock();
@@ -671,57 +780,22 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     }
 
     /**
-     * Gets pool by execution policy.
-     *
-     * @param plc Whether to get system or public pool.
-     * @return Requested worker pool.
+     * @param thread Thread.
+     * @param c Closure.
      */
-    private Executor pool(GridClosurePolicy plc) {
-        switch (plc) {
-            case PUBLIC_POOL:
-                return pubPool;
+    public void runLocalWithThreadPolicy(IgniteThread thread, Runnable c) {
+        assert thread.stripe() >= 0 || thread.policy() != GridIoPolicy.UNDEFINED : thread;
 
-            case SYSTEM_POOL:
-                return sysPool;
-
-            case IGFS_POOL:
-                return igfsPool;
-
-            default:
-                throw new IllegalArgumentException("Invalid closure execution policy: " + plc);
+        if (thread.stripe() >= 0)
+            ctx.getStripedExecutorService().execute(thread.stripe(), c);
+        else {
+            try {
+                ctx.pools().poolForPolicy(thread.policy()).execute(c);
+            }
+            catch (IgniteCheckedException e) {
+                U.error(log, "Failed to get pool for policy: " + thread.policy(), e);
+            }
         }
-    }
-
-    /**
-     * Gets pool name by execution policy.
-     *
-     * @param plc Policy to choose executor pool.
-     * @return Pool name.
-     */
-    private String poolName(GridClosurePolicy plc) {
-        switch (plc) {
-            case PUBLIC_POOL:
-                return "public";
-
-            case SYSTEM_POOL:
-                return "system";
-
-            case IGFS_POOL:
-                return "igfs";
-
-            default:
-                throw new IllegalArgumentException("Invalid closure execution policy: " + plc);
-        }
-    }
-
-    /**
-     * @param c Closure to execute.
-     * @param sys If {@code true}, then system pool will be used, otherwise public pool will be used.
-     * @return Future.
-     * @throws IgniteCheckedException Thrown in case of any errors.
-     */
-    private IgniteInternalFuture<?> runLocal(@Nullable final Runnable c, boolean sys) throws IgniteCheckedException {
-        return runLocal(c, sys ? GridClosurePolicy.SYSTEM_POOL : GridClosurePolicy.PUBLIC_POOL);
     }
 
     /**
@@ -730,7 +804,8 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @return Future.
      * @throws IgniteCheckedException Thrown in case of any errors.
      */
-    private IgniteInternalFuture<?> runLocal(@Nullable final Runnable c, GridClosurePolicy plc) throws IgniteCheckedException {
+    public IgniteInternalFuture<?> runLocal(@Nullable final Runnable c, byte plc)
+        throws IgniteCheckedException {
         if (c == null)
             return new GridFinishedFuture();
 
@@ -745,7 +820,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             final GridWorkerFuture fut = new GridWorkerFuture();
 
-            GridWorker w = new GridWorker(ctx.gridName(), "closure-proc-worker", log) {
+            GridWorker w = new GridWorker(ctx.igniteInstanceName(), "closure-proc-worker", log) {
                 @Override protected void body() {
                     try {
                         if (ldr != null)
@@ -760,6 +835,9 @@ public class GridClosureProcessor extends GridProcessorAdapter {
                             U.error(log, "Closure execution failed with error.", e);
 
                         fut.onDone(U.cast(e));
+
+                        if (e instanceof Error)
+                            throw e;
                     }
                 }
             };
@@ -767,11 +845,11 @@ public class GridClosureProcessor extends GridProcessorAdapter {
             fut.setWorker(w);
 
             try {
-                pool(plc).execute(w);
+                pools.poolForPolicy(plc).execute(w);
             }
             catch (RejectedExecutionException e) {
                 U.error(log, "Failed to execute worker due to execution rejection " +
-                    "(increase upper bound on " + poolName(plc) + " executor service).", e);
+                    "(increase upper bound on executor service) [policy=" + plc + ']', e);
 
                 w.run();
             }
@@ -784,8 +862,8 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     }
 
     /**
-     * Executes closure on system pool. Companion to {@link #runLocal(Runnable, boolean)} but
-     * in case of rejected execution re-runs the closure in the current thread (blocking).
+     * Executes closure on system pool. In case of rejected execution re-runs the closure in the current
+     * thread (blocking).
      *
      * @param c Closure to execute.
      * @return Future.
@@ -795,32 +873,33 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     }
 
     /**
-     * Companion to {@link #runLocal(Runnable, boolean)} but in case of rejected execution re-runs
-     * the closure in the current thread (blocking).
+     * In case of rejected execution re-runs the closure in the current thread (blocking).
      *
      * @param c Closure to execute.
      * @param sys If {@code true}, then system pool will be used, otherwise public pool will be used.
      * @return Future.
      */
     public IgniteInternalFuture<?> runLocalSafe(Runnable c, boolean sys) {
-        return runLocalSafe(c, sys ? GridClosurePolicy.SYSTEM_POOL : GridClosurePolicy.PUBLIC_POOL);
+        return runLocalSafe(c, sys ? GridIoPolicy.SYSTEM_POOL : GridIoPolicy.PUBLIC_POOL);
     }
 
     /**
-     * Companion to {@link #runLocal(Runnable, boolean)} but in case of rejected execution re-runs
-     * the closure in the current thread (blocking).
+     * In case of rejected execution re-runs the closure in the current thread (blocking).
      *
      * @param c Closure to execute.
      * @param plc Policy to choose executor pool.
      * @return Future.
      */
-    public IgniteInternalFuture<?> runLocalSafe(Runnable c, GridClosurePolicy plc) {
+    public IgniteInternalFuture<?> runLocalSafe(Runnable c, byte plc) {
         try {
             return runLocal(c, plc);
         }
         catch (Throwable e) {
-            if (e instanceof Error)
+            if (e instanceof Error) {
                 U.error(log, "Closure execution failed with error.", e);
+
+                throw (Error)e;
+            }
 
             // If execution was rejected - rerun locally.
             if (e.getCause() instanceof RejectedExecutionException) {
@@ -833,8 +912,11 @@ public class GridClosureProcessor extends GridProcessorAdapter {
                     return new GridFinishedFuture();
                 }
                 catch (Throwable t) {
-                    if (t instanceof Error)
+                    if (t instanceof Error) {
                         U.error(log, "Closure execution failed with error.", t);
+
+                        throw t;
+                    }
 
                     return new GridFinishedFuture(U.cast(t));
                 }
@@ -852,7 +934,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @throws IgniteCheckedException Thrown in case of any errors.
      */
     private <R> IgniteInternalFuture<R> callLocal(@Nullable final Callable<R> c, boolean sys) throws IgniteCheckedException {
-        return callLocal(c, sys ? GridClosurePolicy.SYSTEM_POOL : GridClosurePolicy.PUBLIC_POOL);
+        return callLocal(c, sys ? GridIoPolicy.SYSTEM_POOL : GridIoPolicy.PUBLIC_POOL);
     }
 
     /**
@@ -862,7 +944,8 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @return Future.
      * @throws IgniteCheckedException Thrown in case of any errors.
      */
-    private <R> IgniteInternalFuture<R> callLocal(@Nullable final Callable<R> c, GridClosurePolicy plc) throws IgniteCheckedException {
+    public <R> IgniteInternalFuture<R> callLocal(@Nullable final Callable<R> c, byte plc)
+        throws IgniteCheckedException {
         if (c == null)
             return new GridFinishedFuture<>();
 
@@ -877,7 +960,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             final GridWorkerFuture<R> fut = new GridWorkerFuture<>();
 
-            GridWorker w = new GridWorker(ctx.gridName(), "closure-proc-worker", log) {
+            GridWorker w = new GridWorker(ctx.igniteInstanceName(), "closure-proc-worker", log) {
                 @Override protected void body() {
                     try {
                         if (ldr != null)
@@ -890,6 +973,9 @@ public class GridClosureProcessor extends GridProcessorAdapter {
                             U.error(log, "Closure execution failed with error.", e);
 
                         fut.onDone(U.cast(e));
+
+                        if (e instanceof Error)
+                            throw (Error)e;
                     }
                 }
             };
@@ -897,11 +983,11 @@ public class GridClosureProcessor extends GridProcessorAdapter {
             fut.setWorker(w);
 
             try {
-                pool(plc).execute(w);
+                pools.poolForPolicy(plc).execute(w);
             }
             catch (RejectedExecutionException e) {
                 U.error(log, "Failed to execute worker due to execution rejection " +
-                    "(increase upper bound on " + poolName(plc) + " executor service).", e);
+                    "(increase upper bound on executor service) [policy=" + plc + ']', e);
 
                 w.run();
             }
@@ -933,7 +1019,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @return Future.
      */
     public <R> IgniteInternalFuture<R> callLocalSafe(Callable<R> c, boolean sys) {
-        return callLocalSafe(c, sys ? GridClosurePolicy.SYSTEM_POOL : GridClosurePolicy.PUBLIC_POOL);
+        return callLocalSafe(c, sys ? GridIoPolicy.SYSTEM_POOL : GridIoPolicy.PUBLIC_POOL);
     }
 
     /**
@@ -944,7 +1030,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
      * @param plc Policy to choose executor pool.
      * @return Future.
      */
-    public <R> IgniteInternalFuture<R> callLocalSafe(Callable<R> c, GridClosurePolicy plc) {
+    public  <R> IgniteInternalFuture<R> callLocalSafe(Callable<R> c, byte plc) {
         try {
             return callLocal(c, plc);
         }
@@ -1001,7 +1087,26 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     private static ComputeJob job(final Runnable r) {
         A.notNull(r, "job");
 
-       return r instanceof ComputeJobMasterLeaveAware ? new C4MLA(r) : new C4(r);
+        return r instanceof ComputeJobMasterLeaveAware ? new C4MLA(r) : new C4(r);
+    }
+
+    /**
+     * Get collection of actual results.
+     *
+     * @param res Initial results.
+     * @return Converted results.
+     */
+    private static <R> Collection<R> jobResults(List<ComputeJobResult> res) {
+        if (res == null)
+            return Collections.emptyList();
+        else {
+            List<R> res0 = new ArrayList<>(res.size());
+
+            for (int i = 0; i < res.size(); i++)
+                res0.add(res.get(i).<R>getData());
+
+            return res0;
+        }
     }
 
     /**
@@ -1013,12 +1118,6 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
         /** */
         private boolean hadLocNode;
-
-        /** */
-        private byte[] closureBytes;
-
-        /** */
-        private IgniteClosure<?, ?> closure;
 
         /**
          * @param expJobCnt Expected Jobs count.
@@ -1037,22 +1136,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
                 if (hadLocNode) {
                     Marshaller marsh = ctx.config().getMarshaller();
 
-                    if (job instanceof C1) {
-                        C1 c = (C1)job;
-
-                        if (closureBytes == null) {
-                            closure = c.job;
-
-                            closureBytes = marsh.marshal(c.job);
-                        }
-
-                        if (c.job == closure)
-                            c.job = marsh.unmarshal(closureBytes, null);
-                        else
-                            c.job = marsh.unmarshal(marsh.marshal(c.job), null);
-                    }
-                    else
-                        job = marsh.unmarshal(marsh.marshal(job), null);
+                    job = U.unmarshal(marsh, U.marshal(marsh, job), U.resolveClassLoader(ctx.config()));
                 }
                 else
                     hadLocNode = true;
@@ -1062,7 +1146,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
         }
 
         /**
-         *
+         * @return Map.
          */
         public Map<ComputeJob, ClusterNode> map() {
             return map;
@@ -1091,7 +1175,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
     /**
      * Task that is free of dragged in enclosing context for the method
-     * {@link GridClosureProcessor#runAsync(GridClosureCallMode, Collection, Collection)}.
+     * {@link GridClosureProcessor#runAsync(GridClosureCallMode, Collection, Collection,String)}.
      */
     private class T1 extends TaskNoReduceAdapter<Void> implements GridNoImplicitInjection {
         /** */
@@ -1125,7 +1209,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
     /**
      * Task that is free of dragged in enclosing context for the method
-     * {@link GridClosureProcessor#runAsync(GridClosureCallMode, Runnable, Collection)}.
+     * {@link GridClosureProcessor#runAsync(GridClosureCallMode, Runnable, Collection, String)}.
      */
     private class T2 extends TaskNoReduceAdapter<Void> implements GridNoImplicitInjection {
         /** */
@@ -1156,7 +1240,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
     /**
      * Task that is free of dragged in enclosing context for the method
-     * {@link GridClosureProcessor#forkjoinAsync(GridClosureCallMode, Collection, org.apache.ignite.lang.IgniteReducer, Collection)}
+     * {@link GridClosureProcessor#forkjoinAsync(GridClosureCallMode, Collection, org.apache.ignite.lang.IgniteReducer, Collection, String)}
      */
     private class T3<R1, R2> extends GridPeerDeployAwareTaskAdapter<Void, R2> implements GridNoImplicitInjection {
         /** */
@@ -1211,7 +1295,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
     /**
      */
-    private static class T4 extends TaskNoReduceAdapter<Void> implements GridNoImplicitInjection {
+    private static class T4 extends TaskNoReduceAdapter<Void> implements GridNoImplicitInjection, AffinityTask {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -1221,28 +1305,60 @@ public class GridClosureProcessor extends GridProcessorAdapter {
         /** */
         private Runnable job;
 
+        /** */
+        private int partId;
+
+        /** */
+        private AffinityTopologyVersion topVer;
+
+        /** */
+        private Collection<String> affCacheNames;
+
         /**
          * @param node Cluster node.
-         * @param job Job.
+         * @param job Job affinity partition.
+         * @param affCacheNames Affinity caches.
+         * @param partId Partition.
+         * @param topVer Affinity topology version.
          */
-        private T4(ClusterNode node, Runnable job) {
+        private T4(ClusterNode node, Runnable job, Collection<String> affCacheNames, int partId,
+            AffinityTopologyVersion topVer) {
             super(U.peerDeployAware0(job));
+
+            assert partId >= 0;
 
             this.node = node;
             this.job = job;
+            this.affCacheNames = affCacheNames;
+            this.partId = partId;
+            this.topVer = topVer;
         }
 
         /** {@inheritDoc} */
         @Override public Map<? extends ComputeJob, ClusterNode> map(List<ClusterNode> subgrid, @Nullable Void arg) {
-            ComputeJob job = job(this.job);
+            return Collections.singletonMap(job(job), node);
+        }
 
-            return Collections.singletonMap(job, node);
+        /** {@inheritDoc} */
+        @Override public int partition() {
+            return partId;
+        }
+
+        /** {@inheritDoc} */
+        @Nullable @Override public Collection<String> affinityCacheNames() {
+            return affCacheNames;
+        }
+
+        /** {@inheritDoc} */
+        @Nullable @Override public AffinityTopologyVersion topologyVersion() {
+            return topVer;
         }
     }
 
     /**
      */
-    private static class T5<R> extends GridPeerDeployAwareTaskAdapter<Void, R> implements GridNoImplicitInjection {
+    private static class T5<R> extends GridPeerDeployAwareTaskAdapter<Void, R> implements
+        GridNoImplicitInjection, AffinityTask {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -1252,22 +1368,39 @@ public class GridClosureProcessor extends GridProcessorAdapter {
         /** */
         private Callable<R> job;
 
+        /** */
+        private int partId;
+
+        /** */
+        private AffinityTopologyVersion topVer;
+
+        /** */
+        private Collection<String> affCacheNames;
+
         /**
          * @param node Cluster node.
-         * @param job Job.
+         * @param job Job affinity partition.
+         * @param affCacheNames Affinity caches.
+         * @param partId Partition.
+         * @param topVer Affinity topology version.
          */
-        private T5(ClusterNode node, Callable<R> job) {
+        private T5(ClusterNode node,
+            Callable<R> job,
+            Collection<String> affCacheNames,
+            int partId,
+            AffinityTopologyVersion topVer) {
             super(U.peerDeployAware0(job));
 
             this.node = node;
             this.job = job;
+            this.affCacheNames = affCacheNames;
+            this.partId = partId;
+            this.topVer = topVer;
         }
 
         /** {@inheritDoc} */
         @Override public Map<? extends ComputeJob, ClusterNode> map(List<ClusterNode> subgrid, @Nullable Void arg) {
-            ComputeJob job = job(this.job);
-
-            return Collections.singletonMap(job, node);
+            return Collections.singletonMap(job(job), node);
         }
 
         /** {@inheritDoc} */
@@ -1279,11 +1412,26 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             throw new IgniteException("Failed to find successful job result: " + res);
         }
+
+        /** {@inheritDoc} */
+        @Override public int partition() {
+            return partId;
+        }
+
+        /** {@inheritDoc} */
+        @Nullable @Override public Collection<String> affinityCacheNames() {
+            return affCacheNames;
+        }
+
+        /** {@inheritDoc} */
+        @Nullable @Override public AffinityTopologyVersion topologyVersion() {
+            return topVer;
+        }
     }
 
     /**
      * Task that is free of dragged in enclosing context for the method
-     * {@link GridClosureProcessor#callAsync(GridClosureCallMode, Collection, Collection)}
+     * {@link GridClosureProcessor#callAsync(GridClosureCallMode, Collection, Collection, String)}
      */
     private class T6<R> extends GridPeerDeployAwareTaskAdapter<Void, Collection<R>> implements GridNoImplicitInjection {
         /** */
@@ -1320,13 +1468,13 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
         /** {@inheritDoc} */
         @Override public Collection<R> reduce(List<ComputeJobResult> res) {
-            return F.jobResults(res);
+            return jobResults(res);
         }
     }
 
     /**
      * Task that is free of dragged in enclosing context for the method
-     * {@link GridClosureProcessor#callAsync(GridClosureCallMode, Callable, Collection)}
+     * {@link GridClosureProcessor#callAsync(GridClosureCallMode, Callable, Collection, String)}
      */
     private class T7<R> extends GridPeerDeployAwareTaskAdapter<Void, R> implements GridNoImplicitInjection {
         /** */
@@ -1395,7 +1543,9 @@ public class GridClosureProcessor extends GridProcessorAdapter {
         @Override public Map<? extends ComputeJob, ClusterNode> map(List<ClusterNode> subgrid, @Nullable Void arg) {
             ComputeJob job = job(this.job, this.arg);
 
-            return Collections.singletonMap(job, lb.getBalancedNode(job, null));
+            ClusterNode node = lb.getBalancedNode(job, null);
+
+            return Collections.singletonMap(job, node);
         }
 
         /** {@inheritDoc} */
@@ -1444,7 +1594,9 @@ public class GridClosureProcessor extends GridProcessorAdapter {
                 for (T jobArg : args) {
                     ComputeJob job = job(this.job, jobArg);
 
-                    mapper.map(job, lb.getBalancedNode(job, null));
+                    ClusterNode node = lb.getBalancedNode(job, null);
+
+                    mapper.map(job, node);
                 }
 
                 return mapper.map();
@@ -1456,7 +1608,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
         /** {@inheritDoc} */
         @Override public Collection<R> reduce(List<ComputeJobResult> res) throws IgniteException {
-            return F.jobResults(res);
+            return jobResults(res);
         }
     }
 
@@ -1500,7 +1652,9 @@ public class GridClosureProcessor extends GridProcessorAdapter {
                 for (T jobArg : args) {
                     ComputeJob job = job(this.job, jobArg);
 
-                    mapper.map(job, lb.getBalancedNode(job, null));
+                    ClusterNode node = lb.getBalancedNode(job, null);
+
+                    mapper.map(job, node);
                 }
 
                 return mapper.map();
@@ -1514,7 +1668,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
         @Override public ComputeJobResultPolicy result(ComputeJobResult res, List<ComputeJobResult> rcvd) {
             ComputeJobResultPolicy resPlc = super.result(res, rcvd);
 
-            if (res.getException() == null && resPlc != FAILOVER && !rdc.collect((R1) res.getData()))
+            if (res.getException() == null && resPlc != FAILOVER && !rdc.collect((R1)res.getData()))
                 resPlc = REDUCE; // If reducer returned false - reduce right away.
 
             return resPlc;
@@ -1565,29 +1719,30 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
         /** {@inheritDoc} */
         @Override public Collection<R> reduce(List<ComputeJobResult> res) {
-            return F.jobResults(res);
+            return jobResults(res);
         }
     }
 
     /**
      *
      */
-    private static class C1<T, R> implements ComputeJob, Externalizable, GridNoImplicitInjection,
+    public static class C1<T, R> implements ComputeJob, Binarylizable, GridNoImplicitInjection,
         GridInternalWrapper<IgniteClosure> {
         /** */
         private static final long serialVersionUID = 0L;
 
         /** */
+        @GridToStringInclude
         protected IgniteClosure<T, R> job;
 
         /** */
-        @GridToStringInclude
-        private T arg;
+        @GridToStringInclude(sensitive = true)
+        protected T arg;
 
         /**
          *
          */
-        public C1(){
+        public C1() {
             // No-op.
         }
 
@@ -1610,16 +1765,18 @@ public class GridClosureProcessor extends GridProcessorAdapter {
             // No-op.
         }
 
-        /** {@inheritDoc} */
-        @Override public void writeExternal(ObjectOutput out) throws IOException {
-            out.writeObject(job);
-            out.writeObject(arg);
+        @Override public void writeBinary(BinaryWriter writer) throws BinaryObjectException {
+            BinaryRawWriter rawWriter = writer.rawWriter();
+
+            rawWriter.writeObject(job);
+            rawWriter.writeObject(arg);
         }
 
-        /** {@inheritDoc} */
-        @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-            job = (IgniteClosure<T, R>)in.readObject();
-            arg = (T)in.readObject();
+        @Override public void readBinary(BinaryReader reader) throws BinaryObjectException {
+            BinaryRawReader rawReader = reader.rawReader();
+
+            job = rawReader.readObject();
+            arg = rawReader.readObject();
         }
 
         /** {@inheritDoc} */
@@ -1636,7 +1793,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     /**
      *
      */
-    private static class C1MLA<T, R> extends C1<T, R> implements ComputeJobMasterLeaveAware {
+    public static class C1MLA<T, R> extends C1<T, R> implements ComputeJobMasterLeaveAware {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -1669,17 +1826,19 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     /**
      *
      */
-    private static class C2<R> implements ComputeJob, Externalizable, GridNoImplicitInjection, GridInternalWrapper<Callable> {
+    public static class C2<R> implements ComputeJob, Binarylizable, GridNoImplicitInjection,
+        GridInternalWrapper<Callable> {
         /** */
         private static final long serialVersionUID = 0L;
 
         /** */
+        @GridToStringInclude
         protected Callable<R> c;
 
         /**
          *
          */
-        public C2(){
+        public C2() {
             // No-op.
         }
 
@@ -1705,14 +1864,12 @@ public class GridClosureProcessor extends GridProcessorAdapter {
             // No-op.
         }
 
-        /** {@inheritDoc} */
-        @Override public void writeExternal(ObjectOutput out) throws IOException {
-            out.writeObject(c);
+        @Override public void writeBinary(BinaryWriter writer) throws BinaryObjectException {
+            writer.rawWriter().writeObject(c);
         }
 
-        /** {@inheritDoc} */
-        @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-            c = (Callable<R>)in.readObject();
+        @Override public void readBinary(BinaryReader reader) throws BinaryObjectException {
+            c = reader.rawReader().readObject();
         }
 
         /** {@inheritDoc} */
@@ -1729,7 +1886,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     /**
      *
      */
-    private static class C2MLA<R> extends C2<R> implements ComputeJobMasterLeaveAware{
+    public static class C2MLA<R> extends C2<R> implements ComputeJobMasterLeaveAware {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -1760,17 +1917,18 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
     /**
      */
-    private static class C4 implements ComputeJob, Externalizable, GridNoImplicitInjection, GridInternalWrapper<Runnable> {
+    public static class C4 implements ComputeJob, Binarylizable, GridNoImplicitInjection, GridInternalWrapper<Runnable> {
         /** */
         private static final long serialVersionUID = 0L;
 
         /** */
+        @GridToStringInclude
         protected Runnable r;
 
         /**
          *
          */
-        public C4(){
+        public C4() {
             // No-op.
         }
 
@@ -1793,14 +1951,12 @@ public class GridClosureProcessor extends GridProcessorAdapter {
             // No-op.
         }
 
-        /** {@inheritDoc} */
-        @Override public void writeExternal(ObjectOutput out) throws IOException {
-            out.writeObject(r);
+        @Override public void writeBinary(BinaryWriter writer) throws BinaryObjectException {
+            writer.rawWriter().writeObject(r);
         }
 
-        /** {@inheritDoc} */
-        @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-            r = (Runnable)in.readObject();
+        @Override public void readBinary(BinaryReader reader) throws BinaryObjectException {
+            r = reader.rawReader().readObject();
         }
 
         /** {@inheritDoc} */
@@ -1817,7 +1973,7 @@ public class GridClosureProcessor extends GridProcessorAdapter {
     /**
      *
      */
-    private static class C4MLA extends C4 implements ComputeJobMasterLeaveAware {
+    public static class C4MLA extends C4 implements ComputeJobMasterLeaveAware {
         /** */
         private static final long serialVersionUID = 0L;
 

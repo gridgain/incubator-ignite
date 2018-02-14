@@ -20,11 +20,12 @@ package org.apache.ignite.visor.commands.top
 import org.apache.ignite._
 import org.apache.ignite.cluster.ClusterNode
 import org.apache.ignite.internal.IgniteNodeAttributes._
+import org.apache.ignite.internal.util.scala.impl
 import org.apache.ignite.internal.util.typedef.X
 import org.apache.ignite.internal.util.{IgniteUtils => U}
 import org.apache.ignite.lang.IgnitePredicate
 import org.apache.ignite.visor.VisorTag
-import org.apache.ignite.visor.commands.{VisorConsoleCommand, VisorTextTable}
+import org.apache.ignite.visor.commands.common.{VisorConsoleCommand, VisorTextTable}
 import org.apache.ignite.visor.visor._
 
 import java.net.{InetAddress, UnknownHostException}
@@ -47,6 +48,8 @@ import scala.util.control.Breaks._
  * ====Specification====
  * {{{
  *     top "{-c1=e1<num> -c2=e2<num> ... -ck=ek<num>} {-h=<host1> ... -h=<hostk>} {-a}"
+ *     top -activate
+ *     top -deactivate
  * }}}
  *
  * ====Arguments====
@@ -86,6 +89,10 @@ import scala.util.control.Breaks._
  *     -a
  *         This defines whether to show a separate table of nodes
  *         with detail per-node information.
+ *     -activate
+ *         Activate cluster.
+ *     -deactivate
+ *         Deactivate cluster.
  * }}}
  *
  * ====Examples====
@@ -98,20 +105,14 @@ import scala.util.control.Breaks._
  *         Prints topology for provided hosts.
  *     top
  *         Prints full topology.
+ *     top -activate
+ *         Activate cluster.
+ *     top -deactivate
+ *         Deactivate cluster.
  * }}}
  */
-class VisorTopologyCommand {
-    /**
-     * Prints error message and advise.
-     *
-     * @param errMsgs Error messages.
-     */
-    private def scold(errMsgs: Any*) {
-        assert(errMsgs != null)
-
-        warn(errMsgs: _*)
-        warn("Type 'help top' to see how to use this command.")
-    }
+class VisorTopologyCommand extends VisorConsoleCommand {
+    @impl protected val name = "top"
 
     /**
      * ===Command===
@@ -144,52 +145,56 @@ class VisorTopologyCommand {
     def top(args: String) = breakable {
         assert(args != null)
 
-        if (!isConnected)
-            adviseToConnect()
-        else {
+        if (checkConnected()) {
             val argLst = parseArgs(args)
 
-            val hosts = argLst.filter(_._1 == "h").map((a: Arg) =>
-                try
-                    InetAddress.getByName(a._2).getHostAddress
-                catch {
-                    case e: UnknownHostException => scold("Unknown host: " + a._2).^^
+            if (hasArgFlag("activate", argLst))
+                ignite.active(true)
+            else if (hasArgFlag("deactivate", argLst))
+                ignite.active(false)
+            else {
+                val hosts = argLst.filter(_._1 == "h").map((a: Arg) =>
+                    try
+                        InetAddress.getByName(a._2).getHostAddress
+                    catch {
+                        case e: UnknownHostException => scold("Unknown host: " + a._2).^^
 
-                    "" // Never happens.
-                }
-            ).filter(!_.isEmpty).toSet
-
-            val all = hasArgFlag("a", argLst)
-
-            var f: NodeFilter = (GridNode) => true
-
-            try {
-                argLst foreach (arg => {
-                    val (n, v) = arg
-
-                    n match {
-                        case "cc" if v != null => f = make(v, f, _.metrics.getTotalCpus)
-                        case "cl" if v != null => f = make(v, f, (n: ClusterNode) =>
-                            (n.metrics.getCurrentCpuLoad * 100).toLong)
-                        case "aj" if v != null => f = make(v, f, _.metrics.getCurrentActiveJobs)
-                        case "cj" if v != null => f = make(v, f, _.metrics.getCurrentCancelledJobs)
-                        case "tc" if v != null => f = make(v, f, _.metrics.getCurrentThreadCount)
-                        case "ut" if v != null => f = make(v, f, _.metrics.getUpTime)
-                        case "je" if v != null => f = make(v, f, _.metrics.getCurrentJobExecuteTime)
-                        case "jw" if v != null => f = make(v, f, _.metrics.getCurrentJobWaitTime)
-                        case "wj" if v != null => f = make(v, f, _.metrics.getCurrentWaitingJobs)
-                        case "rj" if v != null => f = make(v, f, _.metrics.getCurrentRejectedJobs)
-                        case "hu" if v != null => f = make(v, f, _.metrics.getHeapMemoryUsed)
-                        case "hm" if v != null => f = make(v, f, _.metrics.getHeapMemoryMaximum)
-                        case _ => ()
+                            "" // Never happens.
                     }
-                })
+                ).filter(!_.isEmpty).toSet
 
-                show(n => f(n), hosts, all)
-            }
-            catch {
-                case e: NumberFormatException => scold(e.getMessage)
-                case e: IgniteException => scold(e.getMessage)
+                val all = hasArgFlag("a", argLst)
+
+                var f: NodeFilter = (ClusterNode) => true
+
+                try {
+                    argLst foreach (arg => {
+                        val (n, v) = arg
+
+                        n match {
+                            case "cc" if v != null => f = make(v, f, _.metrics.getTotalCpus)
+                            case "cl" if v != null => f = make(v, f, (n: ClusterNode) =>
+                                (n.metrics.getCurrentCpuLoad * 100).toLong)
+                            case "aj" if v != null => f = make(v, f, _.metrics.getCurrentActiveJobs)
+                            case "cj" if v != null => f = make(v, f, _.metrics.getCurrentCancelledJobs)
+                            case "tc" if v != null => f = make(v, f, _.metrics.getCurrentThreadCount)
+                            case "ut" if v != null => f = make(v, f, _.metrics.getUpTime)
+                            case "je" if v != null => f = make(v, f, _.metrics.getCurrentJobExecuteTime)
+                            case "jw" if v != null => f = make(v, f, _.metrics.getCurrentJobWaitTime)
+                            case "wj" if v != null => f = make(v, f, _.metrics.getCurrentWaitingJobs)
+                            case "rj" if v != null => f = make(v, f, _.metrics.getCurrentRejectedJobs)
+                            case "hu" if v != null => f = make(v, f, _.metrics.getHeapMemoryUsed)
+                            case "hm" if v != null => f = make(v, f, _.metrics.getHeapMemoryMaximum)
+                            case _ => ()
+                        }
+                    })
+
+                    show(n => f(n), hosts, all)
+                }
+                catch {
+                    case e: NumberFormatException => scold(e)
+                    case e: IgniteException => scold(e)
+                }
             }
         }
     }
@@ -229,11 +234,7 @@ class VisorTopologyCommand {
         }).nodes()
 
         if (hosts.nonEmpty)
-            nodes = nodes.filter(n => {
-                val ips = n.addresses.toSet
-
-                ips.intersect(hosts).nonEmpty
-            })
+            nodes = nodes.filter(n => n.addresses.toSet.intersect(hosts).nonEmpty)
 
         if (nodes.isEmpty)
             println("Empty topology.").^^
@@ -276,12 +277,13 @@ class VisorTopologyCommand {
 
         val hostsT = VisorTextTable()
 
-        hostsT #= ("Int./Ext. IPs", "Node ID8(@)", "OS", "CPUs", "MACs", "CPU Load")
+        hostsT #= ("Int./Ext. IPs", "Node ID8(@)","Node Type", "OS", "CPUs", "MACs", "CPU Load")
 
         neighborhood.foreach {
             case (_, neighbors) =>
                 var ips = Set.empty[String]
                 var id8s = List.empty[String]
+                var nodeTypes = List.empty[String]
                 var macs = Set.empty[String]
                 var cpuLoadSum = 0.0
 
@@ -300,6 +302,7 @@ class VisorTopologyCommand {
                 neighbors.foreach(n => {
                     id8s = id8s :+ (i.toString + ": " + nodeId8(n.id))
 
+                    nodeTypes = nodeTypes :+ (if (n.isClient) "Client" else "Server")
                     i += 1
 
                     ips = ips ++ n.addresses()
@@ -313,6 +316,7 @@ class VisorTopologyCommand {
                 hostsT += (
                     ips.toSeq,
                     id8s,
+                    nodeTypes,
                     os,
                     cpus,
                     macs.toSeq,
@@ -332,6 +336,7 @@ class VisorTopologyCommand {
 
         val sumT = VisorTextTable()
 
+        sumT += ("Active", ignite.active)
         sumT += ("Total hosts", U.neighborhood(nodes).size)
         sumT += ("Total nodes", m.getTotalNodes)
         sumT += ("Total CPUs", m.getTotalCpus)
@@ -350,12 +355,17 @@ class VisorTopologyCommand {
  * Companion object that does initialization of the command.
  */
 object VisorTopologyCommand {
+    /** Singleton command. */
+    private val cmd = new VisorTopologyCommand
+
     // Adds command's help to visor.
     addHelp(
         name = "top",
         shortInfo = "Prints current topology.",
         spec = List(
-            "top {-c1=e1<num> -c2=e2<num> ... -ck=ek<num>} {-h=<host1> ... -h=<hostk>} {-a}"
+            "top {-c1=e1<num> -c2=e2<num> ... -ck=ek<num>} {-h=<host1> ... -h=<hostk>} {-a}",
+            "top -activate",
+            "top -deactivate"
         ),
         args = List(
             "-ck=ek<num>" -> List(
@@ -395,6 +405,12 @@ object VisorTopologyCommand {
             "-a" -> List(
                 "This defines whether to show a separate table of nodes",
                 "with detail per-node information."
+            ),
+            "-activate" -> List(
+                "Activate cluster."
+            ),
+            "-deactivate" -> List(
+                "Deactivate cluster."
             )
         ),
         examples = List(
@@ -405,13 +421,15 @@ object VisorTopologyCommand {
             "top -h=10.34.2.122 -h=10.65.3.11" ->
                 "Prints topology for provided hosts.",
             "top" ->
-                "Prints full topology."
+                "Prints full topology.",
+            "top -activate" ->
+                "Activate cluster.",
+            "top -deactivate" ->
+                "Deactivate cluster."
         ),
-        ref = VisorConsoleCommand(cmd.top, cmd.top)
+        emptyArgs = cmd.top,
+        withArgs = cmd.top
     )
-
-    /** Singleton command. */
-    private val cmd = new VisorTopologyCommand
 
     /**
      * Singleton.

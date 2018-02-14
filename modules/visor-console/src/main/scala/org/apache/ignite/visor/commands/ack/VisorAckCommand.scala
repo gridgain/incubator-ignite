@@ -18,15 +18,12 @@
 package org.apache.ignite.visor.commands.ack
 
 import org.apache.ignite.cluster.ClusterGroupEmptyException
-import org.apache.ignite.internal.visor.misc.VisorAckTask
-
-import java.util.{HashSet => JavaHashSet}
-
-import org.apache.ignite.visor.commands.VisorConsoleCommand
+import org.apache.ignite.internal.util.scala.impl
+import org.apache.ignite.visor.VisorTag
+import org.apache.ignite.visor.commands.common.VisorConsoleCommand
 import org.apache.ignite.visor.visor._
-import org.apache.ignite.visor.{VisorTag, visor}
+import org.apache.ignite.internal.visor.misc.{VisorAckTask, VisorAckTaskArg}
 
-import scala.collection.JavaConversions._
 import scala.language.implicitConversions
 
 /**
@@ -64,18 +61,8 @@ import scala.language.implicitConversions
  *         Prints local node ID on all nodes in the topology.
  * }}}
  */
-class VisorAckCommand {
-    /**
-     * Prints error message and advise.
-     *
-     * @param errMsgs Error messages.
-     */
-    private def scold(errMsgs: Any*) {
-        assert(errMsgs != null)
-
-        warn(errMsgs: _*)
-        warn("Type 'help ack' to see how to use this command.")
-    }
+class VisorAckCommand extends VisorConsoleCommand {
+    @impl protected val name = "ack"
 
     /**
      * ===Command===
@@ -101,21 +88,15 @@ class VisorAckCommand {
      * @param msg Optional command argument. If `null` this function is no-op.
      */
     def ack(msg: String) {
-        if (!isConnected)
-            adviseToConnect()
-        else
+        if (checkConnected()) {
             try {
-                val nodeIds = ignite.cluster().nodes().map(_.id())
-
-                ignite.compute(ignite.cluster().forNodeIds(nodeIds))
-                    .withName("visor-ack")
-                    .withNoFailover()
-                    .execute(classOf[VisorAckTask], toTaskArgument(nodeIds, msg))
+                executeMulti(classOf[VisorAckTask], new VisorAckTaskArg(msg))
             }
             catch {
                 case _: ClusterGroupEmptyException => scold("Topology is empty.")
                 case e: Exception => scold("System error: " + e.getMessage)
             }
+        }
     }
 }
 
@@ -123,6 +104,9 @@ class VisorAckCommand {
  * Companion object that does initialization of the command.
  */
 object VisorAckCommand {
+    /** Singleton command. */
+    private val cmd = new VisorAckCommand
+
     // Adds command's help to visor.
     addHelp(
         name = "ack",
@@ -141,11 +125,9 @@ object VisorAckCommand {
             "ack Howdy!" ->
                 "Prints 'Howdy!' on all nodes in the topology."
         ),
-        ref = VisorConsoleCommand(cmd.ack, cmd.ack)
+        emptyArgs = cmd.ack,
+        withArgs = cmd.ack
     )
-
-    /** Singleton command. */
-    private val cmd = new VisorAckCommand
 
     /**
      * Singleton.

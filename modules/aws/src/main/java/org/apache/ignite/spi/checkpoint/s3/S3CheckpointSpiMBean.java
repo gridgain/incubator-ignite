@@ -17,8 +17,8 @@
 
 package org.apache.ignite.spi.checkpoint.s3;
 
-import org.apache.ignite.mxbean.*;
-import org.apache.ignite.spi.*;
+import org.apache.ignite.mxbean.MXBeanDescription;
+import org.apache.ignite.spi.IgniteSpiManagementMBean;
 
 /**
  * Management bean for {@link S3CheckpointSpi}.
@@ -32,6 +32,18 @@ public interface S3CheckpointSpiMBean extends IgniteSpiManagementMBean {
      */
     @MXBeanDescription("S3 bucket name.")
     public String getBucketName();
+
+    /**
+     * @return S3 bucket endpoint.
+     */
+    @MXBeanDescription("S3 bucket endpoint.")
+    public String getBucketEndpoint();
+
+    /**
+     * @return S3 server-side encryption algorithm.
+     */
+    @MXBeanDescription("S3 server-side encryption algorithm.")
+    public String getSSEAlgorithm();
 
     /**
      * @return S3 access key.

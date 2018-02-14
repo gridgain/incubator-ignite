@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.testframework.*;
-
-import javax.cache.*;
+import javax.cache.Cache;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.util.typedef.CA;
+import org.apache.ignite.internal.util.typedef.CAX;
+import org.apache.ignite.testframework.GridTestUtils;
 
 /**
  * Tests for cache iterators.
@@ -95,7 +96,7 @@ public abstract class GridCacheAbstractIteratorsSelfTest extends GridCacheAbstra
      * @throws Exception If failed.
      */
     public void testEntrySetIterator() throws Exception {
-        assert jcache().localSize() == entryCount();
+        assert jcache().localSize(CachePeekMode.ALL) == entryCount();
 
         int cnt = 0;
 

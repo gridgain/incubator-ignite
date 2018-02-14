@@ -17,28 +17,41 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.managers.discovery.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jetbrains.annotations.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cluster.ClusterMetrics;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.managers.discovery.GridDiscoveryManager;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.util.lang.GridMetadataAwareAdapter;
+import org.apache.ignite.internal.util.typedef.C1;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.lang.IgniteProductVersion;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.events.EventType.*;
-import static org.apache.ignite.lang.IgniteProductVersion.*;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
+import static org.apache.ignite.lang.IgniteProductVersion.fromString;
 
 /**
  *  GridDiscovery self test.
@@ -62,8 +75,8 @@ public class GridDiscoverySelfTest extends GridCommonAbstractTest {
     }
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         TcpDiscoverySpi discoSpi = new TcpDiscoverySpi();
 
@@ -83,7 +96,7 @@ public class GridDiscoverySelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        ignite = G.ignite(getTestGridName());
+        ignite = G.ignite(getTestIgniteInstanceName());
     }
 
     /**
@@ -105,36 +118,6 @@ public class GridDiscoverySelfTest extends GridCommonAbstractTest {
 
         assert nodes != null;
         assert !nodes.isEmpty();
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testGetTopologyHash() throws Exception {
-        int hashCnt = 5000;
-
-        Random rand = new Random();
-
-        Collection<Long> hashes = new HashSet<>(hashCnt, 1.0f);
-
-        for (int i = 0; i < hashCnt; i++) {
-            // Max topology of 10 nodes.
-            int size = rand.nextInt(10) + 1;
-
-            Collection<ClusterNode> nodes = new ArrayList<>(size);
-
-            for (int j = 0; j < size; j++)
-                nodes.add(new GridDiscoveryTestNode());
-
-            @SuppressWarnings("deprecation")
-            long hash = ((IgniteKernal) ignite).context().discovery().topologyHash(nodes);
-
-            boolean isHashed = hashes.add(hash);
-
-            assert isHashed : "Duplicate hash [hash=" + hash + ", topSize=" + size + ", iteration=" + i + ']';
-        }
-
-        info("No duplicates found among '" + hashCnt + "' hashes.");
     }
 
     /**
@@ -284,7 +267,7 @@ public class GridDiscoverySelfTest extends GridCommonAbstractTest {
                 // 6          +     +
                 // 7          +       - only local node
 
-                Collection<ClusterNode> cacheNodes = discoMgr.cacheNodes(null, ver);
+                Collection<ClusterNode> cacheNodes = discoMgr.cacheNodes(DEFAULT_CACHE_NAME, new AffinityTopologyVersion(ver));
 
                 Collection<UUID> act = new ArrayList<>(F.viewReadOnly(cacheNodes, new C1<ClusterNode, UUID>() {
                     @Override public UUID apply(ClusterNode n) {

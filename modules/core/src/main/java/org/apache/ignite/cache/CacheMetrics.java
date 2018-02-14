@@ -17,10 +17,10 @@
 
 package org.apache.ignite.cache;
 
-import org.apache.ignite.*;
-
-import javax.cache.*;
-import javax.cache.integration.*;
+import javax.cache.Cache;
+import javax.cache.integration.CacheLoader;
+import javax.cache.integration.CacheWriter;
+import org.apache.ignite.IgniteCache;
 
 /**
  * Cache metrics used to obtain statistics on cache itself.
@@ -30,21 +30,21 @@ public interface CacheMetrics {
     /**
      * The number of get requests that were satisfied by the cache.
      *
-     * @return the number of hits
+     * @return The number of hits.
      */
     public long getCacheHits();
 
     /**
      * This is a measure of cache efficiency.
      *
-     * @return the percentage of successful hits, as a decimal e.g 75.
+     * @return The percentage of successful hits, as a decimal e.g 75.
      */
     public float getCacheHitPercentage();
 
     /**
      * A miss is a get request that is not satisfied.
      *
-     * @return the number of misses
+     * @return The number of misses.
      */
     public long getCacheMisses();
 
@@ -52,7 +52,7 @@ public interface CacheMetrics {
      * Returns the percentage of cache accesses that did not find a requested entry
      * in the cache.
      *
-     * @return the percentage of accesses that failed to find anything
+     * @return The percentage of accesses that failed to find anything.
      */
     public float getCacheMissPercentage();
 
@@ -60,14 +60,14 @@ public interface CacheMetrics {
      * The total number of requests to the cache. This will be equal to the sum of
      * the hits and misses.
      *
-     * @return the number of gets
+     * @return The number of gets.
      */
     public long getCacheGets();
 
     /**
      * The total number of puts to the cache.
      *
-     * @return the number of puts
+     * @return The number of puts.
      */
     public long getCachePuts();
 
@@ -75,7 +75,7 @@ public interface CacheMetrics {
      * The total number of removals from the cache. This does not include evictions,
      * where the cache itself initiates the removal to make space.
      *
-     * @return the number of removals
+     * @return The number of removals.
      */
     public long getCacheRemovals();
 
@@ -84,36 +84,35 @@ public interface CacheMetrics {
      * initiated by the cache itself to free up space. An eviction is not treated as
      * a removal and does not appear in the removal counts.
      *
-     * @return the number of evictions
+     * @return The number of evictions.
      */
     public long getCacheEvictions();
 
     /**
      * The mean time to execute gets.
      *
-     * @return the time in µs
+     * @return The time in µs.
      */
     public float getAverageGetTime();
 
     /**
      * The mean time to execute puts.
      *
-     * @return the time in µs
+     * @return The time in µs.
      */
     public float getAveragePutTime();
 
     /**
      * The mean time to execute removes.
      *
-     * @return the time in µs
+     * @return The time in µs.
      */
     public float getAverageRemoveTime();
-
 
     /**
      * The mean time to execute tx commit.
      *
-     * @return the time in µs
+     * @return The time in µs.
      */
     public float getAverageTxCommitTime();
 
@@ -123,7 +122,6 @@ public interface CacheMetrics {
      * @return Number of transaction rollbacks.
      */
     public float getAverageTxRollbackTime();
-
 
     /**
      * Gets total number of transaction commits.
@@ -147,11 +145,68 @@ public interface CacheMetrics {
     public String name();
 
     /**
-     * Gets number of entries that was swapped to disk.
+     * The total number of get requests to the off-heap memory.
      *
-     * @return Number of entries that was swapped to disk.
+     * @return The number of gets.
      */
-    public long getOverflowSize();
+    public long getOffHeapGets();
+
+    /**
+     * The total number of put requests to the off-heap memory.
+     *
+     * @return The number of puts.
+     */
+    public long getOffHeapPuts();
+
+    /**
+     * The total number of removals from the off-heap memory. This does not include evictions.
+     *
+     * @return The number of removals.
+     */
+    public long getOffHeapRemovals();
+
+    /**
+     * The total number of evictions from the off-heap memory.
+     *
+     * @return The number of evictions.
+     */
+    public long getOffHeapEvictions();
+
+    /**
+     * The number of get requests that were satisfied by the off-heap memory.
+     *
+     * @return The off-heap hits number.
+     */
+    public long getOffHeapHits();
+
+    /**
+     * Gets the percentage of hits on off-heap memory.
+     *
+     * @return The percentage of hits on off-heap memory.
+     */
+    public float getOffHeapHitPercentage();
+
+    /**
+     * A miss is a get request that is not satisfied by off-heap memory.
+     *
+     * @return The off-heap misses number.
+     */
+    public long getOffHeapMisses();
+
+    /**
+     * Gets the percentage of misses on off-heap memory.
+     *
+     * @return The percentage of misses on off-heap memory.
+     */
+    public float getOffHeapMissPercentage();
+
+    /**
+     * Gets the number of cache entries in heap memory, including entries held by active transactions, entries in
+     * onheap cache and near entries.
+     *
+     * @return Number of entries in heap memory.
+     */
+    public long getHeapEntriesCount();
 
     /**
      * Gets number of entries stored in off-heap memory.
@@ -159,6 +214,20 @@ public interface CacheMetrics {
      * @return Number of entries stored in off-heap memory.
      */
     public long getOffHeapEntriesCount();
+
+    /**
+     * Gets number of primary entries stored in off-heap memory.
+     *
+     * @return Number of primary entries stored in off-heap memory.
+     */
+    public long getOffHeapPrimaryEntriesCount();
+
+    /**
+     * Gets number of backup entries stored in off-heap memory.
+     *
+     * @return Number of backup entries stored in off-heap memory.
+     */
+    public long getOffHeapBackupEntriesCount();
 
     /**
      * Gets memory size allocated in off-heap.
@@ -184,7 +253,7 @@ public interface CacheMetrics {
     /**
      * Returns {@code true} if this cache is empty.
      *
-     * @return {@code true} if this cache is empty.
+     * @return {@code True} if this cache is empty.
      */
     public boolean isEmpty();
 
@@ -294,7 +363,7 @@ public interface CacheMetrics {
     public int getTxDhtRolledbackVersionsSize();
 
     /**
-     * Returns {@code True} if write-behind is enabled.
+     * Returns {@code true} if write-behind is enabled.
      *
      * @return {@code True} if write-behind is enabled.
      */
@@ -372,16 +441,16 @@ public interface CacheMetrics {
     /**
      * Determines the required type of keys for this {@link Cache}, if any.
      *
-     * @return the fully qualified class name of the key type,
-     * or "java.lang.Object" if the type is undefined.
+     * @return The fully qualified class name of the key type,
+     * or {@code "java.lang.Object"} if the type is undefined.
      */
     public String getKeyType();
 
     /**
      * Determines the required type of values for this {@link Cache}, if any.
      *
-     * @return the fully qualified class name of the value type,
-     *         or "java.lang.Object" if the type is undefined.
+     * @return The fully qualified class name of the value type,
+     *         or {@code "java.lang.Object"} if the type is undefined.
      */
     public String getValueType();
 
@@ -407,16 +476,71 @@ public interface CacheMetrics {
      * <p>
      * The default value is {@code true}.
      *
-     * @return true if the cache is store by value
+     * @return {@code True} if the cache is store by value.
      */
     public boolean isStoreByValue();
+
+    /**
+     * @return Total number of partitions on current node.
+     */
+    public int getTotalPartitionsCount();
+
+    /**
+     * @return Number of currently rebalancing partitions on current node.
+     */
+    public int getRebalancingPartitionsCount();
+
+    /**
+     * @return Estimated number of keys to be rebalanced on current node.
+     */
+    public long getKeysToRebalanceLeft();
+
+    /**
+     * @return Estimated rebalancing speed in keys.
+     */
+    public long getRebalancingKeysRate();
+
+    /**
+     * @return Estimated rebalancing speed in bytes.
+     */
+    public long getRebalancingBytesRate();
+
+    /**
+     * This method is deprecated and will be deleted in future major release.
+     *
+     * Use {@link #getEstimatedRebalancingFinishTime()} instead.
+     *
+     * @return Estimated rebalancing finished time.
+     */
+    @Deprecated
+    public long estimateRebalancingFinishTime();
+
+    /**
+     * This method is deprecated and will be deleted in future major release.
+     *
+     * Use {@link #getRebalancingStartTime()} instead.
+     *
+     * @return Rebalancing start time.
+     */
+    @Deprecated
+    public long rebalancingStartTime();
+
+    /**
+     * @return Estimated rebalancing finish time.
+     */
+    public long getEstimatedRebalancingFinishTime();
+
+    /**
+     * @return Rebalancing start time.
+     */
+    public long getRebalancingStartTime();
 
     /**
      * Checks whether statistics collection is enabled in this cache.
      * <p>
      * The default value is {@code false}.
      *
-     * @return true if statistics collection is enabled
+     * @return {@code True} if statistics collection is enabled.
      */
     public boolean isStatisticsEnabled();
 
@@ -425,7 +549,7 @@ public interface CacheMetrics {
      * <p>
      * The default value is {@code false}.
      *
-     * @return true if management is enabled
+     * @return {@code true} if management is enabled.
      */
     public boolean isManagementEnabled();
 
@@ -434,7 +558,7 @@ public interface CacheMetrics {
      * <p>
      * The default value is {@code false}
      *
-     * @return {@code true} when a {@link Cache} is in
+     * @return {@code True} when a {@link Cache} is in
      *         "read-through" mode.
      * @see CacheLoader
      */
@@ -448,8 +572,22 @@ public interface CacheMetrics {
      * <p>
      * The default value is {@code false}
      *
-     * @return {@code true} when a {@link Cache} is in "write-through" mode.
+     * @return {@code True} when a {@link Cache} is in "write-through" mode.
      * @see CacheWriter
      */
     public boolean isWriteThrough();
+
+    /**
+     * Checks whether cache topology is valid for read operations.
+     *
+     * @return {@code true} when cache topology is valid for reading.
+     */
+    public boolean isValidForReading();
+
+    /**
+     * Checks whether cache topology is valid for write operations.
+     *
+     * @return {@code true} when cache topology is valid for writing.
+     */
+    public boolean isValidForWriting();
 }

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.loadtests.dsi.cacheget;
 
-import org.apache.ignite.*;
-
-import java.util.concurrent.atomic.*;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.Ignition;
 
 /**
  * Benchmark cache get load test.
@@ -50,7 +50,7 @@ public class GridBenchmarkCacheGetLoadTest {
     public static void main(String[] args) throws Exception {
         Ignition.start("modules/core/src/test/config/load/dsi-49-server-production.xml");
 
-        IgniteCache<Long, Long> cache = Ignition.ignite("dsi").jcache("PARTITIONED_CACHE");
+        IgniteCache<Long, Long> cache = Ignition.ignite("dsi").cache("PARTITIONED_CACHE");
 
         stats();
 

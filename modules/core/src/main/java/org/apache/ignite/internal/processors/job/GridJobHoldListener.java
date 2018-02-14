@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.processors.job;
 
-import java.util.*;
+import java.util.EventListener;
 
 /**
  * Job hold listener to notify job processor on {@code hold}
@@ -26,11 +26,13 @@ import java.util.*;
 interface GridJobHoldListener extends EventListener {
     /**
      * @param worker Held job worker.
+     * @return {@code True} if worker has been held.
      */
-    public void onHold(GridJobWorker worker);
+    public boolean onHeld(GridJobWorker worker);
 
     /**
      * @param worker Unheld job worker.
+     * @return {@code True} if worker has been unheld.
      */
-    public void onUnhold(GridJobWorker worker);
+    public boolean onUnheld(GridJobWorker worker);
 }

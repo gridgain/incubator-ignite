@@ -17,19 +17,19 @@
 
 package org.apache.ignite.visor.commands.tasks
 
+import java.util.UUID
+
 import org.apache.ignite._
 import org.apache.ignite.events.EventType._
+import org.apache.ignite.internal.util.scala.impl
 import org.apache.ignite.internal.util.typedef.X
 import org.apache.ignite.internal.util.{IgniteUtils => U}
 import org.apache.ignite.internal.visor.event.{VisorGridEvent, VisorGridJobEvent, VisorGridTaskEvent}
-import org.apache.ignite.internal.visor.node.VisorNodeEventsCollectorTask
-import org.apache.ignite.internal.visor.node.VisorNodeEventsCollectorTask.VisorNodeEventsCollectorTaskArg
+import org.apache.ignite.internal.visor.node.{VisorNodeEventsCollectorTask, VisorNodeEventsCollectorTaskArg}
+import org.apache.ignite.internal.visor.util.{VisorTaskUtils => TU}
 import org.apache.ignite.lang.IgniteUuid
-
-import java.util.UUID
-
 import org.apache.ignite.visor.VisorTag
-import org.apache.ignite.visor.commands.{VisorConsoleCommand, VisorTextTable}
+import org.apache.ignite.visor.commands.common.{VisorConsoleCommand, VisorTextTable}
 import org.apache.ignite.visor.visor._
 
 import scala.collection.JavaConversions._
@@ -90,37 +90,37 @@ private case class VisorExecution(
      * Gets number of job rejections in this session.
      */
     lazy val rejections: Int =
-        evts.count(_.typeId() == EVT_JOB_REJECTED)
+        evts.count(_.getTypeId == EVT_JOB_REJECTED)
 
     /**
      * Gets number of job cancellations in this session.
      */
     lazy val cancels: Int =
-        evts.count(_.typeId() == EVT_JOB_CANCELLED)
+        evts.count(_.getTypeId == EVT_JOB_CANCELLED)
 
     /**
      * Gets number of job finished in this session.
      */
     lazy val finished: Int =
-        evts.count(_.typeId() == EVT_JOB_FINISHED)
+        evts.count(_.getTypeId == EVT_JOB_FINISHED)
 
     /**
      * Gets number of job started in this session.
      */
     lazy val started: Int =
-        evts.count(_.typeId() == EVT_JOB_STARTED)
+        evts.count(_.getTypeId == EVT_JOB_STARTED)
 
     /**
      * Gets number of job failures in this session.
      */
     lazy val failures: Int =
-        evts.count(_.typeId() == EVT_JOB_FAILED)
+        evts.count(_.getTypeId == EVT_JOB_FAILED)
 
     /**
      * Gets number of job failovers in this session.
      */
     lazy val failovers: Int =
-        evts.count(_.typeId() == EVT_JOB_FAILED_OVER)
+        evts.count(_.getTypeId == EVT_JOB_FAILED_OVER)
 
     /**
      * Gets duration of the session.
@@ -242,15 +242,16 @@ private case class VisorTask(
  * +---------------------------------------------------------------------------------------+
  * | tasks | Prints statistics about tasks and executions.                                 |
  * |       |                                                                               |
- * |       | Note that this command depends on Ignite events.                            |
+ * |       | Note that this command depends on Ignite events.                              |
  * |       |                                                                               |
- * |       | Ignite events can be individually enabled and disabled and disabled events  |
+ * |       | Ignite events can be individually enabled and disabled and disabled events    |
  * |       | can affect the results produced by this command. Note also that configuration |
  * |       | of Event Storage SPI that is responsible for temporary storage of generated   |
  * |       | events on each node can also affect the functionality of this command.        |
  * |       |                                                                               |
- * |       | By default - all events are enabled and Ignite stores last 10,000 local     |
- * |       | events on each node. Both of these defaults can be changed in configuration.  |
+ * |       | By default - all events are DISABLED. But if events enabled then Ignite will  |
+ * |       | stores last 10,000 local events on each node.                                 |
+ * |       | Both of these defaults can be changed in configuration.                       |
  * +---------------------------------------------------------------------------------------+
  * }}}
  *
@@ -329,21 +330,11 @@ private case class VisorTask(
  *         Traces task execution with ID taken from 's1' memory variable.
  * }}}
  */
-class VisorTasksCommand {
+class VisorTasksCommand extends VisorConsoleCommand {
+    @impl protected val name = "tasks"
+
     /** Limit for printing tasks and executions. */
     private val SHOW_LIMIT = 100
-
-    /**
-     * Prints error message and advise.
-     *
-     * @param errMsgs Error messages.
-     */
-    private def scold(errMsgs: Any*) {
-        assert(errMsgs != null)
-
-        warn(errMsgs: _*)
-        warn("Type 'help tasks' to see how to use this command.")
-    }
 
     /**
      * ===Command===
@@ -389,9 +380,7 @@ class VisorTasksCommand {
      * @param args Command arguments.
      */
     def tasks(args: String) {
-        if (!isConnected)
-            adviseToConnect()
-        else {
+        if (checkConnected()) {
             val argLst = parseArgs(args)
 
             if (hasArgFlag("l", argLst)) {
@@ -428,7 +417,7 @@ class VisorTasksCommand {
             else if (hasArgName("n", argLst)) {
                 val n = argValue("n", argLst)
 
-                if (!n.isDefined)
+                if (n.isEmpty)
                     scold("Invalid arguments: " + args)
                 else
                     task(n.get, hasArgFlag("r", argLst), hasArgFlag("a", argLst))
@@ -436,7 +425,7 @@ class VisorTasksCommand {
             else if (hasArgName("e", argLst)) {
                 val s = argValue("e", argLst)
 
-                if (!s.isDefined)
+                if (s.isEmpty)
                     scold("Invalid arguments: " + args)
                 else
                     exec(s.get, hasArgFlag("r", argLst))
@@ -536,13 +525,7 @@ class VisorTasksCommand {
             })
         }
 
-        /**
-         * If task name is task class name, show simple class name.
-         *
-         * @param taskName Task name.
-         * @param taskClsName Task class name.
-         * @return Simple class name.
-         */
+        // If task name is task class name, show simple class name.
         def taskSimpleName(taskName: String, taskClsName: String) =  {
             if (taskName == taskClsName || taskName == null) {
                 val idx = taskClsName.lastIndexOf('.')
@@ -555,28 +538,28 @@ class VisorTasksCommand {
 
         evts.foreach {
             case te: VisorGridTaskEvent =>
-                val displayedTaskName = taskSimpleName(te.taskName(), te.taskClassName())
+                val displayedTaskName = taskSimpleName(te.getTaskName(), te.getTaskClassName())
 
-                val s = getSession(te.taskSessionId(), displayedTaskName)
+                val s = getSession(te.getTaskSessionId(), displayedTaskName)
                 val t = getTask(displayedTaskName)
 
                 t.execs = t.execs + s
 
                 s.evts = s.evts :+ te
-                s.nodeIds = s.nodeIds + te.nid()
-                s.startTs = math.min(s.startTs, te.timestamp())
-                s.endTs = math.max(s.endTs, te.timestamp())
+                s.nodeIds = s.nodeIds + te.getNid
+                s.startTs = math.min(s.startTs, te.getTimestamp)
+                s.endTs = math.max(s.endTs, te.getTimestamp)
 
-                te.typeId() match {
+                te.getTypeId match {
                     case EVT_TASK_STARTED =>
                         if (s.state == UNDEFINED) s.state = STARTED
 
-                        s.origNodeId = te.nid()
+                        s.origNodeId = te.getNid
 
                     case EVT_TASK_FINISHED =>
                         if (s.state == UNDEFINED || s.state == STARTED) s.state = FINISHED
 
-                        s.origNodeId = te.nid()
+                        s.origNodeId = te.getNid
 
                     case EVT_TASK_FAILED => if (s.state == UNDEFINED || s.state == STARTED) s.state = FAILED
                     case EVT_TASK_TIMEDOUT => if (s.state == UNDEFINED || s.state == STARTED) s.state = TIMEDOUT
@@ -584,23 +567,23 @@ class VisorTasksCommand {
                 }
 
             case je: VisorGridJobEvent =>
-                val displayedTaskName = taskSimpleName(je.taskName(), je.taskClassName())
-                val s = getSession(je.taskSessionId(), displayedTaskName)
+                val displayedTaskName = taskSimpleName(je.getTaskName(), je.getTaskClassName())
+                val s = getSession(je.getTaskSessionId(), displayedTaskName)
                 val t = getTask(displayedTaskName)
 
                 t.execs = t.execs + s
 
                 // Collect node IDs where jobs didn't finish ok.
-                je.typeId() match {
+                je.getTypeId match {
                     case EVT_JOB_CANCELLED | EVT_JOB_FAILED | EVT_JOB_REJECTED | EVT_JOB_TIMEDOUT =>
-                        s.failedNodeIds = s.failedNodeIds + je.nid()
+                        s.failedNodeIds = s.failedNodeIds + je.getNid
                     case _ =>
                 }
 
                 s.evts = s.evts :+ je
-                s.nodeIds = s.nodeIds + je.nid()
-                s.startTs = math.min(s.startTs, je.timestamp())
-                s.endTs = math.max(s.endTs, je.timestamp())
+                s.nodeIds = s.nodeIds + je.getNid
+                s.startTs = math.min(s.startTs, je.getTimestamp)
+                s.endTs = math.max(s.endTs, je.getTimestamp)
 
             case _ =>
         }
@@ -619,10 +602,8 @@ class VisorTasksCommand {
     private def list(p: Long, taskName: String, reverse: Boolean, all: Boolean) {
         breakable {
             try {
-                val prj = ignite.cluster.forRemotes()
-
-                val evts = ignite.compute(prj).execute(classOf[VisorNodeEventsCollectorTask],
-                    toTaskArgument(prj.nodes.map(_.id()), VisorNodeEventsCollectorTaskArg.createTasksArg(p, taskName, null)))
+                val evts = executeMulti(classOf[VisorNodeEventsCollectorTask],
+                    VisorNodeEventsCollectorTaskArg.createTasksArg(p, taskName, null))
 
                 val (tLst, eLst) = mkData(evts)
 
@@ -778,7 +759,7 @@ class VisorTasksCommand {
             }
             catch {
                 case e: IgniteException =>
-                    scold(e.getMessage)
+                    scold(e)
 
                     break()
             }
@@ -825,8 +806,8 @@ class VisorTasksCommand {
             try {
                 val prj = ignite.cluster.forRemotes()
 
-                val evts = ignite.compute(prj).execute(classOf[VisorNodeEventsCollectorTask], toTaskArgument(prj.nodes.map(_.id()),
-                    VisorNodeEventsCollectorTaskArg.createTasksArg(null, taskName, null)))
+                val evts = executeMulti(classOf[VisorNodeEventsCollectorTask],
+                    VisorNodeEventsCollectorTaskArg.createTasksArg(null, taskName, null))
 
                 val (tLst, eLst) = mkData(evts)
 
@@ -967,7 +948,7 @@ class VisorTasksCommand {
             }
             catch {
                 case e: IgniteException =>
-                    scold(e.getMessage)
+                    scold(e)
 
                     break()
             }
@@ -996,10 +977,8 @@ class VisorTasksCommand {
             }
 
             try {
-                val prj = ignite.cluster.forRemotes()
-
-                val evts = ignite.compute(prj).execute(classOf[VisorNodeEventsCollectorTask], toTaskArgument(prj.nodes.map(_.id()),
-                    VisorNodeEventsCollectorTaskArg.createTasksArg(null, null, uuid)))
+                val evts = executeMulti(classOf[VisorNodeEventsCollectorTask],
+                    VisorNodeEventsCollectorTaskArg.createTasksArg(null, null, uuid))
 
                 val (tLst, eLst) = mkData(evts)
 
@@ -1081,13 +1060,12 @@ class VisorTasksCommand {
 
                 evtsT #= ("Timestamp", "Node ID8(@)", "Event")
 
-                val se = if (!reverse) e.evts.sortBy(_.timestamp()) else e.evts.sortBy(_.timestamp()).reverse
+                val se = if (!reverse) e.evts.sortBy(_.getTimestamp) else e.evts.sortBy(_.getTimestamp).reverse
 
                 se.foreach(e => evtsT += (
-                    formatDateTime(e.timestamp()),
-                    nodeId8Addr(e.nid()),
-                    e.name()
-                    ))
+                    formatDateTime(e.getTimestamp),
+                    nodeId8Addr(e.getNid),
+                    e.getName))
 
                 println("\nTrace:")
 
@@ -1095,7 +1073,7 @@ class VisorTasksCommand {
             }
             catch {
                 case e: IgniteException =>
-                    scold(e.getMessage)
+                    scold(e)
 
                     break()
             }
@@ -1110,10 +1088,8 @@ class VisorTasksCommand {
     private def nodes(f: Long) {
         breakable {
             try {
-                val prj = ignite.cluster.forRemotes()
-
-                val evts = ignite.compute(prj).execute(classOf[VisorNodeEventsCollectorTask], toTaskArgument(prj.nodes.map(_.id()),
-                    VisorNodeEventsCollectorTaskArg.createTasksArg(f, null, null)))
+                val evts = executeMulti(classOf[VisorNodeEventsCollectorTask],
+                    VisorNodeEventsCollectorTaskArg.createTasksArg(f, null, null))
 
                 val eLst = mkData(evts)._2
 
@@ -1162,7 +1138,7 @@ class VisorTasksCommand {
                     }
 
                     sortedNames.foreach(taskName => {
-                        val t = VisorTask(taskName, execsMap.get(taskName).get)
+                        val t = VisorTask(taskName, execsMap(taskName))
 
                         val sE = t.execsFor(STARTED)
                         val fE = t.execsFor(FINISHED)
@@ -1207,7 +1183,7 @@ class VisorTasksCommand {
             }
             catch {
                 case e: IgniteException =>
-                    scold(e.getMessage)
+                    scold(e)
 
                     break()
             }
@@ -1222,10 +1198,8 @@ class VisorTasksCommand {
     private def hosts(f: Long) {
         breakable {
             try {
-                val prj = ignite.cluster.forRemotes()
-
-                val evts = ignite.compute(prj).execute(classOf[VisorNodeEventsCollectorTask], toTaskArgument(prj.nodes.map(_.id()),
-                    VisorNodeEventsCollectorTaskArg.createTasksArg(f, null, null)))
+                val evts = executeMulti(classOf[VisorNodeEventsCollectorTask],
+                    VisorNodeEventsCollectorTaskArg.createTasksArg(f, null, null))
 
                 val eLst = mkData(evts)._2
 
@@ -1239,15 +1213,13 @@ class VisorTasksCommand {
 
                 eLst.foreach(e => {
                     e.nodeIds.foreach(id => {
-                        val host = ignite.cluster.node(id).addresses.headOption
-
-                        if (host.isDefined) {
-                            var eSet = hMap.getOrElse(host.get, Set.empty[VisorExecution])
+                        TU.sortAddresses(ignite.cluster.node(id).addresses).headOption.foreach(host => {
+                            var eSet = hMap.getOrElse(host, Set.empty[VisorExecution])
 
                             eSet += e
 
-                            hMap += (host.get -> eSet)
-                        }
+                            hMap += (host -> eSet)
+                        })
                     })
                 })
 
@@ -1261,11 +1233,11 @@ class VisorTasksCommand {
 
                     tasksT.maxCellWidth = 55
 
-                    tasksT #=(
+                    tasksT #= (
                         "Task Name(@), Oldest/Latest & Rate",
                         "Duration",
                         "Executions"
-                        )
+                    )
 
                     println("Tasks executed on host " + host + ":")
 
@@ -1278,7 +1250,7 @@ class VisorTasksCommand {
                     }
 
                     sortedNames.foreach(taskName => {
-                        val t = VisorTask(taskName, execsMap.get(taskName).get)
+                        val t = VisorTask(taskName, execsMap(taskName))
 
                         val sE = t.execsFor(STARTED)
                         val fE = t.execsFor(FINISHED)
@@ -1288,7 +1260,7 @@ class VisorTasksCommand {
 
                         val n = t.execs.size
 
-                        tasksT +=(
+                        tasksT += (
                             (
                                 t.taskNameVar,
                                 " ",
@@ -1296,12 +1268,12 @@ class VisorTasksCommand {
                                 "Latest: " + formatDateTime(t.latest),
                                 " ",
                                 "Exec. Rate: " + n + " in " + X.timeSpan2HMSM(t.timeframe)
-                                ),
+                            ),
                             (
                                 "min: " + X.timeSpan2HMSM(t.minDuration),
                                 "avg: " + X.timeSpan2HMSM(t.avgDuration),
                                 "max: " + X.timeSpan2HMSM(t.maxDuration)
-                                ),
+                            ),
                             (
                                 "Total: " + n,
                                 " ",
@@ -1310,8 +1282,8 @@ class VisorTasksCommand {
                                 "Fa: " + eE + " (" + formatInt(100 * eE / n) + "%)",
                                 "Un: " + uE + " (" + formatInt(100 * uE / n) + "%)",
                                 "Ti: " + tE + " (" + formatInt(100 * tE / n) + "%)"
-                                )
                             )
+                        )
                     })
 
                     tasksT.render()
@@ -1323,7 +1295,7 @@ class VisorTasksCommand {
             }
             catch {
                 case e: IgniteException =>
-                    scold(e.getMessage)
+                    scold(e)
 
                     break()
             }
@@ -1348,6 +1320,9 @@ class VisorTasksCommand {
  * Companion object that does initialization of the command.
  */
 object VisorTasksCommand {
+    /** Singleton command. */
+    private val cmd = new VisorTasksCommand
+
     addHelp(
         name = "tasks",
         shortInfo = "Prints tasks execution statistics.",
@@ -1361,7 +1336,7 @@ object VisorTasksCommand {
             "of Event Storage SPI that is responsible for temporary storage of generated",
             "events on each node can also affect the functionality of this command.",
             " ",
-            "By default - all events are enabled and Ignite stores last 10,000 local",
+            "By default - all events are disabled. But if events enabled then Ignite will stores last 10,000 local",
             "events on each node. Both of these defaults can be changed in configuration."
         ),
         spec = List(
@@ -1452,11 +1427,9 @@ object VisorTasksCommand {
             "tasks -e=7D5CB773-225C-4165-8162-3BB67337894B" ->
                 "Traces task execution with ID '7D5CB773-225C-4165-8162-3BB67337894B'."
         ),
-        ref = VisorConsoleCommand(cmd.tasks, cmd.tasks)
+        emptyArgs = cmd.tasks,
+        withArgs = cmd.tasks
     )
-
-    /** Singleton command. */
-    private val cmd = new VisorTasksCommand
 
     /**
      * Singleton.

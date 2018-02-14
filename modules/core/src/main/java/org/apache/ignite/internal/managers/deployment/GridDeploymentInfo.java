@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.managers.deployment;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.lang.*;
-
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.configuration.DeploymentMode;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * Deployment info.
@@ -49,6 +49,7 @@ public interface GridDeploymentInfo {
     /**
      * @return Local deployment ownership flag.
      */
+    @Deprecated
     public boolean localDeploymentOwner();
 
     /**

@@ -25,35 +25,37 @@ import org.apache.ignite.visor.{VisorRuntimeBaseSpec, visor}
  * Unit test for 'gc' command.
  */
 class VisorGcCommandSpec extends VisorRuntimeBaseSpec(1) {
-    behavior of "A 'gc' visor command"
-
     /**
      * Creates grid configuration for provided grid host.
      *
-     * @param name Grid name.
+     * @param name Ignite instance name.
      * @return Grid configuration.
      */
-    override def config(name: String): IgniteConfiguration = {
+    override def config(name: String): IgniteConfiguration =
+    {
         val cfg = new IgniteConfiguration
 
-        cfg.setGridName(name)
+        cfg.setIgniteInstanceName(name)
 
         cfg
     }
 
-    it should "run GC on all nodes" in {
-        visor.gc()
-    }
+    describe("'gc' visor command") {
+        it("should run GC on all nodes") {
+            visor.gc()
+        }
 
-    it should "run GC on first node" in {
-        visor.gc("-id8=@n0")
-    }
+        it("should run GC on first node") {
+            visor.gc("-id8=@n0")
+        }
 
-    it should "run GC and DGC on all nodes" in {
-        visor.gc("-c")
-    }
+        it("should run GC and DGC on all nodes") {
+            visor.gc("-c")
+        }
 
-    it should "run GC and DGC on first node" in {
-        visor.gc("-id8=@n0 -c")
+        it("should run GC and DGC on first node") {
+            visor.gc("-id8=@n0 -c")
+        }
+
     }
 }

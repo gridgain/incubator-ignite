@@ -17,12 +17,11 @@
 
 package org.apache.ignite.testframework.junits.cache;
 
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.transactions.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.Map;
+import org.apache.ignite.cache.store.CacheStoreSession;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.transactions.Transaction;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *
@@ -33,6 +32,9 @@ public class TestCacheSession implements CacheStoreSession {
 
     /** */
     private Map<Object, Object> props;
+
+    /** */
+    private Object attachment;
 
     /**
      *
@@ -52,6 +54,21 @@ public class TestCacheSession implements CacheStoreSession {
     /** {@inheritDoc} */
     @Override public boolean isWithinTransaction() {
         return transaction() != null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Object attach(@Nullable Object attachment) {
+        Object prev = this.attachment;
+
+        this.attachment = attachment;
+
+        return prev;
+    }
+
+    /** {@inheritDoc} */
+    @SuppressWarnings("unchecked")
+    @Nullable @Override public <T> T attachment() {
+        return (T)attachment;
     }
 
     /** {@inheritDoc} */

@@ -17,32 +17,47 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.atomic;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.communication.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jdk8.backport.*;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.cache.CachePartialUpdateException;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.affinity.Affinity;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.TestDelayingCommunicationSpi;
+import org.apache.ignite.internal.managers.communication.GridIoMessage;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtInvalidPartitionException;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.lang.GridAbsPredicate;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_ASYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.PRIMARY_SYNC;
 
 /**
  * Test GridDhtInvalidPartitionException handling in ATOMIC cache during restarts.
@@ -55,37 +70,38 @@ public class GridCacheAtomicInvalidPartitionHandlingSelfTest extends GridCommonA
     /** Delay flag. */
     private static volatile boolean delay;
 
-    /** Write order. */
-    private CacheAtomicWriteOrderMode writeOrder;
-
     /** Write sync. */
     private CacheWriteSynchronizationMode writeSync;
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        TcpDiscoverySpi discoSpi = new TcpDiscoverySpi();
+        cfg.setDiscoverySpi(new TcpDiscoverySpi().setIpFinder(IP_FINDER).setForceServerMode(true));
 
-        discoSpi.setIpFinder(IP_FINDER);
+        CacheConfiguration ccfg = cacheConfiguration();
 
-        cfg.setDiscoverySpi(discoSpi);
+        cfg.setCacheConfiguration(ccfg);
 
-        cfg.setCacheConfiguration(cacheConfiguration());
+        DelayCommunicationSpi spi = new DelayCommunicationSpi();
 
-        cfg.setCommunicationSpi(new DelayCommunicationSpi());
+        spi.setSharedMemoryPort(-1);
+
+        cfg.setCommunicationSpi(spi);
+
+        if (testClientNode() && getTestIgniteInstanceName(0).equals(igniteInstanceName))
+            cfg.setClientMode(true);
 
         return cfg;
     }
 
     /** {@inheritDoc} */
     protected CacheConfiguration cacheConfiguration() {
-        CacheConfiguration ccfg = new CacheConfiguration();
+        CacheConfiguration ccfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
         ccfg.setCacheMode(PARTITIONED);
 
         ccfg.setBackups(1);
-        ccfg.setAtomicWriteOrderMode(writeOrder);
         ccfg.setWriteSynchronizationMode(writeSync);
 
         ccfg.setRebalanceMode(SYNC);
@@ -100,73 +116,110 @@ public class GridCacheAtomicInvalidPartitionHandlingSelfTest extends GridCommonA
         delay = false;
     }
 
-    /**
-     * @throws Exception If failed.
-     */
-    public void testClockFullSync() throws Exception {
-        checkRestarts(CLOCK, FULL_SYNC);
+    /** {@inheritDoc} */
+    @Override protected void afterTest() throws Exception {
+        stopAllGrids();
     }
 
     /**
-     * @throws Exception If failed.
+     * @return {@code True} if test updates from client node.
      */
-    public void testClockPrimarySync() throws Exception {
-        checkRestarts(CLOCK, PRIMARY_SYNC);
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testClockFullAsync() throws Exception {
-        checkRestarts(CLOCK, FULL_ASYNC);
+    protected boolean testClientNode() {
+        return false;
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testPrimaryFullSync() throws Exception {
-        checkRestarts(PRIMARY, FULL_SYNC);
+        checkRestarts(FULL_SYNC);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testPrimaryPrimarySync() throws Exception {
-        checkRestarts(PRIMARY, PRIMARY_SYNC);
+        checkRestarts(PRIMARY_SYNC);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testPrimaryFullAsync() throws Exception {
-        checkRestarts(PRIMARY, FULL_ASYNC);
+        checkRestarts(FULL_ASYNC);
     }
 
     /**
-     * @param writeOrder Write order to check.
      * @param writeSync Write synchronization mode to check.
      * @throws Exception If failed.
      */
-    private void checkRestarts(CacheAtomicWriteOrderMode writeOrder, CacheWriteSynchronizationMode writeSync)
+    private void checkRestarts(CacheWriteSynchronizationMode writeSync)
         throws Exception {
-        this.writeOrder = writeOrder;
         this.writeSync = writeSync;
 
-        int gridCnt = 6;
+        final int gridCnt = 6;
 
         startGrids(gridCnt);
 
+        awaitPartitionMapExchange();
+
         try {
-            final IgniteCache<Object, Object> cache = grid(0).jcache(null);
+            assertEquals(testClientNode(), (boolean)grid(0).configuration().isClientMode());
+
+            final IgniteCache<Object, Object> cache = grid(0).cache(DEFAULT_CACHE_NAME);
 
             final int range = 100_000;
 
-            for (int i = 0; i < range; i++) {
-                cache.put(i, 0);
+            final Set<Integer> keys = new LinkedHashSet<>();
 
-                if (i > 0 && i % 10_000 == 0)
-                    System.err.println("Put: " + i);
+            try (IgniteDataStreamer<Integer, Integer> streamer = grid(0).dataStreamer(DEFAULT_CACHE_NAME)) {
+                streamer.allowOverwrite(true);
+
+                for (int i = 0; i < range; i++) {
+                    streamer.addData(i, 0);
+
+                    keys.add(i);
+
+                    if (i > 0 && i % 10_000 == 0)
+                        System.err.println("Put: " + i);
+                }
             }
+
+            final Affinity<Integer> aff = grid(0).affinity(DEFAULT_CACHE_NAME);
+
+            boolean putDone = GridTestUtils.waitForCondition(new GridAbsPredicate() {
+                @Override public boolean apply() {
+                    Iterator<Integer> it = keys.iterator();
+
+                    while (it.hasNext()) {
+                        Integer key = it.next();
+
+                        Collection<ClusterNode> affNodes = aff.mapKeyToPrimaryAndBackups(key);
+
+                        for (int i = 0; i < gridCnt; i++) {
+                            ClusterNode locNode = grid(i).localNode();
+
+                            IgniteCache<Object, Object> cache = grid(i).cache(DEFAULT_CACHE_NAME);
+
+                            Object val = cache.localPeek(key);
+
+                            if (affNodes.contains(locNode)) {
+                                if (val == null)
+                                    return false;
+                            }
+                            else
+                                assertNull(val);
+                        }
+
+                        it.remove();
+                    }
+
+                    return true;
+                }
+            }, 30_000);
+
+            assertTrue(putDone);
+            assertTrue(keys.isEmpty());
 
             final AtomicBoolean done = new AtomicBoolean();
 
@@ -206,7 +259,7 @@ public class GridCacheAtomicInvalidPartitionHandlingSelfTest extends GridCommonA
 
                     return null;
                 }
-            }, 4);
+            }, 4, "putAll-thread");
 
             Random rnd = new Random();
 
@@ -240,11 +293,20 @@ public class GridCacheAtomicInvalidPartitionHandlingSelfTest extends GridCommonA
                 for (int i = 0; i < gridCnt; i++) {
                     ClusterNode locNode = grid(i).localNode();
 
-                    GridCacheAdapter<Object, Object> c = ((IgniteKernal)grid(i)).internalCache();
+                    GridCacheAdapter<Object, Object> c = ((IgniteKernal)grid(i)).internalCache(DEFAULT_CACHE_NAME);
 
-                    GridCacheEntryEx entry = c.peekEx(k);
+                    GridCacheEntryEx entry = null;
 
-                    for (int r = 0; r < 3; r++) {
+                    try {
+                        entry = c.entryEx(k);
+
+                        entry.unswap();
+                    }
+                    catch (GridDhtInvalidPartitionException ignored) {
+                        // Skip key.
+                    }
+
+                    for (int r = 0; r < 10; r++) {
                         try {
                             if (affNodes.contains(locNode)) {
                                 assert c.affinity().isPrimaryOrBackup(locNode, k);
@@ -257,7 +319,7 @@ public class GridCacheAtomicInvalidPartitionHandlingSelfTest extends GridCommonA
                                 if (val == null) {
                                     assertNull(ver);
 
-                                    val = CU.value(entry.rawGetOrUnmarshal(false), entry.context(), false);
+                                    val = CU.value(entry.rawGet(), entry.context(), false);
                                     ver = entry.version();
                                     nodeId = locNode.id();
                                 }
@@ -266,18 +328,24 @@ public class GridCacheAtomicInvalidPartitionHandlingSelfTest extends GridCommonA
 
                                     assertEquals("Failed to check value for key [key=" + k + ", node=" +
                                         locNode.id() + ", primary=" + primary + ", recNodeId=" + nodeId + ']',
-                                        val, CU.value(entry.rawGetOrUnmarshal(false), entry.context(), false));
-                                    assertEquals(ver, entry.version());
+                                        val, CU.value(entry.rawGet(), entry.context(), false));
+
+                                    assertEquals("Failed to check version for key [key=" + k + ", node=" +
+                                        locNode.id() + ", primary=" + primary + ", recNodeId=" + nodeId + ']',
+                                        ver, entry.version());
                                 }
                             }
                             else
                                 assertTrue("Invalid entry: " + entry, entry == null || !entry.partitionValid());
                         }
                         catch (AssertionError e) {
-                            if (r == 2)
-                                throw e;
+                            if (r == 9) {
+                                info("Failed to verify cache contents: " + e.getMessage());
 
-                            System.err.println("Failed to verify cache contents: " + e.getMessage());
+                                throw e;
+                            }
+
+                            info("Failed to verify cache contents, will retry: " + e.getMessage());
 
                             // Give some time to finish async updates.
                             U.sleep(1000);
@@ -294,32 +362,11 @@ public class GridCacheAtomicInvalidPartitionHandlingSelfTest extends GridCommonA
     /**
      *
      */
-    private static class DelayCommunicationSpi extends TcpCommunicationSpi {
+    private static class DelayCommunicationSpi extends TestDelayingCommunicationSpi {
         /** {@inheritDoc} */
-        @Override public void sendMessage(ClusterNode node, Message msg)
-            throws IgniteSpiException {
-            try {
-                if (delayMessage((GridIoMessage)msg))
-                    U.sleep(ThreadLocalRandom8.current().nextInt(250) + 1);
-            }
-            catch (IgniteInterruptedCheckedException e) {
-                throw new IgniteSpiException(e);
-            }
-
-            super.sendMessage(node, msg);
-        }
-
-        /**
-         * Checks if message should be delayed.
-         *
-         * @param msg Message to check.
-         * @return {@code True} if message should be delayed.
-         */
-        private boolean delayMessage(GridIoMessage msg) {
-            Object origMsg = msg.message();
-
-            return delay &&
-                ((origMsg instanceof GridNearAtomicUpdateRequest) || (origMsg instanceof GridDhtAtomicUpdateRequest));
+        @Override protected boolean delayMessage(Message msg, GridIoMessage ioMsg) {
+            return delay && ((msg instanceof GridNearAtomicAbstractUpdateRequest) ||
+                (msg instanceof GridDhtAtomicAbstractUpdateRequest));
         }
     }
 }

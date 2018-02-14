@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.replicated.preloader;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.*;
-
-import javax.swing.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import javax.swing.JOptionPane;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.X;
 
 /**
  * Test for replicated cache preloader and concurrent undeploys.
@@ -49,7 +50,7 @@ public class GridCacheReplicatedPreloadUndeploysTest {
             for (int i = 0; i < cnt; i++) {
                 if (i % 200 == 0) {
                     if (map != null && !map.isEmpty()) {
-                        g.jcache("replicated").putAll(map);
+                        g.cache("replicated").putAll(map);
 
                         X.println(">>> Put entries count: " + i);
                     }
@@ -61,7 +62,7 @@ public class GridCacheReplicatedPreloadUndeploysTest {
             }
 
             if (map != null && !map.isEmpty()) {
-                g.jcache("replicated").putAll(map);
+                g.cache("replicated").putAll(map);
 
                 X.println(">>> Put entries count: " + cnt);
             }

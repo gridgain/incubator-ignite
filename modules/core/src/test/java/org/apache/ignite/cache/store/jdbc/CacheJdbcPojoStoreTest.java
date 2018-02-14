@@ -17,45 +17,46 @@
 
 package org.apache.ignite.cache.store.jdbc;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.cache.store.jdbc.dialect.*;
-import org.apache.ignite.cache.store.jdbc.model.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.cache.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
-import org.h2.jdbcx.*;
-import org.jetbrains.annotations.*;
-import org.springframework.beans.*;
-import org.springframework.beans.factory.xml.*;
-import org.springframework.context.support.*;
-import org.springframework.core.io.*;
-
-import javax.cache.*;
-import javax.cache.integration.*;
-import java.net.*;
-import java.sql.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.testframework.junits.cache.GridAbstractCacheStoreSelfTest.*;
+import java.io.ByteArrayInputStream;
+import java.lang.reflect.Field;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import javax.cache.integration.CacheWriterException;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.binary.BinaryObject;
+import org.apache.ignite.binary.BinaryObjectBuilder;
+import org.apache.ignite.cache.store.jdbc.dialect.H2Dialect;
+import org.apache.ignite.cache.store.jdbc.model.BinaryTest;
+import org.apache.ignite.cache.store.jdbc.model.BinaryTestKey;
+import org.apache.ignite.cache.store.jdbc.model.Organization;
+import org.apache.ignite.cache.store.jdbc.model.OrganizationKey;
+import org.apache.ignite.cache.store.jdbc.model.Person;
+import org.apache.ignite.cache.store.jdbc.model.PersonComplexKey;
+import org.apache.ignite.cache.store.jdbc.model.PersonKey;
+import org.apache.ignite.internal.binary.BinaryMarshaller;
+import org.apache.ignite.internal.processors.cache.CacheEntryImpl;
+import org.apache.ignite.internal.util.typedef.CI2;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.cache.GridAbstractCacheStoreSelfTest;
+import org.h2.jdbcx.JdbcConnectionPool;
 
 /**
  * Class for {@code PojoCacheStore} tests.
  */
-public class CacheJdbcPojoStoreTest extends GridCommonAbstractTest {
+public class CacheJdbcPojoStoreTest extends GridAbstractCacheStoreSelfTest<CacheJdbcPojoStore<Object, Object>> {
     /** DB connection URL. */
     private static final String DFLT_CONN_URL = "jdbc:h2:mem:autoCacheStore;DB_CLOSE_DELAY=-1";
-
-    /** Default config with mapping. */
-    private static final String DFLT_MAPPING_CONFIG = "modules/core/src/test/config/store/jdbc/Ignite.xml";
 
     /** Organization count. */
     protected static final int ORGANIZATION_CNT = 1000;
@@ -63,42 +64,108 @@ public class CacheJdbcPojoStoreTest extends GridCommonAbstractTest {
     /** Person count. */
     protected static final int PERSON_CNT = 100000;
 
-    /** */
-    protected TestThreadLocalCacheSession ses = new TestThreadLocalCacheSession();
+    /** Ignite. */
+    private Ignite ig;
 
-    /** */
-    protected final CacheJdbcPojoStore store;
+    /** Binary enable. */
+    private boolean binaryEnable;
 
     /**
      * @throws Exception If failed.
      */
-    @SuppressWarnings({"AbstractMethodCallInConstructor", "OverriddenMethodCallDuringObjectConstruction"})
     public CacheJdbcPojoStoreTest() throws Exception {
-        super(false);
-
-        store = store();
-
-        inject(store);
+        // No-op.
     }
 
-    /**
-     * @return Store.
-     */
-    protected CacheJdbcPojoStore store() throws IgniteCheckedException {
-        CacheJdbcPojoStore store = new CacheJdbcPojoStore();
+    /** {@inheritDoc} */
+    @Override protected CacheJdbcPojoStore<Object, Object> store() {
+        CacheJdbcPojoStoreFactory<Object, Object> storeFactory = new CacheJdbcPojoStoreFactory<>();
 
-//        PGPoolingDataSource ds = new PGPoolingDataSource();
-//        ds.setUser("postgres");
-//        ds.setPassword("postgres");
-//        ds.setServerName("ip");
-//        ds.setDatabaseName("postgres");
-//        store.setDataSource(ds);
+        JdbcType[] storeTypes = new JdbcType[7];
 
-//        MysqlDataSource ds = new MysqlDataSource();
-//        ds.setURL("jdbc:mysql://ip:port/dbname");
-//        ds.setUser("mysql");
-//        ds.setPassword("mysql");
+        storeTypes[0] = new JdbcType();
+        storeTypes[0].setDatabaseSchema("PUBLIC");
+        storeTypes[0].setDatabaseTable("ORGANIZATION");
+        storeTypes[0].setKeyType("org.apache.ignite.cache.store.jdbc.model.OrganizationKey");
+        storeTypes[0].setKeyFields(new JdbcTypeField(Types.INTEGER, "ID", Integer.class, "id"));
 
+        storeTypes[0].setValueType("org.apache.ignite.cache.store.jdbc.model.Organization");
+        storeTypes[0].setValueFields(
+            new JdbcTypeField(Types.INTEGER, "ID", Integer.class, "id"),
+            new JdbcTypeField(Types.VARCHAR, "NAME", String.class, "name"),
+            new JdbcTypeField(Types.VARCHAR, "CITY", String.class, "city"));
+
+        storeTypes[1] = new JdbcType();
+        storeTypes[1].setDatabaseSchema("PUBLIC");
+        storeTypes[1].setDatabaseTable("PERSON");
+        storeTypes[1].setKeyType("org.apache.ignite.cache.store.jdbc.model.PersonKey");
+        storeTypes[1].setKeyFields(new JdbcTypeField(Types.INTEGER, "ID", Integer.class, "id"));
+
+        storeTypes[1].setValueType("org.apache.ignite.cache.store.jdbc.model.Person");
+        storeTypes[1].setValueFields(
+            new JdbcTypeField(Types.INTEGER, "ID", Integer.class, "id"),
+            new JdbcTypeField(Types.INTEGER, "ORG_ID", Integer.class, "orgId"),
+            new JdbcTypeField(Types.VARCHAR, "NAME", String.class, "name"));
+
+        storeTypes[2] = new JdbcType();
+        storeTypes[2].setDatabaseSchema("PUBLIC");
+        storeTypes[2].setDatabaseTable("PERSON_COMPLEX");
+        storeTypes[2].setKeyType("org.apache.ignite.cache.store.jdbc.model.PersonComplexKey");
+        storeTypes[2].setKeyFields(
+            new JdbcTypeField(Types.INTEGER, "ID", int.class, "id"),
+            new JdbcTypeField(Types.INTEGER, "ORG_ID", int.class, "orgId"),
+            new JdbcTypeField(Types.INTEGER, "CITY_ID", int.class, "cityId"));
+
+        storeTypes[2].setValueType("org.apache.ignite.cache.store.jdbc.model.Person");
+        storeTypes[2].setValueFields(
+            new JdbcTypeField(Types.INTEGER, "ID", Integer.class, "id"),
+            new JdbcTypeField(Types.INTEGER, "ORG_ID", Integer.class, "orgId"),
+            new JdbcTypeField(Types.VARCHAR, "NAME", String.class, "name"),
+            new JdbcTypeField(Types.INTEGER, "SALARY", Integer.class, "salary"));
+
+        storeTypes[3] = new JdbcType();
+        storeTypes[3].setDatabaseSchema("PUBLIC");
+        storeTypes[3].setDatabaseTable("TIMESTAMP_ENTRIES");
+        storeTypes[3].setKeyType("java.sql.Timestamp");
+        storeTypes[3].setKeyFields(new JdbcTypeField(Types.TIMESTAMP, "KEY", Timestamp.class, null));
+
+        storeTypes[3].setValueType("java.lang.Integer");
+        storeTypes[3].setValueFields(new JdbcTypeField(Types.INTEGER, "VAL", Integer.class, null));
+
+        storeTypes[4] = new JdbcType();
+        storeTypes[4].setDatabaseSchema("PUBLIC");
+        storeTypes[4].setDatabaseTable("STRING_ENTRIES");
+        storeTypes[4].setKeyType("java.lang.String");
+        storeTypes[4].setKeyFields(new JdbcTypeField(Types.VARCHAR, "KEY", String.class, null));
+
+        storeTypes[4].setValueType("java.lang.String");
+        storeTypes[4].setValueFields(new JdbcTypeField(Types.VARCHAR, "VAL", Integer.class, null));
+
+        storeTypes[5] = new JdbcType();
+        storeTypes[5].setDatabaseSchema("PUBLIC");
+        storeTypes[5].setDatabaseTable("UUID_ENTRIES");
+        storeTypes[5].setKeyType("java.util.UUID");
+        storeTypes[5].setKeyFields(new JdbcTypeField(Types.BINARY, "KEY", UUID.class, null));
+
+        storeTypes[5].setValueType("java.util.UUID");
+        storeTypes[5].setValueFields(new JdbcTypeField(Types.BINARY, "VAL", UUID.class, null));
+
+        storeTypes[6] = new JdbcType();
+        storeTypes[6].setDatabaseSchema("PUBLIC");
+        storeTypes[6].setDatabaseTable("BINARY_ENTRIES");
+        storeTypes[6].setKeyType("org.apache.ignite.cache.store.jdbc.model.BinaryTestKey");
+        storeTypes[6].setKeyFields(new JdbcTypeField(Types.BINARY, "KEY", Integer.class, "id"));
+
+        storeTypes[6].setValueType("org.apache.ignite.cache.store.jdbc.model.BinaryTest");
+        storeTypes[6].setValueFields(new JdbcTypeField(Types.BINARY, "VAL", byte[].class, "bytes"));
+
+        storeFactory.setTypes(storeTypes);
+
+        storeFactory.setDialect(new H2Dialect());
+
+        CacheJdbcPojoStore<Object, Object> store = storeFactory.create();
+
+        // H2 DataSource
         store.setDataSource(JdbcConnectionPool.create(DFLT_CONN_URL, "sa", ""));
 
         return store;
@@ -108,112 +175,95 @@ public class CacheJdbcPojoStoreTest extends GridCommonAbstractTest {
      * @param store Store.
      * @throws Exception If failed.
      */
-    protected void inject(CacheAbstractJdbcStore store) throws Exception {
+    @Override protected void inject(CacheJdbcPojoStore<Object, Object> store) throws Exception {
         getTestResources().inject(store);
 
         GridTestUtils.setFieldValue(store, CacheAbstractJdbcStore.class, "ses", ses);
-
-        URL cfgUrl;
-
-        try {
-            cfgUrl = new URL(DFLT_MAPPING_CONFIG);
-        }
-        catch (MalformedURLException ignore) {
-            cfgUrl = U.resolveIgniteUrl(DFLT_MAPPING_CONFIG);
-        }
-
-        if (cfgUrl == null)
-            throw new Exception("Failed to resolve metadata path: " + DFLT_MAPPING_CONFIG);
-
-        try {
-            GenericApplicationContext springCtx = new GenericApplicationContext();
-
-            new XmlBeanDefinitionReader(springCtx).loadBeanDefinitions(new UrlResource(cfgUrl));
-
-            springCtx.refresh();
-
-            Collection<CacheTypeMetadata> typeMeta = springCtx.getBeansOfType(CacheTypeMetadata.class).values();
-
-            Map<Integer, Map<Object, CacheAbstractJdbcStore.EntryMapping>> cacheMappings = new HashMap<>();
-
-            JdbcDialect dialect = store.resolveDialect();
-
-            GridTestUtils.setFieldValue(store, CacheAbstractJdbcStore.class, "dialect", dialect);
-
-            Map<Object, CacheAbstractJdbcStore.EntryMapping> entryMappings = U.newHashMap(typeMeta.size());
-
-            for (CacheTypeMetadata type : typeMeta)
-                entryMappings.put(store.keyTypeId(type.getKeyType()),
-                    new CacheAbstractJdbcStore.EntryMapping(null, dialect, type));
-
-            store.prepareBuilders(null, typeMeta);
-
-            cacheMappings.put(null, entryMappings);
-
-            GridTestUtils.setFieldValue(store, CacheAbstractJdbcStore.class, "cacheMappings", cacheMappings);
-        }
-        catch (BeansException e) {
-            if (X.hasCause(e, ClassNotFoundException.class))
-                throw new IgniteCheckedException("Failed to instantiate Spring XML application context " +
-                    "(make sure all classes used in Spring configuration are present at CLASSPATH) " +
-                    "[springUrl=" + cfgUrl + ']', e);
-            else
-                throw new IgniteCheckedException("Failed to instantiate Spring XML application context [springUrl=" +
-                    cfgUrl + ", err=" + e.getMessage() + ']', e);
-        }
     }
 
-    /**
-     * @throws Exception If failed.
-     */
-    public void testWriteRetry() throws Exception {
-        // Special dialect that will skip updates, to test write retry.
-        BasicJdbcDialect dialect = new BasicJdbcDialect() {
-            /** {@inheritDoc} */
-            @Override public String updateQuery(String tblName, Collection<String> keyCols, Iterable<String> valCols) {
-                return super.updateQuery(tblName, keyCols, valCols) + " AND 1 = 0";
-            }
-        };
-
-        store.setDialect(dialect);
-
-        Map<String, Map<Object, CacheAbstractJdbcStore.EntryMapping>> cacheMappings =
-            GridTestUtils.getFieldValue(store, CacheAbstractJdbcStore.class, "cacheMappings");
-
-        CacheAbstractJdbcStore.EntryMapping em = cacheMappings.get(null).get(OrganizationKey.class);
-
-        CacheTypeMetadata typeMeta = GridTestUtils.getFieldValue(em, CacheAbstractJdbcStore.EntryMapping.class, "typeMeta");
-
-        cacheMappings.get(null).put(OrganizationKey.class,
-            new CacheAbstractJdbcStore.EntryMapping(null, dialect, typeMeta));
-
+    /** {@inheritDoc} */
+    @Override protected void beforeTest() throws Exception {
         Connection conn = store.openConnection(false);
 
-        PreparedStatement orgStmt = conn.prepareStatement("INSERT INTO Organization(id, name, city) VALUES (?, ?, ?)");
+        Statement stmt = conn.createStatement();
 
-        orgStmt.setInt(1, 1);
-        orgStmt.setString(2, "name" + 1);
-        orgStmt.setString(3, "city" + 1);
+        try {
+            stmt.executeUpdate("delete from String_Entries");
+        }
+        catch (SQLException ignore) {
+            // No-op.
+        }
 
-        orgStmt.executeUpdate();
+        try {
+            stmt.executeUpdate("delete from UUID_Entries");
+        }
+        catch (SQLException ignore) {
+            // No-op.
+        }
 
-        U.closeQuiet(orgStmt);
+        try {
+            stmt.executeUpdate("delete from Organization");
+        }
+        catch (SQLException ignore) {
+            // No-op.
+        }
+
+        try {
+            stmt.executeUpdate("delete from Person");
+        }
+        catch (SQLException ignore) {
+            // No-op.
+        }
+
+        try {
+            stmt.executeUpdate("delete from Timestamp_Entries");
+        }
+        catch (SQLException ignore) {
+            // No-op.
+        }
+
+        try {
+            stmt.executeUpdate("delete from Binary_Entries");
+        }
+        catch (SQLException ignore) {
+            // No-op.
+        }
+
+        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " +
+            "String_Entries (key varchar(100) not null, val varchar(100), PRIMARY KEY(key))");
+
+        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " +
+            "UUID_Entries (key binary(16) not null, val binary(16), PRIMARY KEY(key))");
+
+        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " +
+            "Binary_Entries (key binary(16) not null, val binary(16), PRIMARY KEY(key))");
+
+        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " +
+            "Timestamp_Entries (key timestamp not null, val integer, PRIMARY KEY(key))");
+
+        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " +
+            "Organization (id integer not null, name varchar(50), city varchar(50), PRIMARY KEY(id))");
+
+        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " +
+            "Person (id integer not null, org_id integer, name varchar(50), PRIMARY KEY(id))");
+
+        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " +
+            "Person_Complex (id integer not null, org_id integer not null, city_id integer not null, " +
+            "name varchar(50), salary integer, PRIMARY KEY(id, org_id, city_id))");
 
         conn.commit();
 
-        OrganizationKey k1 = new OrganizationKey(1);
-        Organization v1 = new Organization(1, "Name1", "City1");
+        U.closeQuiet(stmt);
 
-        ses.newSession(null);
+        U.closeQuiet(conn);
 
-        try {
-            store.write(new CacheEntryImpl<>(k1, v1));
-        }
-        catch (CacheWriterException e) {
-            if (!e.getMessage().startsWith("Failed insert entry in database, violate a unique index or primary key") ||
-                e.getSuppressed().length != 2)
-                throw e;
-        }
+        super.beforeTest();
+
+        Ignite ig = U.field(store, "ignite");
+
+        this.ig = ig;
+
+        binaryEnable = ig.configuration().getMarshaller() instanceof BinaryMarshaller;
     }
 
     /**
@@ -254,13 +304,18 @@ public class CacheJdbcPojoStoreTest extends GridCommonAbstractTest {
 
         U.closeQuiet(prnStmt);
 
-        PreparedStatement prnComplexStmt = conn.prepareStatement("INSERT INTO Person_Complex(id, org_id, city_id, name) VALUES (?, ?, ?, ?)");
+        PreparedStatement prnComplexStmt = conn.prepareStatement("INSERT INTO Person_Complex(id, org_id, city_id, name, salary) VALUES (?, ?, ?, ?, ?)");
 
         for (int i = 0; i < PERSON_CNT; i++) {
             prnComplexStmt.setInt(1, i);
             prnComplexStmt.setInt(2, i % 500);
             prnComplexStmt.setInt(3, i % 100);
             prnComplexStmt.setString(4, "name" + i);
+
+            if (i > 0)
+                prnComplexStmt.setInt(5, 1000 + i * 500);
+            else // Add person with null salary
+                prnComplexStmt.setNull(5, Types.INTEGER);
 
             prnComplexStmt.addBatch();
         }
@@ -271,28 +326,76 @@ public class CacheJdbcPojoStoreTest extends GridCommonAbstractTest {
 
         conn.commit();
 
+        U.closeQuiet(prnStmt);
+
+        PreparedStatement binaryStmt = conn.prepareStatement("INSERT INTO Binary_Entries(key, val) VALUES (?, ?)");
+
+        byte[] bytes = new byte[16];
+
+        for (byte i = 0; i < 16; i++)
+            bytes[i] = i;
+
+        binaryStmt.setInt(1, 1);
+        binaryStmt.setBinaryStream(2, new ByteArrayInputStream(bytes));
+
+        binaryStmt.addBatch();
+        binaryStmt.executeBatch();
+
+        U.closeQuiet(binaryStmt);
+
+        conn.commit();
+
         U.closeQuiet(conn);
 
-        final Collection<OrganizationKey> orgKeys = new ConcurrentLinkedQueue<>();
-        final Collection<PersonKey> prnKeys = new ConcurrentLinkedQueue<>();
-        final Collection<PersonComplexKey> prnComplexKeys = new ConcurrentLinkedQueue<>();
+        final Collection<Object> orgKeys = new ConcurrentLinkedQueue<>();
+        final Collection<Object> prnKeys = new ConcurrentLinkedQueue<>();
+        final Collection<Object> prnComplexKeys = new ConcurrentLinkedQueue<>();
+        final Collection<Object> binaryTestVals = new ConcurrentLinkedQueue<>();
 
         IgniteBiInClosure<Object, Object> c = new CI2<Object, Object>() {
             @Override public void apply(Object k, Object v) {
-                if (k instanceof OrganizationKey && v instanceof Organization)
-                    orgKeys.add((OrganizationKey)k);
-                else if (k instanceof PersonKey && v instanceof Person)
-                    prnKeys.add((PersonKey)k);
-                else if (k instanceof PersonComplexKey && v instanceof Person) {
-                    PersonComplexKey key = (PersonComplexKey)k;
+                if (binaryEnable){
+                    if (k instanceof BinaryObject && v instanceof BinaryObject) {
+                        BinaryObject key = (BinaryObject)k;
+                        BinaryObject val = (BinaryObject)v;
 
-                    Person val = (Person)v;
+                        String keyType = key.type().typeName();
+                        String valType = val.type().typeName();
 
-                    assert key.getId() == val.getId();
-                    assert key.getOrgId() == val.getOrgId();
-                    assert ("name"  + key.getId()).equals(val.getName());
+                        if (OrganizationKey.class.getName().equals(keyType)
+                            && Organization.class.getName().equals(valType))
+                            orgKeys.add(key);
 
-                    prnComplexKeys.add((PersonComplexKey)k);
+                        if (PersonKey.class.getName().equals(keyType)
+                            && Person.class.getName().equals(valType))
+                            prnKeys.add(key);
+
+                        if (PersonComplexKey.class.getName().equals(keyType)
+                            && Person.class.getName().equals(valType))
+                            prnComplexKeys.add(key);
+
+                        if (BinaryTestKey.class.getName().equals(keyType)
+                            && BinaryTest.class.getName().equals(valType))
+                            binaryTestVals.add(val.field("bytes"));
+                    }
+                }else {
+                    if (k instanceof OrganizationKey && v instanceof Organization)
+                        orgKeys.add(k);
+                    else if (k instanceof PersonKey && v instanceof Person)
+                        prnKeys.add(k);
+                    else if (k instanceof BinaryTestKey && v instanceof BinaryTest)
+                        binaryTestVals.add(((BinaryTest)v).getBytes());
+                    else if (k instanceof PersonComplexKey && v instanceof Person) {
+                        PersonComplexKey key = (PersonComplexKey)k;
+
+                        Person val = (Person)v;
+
+                        assertTrue("Key ID should be the same as value ID", key.getId() == val.getId());
+                        assertTrue("Key orgID should be the same as value orgID", key.getOrgId() == val.getOrgId());
+                        assertEquals("name" + key.getId(), val.getName());
+
+                        prnComplexKeys.add(k);
+                    }
                 }
             }
         };
@@ -302,16 +405,19 @@ public class CacheJdbcPojoStoreTest extends GridCommonAbstractTest {
         assertEquals(ORGANIZATION_CNT, orgKeys.size());
         assertEquals(PERSON_CNT, prnKeys.size());
         assertEquals(PERSON_CNT, prnComplexKeys.size());
+        assertEquals(1, binaryTestVals.size());
+        assertTrue(Arrays.equals(bytes, (byte[])binaryTestVals.iterator().next()));
 
-        Collection<OrganizationKey> tmpOrgKeys = new ArrayList<>(orgKeys);
-        Collection<PersonKey> tmpPrnKeys = new ArrayList<>(prnKeys);
-        Collection<PersonComplexKey> tmpPrnComplexKeys = new ArrayList<>(prnComplexKeys);
+        Collection<Object> tmpOrgKeys = new ArrayList<>(orgKeys);
+        Collection<Object> tmpPrnKeys = new ArrayList<>(prnKeys);
+        Collection<Object> tmpPrnComplexKeys = new ArrayList<>(prnComplexKeys);
 
         orgKeys.clear();
         prnKeys.clear();
         prnComplexKeys.clear();
 
-        store.loadCache(c, OrganizationKey.class.getName(), "SELECT name, city, id FROM ORGANIZATION",
+        store.loadCache(
+            c, OrganizationKey.class.getName(), "SELECT name, city, id FROM ORGANIZATION",
             PersonKey.class.getName(), "SELECT org_id, id, name FROM Person WHERE id < 1000");
 
         assertEquals(ORGANIZATION_CNT, orgKeys.size());
@@ -336,428 +442,157 @@ public class CacheJdbcPojoStoreTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void testStore() throws Exception {
-        // Create dummy transaction
-        Transaction tx = new DummyTx();
+    public void testParallelLoad() throws Exception {
+        Connection conn = store.openConnection(false);
 
-        ses.newSession(tx);
+        PreparedStatement prnComplexStmt = conn.prepareStatement("INSERT INTO Person_Complex(id, org_id, city_id, name, salary) VALUES (?, ?, ?, ?, ?)");
 
-        OrganizationKey k1 = new OrganizationKey(1);
-        Organization v1 = new Organization(1, "Name1", "City1");
+        for (int i = 0; i < 8; i++) {
 
-        OrganizationKey k2 = new OrganizationKey(2);
-        Organization v2 = new Organization(2, "Name2", "City2");
+            prnComplexStmt.setInt(1, (i >> 2) & 1);
+            prnComplexStmt.setInt(2, (i >> 1) & 1);
+            prnComplexStmt.setInt(3, i % 2);
 
-        store.write(new CacheEntryImpl<>(k1, v1));
-        store.write(new CacheEntryImpl<>(k2, v2));
+            prnComplexStmt.setString(4, "name");
+            prnComplexStmt.setInt(5, 1000 + i * 500);
 
-        store.txEnd(true);
-
-        ses.newSession(null);
-
-        assertEquals(v1, store.load(k1));
-        assertEquals(v2, store.load(k2));
-
-        ses.newSession(tx);
-
-        OrganizationKey k3 = new OrganizationKey(3);
-
-        assertNull(store.load(k3));
-
-        store.delete(k1);
-
-        store.txEnd(true);
-
-        assertNull(store.load(k1));
-        assertEquals(v2, store.load(k2));
-
-        ses.newSession(null);
-
-        assertNull(store.load(k3));
-
-        OrganizationKey k4 = new OrganizationKey(4);
-        Organization v4 = new Organization(4, null, "City4");
-
-        assertNull(store.load(k4));
-
-        store.write(new CacheEntryImpl<>(k4, v4));
-
-        assertEquals(v4, store.load(k4));
-    }
-
-    /**
-     * @throws IgniteCheckedException if failed.
-     */
-    public void testRollback() throws IgniteCheckedException {
-        Transaction tx = new DummyTx();
-
-        ses.newSession(tx);
-
-        OrganizationKey k1 = new OrganizationKey(1);
-        Organization v1 = new Organization(1, "Name1", "City1");
-
-        // Put.
-        store.write(new CacheEntryImpl<>(k1, v1));
-
-        store.txEnd(false); // Rollback.
-
-        tx = new DummyTx();
-
-        ses.newSession(tx);
-
-        assertNull(store.load(k1));
-
-        OrganizationKey k2 = new OrganizationKey(2);
-        Organization v2 = new Organization(2, "Name2", "City2");
-
-        // Put all.
-        assertNull(store.load(k2));
-
-        Collection<Cache.Entry<?, ?>> col = new ArrayList<>();
-
-        col.add(new CacheEntryImpl<>(k2, v2));
-
-        store.writeAll(col);
-
-        store.txEnd(false); // Rollback.
-
-        tx = new DummyTx();
-
-        ses.newSession(tx);
-
-        assertNull(store.load(k2));
-
-        OrganizationKey k3 = new OrganizationKey(3);
-        Organization v3 = new Organization(3, "Name3", "City3");
-
-        col = new ArrayList<>();
-
-        col.add(new CacheEntryImpl<>(k3, v3));
-
-        store.writeAll(col);
-
-        store.txEnd(true); // Commit.
-
-        tx = new DummyTx();
-
-        ses.newSession(tx);
-
-        assertEquals(v3, store.load(k3));
-
-        OrganizationKey k4 = new OrganizationKey(4);
-        Organization v4 = new Organization(4, "Name4", "City4");
-
-        store.write(new CacheEntryImpl<>(k4, v4));
-
-        store.txEnd(false); // Rollback.
-
-        tx = new DummyTx();
-
-        ses.newSession(tx);
-
-        assertNull(store.load(k4));
-
-        assertEquals(v3, store.load(k3));
-
-        // Remove.
-        store.delete(k3);
-
-        store.txEnd(false); // Rollback.
-
-        tx = new DummyTx();
-
-        ses.newSession(tx);
-
-        assertEquals(v3, store.load(k3));
-
-        store.deleteAll(Arrays.asList(new OrganizationKey(-100)));
-
-        // Remove all.
-        store.deleteAll(Arrays.asList(k3));
-
-        store.txEnd(false); // Rollback.
-
-        tx = new DummyTx();
-
-        ses.newSession(tx);
-
-        assertEquals(v3, store.load(k3));
-    }
-
-    /**
-     */
-    public void testAllOpsWithTXNoCommit() {
-        doTestAllOps(new DummyTx(), false);
-    }
-
-    /**
-     */
-    public void testAllOpsWithTXCommit() {
-        doTestAllOps(new DummyTx(), true);
-    }
-
-    /**
-     */
-    public void testAllOpsWithoutTX() {
-        doTestAllOps(null, false);
-    }
-
-    /**
-     * @param tx Transaction.
-     * @param commit Commit.
-     */
-    private void doTestAllOps(@Nullable Transaction tx, boolean commit) {
-        try {
-            ses.newSession(tx);
-
-            final OrganizationKey k1 = new OrganizationKey(1);
-            final Organization v1 = new Organization(1, "Name1", "City1");
-
-            store.write(new CacheEntryImpl<>(k1, v1));
-
-            if (tx != null && commit) {
-                store.txEnd(true);
-
-                tx = new DummyTx();
-
-                ses.newSession(tx);
-            }
-
-            if (tx == null || commit)
-                assertEquals(v1, store.load(k1));
-
-            Collection<Cache.Entry<?, ?>> col = new ArrayList<>();
-
-            final OrganizationKey k2 = new OrganizationKey(2);
-            final Organization v2 = new Organization(2, "Name2", "City2");
-
-            final OrganizationKey k3 = new OrganizationKey(3);
-            final Organization v3 = new Organization(3, "Name3", "City3");
-
-            col.add(new CacheEntryImpl<>(k2, v2));
-            col.add(new CacheEntryImpl<>(k3, v3));
-
-            store.writeAll(col);
-
-            if (tx != null && commit) {
-                store.txEnd(true);
-
-                tx = new DummyTx();
-
-                ses.newSession(tx);
-            }
-
-            final AtomicInteger cntr = new AtomicInteger();
-
-            final OrganizationKey no_such_key = new OrganizationKey(4);
-
-            if (tx == null || commit) {
-                Map<Object, Object> loaded = store.loadAll(Arrays.asList(k1, k2, k3, no_such_key));
-
-                for (Map.Entry<Object, Object> e : loaded.entrySet()) {
-                    Object key = e.getKey();
-                    Object val = e.getValue();
-
-                    if (k1.equals(key))
-                        assertEquals(v1, val);
-
-                    if (k2.equals(key))
-                        assertEquals(v2, val);
-
-                    if (k3.equals(key))
-                        assertEquals(v3, val);
-
-                    if (no_such_key.equals(key))
-                        fail();
-
-                    cntr.incrementAndGet();
-                }
-
-                assertEquals(3, cntr.get());
-            }
-
-            store.deleteAll(Arrays.asList(k2, k3));
-
-            if (tx != null && commit) {
-                store.txEnd(true);
-
-                tx = new DummyTx();
-
-                ses.newSession(tx);
-            }
-
-            if (tx == null || commit) {
-                assertNull(store.load(k2));
-                assertNull(store.load(k3));
-                assertEquals(v1, store.load(k1));
-            }
-
-            store.delete(k1);
-
-            if (tx != null && commit) {
-                store.txEnd(true);
-
-                tx = new DummyTx();
-
-                ses.newSession(tx);
-            }
-
-            if (tx == null || commit)
-                assertNull(store.load(k1));
+            prnComplexStmt.addBatch();
         }
-        finally {
-            if (tx != null)
-                store.txEnd(false);
+
+        prnComplexStmt.executeBatch();
+
+        U.closeQuiet(prnComplexStmt);
+
+        conn.commit();
+
+        U.closeQuiet(conn);
+
+        final Collection<Object> prnComplexKeys = new ConcurrentLinkedQueue<>();
+
+        IgniteBiInClosure<Object, Object> c = new CI2<Object, Object>() {
+            @Override public void apply(Object k, Object v) {
+                if (binaryEnable) {
+                    if (k instanceof BinaryObject && v instanceof BinaryObject) {
+                        BinaryObject key = (BinaryObject)k;
+                        BinaryObject val = (BinaryObject)v;
+
+                        String keyType = key.type().typeName();
+                        String valType = val.type().typeName();
+
+                        if (PersonComplexKey.class.getName().equals(keyType)
+                            && Person.class.getName().equals(valType))
+                            prnComplexKeys.add(key);
+                    }
+                }
+                else {
+                    if (k instanceof PersonComplexKey && v instanceof Person)
+                        prnComplexKeys.add(k);
+                    else
+                        fail("Unexpected entry [key=" + k + ", value=" + v + "]");
+                }
+            }
+        };
+
+        store.setParallelLoadCacheMinimumThreshold(2);
+
+        store.loadCache(c);
+
+        assertEquals(8, prnComplexKeys.size());
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testWriteRetry() throws Exception {
+        CacheJdbcPojoStore<Object, Object> store = store();
+
+        // Special dialect that will skip updates, to test write retry.
+        store.setDialect(new H2Dialect() {
+            /** {@inheritDoc} */
+            @Override public boolean hasMerge() {
+                return false;
+            }
+
+            /** {@inheritDoc} */
+            @Override public String updateQuery(String tblName, Collection<String> keyCols,
+                Iterable<String> valCols) {
+                return super.updateQuery(tblName, keyCols, valCols) + " AND 1 = 0";
+            }
+        });
+
+        inject(store);
+
+        Connection conn = store.openConnection(false);
+
+        PreparedStatement orgStmt = conn.prepareStatement("INSERT INTO Organization(id, name, city) VALUES (?, ?, ?)");
+
+        orgStmt.setInt(1, 1);
+        orgStmt.setString(2, "name" + 1);
+        orgStmt.setString(3, "city" + 1);
+
+        orgStmt.executeUpdate();
+
+        U.closeQuiet(orgStmt);
+
+        conn.commit();
+
+        OrganizationKey k1 = new OrganizationKey(1);
+        Organization v1 = new Organization(1, "Name1", "City1");
+
+        ses.newSession(null);
+
+        try {
+            store.write(new CacheEntryImpl<>(wrap(k1), wrap(v1)));
+
+            fail("CacheWriterException wasn't thrown.");
+        }
+        catch (CacheWriterException e) {
+            if (!e.getMessage().startsWith("Failed insert entry in database, violate a unique index or primary key") ||
+                e.getSuppressed().length != 2)
+                throw e;
         }
     }
 
     /**
      * @throws Exception If failed.
      */
-    public void testSimpleMultithreading() throws Exception {
-        final Random rnd = new Random();
+    public void testTimestamp() throws Exception {
+        Timestamp k = new Timestamp(System.currentTimeMillis());
 
-        final Queue<OrganizationKey> queue = new LinkedBlockingQueue<>();
+        ses.newSession(null);
 
-        multithreaded(new Callable<Object>() {
-            @Nullable @Override public Object call() throws Exception {
-                for (int i = 0; i < 1000; i++) {
-                    Transaction tx = rnd.nextBoolean() ? new DummyTx() : null;
+        Integer v = 5;
 
-                    ses.newSession(tx);
+        store.write(new CacheEntryImpl<>(k, v));
 
-                    int op = rnd.nextInt(10);
+        assertEquals(v, store.load(k));
 
-                    boolean queueEmpty = false;
+        store.delete(k);
 
-                    if (op < 4) { // Load.
-                        OrganizationKey key = queue.poll();
-
-                        if (key == null)
-                            queueEmpty = true;
-                        else {
-                            if (rnd.nextBoolean())
-                                assertNotNull(store.load(key));
-                            else {
-                                Map<Object, Object> loaded = store.loadAll(Collections.singleton(key));
-
-                                assertEquals(1, loaded.size());
-
-                                Map.Entry<Object, Object> e = loaded.entrySet().iterator().next();
-
-                                OrganizationKey k = (OrganizationKey)e.getKey();
-                                Organization v = (Organization)e.getValue();
-
-                                assertTrue(k.getId().equals(v.getId()));
-                            }
-
-                            if (tx != null)
-                                store.txEnd(true);
-
-                            queue.add(key);
-                        }
-                    }
-                    else if (op < 6) { // Remove.
-                        OrganizationKey key = queue.poll();
-
-                        if (key == null)
-                            queueEmpty = true;
-                        else {
-                            if (rnd.nextBoolean())
-                                store.delete(key);
-                            else
-                                store.deleteAll(Collections.singleton(key));
-
-                            if (tx != null)
-                                store.txEnd(true);
-                        }
-                    }
-                    else { // Update.
-                        OrganizationKey key = queue.poll();
-
-                        if (key == null)
-                            queueEmpty = true;
-                        else {
-                            Organization val =
-                                new Organization(key.getId(), "Name" + key.getId(), "City" + key.getId());
-
-                            Cache.Entry<OrganizationKey, Organization> entry = new CacheEntryImpl<>(key, val);
-
-                            if (rnd.nextBoolean())
-                                store.write(entry);
-                            else {
-                                Collection<Cache.Entry<?, ?>> col = new ArrayList<>();
-
-                                col.add(entry);
-
-                                store.writeAll(col);
-                            }
-
-                            if (tx != null)
-                                store.txEnd(true);
-
-                            queue.add(key);
-                        }
-                    }
-
-                    if (queueEmpty) { // Add.
-                        OrganizationKey key = new OrganizationKey(rnd.nextInt());
-                        Organization val = new Organization(key.getId(), "Name" + key.getId(), "City" + key.getId());
-
-                        Cache.Entry<OrganizationKey, Organization> entry = new CacheEntryImpl<>(key, val);
-
-                        if (rnd.nextBoolean())
-                            store.write(entry);
-                        else {
-                            Collection<Cache.Entry<?, ?>> col = new ArrayList<>();
-
-                            col.add(entry);
-
-                            store.writeAll(col);
-                        }
-
-                        if (tx != null)
-                            store.txEnd(true);
-
-                        queue.add(key);
-                    }
-                }
-
-                return null;
-            }
-        }, 37);
+        assertNull(store.load(k));
     }
 
-    /** {@inheritDoc} */
-    @Override protected void beforeTest() throws Exception {
-        super.beforeTest();
+    /**
+     * @param obj Object.
+     */
+    private Object wrap(Object obj) throws IllegalAccessException {
+        if (binaryEnable) {
+            Class<?> cls = obj.getClass();
 
-        Connection conn = store.openConnection(false);
+            BinaryObjectBuilder builder = ig.binary().builder(cls.getName());
 
-        Statement stmt = conn.createStatement();
+            for (Field f : cls.getDeclaredFields()) {
+                if (f.getName().contains("serialVersionUID"))
+                    continue;
 
-        try {
-            stmt.executeUpdate("delete from Organization");
+                f.setAccessible(true);
+
+                builder.setField(f.getName(), f.get(obj));
+            }
+
+            return builder.build();
         }
-        catch (SQLException ignore) {
-            // no-op
-        }
 
-        try {
-            stmt.executeUpdate("delete from Person");
-        }
-        catch (SQLException ignore) {
-            // no-op
-        }
-
-        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS Organization (id integer not null, name varchar(50), city varchar(50), PRIMARY KEY(id))");
-        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS Person (id integer not null, org_id integer, name varchar(50), PRIMARY KEY(id))");
-        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS Person_Complex (id integer not null, org_id integer not null, city_id integer not null, name varchar(50), PRIMARY KEY(id))");
-
-        conn.commit();
-
-        U.closeQuiet(stmt);
-
-        U.closeQuiet(conn);
+        return obj;
     }
 }

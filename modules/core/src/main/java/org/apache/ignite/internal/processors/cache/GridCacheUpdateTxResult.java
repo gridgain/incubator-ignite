@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.internal.pagemem.wal.WALPointer;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cache entry transactional update result.
@@ -32,15 +33,44 @@ public class GridCacheUpdateTxResult {
     @GridToStringInclude
     private final CacheObject oldVal;
 
+    /** Partition idx. */
+    private long updateCntr;
+
+    /** */
+    private WALPointer logPtr;
+
     /**
      * Constructor.
      *
      * @param success Success flag.
      * @param oldVal Old value (if any),
+     * @param logPtr Logger WAL pointer for the update.
      */
-    GridCacheUpdateTxResult(boolean success, @Nullable CacheObject oldVal) {
+    GridCacheUpdateTxResult(boolean success, @Nullable CacheObject oldVal, WALPointer logPtr) {
         this.success = success;
         this.oldVal = oldVal;
+        this.logPtr = logPtr;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param success Success flag.
+     * @param oldVal Old value (if any).
+     * @param logPtr Logger WAL pointer for the update.
+     */
+    GridCacheUpdateTxResult(boolean success, @Nullable CacheObject oldVal, long updateCntr, WALPointer logPtr) {
+        this.success = success;
+        this.oldVal = oldVal;
+        this.updateCntr = updateCntr;
+        this.logPtr = logPtr;
+    }
+
+    /**
+     * @return Partition idx.
+     */
+    public long updatePartitionCounter() {
+        return updateCntr;
     }
 
     /**
@@ -48,6 +78,13 @@ public class GridCacheUpdateTxResult {
      */
     public boolean success() {
         return success;
+    }
+
+    /**
+     * @return Logged WAL pointer for the update if persistence is enabled.
+     */
+    public WALPointer loggedPointer() {
+        return logPtr;
     }
 
     /**

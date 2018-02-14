@@ -17,17 +17,18 @@
 
 package org.apache.ignite.internal.util.offheap;
 
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jdk8.backport.*;
-
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.util.typedef.T3;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jsr166.ConcurrentHashMap8;
 
 /**
  * Performance test for partitioned offheap hash map.
@@ -76,7 +77,7 @@ public abstract class GridOffHeapPartitionedMapPerformanceAbstractTest extends G
             keys = new T3[LOAD_CNT];
             wrappers = new GridByteArrayWrapper[LOAD_CNT];
 
-            CacheAffinityFunction aff = new CacheRendezvousAffinityFunction();
+            AffinityFunction aff = new RendezvousAffinityFunction();
 
             Random rnd = new Random();
 

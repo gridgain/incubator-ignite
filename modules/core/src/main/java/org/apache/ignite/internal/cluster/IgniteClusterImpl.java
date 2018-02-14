@@ -17,27 +17,61 @@
 
 package org.apache.ignite.internal.cluster;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.nodestart.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import java.io.Externalizable;
+import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.ObjectStreamException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteCluster;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cluster.BaselineNode;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.cluster.ClusterGroupEmptyException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.cluster.ClusterStartNodeResult;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteComponentType;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.managers.discovery.DiscoCache;
+import org.apache.ignite.internal.processors.cluster.BaselineTopology;
+import org.apache.ignite.internal.util.future.GridCompoundFuture;
+import org.apache.ignite.internal.util.future.GridFinishedFuture;
+import org.apache.ignite.internal.util.future.IgniteFutureImpl;
+import org.apache.ignite.internal.util.nodestart.IgniteRemoteStartSpecification;
+import org.apache.ignite.internal.util.nodestart.IgniteSshHelper;
+import org.apache.ignite.internal.util.nodestart.StartNodeCallable;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.CI1;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.lang.IgniteProductVersion;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.internal.IgniteNodeAttributes.*;
-import static org.apache.ignite.internal.util.nodestart.IgniteNodeStartUtils.*;
+import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
+import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_MACS;
+import static org.apache.ignite.internal.util.nodestart.IgniteNodeStartUtils.parseFile;
+import static org.apache.ignite.internal.util.nodestart.IgniteNodeStartUtils.specifications;
 
 /**
  *
@@ -52,6 +86,12 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     /** Node local store. */
     @GridToStringExclude
     private ConcurrentMap nodeLoc;
+
+    /** Client reconnect future. */
+    private IgniteFuture<?> reconnecFut;
+
+    /** Minimal IgniteProductVersion supporting BaselineTopology */
+    private static final IgniteProductVersion MIN_BLT_SUPPORTING_VER = IgniteProductVersion.fromString("2.4.0");
 
     /**
      * Required by {@link Externalizable}.
@@ -102,14 +142,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     @Override public <K, V> ConcurrentMap<K, V> nodeLocalMap() {
-        guard();
-
-        try {
-            return nodeLoc;
-        }
-        finally {
-            unguard();
-        }
+        return nodeLoc;
     }
 
     /** {@inheritDoc} */
@@ -120,6 +153,9 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
 
         try {
             return ctx.discovery().pingNode(nodeId);
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
         }
         finally {
             unguard();
@@ -151,52 +187,14 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     }
 
     /** {@inheritDoc} */
-    @Override public <K> Map<ClusterNode, Collection<K>> mapKeysToNodes(@Nullable String cacheName,
-        @Nullable Collection<? extends K> keys)
-        throws IgniteException
-    {
-        if (F.isEmpty(keys))
-            return Collections.emptyMap();
-
-        guard();
-
-        try {
-            return ctx.affinity().mapKeysToNodes(cacheName, keys);
-        }
-        catch (IgniteCheckedException e) {
-            throw U.convertException(e);
-        }
-        finally {
-            unguard();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public <K> ClusterNode mapKeyToNode(@Nullable String cacheName, K key) throws IgniteException {
-        A.notNull(key, "key");
-
-        guard();
-
-        try {
-            return ctx.affinity().mapKeyToNode(cacheName, key);
-        }
-        catch (IgniteCheckedException e) {
-            throw U.convertException(e);
-        }
-        finally {
-            unguard();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public Collection<GridTuple3<String, Boolean, String>> startNodes(File file,
+    @Override public Collection<ClusterStartNodeResult> startNodes(File file,
         boolean restart,
         int timeout,
         int maxConn)
         throws IgniteException
     {
         try {
-            return startNodesAsync(file, restart, timeout, maxConn).get();
+            return startNodesAsync0(file, restart, timeout, maxConn).get();
         }
         catch (IgniteCheckedException e) {
             throw U.convertException(e);
@@ -204,7 +202,13 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     }
 
     /** {@inheritDoc} */
-    @Override public Collection<GridTuple3<String, Boolean, String>> startNodes(Collection<Map<String, Object>> hosts,
+    @Override public IgniteFuture<Collection<ClusterStartNodeResult>> startNodesAsync(File file, boolean restart,
+        int timeout, int maxConn) throws IgniteException {
+        return new IgniteFutureImpl<>(startNodesAsync0(file, restart, timeout, maxConn));
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<ClusterStartNodeResult> startNodes(Collection<Map<String, Object>> hosts,
         @Nullable Map<String, Object> dflts,
         boolean restart,
         int timeout,
@@ -212,11 +216,18 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
         throws IgniteException
     {
         try {
-            return startNodesAsync(hosts, dflts, restart, timeout, maxConn).get();
+            return startNodesAsync0(hosts, dflts, restart, timeout, maxConn).get();
         }
         catch (IgniteCheckedException e) {
             throw U.convertException(e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteFuture<Collection<ClusterStartNodeResult>> startNodesAsync(
+        Collection<Map<String, Object>> hosts, @Nullable Map<String, Object> dflts,
+        boolean restart, int timeout, int maxConn) throws IgniteException {
+        return new IgniteFutureImpl<>(startNodesAsync0(hosts, dflts, restart, timeout, maxConn));
     }
 
     /** {@inheritDoc} */
@@ -282,8 +293,262 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     }
 
     /** {@inheritDoc} */
+    @Override public boolean active() {
+        guard();
+
+        try {
+            return ctx.state().publicApiActiveState(true);
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void active(boolean active) {
+        guard();
+
+        try {
+            ctx.state().changeGlobalState(active, baselineNodes(), false).get();
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** */
+    private Collection<BaselineNode> baselineNodes() {
+        Collection<ClusterNode> srvNodes = ctx.cluster().get().forServers().nodes();
+
+        ArrayList baselineNodes = new ArrayList(srvNodes.size());
+
+        for (ClusterNode clN : srvNodes)
+            baselineNodes.add(clN);
+
+        return baselineNodes;
+    }
+
+    /** {@inheritDoc} */
+    @Nullable @Override public Collection<BaselineNode> currentBaselineTopology() {
+        guard();
+
+        try {
+            BaselineTopology blt = ctx.state().clusterState().baselineTopology();
+
+            return blt != null ? blt.currentBaseline() : null;
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setBaselineTopology(Collection<? extends BaselineNode> baselineTop) {
+        guard();
+
+        try {
+            if (isInMemoryMode())
+                return;
+
+            validateBeforeBaselineChange(baselineTop);
+
+            ctx.state().changeGlobalState(true, baselineTop, true).get();
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** */
+    private boolean isInMemoryMode() {
+        return !CU.isPersistenceEnabled(cfg);
+    }
+
+    /**
+     * Verifies all nodes in current cluster topology support BaselineTopology feature
+     * so compatibilityMode flag is enabled to reset.
+     *
+     * @param discoCache
+     */
+    private void verifyBaselineTopologySupport(DiscoCache discoCache) {
+        if (discoCache.minimumServerNodeVersion().compareTo(MIN_BLT_SUPPORTING_VER) < 0) {
+            SB sb = new SB("Cluster contains nodes that don't support BaselineTopology: [");
+
+            for (ClusterNode cn : discoCache.serverNodes()) {
+                if (cn.version().compareTo(MIN_BLT_SUPPORTING_VER) < 0)
+                    sb
+                        .a("[")
+                        .a(cn.consistentId())
+                        .a(":")
+                        .a(cn.version())
+                        .a("], ");
+            }
+
+            sb.d(sb.length() - 2, sb.length());
+
+            throw new IgniteException(sb.a("]").toString());
+        }
+    }
+
+    /**
+     * Executes validation checks of cluster state and BaselineTopology before changing BaselineTopology to new one.
+     */
+    private void validateBeforeBaselineChange(Collection<? extends BaselineNode> baselineTop) {
+        verifyBaselineTopologySupport(ctx.discovery().discoCache());
+
+        if (!ctx.state().clusterState().active())
+            throw new IgniteException("Changing BaselineTopology on inactive cluster is not allowed.");
+
+        if (baselineTop != null) {
+            if (baselineTop.isEmpty())
+                throw new IgniteException("BaselineTopology must contain at least one node.");
+
+            Collection<Object> onlineNodes = onlineBaselineNodesRequestedForRemoval(baselineTop);
+
+            if (onlineNodes != null) {
+                if (!onlineNodes.isEmpty())
+                    throw new IgniteException("Removing online nodes from BaselineTopology is not supported: " + onlineNodes);
+            }
+        }
+    }
+
+    /** */
+    @Nullable private Collection<Object> onlineBaselineNodesRequestedForRemoval(Collection<? extends BaselineNode> newBlt) {
+        BaselineTopology blt = ctx.state().clusterState().baselineTopology();
+        Set<Object> bltConsIds;
+
+        if (blt == null)
+            return null;
+        else
+            bltConsIds = blt.consistentIds();
+
+        ArrayList<Object> onlineNodesRequestedForRemoval = new ArrayList<>();
+
+        Collection<Object> aliveNodesConsIds = getConsistentIds(ctx.discovery().aliveServerNodes());
+
+        Collection<Object> newBltConsIds = getConsistentIds(newBlt);
+
+        for (Object oldBltConsId : bltConsIds) {
+            if (aliveNodesConsIds.contains(oldBltConsId)) {
+                if (!newBltConsIds.contains(oldBltConsId))
+                    onlineNodesRequestedForRemoval.add(oldBltConsId);
+            }
+        }
+
+        return onlineNodesRequestedForRemoval;
+    }
+
+    /** */
+    private Collection<Object> getConsistentIds(Collection<? extends BaselineNode> nodes) {
+        ArrayList<Object> res = new ArrayList<>(nodes.size());
+
+        for (BaselineNode n : nodes)
+            res.add(n.consistentId());
+
+        return res;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setBaselineTopology(long topVer) {
+        guard();
+
+        try {
+            if (isInMemoryMode())
+                return;
+
+            Collection<ClusterNode> top = topology(topVer);
+
+            if (top == null)
+                throw new IgniteException("Topology version does not exist: " + topVer);
+
+            Collection<BaselineNode> target = new ArrayList<>(top.size());
+
+            for (ClusterNode node : top) {
+                if (!node.isClient())
+                    target.add(node);
+            }
+
+            validateBeforeBaselineChange(target);
+
+            ctx.state().changeGlobalState(true, target, true).get();
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void enableStatistics(Collection<String> caches, boolean enabled) {
+        guard();
+
+        try {
+            ctx.cache().enableStatistics(caches, enabled);
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** {@inheritDoc} */
     @Override public IgniteCluster withAsync() {
         return new IgniteClusterAsyncImpl(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean enableWal(String cacheName) throws IgniteException {
+        return changeWalMode(cacheName, true);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean disableWal(String cacheName) throws IgniteException {
+        return changeWalMode(cacheName, false);
+    }
+
+    /**
+     * Change WAL mode.
+     *
+     * @param cacheName Cache name.
+     * @param enabled Enabled flag.
+     * @return {@code True} if WAL mode was changed as a result of this call.
+     */
+    private boolean changeWalMode(String cacheName, boolean enabled) {
+        A.notNull(cacheName, "cacheName");
+
+        guard();
+
+        try {
+            return ctx.cache().changeWalMode(Collections.singleton(cacheName), enabled).get();
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean isWalEnabled(String cacheName) {
+        guard();
+
+        try {
+            return ctx.cache().walEnabled(cacheName);
+        }
+        finally {
+            unguard();
+        }
     }
 
     /** {@inheritDoc} */
@@ -302,9 +567,9 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      * @param timeout Connection timeout.
      * @param maxConn Number of parallel SSH connections to one host.
      * @return Future with results.
-     * @see {@link IgniteCluster#startNodes(java.io.File, boolean, int, int)}.
+     * @see IgniteCluster#startNodes(java.io.File, boolean, int, int)
      */
-    IgniteInternalFuture<Collection<GridTuple3<String, Boolean, String>>> startNodesAsync(File file,
+    IgniteInternalFuture<Collection<ClusterStartNodeResult>> startNodesAsync0(File file,
       boolean restart,
       int timeout,
       int maxConn)
@@ -316,7 +581,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
         try {
             IgniteBiTuple<Collection<Map<String, Object>>, Map<String, Object>> t = parseFile(file);
 
-            return startNodesAsync(t.get1(), t.get2(), restart, timeout, maxConn);
+            return startNodesAsync0(t.get1(), t.get2(), restart, timeout, maxConn);
         }
         catch (IgniteCheckedException e) {
             return new GridFinishedFuture<>(e);
@@ -330,9 +595,9 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      * @param timeout Connection timeout in milliseconds.
      * @param maxConn Number of parallel SSH connections to one host.
      * @return Future with results.
-     * @see {@link IgniteCluster#startNodes(java.util.Collection, java.util.Map, boolean, int, int)}.
+     * @see IgniteCluster#startNodes(java.util.Collection, java.util.Map, boolean, int, int)
      */
-    IgniteInternalFuture<Collection<GridTuple3<String, Boolean, String>>> startNodesAsync(
+    IgniteInternalFuture<Collection<ClusterStartNodeResult>> startNodesAsync0(
         Collection<Map<String, Object>> hosts,
         @Nullable Map<String, Object> dflts,
         boolean restart,
@@ -344,11 +609,11 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
         guard();
 
         try {
-            IgniteSshProcessor sshProcessor = IgniteComponentType.SSH.create(false);
+            IgniteSshHelper sshHelper = IgniteComponentType.SSH.create(false);
 
             Map<String, Collection<IgniteRemoteStartSpecification>> specsMap = specifications(hosts, dflts);
 
-            Map<String, ConcurrentLinkedQueue<IgniteNodeCallable>> runMap = new HashMap<>();
+            Map<String, ConcurrentLinkedQueue<StartNodeCallable>> runMap = new HashMap<>();
 
             int nodeCallCnt = 0;
 
@@ -393,7 +658,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
                         startIdx = neighbors.size() + 1;
                 }
 
-                ConcurrentLinkedQueue<IgniteNodeCallable> nodeRuns = new ConcurrentLinkedQueue<>();
+                ConcurrentLinkedQueue<StartNodeCallable> nodeRuns = new ConcurrentLinkedQueue<>();
 
                 runMap.put(host, nodeRuns);
 
@@ -401,7 +666,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
                     assert spec.host().equals(host);
 
                     for (int i = startIdx; i <= spec.nodes(); i++) {
-                        nodeRuns.add(sshProcessor.nodeStartCallable(spec, timeout));
+                        nodeRuns.add(sshHelper.nodeStartCallable(spec, timeout));
 
                         nodeCallCnt++;
                     }
@@ -410,19 +675,17 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
 
             // If there is nothing to start, return finished future with empty result.
             if (nodeCallCnt == 0)
-                return new GridFinishedFuture<Collection<GridTuple3<String, Boolean, String>>>(
-                    Collections.<GridTuple3<String, Boolean, String>>emptyList());
+                return new GridFinishedFuture<Collection<ClusterStartNodeResult>>(
+                    Collections.<ClusterStartNodeResult>emptyList());
 
             // Exceeding max line width for readability.
-            GridCompoundFuture<GridTuple3<String, Boolean, String>, Collection<GridTuple3<String, Boolean, String>>>
-                fut = new GridCompoundFuture<>(
-                CU.<GridTuple3<String, Boolean, String>>objectsReducer()
-            );
+            GridCompoundFuture<ClusterStartNodeResult, Collection<ClusterStartNodeResult>> fut = 
+                new GridCompoundFuture<>(CU.<ClusterStartNodeResult>objectsReducer());
 
             AtomicInteger cnt = new AtomicInteger(nodeCallCnt);
 
             // Limit maximum simultaneous connection number per host.
-            for (ConcurrentLinkedQueue<IgniteNodeCallable> queue : runMap.values()) {
+            for (ConcurrentLinkedQueue<StartNodeCallable> queue : runMap.values()) {
                 for (int i = 0; i < maxConn; i++) {
                     if (!runNextNodeCallable(queue, fut, cnt))
                         break;
@@ -471,25 +734,25 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      * @param cnt Atomic counter to check if all futures are added to compound future.
      * @return {@code True} if task was started, {@code false} if queue was empty.
      */
-    private boolean runNextNodeCallable(final ConcurrentLinkedQueue<IgniteNodeCallable> queue,
-        final GridCompoundFuture<GridTuple3<String, Boolean, String>, Collection<GridTuple3<String, Boolean, String>>>
+    private boolean runNextNodeCallable(final ConcurrentLinkedQueue<StartNodeCallable> queue,
+        final GridCompoundFuture<ClusterStartNodeResult, Collection<ClusterStartNodeResult>>
         comp,
         final AtomicInteger cnt)
     {
-        IgniteNodeCallable call = queue.poll();
+        StartNodeCallable call = queue.poll();
 
         if (call == null)
             return false;
 
-        IgniteInternalFuture<GridTuple3<String, Boolean, String>> fut = ctx.closure().callLocalSafe(call, true);
+        IgniteInternalFuture<ClusterStartNodeResult> fut = ctx.closure().callLocalSafe(call, true);
 
         comp.add(fut);
 
         if (cnt.decrementAndGet() == 0)
             comp.markInitialized();
 
-        fut.listen(new CI1<IgniteInternalFuture<GridTuple3<String, Boolean, String>>>() {
-            @Override public void apply(IgniteInternalFuture<GridTuple3<String, Boolean, String>> f) {
+        fut.listen(new CI1<IgniteInternalFuture<ClusterStartNodeResult>>() {
+            @Override public void apply(IgniteInternalFuture<ClusterStartNodeResult> f) {
                 runNextNodeCallable(queue, comp, cnt);
             }
         });
@@ -502,6 +765,18 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      */
     public void clearNodeMap() {
         nodeLoc.clear();
+    }
+
+    /**
+     * @param reconnecFut Reconnect future.
+     */
+    public void clientReconnectFuture(IgniteFuture<?> reconnecFut) {
+        this.reconnecFut = reconnecFut;
+    }
+
+    /** {@inheritDoc} */
+    @Nullable @Override public IgniteFuture<?> clientReconnectFuture() {
+        return reconnecFut;
     }
 
     /** {@inheritDoc} */
@@ -521,6 +796,6 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
 
     /** {@inheritDoc} */
     public String toString() {
-        return "IgniteCluster [igniteName=" + ctx.gridName() + ']';
+        return "IgniteCluster [igniteInstanceName=" + ctx.igniteInstanceName() + ']';
     }
 }

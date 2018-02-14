@@ -17,8 +17,10 @@
 
 package org.apache.ignite.spi.communication.tcp;
 
-import org.apache.ignite.mxbean.*;
-import org.apache.ignite.spi.*;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.mxbean.MXBeanDescription;
+import org.apache.ignite.spi.IgniteSpiManagementMBean;
 
 /**
  * MBean provide access to TCP-based communication SPI.
@@ -42,6 +44,42 @@ public interface TcpCommunicationSpiMBean extends IgniteSpiManagementMBean {
      */
     @MXBeanDescription("Port number.")
     public int getLocalPort();
+
+    /**
+     * Returns {@code true} if {@code TcpCommunicationSpi} should
+     * maintain connection for outgoing and incoming messages separately.
+     * In this case total number of connections between local and some remote node
+     * is {@link #getConnectionsPerNode()} * 2.
+     * <p>
+     * Returns {@code false} if each connection of {@link #getConnectionsPerNode()}
+     * should be used for outgoing and incoming messages.
+     * <p>
+     * Default is {@code false}.
+     *
+     * @return {@code true} to use paired connections and {@code false} otherwise.
+     * @see #getConnectionsPerNode()
+     */
+    @MXBeanDescription("Paired connections used.")
+    public boolean isUsePairedConnections();
+
+    /**
+     * Gets number of connections to each remote node. if {@link #isUsePairedConnections()}
+     * is {@code true} then number of connections is doubled and half is used for incoming and
+     * half for outgoing messages.
+     *
+     * @return Number of connections per node.
+     * @see #isUsePairedConnections()
+     */
+    @MXBeanDescription("Connections per node.")
+    public int getConnectionsPerNode();
+
+    /**
+     * Gets local port for shared memory communication.
+     *
+     * @return Port number.
+     */
+    @MXBeanDescription("Shared memory endpoint port number.")
+    public int getSharedMemoryPort();
 
     /**
      * Gets maximum number of local ports tried if all previously
@@ -111,6 +149,38 @@ public interface TcpCommunicationSpiMBean extends IgniteSpiManagementMBean {
     public long getReceivedBytesCount();
 
     /**
+     * Gets received messages counts (grouped by type).
+     *
+     * @return Map containing message types and respective counts.
+     */
+    @MXBeanDescription("Received messages count grouped by message type.")
+    public Map<String, Long> getReceivedMessagesByType();
+
+    /**
+     * Gets received messages counts (grouped by node).
+     *
+     * @return Map containing sender nodes and respective counts.
+     */
+    @MXBeanDescription("Received messages count grouped by sender node.")
+    public Map<UUID, Long> getReceivedMessagesByNode();
+
+    /**
+     * Gets sent messages counts (grouped by type).
+     *
+     * @return Map containing message types and respective counts.
+     */
+    @MXBeanDescription("Sent messages count grouped by message type.")
+    public Map<String, Long> getSentMessagesByType();
+
+    /**
+     * Gets sent messages counts (grouped by node).
+     *
+     * @return Map containing receiver nodes and respective counts.
+     */
+    @MXBeanDescription("Sent messages count grouped by receiver node.")
+    public Map<UUID, Long> getSentMessagesByNode();
+
+    /**
      * Gets outbound messages queue size.
      *
      * @return Outbound messages queue size.
@@ -145,51 +215,22 @@ public interface TcpCommunicationSpiMBean extends IgniteSpiManagementMBean {
     public int getReconnectCount();
 
     /**
+     * Defines how many non-blocking {@code selector.selectNow()} should be made before
+     * falling into {@code selector.select(long)} in NIO server. Long value. Default is {@code 0}.
+     * Can be set to {@code Long.MAX_VALUE} so selector threads will never block.
+     *
+     * @return Selector thread busy-loop iterations.
+     */
+    @MXBeanDescription("Selector thread busy-loop iterations.")
+    public long getSelectorSpins();
+
+    /**
      * Gets value for {@code TCP_NODELAY} socket option.
      *
      * @return {@code True} if TCP delay is disabled.
      */
     @MXBeanDescription("TCP_NODELAY socket option value.")
     public boolean isTcpNoDelay();
-
-    /**
-     * Gets connection buffer flush frequency.
-     * <p>
-     * Client connections to other nodes in topology use buffered output.
-     * This frequency defines how often system will advice to flush
-     * connection buffer.
-     *
-     * @return Flush frequency.
-     */
-    @MXBeanDescription("Connection buffer flush frequency.")
-    public long getConnectionBufferFlushFrequency();
-
-    /**
-     * Sets connection buffer flush frequency.
-     * <p>
-     * Client connections to other nodes in topology use buffered output.
-     * This frequency defines how often system will advice to flush
-     * connection buffer.
-     * <p>
-     * If not provided, default value is {@link TcpCommunicationSpi#DFLT_CONN_BUF_FLUSH_FREQ}.
-     * <p>
-     * This property is used only if {@link #getConnectionBufferSize()} is greater than {@code 0}.
-     *
-     * @param connBufFlushFreq Flush frequency.
-     * @see #getConnectionBufferSize()
-     */
-    @MXBeanDescription("Sets connection buffer flush frequency.")
-    public void setConnectionBufferFlushFrequency(long connBufFlushFreq);
-
-    /**
-     * Gets connection buffer size.
-     * <p>
-     * If set to {@code 0} connection buffer is disabled.
-     *
-     * @return Connection buffer size.
-     */
-    @MXBeanDescription("Connection buffer size.")
-    public int getConnectionBufferSize();
 
     /**
      * Gets flag defining whether direct send buffer should be used.
@@ -228,24 +269,6 @@ public interface TcpCommunicationSpiMBean extends IgniteSpiManagementMBean {
     public int getMessageQueueLimit();
 
     /**
-     * Gets the minimum number of messages for this SPI, that are buffered
-     * prior to sending.
-     *
-     * @return Minimum buffered message count.
-     */
-    @MXBeanDescription("Minimum buffered message count.")
-    public int getMinimumBufferedMessageCount();
-
-    /**
-     * Gets the buffer size ratio for this SPI. As messages are sent,
-     * the buffer size is adjusted using this ratio.
-     *
-     * @return Buffer size ratio.
-     */
-    @MXBeanDescription("Buffer size ratio.")
-    public double getBufferSizeRatio();
-
-    /**
      * Gets socket write timeout for TCP connections. If message can not be written to
      * socket within this time then connection is closed and reconnect is attempted.
      *
@@ -271,4 +294,21 @@ public interface TcpCommunicationSpiMBean extends IgniteSpiManagementMBean {
      */
     @MXBeanDescription("Maximum number of unacknowledged messages.")
     public int getUnacknowledgedMessagesBufferSize();
+
+    /**
+     * Gets slow client queue limit.
+     * <p/>
+     * When set to a positive number, communication SPI will monitor clients outbound queue sizes and will drop
+     * those clients whose queue exceeded this limit.
+     *
+     * @return Slow client queue limit.
+     */
+    @MXBeanDescription("Slow client queue limit.")
+    public int getSlowClientQueueLimit();
+
+    /**
+     * Dumps SPI per-connection stats to logs.
+     */
+    @MXBeanDescription("Dumps SPI statistics to logs.")
+    public void dumpStats();
 }

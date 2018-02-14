@@ -20,25 +20,19 @@
 <!--
     POM file.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
         <groupId>org.apache.ignite</groupId>
-        <artifactId>ignite</artifactId>
-        <version>${ignite.version}</version>
-        <relativePath>../..</relativePath>
+        <artifactId>ignite-parent</artifactId>
+        <version>1</version>
+        <relativePath>../../parent</relativePath>
     </parent>
 
     <artifactId>ignite-tools</artifactId>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.7</maven.compiler.source>
-        <maven.compiler.target>1.7</maven.compiler.target>
-    </properties>
+    <version>2.4.0-SNAPSHOT</version>
+    <url>http://ignite.apache.org</url>
 
     <dependencies>
         <dependency>
@@ -53,26 +47,4 @@
             <version>1.8.2</version>
         </dependency>
     </dependencies>
-
-    <!-- http://maven.apache.org/general.html#tools-jar-dependency -->
-    <profiles>
-        <profile>
-            <id>default-tools.jar</id>
-            <activation>
-                <property>
-                    <name>java.vendor</name>
-                    <value>Oracle Corporation</value>
-                </property>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>com.sun</groupId>
-                    <artifactId>tools</artifactId>
-                    <version>${java.version}</version>
-                    <scope>system</scope>
-                    <systemPath>${java.home}/../lib/tools.jar</systemPath>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
 </project>

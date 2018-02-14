@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.processors.cache.datastructures.partitioned;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.processors.cache.datastructures.*;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.internal.processors.cache.datastructures.GridCacheSetFailoverAbstractSelfTest;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 
 /**
  * Set failover tests.
@@ -29,5 +29,9 @@ public class GridCachePartitionedSetFailoverSelfTest extends GridCacheSetFailove
     /** {@inheritDoc} */
     @Override protected CacheAtomicityMode collectionCacheAtomicityMode() {
         return TRANSACTIONAL;
+    }
+
+    @Override public void testNodeRestart(){
+        fail("https://issues.apache.org/jira/browse/IGNITE-1593");
     }
 }

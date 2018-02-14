@@ -17,46 +17,112 @@
 
 package org.apache.ignite.internal.visor.query;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorDataTransferObject;
 
 /**
  * Data transfer object for query field type description.
  */
-public class VisorQueryField implements Serializable {
+public class VisorQueryField extends VisorDataTransferObject {
     /** */
     private static final long serialVersionUID = 0L;
 
-    /** Column type. */
-    private final String type;
+    /** Schema name. */
+    private String schemaName;
+
+    /** Type name. */
+    private String typeName;
 
     /** Field name. */
-    private final String field;
+    private String fieldName;
+
+    /** Field type name. */
+    private String fieldTypeName;
+
+    /**
+     * Default constructor.
+     */
+    public VisorQueryField() {
+        // No-op.
+    }
 
     /**
      * Create data transfer object with given parameters.
      *
-     * @param type Column type.
-     * @param field Field name.
+     * @param schemaName Schema name.
+     * @param typeName Type name.
+     * @param fieldName Name.
+     * @param fieldTypeName Type.
      */
-    public VisorQueryField(String type, String field) {
-        this.type = type;
-        this.field = field;
+    public VisorQueryField(String schemaName, String typeName, String fieldName, String fieldTypeName) {
+        this.schemaName = schemaName;
+        this.typeName = typeName;
+        this.fieldName = fieldName;
+        this.fieldTypeName = fieldTypeName;
     }
 
     /**
-     * @return Column type.
+     * @return Schema name.
      */
-    public String type() {
-        return type;
+    public String getSchemaName() {
+        return schemaName;
+    }
+
+    /**
+     * @return Type name.
+     */
+    public String getTypeName() {
+        return typeName;
     }
 
     /**
      * @return Field name.
      */
-    public String field() {
-        return field;
+    public String getFieldName() {
+        return fieldName;
+    }
+
+    /**
+     * @return Field type name.
+     */
+    public String getFieldTypeName() {
+        return fieldTypeName;
+    }
+
+    /**
+     * @param schema If {@code true} then add schema name to full name.
+     * @return Fully qualified field name with type name and schema name.
+     */
+    public String getFullName(boolean schema) {
+        if (!F.isEmpty(typeName)) {
+            if (schema && !F.isEmpty(schemaName))
+                return schemaName + "." + typeName + "." + fieldName;
+
+            return typeName + "." + fieldName;
+        }
+
+        return fieldName;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void writeExternalData(ObjectOutput out) throws IOException {
+        U.writeString(out, schemaName);
+        U.writeString(out, typeName);
+        U.writeString(out, fieldName);
+        U.writeString(out, fieldTypeName);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
+        schemaName = U.readString(in);
+        typeName = U.readString(in);
+        fieldName = U.readString(in);
+        fieldTypeName = U.readString(in);
     }
 
     /** {@inheritDoc} */

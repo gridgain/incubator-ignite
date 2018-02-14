@@ -17,15 +17,28 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.nio.ByteBuffer;
+import java.util.UUID;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.internal.GridDirectTransient;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.NotNull;
 
-import java.io.*;
-import java.nio.*;
-import java.util.*;
-
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
+import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
+import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
+import static org.apache.ignite.internal.events.DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT;
 
 /**
  * Exchange ID.
@@ -38,26 +51,45 @@ public class GridDhtPartitionExchangeId implements Message, Comparable<GridDhtPa
     @GridToStringExclude
     private UUID nodeId;
 
-    /** Event. */
+    /** Event type. */
     @GridToStringExclude
     private int evt;
 
     /** Topology version. */
-    private long topVer;
+    private AffinityTopologyVersion topVer;
+
+    /** */
+    @GridDirectTransient
+    private DiscoveryEvent discoEvt;
 
     /**
      * @param nodeId Node ID.
-     * @param evt Event.
+     * @param evt Event type.
      * @param topVer Topology version.
      */
-    public GridDhtPartitionExchangeId(UUID nodeId, int evt, long topVer) {
-        assert nodeId != null;
-        assert evt == EVT_NODE_LEFT || evt == EVT_NODE_FAILED || evt == EVT_NODE_JOINED;
-        assert topVer > 0;
-
+    public GridDhtPartitionExchangeId(UUID nodeId, int evt, AffinityTopologyVersion topVer) {
         this.nodeId = nodeId;
         this.evt = evt;
         this.topVer = topVer;
+    }
+
+    /**
+     * @param nodeId Node ID.
+     * @param discoEvt Event.
+     * @param topVer Topology version.
+     */
+    public GridDhtPartitionExchangeId(UUID nodeId, DiscoveryEvent discoEvt, AffinityTopologyVersion topVer) {
+        assert nodeId != null;
+        assert topVer != null && topVer.topologyVersion() > 0 : topVer;
+        assert discoEvt != null;
+
+        this.nodeId = nodeId;
+        this.evt = discoEvt.type();
+        this.topVer = topVer;
+        this.discoEvt = discoEvt;
+
+        assert evt == EVT_NODE_LEFT || evt == EVT_NODE_FAILED || evt == EVT_NODE_JOINED ||
+            evt == EVT_DISCOVERY_CUSTOM_EVT;
     }
 
     /**
@@ -82,9 +114,48 @@ public class GridDhtPartitionExchangeId implements Message, Comparable<GridDhtPa
     }
 
     /**
+     * @return Discovery event timestamp.
+     */
+    long eventTimestamp() {
+        assert discoEvt != null;
+
+        return discoEvt.timestamp();
+    }
+
+    /**
+     * @param discoEvt Discovery event.
+     */
+    void discoveryEvent(DiscoveryEvent discoEvt) {
+        this.discoEvt = discoEvt;
+    }
+
+    /**
+     * @return Discovery event.
+     */
+    DiscoveryEvent discoveryEvent() {
+        assert discoEvt != null;
+
+        return discoEvt;
+    }
+
+    /**
+     * @return Discovery event node.
+     */
+    public ClusterNode eventNode() {
+        return discoEvt.eventNode();
+    }
+
+    /**
+     * @return Discovery event name.
+     */
+    public String discoveryEventName() {
+        return U.gridEventName(evt);
+    }
+
+    /**
      * @return Order.
      */
-    public long topologyVersion() {
+    public AffinityTopologyVersion topologyVersion() {
         return topVer;
     }
 
@@ -103,16 +174,21 @@ public class GridDhtPartitionExchangeId implements Message, Comparable<GridDhtPa
     }
 
     /** {@inheritDoc} */
+    @Override public void onAckReceived() {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
     @Override public void writeExternal(ObjectOutput out) throws IOException {
         U.writeUuid(out, nodeId);
-        out.writeLong(topVer);
+        out.writeObject(topVer);
         out.writeInt(evt);
     }
 
     /** {@inheritDoc} */
     @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         nodeId = U.readUuid(in);
-        topVer = in.readLong();
+        topVer = (AffinityTopologyVersion)in.readObject();
         evt = in.readInt();
     }
 
@@ -121,7 +197,7 @@ public class GridDhtPartitionExchangeId implements Message, Comparable<GridDhtPa
         if (o == this)
             return 0;
 
-        return topVer < o.topVer ? -1 : topVer == o.topVer ? 0 : 1;
+        return topVer.compareTo(o.topVer);
     }
 
     /** {@inheritDoc} */
@@ -129,7 +205,7 @@ public class GridDhtPartitionExchangeId implements Message, Comparable<GridDhtPa
         int res = nodeId.hashCode();
 
         res = 31 * res + evt;
-        res = 31 * res + (int)(topVer ^ (topVer >>> 32));
+        res = 31 * res + topVer.hashCode();
 
         return res;
     }
@@ -141,7 +217,7 @@ public class GridDhtPartitionExchangeId implements Message, Comparable<GridDhtPa
 
         GridDhtPartitionExchangeId id = (GridDhtPartitionExchangeId)o;
 
-        return evt == id.evt && topVer == id.topVer && nodeId.equals(id.nodeId);
+        return evt == id.evt && topVer.equals(id.topVer) && nodeId.equals(id.nodeId);
     }
 
     /** {@inheritDoc} */
@@ -169,7 +245,7 @@ public class GridDhtPartitionExchangeId implements Message, Comparable<GridDhtPa
                 writer.incrementState();
 
             case 2:
-                if (!writer.writeLong("topVer", topVer))
+                if (!writer.writeMessage("topVer", topVer))
                     return false;
 
                 writer.incrementState();
@@ -204,7 +280,7 @@ public class GridDhtPartitionExchangeId implements Message, Comparable<GridDhtPa
                 reader.incrementState();
 
             case 2:
-                topVer = reader.readLong("topVer");
+                topVer = reader.readMessage("topVer");
 
                 if (!reader.isLastRead())
                     return false;
@@ -213,11 +289,11 @@ public class GridDhtPartitionExchangeId implements Message, Comparable<GridDhtPa
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridDhtPartitionExchangeId.class);
     }
 
     /** {@inheritDoc} */
-    @Override public byte directType() {
+    @Override public short directType() {
         return 87;
     }
 

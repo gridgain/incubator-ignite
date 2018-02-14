@@ -17,8 +17,13 @@
 
 package org.apache.ignite.examples.datagrid;
 
-import org.apache.ignite.*;
-import org.apache.ignite.examples.*;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.examples.ExampleNodeStartup;
+import org.apache.ignite.examples.ExamplesUtils;
 
 /**
  * Demonstrates how cache can be populated with data utilizing {@link IgniteDataStreamer} API.
@@ -27,14 +32,14 @@ import org.apache.ignite.examples.*;
  * together and properly manages load on remote nodes.
  * <p>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-cache.xml'}.
+ * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link CacheNodeStartup} in another JVM which will
- * start node with {@code examples/config/example-cache.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will
+ * start node with {@code examples/config/example-ignite.xml} configuration.
  */
 public class CacheDataStreamerExample {
     /** Cache name. */
-    private static final String CACHE_NAME = "partitioned";
+    private static final String CACHE_NAME = CacheDataStreamerExample.class.getSimpleName();
 
     /** Number of entries to load. */
     private static final int ENTRY_COUNT = 500000;
@@ -51,35 +56,36 @@ public class CacheDataStreamerExample {
     public static void main(String[] args) throws IgniteException {
         ExamplesUtils.checkMinMemory(MIN_MEMORY);
 
-        try (Ignite ignite = Ignition.start("examples/config/example-cache.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             System.out.println();
             System.out.println(">>> Cache data streamer example started.");
 
-            // Clean up caches on all nodes before run.
-            ignite.jcache(CACHE_NAME).clear();
+            // Auto-close cache at the end of the example.
+            try (IgniteCache<Integer, String> cache = ignite.getOrCreateCache(CACHE_NAME)) {
+                long start = System.currentTimeMillis();
 
-            System.out.println();
-            System.out.println(">>> Cache clear finished.");
+                try (IgniteDataStreamer<Integer, String> stmr = ignite.dataStreamer(CACHE_NAME)) {
+                    // Configure loader.
+                    stmr.perNodeBufferSize(1024);
+                    stmr.perNodeParallelOperations(8);
 
-            long start = System.currentTimeMillis();
+                    for (int i = 0; i < ENTRY_COUNT; i++) {
+                        stmr.addData(i, Integer.toString(i));
 
-            try (IgniteDataStreamer<Integer, String> stmr = ignite.dataStreamer(CACHE_NAME)) {
-                // Configure loader.
-                stmr.perNodeBufferSize(1024);
-                stmr.perNodeParallelOperations(8);
-
-                for (int i = 0; i < ENTRY_COUNT; i++) {
-                    stmr.addData(i, Integer.toString(i));
-
-                    // Print out progress while loading cache.
-                    if (i > 0 && i % 10000 == 0)
-                        System.out.println("Loaded " + i + " keys.");
+                        // Print out progress while loading cache.
+                        if (i > 0 && i % 10000 == 0)
+                            System.out.println("Loaded " + i + " keys.");
+                    }
                 }
+
+                long end = System.currentTimeMillis();
+
+                System.out.println(">>> Loaded " + ENTRY_COUNT + " keys in " + (end - start) + "ms.");
             }
-
-            long end = System.currentTimeMillis();
-
-            System.out.println(">>> Loaded " + ENTRY_COUNT + " keys in " + (end - start) + "ms.");
+            finally {
+                // Distributed cache could be removed from cluster only by #destroyCache() call.
+                ignite.destroyCache(CACHE_NAME);
+            }
         }
     }
 }

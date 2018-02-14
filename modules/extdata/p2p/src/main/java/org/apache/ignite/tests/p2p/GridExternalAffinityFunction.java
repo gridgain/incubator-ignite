@@ -17,18 +17,25 @@
 
 package org.apache.ignite.tests.p2p;
 
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.cache.affinity.AffinityFunctionContext;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Mock affinity implementation that ensures constant key-to-node mapping based on {@code GridCacheModuloAffinity} The
  * partition selection is as follows: 0 maps to partition 1 and any other value maps to partition 1.
  */
-public class GridExternalAffinityFunction implements CacheAffinityFunction {
+public class GridExternalAffinityFunction implements AffinityFunction {
     /** Node attribute for index. */
     public static final String IDX_ATTR = "nodeIndex";
 
@@ -57,7 +64,7 @@ public class GridExternalAffinityFunction implements CacheAffinityFunction {
 
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
-    @Override public List<List<ClusterNode>> assignPartitions(CacheAffinityFunctionContext ctx) {
+    @Override public List<List<ClusterNode>> assignPartitions(AffinityFunctionContext ctx) {
         List<List<ClusterNode>> res = new ArrayList<>(partitions());
 
         List<ClusterNode> topSnapshot = ctx.currentTopologySnapshot();
@@ -73,7 +80,13 @@ public class GridExternalAffinityFunction implements CacheAffinityFunction {
         return res;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Assigns nodes to one partition.
+     *
+     * @param part Partition to assign nodes for.
+     * @param nodes Cache topology nodes.
+     * @return Assigned nodes, first node is primary, others are backups.
+     */
     public Collection<ClusterNode> nodes(int part, Collection<ClusterNode> nodes) {
         List<ClusterNode> sorted = new ArrayList<>(nodes);
 
@@ -145,7 +158,7 @@ public class GridExternalAffinityFunction implements CacheAffinityFunction {
 
     /** {@inheritDoc} */
     @Override public int partition(Object key) {
-        return key instanceof Integer ? 0 == key ? 0 : 1 : 1;
+        return key instanceof Integer ? 0 == (Integer)key ? 0 : 1 : 1;
     }
 
     /** {@inheritDoc}

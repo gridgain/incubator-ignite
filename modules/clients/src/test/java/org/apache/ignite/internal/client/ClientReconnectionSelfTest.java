@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.client.impl.connection.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.testframework.junits.common.*;
-
-import java.nio.channels.*;
-import java.util.*;
+import java.nio.channels.ClosedChannelException;
+import java.util.ArrayList;
+import java.util.Collection;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.client.impl.connection.GridClientConnectionResetException;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.testsuites.IgniteIgnore;
 
 /**
  *
@@ -178,40 +179,44 @@ public class ClientReconnectionSelfTest extends GridCommonAbstractTest {
     }
 
     /**
+     * TODO: IGNITE-590.
+     *
      * @throws Exception If failed.
      */
-    // TODO Uncomment when GG-3789 fixed.
-//    public void testIdleConnection() throws Exception {
-//        for (int i = 0; i < SERVERS_CNT; i++)
-//            runServer(i, false);
-//
-//        GridClient client = client(); // Here client opens initial connection and fetches topology.
-//
-//        try {
-//            // Only first server in list should be contacted.
-//            assertEquals(1, srvs[0].getConnectCount());
-//
-//            Thread.sleep(35000); // Timeout as idle.
-//
-//            assertEquals(1, srvs[0].getDisconnectCount());
-//
-//            for (int i = 1; i < SERVERS_CNT; i++)
-//                assertEquals(0, srvs[i].getConnectCount());
-//
-//            srvs[0].resetCounters();
-//
-//            // On new request connection should be re-opened.
-//            client.compute().refreshTopology(false, false);
-//
-//            assertEquals(1, srvs[0].getConnectCount());
-//
-//            for (int i = 1; i < SERVERS_CNT; i++)
-//                assertEquals(0, srvs[i].getConnectCount());
-//        }
-//        finally {
-//            GridClientFactory.stop(client.id());
-//        }
-//    }
+    @IgniteIgnore(value = "https://issues.apache.org/jira/browse/IGNITE-590", forceFailure = true)
+    public void testIdleConnection() throws Exception {
+        int srvsCnt = 4; // TODO: IGNITE-590 it may be wrong value. Need to investigate after IGNITE-590 will be fixed.
+        
+        for (int i = 0; i < srvsCnt; i++)
+            runServer(i, false);
+
+        GridClient client = client(); // Here client opens initial connection and fetches topology.
+
+        try {
+            // Only first server in list should be contacted.
+            assertEquals(1, srvs[0].getConnectCount());
+
+            Thread.sleep(35000); // Timeout as idle.
+
+            assertEquals(1, srvs[0].getDisconnectCount());
+
+            for (int i = 1; i < srvsCnt; i++)
+                assertEquals(0, srvs[i].getConnectCount());
+
+            srvs[0].resetCounters();
+
+            // On new request connection should be re-opened.
+            client.compute().refreshTopology(false, false);
+
+            assertEquals(1, srvs[0].getConnectCount());
+
+            for (int i = 1; i < srvsCnt; i++)
+                assertEquals(0, srvs[i].getConnectCount());
+        }
+        finally {
+            GridClientFactory.stop(client.id());
+        }
+    }
 
     /**
      * Runs a new server with given index.

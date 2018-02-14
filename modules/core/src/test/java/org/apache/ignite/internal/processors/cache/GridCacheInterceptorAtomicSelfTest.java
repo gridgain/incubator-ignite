@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.cache.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheInterceptor;
+import org.apache.ignite.configuration.NearCacheConfiguration;
 
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 
 /**
- * Tests {@link org.apache.ignite.cache.CacheInterceptor}.
+ * Tests {@link CacheInterceptor}.
  */
 public class GridCacheInterceptorAtomicSelfTest extends GridCacheInterceptorAbstractSelfTest {
     /** {@inheritDoc} */
@@ -34,12 +33,7 @@ public class GridCacheInterceptorAtomicSelfTest extends GridCacheInterceptorAbst
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return PARTITIONED_ONLY;
-    }
-
-    /** {@inheritDoc} */
-    @Nullable @Override protected CacheAtomicWriteOrderMode writeOrderMode() {
-        return CLOCK;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return null;
     }
 }

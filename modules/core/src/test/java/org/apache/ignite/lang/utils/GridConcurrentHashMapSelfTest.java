@@ -17,14 +17,15 @@
 
 package org.apache.ignite.lang.utils;
 
-import org.apache.ignite.testframework.junits.common.*;
-import org.jdk8.backport.*;
-
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jsr166.ConcurrentHashMap8;
+import org.jsr166.ThreadLocalRandom8;
 
 /**
- * Tests for {@link ConcurrentHashMap8}.
+ * Tests for {@link org.jsr166.ConcurrentHashMap8}.
  */
 public class GridConcurrentHashMapSelfTest extends GridCommonAbstractTest {
     /** */

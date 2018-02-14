@@ -17,29 +17,41 @@
 
 package org.apache.ignite.cache.query;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import javax.cache.Cache;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Scan query over cache entries. Will accept all the entries if no predicate was set.
  *
  * @see IgniteCache#query(Query)
- * @see IgniteCache#localQuery(Query)
  */
-public class ScanQuery<K, V> extends Query<ScanQuery<K, V>> {
+public final class ScanQuery<K, V> extends Query<Cache.Entry<K, V>> {
     /** */
     private static final long serialVersionUID = 0L;
 
     /** */
-    private IgniteBiPredicate<K,V> filter;
+    private IgniteBiPredicate<K, V> filter;
+
+    /** */
+    private Integer part;
 
     /**
      * Create scan query returning all entries.
      */
     public ScanQuery() {
-        this(null);
+        this(null, null);
+    }
+
+    /**
+     * Creates partition scan query returning all entries for given partition.
+     *
+     * @param part Partition.
+     */
+    public ScanQuery(int part) {
+        this(part, null);
     }
 
     /**
@@ -47,7 +59,18 @@ public class ScanQuery<K, V> extends Query<ScanQuery<K, V>> {
      *
      * @param filter Filter. If {@code null} then all entries will be returned.
      */
-    public ScanQuery(@Nullable IgniteBiPredicate<K,V> filter) {
+    public ScanQuery(@Nullable IgniteBiPredicate<K, V> filter) {
+        this(null, filter);
+    }
+
+    /**
+     * Create scan query with filter.
+     *
+     * @param part Partition.
+     * @param filter Filter. If {@code null} then all entries will be returned.
+     */
+    public ScanQuery(@Nullable Integer part, @Nullable IgniteBiPredicate<K, V> filter) {
+        setPartition(part);
         setFilter(filter);
     }
 
@@ -56,7 +79,7 @@ public class ScanQuery<K, V> extends Query<ScanQuery<K, V>> {
      *
      * @return Filter.
      */
-    public IgniteBiPredicate<K,V> getFilter() {
+    public IgniteBiPredicate<K, V> getFilter() {
         return filter;
     }
 
@@ -64,9 +87,45 @@ public class ScanQuery<K, V> extends Query<ScanQuery<K, V>> {
      * Sets filter.
      *
      * @param filter Filter. If {@code null} then all entries will be returned.
+     * @return {@code this} for chaining.
      */
-    public void setFilter(@Nullable IgniteBiPredicate<K,V> filter) {
+    public ScanQuery<K, V> setFilter(@Nullable IgniteBiPredicate<K, V> filter) {
         this.filter = filter;
+
+        return this;
+    }
+
+    /**
+     * Sets partition number over which this query should iterate. If {@code null}, query will iterate over
+     * all partitions in the cache. Must be in the range [0, N) where N is partition number in the cache.
+     *
+     * @param part Partition number over which this query should iterate.
+     * @return {@code this} for chaining.
+     */
+    public ScanQuery<K, V> setPartition(@Nullable Integer part) {
+        this.part = part;
+
+        return this;
+    }
+
+    /**
+     * Gets partition number over which this query should iterate. Will return {@code null} if partition was not
+     * set. In this case query will iterate over all partitions in the cache.
+     *
+     * @return Partition number or {@code null}.
+     */
+    @Nullable public Integer getPartition() {
+        return part;
+    }
+
+    /** {@inheritDoc} */
+    @Override public ScanQuery<K, V> setPageSize(int pageSize) {
+        return (ScanQuery<K, V>)super.setPageSize(pageSize);
+    }
+
+    /** {@inheritDoc} */
+    @Override public ScanQuery<K, V> setLocal(boolean loc) {
+        return (ScanQuery<K, V>)super.setLocal(loc);
     }
 
     /** {@inheritDoc} */

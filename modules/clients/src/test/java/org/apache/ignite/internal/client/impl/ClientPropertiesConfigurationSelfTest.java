@@ -17,19 +17,32 @@
 
 package org.apache.ignite.internal.client.impl;
 
-import org.apache.commons.io.*;
-import org.apache.ignite.internal.client.*;
-import org.apache.ignite.internal.client.balancer.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.springframework.context.support.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.LineIterator;
+import org.apache.ignite.internal.client.GridClientConfiguration;
+import org.apache.ignite.internal.client.GridClientDataConfiguration;
+import org.apache.ignite.internal.client.GridClientPartitionAffinity;
+import org.apache.ignite.internal.client.GridClientProtocol;
+import org.apache.ignite.internal.client.balancer.GridClientRandomBalancer;
+import org.apache.ignite.internal.client.balancer.GridClientRoundRobinBalancer;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.springframework.context.support.FileSystemXmlApplicationContext;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.client.GridClientConfiguration.*;
+import static org.apache.ignite.internal.client.GridClientConfiguration.DFLT_MAX_CONN_IDLE_TIME;
+import static org.apache.ignite.internal.client.GridClientConfiguration.DFLT_TOP_REFRESH_FREQ;
 
 /**
  * Properties-based configuration self test.
@@ -85,8 +98,8 @@ public class ClientPropertiesConfigurationSelfTest extends GridCommonAbstractTes
         for (Map.Entry<Object, Object> e : props.entrySet())
             props2.put("new." + e.getKey(), e.getValue());
 
-        validateConfig(0, new GridClientConfiguration("new.gg.client", props2));
-        validateConfig(0, new GridClientConfiguration("new.gg.client.", props2));
+        validateConfig(0, new GridClientConfiguration("new.ignite.client", props2));
+        validateConfig(0, new GridClientConfiguration("new.ignite.client.", props2));
 
         // Validate loaded test configuration.
         File tmp = uncommentProperties(GRID_CLIENT_CONFIG);
@@ -100,14 +113,14 @@ public class ClientPropertiesConfigurationSelfTest extends GridCommonAbstractTes
         for (Map.Entry<Object, Object> e : props.entrySet())
             props2.put("new." + e.getKey(), e.getValue());
 
-        validateConfig(2, new GridClientConfiguration("new.gg.client", props2));
-        validateConfig(2, new GridClientConfiguration("new.gg.client.", props2));
+        validateConfig(2, new GridClientConfiguration("new.ignite.client", props2));
+        validateConfig(2, new GridClientConfiguration("new.ignite.client.", props2));
 
         // Validate loaded test configuration with empty key prefixes.
         props2 = new Properties();
 
         for (Map.Entry<Object, Object> e : props.entrySet())
-            props2.put(e.getKey().toString().replace("gg.client.", ""), e.getValue());
+            props2.put(e.getKey().toString().replace("ignite.client.", ""), e.getValue());
 
         validateConfig(2, new GridClientConfiguration("", props2));
         validateConfig(2, new GridClientConfiguration(".", props2));
@@ -156,7 +169,7 @@ public class ClientPropertiesConfigurationSelfTest extends GridCommonAbstractTes
         Collection<String> lines = new ArrayList<>();
 
         while (it.hasNext())
-            lines.add(it.nextLine().replace("#gg.client.", "gg.client."));
+            lines.add(it.nextLine().replace("#ignite.client.", "ignite.client."));
 
         IgniteUtils.closeQuiet(in);
 

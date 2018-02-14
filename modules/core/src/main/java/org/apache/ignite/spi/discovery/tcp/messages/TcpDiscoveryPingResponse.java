@@ -17,8 +17,8 @@
 
 package org.apache.ignite.spi.discovery.tcp.messages;
 
-import java.io.*;
-import java.util.*;
+import java.util.UUID;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Ping response.
@@ -29,13 +29,6 @@ public class TcpDiscoveryPingResponse extends TcpDiscoveryAbstractMessage {
 
     /** Whether pinged client exists. */
     private boolean clientExists;
-
-    /**
-     * For {@link Externalizable}.
-     */
-    public TcpDiscoveryPingResponse() {
-        // No-op.
-    }
 
     /**
      * @param creatorNodeId Creator node ID.
@@ -59,16 +52,7 @@ public class TcpDiscoveryPingResponse extends TcpDiscoveryAbstractMessage {
     }
 
     /** {@inheritDoc} */
-    @Override public void writeExternal(ObjectOutput out) throws IOException {
-        super.writeExternal(out);
-
-        out.writeBoolean(clientExists);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        super.readExternal(in);
-
-        clientExists = in.readBoolean();
+    @Override public String toString() {
+        return S.toString(TcpDiscoveryPingResponse.class, this, "super", super.toString());
     }
 }

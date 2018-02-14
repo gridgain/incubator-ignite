@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.processors.affinity;
 
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.affinity.rendezvous.*;
+import org.apache.ignite.cache.affinity.AffinityFunction;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 
 /**
  * Tests affinity processor with rendezvous affinity function.
  */
 public class GridAffinityProcessorRendezvousSelfTest extends GridAffinityProcessorAbstractSelfTest {
     /** {@inheritDoc} */
-    @Override protected CacheAffinityFunction affinityFunction() {
-        return new CacheRendezvousAffinityFunction();
+    @Override protected AffinityFunction affinityFunction() {
+        return new RendezvousAffinityFunction();
     }
 }

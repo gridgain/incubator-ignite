@@ -17,24 +17,31 @@
 
 package org.apache.ignite.internal.processors.cache.datastructures.partitioned;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.datastructures.*;
-import org.apache.ignite.transactions.*;
-import org.apache.ignite.internal.*;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteQueue;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.processors.cache.datastructures.IgniteCollectionAbstractTest;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.transactions.Transaction;
 
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import static java.util.concurrent.TimeUnit.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  *
@@ -61,8 +68,8 @@ public class GridCachePartitionedQueueCreateMultiNodeSelfTest extends IgniteColl
     }
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration c = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration c = super.getConfiguration(igniteInstanceName);
 
         c.setIncludeEventTypes();
         c.setPeerClassLoadingEnabled(false);
@@ -106,13 +113,25 @@ public class GridCachePartitionedQueueCreateMultiNodeSelfTest extends IgniteColl
         IgniteInternalFuture<?> fut = multithreadedAsync(
             new Callable<Object>() {
                 @Override public Object call() throws Exception {
-                    Ignite ignite = startGrid(idx.getAndIncrement());
+                    int idx0 = idx.getAndIncrement();
+
+                    Thread.currentThread().setName("createQueue-" + idx0);
+
+                    final Ignite ignite = startGrid(idx0);
 
                     UUID locNodeId = ignite.cluster().localNode().id();
 
                     info("Started grid: " + locNodeId);
 
                     info("Creating queue: " + locNodeId);
+
+                    GridTestUtils.runMultiThreaded(new Callable<Void>() {
+                        @Override public Void call() throws Exception {
+                            ignite.queue("queue", 1, config(true));
+
+                            return null;
+                        }
+                    }, 10, "create-queue-" + ignite.name());
 
                     IgniteQueue<String> q = ignite.queue("queue", 1, config(true));
 
@@ -169,9 +188,9 @@ public class GridCachePartitionedQueueCreateMultiNodeSelfTest extends IgniteColl
                     // If output presents, test passes with greater probability.
                     // info("Start puts.");
 
-                    IgniteCache<Integer, String> cache = ignite.jcache(null);
+                    IgniteCache<Integer, String> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
-                    info("Partition: " + ignite.affinity(null).partition(1));
+                    info("Partition: " + ignite.affinity(DEFAULT_CACHE_NAME).partition(1));
 
                     try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
                         // info("Getting value for key 1");

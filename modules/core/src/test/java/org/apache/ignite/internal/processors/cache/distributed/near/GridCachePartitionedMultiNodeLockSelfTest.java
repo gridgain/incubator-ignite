@@ -17,32 +17,28 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.distributed.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.cache.distributed.GridCacheMultiNodeLockAbstractTest;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Test cases for multi-threaded tests.
  */
 public class GridCachePartitionedMultiNodeLockSelfTest extends GridCacheMultiNodeLockAbstractTest {
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration c = super.getConfiguration(gridName);
-
+    @Override protected CacheConfiguration cacheConfiguration() {
         CacheConfiguration cc = defaultCacheConfiguration();
 
         cc.setCacheMode(PARTITIONED);
         cc.setBackups(2); // 2 backups, so all nodes are involved.
         cc.setAtomicityMode(TRANSACTIONAL);
-        cc.setDistributionMode(NEAR_PARTITIONED);
+        cc.setNearConfiguration(new NearCacheConfiguration());
 
-        c.setCacheConfiguration(cc);
-
-        return c;
+        return cc;
     }
 
     /** {@inheritDoc} */

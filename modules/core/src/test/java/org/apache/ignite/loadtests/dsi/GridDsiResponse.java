@@ -17,9 +17,8 @@
 
 package org.apache.ignite.loadtests.dsi;
 
-import org.apache.ignite.cache.affinity.*;
-
-import java.io.*;
+import java.io.Serializable;
+import org.apache.ignite.cache.affinity.AffinityKeyMapped;
 
 /**
  *
@@ -48,7 +47,7 @@ public class GridDsiResponse implements Serializable {
      * @return Cache key.
      */
     public Object getCacheKey(String terminalId){
-        //return new CacheAffinityKey<String>("RESPONSE:" + id.toString(), terminalId);
+        //return new AffinityKey<String>("RESPONSE:" + id.toString(), terminalId);
         return new ResponseKey(id, terminalId);
     }
 
@@ -62,7 +61,7 @@ public class GridDsiResponse implements Serializable {
 
         /** */
         @SuppressWarnings("UnusedDeclaration")
-        @CacheAffinityKeyMapped
+        @AffinityKeyMapped
         private String terminalId;
 
         /**

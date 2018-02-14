@@ -17,10 +17,10 @@
 
 package org.apache.ignite.mxbean;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-
-import javax.cache.management.*;
+import javax.cache.management.CacheMXBean;
+import javax.cache.management.CacheStatisticsMXBean;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMetrics;
 
 /**
  * This interface defines JMX view on {@link IgniteCache}.
@@ -96,12 +96,52 @@ public interface CacheMetricsMXBean extends CacheStatisticsMXBean, CacheMXBean, 
     public String name();
 
     /** {@inheritDoc} */
-    @MXBeanDescription("Number of entries that was swapped to disk.")
-    public long getOverflowSize();
+    @MXBeanDescription("Number of gets from off-heap memory.")
+    public long getOffHeapGets();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("Number of puts to off-heap memory.")
+    public long getOffHeapPuts();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("Number of removed entries from off-heap memory.")
+    public long getOffHeapRemovals();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("Number of evictions from off-heap memory.")
+    public long getOffHeapEvictions();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("Number of hits on off-heap memory.")
+    public long getOffHeapHits();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("Percentage of hits on off-heap memory.")
+    public float getOffHeapHitPercentage();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("Number of misses on off-heap memory.")
+    public long getOffHeapMisses();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("Percentage of misses on off-heap memory.")
+    public float getOffHeapMissPercentage();
 
     /** {@inheritDoc} */
     @MXBeanDescription("Number of entries stored in off-heap memory.")
     public long getOffHeapEntriesCount();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("Number of entries in heap memory.")
+    public long getHeapEntriesCount();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("Number of primary entries stored in off-heap memory.")
+    public long getOffHeapPrimaryEntriesCount();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("Number of backup stored in off-heap memory.")
+    public long getOffHeapBackupEntriesCount();
 
     /** {@inheritDoc} */
     @MXBeanDescription("Memory size allocated in off-heap.")
@@ -242,4 +282,24 @@ public interface CacheMetricsMXBean extends CacheStatisticsMXBean, CacheMXBean, 
     /** {@inheritDoc} */
     @MXBeanDescription("True when a cache is in write-through mode.")
     public boolean isWriteThrough();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("True when a cache topology is valid for read operations.")
+    public boolean isValidForReading();
+
+    /** {@inheritDoc} */
+    @MXBeanDescription("True when a cache topology is valid for write operations.")
+    public boolean isValidForWriting();
+
+    /**
+     * Enable statistic collection for the cache.
+     */
+    @MXBeanDescription("Enable statistic collection for the cache.")
+    public void enableStatistics();
+
+    /**
+     * Disable statistic collection for the cache.
+     */
+    @MXBeanDescription("Disable statistic collection for the cache.")
+    public void disableStatistics();
 }

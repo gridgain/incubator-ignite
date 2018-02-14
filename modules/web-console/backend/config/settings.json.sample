@@ -1,0 +1,23 @@
+{
+    "server": {
+        "port": 3000,
+        "sessionSecret": "CHANGE ME",
+        "ssl": false,
+        "key": "serve/keys/test.key",
+        "cert": "serve/keys/test.crt",
+        "keyPassphrase": "password"
+    },
+    "mongodb": {
+        "url": "mongodb://localhost/console"
+    },
+    "mail": {
+        "service": "",
+        "from": "Some Company Web Console <some_username@some_company.com>",
+        "greeting": "Some Company Web Console",
+        "sign": "Kind regards,<br>Some Company Team",
+        "auth": {
+            "user": "some_username@some_company.com",
+            "pass": ""
+        }
+    }
+}

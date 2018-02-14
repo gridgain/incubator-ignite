@@ -17,15 +17,14 @@
 
 package org.apache.ignite.util;
 
-import org.apache.ignite.testframework.junits.common.*;
-import org.jdk8.backport.*;
+import java.util.Iterator;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jsr166.ConcurrentLinkedDeque8;
 
-import java.util.*;
-
-import static org.jdk8.backport.ConcurrentLinkedDeque8.*;
+import static org.jsr166.ConcurrentLinkedDeque8.Node;
 
 /**
- * Tests for {@link ConcurrentLinkedDeque8}.
+ * Tests for {@link org.jsr166.ConcurrentLinkedDeque8}.
  */
 public class GridConcurrentLinkedDequeSelfTest extends GridCommonAbstractTest {
     /**

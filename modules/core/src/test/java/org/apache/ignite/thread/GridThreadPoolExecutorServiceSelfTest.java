@@ -17,12 +17,19 @@
 
 package org.apache.ignite.thread;
 
-import org.apache.ignite.testframework.junits.common.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
 
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static java.util.concurrent.TimeUnit.*;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Test for {@link IgniteThreadPoolExecutor}.
@@ -57,7 +64,7 @@ public class GridThreadPoolExecutorServiceSelfTest extends GridCommonAbstractTes
      * @throws Exception If failed.
      */
     public void testSingleGridThreadExecutor() throws Exception {
-        ExecutorService exec = Executors.newSingleThreadExecutor(new IgniteThreadFactory("gridName"));
+        ExecutorService exec = Executors.newSingleThreadExecutor(new IgniteThreadFactory("gridName", "testThread"));
 
         exec.submit(new InterruptingRunnable()).get();
 
@@ -78,7 +85,7 @@ public class GridThreadPoolExecutorServiceSelfTest extends GridCommonAbstractTes
      * @throws ExecutionException If failed.
      */
     public void testGridThreadPoolExecutor() throws Exception {
-        IgniteThreadPoolExecutor exec = new IgniteThreadPoolExecutor(1, 1, 0, new LinkedBlockingQueue<Runnable>());
+        IgniteThreadPoolExecutor exec = new IgniteThreadPoolExecutor("", "", 1, 1, 0, new LinkedBlockingQueue<Runnable>());
 
         exec.submit(new InterruptingRunnable()).get();
 
@@ -94,7 +101,7 @@ public class GridThreadPoolExecutorServiceSelfTest extends GridCommonAbstractTes
      * @throws ExecutionException If failed.
      */
     public void testGridThreadPoolExecutorRejection() throws Exception {
-        IgniteThreadPoolExecutor exec = new IgniteThreadPoolExecutor(1, 1, 0, new LinkedBlockingQueue<Runnable>());
+        IgniteThreadPoolExecutor exec = new IgniteThreadPoolExecutor("", "", 1, 1, 0, new LinkedBlockingQueue<Runnable>());
 
         for (int i = 0; i < 10; i++)
             exec.submit(new TestRunnable());
@@ -134,8 +141,7 @@ public class GridThreadPoolExecutorServiceSelfTest extends GridCommonAbstractTes
                         }
                     });
                 }
-            },
-            null
+            }
         );
 
         assert exec.prestartAllCoreThreads() == THREAD_CNT;

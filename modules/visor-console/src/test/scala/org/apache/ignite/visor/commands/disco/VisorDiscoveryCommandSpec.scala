@@ -40,46 +40,46 @@ class VisorDiscoveryCommandSpec extends VisorRuntimeBaseSpec(4) {
     /**
      * Creates grid configuration for provided grid host.
      *
-     * @param name Grid name.
+     * @param name Ignite instance name.
      * @return Grid configuration.
      */
     override def config(name: String): IgniteConfiguration = {
         val cfg = new IgniteConfiguration
 
-        cfg.setGridName(name)
+        cfg.setIgniteInstanceName(name)
 
         cfg
     }
 
-    behavior of  "A 'disco' visor command"
+    describe("A 'disco' visor command") {
+        it("should advise to connect") {
+            closeVisorQuiet()
 
-    it should "advise to connect" in  {
-        closeVisorQuiet()
+            visor.disco()
+        }
 
-        visor.disco()
-    }
+        it("should show all discovery events") {
+            visor.disco()
+        }
 
-    it should "show all discovery events" in  {
-        visor.disco()
-    }
+        it("should show all discovery events in reversed order") {
+            visor.disco("-r")
+        }
 
-    it should "show all discovery events in reversed order" in  {
-        visor.disco("-r")
-    }
+        it("should show discovery events from last two minutes") {
+            visor.disco("-t=2m")
+        }
 
-    it should "show discovery events from last two minutes" in {
-        visor.disco("-t=2m")
-    }
+        it("should show discovery events from last two minutes in reversed order ") {
+            visor.disco("-t=2m -r")
+        }
 
-    it should "show discovery events from last two minutes in reversed order " in {
-        visor.disco("-t=2m -r")
-    }
+        it("should show top 3 discovery events") {
+            visor.disco("-c=3")
+        }
 
-    it should "show top 3 discovery events" in  {
-        visor.disco("-c=3")
-    }
-
-    it should "print error message with invalid count" in {
-        visor.disco("-c=x")
+        it("should print error message with invalid count") {
+            visor.disco("-c=x")
+        }
     }
 }

@@ -17,34 +17,56 @@
 
 package org.apache.ignite.messaging;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.marshaller.optimized.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.config.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.junit.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.Serializable;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteMessaging;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
+import org.apache.ignite.internal.processors.continuous.StartRoutineDiscoveryMessage;
+import org.apache.ignite.internal.processors.continuous.StopRoutineDiscoveryMessage;
+import org.apache.ignite.internal.processors.marshaller.MappingAcceptedMessage;
+import org.apache.ignite.internal.processors.marshaller.MappingProposedMessage;
+import org.apache.ignite.internal.util.GridConcurrentHashSet;
+import org.apache.ignite.internal.util.typedef.P2;
+import org.apache.ignite.internal.util.typedef.PA;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.spi.discovery.DiscoverySpiCustomMessage;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.config.GridTestProperties;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assert;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.testframework.GridTestUtils.*;
+import static org.apache.ignite.testframework.GridTestUtils.assertThrows;
 
 /**
  * Various tests for Messaging public API.
  */
-public class GridMessagingSelfTest extends GridCommonAbstractTest {
+public class GridMessagingSelfTest extends GridCommonAbstractTest implements Serializable {
     /** */
     private static final String MSG_1 = "MSG-1";
 
@@ -66,11 +88,17 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
     /** */
     private static final Integer I_TOPIC_2 = 2;
 
+    /** Message count. */
+    private static AtomicInteger MSG_CNT;
+
     /** */
     public static final String EXT_RESOURCE_CLS_NAME = "org.apache.ignite.tests.p2p.TestUserResource";
 
     /** Shared IP finder. */
-    private final TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
+    private final transient TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
+
+    /** */
+    protected static CountDownLatch rcvLatch;
 
     /**
      * A test message topic.
@@ -160,6 +188,8 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
+        MSG_CNT = new AtomicInteger();
+
         ignite1 = startGrid(1);
         ignite2 = startGrid(2);
     }
@@ -173,12 +203,10 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
     }
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        ((OptimizedMarshaller)cfg.getMarshaller()).setRequireSerializable(false);
-
-        TcpDiscoverySpi discoSpi = new TcpDiscoverySpi();
+        TestTcpDiscoverySpi discoSpi = new TestTcpDiscoverySpi();
 
         discoSpi.setIpFinder(ipFinder);
 
@@ -193,7 +221,7 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
      * @throws Exception If error occurs.
      */
     public void testSendReceiveMessage() throws Exception {
-        final Collection<Object> rcvMsgs = new HashSet<>();
+        final Collection<Object> rcvMsgs = new GridConcurrentHashSet<>();
 
         final AtomicBoolean error = new AtomicBoolean(false); //to make it modifiable
 
@@ -354,7 +382,7 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
      * @throws Exception If error occurs.
      */
     public void testSendReceiveMessageWithStringTopic() throws Exception {
-        final Collection<Object> rcvMsgs = new HashSet<>();
+        final Collection<Object> rcvMsgs = new GridConcurrentHashSet<>();
 
         final AtomicBoolean error = new AtomicBoolean(false); //to make it modifiable
 
@@ -477,7 +505,7 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
      * @throws Exception If error occurs.
      */
     public void testSendReceiveMessageWithEnumTopic() throws Exception {
-        final Collection<Object> rcvMsgs = new HashSet<>();
+        final Collection<Object> rcvMsgs = new GridConcurrentHashSet<>();
 
         final AtomicBoolean error = new AtomicBoolean(false); //to make it modifiable
 
@@ -601,9 +629,9 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
      * @throws Exception If error occurs.
      */
     public void testRemoteListen() throws Exception {
-        final Collection<Object> rcvMsgs = new HashSet<>();
+        final Collection<Object> rcvMsgs = new GridConcurrentHashSet<>();
 
-        final CountDownLatch rcvLatch = new CountDownLatch(4);
+        rcvLatch = new CountDownLatch(4);
 
         ignite2.message().remoteListen(null, new P2<UUID, Object>() {
             @Override public boolean apply(UUID nodeId, Object msg) {
@@ -736,11 +764,11 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
             new TestMessage(MSG_2, 3000),
             new TestMessage(MSG_3));
 
-        final Collection<Object> rcvMsgs = new ArrayList<>(msgs.size());
+        final Collection<Object> rcvMsgs = new ConcurrentLinkedDeque<>();
 
         final AtomicBoolean error = new AtomicBoolean(false); //to make it modifiable
 
-        final CountDownLatch rcvLatch = new CountDownLatch(3);
+        rcvLatch = new CountDownLatch(3);
 
         ignite2.message().remoteListen(S_TOPIC_1, new P2<UUID, Object>() {
             @Override public boolean apply(UUID nodeId, Object msg) {
@@ -785,11 +813,11 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
      * @throws Exception If error occurs.
      */
     public void testRemoteListenWithIntTopic() throws Exception {
-        final Collection<Object> rcvMsgs = new HashSet<>();
+        final Collection<Object> rcvMsgs = new GridConcurrentHashSet<>();
 
         final AtomicBoolean error = new AtomicBoolean(false); //to make it modifiable
 
-        final CountDownLatch rcvLatch = new CountDownLatch(3);
+        rcvLatch = new CountDownLatch(3);
 
         ignite2.message().remoteListen(I_TOPIC_1, new P2<UUID, Object>() {
             @IgniteInstanceResource
@@ -924,7 +952,7 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
      * @throws Exception If error occurs.
      */
     public void testSendMessageWithExternalClassLoader() throws Exception {
-        URL[] urls = new URL[] { new URL(GridTestProperties.getProperty("p2p.uri.cls")) };
+        URL[] urls = new URL[] {new URL(GridTestProperties.getProperty("p2p.uri.cls"))};
 
         ClassLoader extLdr = new URLClassLoader(urls);
 
@@ -1005,8 +1033,10 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void testAsync() throws Exception {
+    public void testAsyncOld() throws Exception {
         final AtomicInteger msgCnt = new AtomicInteger();
+
+        TestTcpDiscoverySpi discoSpi = (TestTcpDiscoverySpi)ignite2.configuration().getDiscoverySpi();
 
         assertFalse(ignite2.message().isAsync());
 
@@ -1024,6 +1054,8 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
             }
         }, IllegalStateException.class, null);
 
+        discoSpi.blockCustomEvent();
+
         final String topic = "topic";
 
         UUID id = msg.remoteListen(topic, new P2<UUID, Object>() {
@@ -1039,9 +1071,15 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
 
         Assert.assertNull(id);
 
-        IgniteFuture<UUID> fut = msg.future();
+        IgniteFuture<UUID> starFut = msg.future();
 
-        Assert.assertNotNull(fut);
+        Assert.assertNotNull(starFut);
+
+        U.sleep(500);
+
+        Assert.assertFalse(starFut.isDone());
+
+        discoSpi.stopBlock();
 
         GridTestUtils.assertThrows(log, new Callable<Void>() {
             @Override public Void call() throws Exception {
@@ -1051,9 +1089,13 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
             }
         }, IllegalStateException.class, null);
 
-        id = fut.get();
+        id = starFut.get();
 
         Assert.assertNotNull(id);
+
+        Assert.assertTrue(starFut.isDone());
+
+        discoSpi.blockCustomEvent();
 
         message(ignite1.cluster().forRemotes()).send(topic, "msg1");
 
@@ -1079,12 +1121,219 @@ public class GridMessagingSelfTest extends GridCommonAbstractTest {
             }
         }, IllegalStateException.class, null);
 
+        U.sleep(500);
+
+        Assert.assertFalse(stopFut.isDone());
+
+        discoSpi.stopBlock();
+
         stopFut.get();
+
+        Assert.assertTrue(stopFut.isDone());
 
         message(ignite1.cluster().forRemotes()).send(topic, "msg2");
 
         U.sleep(1000);
 
         assertEquals(1, msgCnt.get());
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testAsync() throws Exception {
+        final AtomicInteger msgCnt = new AtomicInteger();
+
+        TestTcpDiscoverySpi discoSpi = (TestTcpDiscoverySpi)ignite2.configuration().getDiscoverySpi();
+
+        discoSpi.blockCustomEvent();
+
+        final String topic = "topic";
+
+        IgniteFuture<UUID> starFut = ignite2.message().remoteListenAsync(topic, new P2<UUID, Object>() {
+            @Override public boolean apply(UUID nodeId, Object msg) {
+                System.out.println(Thread.currentThread().getName() +
+                    " Listener received new message [msg=" + msg + ", senderNodeId=" + nodeId + ']');
+
+                msgCnt.incrementAndGet();
+
+                return true;
+            }
+        });
+
+        Assert.assertNotNull(starFut);
+
+        U.sleep(500);
+
+        Assert.assertFalse(starFut.isDone());
+
+        discoSpi.stopBlock();
+
+        UUID id = starFut.get();
+
+        Assert.assertNotNull(id);
+
+        Assert.assertTrue(starFut.isDone());
+
+        discoSpi.blockCustomEvent();
+
+        message(ignite1.cluster().forRemotes()).send(topic, "msg1");
+
+        GridTestUtils.waitForCondition(new PA() {
+            @Override public boolean apply() {
+                return msgCnt.get() > 0;
+            }
+        }, 5000);
+
+        assertEquals(1, msgCnt.get());
+
+        IgniteFuture<?> stopFut = ignite2.message().stopRemoteListenAsync(id);
+
+        Assert.assertNotNull(stopFut);
+
+        U.sleep(500);
+
+        Assert.assertFalse(stopFut.isDone());
+
+        discoSpi.stopBlock();
+
+        stopFut.get();
+
+        Assert.assertTrue(stopFut.isDone());
+
+        message(ignite1.cluster().forRemotes()).send(topic, "msg2");
+
+        U.sleep(1000);
+
+        assertEquals(1, msgCnt.get());
+    }
+
+    /**
+     *
+     */
+    static class TestTcpDiscoverySpi extends TcpDiscoverySpi {
+        /** */
+        private boolean blockCustomEvt;
+
+        /** */
+        private final Object mux = new Object();
+
+        /** */
+        private List<DiscoverySpiCustomMessage> blockedMsgs = new ArrayList<>();
+
+        /** {@inheritDoc} */
+        @Override public void sendCustomEvent(DiscoverySpiCustomMessage msg) throws IgniteException {
+            synchronized (mux) {
+                if (blockCustomEvt) {
+                    DiscoveryCustomMessage msg0 = GridTestUtils.getFieldValue(msg, "delegate");
+
+                    if (msg0 instanceof MappingProposedMessage || msg0 instanceof MappingAcceptedMessage){
+                        super.sendCustomEvent(msg);
+
+                        return;
+                    }
+
+                    if (msg0 instanceof StopRoutineDiscoveryMessage || msg0 instanceof StartRoutineDiscoveryMessage) {
+                        log.info("Block custom message: " + msg0);
+
+                        blockedMsgs.add(msg);
+
+                        mux.notifyAll();
+
+                        return;
+                    }
+                }
+            }
+
+            super.sendCustomEvent(msg);
+        }
+
+        /**
+         *
+         */
+        public void blockCustomEvent() {
+            synchronized (mux) {
+                assert blockedMsgs.isEmpty() : blockedMsgs;
+
+                blockCustomEvt = true;
+            }
+        }
+
+        /**
+         * @throws InterruptedException If interrupted.
+         */
+        public void waitCustomEvent() throws InterruptedException {
+            synchronized (mux) {
+                while (blockedMsgs.isEmpty())
+                    mux.wait();
+            }
+        }
+
+        /**
+         *
+         */
+        public void stopBlock() {
+            List<DiscoverySpiCustomMessage> msgs;
+
+            synchronized (this) {
+                msgs = new ArrayList<>(blockedMsgs);
+
+                blockCustomEvt = false;
+
+                blockedMsgs.clear();
+            }
+
+            for (DiscoverySpiCustomMessage msg : msgs) {
+                log.info("Resend blocked message: " + msg);
+
+                super.sendCustomEvent(msg);
+            }
+        }
+    }
+
+    /**
+     * Tests that message listener registers only for one oldest node.
+     *
+     * @throws Exception If an error occurred.
+     */
+    public void testRemoteListenForOldest() throws Exception {
+        remoteListenForOldest(ignite1);
+
+        // Restart oldest node.
+        stopGrid(1);
+
+        ignite1 = startGrid(1);
+
+        MSG_CNT.set(0);
+
+        // Ignite2 is oldest now.
+        remoteListenForOldest(ignite2);
+    }
+
+    /**
+     * @param expOldestIgnite Expected oldest ignite.
+     * @throws InterruptedException If failed.
+     */
+    private void remoteListenForOldest(Ignite expOldestIgnite) throws InterruptedException {
+        ClusterGroup grp = ignite1.cluster().forOldest();
+
+        assertEquals(1, grp.nodes().size());
+        assertEquals(expOldestIgnite.cluster().localNode().id(), grp.node().id());
+
+        ignite1.message(grp).remoteListen(null, new P2<UUID, Object>() {
+            @Override public boolean apply(UUID nodeId, Object msg) {
+                System.out.println("Received new message [msg=" + msg + ", senderNodeId=" + nodeId + ']');
+
+                MSG_CNT.incrementAndGet();
+
+                return true;
+            }
+        });
+
+        ignite1.message().send(null, MSG_1);
+
+        Thread.sleep(3000);
+
+        assertEquals(1, MSG_CNT.get());
     }
 }

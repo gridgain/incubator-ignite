@@ -17,26 +17,28 @@
 
 package org.apache.ignite.examples.datastructures;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.examples.datagrid.*;
-import org.apache.ignite.lang.*;
+import java.util.UUID;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteSet;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.CollectionConfiguration;
+import org.apache.ignite.examples.ExampleNodeStartup;
+import org.apache.ignite.lang.IgniteRunnable;
 
-import java.util.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Ignite cache distributed set example.
  * <p>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-cache.xml'}.
+ * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link CacheNodeStartup} in another JVM which will
- * start node with {@code examples/config/example-cache.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will
+ * start node with {@code examples/config/example-ignite.xml} configuration.
  */
 public class IgniteSetExample {
-    /** Cache name. */
-    private static final String CACHE_NAME = "partitioned_tx";
-
     /** Set instance. */
     private static IgniteSet<String> set;
 
@@ -47,7 +49,7 @@ public class IgniteSetExample {
      * @throws Exception If example execution failed.
      */
     public static void main(String[] args) throws Exception {
-        try (Ignite ignite = Ignition.start("examples/config/example-cache.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             System.out.println();
             System.out.println(">>> Ignite set example started.");
 
@@ -75,7 +77,8 @@ public class IgniteSetExample {
     private static IgniteSet<String> initializeSet(Ignite ignite, String setName) throws IgniteException {
         CollectionConfiguration setCfg = new CollectionConfiguration();
 
-        setCfg.setCacheName(CACHE_NAME);
+        setCfg.setAtomicityMode(TRANSACTIONAL);
+        setCfg.setCacheMode(PARTITIONED);
 
         // Initialize new set.
         IgniteSet<String> set = ignite.set(setName, setCfg);

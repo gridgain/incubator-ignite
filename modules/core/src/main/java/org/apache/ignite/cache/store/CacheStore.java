@@ -17,15 +17,17 @@
 
 package org.apache.ignite.cache.store;
 
-import org.apache.ignite.cache.store.jdbc.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.transactions.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.integration.*;
-import java.util.*;
-
-import static javax.cache.Cache.*;
+import java.util.Collection;
+import javax.cache.integration.CacheLoader;
+import javax.cache.integration.CacheLoaderException;
+import javax.cache.integration.CacheWriter;
+import javax.cache.integration.CacheWriterException;
+import org.apache.ignite.cache.store.jdbc.CacheJdbcBlobStore;
+import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionState;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * API for cache persistent storage for read-through and write-through behavior.
@@ -37,7 +39,7 @@ import static javax.cache.Cache.*;
  * such as {@link #loadAll(Iterable)},
  * {@link #writeAll(Collection)}, and {@link #deleteAll(Collection)}
  * by sequentially calling corresponding {@link #load(Object)},
- * {@link #write(Entry)}, and {@link #delete(Object)}
+ * {@link #write(javax.cache.Cache.Entry)}, and {@link #delete(Object)}
  * operations. Use this adapter whenever such behaviour is acceptable. However
  * in many cases it maybe more preferable to take advantage of database batch update
  * functionality, and therefore default adapter implementation may not be the best option.
@@ -96,6 +98,8 @@ public interface CacheStore<K, V> extends CacheLoader<K, V>, CacheWriter<K, V> {
      * @throws CacheWriterException If commit or rollback failed. Note that commit failure in some cases
      *      may bring cache transaction into {@link TransactionState#UNKNOWN} which will
      *      consequently cause all transacted entries to be invalidated.
+     * @deprecated Use {@link CacheStoreSessionListener} instead (refer to its JavaDoc for details).
      */
-    public void txEnd(boolean commit) throws CacheWriterException;
+    @Deprecated
+    public void sessionEnd(boolean commit) throws CacheWriterException;
 }

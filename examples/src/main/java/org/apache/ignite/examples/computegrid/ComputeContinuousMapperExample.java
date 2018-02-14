@@ -17,15 +17,27 @@
 
 package org.apache.ignite.examples.computegrid;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.examples.*;
-import org.apache.ignite.resources.*;
-
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeJobAdapter;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.compute.ComputeJobResultPolicy;
+import org.apache.ignite.compute.ComputeTask;
+import org.apache.ignite.compute.ComputeTaskAdapter;
+import org.apache.ignite.compute.ComputeTaskContinuousMapper;
+import org.apache.ignite.compute.ComputeTaskNoResultCache;
+import org.apache.ignite.examples.ExampleNodeStartup;
+import org.apache.ignite.resources.TaskContinuousMapperResource;
 
 /**
  * Demonstrates usage of continuous mapper. With continuous mapper
@@ -33,17 +45,17 @@ import java.util.concurrent.atomic.*;
  * initial {@link ComputeTask#map(List, Object)} method completes.
  * <p>
  * String "Hello Continuous Mapper" is passed as an argument for execution
- * of {@link ContinuousMapperTask}. As an outcome, participating
+ * of {@link ComputeContinuousMapperExample.ContinuousMapperTask}. As an outcome, participating
  * nodes will print out a single word from the passed in string and return
  * number of characters in that word. However, to demonstrate continuous
  * mapping, next word will be mapped to a node only after the result from
  * previous word has been received.
  * <p>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-compute.xml'}.
+ * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link ComputeNodeStartup} in another JVM which will start node
- * with {@code examples/config/example-compute.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will start node
+ * with {@code examples/config/example-ignite.xml} configuration.
  */
 public class ComputeContinuousMapperExample {
     /**
@@ -56,7 +68,7 @@ public class ComputeContinuousMapperExample {
         System.out.println();
         System.out.println(">>> Compute continuous mapper example started.");
 
-        try (Ignite ignite = Ignition.start("examples/config/example-compute.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             int phraseLen = ignite.compute().execute(ContinuousMapperTask.class, "Hello Continuous Mapper");
 
             System.out.println();

@@ -17,17 +17,15 @@
 
 package org.apache.ignite.visor.commands.cache
 
-import org.apache.ignite.cache.{CacheMode, CacheAtomicityMode}
+import org.apache.ignite.cache.{CacheAtomicityMode, CacheMode}
 import CacheAtomicityMode._
 import CacheMode._
 import org.apache.ignite.visor.{VisorRuntimeBaseSpec, visor}
-
 import org.apache.ignite.Ignition
 import org.apache.ignite.configuration.{CacheConfiguration, IgniteConfiguration}
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder
-import org.jetbrains.annotations.Nullable
-
+import org.jetbrains.annotations.{NotNull, Nullable}
 import org.apache.ignite.visor.commands.cache.VisorCacheCommand._
 
 import scala.collection.JavaConversions._
@@ -42,15 +40,15 @@ class VisorCacheClearCommandSpec extends VisorRuntimeBaseSpec(2) {
     /**
      * Creates grid configuration for provided grid host.
      *
-     * @param name Grid name.
+     * @param name Ignite instance name.
      * @return Grid configuration.
      */
     override def config(name: String): IgniteConfiguration = {
         val cfg = new IgniteConfiguration
 
-        cfg.setGridName(name)
+        cfg.setIgniteInstanceName(name)
         cfg.setLocalHost("127.0.0.1")
-        cfg.setCacheConfiguration(cacheConfig(null), cacheConfig("cache"))
+        cfg.setCacheConfiguration(cacheConfig("cache"))
 
         val discoSpi = new TcpDiscoverySpi()
 
@@ -65,7 +63,7 @@ class VisorCacheClearCommandSpec extends VisorRuntimeBaseSpec(2) {
      * @param name Cache name.
      * @return Cache Configuration.
      */
-    def cacheConfig(@Nullable name: String): CacheConfiguration[Object, Object] = {
+    def cacheConfig(@NotNull name: String): CacheConfiguration[Object, Object] = {
         val cfg = new CacheConfiguration[Object, Object]
 
         cfg.setCacheMode(REPLICATED)
@@ -75,43 +73,29 @@ class VisorCacheClearCommandSpec extends VisorRuntimeBaseSpec(2) {
         cfg
     }
 
-    behavior of "An 'cclear' visor command"
+    describe("An 'cclear' visor command") {
+        it("should show correct result for named cache") {
+            Ignition.ignite("node-1").cache[Int, Int]("cache").putAll(Map(1 -> 1, 2 -> 2, 3 -> 3))
 
-    it should "show correct result for default cache" in {
-        Ignition.ignite("node-1").jcache[Int, Int](null).putAll(Map(1 -> 1, 2 -> 2, 3 -> 3))
+            val lock = Ignition.ignite("node-1").cache[Int, Int]("cache").lock(1)
 
-        val lock = Ignition.ignite("node-1").jcache[Int, Int](null).lock(1)
+            lock.lock()
 
-        lock.lock()
+            visor.cache("-clear -c=cache")
 
-        VisorCacheClearCommand().clear(Nil, None)
+            lock.unlock()
 
-        lock.unlock()
+            visor.cache("-clear -c=cache")
+        }
 
-        VisorCacheClearCommand().clear(Nil, None)
-    }
+        it("should show correct help") {
+            VisorCacheCommand
 
-    it should "show correct result for named cache" in {
-        Ignition.ignite("node-1").jcache[Int, Int]("cache").putAll(Map(1 -> 1, 2 -> 2, 3 -> 3))
+            visor.help("cache")
+        }
 
-        val lock = Ignition.ignite("node-1").jcache[Int, Int]("cache").lock(1)
-
-        lock.lock()
-
-        visor.cache("-clear -c=cache")
-
-        lock.unlock()
-
-        visor.cache("-clear -c=cache")
-    }
-
-    it should "show correct help" in {
-        VisorCacheCommand
-
-        visor.help("cache")
-    }
-
-    it should "show empty projection error message" in {
-        visor.cache("-clear -c=wrong")
+        it("should show empty projection error message") {
+            visor.cache("-clear -c=wrong")
+        }
     }
 }

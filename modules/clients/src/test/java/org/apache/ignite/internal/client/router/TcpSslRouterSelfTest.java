@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.client.router;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.client.ssl.*;
-import org.apache.ignite.testframework.*;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.client.ssl.GridSslContextFactory;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testsuites.IgniteIgnore;
 
 /**
  *
  */
+@IgniteIgnore(value = "https://issues.apache.org/jira/browse/IGNITE-433", forceFailure = true)
 public class TcpSslRouterSelfTest extends TcpRouterAbstractSelfTest {
     /** {@inheritDoc} */
     @Override protected boolean useSsl() {

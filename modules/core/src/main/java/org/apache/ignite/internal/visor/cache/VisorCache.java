@@ -17,34 +17,46 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.*;
-import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.*;
-import org.apache.ignite.internal.processors.cache.distributed.near.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorDataTransferObject;
+import org.apache.ignite.lang.IgniteUuid;
 
-import java.io.*;
-import java.util.*;
+import static org.apache.ignite.cache.CachePeekMode.ONHEAP;
+import static org.apache.ignite.cache.CachePeekMode.PRIMARY;
+import static org.apache.ignite.cache.CachePeekMode.BACKUP;
 
 /**
  * Data transfer object for {@link IgniteCache}.
  */
-public class VisorCache implements Serializable {
+public class VisorCache extends VisorDataTransferObject {
     /** */
     private static final long serialVersionUID = 0L;
 
-    /** Default cache size sampling. */
-    private static final int DFLT_CACHE_SIZE_SAMPLING = 10;
+    /** */
+    private static final CachePeekMode[] PEEK_ONHEAP_PRIMARY =
+        new CachePeekMode[] {ONHEAP, PRIMARY};
+
+    /** */
+    private static final CachePeekMode[] PEEK_ONHEAP_BACKUP =
+        new CachePeekMode[] {ONHEAP, BACKUP};
 
     /** Cache name. */
     private String name;
+
+    /** Cache deployment ID. */
+    private IgniteUuid dynamicDeploymentId;
 
     /** Cache mode. */
     private CacheMode mode;
@@ -52,318 +64,258 @@ public class VisorCache implements Serializable {
     /** Cache size in bytes. */
     private long memorySize;
 
+    /** Cache size in bytes. */
+    private long indexesSize;
+
     /** Number of all entries in cache. */
-    private int size;
+    private long size;
 
     /** Number of all entries in near cache. */
     private int nearSize;
 
-    /** Number of all entries in DHT cache. */
-    private int dhtSize;
-
     /** Number of primary entries in cache. */
-    private int primarySize;
+    private long primarySize;
 
-    /** Memory size allocated in off-heap. */
-    private long offHeapAllocatedSize;
-
-    /** Number of cache entries stored in off-heap memory. */
-    private long offHeapEntriesCnt;
-
-    /** Size in bytes for swap space. */
-    private long swapSize;
-
-    /** Number of cache entries stored in swap space. */
-    private long swapKeys;
+    /** Number of backup entries in cache. */
+    private long backupSize;
 
     /** Number of partitions. */
     private int partitions;
 
-    /** Primary partitions IDs with sizes. */
-    private Collection<IgnitePair<Integer>> primaryPartitions;
-
-    /** Backup partitions IDs with sizes. */
-    private Collection<IgnitePair<Integer>> backupPartitions;
+    /** Flag indicating that cache has near cache. */
+    private boolean near;
 
     /** Cache metrics. */
     private VisorCacheMetrics metrics;
 
-    /** Cache partitions states. */
-    private GridDhtPartitionMap partitionsMap;
+    /** Cache system state. */
+    private boolean sys;
 
     /**
-     * @param ignite Grid.
-     * @param c Actual cache.
-     * @param sample Sample size.
-     * @return Data transfer object for given cache.
-     * @throws IgniteCheckedException
+     * Create data transfer object for given cache.
      */
-    public static VisorCache from(Ignite ignite, GridCache c, int sample) throws IgniteCheckedException {
-        assert ignite != null;
-        assert c != null;
-
-        String cacheName = c.name();
-
-        GridCacheAdapter ca = ((IgniteKernal)ignite).internalCache(cacheName);
-
-        long swapSize;
-        long swapKeys;
-
-        try {
-            swapSize = ca.swapSize();
-            swapKeys = ca.swapKeys();
-        }
-        catch (IgniteCheckedException ignored) {
-            swapSize = -1;
-            swapKeys = -1;
-        }
-
-        Collection<IgnitePair<Integer>> pps = Collections.emptyList();
-        Collection<IgnitePair<Integer>> bps = Collections.emptyList();
-        GridDhtPartitionMap partsMap = null;
-
-        CacheConfiguration cfg = ca.configuration();
-
-        CacheMode mode = cfg.getCacheMode();
-
-        boolean partitioned = (mode == CacheMode.PARTITIONED || mode == CacheMode.REPLICATED)
-            && cfg.getDistributionMode() != CacheDistributionMode.CLIENT_ONLY;
-
-        if (partitioned) {
-            GridDhtCacheAdapter dca = null;
-
-            if (ca instanceof GridNearCacheAdapter)
-                dca = ((GridNearCacheAdapter)ca).dht();
-            else if (ca instanceof GridDhtCacheAdapter)
-                dca = (GridDhtCacheAdapter)ca;
-
-            if (dca != null) {
-                GridDhtPartitionTopology top = dca.topology();
-
-                if (cfg.getCacheMode() != CacheMode.LOCAL && cfg.getBackups() > 0)
-                    partsMap = top.localPartitionMap();
-
-                List<GridDhtLocalPartition> parts = top.localPartitions();
-
-                pps = new ArrayList<>(parts.size());
-                bps = new ArrayList<>(parts.size());
-
-                for (GridDhtLocalPartition part : parts) {
-                    int p = part.id();
-
-                    int sz = part.size();
-
-                    if (part.primary(-1)) // Pass -1 as topology version in order not to wait for topology version.
-                        pps.add(new IgnitePair<>(p, sz));
-                    else
-                        bps.add(new IgnitePair<>(p, sz));
-                }
-            }
-            else {
-                // Old way of collecting partitions info.
-                ClusterNode node = ignite.cluster().localNode();
-
-                int[] pp = ca.affinity().primaryPartitions(node);
-
-                pps = new ArrayList<>(pp.length);
-
-                for (int p : pp) {
-                    Set set = ca.entrySet(p);
-
-                    pps.add(new IgnitePair<>(p, set != null ? set.size() : 0));
-                }
-
-                int[] bp = ca.affinity().backupPartitions(node);
-
-                bps = new ArrayList<>(bp.length);
-
-                for (int p : bp) {
-                    Set set = ca.entrySet(p);
-
-                    bps.add(new IgnitePair<>(p, set != null ? set.size() : 0));
-                }
-            }
-        }
-
-        int size = ca.size();
-        int near = ca.nearSize();
-
-        Set<GridCacheEntryEx> set = ca.map().entries0();
-
-        long memSz = 0;
-
-        Iterator<GridCacheEntryEx> it = set.iterator();
-
-        int sz = sample > 0 ? sample : DFLT_CACHE_SIZE_SAMPLING;
-
-        int cnt = 0;
-
-        while (it.hasNext() && cnt < sz) {
-            memSz += it.next().memorySize();
-
-            cnt++;
-        }
-
-        if (cnt > 0)
-            memSz = (long)((double)memSz / cnt * size);
-
-        VisorCache cache = new VisorCache();
-
-        cache.name = cacheName;
-        cache.mode = mode;
-        cache.memorySize = memSz;
-        cache.size = size;
-        cache.nearSize = near;
-        cache.dhtSize = size - near;
-        cache.primarySize = ca.primarySize();
-        cache.offHeapAllocatedSize = ca.offHeapAllocatedSize();
-        cache.offHeapEntriesCnt = ca.offHeapEntriesCount();
-        cache.swapSize = swapSize;
-        cache.swapKeys = swapKeys;
-        cache.partitions = ca.affinity().partitions();
-        cache.primaryPartitions = pps;
-        cache.backupPartitions = bps;
-        cache.metrics = VisorCacheMetrics.from(ca);
-        cache.partitionsMap = partsMap;
-
-        return cache;
+    public VisorCache() {
+        // No-op.
     }
 
     /**
-     * @return New instance suitable to store in history.
+     * Create data transfer object for given cache.
+     *
+     * @param ca Internal cache.
+     * @param collectMetrics Collect cache metrics flag.
+     * @throws IgniteCheckedException If failed to create data transfer object.
      */
-    public VisorCache history() {
-        VisorCache c = new VisorCache();
+    public VisorCache(IgniteEx ignite, GridCacheAdapter ca, boolean collectMetrics) throws IgniteCheckedException {
+        assert ca != null;
 
-        c.name = name;
-        c.mode = mode;
-        c.memorySize = memorySize;
-        c.size = size;
-        c.nearSize = nearSize;
-        c.dhtSize = dhtSize;
-        c.primarySize = primarySize;
-        c.offHeapAllocatedSize = offHeapAllocatedSize;
-        c.offHeapEntriesCnt = offHeapEntriesCnt;
-        c.swapSize = swapSize;
-        c.swapKeys = swapKeys;
-        c.partitions = partitions;
-        c.primaryPartitions = Collections.emptyList();
-        c.backupPartitions = Collections.emptyList();
-        c.metrics = metrics;
+        GridCacheContext cctx = ca.context();
+        CacheConfiguration cfg = ca.configuration();
 
-        return c;
+        name = ca.name();
+        dynamicDeploymentId = cctx.dynamicDeploymentId();
+        mode = cfg.getCacheMode();
+
+        primarySize = ca.localSizeLong(PEEK_ONHEAP_PRIMARY);
+        backupSize = ca.localSizeLong(PEEK_ONHEAP_BACKUP);
+        nearSize = ca.nearSize();
+        size = primarySize + backupSize + nearSize;
+        
+        partitions = ca.affinity().partitions();
+        near = cctx.isNear();
+
+        if (collectMetrics)
+            metrics = new VisorCacheMetrics(ignite, name);
+
+        sys = ignite.context().cache().systemCache(name);
     }
 
     /**
      * @return Cache name.
      */
-    public String name() {
+    public String getName() {
         return name;
+    }
+
+    /**
+     * Sets new value for cache name.
+     *
+     * @param name New cache name.
+     */
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    /**
+     * @return Dynamic deployment ID.
+     */
+    public IgniteUuid getDynamicDeploymentId() {
+        return dynamicDeploymentId;
     }
 
     /**
      * @return Cache mode.
      */
-    public CacheMode mode() {
+    public CacheMode getMode() {
         return mode;
     }
 
     /**
      * @return Cache size in bytes.
      */
-    public long memorySize() {
+    public long getMemorySize() {
         return memorySize;
+    }
+
+    /**
+     * @return Indexes size in bytes.
+     */
+    public long getIndexesSize() {
+        return indexesSize;
     }
 
     /**
      * @return Number of all entries in cache.
      */
-    public int size() {
+    public long getSize() {
         return size;
     }
 
     /**
      * @return Number of all entries in near cache.
      */
-    public int nearSize() {
+    public int getNearSize() {
         return nearSize;
     }
 
     /**
-     * @return Number of all entries in DHT cache.
+     * @return Number of backup entries in cache.
      */
-    public int dhtSize() {
-        return dhtSize;
+    public long getBackupSize() {
+        return backupSize;
     }
 
     /**
      * @return Number of primary entries in cache.
      */
-    public int primarySize() {
+    public long getPrimarySize() {
         return primarySize;
+    }
+
+    /**
+     * @return Number of partitions.
+     */
+    public int getPartitions() {
+        return partitions;
+    }
+
+    /**
+     * @return Cache metrics.
+     */
+    public VisorCacheMetrics getMetrics() {
+        return metrics;
+    }
+
+    /**
+     * @param metrics Cache metrics.
+     */
+    public void setMetrics(VisorCacheMetrics metrics) {
+        this.metrics = metrics;
+    }
+
+    /**
+     * @return {@code true} if cache has near cache.
+     */
+    public boolean isNear() {
+        return near;
+    }
+
+    /**
+     * @return System cache flag.
+     */
+    public boolean isSystem() {
+        return sys;
+    }
+
+    /**
+     * @return Number of entries in cache in heap and off-heap.
+     */
+    public long size() {
+        return size + (metrics != null ? metrics.getOffHeapEntriesCount() : 0L);
     }
 
     /**
      * @return Memory size allocated in off-heap.
      */
     public long offHeapAllocatedSize() {
-        return offHeapAllocatedSize;
+        return metrics != null ? metrics.getOffHeapAllocatedSize() : 0L;
+    }
+
+    /**
+     * @return Number of entries in heap memory.
+     */
+    public long heapEntriesCount() {
+        return metrics != null ? metrics.getHeapEntriesCount() : 0L;
+    }
+
+    /**
+     * @return Number of primary cache entries stored in off-heap memory.
+     */
+    public long offHeapPrimaryEntriesCount() {
+        return metrics != null ? metrics.getOffHeapPrimaryEntriesCount() : 0L;
+    }
+
+    /**
+     * @return Number of backup cache entries stored in off-heap memory.
+     */
+    public long offHeapBackupEntriesCount() {
+        return metrics != null ? metrics.getOffHeapBackupEntriesCount() : 0L;
     }
 
     /**
      * @return Number of cache entries stored in off-heap memory.
      */
     public long offHeapEntriesCount() {
-        return offHeapEntriesCnt;
+        return metrics != null ? metrics.getOffHeapEntriesCount() : 0L;
     }
 
-    /**
-     * @return Size in bytes for swap space.
-     */
-    public long swapSize() {
-        return swapSize;
+    /** {@inheritDoc} */
+    @Override public byte getProtocolVersion() {
+        return V2;
     }
 
-    /**
-     * @return Number of cache entries stored in swap space.
-     */
-    public long swapKeys() {
-        return swapKeys;
+    /** {@inheritDoc} */
+    @Override protected void writeExternalData(ObjectOutput out) throws IOException {
+        U.writeString(out, name);
+        U.writeGridUuid(out, dynamicDeploymentId);
+        U.writeEnum(out, mode);
+        out.writeLong(memorySize);
+        out.writeLong(indexesSize);
+        out.writeLong(size);
+        out.writeInt(nearSize);
+        out.writeLong(primarySize);
+        out.writeLong(backupSize);
+        out.writeInt(partitions);
+        out.writeBoolean(near);
+        out.writeObject(metrics);
+        out.writeBoolean(sys);
     }
 
-    /**
-     * @return Number of partitions.
-     */
-    public int partitions() {
-        return partitions;
-    }
+    /** {@inheritDoc} */
+    @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
+        name = U.readString(in);
+        dynamicDeploymentId = U.readGridUuid(in);
+        mode = CacheMode.fromOrdinal(in.readByte());
+        memorySize = in.readLong();
+        indexesSize = in.readLong();
+        size = in.readLong();
+        nearSize = in.readInt();
+        primarySize = in.readLong();
+        backupSize = in.readLong();
+        partitions = in.readInt();
+        near = in.readBoolean();
+        metrics = (VisorCacheMetrics)in.readObject();
 
-    /**
-     * @return Primary partitions IDs with sizes.
-     */
-    public Collection<IgnitePair<Integer>> primaryPartitions() {
-        return primaryPartitions;
-    }
-
-    /**
-     * @return Backup partitions IDs with sizes.
-     */
-    public Collection<IgnitePair<Integer>> backupPartitions() {
-        return backupPartitions;
-    }
-
-    /**
-     * @return Cache metrics.
-     */
-    public VisorCacheMetrics metrics() {
-        return metrics;
-    }
-
-    /**
-     * @return Cache partitions states.
-     */
-    @Nullable public GridDhtPartitionMap partitionMap() {
-        return partitionsMap;
+        sys = protoVer > V1 ? in.readBoolean() : metrics != null && metrics.isSystem();
     }
 
     /** {@inheritDoc} */

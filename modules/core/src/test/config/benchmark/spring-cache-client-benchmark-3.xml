@@ -69,14 +69,13 @@
 
                     <property name="cacheMode" value="PARTITIONED"/>
 
-                    <!-- Initial cache size. -->
-                    <property name="startSize" value="10000"/>
-
                     <property name="swapEnabled" value="false"/>
 
                     <property name="writeSynchronizationMode" value="FULL_ASYNC"/>
 
-                    <property name="distributionMode" value="NEAR_PARTITIONED"/>
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration" />
+                    </property>
 
                     <!--
                         This shows how to configure number of backups. The below configuration

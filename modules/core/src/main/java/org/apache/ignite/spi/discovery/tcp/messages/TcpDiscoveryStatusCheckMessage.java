@@ -17,11 +17,10 @@
 
 package org.apache.ignite.spi.discovery.tcp.messages;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.internal.*;
-
-import java.io.*;
-import java.util.*;
+import java.util.UUID;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 
 /**
  * Message sent by node to its next to ensure that next node and
@@ -42,20 +41,13 @@ public class TcpDiscoveryStatusCheckMessage extends TcpDiscoveryAbstractMessage 
     public static final int STATUS_RECON = 2;
 
     /** Creator node. */
-    private TcpDiscoveryNode creatorNode;
+    private final TcpDiscoveryNode creatorNode;
 
     /** Failed node id. */
-    private UUID failedNodeId;
+    private final UUID failedNodeId;
 
     /** Creator node status (initialized by coordinator). */
     private int status;
-
-    /**
-     * Public default no-arg constructor for {@link Externalizable} interface.
-     */
-    public TcpDiscoveryStatusCheckMessage() {
-        // No-op.
-    }
 
     /**
      * Constructor.
@@ -68,6 +60,17 @@ public class TcpDiscoveryStatusCheckMessage extends TcpDiscoveryAbstractMessage 
 
         this.creatorNode = creatorNode;
         this.failedNodeId = failedNodeId;
+    }
+
+    /**
+     * @param msg Message to copy.
+     */
+    public TcpDiscoveryStatusCheckMessage(TcpDiscoveryStatusCheckMessage msg) {
+        super(msg);
+
+        this.creatorNode = msg.creatorNode;
+        this.failedNodeId = msg.failedNodeId;
+        this.status = msg.status;
     }
 
     /**
@@ -107,21 +110,18 @@ public class TcpDiscoveryStatusCheckMessage extends TcpDiscoveryAbstractMessage 
     }
 
     /** {@inheritDoc} */
-    @Override public void writeExternal(ObjectOutput out) throws IOException {
-        super.writeExternal(out);
+    @Override public boolean equals(Object obj) {
+        // NOTE!
+        // Do not call super. As IDs will differ, but we can ignore this.
 
-        out.writeObject(creatorNode);
-        U.writeUuid(out, failedNodeId);
-        out.writeInt(status);
-    }
+        if (!(obj instanceof TcpDiscoveryStatusCheckMessage))
+            return false;
 
-    /** {@inheritDoc} */
-    @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        super.readExternal(in);
+        TcpDiscoveryStatusCheckMessage other = (TcpDiscoveryStatusCheckMessage)obj;
 
-        creatorNode = (TcpDiscoveryNode)in.readObject();
-        failedNodeId = U.readUuid(in);
-        status = in.readInt();
+        return F.eqNodes(other.creatorNode, creatorNode) &&
+            F.eq(other.failedNodeId, failedNodeId) &&
+            status == other.status;
     }
 
     /** {@inheritDoc} */

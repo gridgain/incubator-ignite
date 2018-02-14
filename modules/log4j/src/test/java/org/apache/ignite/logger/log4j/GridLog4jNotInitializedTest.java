@@ -17,9 +17,9 @@
 
 package org.apache.ignite.logger.log4j;
 
-import junit.framework.*;
-import org.apache.ignite.*;
-import org.apache.ignite.testframework.junits.common.*;
+import junit.framework.TestCase;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
 
 /**
  * Log4j not initialized test.
@@ -29,6 +29,11 @@ public class GridLog4jNotInitializedTest extends TestCase {
     /** */
     public void testLogInitialize() {
         IgniteLogger log = new Log4JLogger().getLogger(GridLog4jNotInitializedTest.class);
+
+        System.out.println(log.toString());
+
+        assertTrue(log.toString().contains("Log4JLogger"));
+        assertTrue(log.toString().contains("config=null"));
 
         if (log.isDebugEnabled())
             log.debug("This is 'debug' message.");

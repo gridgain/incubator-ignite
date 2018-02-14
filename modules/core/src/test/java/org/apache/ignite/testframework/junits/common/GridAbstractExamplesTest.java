@@ -17,10 +17,9 @@
 
 package org.apache.ignite.testframework.junits.common;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.FileReader;
+import java.util.Properties;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Base class for examples test.
@@ -36,7 +35,7 @@ public abstract class GridAbstractExamplesTest extends GridCommonAbstractTest {
     protected static final String RMT_NODE_CFGS = "modules/core/src/test/config/examples.properties";
 
     /** */
-    protected static final String DFLT_CFG = "examples/config/example-compute.xml";
+    protected static final String DFLT_CFG = "examples/config/example-ignite.xml";
 
     /** */
     private static final Properties rmtCfgs = new Properties();
@@ -67,7 +66,7 @@ public abstract class GridAbstractExamplesTest extends GridCommonAbstractTest {
         info("Config for remote nodes [name=" + name + ", cfg=" + cfg + ", dflt=" + defaultConfig() + "]");
 
         for (int i = 0; i < RMT_NODES_CNT; i++)
-            startGrid(getTestGridName(i), cfg);
+            startGrid(getTestIgniteInstanceName(i), cfg);
     }
 
     /**

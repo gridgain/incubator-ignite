@@ -17,26 +17,29 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.marshaller.optimized.*;
-import org.apache.ignite.resources.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.util.typedef.CX1;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
 
-import java.util.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
+import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 
 /**
  * Tests cache access from within jobs.
@@ -52,8 +55,8 @@ public abstract class GridCacheAbstractJobExecutionTest extends GridCommonAbstra
     private static final int GRID_CNT = 4;
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         TcpDiscoverySpi disco = new TcpDiscoverySpi();
 
@@ -61,14 +64,12 @@ public abstract class GridCacheAbstractJobExecutionTest extends GridCommonAbstra
 
         cfg.setDiscoverySpi(disco);
 
-        cfg.setMarshaller(new OptimizedMarshaller(false));
-
         return cfg;
     }
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        startGrids(GRID_CNT);
+        startGridsMultiThreaded(GRID_CNT, true);
     }
 
     /** {@inheritDoc} */
@@ -78,14 +79,23 @@ public abstract class GridCacheAbstractJobExecutionTest extends GridCommonAbstra
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        grid(0).jcache(null).removeAll();
+        grid(0).cache(DEFAULT_CACHE_NAME).removeAll();
 
         for (int i = 0; i < GRID_CNT; i++) {
             Ignite g = grid(i);
 
-            IgniteCache<String, int[]> c = g.jcache(null);
+            IgniteCache<String, int[]> c = g.cache(DEFAULT_CACHE_NAME);
 
-            assertEquals("Cache is not empty, node: " + g.name(), 0, c.size());
+            GridCacheAdapter<Object, Object> cache = ((IgniteEx)g).context().cache().internalCache(DEFAULT_CACHE_NAME);
+
+            info("Node: " + g.cluster().localNode().id());
+            info("Entries: " + cache.entries());
+
+            if (cache.context().isNear())
+                info("DHT entries: " + cache.context().near().dht().entries());
+
+            assertEquals("Cache is not empty, node [entries=" + c.localEntries() + ", igniteInstanceName=" +
+                    g.name() + ']', 0, c.localSize());
         }
     }
 
@@ -109,9 +119,11 @@ public abstract class GridCacheAbstractJobExecutionTest extends GridCommonAbstra
      * @param jobCnt Job count.
      * @throws Exception If fails.
      */
-    private void checkTransactions(final TransactionConcurrency concur, final TransactionIsolation isolation,
-        final int jobCnt) throws Exception {
-
+    private void checkTransactions(
+        final TransactionConcurrency concur,
+        final TransactionIsolation isolation,
+        final int jobCnt
+    ) throws Exception {
         info("Grid 0: " + grid(0).localNode().id());
         info("Grid 1: " + grid(1).localNode().id());
         info("Grid 2: " + grid(2).localNode().id());
@@ -119,27 +131,29 @@ public abstract class GridCacheAbstractJobExecutionTest extends GridCommonAbstra
 
         Ignite ignite = grid(0);
 
-        Collection<ComputeTaskFuture<?>> futs = new LinkedList<>();
+        Collection<IgniteFuture<?>> futs = new LinkedList<>();
 
-        IgniteCompute comp = ignite.compute().withAsync();
+        final String key = "TestKey";
+
+        info("Primary node for test key: " + grid(0).affinity(DEFAULT_CACHE_NAME).mapKeyToNode(key));
 
         for (int i = 0; i < jobCnt; i++) {
-            comp.apply(new CX1<Integer, Void>() {
+            futs.add(ignite.compute().applyAsync(new CX1<Integer, Void>() {
                 @IgniteInstanceResource
                 private Ignite ignite;
 
                 @Override public Void applyx(final Integer i) {
-                    IgniteCache<String, int[]> cache = ignite.jcache(null);
+                    IgniteCache<String, int[]> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
                     try (Transaction tx = ignite.transactions().txStart(concur, isolation)) {
-                        int[] arr = cache.get("TestKey");
+                        int[] arr = cache.get(key);
 
                         if (arr == null)
                             arr = new int[jobCnt];
 
                         arr[i] = 1;
 
-                        cache.put("TestKey", arr);
+                        cache.put(key, arr);
 
                         int c = cntr.getAndIncrement();
 
@@ -151,12 +165,10 @@ public abstract class GridCacheAbstractJobExecutionTest extends GridCommonAbstra
 
                     return null;
                 }
-            }, i);
-
-            futs.add(comp.future());
+            }, i));
         }
 
-        for (ComputeTaskFuture<?> fut : futs)
+        for (IgniteFuture<?> fut : futs)
             fut.get(); // Wait for completion.
 
         for (int i = 0; i < GRID_CNT; i++) {
@@ -165,15 +177,15 @@ public abstract class GridCacheAbstractJobExecutionTest extends GridCommonAbstra
             for (int g = 0; g < GRID_CNT; g++) {
                 info("Will check grid: " + g);
 
-                info("Value: " + grid(i).jcache(null).localPeek("TestKey"));
+                info("Value: " + grid(i).cache(DEFAULT_CACHE_NAME).localPeek(key));
             }
 
-            IgniteCache<String, int[]> c = grid(i).jcache(null);
+            IgniteCache<String, int[]> c = grid(i).cache(DEFAULT_CACHE_NAME);
 
             // Do within transaction to make sure that lock is acquired
             // which means that all previous transactions have committed.
             try (Transaction tx = grid(i).transactions().txStart(concur, isolation)) {
-                int[] arr = c.get("TestKey");
+                int[] arr = c.get(key);
 
                 assertNotNull(arr);
                 assertEquals(jobCnt, arr.length);

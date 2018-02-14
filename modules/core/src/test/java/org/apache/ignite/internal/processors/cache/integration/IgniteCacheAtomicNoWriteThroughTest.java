@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.processors.cache.integration;
 
-import org.apache.ignite.cache.*;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.NearCacheConfiguration;
 
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  *
@@ -44,12 +44,7 @@ public class IgniteCacheAtomicNoWriteThroughTest extends IgniteCacheNoWriteThrou
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return PARTITIONED_ONLY;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected CacheAtomicWriteOrderMode atomicWriteOrderMode() {
-        return PRIMARY;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return null;
     }
 }

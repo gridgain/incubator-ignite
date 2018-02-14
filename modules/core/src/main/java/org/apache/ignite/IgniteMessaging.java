@@ -17,33 +17,49 @@
 
 package org.apache.ignite;
 
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.Collection;
+import java.util.UUID;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.cluster.ClusterGroupEmptyException;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.lang.IgniteAsyncSupport;
+import org.apache.ignite.lang.IgniteAsyncSupported;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.lang.IgniteFuture;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides functionality for topic-based message exchange among nodes defined by {@link #clusterGroup()}.
  * Users can send ordered and unordered messages to various topics. Note that same topic name
- * cannot be reused between ordered and unordered messages. Instance of {@code GridMessaging}
- * is obtained from grid projection as follows:
- * <pre name="code" class="java">
- * GridMessaging m = Ignition.ignite().message();
+ * cannot be reused between ordered and unordered messages.
+ * <p>
+ * Instance of {@code IgniteMessaging} is obtained from {@link Ignite} as follows:
+ * <pre class="brush:java">
+ * Ignite ignite = Ignition.ignite();
+ *
+ * // Messaging instance spanning all cluster nodes.
+ * IgniteMessaging m = ignite.message();
+ * </pre>
+ * You can also obtain an instance of messaging facade over a specific cluster group:
+ * <pre class="brush:java">
+ * // Cluster group over remote nodes (excluding the local node).
+ * ClusterGroup remoteNodes = ignite.cluster().forRemotes();
+ *
+ * // Messaging instance spanning all remote cluster nodes.
+ * IgniteMessaging m = ignite.message(remoteNodes);
  * </pre>
  * <p>
  * There are {@code 2} ways to subscribe to message listening, {@code local} and {@code remote}.
  * <p>
  * Local subscription, defined by {@link #localListen(Object, IgniteBiPredicate)} method, will add
  * a listener for a given topic on local node only. This listener will be notified whenever any
- * node within grid projection will send a message for a given topic to this node. Local listen
- * subscription will happen regardless of whether local node belongs to this grid projection or not.
+ * node within the underlying cluster group will send a message for a given topic to this node. Local listen
+ * subscription will happen regardless of whether the local node belongs to this cluster group or not.
  * <p>
  * Remote subscription, defined by {@link #remoteListen(Object, IgniteBiPredicate)}, will add a
- * message listener for a given topic to all nodes in the projection (possibly including this node if
- * it belongs to the projection as well). This means that any node within this grid projection can send
- * a message for a given topic and all nodes within projection will receive listener notification.
+ * message listener for a given topic to all nodes in the underlying cluster group (possibly including this node if
+ * it belongs to the cluster group as well). This means that any node within this cluster group can send
+ * a message for a given topic and all nodes within the cluster group will receive listener notifications.
  * <h1 class="header">Ordered vs Unordered</h1>
  * Ignite allows for sending ordered messages (see {@link #sendOrdered(Object, Object, long)}), i.e.
  * messages will be received in the same order they were sent. Ordered messages have a {@code timeout}
@@ -54,14 +70,18 @@ import java.util.*;
  */
 public interface IgniteMessaging extends IgniteAsyncSupport {
     /**
-     * Gets grid projection to which this {@code GridMessaging} instance belongs.
+     * Gets the cluster group to which this {@code GridMessaging} instance belongs.
      *
-     * @return Grid projection to which this {@code GridMessaging} instance belongs.
+     * @return Cluster group to which this {@code GridMessaging} instance belongs.
      */
     public ClusterGroup clusterGroup();
 
     /**
-     * Sends given message with specified topic to the nodes in this projection.
+     * Sends given message with specified topic to the nodes in the underlying cluster group.
+     * <p>
+     * By default all local listeners will be executed in the calling thread, or if you use
+     * {@link #withAsync()}, listeners will execute in public thread pool (in this case it is user's
+     * responsibility to implement back-pressure and limit number of concurrently executed async messages).
      *
      * @param topic Topic to send to, {@code null} for default topic.
      * @param msg Message to send.
@@ -71,7 +91,11 @@ public interface IgniteMessaging extends IgniteAsyncSupport {
     public void send(@Nullable Object topic, Object msg) throws IgniteException;
 
     /**
-     * Sends given messages with specified topic to the nodes in this projection.
+     * Sends given messages with the specified topic to the nodes in the underlying cluster group.
+     * <p>
+     * By default all local listeners will be executed in the calling thread, or if you use
+     * {@link #withAsync()}, listeners will execute in public thread pool (in this case it is user's
+     * responsibility to implement back-pressure and limit number of concurrently executed async messages).
      *
      * @param topic Topic to send to, {@code null} for default topic.
      * @param msgs Messages to send. Order of the sending is undefined. If the method produces
@@ -82,9 +106,10 @@ public interface IgniteMessaging extends IgniteAsyncSupport {
     public void send(@Nullable Object topic, Collection<?> msgs) throws IgniteException;
 
     /**
-     * Sends given message with specified topic to the nodes in this projection. Messages sent with
+     * Sends given message with specified topic to the nodes in the underlying cluster group. Messages sent with
      * this method will arrive in the same order they were sent. Note that if a topic is used
-     * for ordered messages, then it cannot be reused for non-ordered messages.
+     * for ordered messages, then it cannot be reused for non-ordered messages. Note that local listeners
+     * are always executed in public thread pool, no matter default or {@link #withAsync()} mode is used.
      * <p>
      * The {@code timeout} parameter specifies how long an out-of-order message will stay in a queue,
      * waiting for messages that are ordered ahead of it to arrive. If timeout expires, then all ordered
@@ -102,8 +127,8 @@ public interface IgniteMessaging extends IgniteAsyncSupport {
 
     /**
      * Adds local listener for given topic on local node only. This listener will be notified whenever any
-     * node within grid projection will send a message for a given topic to this node. Local listen
-     * subscription will happen regardless of whether local node belongs to this grid projection or not.
+     * node within the cluster group will send a message for a given topic to this node. Local listen
+     * subscription will happen regardless of whether local node belongs to this cluster group or not.
      *
      * @param topic Topic to subscribe to.
      * @param p Predicate that is called on each received message. If predicate returns {@code false},
@@ -120,12 +145,10 @@ public interface IgniteMessaging extends IgniteAsyncSupport {
     public void stopLocalListen(@Nullable Object topic, IgniteBiPredicate<UUID, ?> p);
 
     /**
-     * Adds a message listener for a given topic to all nodes in the projection (possibly including
-     * this node if it belongs to the projection as well). This means that any node within this grid
-     * projection can send a message for a given topic and all nodes within projection will receive
-     * listener notification.
-     * <p>
-     * Supports asynchronous execution (see {@link IgniteAsyncSupport}).
+     * Adds a message listener for a given topic to all nodes in the cluster group (possibly including
+     * this node if it belongs to the cluster group as well). This means that any node within this cluster
+     * group can send a message for a given topic and all nodes within the cluster group will receive
+     * listener notifications.
      *
      * @param topic Topic to subscribe to, {@code null} means default topic.
      * @param p Predicate that is called on each node for each received message. If predicate returns {@code false},
@@ -137,7 +160,23 @@ public interface IgniteMessaging extends IgniteAsyncSupport {
     public UUID remoteListen(@Nullable Object topic, IgniteBiPredicate<UUID, ?> p) throws IgniteException;
 
     /**
-     * Unregisters all listeners identified with provided operation ID on all nodes in this projection.
+     * Asynchronously adds a message listener for a given topic to all nodes in the cluster group (possibly including
+     * this node if it belongs to the cluster group as well). This means that any node within this cluster
+     * group can send a message for a given topic and all nodes within the cluster group will receive
+     * listener notifications.
+     *
+     * @param topic Topic to subscribe to, {@code null} means default topic.
+     * @param p Predicate that is called on each node for each received message. If predicate returns {@code false},
+     *      then it will be unsubscribed from any further notifications.
+     * @return a Future representing pending completion of the operation. The completed future contains
+     *      {@code Operation ID} that can be passed to {@link #stopRemoteListen(UUID)} method to stop listening.
+     * @throws IgniteException If failed to add listener.
+     */
+    public IgniteFuture<UUID> remoteListenAsync(@Nullable Object topic, IgniteBiPredicate<UUID, ?> p)
+        throws IgniteException;
+
+    /**
+     * Unregisters all listeners identified with provided operation ID on all nodes in the cluster group.
      * <p>
      * Supports asynchronous execution (see {@link IgniteAsyncSupport}).
      *
@@ -147,6 +186,16 @@ public interface IgniteMessaging extends IgniteAsyncSupport {
     @IgniteAsyncSupported
     public void stopRemoteListen(UUID opId) throws IgniteException;
 
+    /**
+     * Asynchronously unregisters all listeners identified with provided operation ID on all nodes in the cluster group.
+     *
+     * @param opId Listen ID that was returned from {@link #remoteListen(Object, IgniteBiPredicate)} method.
+     * @return a Future representing pending completion of the operation.
+     * @throws IgniteException If failed to unregister listeners.
+     */
+    public IgniteFuture<Void> stopRemoteListenAsync(UUID opId) throws IgniteException;
+
     /** {@inheritDoc} */
+    @Deprecated
     @Override IgniteMessaging withAsync();
 }

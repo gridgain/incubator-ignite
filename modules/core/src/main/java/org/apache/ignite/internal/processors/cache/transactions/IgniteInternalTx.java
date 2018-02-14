@@ -17,24 +17,32 @@
 
 package org.apache.ignite.internal.processors.cache.transactions;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.managers.communication.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.processors.timeout.*;
-import org.apache.ignite.internal.transactions.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.transactions.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedException;
+import org.apache.ignite.internal.processors.cache.GridCacheFilterFailedException;
+import org.apache.ignite.internal.processors.cache.GridCacheMvccCandidate;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
+import org.apache.ignite.internal.util.lang.GridTuple;
+import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
+import org.apache.ignite.transactions.TransactionState;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction managed by cache ({@code 'Ex'} stands for external).
  */
-public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
+public interface IgniteInternalTx {
     /**
      *
      */
@@ -45,9 +53,6 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
 
         /** Transaction is being finalized by user. */
         USER_FINISH,
-
-        /** Recovery request is received, user finish requests should be ignored. */
-        RECOVERY_WAIT,
 
         /** Transaction is being finalized by recovery procedure. */
         RECOVERY_FINISH
@@ -148,6 +153,12 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
     public long timeout(long timeout);
 
     /**
+     * Changes transaction state from COMMITTING to MARKED_ROLLBACK.
+     * Must be called only from thread committing transaction.
+     */
+    public void errorWhenCommitting();
+
+    /**
      * Modify the transaction associated with the current thread such that the
      * only possible outcome of the transaction is to roll back the
      * transaction.
@@ -166,56 +177,33 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
     public boolean isRollbackOnly();
 
     /**
-     * Commits this transaction by initiating {@code two-phase-commit} process.
+     * Removes metadata by key.
      *
-     * @throws IgniteCheckedException If commit failed.
-     */
-    @IgniteAsyncSupported
-    public void commit() throws IgniteCheckedException;
-
-    /**
-     * Ends the transaction. Transaction will be rolled back if it has not been committed.
-     *
-     * @throws IgniteCheckedException If transaction could not be gracefully ended.
-     */
-    @Override public void close() throws IgniteCheckedException;
-
-    /**
-     * Rolls back this transaction.
-     *
-     * @throws IgniteCheckedException If rollback failed.
-     */
-    @IgniteAsyncSupported
-    public void rollback() throws IgniteCheckedException;
-
-    /**
-     * Removes metadata by name.
-     *
-     * @param name Name of the metadata to remove.
+     * @param key Key of the metadata to remove.
      * @param <T> Type of the value.
      * @return Value of removed metadata or {@code null}.
      */
-    @Nullable public <T> T removeMeta(UUID name);
+    @Nullable public <T> T removeMeta(int key);
 
     /**
-     * Gets metadata by name.
+     * Gets metadata by key.
      *
-     * @param name Metadata name.
+     * @param key Metadata key.
      * @param <T> Type of the value.
      * @return Metadata value or {@code null}.
      */
-    @Nullable public <T> T meta(UUID name);
+    @Nullable public <T> T meta(int key);
 
     /**
      * Adds a new metadata.
      *
-     * @param name Metadata name.
+     * @param key Metadata key.
      * @param val Metadata value.
      * @param <T> Type of the value.
      * @return Metadata previously associated with given name, or
      *      {@code null} if there was none.
      */
-    @Nullable public <T> T addMeta(UUID name, T val);
+    @Nullable public <T> T addMeta(int key, T val);
 
     /**
      * @return Size of the transaction.
@@ -231,7 +219,7 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
      * @return {@code True} if transaction is allowed to use store and transactions spans one or more caches with
      *      store enabled.
      */
-    public boolean storeUsed();
+    public boolean storeWriteThrough();
 
     /**
      * Checks if this is system cache transaction. System transactions are isolated from user transactions
@@ -245,12 +233,17 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
     /**
      * @return Pool where message for the given transaction must be processed.
      */
-    public GridIoPolicy ioPolicy();
+    public byte ioPolicy();
 
     /**
      * @return Last recorded topology version.
      */
-    public long topologyVersion();
+    public AffinityTopologyVersion topologyVersion();
+
+    /**
+     * @return Topology version snapshot.
+     */
+    public AffinityTopologyVersion topologyVersionSnapshot();
 
     /**
      * @return Flag indicating whether transaction is implicit with only one key.
@@ -258,9 +251,15 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
     public boolean implicitSingle();
 
     /**
-     * @return Collection of cache IDs involved in this transaction.
+     * @return Transaction state.
      */
-    public Collection<Integer> activeCacheIds();
+    public IgniteTxState txState();
+
+    /**
+     * @return {@code true} or {@code false} if the deployment is enabled or disabled for all active caches involved
+     * in this transaction.
+     */
+    public boolean activeCachesDeploymentEnabled();
 
     /**
      * Attempts to set topology version and returns the current value.
@@ -270,27 +269,12 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
      * @param topVer Topology version.
      * @return Recorded topology version.
      */
-    public long topologyVersion(long topVer);
+    public AffinityTopologyVersion topologyVersion(AffinityTopologyVersion topVer);
 
     /**
      * @return {@code True} if transaction is empty.
      */
     public boolean empty();
-
-    /**
-     * @return {@code True} if transaction group-locked.
-     */
-    public boolean groupLock();
-
-    /**
-     * @return Group lock key if {@link #groupLock()} is {@code true}.
-     */
-    @Nullable public IgniteTxKey groupLockKey();
-
-    /**
-     * @return {@code True} if preparing flag was set with this call.
-     */
-    public boolean markPreparing();
 
     /**
      * @param status Finalization status to set.
@@ -307,7 +291,7 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
     /**
      * @return Invalid partitions.
      */
-    public Set<Integer> invalidPartitions();
+    public Map<Integer, Set<Integer>> invalidPartitions();
 
     /**
      * Gets owned version for near remote transaction.
@@ -332,8 +316,7 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
 
     /**
      * Gets node ID which directly started this transaction. In case of DHT local transaction it will be
-     * near node ID, in case of DHT remote transaction it will be primary node ID, in case of replicated remote
-     * transaction it will be starter node ID.
+     * near node ID, in case of DHT remote transaction it will be primary node ID.
      *
      * @return Originating node ID.
      */
@@ -368,15 +351,6 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
     public boolean ownsLockUnsafe(GridCacheEntryEx entry);
 
     /**
-     * For Partitioned caches, this flag is {@code false} for remote DHT and remote NEAR
-     * transactions because serializability of transaction is enforced on primary node. All
-     * other transaction types must enforce it.
-     *
-     * @return Enforce serializable flag.
-     */
-    public boolean enforceSerializable();
-
-    /**
      * @return {@code True} if near transaction.
      */
     public boolean near();
@@ -395,11 +369,6 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
      * @return {@code True} if transaction is local, {@code false} if it's remote.
      */
     public boolean local();
-
-    /**
-     * @return {@code True} if transaction is replicated.
-     */
-    public boolean replicated();
 
     /**
      * @return Subject ID initiated this transaction.
@@ -422,16 +391,6 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
      * </ul>
      */
     public boolean user();
-
-    /**
-     * @return {@code True} if transaction is configured with synchronous commit flag.
-     */
-    public boolean syncCommit();
-
-    /**
-     * @return {@code True} if transaction is configured with synchronous rollback flag.
-     */
-    public boolean syncRollback();
 
     /**
      * @param key Key to check.
@@ -497,20 +456,13 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
      * @param ctx Cache context.
      * @param failFast Fail-fast flag.
      * @param key Key to look up.
-     * @param filter Filter to check.
      * @return Current value for the key within transaction.
      * @throws GridCacheFilterFailedException If filter failed and failFast is {@code true}.
      */
-     @Nullable public <K, V> GridTuple<CacheObject> peek(
+     @Nullable public GridTuple<CacheObject> peek(
          GridCacheContext ctx,
          boolean failFast,
-         KeyCacheObject key,
-         @Nullable CacheEntryPredicate[] filter) throws GridCacheFilterFailedException;
-
-    /**
-     * @return Start version.
-     */
-    public GridCacheVersion startVersion();
+         KeyCacheObject key) throws GridCacheFilterFailedException;
 
     /**
      * @return Transaction version.
@@ -524,29 +476,13 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
 
     /**
      * @param commitVer Commit version.
-     * @return {@code True} if version was set.
      */
-    public boolean commitVersion(GridCacheVersion commitVer);
+    public void commitVersion(GridCacheVersion commitVer);
 
     /**
-     * @return End version (a.k.a. <tt>'tnc'</tt> or <tt>'transaction number counter'</tt>)
-     *      assigned to this transaction at the end of write phase.
+     * @return Future.
      */
-    public GridCacheVersion endVersion();
-
-    /**
-     * Prepare state.
-     *
-     * @throws IgniteCheckedException If failed.
-     */
-    public void prepare() throws IgniteCheckedException;
-
-    /**
-     * Prepare stage.
-     *
-     * @return Future for prepare step.
-     */
-    public IgniteInternalFuture<IgniteInternalTx> prepareAsync();
+    @Nullable public IgniteInternalFuture<?> salvageTx();
 
     /**
      * @param endVer End version (a.k.a. <tt>'tnc'</tt> or <tt>'transaction number counter'</tt>)
@@ -571,6 +507,11 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
      * @return Future for transaction completion.
      */
     public IgniteInternalFuture<IgniteInternalTx> finishFuture();
+
+    /**
+     * @return Future for transaction prepare if prepare is in progress.
+     */
+    @Nullable public IgniteInternalFuture<?> currentPrepareFuture();
 
     /**
      * @param state Transaction state.
@@ -653,14 +594,6 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
     public boolean serializable();
 
     /**
-     * Checks whether given key has been removed within transaction.
-     *
-     * @param key Key to check.
-     * @return {@code True} if key has been removed.
-     */
-    public boolean removed(IgniteTxKey key);
-
-    /**
      * Gets allowed remaining time for this transaction.
      *
      * @return Remaining time.
@@ -683,7 +616,8 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
      * @param committed Committed transactions relative to base.
      * @param rolledback Rolled back transactions relative to base.
      */
-    public void completedVersions(GridCacheVersion base, Collection<GridCacheVersion> committed,
+    public void completedVersions(GridCacheVersion base,
+        Collection<GridCacheVersion> committed,
         Collection<GridCacheVersion> rolledback);
 
     /**
@@ -697,13 +631,7 @@ public interface IgniteInternalTx extends AutoCloseable, GridTimeoutObject {
     public boolean onePhaseCommit();
 
     /**
-     * @return {@code True} if transaction has transform entries. This flag will be only set for local
-     *      transactions.
+     * @param e Commit error.
      */
-    public boolean hasTransforms();
-
-    /**
-     * @return Public API proxy.
-     */
-    public TransactionProxy proxy();
+    public void commitError(Throwable e);
 }

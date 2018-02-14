@@ -30,21 +30,21 @@ class VisorConfigurationCommandSpec extends VisorRuntimeBaseSpec(1) {
     /**
      * Creates grid configuration for provided grid host.
      *
-     * @param name Grid name.
+     * @param name Ignite instance name.
      * @return Grid configuration.
      */
     override def config(name: String): IgniteConfiguration = {
         val cfg = new IgniteConfiguration
 
-        cfg.setGridName(name)
+        cfg.setIgniteInstanceName(name)
         cfg.setIncludeEventTypes(EVTS_ALL: _*)
 
         cfg
     }
 
-    behavior of "A 'config' visor command"
-
-    it should "print configuration for first node" in {
-        visor.config("-id8=@n0")
+    describe("A 'config' visor command") {
+        it("should print configuration for first node") {
+            visor.config("-id8=@n0")
+        }
     }
 }

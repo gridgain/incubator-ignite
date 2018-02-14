@@ -17,11 +17,19 @@
 
 package org.apache.ignite;
 
-import org.jetbrains.annotations.*;
-
-import javax.net.ssl.*;
-import java.lang.management.*;
-import java.util.*;
+import java.io.Serializable;
+import java.lang.management.RuntimeMXBean;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Properties;
+import javax.net.ssl.HostnameVerifier;
+import org.apache.ignite.cache.CacheEntryProcessor;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.configuration.DataStorageConfiguration;
+import org.apache.ignite.internal.client.GridClient;
+import org.apache.ignite.internal.marshaller.optimized.OptimizedMarshaller;
+import org.apache.ignite.stream.StreamTransformer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Contains constants for all system properties and environmental variables in Ignite.
@@ -30,8 +38,16 @@ import java.util.*;
 public final class IgniteSystemProperties {
     /**
      * If this system property is present the Ignite will include grid name into verbose log.
+     *
+     * @deprecated Use {@link #IGNITE_LOG_INSTANCE_NAME}.
      */
+    @Deprecated
     public static final String IGNITE_LOG_GRID_NAME = "IGNITE_LOG_GRID_NAME";
+
+    /**
+     * If this system property is present the Ignite will include instance name into verbose log.
+     */
+    public static final String IGNITE_LOG_INSTANCE_NAME = "IGNITE_LOG_INSTANCE_NAME";
 
     /**
      * This property is used internally to pass an exit code to loader when
@@ -61,6 +77,9 @@ public final class IgniteSystemProperties {
      * be allowed.
      */
     public static final String IGNITE_NO_DISCO_ORDER = "IGNITE_NO_DISCO_ORDER";
+
+    /** Defines reconnect delay in milliseconds for client node that was failed forcible. */
+    public static final String IGNITE_DISCO_FAILED_CLIENT_RECONNECT_DELAY = "IGNITE_DISCO_FAILED_CLIENT_RECONNECT_DELAY";
 
     /**
      * If this system property is set to {@code false} - no checks for new versions will
@@ -97,11 +116,20 @@ public final class IgniteSystemProperties {
      */
     public static final String IGNITE_JETTY_LOG_NO_OVERRIDE = "IGNITE_JETTY_LOG_NO_OVERRIDE";
 
+    /** This property allow rewriting default ({@code 30}) rest session expire time (in seconds). */
+    public static final String IGNITE_REST_SESSION_TIMEOUT = "IGNITE_REST_SESSION_TIMEOUT";
+
     /**
      * This property allows to override maximum count of task results stored on one node
      * in REST processor.
      */
     public static final String IGNITE_REST_MAX_TASK_RESULTS = "IGNITE_REST_MAX_TASK_RESULTS";
+
+    /**
+     * This property allows to override default behavior that rest processor
+     * doesn't start on client node. If set {@code true} than rest processor will be started on client node.
+     */
+    public static final String IGNITE_REST_START_ON_CLIENT = "IGNITE_REST_START_ON_CLIENT";
 
     /**
      * This property defines the maximum number of attempts to remap near get to the same
@@ -121,12 +149,38 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_QUIET = "IGNITE_QUIET";
 
     /**
+     * Setting this option to {@code true} will enable troubleshooting logger.
+     * Troubleshooting logger makes logging more verbose without enabling debug mode
+     * to provide more detailed logs without performance penalty.
+     */
+    public static final String IGNITE_TROUBLESHOOTING_LOGGER = "IGNITE_TROUBLESHOOTING_LOGGER";
+
+    /**
+     * Setting to {@code true} enables writing sensitive information in {@code toString()} output.
+     */
+    public static final String IGNITE_TO_STRING_INCLUDE_SENSITIVE = "IGNITE_TO_STRING_INCLUDE_SENSITIVE";
+
+    /** Maximum length for {@code toString()} result. */
+    public static final String IGNITE_TO_STRING_MAX_LENGTH = "IGNITE_TO_STRING_MAX_LENGTH";
+
+    /**
+     * Limit collection (map, array) elements number to output.
+     */
+    public static final String IGNITE_TO_STRING_COLLECTION_LIMIT = "IGNITE_TO_STRING_COLLECTION_LIMIT";
+
+    /**
      * If this property is set to {@code true} (default) and Ignite is launched
      * in verbose mode (see {@link #IGNITE_QUIET}) and no console appenders can be found
      * in configuration, then default console appender will be added.
      * Set this property to {@code false} if no appenders should be added.
      */
     public static final String IGNITE_CONSOLE_APPENDER = "IGNITE_CONSOLE_APPENDER";
+
+    /** Maximum size for exchange history. Default value is {@code 1000}.*/
+    public static final String IGNITE_EXCHANGE_HISTORY_SIZE = "IGNITE_EXCHANGE_HISTORY_SIZE";
+
+    /** */
+    public static final String IGNITE_EXCHANGE_MERGE_DELAY = "IGNITE_EXCHANGE_MERGE_DELAY";
 
     /**
      * Name of the system property defining name of command line program.
@@ -167,11 +221,6 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_MAX_COMPLETED_TX_COUNT = "IGNITE_MAX_COMPLETED_TX_COUNT";
 
     /**
-     * Concurrency level for all concurrent hash maps created by Ignite.
-     */
-    public static final String IGNITE_MAP_CONCURRENCY_LEVEL = "IGNITE_MAP_CONCURRENCY_LEVEL";
-
-    /**
      * Transactions that take more time, than value of this property, will be output to log
      * with warning level. {@code 0} (default value) disables warning on slow transactions.
      */
@@ -182,6 +231,17 @@ public final class IgniteSystemProperties {
      * salvaged (i.e. invalidated and committed).
      */
     public static final String IGNITE_TX_SALVAGE_TIMEOUT = "IGNITE_TX_SALVAGE_TIMEOUT";
+
+    /**
+     * Specifies maximum number of iterations for deadlock detection procedure.
+     * If value of this property is less then or equal to zero then deadlock detection will be disabled.
+     */
+    public static final String IGNITE_TX_DEADLOCK_DETECTION_MAX_ITERS = "IGNITE_TX_DEADLOCK_DETECTION_MAX_ITERS";
+
+    /**
+     * Specifies timeout for deadlock detection procedure.
+     */
+    public static final String IGNITE_TX_DEADLOCK_DETECTION_TIMEOUT = "IGNITE_TX_DEADLOCK_DETECTION_TIMEOUT";
 
     /**
      * System property to override multicast group taken from configuration.
@@ -236,14 +296,11 @@ public final class IgniteSystemProperties {
     /**
      * System property to disable buffered communication if node sends less messages count than
      * specified by this property. Default value is {@code 512}.
+     *
+     * @deprecated Not used anymore.
      */
+    @Deprecated
     public static final String IGNITE_MIN_BUFFERED_COMMUNICATION_MSG_CNT = "IGNITE_MIN_BUFFERED_COMMUNICATION_MSG_CNT";
-
-    /**
-     * System property to manage ratio for communication buffer resize. Buffer size will either
-     * increase or decrease according to this ratio depending on system behavior. Default value is {@code 0.8}.
-     */
-    public static final String IGNITE_COMMUNICATION_BUF_RESIZE_RATIO = "IGNITE_COMMUNICATION_BUF_RESIZE_RATIO";
 
     /**
      * Flag that will force Ignite to fill memory block with some recognisable pattern right before
@@ -251,8 +308,11 @@ public final class IgniteSystemProperties {
      */
     public static final String IGNITE_OFFHEAP_SAFE_RELEASE = "IGNITE_OFFHEAP_SAFE_RELEASE";
 
-    /** Maximum size for atomic cache queue delete history. */
+    /** Maximum size for atomic cache queue delete history (default is 200 000 entries per partition). */
     public static final String IGNITE_ATOMIC_CACHE_DELETE_HISTORY_SIZE = "IGNITE_ATOMIC_CACHE_DELETE_HISTORY_SIZE";
+
+    /** Ttl of removed cache entries (ms). */
+    public static final String IGNITE_CACHE_REMOVED_ENTRIES_TTL = "IGNITE_CACHE_REMOVED_ENTRIES_TTL";
 
     /**
      * Comma separated list of addresses in format "10.100.22.100:45000,10.100.22.101:45000".
@@ -276,9 +336,34 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_ATOMIC_DEFERRED_ACK_TIMEOUT = "IGNITE_ATOMIC_DEFERRED_ACK_TIMEOUT";
 
     /**
+     * Atomic cache deferred update timeout.
+     */
+    public static final String IGNITE_ATOMIC_CACHE_QUEUE_RETRY_TIMEOUT = "IGNITE_ATOMIC_CACHE_QUEUE_RETRY_TIMEOUT";
+
+    /**
+     * One phase commit deferred ack request timeout.
+     */
+    public static final String IGNITE_DEFERRED_ONE_PHASE_COMMIT_ACK_REQUEST_TIMEOUT =
+        "IGNITE_DEFERRED_ONE_PHASE_COMMIT_ACK_REQUEST_TIMEOUT";
+
+    /**
+     * One phase commit deferred ack request buffer size.
+     */
+    public static final String IGNITE_DEFERRED_ONE_PHASE_COMMIT_ACK_REQUEST_BUFFER_SIZE =
+        "IGNITE_DEFERRED_ONE_PHASE_COMMIT_ACK_REQUEST_BUFFER_SIZE";
+
+    /**
      * If this property set then debug console will be opened for H2 indexing SPI.
      */
     public static final String IGNITE_H2_DEBUG_CONSOLE = "IGNITE_H2_DEBUG_CONSOLE";
+
+    /**
+     * This property allows to specify user defined port which H2 indexing SPI will use
+     * to start H2 debug console on. If this property is not set or set to 0, H2 debug
+     * console will use system-provided dynamic port.
+     * This property is only relevant when {@link #IGNITE_H2_DEBUG_CONSOLE} property is set.
+     */
+    public static final String IGNITE_H2_DEBUG_CONSOLE_PORT = "IGNITE_H2_DEBUG_CONSOLE_PORT";
 
     /**
      * If this property is set to {@code true} then shared memory space native debug will be enabled.
@@ -320,9 +405,393 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_MBEAN_APPEND_JVM_ID = "IGNITE_MBEAN_APPEND_JVM_ID";
 
     /**
+     * If this property is set to {@code true} then Ignite will append
+     * hash code of class loader to MXBean name.
+     * <p>
+     * Default is {@code true}.
+     */
+    public static final String IGNITE_MBEAN_APPEND_CLASS_LOADER_ID = "IGNITE_MBEAN_APPEND_CLASS_LOADER_ID";
+
+    /**
+     * If property is set to {@code true}, then Ignite will disable MBeans registration.
+     * This may be helpful if MBeans are not allowed e.g. for security reasons.
+     *
+     * Default is {@code false}
+     */
+    public static final String IGNITE_MBEANS_DISABLED = "IGNITE_MBEANS_DISABLED";
+
+    /**
      * Property controlling size of buffer holding last exception. Default value of {@code 1000}.
      */
     public static final String IGNITE_EXCEPTION_REGISTRY_MAX_SIZE = "IGNITE_EXCEPTION_REGISTRY_MAX_SIZE";
+
+    /**
+     * Property controlling default behavior of cache client flag.
+     */
+    public static final String IGNITE_CACHE_CLIENT = "IGNITE_CACHE_CLIENT";
+
+    /**
+     * Property controlling whether CacheManager will start grid with isolated IP finder when default URL
+     * is passed in. This is needed to pass TCK tests which use default URL and assume isolated cache managers
+     * for different class loaders.
+     */
+    public static final String IGNITE_JCACHE_DEFAULT_ISOLATED = "IGNITE_CACHE_CLIENT";
+
+    /**
+     * Property controlling maximum number of SQL result rows which can be fetched into a merge table.
+     * If there are less rows than this threshold then multiple passes throw a table will be possible,
+     * otherwise only one pass (e.g. only result streaming is possible).
+     */
+    public static final String IGNITE_SQL_MERGE_TABLE_MAX_SIZE = "IGNITE_SQL_MERGE_TABLE_MAX_SIZE";
+
+    /**
+     * Property controlling number of SQL result rows that will be fetched into a merge table at once before
+     * applying binary search for the bounds.
+     */
+    public static final String IGNITE_SQL_MERGE_TABLE_PREFETCH_SIZE = "IGNITE_SQL_MERGE_TABLE_PREFETCH_SIZE";
+
+    /** Disable fallback to H2 SQL parser if the internal SQL parser fails to parse the statement. */
+    public static final String IGNITE_SQL_PARSER_DISABLE_H2_FALLBACK = "IGNITE_SQL_PARSER_DISABLE_H2_FALLBACK";
+
+    /** Maximum size for affinity assignment history. */
+    public static final String IGNITE_AFFINITY_HISTORY_SIZE = "IGNITE_AFFINITY_HISTORY_SIZE";
+
+    /** Maximum size for discovery messages history. */
+    public static final String IGNITE_DISCOVERY_HISTORY_SIZE = "IGNITE_DISCOVERY_HISTORY_SIZE";
+
+    /** Maximum number of discovery message history used to support client reconnect. */
+    public static final String IGNITE_DISCOVERY_CLIENT_RECONNECT_HISTORY_SIZE =
+        "IGNITE_DISCOVERY_CLIENT_RECONNECT_HISTORY_SIZE";
+
+    /** Number of cache operation retries in case of topology exceptions. */
+    public static final String IGNITE_CACHE_RETRIES_COUNT = "IGNITE_CACHE_RETRIES_COUNT";
+
+    /** If this property is set to {@code true} then Ignite will log thread dump in case of partition exchange timeout. */
+    public static final String IGNITE_THREAD_DUMP_ON_EXCHANGE_TIMEOUT = "IGNITE_THREAD_DUMP_ON_EXCHANGE_TIMEOUT";
+
+    /** */
+    public static final String IGNITE_IO_DUMP_ON_TIMEOUT = "IGNITE_IO_DUMP_ON_TIMEOUT";
+
+    /** */
+    public static final String IGNITE_DIAGNOSTIC_ENABLED = "IGNITE_DIAGNOSTIC_ENABLED";
+
+    /** Cache operations that take more time than value of this property will be output to log. Set to {@code 0} to disable. */
+    public static final String IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT = "IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT";
+
+    /** Upper time limit between long running/hanging operations debug dumps. */
+    public static final String IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT_LIMIT = "IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT_LIMIT";
+
+    /** JDBC driver cursor remove delay. */
+    public static final String IGNITE_JDBC_DRIVER_CURSOR_REMOVE_DELAY = "IGNITE_JDBC_DRIVER_CURSOR_RMV_DELAY";
+
+    /** Long-long offheap map load factor. */
+    public static final String IGNITE_LONG_LONG_HASH_MAP_LOAD_FACTOR = "IGNITE_LONG_LONG_HASH_MAP_LOAD_FACTOR";
+
+    /** Maximum number of nested listener calls before listener notification becomes asynchronous. */
+    public static final String IGNITE_MAX_NESTED_LISTENER_CALLS = "IGNITE_MAX_NESTED_LISTENER_CALLS";
+
+    /** Indicating whether local store keeps primary only. Backward compatibility flag. */
+    public static final String IGNITE_LOCAL_STORE_KEEPS_PRIMARY_ONLY = "IGNITE_LOCAL_STORE_KEEPS_PRIMARY_ONLY";
+
+    /**
+     * Manages {@link OptimizedMarshaller} behavior of {@code serialVersionUID} computation for
+     * {@link Serializable} classes.
+     */
+    public static final String IGNITE_OPTIMIZED_MARSHALLER_USE_DEFAULT_SUID =
+        "IGNITE_OPTIMIZED_MARSHALLER_USE_DEFAULT_SUID";
+
+    /**
+     * Manages type of serialization mechanism for {@link String} that is marshalled/unmarshalled by BinaryMarshaller.
+     * Should be used for cases when a String contains a surrogate symbol without its pair one. This is frequently used
+     * in algorithms that encrypts data in String format.
+     */
+    public static final String IGNITE_BINARY_MARSHALLER_USE_STRING_SERIALIZATION_VER_2 =
+        "IGNITE_BINARY_MARSHALLER_USE_STRING_SERIALIZATION_VER_2";
+
+    /** Defines path to the file that contains list of classes allowed to safe deserialization.*/
+    public static final String IGNITE_MARSHALLER_WHITELIST = "IGNITE_MARSHALLER_WHITELIST";
+
+    /** Defines path to the file that contains list of classes disallowed to safe deserialization.*/
+    public static final String IGNITE_MARSHALLER_BLACKLIST = "IGNITE_MARSHALLER_BLACKLIST";
+
+    /**
+     * If set to {@code true}, then default selected keys set is used inside
+     * {@code GridNioServer} which lead to some extra garbage generation when
+     * processing selected keys.
+     * <p>
+     * Default value is {@code false}. Should be switched to {@code true} if there are
+     * any problems in communication layer.
+     */
+    public static final String IGNITE_NO_SELECTOR_OPTS = "IGNITE_NO_SELECTOR_OPTS";
+
+    /**
+     * System property to specify period in milliseconds between calls of the SQL statements cache cleanup task.
+     * <p>
+     * Cleanup tasks clears cache for terminated threads and for threads which did not perform SQL queries within
+     * timeout configured via {@link #IGNITE_H2_INDEXING_CACHE_THREAD_USAGE_TIMEOUT} property.
+     * <p>
+     * Default value is {@code 10,000ms}.
+     */
+    public static final String IGNITE_H2_INDEXING_CACHE_CLEANUP_PERIOD = "IGNITE_H2_INDEXING_CACHE_CLEANUP_PERIOD";
+
+    /**
+     * System property to specify timeout in milliseconds after which thread's SQL statements cache is cleared by
+     * cleanup task if the thread does not perform any query.
+     * <p>
+     * Default value is {@code 600,000ms}.
+     */
+    public static final String IGNITE_H2_INDEXING_CACHE_THREAD_USAGE_TIMEOUT =
+        "IGNITE_H2_INDEXING_CACHE_THREAD_USAGE_TIMEOUT";
+
+    /**
+     * Manages backward compatibility of {@link IgniteServices}. All nodes in cluster must have identical value
+     * of this property.
+     * <p>
+     * If property is {@code false} then node is not required to have service implementation class if service is not
+     * deployed on this node.
+     * <p>
+     * If the property is {@code true} then service implementation class is required on node even if service
+     * is not deployed on this node.
+     * <p>
+     * If the property is not set ({@code null}) then Ignite will automatically detect which compatibility mode
+     * should be used.
+     */
+    public static final String IGNITE_SERVICES_COMPATIBILITY_MODE = "IGNITE_SERVICES_COMPATIBILITY_MODE";
+
+    /**
+     * Manages backward compatibility of {@link StreamTransformer#from(CacheEntryProcessor)} method.
+     * <p>
+     * If the property is {@code true}, then the wrapped {@link CacheEntryProcessor} won't be able to be loaded over
+     * P2P class loading.
+     * <p>
+     * If the property is {@code false}, then another implementation of {@link StreamTransformer} will be returned,
+     * that fixes P2P class loading for {@link CacheEntryProcessor}, but it will be incompatible with old versions
+     * of Ignite.
+     */
+    public static final String IGNITE_STREAM_TRANSFORMER_COMPATIBILITY_MODE =
+        "IGNITE_STREAM_TRANSFORMER_COMPATIBILITY_MODE";
+
+    /**
+     * When set to {@code true} tree-based data structures - {@code TreeMap} and {@code TreeSet} - will not be
+     * wrapped into special holders introduced to overcome serialization issue caused by missing {@code Comparable}
+     * interface on {@code BinaryObject}.
+     * <p>
+     * @deprecated Should be removed in Apache Ignite 2.0.
+     */
+    @Deprecated
+    public static final String IGNITE_BINARY_DONT_WRAP_TREE_STRUCTURES = "IGNITE_BINARY_DONT_WRAP_TREE_STRUCTURES";
+
+    /**
+     * When set to {@code true}, for consistent id will calculate by host name, without port, and you can use
+     * only one node for host in cluster.
+     */
+    public static final String IGNITE_CONSISTENT_ID_BY_HOST_WITHOUT_PORT = "IGNITE_CONSISTENT_ID_BY_HOST_WITHOUT_PORT";
+
+    /** */
+    public static final String IGNITE_IO_BALANCE_PERIOD = "IGNITE_IO_BALANCE_PERIOD";
+
+    /**
+     * When set to {@code true} fields are written by BinaryMarshaller in sorted order. Otherwise
+     * the natural order is used.
+     * <p>
+     * @deprecated Should be removed in Apache Ignite 2.0.
+     */
+    @Deprecated
+    public static final String IGNITE_BINARY_SORT_OBJECT_FIELDS = "IGNITE_BINARY_SORT_OBJECT_FIELDS";
+
+    /**
+     * Whether Ignite can access unaligned memory addresses.
+     * <p>
+     * Defaults to {@code false}, meaning that unaligned access will be performed only on x86 architecture.
+     */
+    public static final String IGNITE_MEMORY_UNALIGNED_ACCESS = "IGNITE_MEMORY_UNALIGNED_ACCESS";
+
+    /**
+     * When unsafe memory copy if performed below this threshold, Ignite will do it on per-byte basis instead of
+     * calling to Unsafe.copyMemory().
+     * <p>
+     * Defaults to 0, meaning that threshold is disabled.
+     */
+    public static final String IGNITE_MEMORY_PER_BYTE_COPY_THRESHOLD = "IGNITE_MEMORY_PER_BYTE_COPY_THRESHOLD";
+
+    /**
+     * When set to {@code true} BinaryObject will be unwrapped before passing to IndexingSpi to preserve
+     * old behavior query processor with IndexingSpi.
+     * <p>
+     * @deprecated Should be removed in Apache Ignite 2.0.
+     */
+    public static final String IGNITE_UNWRAP_BINARY_FOR_INDEXING_SPI = "IGNITE_UNWRAP_BINARY_FOR_INDEXING_SPI";
+
+    /**
+     * System property to specify maximum payload size in bytes for {@code H2TreeIndex}.
+     * <p>
+     * Defaults to {@code 0}, meaning that inline index store is disabled.
+     */
+    public static final String IGNITE_MAX_INDEX_PAYLOAD_SIZE = "IGNITE_MAX_INDEX_PAYLOAD_SIZE";
+
+    /**
+     * Time interval for calculating rebalance rate statistics, in milliseconds. Defaults to 60000.
+     */
+    public static final String IGNITE_REBALANCE_STATISTICS_TIME_INTERVAL = "IGNITE_REBALANCE_STATISTICS_TIME_INTERVAL";
+
+    /**
+     * When cache has entries with expired TTL, each user operation will also remove this amount of expired entries.
+     * Defaults to {@code 5}.
+     */
+    public static final String IGNITE_TTL_EXPIRE_BATCH_SIZE = "IGNITE_TTL_EXPIRE_BATCH_SIZE";
+
+    /**
+     * Indexing discovery history size. Protects from duplicate messages maintaining the list of IDs of recently
+     * arrived discovery messages.
+     * <p>
+     * Defaults to {@code 1000}.
+     */
+    public static final String IGNITE_INDEXING_DISCOVERY_HISTORY_SIZE = "IGNITE_INDEXING_DISCOVERY_HISTORY_SIZE";
+
+    /** Cache start size for on-heap maps. Defaults to 4096. */
+    public static final String IGNITE_CACHE_START_SIZE = "IGNITE_CACHE_START_SIZE";
+
+    /** */
+    public static final String IGNITE_START_CACHES_ON_JOIN = "IGNITE_START_CACHES_ON_JOIN";
+
+    /**
+     * Skip CRC calculation flag.
+     */
+    public static final String IGNITE_PDS_SKIP_CRC = "IGNITE_PDS_SKIP_CRC";
+
+    /**
+     * WAL rebalance threshold.
+     */
+    public static final String IGNITE_PDS_PARTITION_DESTROY_CHECKPOINT_DELAY =
+        "IGNITE_PDS_PARTITION_DESTROY_CHECKPOINT_DELAY";
+
+    /**
+     * WAL rebalance threshold.
+     */
+    public static final String IGNITE_PDS_WAL_REBALANCE_THRESHOLD = "IGNITE_PDS_WAL_REBALANCE_THRESHOLD";
+
+    /** Ignite page memory concurrency level. */
+    public static final String IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL = "IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL";
+
+    /**
+     * Start Ignite on versions of JRE 7 older than 1.7.0_71. For proper work it may require
+     * disabling JIT in some places.
+     */
+    public static final String IGNITE_FORCE_START_JAVA7 = "IGNITE_FORCE_START_JAVA7";
+
+    /**
+     * When set to {@code true}, Ignite switches to compatibility mode with versions that don't
+     * support service security permissions. In this case security permissions will be ignored
+     * (if they set).
+     * <p>
+     *     Default is {@code false}, which means that service security permissions will be respected.
+     * </p>
+     */
+    public static final String IGNITE_SECURITY_COMPATIBILITY_MODE = "IGNITE_SECURITY_COMPATIBILITY_MODE";
+
+    /**
+     * Ignite cluster name.
+     * <p>
+     * Defaults to utility cache deployment ID..
+     */
+    public static final String IGNITE_CLUSTER_NAME = "IGNITE_CLUSTER_NAME";
+
+    /**
+     * When client cache is started or closed special discovery message is sent to notify cluster (for example this is
+     * needed for {@link ClusterGroup#forCacheNodes(String)} API. This timeout specifies how long to wait
+     * after client cache start/close before sending this message. If during this timeout another client
+     * cache changed, these events are combined into single message.
+     * <p>
+     * Default is 10 seconds.
+     */
+    public static final String IGNITE_CLIENT_CACHE_CHANGE_MESSAGE_TIMEOUT =
+        "IGNITE_CLIENT_CACHE_CHANGE_MESSAGE_TIMEOUT";
+
+    /**
+     * If a partition release future completion time during an exchange exceeds this threshold, the contents of
+     * the future will be dumped to the log on exchange. Default is {@code 0} (disabled).
+     */
+    public static final String IGNITE_PARTITION_RELEASE_FUTURE_DUMP_THRESHOLD =
+        "IGNITE_PARTITION_RELEASE_FUTURE_DUMP_THRESHOLD";
+
+    /**
+     * If this property is set, a node will forcible fail a remote node when it fails to establish a communication
+     * connection.
+     */
+    public static final String IGNITE_ENABLE_FORCIBLE_NODE_KILL = "IGNITE_ENABLE_FORCIBLE_NODE_KILL";
+
+    /**
+     * Tasks stealing will be started if tasks queue size per data-streamer thread exceeds this threshold.
+     * <p>
+     * Default value is {@code 4}.
+     */
+    public static final String IGNITE_DATA_STREAMING_EXECUTOR_SERVICE_TASKS_STEALING_THRESHOLD =
+            "IGNITE_DATA_STREAMING_EXECUTOR_SERVICE_TASKS_STEALING_THRESHOLD";
+
+    /**
+     * If this property is set, then Ignite will use Async File IO factory by default.
+     */
+    public static final String IGNITE_USE_ASYNC_FILE_IO_FACTORY = "IGNITE_USE_ASYNC_FILE_IO_FACTORY";
+
+    /**
+     * If the property is set {@link org.apache.ignite.internal.pagemem.wal.record.TxRecord} records
+     * will be logged to WAL.
+     *
+     * Default value is {@code false}.
+     */
+    public static final String IGNITE_WAL_LOG_TX_RECORDS = "IGNITE_WAL_LOG_TX_RECORDS";
+
+    /** If this property is set, {@link DataStorageConfiguration#writeThrottlingEnabled} will be overridden to true
+     * independent of initial value in configuration. */
+    public static final String IGNITE_OVERRIDE_WRITE_THROTTLING_ENABLED = "IGNITE_OVERRIDE_WRITE_THROTTLING_ENABLED";
+
+    /**
+     * Property for setup WAL serializer version.
+     */
+    public static final String IGNITE_WAL_SERIALIZER_VERSION = "IGNITE_WAL_SERIALIZER_VERSION";
+
+    /**
+     * If the property is set Ignite will use legacy node comparator (based on node order) inste
+     *
+     * Default value is {@code false}.
+     */
+    public static final String IGNITE_USE_LEGACY_NODE_COMPARATOR = "IGNITE_USE_LEGACY_NODE_COMPARATOR";
+
+    /**
+     * Property that indicates should be mapped byte buffer used or not.
+     * Possible values: {@code true} and {@code false}.
+     */
+    public static final String IGNITE_WAL_MMAP = "IGNITE_WAL_MMAP";
+
+    /**
+     * When set to {@code true}, Data store folders are generated only by consistent id, and no consistent ID will be
+     * set based on existing data store folders. This option also enables compatible folder generation mode as it was
+     * before 2.3.
+     */
+    public static final String IGNITE_DATA_STORAGE_FOLDER_BY_CONSISTENT_ID = "IGNITE_DATA_STORAGE_FOLDER_BY_CONSISTENT_ID";
+
+    /**
+     * Default value is {@code false}.
+     */
+    public static final String IGNITE_WAL_DEBUG_LOG_ON_RECOVERY = "IGNITE_WAL_DEBUG_LOG_ON_RECOVERY";
+
+    /**
+     * Number of checkpoint history entries held in memory.
+     */
+    public static final String IGNITE_PDS_MAX_CHECKPOINT_MEMORY_HISTORY_SIZE = "IGNITE_PDS_MAX_CHECKPOINT_MEMORY_HISTORY_SIZE";
+
+    /**
+     * If this property is set to {@code true} enable logging in {@link GridClient}.
+     */
+    public static final String IGNITE_GRID_CLIENT_LOG_ENABLED = "IGNITE_GRID_CLIENT_LOG_ENABLED";
+
+    /**
+     * When set to {@code true}, direct IO may be enabled. Direct IO enabled only if JAR file with corresponding
+     * feature is available in classpath and OS and filesystem settings allows to enable this mode.
+     * Default is {@code true}.
+     */
+    public static final String IGNITE_DIRECT_IO_ENABLED = "IGNITE_DIRECT_IO_ENABLED";
+
 
     /**
      * Enforces singleton.
@@ -422,6 +891,34 @@ public final class IgniteSystemProperties {
 
     /**
      * Gets either system property or environment variable with given name.
+     * The result is transformed to {@code float} using {@code Float.parseFloat()} method.
+     *
+     * @param name Name of the system property or environment variable.
+     * @param dflt Default value
+     * @return Float value of the system property or environment variable.
+     *         Returns default value in case neither system property
+     *         nor environment variable with given name is found.
+     */
+    public static float getFloat(String name, float dflt) {
+        String s = getString(name);
+
+        if (s == null)
+            return dflt;
+
+        float res;
+
+        try {
+            res = Float.parseFloat(s);
+        }
+        catch (NumberFormatException ignore) {
+            res = dflt;
+        }
+
+        return res;
+    }
+
+    /**
+     * Gets either system property or environment variable with given name.
      * The result is transformed to {@code long} using {@code Long.parseLong()} method.
      *
      * @param name Name of the system property or environment variable.
@@ -479,10 +976,22 @@ public final class IgniteSystemProperties {
     /**
      * Gets snapshot of system properties.
      * Snapshot could be used for thread safe iteration over system properties.
+     * Non-string properties are removed before return.
      *
      * @return Snapshot of system properties.
      */
     public static Properties snapshot() {
-        return (Properties)System.getProperties().clone();
+        Properties sysProps = (Properties)System.getProperties().clone();
+
+        Iterator<Map.Entry<Object, Object>> iter = sysProps.entrySet().iterator();
+
+        while (iter.hasNext()) {
+            Map.Entry entry = iter.next();
+
+            if (!(entry.getValue() instanceof String) || !(entry.getKey() instanceof String))
+                iter.remove();
+        }
+
+        return sysProps;
     }
 }

@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.processors.cache.expiry;
 
-import org.apache.ignite.cache.store.*;
+import javax.cache.configuration.Factory;
+import org.apache.ignite.cache.store.CacheStore;
 
 /**
  *
  */
 public class IgniteCacheTxWithStoreExpiryPolicyTest extends IgniteCacheTxExpiryPolicyTest {
     /** {@inheritDoc} */
-    @Override protected CacheStore<?, ?> cacheStore() {
-        return new TestStore();
+    @Override protected Factory<CacheStore> cacheStoreFactory() {
+        return new TestStoreFactory();
     }
 }

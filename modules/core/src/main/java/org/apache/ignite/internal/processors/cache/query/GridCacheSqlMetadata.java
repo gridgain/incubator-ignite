@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.processors.cache.query;
 
-import org.apache.ignite.spi.indexing.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.util.Collection;
+import java.util.Map;
+import org.apache.ignite.spi.indexing.IndexingSpi;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Metadata for Ignite cache.
@@ -76,6 +76,34 @@ public interface GridCacheSqlMetadata extends Externalizable {
      * @return Fields map or {@code null} if type name is unknown.
      */
     @Nullable public Map<String, String> fields(String type);
+
+    /**
+     * Gets not null fields.
+     *
+     * @param type Type name.
+     * @return Not null fields collection map or {@code null} if type name is unknown.
+     */
+    Collection<String> notNullFields(String type);
+
+    /**
+     * @return Key classes.
+     */
+    public Map<String, String> keyClasses();
+
+    /**
+     * @return Value classes.
+     */
+    public Map<String, String> valClasses();
+
+    /**
+     * @return Fields.
+     */
+    public Map<String, Map<String, String>> fields();
+
+    /**
+     * @return Indexes.
+     */
+    public Map<String, Collection<GridCacheSqlIndexMetadata>> indexes();
 
     /**
      * Gets descriptors of indexes created for provided type.

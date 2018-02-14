@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.visor.igfs;
 
-import org.apache.ignite.igfs.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import org.apache.ignite.IgniteFileSystem;
+import org.apache.ignite.igfs.IgfsMetrics;
+import org.apache.ignite.internal.processors.igfs.IgfsEx;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.visor.VisorDataTransferObject;
 
 /**
- * Data transfer object for {@link org.apache.ignite.igfs.IgfsMetrics}.
+ * Data transfer object for {@link IgfsMetrics}.
  */
-public class VisorIgfsMetrics implements Serializable {
+public class VisorIgfsMetrics extends VisorDataTransferObject {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -72,30 +76,36 @@ public class VisorIgfsMetrics implements Serializable {
     private long bytesWrtTm;
 
     /**
-     * @param m IGFS metrics.
-     * @return Data transfer object for given IGFS metrics.
+     * Create data transfer object for given IGFS metrics.
      */
-    public static VisorIgfsMetrics from(IgfsMetrics m) {
-        assert m != null;
+    public VisorIgfsMetrics() {
+        // No-op.
+    }
 
-        VisorIgfsMetrics metrics = new VisorIgfsMetrics();
+    /**
+     * Create data transfer object for given IGFS metrics.
+     *
+     * @param igfs Source IGFS.
+     */
+    public VisorIgfsMetrics(IgniteFileSystem igfs) {
+        assert igfs != null;
 
-        metrics.totalSpaceSize(m.maxSpaceSize());
-        metrics.usedSpaceSize(m.localSpaceSize());
-        metrics.foldersCount(m.directoriesCount());
-        metrics.filesCount(m.filesCount());
-        metrics.filesOpenedForRead(m.filesOpenedForRead());
-        metrics.filesOpenedForWrite(m.filesOpenedForWrite());
-        metrics.blocksRead(m.blocksReadTotal());
-        metrics.blocksReadRemote(m.blocksReadRemote());
-        metrics.blocksWritten(m.blocksWrittenTotal());
-        metrics.blocksWrittenRemote(m.blocksWrittenRemote());
-        metrics.bytesRead(m.bytesRead());
-        metrics.bytesReadTime(m.bytesReadTime());
-        metrics.bytesWritten(m.bytesWritten());
-        metrics.bytesWriteTime(m.bytesWriteTime());
+        IgfsMetrics m = igfs.metrics();
 
-        return metrics;
+        totalSpaceSz = ((IgfsEx)igfs).context().data().maxSpaceSize();
+        usedSpaceSz = m.localSpaceSize();
+        foldersCnt = m.directoriesCount();
+        filesCnt = m.filesCount();
+        filesOpenedForRd = m.filesOpenedForRead();
+        filesOpenedForWrt = m.filesOpenedForWrite();
+        blocksRd = m.blocksReadTotal();
+        blocksRdRmt = m.blocksReadRemote();
+        blocksWrt = m.blocksWrittenTotal();
+        blocksWrtRmt = m.blocksWrittenRemote();
+        bytesRd = m.bytesRead();
+        bytesRdTm = m.bytesReadTime();
+        bytesWrt = m.bytesWritten();
+        bytesWrtTm = m.bytesWriteTime();
     }
 
     /**
@@ -143,204 +153,142 @@ public class VisorIgfsMetrics implements Serializable {
     /**
      * @return Maximum amount of data that can be stored on local node.
      */
-    public long totalSpaceSize() {
+    public long getTotalSpaceSize() {
         return totalSpaceSz;
-    }
-
-    /**
-     * @param totalSpaceSz New maximum amount of data that can be stored on local node.
-     */
-    public void totalSpaceSize(long totalSpaceSz) {
-        this.totalSpaceSz = totalSpaceSz;
     }
 
     /**
      * @return Local used space in bytes on local node.
      */
-    public long usedSpaceSize() {
+    public long getUsedSpaceSize() {
         return usedSpaceSz;
-    }
-
-    /**
-     * @param usedSpaceSz New local used space in bytes on local node.
-     */
-    public void usedSpaceSize(long usedSpaceSz) {
-        this.usedSpaceSz = usedSpaceSz;
     }
 
     /**
      * @return Local free space in bytes on local node.
      */
-    public long freeSpaceSize() {
+    public long getFreeSpaceSize() {
         return totalSpaceSz - usedSpaceSz;
     }
 
     /**
      * @return Number of directories created in file system.
      */
-    public int foldersCount() {
+    public int getFoldersCount() {
         return foldersCnt;
-    }
-
-    /**
-     * @param foldersCnt New number of directories created in file system.
-     */
-    public void foldersCount(int foldersCnt) {
-        this.foldersCnt = foldersCnt;
     }
 
     /**
      * @return Number of files stored in file system.
      */
-    public int filesCount() {
+    public int getFilesCount() {
         return filesCnt;
-    }
-
-    /**
-     * @param filesCnt New number of files stored in file system.
-     */
-    public void filesCount(int filesCnt) {
-        this.filesCnt = filesCnt;
     }
 
     /**
      * @return Number of files that are currently opened for reading on local node.
      */
-    public int filesOpenedForRead() {
+    public int getFilesOpenedForRead() {
         return filesOpenedForRd;
-    }
-
-    /**
-     * @param filesOpenedForRd New number of files that are currently opened for reading on local node.
-     */
-    public void filesOpenedForRead(int filesOpenedForRd) {
-        this.filesOpenedForRd = filesOpenedForRd;
     }
 
     /**
      * @return Number of files that are currently opened for writing on local node.
      */
-    public int filesOpenedForWrite() {
+    public int getFilesOpenedForWrite() {
         return filesOpenedForWrt;
-    }
-
-    /**
-     * @param filesOpenedForWrt New number of files that are currently opened for writing on local node.
-     */
-    public void filesOpenedForWrite(int filesOpenedForWrt) {
-        this.filesOpenedForWrt = filesOpenedForWrt;
     }
 
     /**
      * @return Total blocks read, local and remote.
      */
-    public long blocksRead() {
+    public long getBlocksRead() {
         return blocksRd;
-    }
-
-    /**
-     * @param blocksRd New total blocks read, local and remote.
-     */
-    public void blocksRead(long blocksRd) {
-        this.blocksRd = blocksRd;
     }
 
     /**
      * @return Total remote blocks read.
      */
-    public long blocksReadRemote() {
+    public long getBlocksReadRemote() {
         return blocksRdRmt;
-    }
-
-    /**
-     * @param blocksRdRmt New total remote blocks read.
-     */
-    public void blocksReadRemote(long blocksRdRmt) {
-        this.blocksRdRmt = blocksRdRmt;
     }
 
     /**
      * @return Total blocks write, local and remote.
      */
-    public long blocksWritten() {
+    public long getBlocksWritten() {
         return blocksWrt;
-    }
-
-    /**
-     * @param blocksWrt New total blocks write, local and remote.
-     */
-    public void blocksWritten(long blocksWrt) {
-        this.blocksWrt = blocksWrt;
     }
 
     /**
      * @return Total remote blocks write.
      */
-    public long blocksWrittenRemote() {
+    public long getBlocksWrittenRemote() {
         return blocksWrtRmt;
-    }
-
-    /**
-     * @param blocksWrtRmt New total remote blocks write.
-     */
-    public void blocksWrittenRemote(long blocksWrtRmt) {
-        this.blocksWrtRmt = blocksWrtRmt;
     }
 
     /**
      * @return Total bytes read.
      */
-    public long bytesRead() {
+    public long getBytesRead() {
         return bytesRd;
-    }
-
-    /**
-     * @param bytesRd New total bytes read.
-     */
-    public void bytesRead(long bytesRd) {
-        this.bytesRd = bytesRd;
     }
 
     /**
      * @return Total bytes read time.
      */
-    public long bytesReadTime() {
+    public long getBytesReadTime() {
         return bytesRdTm;
-    }
-
-    /**
-     * @param bytesRdTm New total bytes read time.
-     */
-    public void bytesReadTime(long bytesRdTm) {
-        this.bytesRdTm = bytesRdTm;
     }
 
     /**
      * @return Total bytes write.
      */
-    public long bytesWritten() {
+    public long getBytesWritten() {
         return bytesWrt;
-    }
-
-    /**
-     * @param bytesWrt New total bytes write.
-     */
-    public void bytesWritten(long bytesWrt) {
-        this.bytesWrt = bytesWrt;
     }
 
     /**
      * @return Total bytes write time.
      */
-    public long bytesWriteTime() {
+    public long getBytesWriteTime() {
         return bytesWrtTm;
     }
 
-    /**
-     * @param bytesWrtTm New total bytes write time.
-     */
-    public void bytesWriteTime(long bytesWrtTm) {
-        this.bytesWrtTm = bytesWrtTm;
+    /** {@inheritDoc} */
+    @Override protected void writeExternalData(ObjectOutput out) throws IOException {
+        out.writeLong(totalSpaceSz);
+        out.writeLong(usedSpaceSz);
+        out.writeInt(foldersCnt);
+        out.writeInt(filesCnt);
+        out.writeInt(filesOpenedForRd);
+        out.writeInt(filesOpenedForWrt);
+        out.writeLong(blocksRd);
+        out.writeLong(blocksRdRmt);
+        out.writeLong(blocksWrt);
+        out.writeLong(blocksWrtRmt);
+        out.writeLong(bytesRd);
+        out.writeLong(bytesRdTm);
+        out.writeLong(bytesWrt);
+        out.writeLong(bytesWrtTm);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
+        totalSpaceSz = in.readLong();
+        usedSpaceSz = in.readLong();
+        foldersCnt = in.readInt();
+        filesCnt = in.readInt();
+        filesOpenedForRd = in.readInt();
+        filesOpenedForWrt = in.readInt();
+        blocksRd = in.readLong();
+        blocksRdRmt = in.readLong();
+        blocksWrt = in.readLong();
+        blocksWrtRmt = in.readLong();
+        bytesRd = in.readLong();
+        bytesRdTm = in.readLong();
+        bytesWrt = in.readLong();
+        bytesWrtTm = in.readLong();
     }
 
     /** {@inheritDoc} */

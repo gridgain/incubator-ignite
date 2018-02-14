@@ -17,27 +17,81 @@
 
 package org.apache.ignite.marshaller;
 
-import org.apache.ignite.internal.*;
-import org.jdk8.backport.*;
-
-import java.util.concurrent.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.MarshallerContextImpl;
+import org.apache.ignite.plugin.PluginProvider;
+import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentHashMap8;
 
 /**
  * Test marshaller context.
  */
-public class MarshallerContextTestImpl extends MarshallerContextAdapter {
+public class MarshallerContextTestImpl extends MarshallerContextImpl {
     /** */
-    private final ConcurrentMap<Integer, String> map = new ConcurrentHashMap8<>();
+    private static final ConcurrentMap<Integer, String> map = new ConcurrentHashMap8<>();
+
+    /** */
+    private final Collection<String> excluded;
+
+    /**
+     * Initializes context.
+     *
+     * @param plugins Plugins.
+     * @param excluded Excluded classes.
+     */
+    public MarshallerContextTestImpl(@Nullable List<PluginProvider> plugins, Collection<String> excluded) {
+        super(plugins, null);
+
+        this.excluded = excluded;
+    }
+
+    /**
+     * Initializes context.
+     *
+     * @param plugins Plugins.
+     */
+    public MarshallerContextTestImpl(List<PluginProvider> plugins) {
+        this(plugins, null);
+    }
+
+    /**
+     * Initializes context.
+     */
+    public MarshallerContextTestImpl() {
+        this(null);
+    }
+
+    /**
+     * @return Internal map.
+     */
+    public ConcurrentMap<Integer, String> internalMap() {
+        return map;
+    }
 
     /** {@inheritDoc} */
-    @Override protected boolean registerClassName(int id, String clsName) {
-        map.putIfAbsent(id, clsName);
+    @Override public boolean registerClassName(byte platformId, int typeId, String clsName) throws IgniteCheckedException {
+        if (excluded != null && excluded.contains(clsName))
+            return false;
+
+        String oldClsName = map.putIfAbsent(typeId, clsName);
+
+        if (oldClsName != null && !oldClsName.equals(clsName))
+            throw new IgniteCheckedException("Duplicate ID [id=" + typeId + ", oldClsName=" + oldClsName + ", clsName=" +
+                    clsName + ']');
 
         return true;
     }
 
     /** {@inheritDoc} */
-    @Override protected String className(int id) {
-        return map.get(id);
+    @Override public String getClassName(
+            byte platformId,
+            int typeId
+    ) throws ClassNotFoundException, IgniteCheckedException {
+        String clsName = map.get(typeId);
+
+        return (clsName == null) ? super.getClassName(platformId, typeId) : clsName;
     }
 }

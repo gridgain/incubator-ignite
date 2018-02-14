@@ -18,9 +18,10 @@
 package org.apache.ignite.scalar
 
 import org.apache.ignite._
+import org.apache.ignite.cache.CacheMode
 import org.apache.ignite.cache.query.annotations.{QuerySqlField, QueryTextField}
 import org.apache.ignite.cluster.ClusterNode
-import org.apache.ignite.configuration.IgniteConfiguration
+import org.apache.ignite.configuration.{CacheConfiguration, IgniteConfiguration}
 import org.apache.ignite.internal.IgniteVersionUtils._
 import org.jetbrains.annotations.Nullable
 
@@ -257,31 +258,48 @@ object scalar extends ScalarConversions {
     }
 
     /**
-     * Gets default cache.
-     *
-     * Note that you always need to provide types when calling
-     * this function - otherwise Scala will create `Cache[Nothing, Nothing]`
-     * typed instance that cannot be used.
-     */
-    @inline def cache$[K, V]: Option[IgniteCache[K, V]] = Option(Ignition.ignite.jcache[K, V](null))
-
-    /**
      * Gets named cache from default grid.
      *
      * @param cacheName Name of the cache to get.
      */
-    @inline def cache$[K, V](@Nullable cacheName: String): Option[IgniteCache[K, V]] =
-        Option(Ignition.ignite.jcache(cacheName))
+    @inline def cache$[K, V](cacheName: String): Option[IgniteCache[K, V]] =
+        Option(Ignition.ignite.cache(cacheName))
+
+    /**
+     * Creates cache with specified parameters in default grid.
+     *
+     * @param cacheName Name of the cache to get.
+     */
+    @inline def createCache$[K, V](cacheName: String, cacheMode: CacheMode = CacheMode.PARTITIONED,
+        indexedTypes: Seq[Class[_]] = Seq.empty): IgniteCache[K, V] = {
+        val cfg = new CacheConfiguration[K, V]()
+
+        cfg.setName(cacheName)
+        cfg.setCacheMode(cacheMode)
+        cfg.setIndexedTypes(indexedTypes:_*)
+
+        Ignition.ignite.createCache(cfg)
+    }
+
+    /**
+      * Destroy cache with specified name.
+      *
+      * @param cacheName Name of the cache to destroy.
+      */
+    @inline def destroyCache$(cacheName: String) = {
+        Ignition.ignite.destroyCache(cacheName)
+    }
 
     /**
      * Gets named cache from specified grid.
      *
-     * @param gridName Name of the grid.
+     * @param igniteInstanceName Name of the Ignite instance.
      * @param cacheName Name of the cache to get.
      */
-    @inline def cache$[K, V](@Nullable gridName: String, @Nullable cacheName: String): Option[IgniteCache[K, V]] =
-        ignite$(gridName) match {
-            case Some(g) => Option(g.jcache(cacheName))
+    @inline def cache$[K, V](@Nullable igniteInstanceName: String,
+        cacheName: String): Option[IgniteCache[K, V]] =
+        ignite$(igniteInstanceName) match {
+            case Some(g) => Option(g.cache(cacheName))
             case None => None
         }
 
@@ -293,7 +311,7 @@ object scalar extends ScalarConversions {
      * @return New instance of data streamer.
      */
     @inline def dataStreamer$[K, V](
-        @Nullable cacheName: String,
+        cacheName: String,
         bufSize: Int): IgniteDataStreamer[K, V] = {
         val dl = ignite$.dataStreamer[K, V](cacheName)
 
@@ -313,9 +331,9 @@ object scalar extends ScalarConversions {
     def nid8$(node: ClusterNode) = node.id().toString.take(8).toUpperCase
 
     /**
-     * Gets named grid.
+     * Gets named Ignite instance.
      *
-     * @param name Grid name.
+     * @param name Ignite instance name.
      */
     @inline def ignite$(@Nullable name: String): Option[Ignite] =
         try {
@@ -370,10 +388,10 @@ object scalar extends ScalarConversions {
         Ignition.state == IgniteState.STOPPED
 
     /**
-     * Stops given grid and specified cancel flag.
-     * If specified grid is already stopped - it's no-op.
+     * Stops given Ignite instance and specified cancel flag.
+     * If specified Ignite instance is already stopped - it's no-op.
      *
-     * @param name Grid name to cancel.
+     * @param name Ignite instance name to cancel.
      * @param cancel Whether or not to cancel all currently running jobs.
      */
     def stop(@Nullable name: String, cancel: Boolean) =

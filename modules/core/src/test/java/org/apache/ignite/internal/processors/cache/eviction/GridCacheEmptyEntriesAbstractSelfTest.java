@@ -17,26 +17,30 @@
 
 package org.apache.ignite.internal.processors.cache.eviction;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.eviction.*;
-import org.apache.ignite.cache.eviction.fifo.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.Map;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.eviction.EvictionPolicy;
+import org.apache.ignite.cache.eviction.fifo.FifoEvictionPolicy;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.cache.store.CacheStoreAdapter;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
 
-import javax.cache.configuration.*;
-
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 
 /**
  * Tests that cache handles {@code setAllowEmptyEntries} flag correctly.
@@ -46,10 +50,10 @@ public abstract class GridCacheEmptyEntriesAbstractSelfTest extends GridCommonAb
     private static final TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
 
     /** */
-    private CacheEvictionPolicy<?, ?> plc;
+    private EvictionPolicy<?, ?> plc;
 
     /** */
-    private CacheEvictionPolicy<?, ?> nearPlc;
+    private EvictionPolicy<?, ?> nearPlc;
 
     /** Test store. */
     private CacheStore<String, String> testStore;
@@ -62,8 +66,8 @@ public abstract class GridCacheEmptyEntriesAbstractSelfTest extends GridCommonAb
 
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration c = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration c = super.getConfiguration(igniteInstanceName);
 
         TransactionConfiguration txCfg = c.getTransactionConfiguration();
 
@@ -76,20 +80,13 @@ public abstract class GridCacheEmptyEntriesAbstractSelfTest extends GridCommonAb
         cc.setCacheMode(cacheMode());
         cc.setAtomicityMode(TRANSACTIONAL);
 
-        cc.setSwapEnabled(false);
-
         cc.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
-        cc.setDistributionMode(CacheDistributionMode.PARTITIONED_ONLY);
 
         cc.setEvictionPolicy(plc);
-        cc.setNearEvictionPolicy(nearPlc);
-        cc.setEvictSynchronizedKeyBufferSize(1);
-
-        cc.setEvictNearSynchronized(true);
-        cc.setEvictSynchronized(true);
+        cc.setOnheapCacheEnabled(true);
 
         if (testStore != null) {
-            cc.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(testStore));
+            cc.setCacheStoreFactory(singletonFactory(testStore));
             cc.setReadThrough(true);
             cc.setWriteThrough(true);
             cc.setLoadPreviousValue(true);
@@ -125,14 +122,19 @@ public abstract class GridCacheEmptyEntriesAbstractSelfTest extends GridCommonAb
      * @throws Exception If failed.
      */
     public void testFifo() throws Exception {
-        plc = new CacheFifoEvictionPolicy(50);
-        nearPlc = new CacheFifoEvictionPolicy(50);
+        FifoEvictionPolicy plc = new FifoEvictionPolicy();
+        plc.setMaxSize(50);
+        this.plc = plc;
+
+        FifoEvictionPolicy nearPlc = new FifoEvictionPolicy();
+        nearPlc.setMaxSize(50);
+        this.nearPlc = nearPlc;
 
         checkPolicy();
     }
 
     /**
-     * Checks policy with and without store set.
+     * Checks policy with and without store queue.
      *
      * @throws Exception If failed.
      */
@@ -172,7 +174,7 @@ public abstract class GridCacheEmptyEntriesAbstractSelfTest extends GridCommonAb
 
                 Ignite g = startGrids();
 
-                IgniteCache<String, String> cache = g.jcache(null);
+                IgniteCache<String, String> cache = g.cache(DEFAULT_CACHE_NAME);
 
                 try {
                     info(">>> Checking policy [txConcurrency=" + txConcurrency + ", txIsolation=" + txIsolation +
@@ -198,17 +200,11 @@ public abstract class GridCacheEmptyEntriesAbstractSelfTest extends GridCommonAb
     private void checkImplicitTx(IgniteCache<String, String> cache) throws Exception {
         assertNull(cache.get("key1"));
 
-        IgniteCache<String, String> asyncCache = cache.withAsync();
-
-        asyncCache.get("key2");
-
-        assertNull(asyncCache.future().get());
+        assertNull(cache.getAsync("key2").get());
 
         assertTrue(cache.getAll(F.asSet("key3", "key4")).isEmpty());
 
-        asyncCache.getAll(F.asSet("key5", "key6"));
-
-        assertTrue(((Map)asyncCache.future().get()).isEmpty());
+        assertTrue(((Map)cache.getAllAsync(F.asSet("key5", "key6")).get()).isEmpty());
 
         cache.put("key7", "key7");
         cache.remove("key7", "key7");
@@ -220,12 +216,11 @@ public abstract class GridCacheEmptyEntriesAbstractSelfTest extends GridCommonAb
     /**
      * Checks that gets work for implicit txs.
      *
+     * @param ignite Ignite instance.
      * @param cache Cache to test.
      * @throws Exception If failed.
      */
     private void checkExplicitTx(Ignite ignite, IgniteCache<String, String> cache) throws Exception {
-        IgniteCache<String, String> asyncCache = cache.withAsync();
-
         Transaction tx = ignite.transactions().txStart();
 
         try {
@@ -240,9 +235,7 @@ public abstract class GridCacheEmptyEntriesAbstractSelfTest extends GridCommonAb
         tx = ignite.transactions().txStart();
 
         try {
-            asyncCache.get("key2");
-
-            assertNull(asyncCache.future().get());
+            assertNull(cache.getAsync("key2").get());
 
             tx.commit();
         }
@@ -264,9 +257,7 @@ public abstract class GridCacheEmptyEntriesAbstractSelfTest extends GridCommonAb
         tx = ignite.transactions().txStart();
 
         try {
-            asyncCache.getAll(F.asSet("key5", "key6"));
-
-            assertTrue(((Map)asyncCache.future().get()).isEmpty());
+            assertTrue(((Map)cache.getAllAsync(F.asSet("key5", "key6")).get()).isEmpty());
 
             tx.commit();
         }

@@ -17,8 +17,10 @@
 
 package org.apache.ignite.startup.cmdline;
 
-import java.io.*;
-import java.util.*;
+import java.io.PrintStream;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * This class is a workaround for a versatile problems with passing arguments to the Ignite Windows batch launcher
@@ -56,6 +58,9 @@ public class CommandLineTransformer {
     /** No pause mode. */
     private boolean noPause;
 
+    /** No JMX mode. */
+    private boolean noJMX;
+
     /** Supported parameter, parsed manually. */
     private String jvmOptions = "";
 
@@ -80,8 +85,9 @@ public class CommandLineTransformer {
         PrintStream ps = null;
 
         try {
-            // Intentionality configure output stream with UTF-8 encoding to support  non-ASCII named parameter values.
-            ps = new PrintStream(System.out, true, "UTF-8");
+            String encoding = System.getProperty("file.encoding", Charset.defaultCharset().name());
+
+            ps = new PrintStream(System.out, true, encoding);
 
             ps.println(transform(args));
         }
@@ -90,6 +96,9 @@ public class CommandLineTransformer {
 
             if (ps != null)
                 ps.println(TRANSFORMATION_FAILED_FLAG);
+
+            if (t instanceof Error)
+                throw (Error)t;
         }
     }
 
@@ -129,6 +138,11 @@ public class CommandLineTransformer {
 
                     break;
 
+                case "-nojmx":
+                    noJMX = true;
+
+                    break;
+
                 default:
                     argsList.add(arg);
             }
@@ -149,6 +163,7 @@ public class CommandLineTransformer {
         addArgWithValue(sb, "INTERACTIVE", formatBooleanValue(interactive));
         addArgWithValue(sb, "QUIET", "-DIGNITE_QUIET=" + !verbose);
         addArgWithValue(sb, "NO_PAUSE", formatBooleanValue(noPause));
+        addArgWithValue(sb, "NO_JMX", formatBooleanValue(noJMX));
 
         parseJvmOptionsAndSpringConfig(args);
 

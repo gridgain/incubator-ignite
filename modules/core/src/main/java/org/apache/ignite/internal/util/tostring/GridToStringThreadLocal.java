@@ -17,25 +17,29 @@
 
 package org.apache.ignite.internal.util.tostring;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-
 /**
- * Helper wrapper containing StringBuilder and additional values. Stored as a thread-lcal variable.
+ * Helper wrapper containing StringBuilder and additional values. Stored as a thread-local variable.
  */
 class GridToStringThreadLocal {
     /** */
-    private SB sb = new SB(256);
+    private SBLimitedLength sb = new SBLimitedLength(256);
 
     /** */
-    private Object[] addNames = new Object[5];
+    private Object[] addNames = new Object[7];
 
     /** */
-    private Object[] addVals = new Object[5];
+    private Object[] addVals = new Object[7];
+
+    /** */
+    private boolean[] addSens = new boolean[7];
 
     /**
+     * @param len Length limit.
      * @return String builder.
      */
-    SB getStringBuilder() {
+    SBLimitedLength getStringBuilder(SBLengthLimit len) {
+        sb.initLimit(len);
+
         return sb;
     }
 
@@ -51,5 +55,12 @@ class GridToStringThreadLocal {
      */
     Object[] getAdditionalValues() {
         return addVals;
+    }
+
+    /**
+     * @return Additional values.
+     */
+    boolean[] getAdditionalSensitives() {
+        return addSens;
     }
 }

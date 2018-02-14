@@ -17,13 +17,12 @@
 
 package org.apache.ignite.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.*;
+import java.io.Serializable;
+import javax.cache.Cache;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cache interceptor. Cache interceptor can be used for getting callbacks before
@@ -31,13 +30,13 @@ import javax.cache.*;
  * operations. The {@code onBefore} callbacks can also be used to change the values
  * stored in cache or preventing entries from being removed from cache.
  * <p>
- * Cache interceptor is configured via {@link org.apache.ignite.configuration.CacheConfiguration#getInterceptor()}
+ * Cache interceptor is configured via {@link CacheConfiguration#getInterceptor()}
  * configuration property.
  * <p>
  * Any grid resource from {@code org.apache.ignite.resources} package can be injected
  * into implementation of this interface.
  */
-public interface CacheInterceptor<K, V> {
+public interface CacheInterceptor<K, V> extends Serializable {
     /**
      * This method is called within {@link IgniteCache#get(Object)}
      * and similar operations to provide control over returned value.
@@ -50,7 +49,7 @@ public interface CacheInterceptor<K, V> {
      * @param key Key.
      * @param val Value mapped to {@code key} at the moment of {@code get()} operation.
      * @return The new value to be returned as result of {@code get()} operation.
-     * @see CacheProjection#get(Object)
+     * @see Cache#get(Object)
      */
     @Nullable public V onGet(K key, @Nullable V val);
 
@@ -64,6 +63,11 @@ public interface CacheInterceptor<K, V> {
      * from sensitive synchronization blocks.
      * <p>
      * This method should not throw any exception.
+     * <p>
+     * <b>IMPORTANT:</b> for this method to take affect, {@code newVal} and
+     * the returned value have to be different instances. I.e., you should
+     * not mutate {@code newVal} directly, but instead create a copy, update
+     * it and then return from the interceptor.
      *
      * @param entry Old entry. If {@link CacheConfiguration#isCopyOnRead()} is {@code true}, then is copy.
      * @param newVal New value.
@@ -82,7 +86,8 @@ public interface CacheInterceptor<K, V> {
      * <p>
      * This method should not throw any exception.
      *
-     * @param entry Current entry. If {@link CacheConfiguration#isCopyOnRead()} is {@code true} then is copy.
+     * @param entry Current entry. If {@link CacheConfiguration#isCopyOnRead()} is {@code true} then
+     *      entry is a copy.
      */
     public void onAfterPut(Cache.Entry<K, V> entry);
 
@@ -97,7 +102,8 @@ public interface CacheInterceptor<K, V> {
      * <p>
      * This method should not throw any exception.
      *
-     * @param entry Old entry. If {@link CacheConfiguration#isCopyOnRead()} is {@code true} then is copy.
+     * @param entry Old entry. If {@link CacheConfiguration#isCopyOnRead()} is {@code true} then
+     *      entry is a copy.
      * @return Tuple. The first value is the flag whether remove should be cancelled or not.
      *      The second is the value to be returned as result of {@code remove()} operation,
      *      may be {@code null}.
@@ -115,7 +121,8 @@ public interface CacheInterceptor<K, V> {
      * <p>
      * This method should not throw any exception.
      *
-     * @param entry Removed entry. If {@link CacheConfiguration#isCopyOnRead()} is {@code true} then is copy.
+     * @param entry Removed entry. If {@link CacheConfiguration#isCopyOnRead()} is {@code true} then
+     *      entry is a copy.
      */
     public void onAfterRemove(Cache.Entry<K, V> entry);
 }

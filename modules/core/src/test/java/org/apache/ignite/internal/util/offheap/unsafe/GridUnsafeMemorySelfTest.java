@@ -17,20 +17,50 @@
 
 package org.apache.ignite.internal.util.offheap.unsafe;
 
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jdk8.backport.*;
-
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import org.apache.ignite.internal.util.GridUnsafe;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 /**
  * Tests unsafe memory.
  */
 public class GridUnsafeMemorySelfTest extends GridCommonAbstractTest {
+    /** */
+    public void testBuffers() {
+        ByteBuffer b1 = GridUnsafe.allocateBuffer(10);
+        ByteBuffer b2 = GridUnsafe.allocateBuffer(20);
+
+        assertEquals(GridUnsafe.NATIVE_BYTE_ORDER, b2.order());
+        assertTrue(b2.isDirect());
+        assertEquals(20, b2.capacity());
+        assertEquals(20, b2.limit());
+        assertEquals(0, b2.position());
+
+        assertEquals(GridUnsafe.NATIVE_BYTE_ORDER, b1.order());
+        assertTrue(b1.isDirect());
+        assertEquals(10, b1.capacity());
+        assertEquals(10, b1.limit());
+        assertEquals(0, b1.position());
+
+        b1.putLong(1L);
+        b1.putShort((short)7);
+
+        b2.putLong(2L);
+
+        GridUnsafe.freeBuffer(b1);
+
+        b2.putLong(3L);
+        b2.putInt(9);
+
+        for (int i = 0; i <= 16; i++)
+            b2.putInt(i, 100500);
+
+        GridUnsafe.freeBuffer(b2);
+    }
+
     /**
      * @throws Exception If failed.
      */
@@ -228,226 +258,6 @@ public class GridUnsafeMemorySelfTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void testGuardedOpsSimple() throws Exception {
-        final GridUnsafeGuard guard = new GridUnsafeGuard();
-
-        final AtomicInteger i = new AtomicInteger();
-
-        guard.begin();
-
-        guard.finalizeLater(new Runnable() {
-            @Override
-            public void run() {
-                i.incrementAndGet();
-            }
-        });
-
-        guard.begin();
-        assertEquals(0, i.get());
-        guard.end();
-
-        assertEquals(0, i.get());
-        guard.end();
-
-        X.println("__ " + guard);
-
-        assertEquals(1, i.get());
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void _testGuardedOpsPerformance() throws Exception {
-        final GridUnsafeGuard guard = new GridUnsafeGuard();
-
-        final AtomicInteger i = new AtomicInteger();
-
-        final AtomicBoolean run = new AtomicBoolean(true);
-
-        IgniteInternalFuture<?> fut = multithreadedAsync(new Runnable() {
-            @Override public void run() {
-                int x = 0;
-
-                while (run.get()) {
-                    guard.begin();
-                    guard.end();
-
-                    x++;
-                }
-
-                i.addAndGet(x);
-            }
-        }, 4);
-
-        int time = 60;
-
-        Thread.sleep(time * 1000);
-
-        run.set(false);
-
-        fut.get();
-
-        X.println("Op/sec: " + (float)i.get() / time);
-    }
-
-    /**
-     * @throws Exception if failed.
-     */
-    public void testGuardedOps() throws Exception {
-        final int lineSize = 16;
-        final int ptrsCnt = 4;
-
-        final AtomicReferenceArray<CmpMem> ptrs = new AtomicReferenceArray<>(ptrsCnt * lineSize);
-
-        final AtomicBoolean finished = new AtomicBoolean();
-
-        final LongAdder cntr = new LongAdder();
-
-        final GridUnsafeGuard guard = new GridUnsafeGuard();
-
-        GridRandom rnd = new GridRandom();
-
-        for (int a = 0; a < 7; a++) {
-            finished.set(false);
-
-            int threads = 2 + rnd.nextInt(37);
-            int time = rnd.nextInt(5);
-
-            X.println("__ starting threads: " + threads + " time: " + time + " sec");
-
-            final LongAdder locAdder = new LongAdder();
-
-            IgniteInternalFuture<?> fut = multithreadedAsync(new Callable<Object>() {
-                @Override public Object call() throws Exception {
-                    Random rnd = new GridRandom();
-
-                    while (!finished.get()) {
-                        int idx = rnd.nextInt(ptrsCnt) * lineSize;
-
-                        guard.begin();
-
-                        try {
-                            final CmpMem old;
-
-                            CmpMem ptr = null;
-
-                            switch (rnd.nextInt(6)) {
-                                case 0:
-                                    ptr = new CmpMem(cntr);
-
-                                    //noinspection fallthrough
-                                case 1:
-                                    old = ptrs.getAndSet(idx, ptr);
-
-                                    if (old != null) {
-                                        guard.finalizeLater(new Runnable() {
-                                            @Override public void run() {
-                                                old.deallocate();
-                                            }
-                                        });
-                                    }
-
-                                    break;
-
-                                case 2:
-                                    if (rnd.nextBoolean())
-                                        ptr = new CmpMem(cntr);
-
-                                    old = ptrs.getAndSet(idx, ptr);
-
-                                    if (old != null)
-                                        guard.releaseLater(old);
-
-                                    break;
-
-                                default:
-                                    old = ptrs.get(idx);
-
-                                    if (old != null)
-                                        old.touch();
-                            }
-                        }
-                        finally {
-                            guard.end();
-
-                            locAdder.increment();
-                        }
-                    }
-
-                    return null;
-                }
-            }, threads);
-
-            Thread.sleep(1000 * time);
-
-            X.println("__ stopping ops...");
-
-            finished.set(true);
-
-            fut.get();
-
-            X.println("__ stopped, performed ops: " + locAdder.sum());
-
-            for (int i = 0; i < ptrs.length(); i++) {
-                CmpMem ptr = ptrs.getAndSet(i, null);
-
-                if (ptr != null) {
-                    ptr.touch();
-
-                    ptr.deallocate();
-                }
-            }
-
-            X.println("__ " + guard);
-
-            assertEquals(0, cntr.sum());
-        }
-    }
-
-    private static class CmpMem extends AtomicInteger implements GridUnsafeCompoundMemory {
-        /** */
-        private AtomicBoolean deallocated = new AtomicBoolean();
-
-        /** */
-        private LongAdder cntr;
-
-        /**
-         * @param cntr Counter.
-         */
-        CmpMem(LongAdder cntr) {
-            this.cntr = cntr;
-
-            cntr.increment();
-        }
-
-        public void touch() {
-            assert !deallocated.get();
-        }
-
-        @Override public void deallocate() {
-            boolean res = deallocated.compareAndSet(false, true);
-
-            assert res;
-
-            cntr.add(-get() - 1); // Merged plus this instance.
-        }
-
-        @Override public void merge(GridUnsafeCompoundMemory compound) {
-            touch();
-
-            CmpMem c = (CmpMem)compound;
-
-            c.touch();
-
-            assert c.get() == 0;
-
-            incrementAndGet();
-        }
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
     public void testCompare1() throws Exception {
         checkCompare("123");
     }
@@ -539,4 +349,3 @@ public class GridUnsafeMemorySelfTest extends GridCommonAbstractTest {
         assertEquals(mem.allocatedSize(), 0);
     }
 }
-

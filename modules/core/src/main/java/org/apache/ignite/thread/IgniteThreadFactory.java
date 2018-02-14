@@ -17,45 +17,62 @@
 
 package org.apache.ignite.thread;
 
-import org.jetbrains.annotations.*;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import java.util.concurrent.*;
+import org.apache.ignite.internal.managers.communication.GridIoPolicy;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * This class provides implementation of {@link ThreadFactory} factory
  * for creating grid threads.
  */
 public class IgniteThreadFactory implements ThreadFactory {
-    /** Grid name. */
-    private final String gridName;
+    /** Ignite instance name. */
+    private final String igniteInstanceName;
 
     /** Thread name. */
     private final String threadName;
 
+    /** Index generator for threads. */
+    private final AtomicInteger idxGen = new AtomicInteger();
+
+    /** */
+    private final byte plc;
+
     /**
      * Constructs new thread factory for given grid. All threads will belong
      * to the same default thread group.
      *
-     * @param gridName Grid name.
+     * @param igniteInstanceName Ignite instance name.
+     * @param threadName Thread name.
      */
-    public IgniteThreadFactory(String gridName) {
-        this(gridName, "ignite");
+    public IgniteThreadFactory(String igniteInstanceName, String threadName) {
+        this(igniteInstanceName, threadName, GridIoPolicy.UNDEFINED);
     }
 
     /**
      * Constructs new thread factory for given grid. All threads will belong
      * to the same default thread group.
      *
-     * @param gridName Grid name.
+     * @param igniteInstanceName Ignite instance name.
      * @param threadName Thread name.
+     * @param plc {@link GridIoPolicy} for thread pool.
      */
-    public IgniteThreadFactory(String gridName, String threadName) {
-        this.gridName = gridName;
+    public IgniteThreadFactory(String igniteInstanceName, String threadName, byte plc) {
+        this.igniteInstanceName = igniteInstanceName;
         this.threadName = threadName;
+        this.plc = plc;
     }
 
     /** {@inheritDoc} */
     @Override public Thread newThread(@NotNull Runnable r) {
-        return new IgniteThread(gridName, threadName, r);
+        return new IgniteThread(igniteInstanceName, threadName, r, idxGen.incrementAndGet(), -1, plc);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(IgniteThreadFactory.class, this, super.toString());
     }
 }

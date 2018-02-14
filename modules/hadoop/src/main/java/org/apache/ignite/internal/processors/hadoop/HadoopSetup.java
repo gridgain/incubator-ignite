@@ -17,16 +17,31 @@
 
 package org.apache.ignite.internal.processors.hadoop;
 
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
+import java.util.Scanner;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
-import java.io.*;
-import java.net.*;
-import java.nio.file.*;
-import java.text.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.IgniteVersionUtils.*;
+import static org.apache.ignite.internal.IgniteVersionUtils.ACK_VER_STR;
+import static org.apache.ignite.internal.IgniteVersionUtils.COPYRIGHT;
 
 /**
  * Setup tool to configure Hadoop client.
@@ -113,7 +128,7 @@ public class HadoopSetup {
         if (!hadoopDir.canRead())
             exit("Hadoop installation folder can not be read. Please check permissions.", null);
 
-        File hadoopCommonDir;
+        final File hadoopCommonDir;
 
         String hadoopCommonHome = System.getenv("HADOOP_COMMON_HOME");
 
@@ -129,9 +144,9 @@ public class HadoopSetup {
         }
 
         if (!hadoopCommonDir.canRead())
-            exit("Failed to read Hadoop common dir in '" + hadoopCommonHome + "'.", null);
+            exit("Failed to read Hadoop common dir '" + hadoopCommonDir + "'.", null);
 
-        File hadoopCommonLibDir = new File(hadoopCommonDir, "lib");
+        final File hadoopCommonLibDir = new File(hadoopCommonDir, "lib");
 
         if (!hadoopCommonLibDir.canRead())
             exit("Failed to read Hadoop 'lib' folder in '" + hadoopCommonLibDir.getPath() + "'.", null);
@@ -139,7 +154,7 @@ public class HadoopSetup {
         if (U.isWindows()) {
             checkJavaPathSpaces();
 
-            File hadoopBinDir = new File(hadoopDir, "bin");
+            final File hadoopBinDir = new File(hadoopDir, "bin");
 
             if (!hadoopBinDir.canRead())
                 exit("Failed to read subdirectory 'bin' in HADOOP_HOME.", null);

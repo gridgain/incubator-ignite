@@ -17,19 +17,23 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.cache.eviction.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import javax.cache.configuration.Factory;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorDataTransferObject;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactClass;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.evictionPolicyMaxSize;
 
 /**
  * Data transfer object for eviction configuration properties.
  */
-public class VisorCacheEvictionConfiguration implements Serializable {
+public class VisorCacheEvictionConfiguration extends VisorDataTransferObject {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -42,107 +46,58 @@ public class VisorCacheEvictionConfiguration implements Serializable {
     /** Eviction filter to specify which entries should not be evicted. */
     private String filter;
 
-    /** Synchronous eviction concurrency level. */
-    private int syncConcurrencyLvl;
-
-    /** Synchronous eviction timeout. */
-    private long syncTimeout;
-
-    /** Synchronized key buffer size. */
-    private int syncKeyBufSize;
-
-    /** Synchronous evicts flag. */
-    private boolean evictSynchronized;
-
-    /** Synchronous near evicts flag. */
-    private boolean nearSynchronized;
-
-    /** Eviction max overflow ratio. */
-    private float maxOverflowRatio;
+    /**
+     * Default constructor.
+     */
+    public VisorCacheEvictionConfiguration() {
+        // No-op.
+    }
 
     /**
+     * Create data transfer object for eviction configuration properties.
      * @param ccfg Cache configuration.
-     * @return Data transfer object for eviction configuration properties.
      */
-    public static VisorCacheEvictionConfiguration from(CacheConfiguration ccfg) {
-        VisorCacheEvictionConfiguration cfg = new VisorCacheEvictionConfiguration();
+    public VisorCacheEvictionConfiguration(CacheConfiguration ccfg) {
+        final Factory evictionPlc = ccfg.getEvictionPolicyFactory();
 
-        final CacheEvictionPolicy plc = ccfg.getEvictionPolicy();
-
-        cfg.plc = compactClass(plc);
-        cfg.plcMaxSize = evictionPolicyMaxSize(plc);
-        cfg.filter = compactClass(ccfg.getEvictionFilter());
-        cfg.syncConcurrencyLvl = ccfg.getEvictSynchronizedConcurrencyLevel();
-        cfg.syncTimeout = ccfg.getEvictSynchronizedTimeout();
-        cfg.syncKeyBufSize = ccfg.getEvictSynchronizedKeyBufferSize();
-        cfg.evictSynchronized = ccfg.isEvictSynchronized();
-        cfg.nearSynchronized = ccfg.isEvictNearSynchronized();
-        cfg.maxOverflowRatio = ccfg.getEvictMaxOverflowRatio();
-
-        return cfg;
+        plc = compactClass(evictionPlc);
+        plcMaxSize = evictionPolicyMaxSize(evictionPlc);
+        filter = compactClass(ccfg.getEvictionFilter());
     }
 
     /**
      * @return Eviction policy.
      */
-    @Nullable public String policy() {
+    @Nullable public String getPolicy() {
         return plc;
     }
 
     /**
      * @return Cache eviction policy max size.
      */
-    @Nullable public Integer policyMaxSize() {
+    @Nullable public Integer getPolicyMaxSize() {
         return plcMaxSize;
     }
 
     /**
      * @return Eviction filter to specify which entries should not be evicted.
      */
-    @Nullable public String filter() {
+    @Nullable public String getFilter() {
         return filter;
     }
 
-    /**
-     * @return synchronized eviction concurrency level.
-     */
-    public int synchronizedConcurrencyLevel() {
-        return syncConcurrencyLvl;
+    /** {@inheritDoc} */
+    @Override protected void writeExternalData(ObjectOutput out) throws IOException {
+        U.writeString(out, plc);
+        out.writeObject(plcMaxSize);
+        U.writeString(out, filter);
     }
 
-    /**
-     * @return synchronized eviction timeout.
-     */
-    public long synchronizedTimeout() {
-        return syncTimeout;
-    }
-
-    /**
-     * @return Synchronized key buffer size.
-     */
-    public int synchronizedKeyBufferSize() {
-        return syncKeyBufSize;
-    }
-
-    /**
-     * @return Synchronous evicts flag.
-     */
-    public boolean evictSynchronized() {
-        return evictSynchronized;
-    }
-
-    /**
-     * @return Synchronous near evicts flag.
-     */
-    public boolean nearSynchronized() {
-        return nearSynchronized;
-    }
-
-    /**
-     * @return Eviction max overflow ratio.
-     */
-    public float maxOverflowRatio() {
-        return maxOverflowRatio;
+    /** {@inheritDoc} */
+    @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
+        plc = U.readString(in);
+        plcMaxSize = (Integer)in.readObject();
+        filter = U.readString(in);
     }
 
     /** {@inheritDoc} */

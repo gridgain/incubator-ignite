@@ -33,17 +33,20 @@ import java.util
  * (a.k.a. nested) tasks or closures with continuations. This example also shows
  * usage of `continuations`, which allows us to wait for results from remote nodes
  * without blocking threads.
- * <p>
+ * <p/>
  * Note that because this example utilizes local node storage via `NodeLocal`,
  * it gets faster if you execute it multiple times, as the more you execute it,
  * the more values it will be cached on remote nodes.
- * <p>
+ * <p/>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: `'ignite.{sh|bat} examples/config/example-compute.xml'`.
+ * enables P2P class loading: `'ignite.{sh|bat} examples/config/example-ignite.xml'`.
+ * <p/>
+ * Alternatively you can run `ExampleNodeStartup` in another JVM which will
+ * start node with `examples/config/example-ignite.xml` configuration.
  */
 object ScalarContinuationExample {
     def main(args: Array[String]) {
-        scalar("examples/config/example-compute.xml") {
+        scalar("examples/config/example-ignite.xml") {
             // Calculate fibonacci for N.
             val N: Long = 100
 
@@ -114,14 +117,12 @@ class FibonacciClosure (
             // Group that excludes node with id passed in constructor if others exists.
             val prj = if (ignite$.cluster().nodes().size() > 1) ignite$.cluster().forOthers(excludeNode) else ignite$.cluster().forNode(excludeNode)
 
-            val comp = ignite$.compute(prj).withAsync()
+            val comp = ignite$.compute(prj)
 
             // If future is not cached in node-local store, cache it.
             // Note recursive execution!
             if (fut1 == null) {
-                comp.apply(new FibonacciClosure(excludeNodeId), n - 1)
-
-                val futVal = comp.future[BigInteger]()
+                val futVal = comp.applyAsync(new FibonacciClosure(excludeNodeId), n - 1)
 
                 fut1 = store.putIfAbsent(n - 1, futVal)
 
@@ -131,9 +132,7 @@ class FibonacciClosure (
 
             // If future is not cached in node-local store, cache it.
             if (fut2 == null) {
-                comp.apply(new FibonacciClosure(excludeNodeId), n - 2)
-
-                val futVal = comp.future[BigInteger]()
+                val futVal = comp.applyAsync(new FibonacciClosure(excludeNodeId), n - 2)
 
                 fut2 = store.putIfAbsent(n - 2, futVal)
 
@@ -151,14 +150,16 @@ class FibonacciClosure (
                         jobCtx.callcc() // Resume job execution.
                 }
 
+                // Hold (suspend) job execution.
+                // It will be resumed in listener above via 'callcc()' call
+                // once both futures are done.
+                jobCtx.holdcc()
+
                 // Attach the same listener to both futures.
                 fut1.listen(lsnr)
                 fut2.listen(lsnr)
 
-                // Hold (suspend) job execution.
-                // It will be resumed in listener above via 'callcc()' call
-                // once both futures are done.
-                return jobCtx.holdcc()
+                return null
             }
         }
 

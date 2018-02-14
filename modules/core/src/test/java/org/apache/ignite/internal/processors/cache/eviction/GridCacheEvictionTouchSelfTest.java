@@ -17,27 +17,36 @@
 
 package org.apache.ignite.internal.processors.cache.eviction;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.eviction.*;
-import org.apache.ignite.cache.eviction.fifo.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.apache.ignite.transactions.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.TreeSet;
+import javax.cache.Cache;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.cache.eviction.EvictionPolicy;
+import org.apache.ignite.cache.eviction.fifo.FifoEvictionPolicy;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.processors.cache.GridCacheGenericTestStore;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
-import javax.cache.*;
-import javax.cache.configuration.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.transactions.TransactionConcurrency.*;
-import static org.apache.ignite.transactions.TransactionIsolation.*;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  *
@@ -47,12 +56,12 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
     private static final TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
 
     /** */
-    private CacheEvictionPolicy<?, ?> plc;
+    private EvictionPolicy<?, ?> plc;
 
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration c = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration c = super.getConfiguration(igniteInstanceName);
 
         TransactionConfiguration txCfg = c.getTransactionConfiguration();
 
@@ -63,11 +72,10 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
 
         cc.setCacheMode(REPLICATED);
 
-        cc.setSwapEnabled(false);
-
         cc.setWriteSynchronizationMode(FULL_SYNC);
 
         cc.setEvictionPolicy(plc);
+        cc.setOnheapCacheEnabled(true);
 
         CacheStore store = new GridCacheGenericTestStore<Object, Object>() {
             @Override public Object load(Object key) {
@@ -84,7 +92,7 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
             }
         };
 
-        cc.setCacheStoreFactory(new FactoryBuilder.SingletonFactory(store));
+        cc.setCacheStoreFactory(singletonFactory(store));
         cc.setReadThrough(true);
         cc.setWriteThrough(true);
         cc.setLoadPreviousValue(true);
@@ -111,12 +119,15 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testPolicyConsistency() throws Exception {
-        plc = new CacheFifoEvictionPolicy<Object, Object>(500);
+        FifoEvictionPolicy<Object, Object> plc = new FifoEvictionPolicy<>();
+        plc.setMaxSize(500);
+
+        this.plc = plc;
 
         try {
             Ignite ignite = startGrid(1);
 
-            final IgniteCache<Integer, Integer> cache = ignite.jcache(null);
+            final IgniteCache<Integer, Integer> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
             final Random rnd = new Random();
 
@@ -137,7 +148,7 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
                         info("Stats [iterCnt=" + i + ", size=" + cache.size() + ']');
                 }
 
-                CacheFifoEvictionPolicy<Integer, Integer> plc0 = (CacheFifoEvictionPolicy<Integer, Integer>) plc;
+                FifoEvictionPolicy<Integer, Integer> plc0 = (FifoEvictionPolicy<Integer, Integer>)this.plc;
 
                 if (!plc0.queue().isEmpty()) {
                     for (Cache.Entry<Integer, Integer> e : plc0.queue())
@@ -163,23 +174,26 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testEvictSingle() throws Exception {
-        plc = new CacheFifoEvictionPolicy<Object, Object>(500);
+        FifoEvictionPolicy<Object, Object> plc = new FifoEvictionPolicy<>();
+        plc.setMaxSize(500);
+
+        this.plc = plc;
 
         try {
             Ignite ignite = startGrid(1);
 
-            final IgniteCache<Integer, Integer> cache = ignite.jcache(null);
+            final IgniteCache<Integer, Integer> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
             for (int i = 0; i < 100; i++)
                 cache.put(i, i);
 
-            assertEquals(100, ((CacheFifoEvictionPolicy)plc).queue().size());
+            assertEquals(100, ((FifoEvictionPolicy)plc).queue().size());
 
             for (int i = 0; i < 100; i++)
                 cache.localEvict(Collections.singleton(i));
 
-            assertEquals(0, ((CacheFifoEvictionPolicy)plc).queue().size());
-            assertEquals(0, cache.size());
+            assertEquals(0, ((FifoEvictionPolicy)plc).queue().size());
+            assertEquals(0, cache.size(CachePeekMode.ONHEAP));
         }
         finally {
             stopAllGrids();
@@ -190,12 +204,15 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testEvictAll() throws Exception {
-        plc = new CacheFifoEvictionPolicy<Object, Object>(500);
+        FifoEvictionPolicy<Object, Object> plc = new FifoEvictionPolicy<>();
+        plc.setMaxSize(500);
+
+        this.plc = plc;
 
         try {
             Ignite ignite = startGrid(1);
 
-            final IgniteCache<Integer, Integer> cache = ignite.jcache(null);
+            final IgniteCache<Integer, Integer> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
             Collection<Integer> keys = new ArrayList<>(100);
 
@@ -205,13 +222,13 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
                 keys.add(i);
             }
 
-            assertEquals(100, ((CacheFifoEvictionPolicy)plc).queue().size());
+            assertEquals(100, ((FifoEvictionPolicy)plc).queue().size());
 
             for (Integer key : keys)
                 cache.localEvict(Collections.singleton(key));
 
-            assertEquals(0, ((CacheFifoEvictionPolicy)plc).queue().size());
-            assertEquals(0, cache.size());
+            assertEquals(0, ((FifoEvictionPolicy)plc).queue().size());
+            assertEquals(0, cache.size(CachePeekMode.ONHEAP));
         }
         finally {
             stopAllGrids();
@@ -222,19 +239,21 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testReload() throws Exception {
-        plc = new CacheFifoEvictionPolicy<Object, Object>(100);
+        FifoEvictionPolicy<Object, Object> plc = new FifoEvictionPolicy<>();
+        plc.setMaxSize(100);
+
+        this.plc = plc;
 
         try {
             Ignite ignite = startGrid(1);
 
-            final IgniteCache<Integer, Integer> cache = ignite.jcache(null);
+            final IgniteCache<Integer, Integer> cache = ignite.cache(DEFAULT_CACHE_NAME);
 
             for (int i = 0; i < 10000; i++)
                 load(cache, i, true);
 
-            assertEquals(100, cache.size());
-            assertEquals(100, cache.size());
-            assertEquals(100, ((CacheFifoEvictionPolicy)plc).queue().size());
+            assertEquals(100, cache.size(CachePeekMode.ONHEAP));
+            assertEquals(100, ((FifoEvictionPolicy)plc).queue().size());
 
             Set<Integer> keys = new TreeSet<>();
 
@@ -243,9 +262,8 @@ public class GridCacheEvictionTouchSelfTest extends GridCommonAbstractTest {
 
             loadAll(cache, keys, true);
 
-            assertEquals(100, cache.size());
-            assertEquals(100, cache.size());
-            assertEquals(100, ((CacheFifoEvictionPolicy)plc).queue().size());
+            assertEquals(100, cache.size(CachePeekMode.ONHEAP));
+            assertEquals(100, ((FifoEvictionPolicy)plc).queue().size());
         }
         finally {
             stopAllGrids();

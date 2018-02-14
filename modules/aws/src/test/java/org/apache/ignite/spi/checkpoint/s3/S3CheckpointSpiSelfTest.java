@@ -17,18 +17,28 @@
 
 package org.apache.ignite.spi.checkpoint.s3;
 
-import com.amazonaws.*;
-import com.amazonaws.auth.*;
-import com.amazonaws.services.s3.*;
-import com.amazonaws.services.s3.model.*;
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.lang.*;
-import org.apache.ignite.spi.*;
-import org.apache.ignite.spi.checkpoint.*;
-import org.apache.ignite.testframework.*;
-import org.apache.ignite.testframework.junits.spi.*;
-import org.apache.ignite.testsuites.*;
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.GridTestIoUtils;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.util.lang.GridAbsClosure;
+import org.apache.ignite.internal.util.lang.GridAbsClosureX;
+import org.apache.ignite.spi.IgniteSpiException;
+import org.apache.ignite.spi.checkpoint.GridCheckpointTestState;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
+import org.apache.ignite.testframework.junits.spi.GridSpiTest;
+import org.apache.ignite.testsuites.IgniteIgnore;
+import org.apache.ignite.testsuites.IgniteS3TestSuite;
 
 /**
  * Grid S3 checkpoint SPI self test.
@@ -48,7 +58,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
 
         spi.setAwsCredentials(cred);
 
-        spi.setBucketNameSuffix("test");
+        spi.setBucketNameSuffix(getBucketNameSuffix());
 
         super.spiConfigure(spi);
     }
@@ -62,7 +72,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
 
         AmazonS3 s3 = new AmazonS3Client(cred);
 
-        String bucketName = S3CheckpointSpi.BUCKET_NAME_PREFIX + "test-bucket";
+        String bucketName = S3CheckpointSpi.BUCKET_NAME_PREFIX + "unit-test-bucket";
 
         try {
             ObjectListing list = s3.listObjects(bucketName);
@@ -85,6 +95,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
     /**
      * @throws Exception Thrown in case of any errors.
      */
+    @IgniteIgnore("https://issues.apache.org/jira/browse/IGNITE-2420")
     public void testSaveLoadRemoveWithoutExpire() throws Exception {
         String dataPrefix = "Test check point data ";
 
@@ -100,7 +111,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
             final String key = KEY_PREFIX + i;
 
             assertWithRetries(new GridAbsClosureX() {
-                @Override public void applyx() {
+                @Override public void applyx() throws IgniteCheckedException {
                     assertNotNull("Missing checkpoint: " + key,
                         getSpi().loadCheckpoint(key));
                 }
@@ -122,7 +133,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
             final String key = KEY_PREFIX + i;
 
             assertWithRetries(new GridAbsClosureX() {
-                @Override public void applyx() {
+                @Override public void applyx() throws IgniteCheckedException {
                     assertTrue(getSpi().removeCheckpoint(key));
                 }
             });
@@ -133,7 +144,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
             final String key = KEY_PREFIX + i;
 
             assertWithRetries(new GridAbsClosureX() {
-                @Override public void applyx() {
+                @Override public void applyx() throws IgniteCheckedException {
                     assertNull(getSpi().loadCheckpoint(key));
                 }
             });
@@ -143,6 +154,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
     /**
      * @throws Exception Thrown in case of any errors.
      */
+    @IgniteIgnore("https://issues.apache.org/jira/browse/IGNITE-2420")
     public void testSaveWithExpire() throws Exception {
         // Save states.
         for (int i = 0; i < CHECK_POINT_COUNT; i++) {
@@ -159,7 +171,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
             final String key = KEY_PREFIX + i;
 
             assertWithRetries(new GridAbsClosureX() {
-                @Override public void applyx() {
+                @Override public void applyx() throws IgniteCheckedException {
                     assertNull("Checkpoint state should not be loaded with key: " + key,
                         getSpi().loadCheckpoint(key));
                 }
@@ -170,6 +182,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
     /**
      * @throws Exception Thrown in case of any errors.
      */
+    @IgniteIgnore("https://issues.apache.org/jira/browse/IGNITE-2420")
     public void testDuplicates() throws Exception {
         int idx1 = 1;
         int idx2 = 2;
@@ -181,7 +194,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
         getSpi().saveCheckpoint(KEY_PREFIX, GridTestIoUtils.serializeJdk(state2), 0, true);
 
         assertWithRetries(new GridAbsClosureX() {
-            @Override public void applyx() {
+            @Override public void applyx() throws IgniteCheckedException {
                 assertNotNull(getSpi().loadCheckpoint(KEY_PREFIX));
             }
         });
@@ -197,7 +210,7 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
         getSpi().removeCheckpoint(KEY_PREFIX);
 
         assertWithRetries(new GridAbsClosureX() {
-            @Override public void applyx() {
+            @Override public void applyx() throws IgniteCheckedException {
                 assertNull(getSpi().loadCheckpoint(KEY_PREFIX));
             }
         });
@@ -211,5 +224,26 @@ public class S3CheckpointSpiSelfTest extends GridSpiAbstractTest<S3CheckpointSpi
      */
     private void assertWithRetries(GridAbsClosureX assertion) throws IgniteInterruptedCheckedException {
         GridTestUtils.retryAssert(log, 6, 5000, assertion);
+    }
+
+    /**
+     * Gets a Bucket name suffix
+     * Bucket name suffix should be unique for the host to parallel test run on one bucket.
+     * Please note that the final bucket name should not exceed 63 chars.
+     *
+     * @return Bucket name suffix.
+     */
+    static String getBucketNameSuffix() {
+        String bucketNameSuffix;
+        try {
+            bucketNameSuffix = IgniteS3TestSuite.getBucketName(
+                "unit-test-" + InetAddress.getLocalHost().getHostName().toLowerCase());
+        }
+        catch (UnknownHostException e) {
+            bucketNameSuffix = IgniteS3TestSuite.getBucketName(
+                "unit-test-rnd-" + ThreadLocalRandom.current().nextInt(100));
+        }
+
+        return bucketNameSuffix;
     }
 }

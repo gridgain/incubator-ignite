@@ -17,23 +17,29 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import javax.cache.configuration.Factory;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.cache.GridCacheUtils;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorDataTransferObject;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactClass;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.evictionPolicyMaxSize;
 
 /**
  * Data transfer object for near cache configuration properties.
  */
-public class VisorCacheNearConfiguration implements Serializable {
+public class VisorCacheNearConfiguration extends VisorDataTransferObject {
     /** */
     private static final long serialVersionUID = 0L;
 
-    /** Flag to enable/disable near cache eviction policy. */
+    /** Flag indicating if near cache enabled. */
     private boolean nearEnabled;
 
     /** Near cache start size. */
@@ -46,46 +52,73 @@ public class VisorCacheNearConfiguration implements Serializable {
     private Integer nearEvictMaxSize;
 
     /**
-     * @param ccfg Cache configuration.
-     * @return Data transfer object for near cache configuration properties.
+     * Default constructor.
      */
-    public static VisorCacheNearConfiguration from(CacheConfiguration ccfg) {
-        VisorCacheNearConfiguration cfg = new VisorCacheNearConfiguration();
-
-        cfg.nearEnabled = GridCacheUtils.isNearEnabled(ccfg);
-        cfg.nearStartSize = ccfg.getNearStartSize();
-        cfg.nearEvictPlc = compactClass(ccfg.getNearEvictionPolicy());
-        cfg.nearEvictMaxSize = evictionPolicyMaxSize(ccfg.getNearEvictionPolicy());
-
-        return cfg;
+    public VisorCacheNearConfiguration() {
+        // No-op.
     }
 
     /**
-     * @return Flag to enable/disable near cache eviction policy.
+     * Create data transfer object for near cache configuration properties.
+     *
+     * @param ccfg Cache configuration.
      */
-    public boolean nearEnabled() {
+    public VisorCacheNearConfiguration(CacheConfiguration ccfg) {
+        nearEnabled = GridCacheUtils.isNearEnabled(ccfg);
+
+        if (nearEnabled) {
+            NearCacheConfiguration nccfg = ccfg.getNearConfiguration();
+
+            final Factory nearEvictionPlc = nccfg.getNearEvictionPolicyFactory();
+
+            nearStartSize = nccfg.getNearStartSize();
+            nearEvictPlc = compactClass(nearEvictionPlc);
+            nearEvictMaxSize = evictionPolicyMaxSize(nearEvictionPlc);
+        }
+    }
+
+    /**
+     * @return {@code true} if near cache enabled.
+     */
+    public boolean isNearEnabled() {
         return nearEnabled;
     }
 
     /**
      * @return Near cache start size.
      */
-    public int nearStartSize() {
+    public int getNearStartSize() {
         return nearStartSize;
     }
 
     /**
      * @return Near cache eviction policy.
      */
-    @Nullable public String nearEvictPolicy() {
+    @Nullable public String getNearEvictPolicy() {
         return nearEvictPlc;
     }
 
     /**
      * @return Near cache eviction policy max size.
      */
-    @Nullable public Integer nearEvictMaxSize() {
+    @Nullable public Integer getNearEvictMaxSize() {
         return nearEvictMaxSize;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void writeExternalData(ObjectOutput out) throws IOException {
+        out.writeBoolean(nearEnabled);
+        out.writeInt(nearStartSize);
+        U.writeString(out, nearEvictPlc);
+        out.writeObject(nearEvictMaxSize);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
+        nearEnabled = in.readBoolean();
+        nearStartSize = in.readInt();
+        nearEvictPlc = U.readString(in);
+        nearEvictMaxSize = (Integer)in.readObject();
     }
 
     /** {@inheritDoc} */

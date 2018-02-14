@@ -17,9 +17,9 @@
 
 package org.apache.ignite.logger.log4j;
 
-import junit.framework.*;
-import org.apache.ignite.*;
-import org.apache.ignite.testframework.junits.common.*;
+import junit.framework.TestCase;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.testframework.junits.common.GridCommonTest;
 
 /**
  * Grid Log4j SPI test.
@@ -29,16 +29,24 @@ public class GridLog4jLoggingPathTest extends TestCase {
     /** */
     private IgniteLogger log;
 
+    /** Logger config */
+    private String path = "modules/core/src/test/config/log4j-test.xml";
+
     /** {@inheritDoc} */
     @Override protected void setUp() throws Exception {
-        log = new Log4JLogger("modules/core/src/test/config/log4j-test.xml").getLogger(getClass());
+        log = new Log4JLogger(path).getLogger(getClass());
     }
 
     /**
      * Tests log4j logging SPI.
      */
     public void testLog() {
-        assert log.isInfoEnabled() == true;
+        System.out.println(log.toString());
+
+        assertTrue(log.toString().contains("Log4JLogger"));
+        assertTrue(log.toString().contains(path));
+
+        assertTrue(log.isInfoEnabled());
 
         if (log.isDebugEnabled())
             log.debug("This is 'debug' message.");

@@ -17,12 +17,16 @@
 
 package org.apache.ignite.testsuites;
 
-import junit.framework.*;
-import org.apache.ignite.gridify.*;
-import org.apache.ignite.testframework.*;
-import org.test.gridify.*;
+import junit.framework.TestSuite;
+import org.apache.ignite.gridify.BasicAopSelfTest;
+import org.apache.ignite.gridify.GridifySetToXXXNonSpringAopSelfTest;
+import org.apache.ignite.gridify.GridifySetToXXXSpringAopSelfTest;
+import org.apache.ignite.gridify.NonSpringAopSelfTest;
+import org.apache.ignite.gridify.SpringAopSelfTest;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.test.gridify.ExternalNonSpringAopSelfTest;
 
-import static org.apache.ignite.IgniteSystemProperties.*;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_OVERRIDE_MCAST_GRP;
 
 /**
  * AOP test suite.
@@ -36,13 +40,13 @@ public class IgniteAopSelfTestSuite extends TestSuite {
         TestSuite suite = new TestSuite("Ignite AOP Test Suite");
 
         // Test configuration.
-        suite.addTest(new TestSuite(BasicAopSelfTest.class));
+        suite.addTestSuite(BasicAopSelfTest.class);
 
-        suite.addTest(new TestSuite(SpringAopSelfTest.class));
-        suite.addTest(new TestSuite(NonSpringAopSelfTest.class));
-        suite.addTest(new TestSuite(GridifySetToXXXSpringAopSelfTest.class));
-        suite.addTest(new TestSuite(GridifySetToXXXNonSpringAopSelfTest.class));
-        suite.addTest(new TestSuite(ExternalNonSpringAopSelfTest.class));
+        suite.addTestSuite(SpringAopSelfTest.class);
+        suite.addTestSuite(NonSpringAopSelfTest.class);
+        suite.addTestSuite(GridifySetToXXXSpringAopSelfTest.class);
+        suite.addTestSuite(GridifySetToXXXNonSpringAopSelfTest.class);
+        suite.addTestSuite(ExternalNonSpringAopSelfTest.class);
 
         // Examples
         System.setProperty(IGNITE_OVERRIDE_MCAST_GRP, GridTestUtils.getNextMulticastGroup(IgniteAopSelfTestSuite.class));

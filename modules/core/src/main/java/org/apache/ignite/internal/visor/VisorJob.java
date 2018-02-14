@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.visor;
 
-import org.apache.ignite.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.resources.*;
-import org.jetbrains.annotations.*;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.compute.ComputeJobAdapter;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.logFinish;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.logStart;
 
 /**
  * Base class for Visor jobs.
@@ -47,6 +48,7 @@ public abstract class VisorJob<A, R> extends ComputeJobAdapter {
      * Create job with specified argument.
      *
      * @param arg Job argument.
+     * @param debug Flag indicating whether debug information should be printed into node log.
      */
     protected VisorJob(@Nullable A arg, boolean debug) {
         super(arg);
@@ -77,6 +79,7 @@ public abstract class VisorJob<A, R> extends ComputeJobAdapter {
      *
      * @param arg Task argument.
      * @return Result.
+     * @throws IgniteException In case of error.
      */
     protected abstract R run(@Nullable A arg) throws IgniteException;
 }

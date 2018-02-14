@@ -17,15 +17,22 @@
 
 package org.apache.ignite.tests.p2p;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.resources.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeJobAdapter;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.compute.ComputeTaskAdapter;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Task for testing job stealing.
@@ -63,7 +70,8 @@ public class JobStealingTask extends ComputeTaskAdapter<Object, Map<UUID, Intege
         Map<UUID, Integer> ret = U.newHashMap(results.size());
 
         for (ComputeJobResult res : results) {
-            log.info("Job result: " + res.getData());
+            if (log.isInfoEnabled())
+                log.info("Job result: " + res.getData());
 
             UUID resUuid = (UUID)res.getData();
 
@@ -95,7 +103,8 @@ public class JobStealingTask extends ComputeTaskAdapter<Object, Map<UUID, Intege
 
         /** {@inheritDoc} */
         @Override public Serializable execute() {
-            log.info("Started job on node: " + ignite.cluster().localNode().id());
+            if (log.isInfoEnabled())
+                log.info("Started job on node: " + ignite.cluster().localNode().id());
 
             try {
                 Long sleep = argument(0);
@@ -105,12 +114,14 @@ public class JobStealingTask extends ComputeTaskAdapter<Object, Map<UUID, Intege
                 Thread.sleep(sleep);
             }
             catch (InterruptedException e) {
-                log.info("Job got interrupted on node: " + ignite.cluster().localNode().id());
+                if (log.isInfoEnabled())
+                    log.info("Job got interrupted on node: " + ignite.cluster().localNode().id());
 
                 throw new IgniteException("Job got interrupted.", e);
             }
             finally {
-                log.info("Job finished on node: " + ignite.cluster().localNode().id());
+                if (log.isInfoEnabled())
+                    log.info("Job finished on node: " + ignite.cluster().localNode().id());
             }
 
             return ignite.cluster().localNode().id();

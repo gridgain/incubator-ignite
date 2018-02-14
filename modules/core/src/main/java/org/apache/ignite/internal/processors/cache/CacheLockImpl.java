@@ -17,15 +17,16 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
-
-import javax.cache.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.locks.*;
+import java.util.Collection;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import javax.cache.CacheException;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.jetbrains.annotations.NotNull;
 
 /**
  *
@@ -35,10 +36,10 @@ class CacheLockImpl<K, V> implements Lock {
     private final GridCacheGateway<K, V> gate;
 
     /** */
-    private final GridCacheProjectionEx<K, V> delegate;
+    private final IgniteInternalCache<K, V> delegate;
 
-    /** Projection. */
-    private final GridCacheProjectionImpl<K, V> prj;
+    /** Operation context. */
+    private final CacheOperationContext opCtx;
 
     /** */
     private final Collection<? extends K> keys;
@@ -52,22 +53,24 @@ class CacheLockImpl<K, V> implements Lock {
     /**
      * @param gate Gate.
      * @param delegate Delegate.
-     * @param prj Projection.
+     * @param opCtx Operation context.
      * @param keys Keys.
      */
-    CacheLockImpl(GridCacheGateway<K, V> gate, GridCacheProjectionEx<K, V> delegate, GridCacheProjectionImpl<K, V> prj,
+    CacheLockImpl(GridCacheGateway<K, V> gate, IgniteInternalCache<K, V> delegate, CacheOperationContext opCtx,
         Collection<? extends K> keys) {
         this.gate = gate;
         this.delegate = delegate;
-        this.prj = prj;
+        this.opCtx = opCtx;
         this.keys = keys;
     }
 
     /** {@inheritDoc} */
     @Override public void lock() {
-        GridCacheProjectionImpl<K, V> prev = gate.enter(prj);
+        CacheOperationContext prev = gate.enter(opCtx);
 
         try {
+            checkTx();
+
             delegate.lockAll(keys, 0);
 
             incrementLockCounter();
@@ -98,9 +101,11 @@ class CacheLockImpl<K, V> implements Lock {
 
     /** {@inheritDoc} */
     @Override public boolean tryLock() {
-        GridCacheProjectionImpl<K, V> prev = gate.enter(prj);
+        CacheOperationContext prev = gate.enter(opCtx);
 
         try {
+            checkTx();
+
             boolean res = delegate.lockAll(keys, -1);
 
             if (res)
@@ -124,9 +129,11 @@ class CacheLockImpl<K, V> implements Lock {
         if (time <= 0)
             return tryLock();
 
-        GridCacheProjectionImpl<K, V> prev = gate.enter(prj);
+        CacheOperationContext prev = gate.enter(opCtx);
 
         try {
+            checkTx();
+
             IgniteInternalFuture<Boolean> fut = delegate.lockAllAsync(keys, unit.toMillis(time));
 
             try {
@@ -167,7 +174,7 @@ class CacheLockImpl<K, V> implements Lock {
 
     /** {@inheritDoc} */
     @Override public void unlock() {
-        GridCacheProjectionImpl<K, V> prev = gate.enter(prj);
+        CacheOperationContext prev = gate.enter(opCtx);
 
         try {
             if (lockedThread != Thread.currentThread()) {
@@ -195,6 +202,16 @@ class CacheLockImpl<K, V> implements Lock {
     /** {@inheritDoc} */
     @NotNull @Override public Condition newCondition() {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Verifies there is no ongoing user transaction.
+     *
+     * @throws CacheException
+     */
+    private void checkTx() throws CacheException {
+        if (delegate.context().tm().inUserTx())
+            throw new CacheException("Explicit lock can't be acquired within a transaction.");
     }
 
     /** {@inheritDoc} */

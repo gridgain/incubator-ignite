@@ -17,44 +17,56 @@
 
 package org.apache.ignite.internal.managers.communication;
 
-import org.jetbrains.annotations.*;
-
 /**
  * This enumeration defines different types of communication
  * message processing by the communication manager.
  */
-public enum GridIoPolicy {
+public class GridIoPolicy {
+    /** */
+    public static final byte UNDEFINED = -1;
+
     /** Public execution pool. */
-    PUBLIC_POOL,
+    public static final byte PUBLIC_POOL = 0;
 
     /** P2P execution pool. */
-    P2P_POOL,
+    public static final byte P2P_POOL = 1;
 
     /** System execution pool. */
-    SYSTEM_POOL,
+    public static final byte SYSTEM_POOL = 2;
 
     /** Management execution pool. */
-    MANAGEMENT_POOL,
+    public static final byte MANAGEMENT_POOL = 3;
 
     /** Affinity fetch pool. */
-    AFFINITY_POOL,
+    public static final byte AFFINITY_POOL = 4;
 
     /** Utility cache execution pool. */
-    UTILITY_CACHE_POOL,
+    public static final byte UTILITY_CACHE_POOL = 5;
 
-    /** Marshaller cache execution pool. */
-    MARSH_CACHE_POOL;
+    /** IGFS pool. */
+    public static final byte IGFS_POOL = 6;
 
-    /** Enum values. */
-    private static final GridIoPolicy[] VALS = values();
+    /** Pool for handling distributed index range requests. */
+    public static final byte IDX_POOL = 7;
+
+    /** Data streamer execution pool. */
+    public static final byte DATA_STREAMER_POOL = 9;
+
+    /** Query execution pool. */
+    public static final byte QUERY_POOL = 10;
+
+    /** Pool for service proxy executions. */
+    public static final byte SERVICE_POOL = 11;
+
+    /** Schema pool.  */
+    public static final byte SCHEMA_POOL = 12;
 
     /**
-     * Efficiently gets enumerated value from its ordinal.
-     *
-     * @param ord Ordinal value.
-     * @return Enumerated value.
+     * Defines the range of reserved pools that are not available for plugins.
+     * @param key The key.
+     * @return If the key corresponds to reserved pool range.
      */
-    @Nullable public static GridIoPolicy fromOrdinal(int ord) {
-        return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
+    public static boolean isReservedGridIoPolicy(byte key) {
+        return key >= 0 && key <= 31;
     }
 }

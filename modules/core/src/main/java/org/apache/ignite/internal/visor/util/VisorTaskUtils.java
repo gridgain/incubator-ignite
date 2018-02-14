@@ -17,37 +17,78 @@
 
 package org.apache.ignite.internal.visor.util;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.eviction.*;
-import org.apache.ignite.cache.eviction.fifo.*;
-import org.apache.ignite.cache.eviction.lru.*;
-import org.apache.ignite.cache.eviction.random.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.processors.igfs.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.event.*;
-import org.apache.ignite.internal.visor.file.*;
-import org.apache.ignite.internal.visor.log.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.math.BigDecimal;
+import java.net.InetAddress;
+import java.net.URL;
+import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+import javax.cache.configuration.Factory;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteFileSystem;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cache.eviction.AbstractEvictionPolicyFactory;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.processors.igfs.IgfsEx;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.event.VisorGridEvent;
+import org.apache.ignite.internal.visor.event.VisorGridEventsLost;
+import org.apache.ignite.internal.visor.file.VisorFileBlock;
+import org.apache.ignite.internal.visor.log.VisorLogFile;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.spi.eventstorage.NoopEventStorageSpi;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.net.*;
-import java.nio.*;
-import java.nio.channels.*;
-import java.nio.charset.*;
-import java.nio.file.*;
-import java.text.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-import java.util.zip.*;
-
-import static java.lang.System.*;
-import static org.apache.ignite.configuration.FileSystemConfiguration.*;
-import static org.apache.ignite.events.EventType.*;
+import static java.lang.System.getProperty;
+import static org.apache.ignite.configuration.FileSystemConfiguration.DFLT_IGFS_LOG_DIR;
+import static org.apache.ignite.events.EventType.EVTS_DISCOVERY;
+import static org.apache.ignite.events.EventType.EVT_CLASS_DEPLOY_FAILED;
+import static org.apache.ignite.events.EventType.EVT_JOB_CANCELLED;
+import static org.apache.ignite.events.EventType.EVT_JOB_FAILED;
+import static org.apache.ignite.events.EventType.EVT_JOB_FAILED_OVER;
+import static org.apache.ignite.events.EventType.EVT_JOB_FINISHED;
+import static org.apache.ignite.events.EventType.EVT_JOB_REJECTED;
+import static org.apache.ignite.events.EventType.EVT_JOB_STARTED;
+import static org.apache.ignite.events.EventType.EVT_JOB_TIMEDOUT;
+import static org.apache.ignite.events.EventType.EVT_TASK_DEPLOY_FAILED;
+import static org.apache.ignite.events.EventType.EVT_TASK_FAILED;
+import static org.apache.ignite.events.EventType.EVT_TASK_FINISHED;
+import static org.apache.ignite.events.EventType.EVT_TASK_STARTED;
+import static org.apache.ignite.events.EventType.EVT_TASK_TIMEDOUT;
 
 /**
  * Contains utility methods for Visor tasks and jobs.
@@ -67,6 +108,9 @@ public class VisorTaskUtils {
 
     /** Log files count limit */
     public static final int LOG_FILES_COUNT_LIMIT = 5000;
+
+    /** */
+    private static final int DFLT_BUFFER_SIZE = 4096;
 
     /** Only task event types that Visor should collect. */
     public static final int[] VISOR_TASK_EVTS = {
@@ -99,7 +143,7 @@ public class VisorTaskUtils {
     /** Comparator for log files by last modified date. */
     private static final Comparator<VisorLogFile> LAST_MODIFIED = new Comparator<VisorLogFile>() {
         @Override public int compare(VisorLogFile f1, VisorLogFile f2) {
-            return Long.compare(f2.lastModified(), f1.lastModified());
+            return Long.compare(f2.getLastModified(), f1.getLastModified());
         }
     };
 
@@ -115,17 +159,18 @@ public class VisorTaskUtils {
      * @param name Grid-style nullable name.
      * @return Name with {@code null} replaced to &lt;default&gt;.
      */
-    public static String escapeName(@Nullable String name) {
-        return name == null ? DFLT_EMPTY_NAME : name;
+    public static String escapeName(@Nullable Object name) {
+        return name == null ? DFLT_EMPTY_NAME : name.toString();
     }
 
     /**
-     * @param a First name.
-     * @param b Second name.
-     * @return {@code true} if both names equals.
+     * @param name Escaped name.
+     * @return Name or {@code null} for default name.
      */
-    public static boolean safeEquals(@Nullable String a, @Nullable String b) {
-        return (a != null && b != null) ? a.equals(b) : (a == null && b == null);
+    public static String unescapeName(String name) {
+        assert name != null;
+
+        return DFLT_EMPTY_NAME.equals(name) ? null : name;
     }
 
     /**
@@ -215,12 +260,25 @@ public class VisorTaskUtils {
                     sb.append(", ");
             }
 
-            sb.append("]");
+            sb.append(']');
 
             return sb.toString();
         }
 
         return U.compact(obj.getClass().getName());
+    }
+
+    /**
+     * Compact class names.
+     *
+     * @param cls Class object for compact.
+     * @return Compacted string.
+     */
+    @Nullable public static String compactClass(Class cls) {
+        if (cls == null)
+            return null;
+
+        return U.compact(cls.getName());
     }
 
     /**
@@ -233,7 +291,27 @@ public class VisorTaskUtils {
         if (obj == null)
             return null;
 
-        return U.compact(obj.getClass().getName());
+        return compactClass(obj.getClass());
+    }
+
+    /**
+     * Compact classes names.
+
+     * @param clss Classes to compact.
+     * @return Compacted string.
+     */
+    @Nullable public static List<String> compactClasses(Class<?>[] clss) {
+        if (clss == null)
+            return null;
+
+        int len = clss.length;
+
+        List<String> res = new ArrayList<>(len);
+
+        for (Class<?> cls: clss)
+            res.add(U.compact(cls.getName()));
+
+        return res;
     }
 
     /**
@@ -251,6 +329,29 @@ public class VisorTaskUtils {
         StringBuilder sb = new StringBuilder();
 
         for (Object s : arr)
+            sb.append(s).append(sep);
+
+        if (sb.length() > 0)
+            sb.setLength(sb.length() - sep.length());
+
+        return U.compact(sb.toString());
+    }
+
+    /**
+     * Joins iterable collection elements to string.
+     *
+     * @param col Iterable collection.
+     * @return String.
+     */
+    @Nullable public static String compactIterable(Iterable col) {
+        if (col == null || !col.iterator().hasNext())
+            return null;
+
+        String sep = ", ";
+
+        StringBuilder sb = new StringBuilder();
+
+        for (Object s : col)
             sb.append(s).append(sep);
 
         if (sb.length() > 0)
@@ -331,7 +432,7 @@ public class VisorTaskUtils {
     };
 
     /** Mapper from grid event to Visor data transfer object. */
-    private static final VisorEventMapper EVT_MAPPER = new VisorEventMapper();
+    public static final VisorEventMapper EVT_MAPPER = new VisorEventMapper();
 
     /**
      * Grabs local events and detects if events was lost since last poll.
@@ -340,12 +441,18 @@ public class VisorTaskUtils {
      * @param evtOrderKey Unique key to take last order key from node local map.
      * @param evtThrottleCntrKey Unique key to take throttle count from node local map.
      * @param all If {@code true} then collect all events otherwise collect only non task events.
+     * @param evtMapper Closure to map grid events to Visor data transfer objects.
      * @return Collections of node events
      */
     public static Collection<VisorGridEvent> collectEvents(Ignite ignite, String evtOrderKey, String evtThrottleCntrKey,
-        final boolean all) {
-        return collectEvents(ignite, evtOrderKey, evtThrottleCntrKey, all ? VISOR_ALL_EVTS : VISOR_NON_TASK_EVTS,
-            EVT_MAPPER);
+        boolean all, IgniteClosure<Event, VisorGridEvent> evtMapper) {
+        int[] evtTypes = all ? VISOR_ALL_EVTS : VISOR_NON_TASK_EVTS;
+
+        // Collect discovery events for Web Console.
+        if (evtOrderKey.startsWith("CONSOLE_"))
+            evtTypes = concat(evtTypes, EVTS_DISCOVERY);
+
+        return collectEvents(ignite, evtOrderKey, evtThrottleCntrKey, evtTypes, evtMapper);
     }
 
     /**
@@ -358,8 +465,8 @@ public class VisorTaskUtils {
      * @param evtMapper Closure to map grid events to Visor data transfer objects.
      * @return Collections of node events
      */
-    public static Collection<VisorGridEvent> collectEvents(Ignite ignite, String evtOrderKey, String evtThrottleCntrKey,
-        final int[] evtTypes, IgniteClosure<Event, VisorGridEvent> evtMapper) {
+    public static List<VisorGridEvent> collectEvents(Ignite ignite, String evtOrderKey, String evtThrottleCntrKey,
+        int[] evtTypes, IgniteClosure<Event, VisorGridEvent> evtMapper) {
         assert ignite != null;
         assert evtTypes != null && evtTypes.length > 0;
 
@@ -377,17 +484,22 @@ public class VisorTaskUtils {
         final AtomicBoolean lastFound = new AtomicBoolean(lastOrder < 0);
 
         IgnitePredicate<Event> p = new IgnitePredicate<Event>() {
+            /** */
+            private static final long serialVersionUID = 0L;
+
             @Override public boolean apply(Event e) {
                 // Detects that events were lost.
                 if (!lastFound.get() && (lastOrder == e.localOrder()))
                     lastFound.set(true);
 
                 // Retains events by lastOrder, period and type.
-                return e.localOrder() > lastOrder && e.timestamp() > notOlderThan && F.contains(evtTypes, e.type());
+                return e.localOrder() > lastOrder && e.timestamp() > notOlderThan;
             }
         };
 
-        Collection<Event> evts = ignite.events().localQuery(p);
+        Collection<Event> evts = ignite.configuration().getEventStorageSpi() instanceof NoopEventStorageSpi
+            ? Collections.<Event>emptyList()
+            : ignite.events().localQuery(p, evtTypes);
 
         // Update latest order in node local, if not empty.
         if (!evts.isEmpty()) {
@@ -402,7 +514,7 @@ public class VisorTaskUtils {
 
         boolean lost = !lastFound.get() && throttle == 0;
 
-        Collection<VisorGridEvent> res = new ArrayList<>(evts.size() + (lost ? 1 : 0));
+        List<VisorGridEvent> res = new ArrayList<>(evts.size() + (lost ? 1 : 0));
 
         if (lost)
             res.add(new VisorGridEventsLost(ignite.cluster().localNode().id()));
@@ -418,13 +530,45 @@ public class VisorTaskUtils {
     }
 
     /**
+     * @param path Path to resolve only relative to IGNITE_HOME.
+     * @return Resolved path as file, or {@code null} if path cannot be resolved.
+     * @throws IOException If failed to resolve path.
+     */
+    public static File resolveIgnitePath(String path) throws IOException {
+        File folder = U.resolveIgnitePath(path);
+
+        if (folder == null)
+            return null;
+
+        if (!folder.toPath().toRealPath(LinkOption.NOFOLLOW_LINKS).startsWith(Paths.get(U.getIgniteHome())))
+            return null;
+
+        return folder;
+    }
+
+    /**
+     * @param file File to resolve.
+     * @return Resolved file if it is a symbolic link or original file.
+     * @throws IOException If failed to resolve symlink.
+     */
+    public static File resolveSymbolicLink(File file) throws IOException {
+        Path path = file.toPath();
+
+        return Files.isSymbolicLink(path) ? Files.readSymbolicLink(path).toFile() : file;
+    }
+
+    /**
      * Finds all files in folder and in it's sub-tree of specified depth.
      *
      * @param file Starting folder
      * @param maxDepth Depth of the tree. If 1 - just look in the folder, no sub-folders.
      * @param filter file filter.
+     * @return List of found files.
+     * @throws IOException If failed to list files.
      */
-    public static List<VisorLogFile> fileTree(File file, int maxDepth, @Nullable FileFilter filter) {
+    public static List<VisorLogFile> fileTree(File file, int maxDepth, @Nullable FileFilter filter) throws IOException {
+        file = resolveSymbolicLink(file);
+
         if (file.isDirectory()) {
             File[] files = (filter == null) ? file.listFiles() : file.listFiles(filter);
 
@@ -443,16 +587,18 @@ public class VisorTaskUtils {
             return res;
         }
 
-        return F.asList(new VisorLogFile(file));
+        // Return ArrayList, because it could be sorted in matchedFiles() method.
+        return new ArrayList<>(F.asList(new VisorLogFile(file)));
     }
 
     /**
-     * @param fld Folder with files to match.
+     * @param file Folder with files to match.
      * @param ptrn Pattern to match against file name.
      * @return Collection of matched files.
+     * @throws IOException If failed to filter files.
      */
-    public static List<VisorLogFile> matchedFiles(File fld, final String ptrn) {
-        List<VisorLogFile> files = fileTree(fld, MAX_FOLDER_DEPTH,
+    public static List<VisorLogFile> matchedFiles(File file, final String ptrn) throws IOException {
+        List<VisorLogFile> files = fileTree(file, MAX_FOLDER_DEPTH,
             new FileFilter() {
                 @Override public boolean accept(File f) {
                     return !f.isHidden() && (f.isDirectory() || f.isFile() && f.getName().matches(ptrn));
@@ -493,7 +639,7 @@ public class VisorTaskUtils {
      *
      * @param f File to process.
      * @return File charset.
-     * @throws IOException
+     * @throws IOException in case of error.
      */
     public static Charset decode(File f) throws IOException {
         SortedMap<String, Charset> charsets = Charset.availableCharsets();
@@ -511,7 +657,7 @@ public class VisorTaskUtils {
         try (RandomAccessFile raf = new RandomAccessFile(f, "r")) {
             FileChannel ch = raf.getChannel();
 
-            ByteBuffer buf = ByteBuffer.allocate(4096);
+            ByteBuffer buf = ByteBuffer.allocate(DFLT_BUFFER_SIZE);
 
             ch.read(buf);
 
@@ -563,11 +709,10 @@ public class VisorTaskUtils {
             else {
                 int toRead = Math.min(blockSz, (int)(fSz - pos));
 
-                byte[] buf = new byte[toRead];
-
                 raf = new RandomAccessFile(file, "r");
-
                 raf.seek(pos);
+
+                byte[] buf = new byte[toRead];
 
                 int cntRead = raf.read(buf, 0, toRead);
 
@@ -613,15 +758,9 @@ public class VisorTaskUtils {
      * @param plc Eviction policy.
      * @return Extracted max size.
      */
-    public static Integer evictionPolicyMaxSize(@Nullable CacheEvictionPolicy plc) {
-        if (plc instanceof CacheLruEvictionPolicyMBean)
-            return ((CacheLruEvictionPolicyMBean)plc).getMaxSize();
-
-        if (plc instanceof CacheRandomEvictionPolicyMBean)
-            return ((CacheRandomEvictionPolicyMBean)plc).getMaxSize();
-
-        if (plc instanceof CacheFifoEvictionPolicyMBean)
-            return ((CacheFifoEvictionPolicyMBean)plc).getMaxSize();
+    public static Integer evictionPolicyMaxSize(@Nullable Factory plc) {
+        if (plc instanceof AbstractEvictionPolicyFactory)
+            return ((AbstractEvictionPolicyFactory) plc).getMaxSize();
 
         return null;
     }
@@ -678,8 +817,8 @@ public class VisorTaskUtils {
                 log.warning(msg);
         }
         else
-            X.println("[" + DEBUG_DATE_FMT.get().format(time) + "]" +
-                String.format("%30s %s", "<" + Thread.currentThread().getName() + ">", msg));
+            X.println(String.format("[%s][%s]%s",
+                DEBUG_DATE_FMT.get().format(time), Thread.currentThread().getName(), msg));
     }
 
     /**
@@ -722,8 +861,10 @@ public class VisorTaskUtils {
      * Log message.
      *
      * @param log Logger.
+     * @param msg Message to log.
      * @param clazz class.
      * @param start start time.
+     * @return Time when message was logged.
      */
     public static long log(@Nullable IgniteLogger log, String msg, Class<?> clazz, long start) {
         final long end = U.currentTimeMillis();
@@ -731,6 +872,16 @@ public class VisorTaskUtils {
         log0(log, end, String.format("[%s]: %s, duration: %s", clazz.getSimpleName(), msg, formatDuration(end - start)));
 
         return end;
+    }
+
+    /**
+     * Log message.
+     *
+     * @param log Logger.
+     * @param msg Message.
+     */
+    public static void log(@Nullable IgniteLogger log, String msg) {
+        log0(log, U.currentTimeMillis(), " " + msg);
     }
 
     /**
@@ -764,10 +915,90 @@ public class VisorTaskUtils {
     }
 
     /**
+     * Start local node in terminal.
+     *
+     * @param log Logger.
+     * @param cfgPath Path to node configuration to start with.
+     * @param nodesToStart Number of nodes to start.
+     * @param quite If {@code true} then start node in quiet mode.
+     * @param envVars Optional map with environment variables.
+     * @return List of started processes.
+     * @throws IOException If failed to start.
+     */
+    public static List<Process> startLocalNode(@Nullable IgniteLogger log, String cfgPath, int nodesToStart,
+        boolean quite, Map<String, String> envVars) throws IOException {
+        String quitePar = quite ? "" : "-v";
+
+        String cmdFile = new File("bin", U.isWindows() ? "ignite.bat" : "ignite.sh").getPath();
+
+        File cmdFilePath = U.resolveIgnitePath(cmdFile);
+
+        if (cmdFilePath == null || !cmdFilePath.exists())
+            throw new FileNotFoundException(String.format("File not found: %s", cmdFile));
+
+        File nodesCfgPath = U.resolveIgnitePath(cfgPath);
+
+        if (nodesCfgPath == null || !nodesCfgPath.exists())
+            throw new FileNotFoundException(String.format("File not found: %s", cfgPath));
+
+        String nodeCfg = nodesCfgPath.getCanonicalPath();
+
+        log(log, String.format("Starting %s local %s with '%s' config", nodesToStart, nodesToStart > 1 ? "nodes" : "node", nodeCfg));
+
+        List<Process> run = new ArrayList<>();
+
+        try {
+            String igniteCmd = cmdFilePath.getCanonicalPath();
+
+            for (int i = 0; i < nodesToStart; i++) {
+                if (U.isMacOs()) {
+                    Map<String, String> macEnv = new HashMap<>(System.getenv());
+
+                    if (envVars != null) {
+                        for (Map.Entry<String, String> ent : envVars.entrySet())
+                            if (macEnv.containsKey(ent.getKey())) {
+                                String old = macEnv.get(ent.getKey());
+
+                                if (old == null || old.isEmpty())
+                                    macEnv.put(ent.getKey(), ent.getValue());
+                                else
+                                    macEnv.put(ent.getKey(), old + ':' + ent.getValue());
+                            }
+                            else
+                                macEnv.put(ent.getKey(), ent.getValue());
+                    }
+
+                    StringBuilder envs = new StringBuilder();
+
+                    for (Map.Entry<String, String> entry : macEnv.entrySet()) {
+                        String val = entry.getValue();
+
+                        if (val.indexOf(';') < 0 && val.indexOf('\'') < 0)
+                            envs.append(String.format("export %s='%s'; ",
+                                    entry.getKey(), val.replace('\n', ' ').replace("'", "\'")));
+                    }
+
+                    run.add(openInConsole(envs.toString(), igniteCmd, quitePar, nodeCfg));
+                } else
+                    run.add(openInConsole(null, envVars, igniteCmd, quitePar, nodeCfg));
+            }
+
+            return run;
+        }
+        catch (Exception e) {
+            for (Process proc: run)
+                proc.destroy();
+
+            throw e;
+        }
+    }
+
+    /**
      * Run command in separated console.
      *
      * @param args A string array containing the program and its arguments.
      * @return Started process.
+     * @throws IOException in case of error.
      */
     public static Process openInConsole(String... args) throws IOException {
         return openInConsole(null, args);
@@ -779,9 +1010,22 @@ public class VisorTaskUtils {
      * @param workFolder Work folder for command.
      * @param args A string array containing the program and its arguments.
      * @return Started process.
+     * @throws IOException in case of error.
+     */
+    public static Process openInConsole(@Nullable File workFolder, String... args) throws IOException {
+        return openInConsole(workFolder, null, args);
+    }
+
+    /**
+     * Run command in separated console.
+     *
+     * @param workFolder Work folder for command.
+     * @param envVars Optional map with environment variables.
+     * @param args A string array containing the program and its arguments.
+     * @return Started process.
      * @throws IOException If failed to start process.
      */
-    public static Process openInConsole(@Nullable File workFolder, String... args)
+    public static Process openInConsole(@Nullable File workFolder, Map<String, String> envVars, String... args)
         throws IOException {
         String[] commands = args;
 
@@ -802,6 +1046,23 @@ public class VisorTaskUtils {
         if (workFolder != null)
             pb.directory(workFolder);
 
+        if (envVars != null) {
+            String sep = U.isWindows() ? ";" : ":";
+
+            Map<String, String> goalVars = pb.environment();
+
+            for (Map.Entry<String, String> var: envVars.entrySet()) {
+                String envVar = goalVars.get(var.getKey());
+
+                if (envVar == null || envVar.isEmpty())
+                    envVar = var.getValue();
+                else
+                    envVar += sep + var.getValue();
+
+                goalVars.put(var.getKey(), envVar);
+            }
+        }
+
         return pb.start();
     }
 
@@ -810,10 +1071,10 @@ public class VisorTaskUtils {
      *
      * @param input Input bytes.
      * @return Zipped byte array.
-     * @throws java.io.IOException If failed.
+     * @throws IOException If failed.
      */
     public static byte[] zipBytes(byte[] input) throws IOException {
-        return zipBytes(input, 4096);
+        return zipBytes(input, DFLT_BUFFER_SIZE);
     }
 
     /**
@@ -822,25 +1083,169 @@ public class VisorTaskUtils {
      * @param input Input bytes.
      * @param initBufSize Initial buffer size.
      * @return Zipped byte array.
-     * @throws java.io.IOException If failed.
+     * @throws IOException If failed.
      */
     public static byte[] zipBytes(byte[] input, int initBufSize) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream(initBufSize);
 
         try (ZipOutputStream zos = new ZipOutputStream(bos)) {
-            ZipEntry entry = new ZipEntry("");
-
             try {
+                ZipEntry entry = new ZipEntry("");
+
                 entry.setSize(input.length);
 
                 zos.putNextEntry(entry);
-
                 zos.write(input);
-            } finally {
+            }
+            finally {
                 zos.closeEntry();
             }
         }
 
         return bos.toByteArray();
+    }
+
+    /**
+     * @param msg Exception message.
+     * @return {@code true} if node failed to join grid.
+     */
+    public static boolean joinTimedOut(String msg) {
+        return msg != null && msg.startsWith("Join process timed out.");
+    }
+
+    /**
+     * Special wrapper over address that can be sorted in following order:
+     *     IPv4, private IPv4, IPv4 local host, IPv6.
+     *     Lower addresses first.
+     */
+    private static class SortableAddress implements Comparable<SortableAddress> {
+        /** */
+        private int type;
+
+        /** */
+        private BigDecimal bits;
+
+        /** */
+        private String addr;
+
+        /**
+         * Constructor.
+         *
+         * @param addr Address as string.
+         */
+        private SortableAddress(String addr) {
+            this.addr = addr;
+
+            if (addr.indexOf(':') > 0)
+                type = 4; // IPv6
+            else {
+                try {
+                    InetAddress inetAddr = InetAddress.getByName(addr);
+
+                    if (inetAddr.isLoopbackAddress())
+                        type = 3;  // localhost
+                    else if (inetAddr.isSiteLocalAddress())
+                        type = 2;  // private IPv4
+                    else
+                        type = 1; // other IPv4
+                }
+                catch (UnknownHostException ignored) {
+                    type = 5;
+                }
+            }
+
+            bits = BigDecimal.valueOf(0L);
+
+            try {
+                String[] octets = addr.contains(".") ? addr.split(".") : addr.split(":");
+
+                int len = octets.length;
+
+                for (int i = 0; i < len; i++) {
+                    long oct = F.isEmpty(octets[i]) ? 0 : Long.valueOf( octets[i]);
+                    long pow = Double.valueOf(Math.pow(256, octets.length - 1 - i)).longValue();
+
+                    bits = bits.add(BigDecimal.valueOf(oct * pow));
+                }
+            }
+            catch (Exception ignore) {
+                // No-op.
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public int compareTo(@NotNull SortableAddress o) {
+            return (type == o.type ? bits.compareTo(o.bits) : Integer.compare(type, o.type));
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean equals(Object o) {
+            if (this == o)
+                return true;
+
+            if (o == null || getClass() != o.getClass())
+                return false;
+
+            SortableAddress other = (SortableAddress)o;
+
+            return addr != null ? addr.equals(other.addr) : other.addr == null;
+        }
+
+        /** {@inheritDoc} */
+        @Override public int hashCode() {
+            return addr != null ? addr.hashCode() : 0;
+        }
+
+        /**
+         * @return Address.
+         */
+        public String address() {
+            return addr;
+        }
+    }
+
+    /**
+     * Sort addresses: IPv4 & real addresses first.
+     *
+     * @param addrs Addresses to sort.
+     * @return Sorted list.
+     */
+    public static Collection<String> sortAddresses(Collection<String> addrs) {
+        if (F.isEmpty(addrs))
+            return Collections.emptyList();
+
+        int sz = addrs.size();
+
+        List<SortableAddress> sorted = new ArrayList<>(sz);
+
+        for (String addr : addrs)
+            sorted.add(new SortableAddress(addr));
+
+        Collections.sort(sorted);
+
+        Collection<String> res = new ArrayList<>(sz);
+
+        for (SortableAddress sa : sorted)
+            res.add(sa.address());
+
+        return res;
+    }
+
+    /**
+     * Split addresses.
+     *
+     * @param s String with comma separted addresses.
+     * @return Collection of addresses.
+     */
+    public static Collection<String> splitAddresses(String s) {
+        if (F.isEmpty(s))
+            return Collections.emptyList();
+
+        String[] addrs = s.split(",");
+
+        for (int i = 0; i < addrs.length; i++)
+            addrs[i] = addrs[i].trim();
+
+        return Arrays.asList(addrs);
     }
 }

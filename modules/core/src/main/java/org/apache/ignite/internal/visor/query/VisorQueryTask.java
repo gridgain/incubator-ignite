@@ -17,162 +17,46 @@
 
 package org.apache.ignite.internal.visor.query;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.query.*;
-import org.apache.ignite.internal.processors.query.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.processors.timeout.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.*;
-import org.apache.ignite.lang.*;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.query.FieldsQueryCursor;
+import org.apache.ignite.cache.query.SqlFieldsQuery;
+import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
+import org.apache.ignite.internal.processors.query.GridQueryFieldMetadata;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorEither;
+import org.apache.ignite.internal.visor.VisorJob;
+import org.apache.ignite.internal.visor.VisorOneNodeTask;
+import org.apache.ignite.internal.visor.util.VisorExceptionWrapper;
 
-import java.io.*;
-import java.sql.*;
-import java.util.*;
-import java.util.concurrent.*;
-
-import static org.apache.ignite.internal.visor.query.VisorQueryUtils.*;
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.query.VisorQueryUtils.SQL_QRY_NAME;
+import static org.apache.ignite.internal.visor.query.VisorQueryUtils.fetchSqlQueryRows;
+import static org.apache.ignite.internal.visor.query.VisorQueryUtils.scheduleResultSetHolderRemoval;
 
 /**
- * Task for execute SCAN or SQL query and get first page of results.
+ * Task for execute SQL fields query and get first page of results.
  */
 @GridInternal
-public class VisorQueryTask extends VisorOneNodeTask<VisorQueryTask.VisorQueryArg,
-    IgniteBiTuple<? extends Exception, VisorQueryResultEx>> {
+public class VisorQueryTask extends VisorOneNodeTask<VisorQueryTaskArg, VisorEither<VisorQueryResult>> {
     /** */
     private static final long serialVersionUID = 0L;
 
     /** {@inheritDoc} */
-    @Override protected VisorQueryJob job(VisorQueryArg arg) {
+    @Override protected VisorQueryJob job(VisorQueryTaskArg arg) {
         return new VisorQueryJob(arg, debug);
-    }
-
-    /**
-     * Arguments for {@link VisorQueryTask}.
-     */
-    @SuppressWarnings("PublicInnerClass")
-    public static class VisorQueryArg implements Serializable {
-        /** */
-        private static final long serialVersionUID = 0L;
-
-        /** Node ids for query. */
-        private final Collection<UUID> proj;
-
-        /** Cache name for query. */
-        private final String cacheName;
-
-        /** Query text. */
-        private final String qryTxt;
-
-        /** Result batch size. */
-        private final Integer pageSize;
-
-        /**
-         * @param proj Node ids for query.
-         * @param cacheName Cache name for query.
-         * @param qryTxt Query text.
-         * @param pageSize Result batch size.
-         */
-        public VisorQueryArg(Collection<UUID> proj, String cacheName, String qryTxt, Integer pageSize) {
-            this.proj = proj;
-            this.cacheName = cacheName;
-            this.qryTxt = qryTxt;
-            this.pageSize = pageSize;
-        }
-
-        /**
-         * @return Proj.
-         */
-        public Collection<UUID> proj() {
-            return proj;
-        }
-
-        /**
-         * @return Cache name.
-         */
-        public String cacheName() {
-            return cacheName;
-        }
-
-        /**
-         * @return Query txt.
-         */
-        public String queryTxt() {
-            return qryTxt;
-        }
-
-        /**
-         * @return Page size.
-         */
-        public Integer pageSize() {
-            return pageSize;
-        }
-    }
-
-    /**
-     * ResultSet future holder.
-     */
-    @SuppressWarnings("PublicInnerClass")
-    public static class VisorFutureResultSetHolder<R> implements Serializable {
-        /** */
-        private static final long serialVersionUID = 0L;
-
-        /** Future with query results. */
-        private final CacheQueryFuture<R> fut;
-
-        /** Next record from future. */
-        private final R next;
-
-        /** Flag indicating that this future was read from last check. */
-        private Boolean accessed;
-
-        /**
-         * @param fut Future.
-         * @param next Next value.
-         * @param accessed {@code true} if query was accessed before remove timeout expired.
-         */
-        public VisorFutureResultSetHolder(CacheQueryFuture<R> fut, R next, Boolean accessed) {
-            this.fut = fut;
-            this.next = next;
-            this.accessed = accessed;
-        }
-
-        /**
-         * @return Future with query results.
-         */
-        public CacheQueryFuture<R> future() {
-            return fut;
-        }
-
-        /**
-         * @return Next record from future.
-         */
-        public R next() {
-            return next;
-        }
-
-        /**
-         * @return Flag indicating that this future was read from last check..
-         */
-        public Boolean accessed() {
-            return accessed;
-        }
-
-        /**
-         * @param accessed New accessed.
-         */
-        public void accessed(Boolean accessed) {
-            this.accessed = accessed;
-        }
     }
 
     /**
      * Job for execute SCAN or SQL query and get first page of results.
      */
-    private static class VisorQueryJob extends
-        VisorJob<VisorQueryArg, IgniteBiTuple<? extends Exception, VisorQueryResultEx>> {
+    private static class VisorQueryJob extends VisorJob<VisorQueryTaskArg, VisorEither<VisorQueryResult>> {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -182,120 +66,83 @@ public class VisorQueryTask extends VisorOneNodeTask<VisorQueryTask.VisorQueryAr
          * @param arg Job argument.
          * @param debug Debug flag.
          */
-        protected VisorQueryJob(VisorQueryArg arg, boolean debug) {
+        private VisorQueryJob(VisorQueryTaskArg arg, boolean debug) {
             super(arg, debug);
         }
 
         /** {@inheritDoc} */
-        @Override protected IgniteBiTuple<? extends Exception, VisorQueryResultEx> run(VisorQueryArg arg) {
+        @Override protected VisorEither<VisorQueryResult> run(final VisorQueryTaskArg arg) {
             try {
-                Boolean scan = arg.queryTxt().toUpperCase().startsWith("SCAN");
+                UUID nid = ignite.localNode().id();
 
-                String qryId = (scan ? SCAN_QRY_NAME : SQL_QRY_NAME) + "-" +
-                    UUID.randomUUID();
+                SqlFieldsQuery qry = new SqlFieldsQuery(arg.getQueryText());
+                qry.setPageSize(arg.getPageSize());
+                qry.setLocal(arg.isLocal());
+                qry.setDistributedJoins(arg.isDistributedJoins());
+                qry.setEnforceJoinOrder(arg.isEnforceJoinOrder());
+                qry.setReplicatedOnly(arg.isReplicatedOnly());
+                qry.setLazy(arg.getLazy());
 
-                GridCache<Object, Object> c = ignite.cachex(arg.cacheName());
+                long start = U.currentTimeMillis();
 
-                if (c == null)
-                    return new IgniteBiTuple<>(new IgniteCheckedException("Cache not found: " +
-                        escapeName(arg.cacheName())), null);
+                List<FieldsQueryCursor<List<?>>> qryCursors;
 
-                CacheProjection<Object, Object> cp = c.keepPortable();
+                String cacheName = arg.getCacheName();
 
-                if (scan) {
-                    CacheQueryFuture<Map.Entry<Object, Object>> fut = cp.queries().createScanQuery(null)
-                        .pageSize(arg.pageSize())
-                        .projection(ignite.cluster().forNodeIds(arg.proj()))
-                        .execute();
-
-                    long start = U.currentTimeMillis();
-
-                    IgniteBiTuple<List<Object[]>, Map.Entry<Object, Object>> rows =
-                        fetchScanQueryRows(fut, null, arg.pageSize());
-
-                    long fetchDuration = U.currentTimeMillis() - start;
-
-                    long duration = fut.duration() + fetchDuration; // Scan duration + fetch duration.
-
-                    Map.Entry<Object, Object> next = rows.get2();
-
-                    ignite.cluster().<String, VisorFutureResultSetHolder>nodeLocalMap().put(qryId,
-                        new VisorFutureResultSetHolder<>(fut, next, false));
-
-                    scheduleResultSetHolderRemoval(qryId);
-
-                    return new IgniteBiTuple<>(null, new VisorQueryResultEx(ignite.localNode().id(), qryId,
-                        SCAN_COL_NAMES, rows.get1(), next != null, duration));
-                }
+                if (F.isEmpty(cacheName))
+                    qryCursors = ignite.context().query().querySqlFields(qry, true, false);
                 else {
-                    CacheQueryFuture<List<?>> fut = ((GridCacheQueriesEx<?, ?>)cp.queries())
-                        .createSqlFieldsQuery(arg.queryTxt(), true)
-                        .pageSize(arg.pageSize())
-                        .projection(ignite.cluster().forNodeIds(arg.proj()))
-                        .execute();
+                    IgniteCache<Object, Object> c = ignite.cache(cacheName);
 
-                    List<Object> firstRow = (List<Object>)fut.next();
+                    if (c == null)
+                        throw new SQLException("Fail to execute query. Cache not found: " + cacheName);
 
-                    List<GridQueryFieldMetadata> meta = ((GridCacheQueryMetadataAware)fut).metadata().get();
+                    qryCursors = ((IgniteCacheProxy)c.withKeepBinary()).queryMultipleStatements(qry);
+                }
 
-                    if (meta == null)
-                        return new IgniteBiTuple<Exception, VisorQueryResultEx>(
-                            new SQLException("Fail to execute query. No metadata available."), null);
-                    else {
-                        VisorQueryField[] names = new VisorQueryField[meta.size()];
+                // In case of multiple statements leave opened only last cursor.
+                for (int i = 0; i < qryCursors.size() - 1; i++)
+                    U.closeQuiet(qryCursors.get(i));
 
-                        for (int i = 0; i < meta.size(); i++) {
-                            GridQueryFieldMetadata col = meta.get(i);
+                // In case of multiple statements return last cursor as result.
+                VisorQueryCursor<List<?>> cur = new VisorQueryCursor<>(F.last(qryCursors));
 
-                            names[i] = new VisorQueryField(col.typeName(), col.fieldName());
-                        }
+                Collection<GridQueryFieldMetadata> meta = cur.fieldsMeta();
 
-                        long start = U.currentTimeMillis();
+                if (meta == null)
+                    return new VisorEither<>(
+                        new VisorExceptionWrapper(new SQLException("Fail to execute query. No metadata available.")));
+                else {
+                    List<VisorQueryField> names = new ArrayList<>(meta.size());
 
-                        IgniteBiTuple<List<Object[]>, List<?>> rows =
-                            fetchSqlQueryRows(fut, firstRow, arg.pageSize());
+                    for (GridQueryFieldMetadata col : meta)
+                        names.add(new VisorQueryField(col.schemaName(), col.typeName(),
+                            col.fieldName(), col.fieldTypeName()));
 
-                        long fetchDuration = U.currentTimeMillis() - start;
+                    List<Object[]> rows = fetchSqlQueryRows(cur, arg.getPageSize());
 
-                        long duration = fut.duration() + fetchDuration; // Query duration + fetch duration.
+                    // Query duration + fetch duration.
+                    long duration = U.currentTimeMillis() - start;
 
-                        ignite.cluster().<String, VisorFutureResultSetHolder>nodeLocalMap().put(qryId,
-                            new VisorFutureResultSetHolder<>(fut, rows.get2(), false));
+                    boolean hasNext = cur.hasNext();
 
-                        scheduleResultSetHolderRemoval(qryId);
+                    // Generate query ID to store query cursor in node local storage.
+                    String qryId = SQL_QRY_NAME + "-" + UUID.randomUUID();
 
-                        return new IgniteBiTuple<>(null, new VisorQueryResultEx(ignite.localNode().id(), qryId,
-                            names, rows.get1(), rows.get2() != null, duration));
+                    if (hasNext) {
+                        ignite.cluster().<String, VisorQueryCursor<List<?>>>nodeLocalMap().put(qryId, cur);
+
+                        scheduleResultSetHolderRemoval(qryId, ignite);
                     }
+                    else
+                        cur.close();
+
+                    return new VisorEither<>(new VisorQueryResult(nid, qryId, names, rows, hasNext, duration));
                 }
             }
-            catch (Exception e) {
-                return new IgniteBiTuple<>(e, null);
+            catch (Throwable e) {
+                return new VisorEither<>(new VisorExceptionWrapper(e));
             }
-        }
-
-        /**
-         * @param id Unique query result id.
-         */
-        private void scheduleResultSetHolderRemoval(final String id) {
-            ignite.context().timeout().addTimeoutObject(new GridTimeoutObjectAdapter(RMV_DELAY) {
-                @Override public void onTimeout() {
-                    ConcurrentMap<String, VisorFutureResultSetHolder> storage = ignite.cluster().nodeLocalMap();
-
-                    VisorFutureResultSetHolder<?> t = storage.get(id);
-
-                    if (t != null) {
-                        // If future was accessed since last scheduling,  set access flag to false and reschedule.
-                        if (t.accessed()) {
-                            t.accessed(false);
-
-                            scheduleResultSetHolderRemoval(id);
-                        }
-                        else
-                            storage.remove(id); // Remove stored future otherwise.
-                    }
-                }
-            });
         }
 
         /** {@inheritDoc} */

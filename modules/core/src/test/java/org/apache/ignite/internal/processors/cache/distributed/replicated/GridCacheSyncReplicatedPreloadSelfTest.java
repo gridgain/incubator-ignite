@@ -17,23 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.replicated;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.spi.discovery.tcp.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.*;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.*;
-import org.apache.ignite.testframework.junits.common.*;
-import org.jetbrains.annotations.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.cache.CacheRebalanceMode.*;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
-import static org.apache.ignite.configuration.DeploymentMode.*;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.configuration.DeploymentMode.CONTINUOUS;
 
 /**
  * Multithreaded tests for replicated cache preloader.
@@ -41,9 +40,6 @@ import static org.apache.ignite.configuration.DeploymentMode.*;
 public class GridCacheSyncReplicatedPreloadSelfTest extends GridCommonAbstractTest {
     /** */
     private TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
-
-    /** */
-    private static final boolean DISCO_DEBUG_MODE = false;
 
     /**
      * Constructs test.
@@ -53,20 +49,19 @@ public class GridCacheSyncReplicatedPreloadSelfTest extends GridCommonAbstractTe
     }
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         TcpDiscoverySpi disco = new TcpDiscoverySpi();
 
         disco.setIpFinder(ipFinder);
-        disco.setDebugMode(DISCO_DEBUG_MODE);
 
         cfg.setDiscoverySpi(disco);
 
         CacheConfiguration cacheCfg = defaultCacheConfiguration();
 
         cacheCfg.setCacheMode(REPLICATED);
-        cacheCfg.setDistributionMode(PARTITIONED_ONLY);
+        cacheCfg.setNearConfiguration(null);
         cacheCfg.setWriteSynchronizationMode(FULL_SYNC);
 
         // This property is essential for this test.
@@ -99,17 +94,17 @@ public class GridCacheSyncReplicatedPreloadSelfTest extends GridCommonAbstractTe
         Ignite g1 = startGrid(1);
 
         for (int i = 0; i < keyCnt; i++)
-            g0.jcache(null).put(i, i);
+            g0.cache(DEFAULT_CACHE_NAME).put(i, i);
 
-        assertEquals(keyCnt, ((IgniteKernal)g0).internalCache(null).size());
-        assertEquals(keyCnt, ((IgniteKernal)g1).internalCache(null).size());
+        assertEquals(keyCnt, ((IgniteKernal)g0).internalCache(DEFAULT_CACHE_NAME).size());
+        assertEquals(keyCnt, ((IgniteKernal)g1).internalCache(DEFAULT_CACHE_NAME).size());
 
         for (int n = 0; n < retries; n++) {
             info("Starting additional grid node...");
 
             Ignite g2 = startGrid(2);
 
-            assertEquals(keyCnt, ((IgniteKernal)g2).internalCache(null).size());
+            assertEquals(keyCnt, ((IgniteKernal)g2).internalCache(DEFAULT_CACHE_NAME).size());
 
             info("Stopping additional grid node...");
 
@@ -130,10 +125,10 @@ public class GridCacheSyncReplicatedPreloadSelfTest extends GridCommonAbstractTe
         Ignite g1 = startGrid(1);
 
         for (int i = 0; i < keyCnt; i++)
-            g0.jcache(null).put(i, i);
+            g0.cache(DEFAULT_CACHE_NAME).put(i, i);
 
-        assertEquals(keyCnt, ((IgniteKernal)g0).internalCache(null).size());
-        assertEquals(keyCnt, ((IgniteKernal)g1).internalCache(null).size());
+        assertEquals(keyCnt, ((IgniteKernal)g0).internalCache(DEFAULT_CACHE_NAME).size());
+        assertEquals(keyCnt, ((IgniteKernal)g1).internalCache(DEFAULT_CACHE_NAME).size());
 
         final AtomicInteger cnt = new AtomicInteger();
 

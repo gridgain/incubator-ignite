@@ -17,26 +17,29 @@
 
 package org.apache.ignite.examples.events;
 
-import org.apache.ignite.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.events.*;
-import org.apache.ignite.examples.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
+import java.util.UUID;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.compute.ComputeTaskSession;
+import org.apache.ignite.events.TaskEvent;
+import org.apache.ignite.examples.ExampleNodeStartup;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.resources.TaskSessionResource;
 
-import java.util.*;
-
-import static org.apache.ignite.events.EventType.*;
+import static org.apache.ignite.events.EventType.EVTS_TASK_EXECUTION;
 
 /**
  * Demonstrates event consume API that allows to register event listeners on remote nodes.
  * Note that ignite events are disabled by default and must be specifically enabled,
- * just like in {@code examples/config/example-compute.xml} file.
+ * just like in {@code examples/config/example-ignite.xml} file.
  * <p>
- * Remote nodes should always be started with configuration: {@code 'ignite.sh examples/config/example-compute.xml'}.
+ * Remote nodes should always be started with configuration: {@code 'ignite.sh examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link ComputeNodeStartup} in another JVM which will start
- * node with {@code examples/config/example-compute.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will start
+ * node with {@code examples/config/example-ignite.xml} configuration.
  */
 public class EventsExample {
     /**
@@ -46,7 +49,7 @@ public class EventsExample {
      * @throws Exception If example execution failed.
      */
     public static void main(String[] args) throws Exception {
-        try (Ignite ignite = Ignition.start("examples/config/example-compute.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             System.out.println();
             System.out.println(">>> Events API example started.");
 
@@ -72,23 +75,17 @@ public class EventsExample {
 
         Ignite ignite = Ignition.ignite();
 
-        IgnitePredicate<TaskEvent> lsnr = new IgnitePredicate<TaskEvent>() {
-            @Override public boolean apply(TaskEvent evt) {
-                System.out.println("Received task event [evt=" + evt.name() + ", taskName=" + evt.taskName() + ']');
+        IgnitePredicate<TaskEvent> lsnr = evt -> {
+            System.out.println("Received task event [evt=" + evt.name() + ", taskName=" + evt.taskName() + ']');
 
-                return true; // Return true to continue listening.
-            }
+            return true; // Return true to continue listening.
         };
 
         // Register event listener for all local task execution events.
         ignite.events().localListen(lsnr, EVTS_TASK_EXECUTION);
 
         // Generate task events.
-        ignite.compute().withName("example-event-task").run(new IgniteRunnable() {
-            @Override public void run() {
-                System.out.println("Executing sample job.");
-            }
-        });
+        ignite.compute().withName("example-event-task").run(() -> System.out.println("Executing sample job."));
 
         // Unsubscribe local task event listener.
         ignite.events().stopLocalListen(lsnr);
@@ -105,23 +102,17 @@ public class EventsExample {
 
         // This optional local callback is called for each event notification
         // that passed remote predicate listener.
-        IgniteBiPredicate<UUID, TaskEvent> locLsnr = new IgniteBiPredicate<UUID, TaskEvent>() {
-            @Override public boolean apply(UUID nodeId, TaskEvent evt) {
-                // Remote filter only accepts tasks whose name being with "good-task" prefix.
-                assert evt.taskName().startsWith("good-task");
+        IgniteBiPredicate<UUID, TaskEvent> locLsnr = (nodeId, evt) -> {
+            // Remote filter only accepts tasks whose name being with "good-task" prefix.
+            assert evt.taskName().startsWith("good-task");
 
-                System.out.println("Received task event [evt=" + evt.name() + ", taskName=" + evt.taskName());
+            System.out.println("Received task event [evt=" + evt.name() + ", taskName=" + evt.taskName());
 
-                return true; // Return true to continue listening.
-            }
+            return true; // Return true to continue listening.
         };
 
         // Remote filter which only accepts tasks whose name begins with "good-task" prefix.
-        IgnitePredicate<TaskEvent> rmtLsnr = new IgnitePredicate<TaskEvent>() {
-            @Override public boolean apply(TaskEvent evt) {
-                return evt.taskName().startsWith("good-task");
-            }
-        };
+        IgnitePredicate<TaskEvent> rmtLsnr = evt -> evt.taskName().startsWith("good-task");
 
         Ignite ignite = Ignition.ignite();
 

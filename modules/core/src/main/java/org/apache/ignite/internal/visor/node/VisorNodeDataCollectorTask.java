@@ -17,17 +17,16 @@
 
 package org.apache.ignite.internal.visor.node;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cluster.ClusterGroupEmptyException;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.visor.VisorMultiNodeTask;
+import org.apache.ignite.internal.visor.util.VisorExceptionWrapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Collects current Grid state mostly topology and metrics.
@@ -37,25 +36,6 @@ public class VisorNodeDataCollectorTask extends VisorMultiNodeTask<VisorNodeData
     VisorNodeDataCollectorTaskResult, VisorNodeDataCollectorJobResult> {
     /** */
     private static final long serialVersionUID = 0L;
-
-    /** {@inheritDoc} */
-    @Override protected Map<? extends ComputeJob, ClusterNode> map0(List<ClusterNode> subgrid,
-        VisorTaskArgument<VisorNodeDataCollectorTaskArg> arg) {
-        assert arg != null;
-
-        Map<ComputeJob, ClusterNode> map = U.newHashMap(subgrid.size());
-
-        try {
-            for (ClusterNode node : subgrid)
-                map.put(job(taskArg), node);
-
-            return map;
-        }
-        finally {
-            if (debug)
-                logMapped(ignite.log(), getClass(), map.values());
-        }
-    }
 
     /** {@inheritDoc} */
     @Override protected VisorNodeDataCollectorJob job(VisorNodeDataCollectorTaskArg arg) {
@@ -70,6 +50,7 @@ public class VisorNodeDataCollectorTask extends VisorMultiNodeTask<VisorNodeData
     /**
      * @param taskRes Task result.
      * @param results Results.
+     * @return Data collector task result.
      */
     protected VisorNodeDataCollectorTaskResult reduce(VisorNodeDataCollectorTaskResult taskRes,
         List<ComputeJobResult> results) {
@@ -86,10 +67,12 @@ public class VisorNodeDataCollectorTask extends VisorMultiNodeTask<VisorNodeData
                 else {
                     // Ignore nodes that left topology.
                     if (!(unhandledEx instanceof ClusterGroupEmptyException))
-                        taskRes.unhandledEx().put(nid, unhandledEx);
+                        taskRes.getUnhandledEx().put(nid, new VisorExceptionWrapper(unhandledEx));
                 }
             }
         }
+
+        taskRes.setActive(ignite.active());
 
         return taskRes;
     }
@@ -103,39 +86,51 @@ public class VisorNodeDataCollectorTask extends VisorMultiNodeTask<VisorNodeData
      */
     protected void reduceJobResult(VisorNodeDataCollectorTaskResult taskRes,
         VisorNodeDataCollectorJobResult jobRes, UUID nid) {
-        taskRes.gridNames().put(nid, jobRes.gridName());
+        taskRes.getGridNames().put(nid, jobRes.getGridName());
 
-        taskRes.topologyVersions().put(nid, jobRes.topologyVersion());
+        taskRes.getTopologyVersions().put(nid, jobRes.getTopologyVersion());
 
-        taskRes.taskMonitoringEnabled().put(nid, jobRes.taskMonitoringEnabled());
+        taskRes.getTaskMonitoringEnabled().put(nid, jobRes.isTaskMonitoringEnabled());
 
-        taskRes.errorCounts().put(nid, jobRes.errorCount());
+        taskRes.getErrorCounts().put(nid, jobRes.getErrorCount());
 
-        if (!jobRes.events().isEmpty())
-            taskRes.events().addAll(jobRes.events());
+        if (!F.isEmpty(jobRes.getEvents()))
+            taskRes.getEvents().addAll(jobRes.getEvents());
 
-        if (jobRes.eventsEx() != null)
-            taskRes.eventsEx().put(nid, jobRes.eventsEx());
+        if (jobRes.getEventsEx() != null)
+            taskRes.getEventsEx().put(nid, jobRes.getEventsEx());
 
-        if (!jobRes.caches().isEmpty())
-            taskRes.caches().put(nid, jobRes.caches());
+        if (!F.isEmpty(jobRes.getMemoryMetrics()))
+            taskRes.getMemoryMetrics().put(nid, jobRes.getMemoryMetrics());
 
-        if (jobRes.cachesEx() != null)
-            taskRes.cachesEx().put(nid, jobRes.cachesEx());
+        if (jobRes.getMemoryMetricsEx() != null)
+            taskRes.getMemoryMetricsEx().put(nid, jobRes.getMemoryMetricsEx());
 
-        if (!jobRes.streamers().isEmpty())
-            taskRes.streamers().put(nid, jobRes.streamers());
+        if (!F.isEmpty(jobRes.getCaches()))
+            taskRes.getCaches().put(nid, jobRes.getCaches());
 
-        if (jobRes.streamersEx() != null)
-            taskRes.streamersEx().put(nid, jobRes.streamersEx());
+        if (jobRes.getCachesEx() != null)
+            taskRes.getCachesEx().put(nid, jobRes.getCachesEx());
 
-        if (!jobRes.igfss().isEmpty())
-            taskRes.igfss().put(nid, jobRes.igfss());
+        if (!F.isEmpty(jobRes.getIgfss()))
+            taskRes.getIgfss().put(nid, jobRes.getIgfss());
 
-        if (!jobRes.igfsEndpoints().isEmpty())
-            taskRes.igfsEndpoints().put(nid, jobRes.igfsEndpoints());
+        if (!F.isEmpty(jobRes.getIgfsEndpoints()))
+            taskRes.getIgfsEndpoints().put(nid, jobRes.getIgfsEndpoints());
 
-        if (jobRes.igfssEx() != null)
-            taskRes.igfssEx().put(nid, jobRes.igfssEx());
+        if (jobRes.getIgfssEx() != null)
+            taskRes.getIgfssEx().put(nid, jobRes.getIgfssEx());
+
+        if (jobRes.getPersistenceMetrics() != null)
+            taskRes.getPersistenceMetrics().put(nid, jobRes.getPersistenceMetrics());
+
+        if (jobRes.getPersistenceMetricsEx() != null)
+            taskRes.getPersistenceMetricsEx().put(nid, jobRes.getPersistenceMetricsEx());
+
+        taskRes.getReadyAffinityVersions().put(nid, jobRes.getReadyAffinityVersion());
+
+        taskRes.getPendingExchanges().put(nid, jobRes.isHasPendingExchange());
+
+        taskRes.getRebalance().put(nid, jobRes.getRebalance());
     }
 }

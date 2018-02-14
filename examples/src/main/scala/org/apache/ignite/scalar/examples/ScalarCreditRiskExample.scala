@@ -25,13 +25,16 @@ import scala.util.control.Breaks._
 
 /**
  * Scalar-based Monte-Carlo example.
- * <p>
+ * <p/>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: `'ignite.{sh|bat} examples/config/example-compute.xml'`.
+ * enables P2P class loading: `'ignite.{sh|bat} examples/config/example-ignite.xml'`.
+ * <p/>
+ * Alternatively you can run `ExampleNodeStartup` in another JVM which will
+ * start node with `examples/config/example-ignite.xml` configuration.
  */
 object ScalarCreditRiskExample {
     def main(args: Array[String]) {
-        scalar("examples/config/example-compute.xml") {
+        scalar("examples/config/example-ignite.xml") {
             // Create portfolio.
             var portfolio = Seq.empty[Credit]
 
@@ -65,7 +68,7 @@ object ScalarCreditRiskExample {
             // aware if method was executed just locally or on the 100s of cluster nodes.
             // Credit risk crdRisk is the minimal amount that creditor has to have
             // available to cover possible defaults.
-            val crdRisk = ignite$ @< (closures(ignite$.cluster().nodes().size(), portfolio, horizon, iter, percentile),
+            val crdRisk = ignite$ @< (closures(ignite$.cluster().nodes().size(), portfolio.toArray, horizon, iter, percentile),
                 (s: Seq[Double]) => s.sum / s.size, null)
 
             println("Credit risk [crdRisk=" + crdRisk + ", duration=" +
@@ -83,7 +86,7 @@ object ScalarCreditRiskExample {
      * @param percentile Percentile.
      * @return Collection of closures.
      */
-    private def closures(clusterSize: Int, portfolio: Seq[Credit], horizon: Int, iter: Int,
+    private def closures(clusterSize: Int, portfolio: Array[Credit], horizon: Int, iter: Int,
         percentile: Double): Seq[() => Double] = {
         val iterPerNode: Int = math.round(iter / clusterSize.asInstanceOf[Float])
         val lastNodeIter: Int = iter - (clusterSize - 1) * iterPerNode

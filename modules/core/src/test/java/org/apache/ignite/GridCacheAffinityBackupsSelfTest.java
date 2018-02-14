@@ -17,38 +17,43 @@
 
 package org.apache.ignite;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.*;
-import org.apache.ignite.cache.affinity.fair.*;
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.testframework.junits.common.*;
-
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.UUID;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 /**
  * Tests affinity function with different number of backups.
  */
 public class GridCacheAffinityBackupsSelfTest extends GridCommonAbstractTest {
+    /** */
+    private final TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
+
     /** Number of backups. */
     private int backups;
-
-    /** Affinity function. */
-    private CacheAffinityFunction func;
 
     /** */
     private int nodesCnt = 5;
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        CacheConfiguration ccfg = new CacheConfiguration();
+        ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(ipFinder);
+
+        CacheConfiguration ccfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
         ccfg.setCacheMode(CacheMode.PARTITIONED);
         ccfg.setBackups(backups);
-        ccfg.setAffinity(func);
+        ccfg.setAffinity(new RendezvousAffinityFunction());
 
         cfg.setCacheConfiguration(ccfg);
 
@@ -60,27 +65,17 @@ public class GridCacheAffinityBackupsSelfTest extends GridCommonAbstractTest {
      */
     public void testRendezvousBackups() throws Exception {
         for (int i = 0; i < nodesCnt; i++)
-            checkBackups(i, new CacheRendezvousAffinityFunction());
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testFairBackups() throws Exception {
-        for (int i = 0; i < nodesCnt; i++)
-            checkBackups(i, new CachePartitionFairAffinity());
+            checkBackups(i);
     }
 
     /**
      * @param backups Number of backups.
-     * @param func Affinity function.
      * @throws Exception If failed.
      */
-    private void checkBackups(int backups, CacheAffinityFunction func) throws Exception {
+    private void checkBackups(int backups) throws Exception {
         this.backups = backups;
-        this.func = func;
 
-        startGrids(nodesCnt);
+        startGridsMultiThreaded(nodesCnt, true);
 
         try {
             IgniteCache<Object, Object> cache = jcache(0);

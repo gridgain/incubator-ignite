@@ -17,19 +17,33 @@
 
 package org.apache.ignite.logger.java;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.logger.*;
-import org.jetbrains.annotations.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.UUID;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.FileHandler;
+import java.util.logging.Handler;
+import java.util.logging.LogManager;
+import java.util.logging.Logger;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.logger.LoggerNodeIdAware;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.logging.*;
-
-import static java.util.logging.Level.*;
-import static org.apache.ignite.IgniteSystemProperties.*;
+import static java.util.logging.Level.FINE;
+import static java.util.logging.Level.FINEST;
+import static java.util.logging.Level.INFO;
+import static java.util.logging.Level.SEVERE;
+import static java.util.logging.Level.WARNING;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_CONSOLE_APPENDER;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_QUIET;
 
 /**
  * Logger to use with Java logging. Implementation simply delegates to Java Logging.
@@ -40,7 +54,7 @@ import static org.apache.ignite.IgniteSystemProperties.*;
  * <pre name="code" class="xml">
  *      ...
  *      &lt;property name="gridLogger"&gt;
- *          &lt;bean class="org.apache.ignite.logger.java.IgniteJavaLogger"&gt;
+ *          &lt;bean class="org.apache.ignite.logger.java.JavaLogger"&gt;
  *              &lt;constructor-arg type="java.util.logging.Logger"&gt;
  *                  &lt;bean class="java.util.logging.Logger"&gt;
  *                      &lt;constructor-arg type="java.lang.String" value="global"/&gt;
@@ -54,27 +68,27 @@ import static org.apache.ignite.IgniteSystemProperties.*;
  * <pre name="code" class="xml">
  *      ...
  *      &lt;property name="gridLogger"&gt;
- *          &lt;bean class="org.apache.ignite.logger.java.IgniteJavaLogger"/&gt;
+ *          &lt;bean class="org.apache.ignite.logger.java.JavaLogger"/&gt;
  *      &lt;/property&gt;
  *      ...
  * </pre>
  * And the same configuration if you'd like to configure Ignite in your code:
  * <pre name="code" class="java">
- *      GridConfiguration cfg = new GridConfiguration();
+ *      IgniteConfiguration cfg = new IgniteConfiguration();
  *      ...
- *      GridLogger log = new GridJavaLogger(Logger.global);
+ *      IgniteLogger log = new JavaLogger(Logger.global);
  *      ...
  *      cfg.setGridLogger(log);
  * </pre>
  * or which is actually the same:
  * <pre name="code" class="java">
- *      GridConfiguration cfg = new GridConfiguration();
+ *      IgniteConfiguration cfg = new IgniteConfiguration();
  *      ...
- *      GridLogger log = new GridJavaLogger();
+ *      IgniteLogger log = new JavaLogger();
  *      ...
  *      cfg.setGridLogger(log);
  * </pre>
- * Please take a look at <a target=_new href="http://java.sun.com/j2se/1.4.2/docs/api20/java/util/logging/Logger.html">Logger javadoc</a>
+ * Please take a look at <a target=_new href="http://docs.oracle.com/javase/7/docs/api/java/util/logging/Logger.html">Logger javadoc</a>
  * for additional information.
  * <p>
  * It's recommended to use Ignite logger injection instead of using/instantiating
@@ -95,13 +109,23 @@ public class JavaLogger implements IgniteLogger, LoggerNodeIdAware {
     private static volatile boolean quiet0;
 
     /** Java Logging implementation proxy. */
+    @GridToStringExclude
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
     private Logger impl;
+
+    /** Path to configuration file. */
+    @GridToStringExclude
+    private String cfg;
 
     /** Quiet flag. */
     private final boolean quiet;
 
+    /** Work directory. */
+    @GridToStringExclude
+    private volatile String workDir;
+
     /** Node ID. */
+    @GridToStringExclude
     private volatile UUID nodeId;
 
     /**
@@ -138,6 +162,8 @@ public class JavaLogger implements IgniteLogger, LoggerNodeIdAware {
         catch (IOException e) {
             error("Failed to read logging configuration: " + cfgUrl, e);
         }
+
+        cfg = cfgUrl.getPath();
     }
 
     /**
@@ -201,6 +227,7 @@ public class JavaLogger implements IgniteLogger, LoggerNodeIdAware {
                 // User configured console appender, thus log is not quiet.
                 quiet0 = !consoleHndFound;
                 inited = true;
+                cfg = System.getProperty("java.util.logging.config.file");
 
                 return;
             }
@@ -328,6 +355,15 @@ public class JavaLogger implements IgniteLogger, LoggerNodeIdAware {
         }
     }
 
+    /**
+     * Set work directory.
+     *
+     * @param workDir Work directory.
+     */
+    public void setWorkDirectory(String workDir) {
+        this.workDir = workDir;
+    }
+
     /** {@inheritDoc} */
     @Override public void setNodeId(UUID nodeId) {
         A.notNull(nodeId, "nodeId");
@@ -349,7 +385,7 @@ public class JavaLogger implements IgniteLogger, LoggerNodeIdAware {
             return;
 
         try {
-            fileHnd.nodeId(nodeId);
+            fileHnd.nodeId(nodeId, workDir);
         }
         catch (IgniteCheckedException | IOException e) {
             throw new RuntimeException("Failed to enable file handler.", e);
@@ -381,5 +417,10 @@ public class JavaLogger implements IgniteLogger, LoggerNodeIdAware {
         }
 
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(JavaLogger.class, this, "config", this.cfg);
     }
 }

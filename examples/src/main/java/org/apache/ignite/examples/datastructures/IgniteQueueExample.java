@@ -17,27 +17,28 @@
 
 package org.apache.ignite.examples.datastructures;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.examples.datagrid.*;
-import org.apache.ignite.lang.*;
+import java.util.UUID;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteQueue;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.CollectionConfiguration;
+import org.apache.ignite.examples.ExampleNodeStartup;
+import org.apache.ignite.lang.IgniteRunnable;
 
-import java.util.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Ignite cache distributed queue example. This example demonstrates {@code FIFO} unbounded
  * cache queue.
  * <p>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-cache.xml'}.
+ * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link CacheNodeStartup} in another JVM which will
- * start node with {@code examples/config/example-cache.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will
+ * start node with {@code examples/config/example-ignite.xml} configuration.
  */
 public class IgniteQueueExample {
-    /** Cache name. */
-    private static final String CACHE_NAME = "partitioned_primary";
-
     /** Number of retries */
     private static final int RETRIES = 20;
 
@@ -51,7 +52,7 @@ public class IgniteQueueExample {
      * @throws Exception If example execution failed.
      */
     public static void main(String[] args) throws Exception {
-        try (Ignite ignite = Ignition.start("examples/config/example-cache.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             System.out.println();
             System.out.println(">>> Ignite queue example started.");
 
@@ -81,7 +82,7 @@ public class IgniteQueueExample {
     private static IgniteQueue<String> initializeQueue(Ignite ignite, String queueName) throws IgniteException {
         CollectionConfiguration colCfg = new CollectionConfiguration();
 
-        colCfg.setCacheName(CACHE_NAME);
+        colCfg.setCacheMode(PARTITIONED);
 
         // Initialize new FIFO queue.
         IgniteQueue<String> queue = ignite.queue(queueName, 0, colCfg);

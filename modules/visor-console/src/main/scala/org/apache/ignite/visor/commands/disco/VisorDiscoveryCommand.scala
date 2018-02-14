@@ -20,14 +20,15 @@ package org.apache.ignite.visor.commands.disco
 import org.apache.ignite.cluster.ClusterNode
 import org.apache.ignite.events.EventType._
 import org.apache.ignite.internal.util.lang.{GridFunc => F}
+import org.apache.ignite.internal.util.scala.impl
 import org.apache.ignite.internal.util.{IgniteUtils => U}
+import org.apache.ignite.visor.VisorTag
+import org.apache.ignite.visor.commands.common.{VisorConsoleCommand, VisorTextTable}
+import org.apache.ignite.visor.visor._
+
 import org.apache.ignite.internal.visor.event.VisorGridDiscoveryEvent
 import org.apache.ignite.internal.visor.node.VisorNodeEventsCollectorTask
-import org.apache.ignite.internal.visor.node.VisorNodeEventsCollectorTask.VisorNodeEventsCollectorTaskArg
-
-import org.apache.ignite.visor.VisorTag
-import org.apache.ignite.visor.commands.{VisorConsoleCommand, VisorTextTable}
-import org.apache.ignite.visor.visor._
+import org.apache.ignite.internal.visor.node.VisorNodeEventsCollectorTaskArg
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable._
@@ -41,17 +42,18 @@ import scala.language.{implicitConversions, reflectiveCalls}
  * {{{
  * +---------------------------------------------------------------------------------------+
  * | disco | Prints topology change log as seen from the oldest node.                      |
- * |       | Timeframe for querying events can be specified in arguments.                   |
+ * |       | Time frame for querying events can be specified in arguments.                 |
  * |       |                                                                               |
- * |       | Note that this command depends on Ignite events.                            |
+ * |       | Note that this command depends on Ignite events.                              |
  * |       |                                                                               |
- * |       | Ignite events can be individually enabled and disabled and disabled events  |
+ * |       | Ignite events can be individually enabled and disabled and disabled events    |
  * |       | can affect the results produced by this command. Note also that configuration |
  * |       | of Event Storage SPI that is responsible for temporary storage of generated   |
  * |       | events on each node can also affect the functionality of this command.        |
  * |       |                                                                               |
- * |       | By default - all events are DISABLED and Ignite stores last 10,000 local     |
- * |       | events on each node. Both of these defaults can be changed in configuration.  |
+ * |       | By default - all events are DISABLED. But if events enabled then Ignite will  |
+ * |       | stores last 10,000 local events on each node.                                 |
+ * |       | Both of these defaults can be changed in configuration.                       |
  * +---------------------------------------------------------------------------------------+
  * }}}
  *
@@ -64,7 +66,7 @@ import scala.language.{implicitConversions, reflectiveCalls}
  * ====Arguments====
  * {{{
  *     -t=<num>s|m|h|d
- *         Defines timeframe for querying events:
+ *         Defines time frame for querying events:
  *            =<num>s Events fired during last <num> seconds.
  *            =<num>m Events fired during last <num> minutes.
  *            =<num>h Events fired during last <num> hours.
@@ -85,21 +87,11 @@ import scala.language.{implicitConversions, reflectiveCalls}
  *         Prints discovery events fired during last two minutes sorted chronologically.
  * }}}
  */
-class VisorDiscoveryCommand {
+class VisorDiscoveryCommand extends VisorConsoleCommand {
+    @impl protected val name: String = "disco"
+
     /** */
     private type TimeFilter = EventFilter
-
-    /**
-     * Prints error message and advise.
-     *
-     * @param errMsgs Error messages.
-     */
-    private def scold(errMsgs: Any*) {
-        assert(errMsgs != null)
-
-        warn(errMsgs: _*)
-        warn("Type 'help disco' to see how to use this command.")
-    }
 
     /**
      * ===Command===
@@ -115,7 +107,7 @@ class VisorDiscoveryCommand {
 
     /**
      * ===Command===
-     * Prints discovery events within specified timeframe.
+     * Prints discovery events within specified time frame.
      *
      * ===Examples===
      * <ex>disco "-r"</ex>
@@ -125,9 +117,7 @@ class VisorDiscoveryCommand {
      * Prints discovery events fired during last two minutes.
      */
     def disco(args: String) {
-        if (!isConnected)
-            adviseToConnect()
-        else {
+        if (checkConnected()) {
             val argLst = parseArgs(args)
 
             val fs = argValue("t", argLst)
@@ -143,7 +133,7 @@ class VisorDiscoveryCommand {
                     return
                 }
 
-                val oldest = ignite.cluster.nodes().maxBy(_.metrics().getUpTime)
+                val node = ignite.cluster.forOldest().node()
 
                 val cntOpt = argValue("c", argLst)
 
@@ -151,20 +141,20 @@ class VisorDiscoveryCommand {
                     try
                         cntOpt.fold(Int.MaxValue)(_.toInt)
                     catch {
-                        case e: NumberFormatException =>
+                        case _: NumberFormatException =>
                             scold("Invalid count: " + cntOpt.get)
 
                             return
                     }
 
-                println("Oldest alive node in grid: " + nodeId8Addr(oldest.id))
+                println("Oldest alive node in grid: " + nodeId8Addr(node.id()))
 
                 val evts =
                     try
-                        events(oldest, tm, hasArgFlag("r", argLst))
+                        events(node, tm, hasArgFlag("r", argLst))
                     catch {
                         case e: Throwable =>
-                            scold(e.getMessage)
+                            scold(e)
 
                             return
                     }
@@ -192,9 +182,9 @@ class VisorDiscoveryCommand {
 
                 evts.take(cnt).foreach {
                     case de: VisorGridDiscoveryEvent =>
-                        t +=(formatDateTime(de.timestamp()), de.name(),
-                            nodeId8(de.evtNodeId()) + (if (de.isDaemon) "(daemon)" else ""),
-                            if (F.isEmpty(de.address())) NA else de.address())
+                        t +=(formatDateTime(de.getTimestamp), de.getName,
+                            nodeId8(de.getEventNodeId) + (if (de.isDaemon) "(daemon)" else ""),
+                            if (F.isEmpty(de.getAddress)) NA else de.getAddress)
                     case _ =>
                 }
 
@@ -217,19 +207,19 @@ class VisorDiscoveryCommand {
         assert(node != null)
         assert(!node.isDaemon)
 
-        var evts = ignite.compute(ignite.cluster.forNode(node)).execute(classOf[VisorNodeEventsCollectorTask],
-            toTaskArgument(node.id(), VisorNodeEventsCollectorTaskArg.createEventsArg(EVTS_DISCOVERY, tmFrame))).toSeq
+        var evts = executeOne(node.id(), classOf[VisorNodeEventsCollectorTask],
+            VisorNodeEventsCollectorTaskArg.createEventsArg(EVTS_DISCOVERY, tmFrame)).toSeq
 
         val nodeStartTime = node.metrics().getStartTime
 
         if (nodeStartTime > System.currentTimeMillis() - tmFrame) {
             val root = new VisorGridDiscoveryEvent(EVT_NODE_JOINED, null, U.gridEventName(EVT_NODE_JOINED),
-                node.id(), nodeStartTime, "", "", node.id, node.addresses().head, node.isDaemon)
+                node.id(), nodeStartTime, "", "", node.id, node.addresses().head, node.isDaemon, 0L)
 
             evts = Seq(root) ++ evts
         }
 
-        evts = evts.sortBy(_.timestamp())
+        evts = evts.sortBy(_.getTimestamp)
 
         if (reverse) evts.reverse else evts
     }
@@ -239,12 +229,15 @@ class VisorDiscoveryCommand {
  * Companion object that does initialization of the command.
  */
 object VisorDiscoveryCommand {
+    /** Singleton command. */
+    private val cmd = new VisorDiscoveryCommand
+
     addHelp(
-        name = "disco",
+        name = cmd.name,
         shortInfo = "Prints topology change log.",
         longInfo = List(
             "Prints topology change log as seen from the oldest node.",
-            "Timeframe for querying events can be specified in arguments.",
+            "Time frame for querying events can be specified in arguments.",
             " ",
             "Note that this command depends on Ignite events.",
             " ",
@@ -253,16 +246,16 @@ object VisorDiscoveryCommand {
             "of Event Storage SPI that is responsible for temporary storage of generated",
             "events on each node can also affect the functionality of this command.",
             " ",
-            "By default - all events are disabled and Ignite stores last 10,000 local",
+            "By default - all events are disabled. But if events enabled then Ignite will stores last 10,000 local",
             "events on each node. Both of these defaults can be changed in configuration."
         ),
         spec = List(
-            "disco",
-            "disco {-t=<num>s|m|h|d} {-r} {-c=<n>}"
+            cmd.name,
+            s"${cmd.name} {-t=<num>s|m|h|d} {-r} {-c=<n>}"
         ),
         args = List(
             "-t=<num>s|m|h|d" -> List(
-                "Defines timeframe for quering events:",
+                "Defines time frame for querying events:",
                 "   =<num>s Events fired during last <num> seconds.",
                 "   =<num>m Events fired during last <num> minutes.",
                 "   =<num>h Events fired during last <num> hours.",
@@ -276,18 +269,16 @@ object VisorDiscoveryCommand {
             )
         ),
         examples = List(
-            "disco" ->
+            cmd.name ->
                 "Prints all discovery events sorted chronologically (oldest first).",
-            "disco -r" ->
+            s"${cmd.name} -r" ->
                 "Prints all discovery events sorted chronologically in reversed order (newest first).",
-            "disco -t=2m" ->
+            s"${cmd.name} -t=2m" ->
                 "Prints discovery events fired during last two minutes sorted chronologically."
         ),
-        ref = VisorConsoleCommand(cmd.disco, cmd.disco)
+        emptyArgs = cmd.disco,
+        withArgs = cmd.disco
     )
-
-    /** Singleton command. */
-    private val cmd = new VisorDiscoveryCommand
 
     /**
      * Singleton.

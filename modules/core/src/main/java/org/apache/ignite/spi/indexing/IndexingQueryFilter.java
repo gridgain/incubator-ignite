@@ -17,18 +17,17 @@
 
 package org.apache.ignite.spi.indexing;
 
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cache entry filter.
  */
 public interface IndexingQueryFilter {
     /**
-     * Creates optional predicate for space.
+     * Creates optional predicate for cache.
      *
-     * @param spaceName Space name.
+     * @param cacheName Cache name.
      * @return Predicate or {@code null} if no filtering is needed.
      */
-    @Nullable public <K, V> IgniteBiPredicate<K, V> forSpace(@Nullable String spaceName);
+    @Nullable public IndexingQueryCacheFilter forCache(String cacheName);
 }

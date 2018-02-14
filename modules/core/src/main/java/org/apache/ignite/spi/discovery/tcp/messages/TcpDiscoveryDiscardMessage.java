@@ -17,11 +17,9 @@
 
 package org.apache.ignite.spi.discovery.tcp.messages;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-
-import java.io.*;
-import java.util.*;
+import java.util.UUID;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * Message sent by coordinator when some operation handling is over. All receiving
@@ -32,25 +30,23 @@ public class TcpDiscoveryDiscardMessage extends TcpDiscoveryAbstractMessage {
     private static final long serialVersionUID = 0L;
 
     /** ID of the message to discard (this and all preceding). */
-    private IgniteUuid msgId;
+    private final IgniteUuid msgId;
 
-    /**
-     * Public default no-arg constructor for {@link Externalizable} interface.
-     */
-    public TcpDiscoveryDiscardMessage() {
-        // No-op.
-    }
+    /** True if this is discard ID for custom event message. */
+    private final boolean customMsgDiscard;
 
     /**
      * Constructor.
      *
      * @param creatorNodeId Creator node ID.
      * @param msgId Message ID.
+     * @param customMsgDiscard Flag indicating whether the ID to discard is for a custom message or not.
      */
-    public TcpDiscoveryDiscardMessage(UUID creatorNodeId, IgniteUuid msgId) {
+    public TcpDiscoveryDiscardMessage(UUID creatorNodeId, IgniteUuid msgId, boolean customMsgDiscard) {
         super(creatorNodeId);
 
         this.msgId = msgId;
+        this.customMsgDiscard = customMsgDiscard;
     }
 
     /**
@@ -62,18 +58,13 @@ public class TcpDiscoveryDiscardMessage extends TcpDiscoveryAbstractMessage {
         return msgId;
     }
 
-    /** {@inheritDoc} */
-    @Override public void writeExternal(ObjectOutput out) throws IOException {
-        super.writeExternal(out);
-
-        U.writeGridUuid(out, msgId);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        super.readExternal(in);
-
-        msgId = U.readGridUuid(in);
+    /**
+     * Flag indicating whether the ID to discard is for a custom message or not.
+     *
+     * @return Custom message flag.
+     */
+    public boolean customMessageDiscard() {
+        return customMsgDiscard;
     }
 
     /** {@inheritDoc} */

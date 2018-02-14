@@ -17,29 +17,32 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.task.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.internal.visor.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheProcessor;
+import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
+import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorJob;
+import org.apache.ignite.internal.visor.VisorMultiNodeTask;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Task that collect cache metrics from all nodes.
  */
 @GridInternal
-public class VisorCacheMetricsCollectorTask extends VisorMultiNodeTask<IgniteBiTuple<Boolean, String>,
-    Iterable<VisorCacheAggregatedMetrics>, Map<String, VisorCacheMetrics>> {
+public class VisorCacheMetricsCollectorTask extends VisorMultiNodeTask<VisorCacheMetricsCollectorTaskArg,
+    Iterable<VisorCacheAggregatedMetrics>, Collection<VisorCacheMetrics>> {
     /** */
     private static final long serialVersionUID = 0L;
 
     /** {@inheritDoc} */
-    @Override protected VisorCacheMetricsCollectorJob job(IgniteBiTuple<Boolean, String> arg) {
+    @Override protected VisorCacheMetricsCollectorJob job(VisorCacheMetricsCollectorTaskArg arg) {
         return new VisorCacheMetricsCollectorJob(arg, debug);
     }
 
@@ -48,19 +51,19 @@ public class VisorCacheMetricsCollectorTask extends VisorMultiNodeTask<IgniteBiT
         Map<String, VisorCacheAggregatedMetrics> grpAggrMetrics = U.newHashMap(results.size());
 
         for (ComputeJobResult res : results) {
-            if (res.getException() == null && res.getData() instanceof Map<?, ?>) {
-                Map<String, VisorCacheMetrics> cms = res.getData();
+            if (res.getException() == null) {
+                Collection<VisorCacheMetrics> cms = res.getData();
 
-                for (Map.Entry<String, VisorCacheMetrics> entry : cms.entrySet()) {
-                    VisorCacheAggregatedMetrics am = grpAggrMetrics.get(entry.getKey());
+                for (VisorCacheMetrics cm : cms) {
+                    VisorCacheAggregatedMetrics am = grpAggrMetrics.get(cm.getName());
 
                     if (am == null) {
-                        am = new VisorCacheAggregatedMetrics(entry.getKey());
+                        am = new VisorCacheAggregatedMetrics(cm);
 
-                        grpAggrMetrics.put(entry.getKey(), am);
+                        grpAggrMetrics.put(cm.getName(), am);
                     }
 
-                    am.metrics().put(res.getNode().id(), entry.getValue());
+                    am.getMetrics().put(res.getNode().id(), cm);
                 }
             }
         }
@@ -73,7 +76,8 @@ public class VisorCacheMetricsCollectorTask extends VisorMultiNodeTask<IgniteBiT
      * Job that collect cache metrics from node.
      */
     private static class VisorCacheMetricsCollectorJob
-        extends VisorJob<IgniteBiTuple<Boolean, String>, Map<String, VisorCacheMetrics>> {
+        extends VisorJob<VisorCacheMetricsCollectorTaskArg, Collection<VisorCacheMetrics>> {
+
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -83,26 +87,42 @@ public class VisorCacheMetricsCollectorTask extends VisorMultiNodeTask<IgniteBiT
          * @param arg Whether to collect metrics for all caches or for specified cache name only.
          * @param debug Debug flag.
          */
-        private VisorCacheMetricsCollectorJob(IgniteBiTuple<Boolean, String> arg, boolean debug) {
+        private VisorCacheMetricsCollectorJob(VisorCacheMetricsCollectorTaskArg arg, boolean debug) {
             super(arg, debug);
         }
 
         /** {@inheritDoc} */
-        @Override protected Map<String, VisorCacheMetrics> run(IgniteBiTuple<Boolean, String> arg) {
-            Collection<? extends GridCache<?, ?>> caches = arg.get1()
-                ? ignite.cachesx()
-                : F.asList(ignite.cachex(arg.get2()));
+        @Override protected Collection<VisorCacheMetrics> run(final VisorCacheMetricsCollectorTaskArg arg) {
+            assert arg != null;
 
-            if (caches != null) {
-                Map<String, VisorCacheMetrics> res = U.newHashMap(caches.size());
+            boolean showSysCaches = arg.isShowSystemCaches();
 
-                for (GridCache<?, ?> c : caches)
-                    res.put(c.name(), VisorCacheMetrics.from(c));
+            Collection<String> cacheNames = arg.getCacheNames();
 
-                return res;
+            assert cacheNames != null;
+
+            GridCacheProcessor cacheProcessor = ignite.context().cache();
+
+            Collection<IgniteCacheProxy<?, ?>> caches = cacheProcessor.jcaches();
+
+            Collection<VisorCacheMetrics> res = new ArrayList<>(caches.size());
+
+            boolean allCaches = cacheNames.isEmpty();
+
+            for (IgniteCacheProxy ca : caches) {
+                GridCacheContext ctx = ca.context();
+
+                if (ctx.started() && (ctx.affinityNode() || ctx.isNear())) {
+                    String cacheName = ca.getName();
+
+                    VisorCacheMetrics cm = new VisorCacheMetrics(ignite, cacheName);
+
+                    if ((allCaches || cacheNames.contains(cacheName)) && (showSysCaches || !cm.isSystem()))
+                        res.add(cm);
+                }
             }
 
-            return null;
+            return res;
         }
 
         /** {@inheritDoc} */

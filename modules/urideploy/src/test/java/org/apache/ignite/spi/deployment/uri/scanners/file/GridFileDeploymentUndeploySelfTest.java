@@ -17,13 +17,16 @@
 
 package org.apache.ignite.spi.deployment.uri.scanners.file;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.spi.deployment.uri.*;
-import org.apache.ignite.testframework.config.*;
-import org.apache.ignite.testframework.junits.spi.*;
-
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.deployment.uri.UriDeploymentSpi;
+import org.apache.ignite.testframework.config.GridTestProperties;
+import org.apache.ignite.testframework.junits.spi.GridSpiAbstractTest;
+import org.apache.ignite.testframework.junits.spi.GridSpiTest;
+import org.apache.ignite.testframework.junits.spi.GridSpiTestConfig;
 
 /**
  * Tests correct task undeployment after source file removing.
@@ -70,7 +73,7 @@ public class GridFileDeploymentUndeploySelfTest extends GridSpiAbstractTest<UriD
 
         assert newGarFile.exists();
 
-        Thread.sleep(UriDeploymentSpi.DFLT_DISK_SCAN_FREQUENCY + 3000);
+        Thread.sleep(UriDeploymentFileScanner.DFLT_SCAN_FREQ + 3000);
 
         assert getSpi().findResource("org.apache.ignite.spi.deployment.uri.tasks.GridUriDeploymentTestTask3") != null :
             "Failed to find resource for added GAR file.";
@@ -82,7 +85,7 @@ public class GridFileDeploymentUndeploySelfTest extends GridSpiAbstractTest<UriD
 
         assert !newGarFile.exists();
 
-        Thread.sleep(UriDeploymentSpi.DFLT_DISK_SCAN_FREQUENCY + 3000);
+        Thread.sleep(UriDeploymentFileScanner.DFLT_SCAN_FREQ + 3000);
 
         assert getSpi().findResource("org.apache.ignite.spi.deployment.uri.tasks.GridUriDeploymentTestTask3") == null;
         assert getSpi().findResource("GridUriDeploymentTestWithNameTask3") == null;

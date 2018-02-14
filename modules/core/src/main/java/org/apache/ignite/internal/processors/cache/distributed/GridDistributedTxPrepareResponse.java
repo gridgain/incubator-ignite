@@ -17,33 +17,27 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.version.*;
-import org.apache.ignite.internal.util.tostring.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.plugin.extensions.communication.*;
-import org.jetbrains.annotations.*;
-
-import java.io.*;
-import java.nio.*;
-import java.util.*;
+import java.io.Externalizable;
+import java.nio.ByteBuffer;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.GridDirectTransient;
+import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxState;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxStateAware;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.tostring.GridToStringBuilder;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.plugin.extensions.communication.MessageReader;
+import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
  * Response to prepare request.
  */
-public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage {
+public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage implements IgniteTxStateAware {
     /** */
     private static final long serialVersionUID = 0L;
-
-    /** Collections of local lock candidates. */
-    @GridToStringInclude
-    @GridDirectTransient
-    private Map<KeyCacheObject, Collection<GridCacheMvccCandidate>> cands;
-
-    /** */
-    private byte[] candsBytes;
 
     /** Error. */
     @GridToStringExclude
@@ -53,6 +47,16 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
     /** Serialized error. */
     private byte[] errBytes;
 
+    /** Transient TX state. */
+    @GridDirectTransient
+    private IgniteTxState txState;
+
+    /** */
+    private int part;
+
+    /** */
+    protected byte flags;
+
     /**
      * Empty constructor (required by {@link Externalizable}).
      */
@@ -61,26 +65,56 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
     }
 
     /**
-     * @param xid Transaction ID.
+     * @param part Partition.
+     * @param xid Lock or transaction ID.
+     * @param addDepInfo Deployment info flag.
      */
-    public GridDistributedTxPrepareResponse(GridCacheVersion xid) {
-        super(xid, 0);
+    public GridDistributedTxPrepareResponse(int part, GridCacheVersion xid, boolean addDepInfo) {
+        super(xid, 0, addDepInfo);
+
+        this.part = part;
     }
 
     /**
-     * @param xid Lock ID.
+     * @param part Partition.
+     * @param xid Lock or transaction ID.
      * @param err Error.
+     * @param addDepInfo Deployment info flag.
      */
-    public GridDistributedTxPrepareResponse(GridCacheVersion xid, Throwable err) {
-        super(xid, 0);
+    public GridDistributedTxPrepareResponse(int part, GridCacheVersion xid, Throwable err, boolean addDepInfo) {
+        super(xid, 0, addDepInfo);
 
+        this.part = part;
         this.err = err;
     }
 
     /**
-     * @return Error.
+     * Sets flag mask.
+     *
+     * @param flag Set or clear.
+     * @param mask Mask.
      */
-    public Throwable error() {
+    protected final void setFlag(boolean flag, int mask) {
+        flags = flag ? (byte)(flags | mask) : (byte)(flags & ~mask);
+    }
+
+    /**
+     * Reags flag mask.
+     *
+     * @param mask Mask to read.
+     * @return Flag value.
+     */
+    protected final boolean isFlag(int mask) {
+        return (flags & mask) != 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int partition() {
+        return part;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Throwable error() {
         return err;
     }
 
@@ -98,54 +132,35 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
         return err != null;
     }
 
-    /**
-     * @param cands Candidates map to set.
-     */
-    public void candidates(Map<KeyCacheObject, Collection<GridCacheMvccCandidate>> cands) {
-        this.cands = cands;
+    /** {@inheritDoc} */
+    @Override public IgniteTxState txState() {
+        return txState;
     }
 
-    /** {@inheritDoc}
-     * @param ctx*/
+    /** {@inheritDoc} */
+    @Override public void txState(IgniteTxState txState) {
+        this.txState = txState;
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteLogger messageLogger(GridCacheSharedContext ctx) {
+        return ctx.txPrepareMessageLogger();
+    }
+
+    /** {@inheritDoc} */
     @Override public void prepareMarshal(GridCacheSharedContext ctx) throws IgniteCheckedException {
         super.prepareMarshal(ctx);
 
-        if (candsBytes == null && cands != null) {
-            if (ctx.deploymentEnabled()) {
-                for (KeyCacheObject k : cands.keySet())
-                    prepareObject(k, ctx);
-            }
-
-            candsBytes = CU.marshal(ctx, cands);
-        }
-
-        if (err != null)
-            errBytes = ctx.marshaller().marshal(err);
+        if (err != null && errBytes == null)
+            errBytes = U.marshal(ctx, err);
     }
 
     /** {@inheritDoc} */
     @Override public void finishUnmarshal(GridCacheSharedContext ctx, ClassLoader ldr) throws IgniteCheckedException {
         super.finishUnmarshal(ctx, ldr);
 
-        if (candsBytes != null && cands == null)
-            cands = ctx.marshaller().unmarshal(candsBytes, ldr);
-
-        if (errBytes != null)
-            err = ctx.marshaller().unmarshal(errBytes, ldr);
-    }
-
-    /**
-     *
-     * @param key Candidates key.
-     * @return Collection of lock candidates at given index.
-     */
-    @Nullable public Collection<GridCacheMvccCandidate> candidatesForKey(KeyCacheObject key) {
-        assert key != null;
-
-        if (cands == null)
-            return null;
-
-        return cands.get(key);
+        if (errBytes != null && err == null)
+            err = U.unmarshal(ctx, errBytes, U.resolveClassLoader(ldr, ctx.gridConfig()));
     }
 
     /** {@inheritDoc} */
@@ -163,14 +178,20 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
         }
 
         switch (writer.state()) {
+            case 7:
+                if (!writer.writeByteArray("errBytes", errBytes))
+                    return false;
+
+                writer.incrementState();
+
             case 8:
-                if (!writer.writeByteArray("candsBytes", candsBytes))
+                if (!writer.writeByte("flags", flags))
                     return false;
 
                 writer.incrementState();
 
             case 9:
-                if (!writer.writeByteArray("errBytes", errBytes))
+                if (!writer.writeInt("part", part))
                     return false;
 
                 writer.incrementState();
@@ -191,8 +212,16 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
             return false;
 
         switch (reader.state()) {
+            case 7:
+                errBytes = reader.readByteArray("errBytes");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
             case 8:
-                candsBytes = reader.readByteArray("candsBytes");
+                flags = reader.readByte("flags");
 
                 if (!reader.isLastRead())
                     return false;
@@ -200,7 +229,7 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
                 reader.incrementState();
 
             case 9:
-                errBytes = reader.readByteArray("errBytes");
+                part = reader.readInt("part");
 
                 if (!reader.isLastRead())
                     return false;
@@ -209,11 +238,11 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
 
         }
 
-        return true;
+        return reader.afterMessageRead(GridDistributedTxPrepareResponse.class);
     }
 
     /** {@inheritDoc} */
-    @Override public byte directType() {
+    @Override public short directType() {
         return 26;
     }
 

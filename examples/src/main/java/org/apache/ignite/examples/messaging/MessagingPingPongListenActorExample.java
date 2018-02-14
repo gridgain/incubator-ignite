@@ -17,13 +17,17 @@
 
 package org.apache.ignite.examples.messaging;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.examples.*;
-import org.apache.ignite.messaging.*;
-
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Collection;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.examples.ExampleNodeStartup;
+import org.apache.ignite.examples.ExamplesUtils;
+import org.apache.ignite.messaging.MessagingListenActor;
 
 /**
  * Demonstrates messaging with {@link MessagingListenActor} convenience adapter.
@@ -31,10 +35,10 @@ import java.util.concurrent.*;
  * To run this example you must have at least one remote node started.
  * <p>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-compute.xml'}.
+ * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link ComputeNodeStartup} in another JVM which will start node
- * with {@code examples/config/example-compute.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will start node
+ * with {@code examples/config/example-ignite.xml} configuration.
  */
 public class MessagingPingPongListenActorExample {
     /**
@@ -44,7 +48,7 @@ public class MessagingPingPongListenActorExample {
      */
     public static void main(String[] args) {
         // Game is played over the default ignite.
-        try (Ignite ignite = Ignition.start("examples/config/example-compute.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             if (!ExamplesUtils.checkMinTopologySize(ignite.cluster(), 2))
                 return;
 

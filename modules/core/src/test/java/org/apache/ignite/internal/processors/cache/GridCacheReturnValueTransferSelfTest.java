@@ -17,33 +17,34 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.testframework.junits.common.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.MutableEntry;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import javax.cache.processor.*;
-import java.io.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheAtomicWriteOrderMode.*;
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
-import static org.apache.ignite.internal.processors.cache.CacheFlag.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Tests transform for extra traffic.
  */
 public class GridCacheReturnValueTransferSelfTest extends GridCommonAbstractTest {
     /** Distribution mode. */
-    private CacheDistributionMode distroMode;
+    private boolean cache;
 
     /** Atomicity mode. */
     private CacheAtomicityMode atomicityMode;
-
-    /** Atomic write order mode. */
-    private CacheAtomicWriteOrderMode writeOrderMode;
 
     /** Number of backups. */
     private int backups;
@@ -52,97 +53,71 @@ public class GridCacheReturnValueTransferSelfTest extends GridCommonAbstractTest
     private static volatile boolean failDeserialization;
 
     /** {@inheritDoc} */
-    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
-        IgniteConfiguration cfg = super.getConfiguration(gridName);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        CacheConfiguration ccfg = new CacheConfiguration();
+        CacheConfiguration ccfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
         ccfg.setBackups(backups);
         ccfg.setCacheMode(PARTITIONED);
         ccfg.setAtomicityMode(atomicityMode);
-        ccfg.setAtomicWriteOrderMode(writeOrderMode);
-
-        ccfg.setDistributionMode(distroMode);
 
         cfg.setCacheConfiguration(ccfg);
+
+        ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setForceServerMode(true);
+
+        if (!cache)
+            cfg.setClientMode(true);
 
         return cfg;
     }
 
     /**
      * @throws Exception If failed.
+     * TODO IGNITE-581 enable when fixed.
      */
-    public void testTransformAtomicPrimaryNoBackups() throws Exception {
-        checkTransform(ATOMIC, PRIMARY, 0);
+    public void testTransformTransactionalNoBackups() throws Exception {
+        // Test works too long and fails.
+        fail("https://issues.apache.org/jira/browse/IGNITE-581");
+
+        checkTransform(TRANSACTIONAL, 0);
     }
 
     /**
      * @throws Exception If failed.
+     * TODO IGNITE-581 enable when fixed.
      */
-    public void testTransformAtomicClockNoBackups() throws Exception {
-        checkTransform(ATOMIC, CLOCK, 0);
-    }
+    public void testTransformTransactionalOneBackup() throws Exception {
+        // Test works too long and fails.
+        fail("https://issues.apache.org/jira/browse/IGNITE-581");
 
-    /**
-     * @throws Exception If failed.
-     */
-    public void testTransformAtomicPrimaryOneBackup() throws Exception {
-        checkTransform(ATOMIC, PRIMARY, 1);
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testTransformAtomicClockOneBackup() throws Exception {
-        checkTransform(ATOMIC, CLOCK, 1);
-    }
-
-    /**
-     * @throws Exception If failed.
-     * TODO gg-8273 enable when fixed
-     */
-    public void _testTransformTransactionalNoBackups() throws Exception {
-        checkTransform(TRANSACTIONAL, PRIMARY, 0);
-    }
-
-    /**
-     * @throws Exception If failed.
-     * TODO gg-8273 enable when fixed
-     */
-    public void _testTransformTransactionalOneBackup() throws Exception {
-        checkTransform(TRANSACTIONAL, PRIMARY, 1);
+        checkTransform(TRANSACTIONAL, 1);
     }
 
     /**
      * @param mode Atomicity mode.
-     * @param order Atomic cache write order mode.
      * @param b Number of backups.
      * @throws Exception If failed.
      */
-    private void checkTransform(CacheAtomicityMode mode, CacheAtomicWriteOrderMode order, int b)
+    private void checkTransform(CacheAtomicityMode mode, int b)
         throws Exception {
         try {
             atomicityMode = mode;
 
             backups = b;
 
-            writeOrderMode = order;
-
-            distroMode = CacheDistributionMode.PARTITIONED_ONLY;
+            cache = true;
 
             startGrids(2);
 
-            distroMode = CacheDistributionMode.CLIENT_ONLY;
+            cache = false;
 
             startGrid(2);
 
             failDeserialization = false;
 
             // Get client grid.
-            IgniteCache<Integer, TestObject> cache = grid(2).jcache(null);
-
-            if (backups > 0 && atomicityMode == ATOMIC)
-                cache = ((IgniteCacheProxy<Integer, TestObject>)cache).flagOn(FORCE_TRANSFORM_BACKUP);
+            IgniteCache<Integer, TestObject> cache = grid(2).cache(DEFAULT_CACHE_NAME);
 
             for (int i = 0; i < 100; i++)
                 cache.put(i, new TestObject());
@@ -186,7 +161,6 @@ public class GridCacheReturnValueTransferSelfTest extends GridCommonAbstractTest
     /**
      *
      */
-    @IgniteImmutable
     private static class TestObject implements Externalizable {
         /**
          *

@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
-import org.apache.ignite.cache.*;
-import org.apache.ignite.internal.processors.cache.*;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.internal.processors.cache.IgniteCacheContainsKeyAbstractSelfTest;
 
 /**
  *
@@ -30,7 +31,7 @@ public class IgniteCacheContainsKeyColocatedSelfTest extends IgniteCacheContains
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDistributionMode distributionMode() {
-        return CacheDistributionMode.PARTITIONED_ONLY;
+    @Override protected NearCacheConfiguration nearConfiguration() {
+        return null;
     }
 }

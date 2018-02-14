@@ -42,7 +42,7 @@
             performance degradation.
 
             It is highly recommended to enable only those events that your application logic requires by using
-            either GridConfiguration.getExcludeEventTypes() orGridConfiguration.getIncludeEventTypes() methods
+            either IgniteConfiguration.getExcludeEventTypes() or IgniteConfiguration.getIncludeEventTypes() methods
             in Ignite configuration. Note that certain events are required for Ignite's internal operations
             and such events will still be generated but not stored by event storage SPI if they are disabled in
             Ignite configuration.
@@ -68,15 +68,16 @@
 
         <property name="peerClassLoadingThreadPoolSize" value="100"/>
 
+        <property name="metricsUpdateFrequency" value="10000"/>
+
+        <property name="failureDetectionTimeout" value="60000"/>
+
         <!-- Discovery SPI configuration. -->
         <property name="discoverySpi">
             <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
                 <property name="networkTimeout" value="20000"/>
                 <property name="socketTimeout" value="5000"/>
                 <property name="ackTimeout" value="5000"/>
-
-                <property name="heartbeatFrequency" value="10000"/>
-                <property name="maxMissedHeartbeats" value="6"/>
 
                 <property name="statisticsPrintFrequency" value="60000"/>
 

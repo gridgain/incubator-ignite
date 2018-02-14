@@ -17,17 +17,31 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.managers.deployment.*;
-import org.apache.ignite.internal.util.future.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.lang.*;
-import org.jetbrains.annotations.*;
-
-import java.util.*;
-import java.util.concurrent.atomic.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJobSibling;
+import org.apache.ignite.compute.ComputeTaskSessionAttributeListener;
+import org.apache.ignite.compute.ComputeTaskSessionScope;
+import org.apache.ignite.internal.managers.deployment.GridDeployment;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.future.IgniteFutureImpl;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.lang.IgniteUuid;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Task session.
@@ -91,13 +105,22 @@ public class GridTaskSessionImpl implements GridTaskSessionInternal {
     private final boolean fullSup;
 
     /** */
+    private final boolean internal;
+
+    /** */
     private final Collection<UUID> top;
+
+    /** */
+    private final IgnitePredicate<ClusterNode> topPred;
 
     /** */
     private final UUID subjId;
 
     /** */
     private final IgniteFutureImpl mapFut;
+
+    /** */
+    private final String execName;
 
     /**
      * @param taskNodeId Task node ID.
@@ -106,13 +129,16 @@ public class GridTaskSessionImpl implements GridTaskSessionInternal {
      * @param taskClsName Task class name.
      * @param sesId Task session ID.
      * @param top Topology.
+     * @param topPred Topology predicate.
      * @param startTime Task execution start time.
      * @param endTime Task execution end time.
      * @param siblings Collection of siblings.
      * @param attrs Session attributes.
      * @param ctx Grid Kernal Context.
      * @param fullSup Session full support enabled flag.
+     * @param internal Internal task flag.
      * @param subjId Subject ID.
+     * @param execName Custom executor name.
      */
     public GridTaskSessionImpl(
         UUID taskNodeId,
@@ -121,13 +147,16 @@ public class GridTaskSessionImpl implements GridTaskSessionInternal {
         String taskClsName,
         IgniteUuid sesId,
         @Nullable Collection<UUID> top,
+        @Nullable IgnitePredicate<ClusterNode> topPred,
         long startTime,
         long endTime,
         Collection<ComputeJobSibling> siblings,
         @Nullable Map<Object, Object> attrs,
         GridKernalContext ctx,
         boolean fullSup,
-        UUID subjId) {
+        boolean internal,
+        UUID subjId,
+        @Nullable String execName) {
         assert taskNodeId != null;
         assert taskName != null;
         assert sesId != null;
@@ -137,6 +166,7 @@ public class GridTaskSessionImpl implements GridTaskSessionInternal {
         this.taskName = taskName;
         this.dep = dep;
         this.top = top;
+        this.topPred = topPred;
 
         // Note that class name might be null here if task was not explicitly
         // deployed.
@@ -154,7 +184,9 @@ public class GridTaskSessionImpl implements GridTaskSessionInternal {
         }
 
         this.fullSup = fullSup;
+        this.internal = internal;
         this.subjId = subjId;
+        this.execName = execName;
 
         mapFut = new IgniteFutureImpl(new GridFutureAdapter());
     }
@@ -176,7 +208,7 @@ public class GridTaskSessionImpl implements GridTaskSessionInternal {
         if (!fullSup)
             throw new IllegalStateException("Sessions attributes and checkpoints are disabled by default " +
                 "for better performance (to enable, annotate task class with " +
-                "@GridComputeTaskSessionFullSupport annotation).");
+                "@ComputeTaskSessionFullSupport annotation).");
     }
 
     /**
@@ -748,8 +780,18 @@ public class GridTaskSessionImpl implements GridTaskSessionInternal {
         return ctx.checkpoint().removeCheckpoint(ses, key);
     }
 
+    /**
+     * @return Topology predicate.
+     */
+    @Nullable public IgnitePredicate<ClusterNode> getTopologyPredicate() {
+        return topPred;
+    }
+
     /** {@inheritDoc} */
     @Override public Collection<UUID> getTopology() {
+        if (topPred != null)
+           return F.viewReadOnly(ctx.discovery().allNodes(), F.node2id(), topPred);
+
         return top != null ? top : F.nodeIds(ctx.discovery().allNodes());
     }
 
@@ -846,6 +888,20 @@ public class GridTaskSessionImpl implements GridTaskSessionInternal {
     /** {@inheritDoc} */
     @Override public IgniteFuture<?> mapFuture() {
         return mapFut;
+    }
+
+    /**
+     * @return {@code True} if task is internal.
+     */
+    public boolean isInternal() {
+        return internal;
+    }
+
+    /**
+     * @return Custom executor name.
+     */
+    @Nullable public String executorName() {
+        return execName;
     }
 
     /** {@inheritDoc} */

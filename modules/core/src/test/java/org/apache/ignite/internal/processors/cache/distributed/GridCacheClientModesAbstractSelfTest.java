@@ -17,19 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.affinity.rendezvous.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.util.typedef.*;
+import java.io.Serializable;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.CachePeekMode;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.processors.cache.GridCacheAbstractSelfTest;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 
-import java.util.concurrent.atomic.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  * Tests near-only cache.
@@ -38,8 +41,8 @@ public abstract class GridCacheClientModesAbstractSelfTest extends GridCacheAbst
     /** Grid cnt. */
     private static AtomicInteger gridCnt;
 
-    /** Near-only cache grid name. */
-    private static String nearOnlyGridName;
+    /** Near-only cache Ignite instance name. */
+    private static String nearOnlyIgniteInstanceName;
 
     /** {@inheritDoc} */
     @Override protected int gridCount() {
@@ -51,37 +54,44 @@ public abstract class GridCacheClientModesAbstractSelfTest extends GridCacheAbst
         gridCnt = new AtomicInteger();
 
         super.beforeTestsStarted();
+
+        if (nearEnabled())
+            grid(nearOnlyIgniteInstanceName).createNearCache(DEFAULT_CACHE_NAME, nearConfiguration());
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheStore<?, ?> cacheStore() {
-        return null;
-    }
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-    /** {@inheritDoc} */
-    @Override protected CacheConfiguration cacheConfiguration(String gridName) throws Exception {
-        CacheConfiguration cfg = super.cacheConfiguration(gridName);
+        int cnt = gridCnt.incrementAndGet();
 
-        if (gridCnt.getAndIncrement() == 0) {
-            cfg.setDistributionMode(clientOnly() ? CLIENT_ONLY : NEAR_ONLY);
+        if ((cnt == gridCount() && isClientStartedLast()) || (cnt == 1 && !isClientStartedLast())) {
+            cfg.setClientMode(true);
 
-            nearOnlyGridName = gridName;
+            nearOnlyIgniteInstanceName = igniteInstanceName;
         }
 
-        cfg.setCacheStoreFactory(null);
-        cfg.setReadThrough(false);
-        cfg.setWriteThrough(false);
-        cfg.setAffinity(new CacheRendezvousAffinityFunction(false, 32));
-        cfg.setBackups(1);
+        ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setForceServerMode(true);
 
         return cfg;
     }
 
     /** {@inheritDoc} */
-    @Override protected void afterTestsStopped() throws Exception {
-        super.afterTestsStopped();
+    @SuppressWarnings("unchecked")
+    @Override protected CacheConfiguration cacheConfiguration(String igniteInstanceName) throws Exception {
+        CacheConfiguration cfg = super.cacheConfiguration(igniteInstanceName);
 
-        gridCnt.set(0);
+        cfg.setCacheStoreFactory(null);
+        cfg.setReadThrough(false);
+        cfg.setWriteThrough(false);
+        cfg.setBackups(1);
+
+        if (cfg.getCacheMode() == REPLICATED)
+            cfg.setAffinity(null);
+        else
+            cfg.setAffinity(new RendezvousAffinityFunction(false, 32));
+
+        return cfg;
     }
 
     /** {@inheritDoc} */
@@ -90,9 +100,11 @@ public abstract class GridCacheClientModesAbstractSelfTest extends GridCacheAbst
     }
 
     /**
-     * @return If {@code true} then uses CLIENT_ONLY mode, otherwise NEAR_ONLY.
+     * @return boolean {@code True} if client's grid must be started last, {@code false} if it must be started first.
      */
-    protected abstract boolean clientOnly();
+    protected boolean isClientStartedLast() {
+        return false;
+    }
 
     /**
      * @throws Exception If failed.
@@ -106,15 +118,33 @@ public abstract class GridCacheClientModesAbstractSelfTest extends GridCacheAbst
         nearOnly.putAll(F.asMap(5, 5, 6, 6, 7, 7, 8, 8, 9, 9));
 
         for (int key = 0; key < 10; key++) {
-            for (int i = 1; i < gridCount(); i++) {
-                if (grid(i).affinity(null).isPrimaryOrBackup(grid(i).localNode(), key))
-                    assertEquals(key, grid(i).jcache(null).localPeek(key, CachePeekMode.ONHEAP));
+            for (int i = 0; i < gridCount(); i++) {
+                if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), key))
+                    assertEquals(key, grid(i).cache(DEFAULT_CACHE_NAME).localPeek(key));
             }
 
             if (nearEnabled())
                 assertEquals(key, nearOnly.localPeek(key, CachePeekMode.ONHEAP));
 
             assertNull(nearOnly.localPeek(key, CachePeekMode.PRIMARY, CachePeekMode.BACKUP));
+        }
+
+        Integer key = 1000;
+
+        nearOnly.put(key, new TestClass1(key));
+
+        if (nearEnabled())
+            assertNotNull(nearOnly.localPeek(key, CachePeekMode.ALL));
+        else
+            assertNull(nearOnly.localPeek(key, CachePeekMode.ALL));
+
+        for (int i = 0; i < gridCount(); i++) {
+            if (grid(i).affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(grid(i).localNode(), key)) {
+                TestClass1 val = (TestClass1)grid(i).cache(DEFAULT_CACHE_NAME).localPeek(key);
+
+                assertNotNull(val);
+                assertEquals(key.intValue(), val.val);
+            }
         }
     }
 
@@ -143,6 +173,18 @@ public abstract class GridCacheClientModesAbstractSelfTest extends GridCacheAbst
             if (nearEnabled())
                 assertEquals(key, nearOnly.localPeek(key, CachePeekMode.ONHEAP));
         }
+
+        Integer key = 2000;
+
+        dht.put(key, new TestClass2(key));
+
+        TestClass2 val = (TestClass2)nearOnly.get(key);
+
+        assertNotNull(val);
+        assertEquals(key.intValue(), val.val);
+
+        if (nearEnabled())
+            assertNotNull(nearOnly.localPeek(key, CachePeekMode.ONHEAP));
     }
 
     /**
@@ -152,9 +194,9 @@ public abstract class GridCacheClientModesAbstractSelfTest extends GridCacheAbst
         for (int i = 0; i < gridCount(); i++) {
             Ignite g = grid(i);
 
-            if (F.eq(g.name(), nearOnlyGridName)) {
+            if (F.eq(g.name(), nearOnlyIgniteInstanceName)) {
                 for (int k = 0; k < 10000; k++) {
-                    IgniteCache<Object, Object> cache = g.jcache(null);
+                    IgniteCache<Object, Object> cache = g.cache(DEFAULT_CACHE_NAME);
 
                     String key = "key" + k;
 
@@ -169,14 +211,12 @@ public abstract class GridCacheClientModesAbstractSelfTest extends GridCacheAbst
                 boolean foundAffinityNode = false;
 
                 for (int k = 0; k < 10000; k++) {
-                    GridCache<Object, Object> cache = ((IgniteKernal)g).cache(null);
-
                     String key = "key" + k;
 
-                    if (cache.affinity().isPrimaryOrBackup(g.cluster().localNode(), key))
+                    if (g.affinity(DEFAULT_CACHE_NAME).isPrimaryOrBackup(g.cluster().localNode(), key))
                         foundEntry = true;
 
-                    if (cache.affinity().mapKeyToPrimaryAndBackups(key).contains(g.cluster().localNode()))
+                    if (g.affinity(DEFAULT_CACHE_NAME).mapKeyToPrimaryAndBackups(key).contains(g.cluster().localNode()))
                         foundAffinityNode = true;
                 }
 
@@ -190,9 +230,9 @@ public abstract class GridCacheClientModesAbstractSelfTest extends GridCacheAbst
      * @return Near only cache for this test.
      */
     protected IgniteCache<Object, Object> nearOnlyCache() {
-        assert nearOnlyGridName != null;
+        assert nearOnlyIgniteInstanceName != null;
 
-        return G.ignite(nearOnlyGridName).jcache(null);
+        return G.ignite(nearOnlyIgniteInstanceName).cache(DEFAULT_CACHE_NAME);
     }
 
     /**
@@ -200,12 +240,42 @@ public abstract class GridCacheClientModesAbstractSelfTest extends GridCacheAbst
      */
     protected IgniteCache<Object, Object> dhtCache() {
         for (int i = 0; i < gridCount(); i++) {
-            if (!nearOnlyGridName.equals(grid(i).name()))
-                return grid(i).jcache(null);
+            if (!nearOnlyIgniteInstanceName.equals(grid(i).name()))
+                return grid(i).cache(DEFAULT_CACHE_NAME);
         }
 
         assert false : "Cannot find DHT cache for this test.";
 
         return null;
+    }
+
+    /**
+     *
+     */
+    static class TestClass1 implements Serializable {
+        /** */
+        int val;
+
+        /**
+         * @param val Value.
+         */
+        public TestClass1(int val) {
+            this.val = val;
+        }
+    }
+
+    /**
+     *
+     */
+    static class TestClass2 implements Serializable {
+        /** */
+        int val;
+
+        /**
+         * @param val Value.
+         */
+        public TestClass2(int val) {
+            this.val = val;
+        }
     }
 }

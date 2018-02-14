@@ -17,10 +17,11 @@
 
 package org.apache.ignite.spi.deployment.uri;
 
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.testframework.junits.spi.*;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.testframework.junits.spi.GridSpiTest;
+import org.apache.ignite.testframework.junits.spi.GridSpiTestConfig;
 
 /**
  * Tests error and warn messages throttling.
@@ -43,9 +44,6 @@ public class GridUriDeploymentMultiScannersErrorThrottlingTest extends GridUriDe
     @GridSpiTestConfig
     public List<String> getUriList() {
         List<String> uriList = new ArrayList<>();
-
-        uriList.add("ftp://anonymous:111111;freq=5000@unknown.host:21/pub/gg-test");
-        uriList.add("ftp://anonymous:111111;freq=5000@localhost:21/pub/gg-test");
 
         uriList.add("http://freq=5000@localhost/tasks");
         uriList.add("http://freq=5000@unknownhost.host/tasks");

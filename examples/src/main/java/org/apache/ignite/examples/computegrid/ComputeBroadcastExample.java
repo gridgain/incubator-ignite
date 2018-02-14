@@ -17,21 +17,20 @@
 
 package org.apache.ignite.examples.computegrid;
 
-import org.apache.ignite.*;
-import org.apache.ignite.examples.*;
-import org.apache.ignite.lang.*;
-import org.apache.ignite.resources.*;
-
-import java.util.*;
+import java.util.Collection;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.examples.ExampleNodeStartup;
 
 /**
  * Demonstrates broadcasting computations within cluster.
  * <p>
  * Remote nodes should always be started with special configuration file which
- * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-compute.xml'}.
+ * enables P2P class loading: {@code 'ignite.{sh|bat} examples/config/example-ignite.xml'}.
  * <p>
- * Alternatively you can run {@link ComputeNodeStartup} in another JVM which will start node
- * with {@code examples/config/example-compute.xml} configuration.
+ * Alternatively you can run {@link ExampleNodeStartup} in another JVM which will start node
+ * with {@code examples/config/example-ignite.xml} configuration.
  */
 public class ComputeBroadcastExample {
     /**
@@ -41,7 +40,7 @@ public class ComputeBroadcastExample {
      * @throws IgniteException If example execution failed.
      */
     public static void main(String[] args) throws IgniteException {
-        try (Ignite ignite = Ignition.start("examples/config/example-compute.xml")) {
+        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
             System.out.println();
             System.out.println(">>> Compute broadcast example started.");
 
@@ -61,14 +60,10 @@ public class ComputeBroadcastExample {
      */
     private static void hello(Ignite ignite) throws IgniteException {
         // Print out hello message on all nodes.
-        ignite.compute().broadcast(
-            new IgniteRunnable() {
-                @Override public void run() {
-                    System.out.println();
-                    System.out.println(">>> Hello Node! :)");
-                }
-            }
-        );
+        ignite.compute().broadcast(() -> {
+            System.out.println();
+            System.out.println(">>> Hello Node! :)");
+        });
 
         System.out.println();
         System.out.println(">>> Check all nodes for hello message output.");
@@ -82,23 +77,16 @@ public class ComputeBroadcastExample {
      */
     private static void gatherSystemInfo(Ignite ignite) throws IgniteException {
         // Gather system info from all nodes.
-        Collection<String> res = ignite.compute().broadcast(
-            new IgniteCallable<String>() {
-                // Automatically inject ignite instance.
-                @IgniteInstanceResource
-                private Ignite ignite;
+        Collection<String> res = ignite.compute().broadcast(() -> {
+            System.out.println();
+            System.out.println("Executing task on node: " + ignite.cluster().localNode().id());
 
-                @Override public String call() {
-                    System.out.println();
-                    System.out.println("Executing task on node: " + ignite.cluster().localNode().id());
-
-                    return "Node ID: " + ignite.cluster().localNode().id() + "\n" +
-                        "OS: " + System.getProperty("os.name") + " " + System.getProperty("os.version") + " " +
-                        System.getProperty("os.arch") + "\n" +
-                        "User: " + System.getProperty("user.name") + "\n" +
-                        "JRE: " + System.getProperty("java.runtime.name") + " " +
-                        System.getProperty("java.runtime.version");
-                }
+            return "Node ID: " + ignite.cluster().localNode().id() + "\n" +
+                "OS: " + System.getProperty("os.name") + " " + System.getProperty("os.version") + " " +
+                System.getProperty("os.arch") + "\n" +
+                "User: " + System.getProperty("user.name") + "\n" +
+                "JRE: " + System.getProperty("java.runtime.name") + " " +
+                System.getProperty("java.runtime.version");
         });
 
         // Print result.
@@ -106,9 +94,9 @@ public class ComputeBroadcastExample {
         System.out.println("Nodes system information:");
         System.out.println();
 
-        for (String r : res) {
+        res.forEach(r -> {
             System.out.println(r);
             System.out.println();
-        }
+        });
     }
 }

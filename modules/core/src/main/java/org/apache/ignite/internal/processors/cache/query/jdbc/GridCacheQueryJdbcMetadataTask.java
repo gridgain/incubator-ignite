@@ -17,21 +17,34 @@
 
 package org.apache.ignite.internal.processors.cache.query.jdbc;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cluster.*;
-import org.apache.ignite.compute.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.processors.cache.*;
-import org.apache.ignite.internal.processors.cache.query.*;
-import org.apache.ignite.internal.util.typedef.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.marshaller.jdk.*;
-import org.apache.ignite.resources.*;
-import org.jetbrains.annotations.*;
-
-import java.sql.*;
-import java.util.*;
+import java.sql.SQLException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.ComputeJobAdapter;
+import org.apache.ignite.compute.ComputeJobResult;
+import org.apache.ignite.compute.ComputeTaskAdapter;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.managers.discovery.GridDiscoveryManager;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.cache.query.GridCacheSqlIndexMetadata;
+import org.apache.ignite.internal.processors.cache.query.GridCacheSqlMetadata;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.marshaller.Marshaller;
+import org.apache.ignite.marshaller.jdk.JdkMarshaller;
+import org.apache.ignite.resources.IgniteInstanceResource;
+import org.apache.ignite.resources.LoggerResource;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Task that gets metadata for JDBC adapter.
@@ -43,13 +56,21 @@ public class GridCacheQueryJdbcMetadataTask extends ComputeTaskAdapter<String, b
     /** Marshaller. */
     private static final Marshaller MARSHALLER = new JdkMarshaller();
 
+    /** */
+    @IgniteInstanceResource
+    private Ignite ignite;
+
     /** {@inheritDoc} */
     @Override public Map<? extends ComputeJob, ClusterNode> map(List<ClusterNode> subgrid,
         @Nullable String cacheName) {
         Map<JdbcDriverMetadataJob, ClusterNode> map = new HashMap<>();
 
+        IgniteKernal kernal = (IgniteKernal)ignite;
+
+        GridDiscoveryManager discoMgr = kernal.context().discovery();
+
         for (ClusterNode n : subgrid)
-            if (U.hasCache(n, cacheName)) {
+            if (discoMgr.cacheAffinityNode(n, cacheName)) {
                 map.put(new JdbcDriverMetadataJob(cacheName), n);
 
                 break;
@@ -94,11 +115,11 @@ public class GridCacheQueryJdbcMetadataTask extends ComputeTaskAdapter<String, b
             byte[] data;
 
             try {
-                GridCache<?, ?> cache = ((IgniteEx) ignite).cachex(cacheName);
+                IgniteInternalCache<?, ?> cache = ((IgniteEx) ignite).cachex(cacheName);
 
                 assert cache != null;
 
-                Collection<GridCacheSqlMetadata> metas = ((GridCacheQueriesEx<?, ?>)cache.queries()).sqlMetadata();
+                Collection<GridCacheSqlMetadata> metas = cache.context().queries().sqlMetadata();
 
                 Map<String, Map<String, Map<String, String>>> schemasMap = U.newHashMap(metas.size());
 
@@ -132,7 +153,7 @@ public class GridCacheQueryJdbcMetadataTask extends ComputeTaskAdapter<String, b
 
                 status = 0;
 
-                data = MARSHALLER.marshal(F.asList(schemasMap, indexesInfo));
+                data = U.marshal(MARSHALLER, F.asList(schemasMap, indexesInfo));
             }
             catch (Throwable t) {
                 U.error(log, "Failed to get metadata for JDBC.", t);
@@ -142,11 +163,14 @@ public class GridCacheQueryJdbcMetadataTask extends ComputeTaskAdapter<String, b
                 status = 1;
 
                 try {
-                    data = MARSHALLER.marshal(err);
+                    data = U.marshal(MARSHALLER, err);
                 }
                 catch (IgniteCheckedException e) {
                     throw new IgniteException(e);
                 }
+
+                if (t instanceof Error)
+                    throw (Error)t;
             }
 
             byte[] packet = new byte[data.length + 1];

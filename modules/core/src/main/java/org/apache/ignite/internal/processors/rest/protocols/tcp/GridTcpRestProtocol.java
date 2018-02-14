@@ -17,31 +17,38 @@
 
 package org.apache.ignite.internal.processors.rest.protocols.tcp;
 
-import org.apache.ignite.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.client.marshaller.*;
-import org.apache.ignite.internal.client.marshaller.jdk.*;
-import org.apache.ignite.internal.client.marshaller.optimized.*;
-import org.apache.ignite.internal.client.ssl.*;
-import org.apache.ignite.internal.processors.rest.*;
-import org.apache.ignite.internal.processors.rest.client.message.*;
-import org.apache.ignite.internal.processors.rest.protocols.*;
-import org.apache.ignite.internal.util.nio.*;
-import org.apache.ignite.internal.util.nio.ssl.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.apache.ignite.marshaller.*;
-import org.apache.ignite.marshaller.jdk.*;
-import org.apache.ignite.spi.*;
-import org.jetbrains.annotations.*;
-
-import javax.net.ssl.*;
-import java.io.*;
-import java.net.*;
-import java.nio.*;
-import java.util.*;
-
-import static org.apache.ignite.internal.util.nio.GridNioSessionMetaKey.*;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import javax.cache.configuration.Factory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.configuration.ConnectorConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteNodeAttributes;
+import org.apache.ignite.internal.client.marshaller.GridClientMarshaller;
+import org.apache.ignite.internal.client.marshaller.jdk.GridClientJdkMarshaller;
+import org.apache.ignite.internal.client.marshaller.optimized.GridClientOptimizedMarshaller;
+import org.apache.ignite.internal.client.marshaller.optimized.GridClientZipOptimizedMarshaller;
+import org.apache.ignite.internal.client.ssl.GridSslContextFactory;
+import org.apache.ignite.internal.processors.rest.GridRestProtocolHandler;
+import org.apache.ignite.internal.processors.rest.client.message.GridClientMessage;
+import org.apache.ignite.internal.processors.rest.protocols.GridRestProtocolAdapter;
+import org.apache.ignite.internal.util.nio.GridNioCodecFilter;
+import org.apache.ignite.internal.util.nio.GridNioFilter;
+import org.apache.ignite.internal.util.nio.GridNioParser;
+import org.apache.ignite.internal.util.nio.GridNioServer;
+import org.apache.ignite.internal.util.nio.GridNioServerListener;
+import org.apache.ignite.internal.util.nio.ssl.GridNioSslFilter;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.plugin.PluginProvider;
+import org.apache.ignite.spi.IgnitePortProtocol;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * TCP binary protocol implementation.
@@ -50,36 +57,12 @@ public class GridTcpRestProtocol extends GridRestProtocolAdapter {
     /** Server. */
     private GridNioServer<GridClientMessage> srv;
 
-    /** JDK marshaller. */
-    private final Marshaller jdkMarshaller = new JdkMarshaller();
-
     /** NIO server listener. */
     private GridTcpRestNioListener lsnr;
 
     /** @param ctx Context. */
     public GridTcpRestProtocol(GridKernalContext ctx) {
         super(ctx);
-    }
-
-    /**
-     * @return JDK marshaller.
-     */
-    Marshaller jdkMarshaller() {
-        return jdkMarshaller;
-    }
-
-    /**
-     * Returns marshaller.
-     *
-     * @param ses Session.
-     * @return Marshaller.
-     */
-    GridClientMarshaller marshaller(GridNioSession ses) {
-        GridClientMarshaller marsh = ses.meta(MARSHALLER.ordinal());
-
-        assert marsh != null;
-
-        return marsh;
     }
 
     /** {@inheritDoc} */
@@ -98,7 +81,7 @@ public class GridTcpRestProtocol extends GridRestProtocolAdapter {
 
         lsnr = new GridTcpRestNioListener(log, this, hnd, ctx);
 
-        GridNioParser parser = new GridTcpRestParser(false);
+        GridNioParser parser = new GridTcpRestParser(false, ctx.marshallerContext().jdkMarshaller());
 
         try {
             host = resolveRestTcpHost(ctx.config());
@@ -106,18 +89,29 @@ public class GridTcpRestProtocol extends GridRestProtocolAdapter {
             SSLContext sslCtx = null;
 
             if (cfg.isSslEnabled()) {
-                GridSslContextFactory factory = cfg.getSslContextFactory();
+                Factory<SSLContext> igniteFactory = ctx.config().getSslContextFactory();
 
-                if (factory == null)
+                Factory<SSLContext> factory = cfg.getSslFactory();
+
+                // This factory deprecated and will be removed.
+                GridSslContextFactory depFactory = cfg.getSslContextFactory();
+
+                if (factory == null && depFactory == null && igniteFactory == null)
                     // Thrown SSL exception instead of IgniteCheckedException for writing correct warning message into log.
                     throw new SSLException("SSL is enabled, but SSL context factory is not specified.");
 
-                sslCtx = factory.createSslContext();
+                if (factory != null)
+                    sslCtx = factory.create();
+                else if (depFactory != null)
+                    sslCtx = depFactory.createSslContext();
+                else
+                    sslCtx = igniteFactory.create();
             }
+            int startPort = cfg.getPort();
+            int portRange = cfg.getPortRange();
+            int lastPort = portRange == 0 ? startPort : startPort + portRange - 1;
 
-            int lastPort = cfg.getPort() + cfg.getPortRange() - 1;
-
-            for (int port0 = cfg.getPort(); port0 <= lastPort; port0++) {
+            for (int port0 = startPort; port0 <= lastPort; port0++) {
                 if (startTcpServer(host, port0, lsnr, parser, sslCtx, cfg)) {
                     port = port0;
 
@@ -149,7 +143,12 @@ public class GridTcpRestProtocol extends GridRestProtocolAdapter {
 
         Map<Byte, GridClientMarshaller> marshMap = new HashMap<>();
 
-        marshMap.put(GridClientOptimizedMarshaller.ID, new GridClientOptimizedMarshaller());
+        ArrayList<PluginProvider> providers = new ArrayList<>(ctx.plugins().allProviders());
+
+        GridClientOptimizedMarshaller optMarsh = new GridClientOptimizedMarshaller(providers);
+
+        marshMap.put(GridClientOptimizedMarshaller.ID, optMarsh);
+        marshMap.put(GridClientZipOptimizedMarshaller.ID, new GridClientZipOptimizedMarshaller(optMarsh, providers));
         marshMap.put(GridClientJdkMarshaller.ID, new GridClientJdkMarshaller());
 
         lsnr.marshallers(marshMap);
@@ -203,7 +202,8 @@ public class GridTcpRestProtocol extends GridRestProtocolAdapter {
             GridNioFilter[] filters;
 
             if (sslCtx != null) {
-                GridNioSslFilter sslFilter = new GridNioSslFilter(sslCtx, log);
+                GridNioSslFilter sslFilter = new GridNioSslFilter(sslCtx,
+                    cfg.isDirectBuffer(), ByteOrder.nativeOrder(), log);
 
                 sslFilter.directMode(false);
 
@@ -227,7 +227,8 @@ public class GridTcpRestProtocol extends GridRestProtocolAdapter {
                 .listener(lsnr)
                 .logger(log)
                 .selectorCount(cfg.getSelectorCount())
-                .gridName(ctx.gridName())
+                .igniteInstanceName(ctx.igniteInstanceName())
+                .serverName("tcp-rest")
                 .tcpNoDelay(cfg.isNoDelay())
                 .directBuffer(cfg.isDirectBuffer())
                 .byteOrder(ByteOrder.nativeOrder())

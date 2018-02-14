@@ -17,22 +17,25 @@
 
 package org.apache.ignite.internal.visor.cache;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.store.*;
-import org.apache.ignite.cache.store.jdbc.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-import org.jetbrains.annotations.*;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import org.apache.ignite.cache.store.CacheStore;
+import org.apache.ignite.cache.store.jdbc.CacheAbstractJdbcStore;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorDataTransferObject;
+import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
-
-import static org.apache.ignite.internal.visor.util.VisorTaskUtils.*;
+import static org.apache.ignite.internal.visor.util.VisorTaskUtils.compactClass;
 
 /**
  * Data transfer object for cache store configuration properties.
  */
-public class VisorCacheStoreConfiguration implements Serializable {
+public class VisorCacheStoreConfiguration extends VisorDataTransferObject {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -66,142 +69,170 @@ public class VisorCacheStoreConfiguration implements Serializable {
     /** Number of threads that will perform cache flushing. */
     private int flushThreadCnt;
 
+    /** Keep binary in store flag. */
+    private boolean storeKeepBinary;
+
+    /** Write coalescing flag for write-behind cache store */
+    private boolean writeBehindCoalescing;
+
     /**
-     * @param ccfg Cache configuration.
-     * @return Data transfer object for cache store configuration properties.
+     * Default constructor.
      */
-    public static VisorCacheStoreConfiguration from(Ignite ignite, CacheConfiguration ccfg) {
-        VisorCacheStoreConfiguration cfg = new VisorCacheStoreConfiguration();
+    public VisorCacheStoreConfiguration() {
+        // No-op.
+    }
 
-        CacheStore store = ((IgniteKernal)ignite).internalCache(ccfg.getName()).context().store().configuredStore();
+    /**
+     * Create data transfer object for cache store configuration properties.
+     *
+     * @param ignite Ignite instance.
+     * @param ccfg Cache configuration.
+     */
+    public VisorCacheStoreConfiguration(IgniteEx ignite, CacheConfiguration ccfg) {
+        IgniteCacheProxy<Object, Object> c = ignite.context().cache().jcache(ccfg.getName());
 
-        cfg.jdbcStore = store instanceof CacheAbstractJdbcStore;
+        CacheStore cstore = c != null && c.context().started() ? c.context().store().configuredStore() : null;
 
-        cfg.store = compactClass(store);
-        cfg.storeFactory = compactClass(ccfg.getCacheStoreFactory());
+        jdbcStore = cstore instanceof CacheAbstractJdbcStore;
 
-        cfg.readThrough = ccfg.isReadThrough();
-        cfg.writeThrough = ccfg.isWriteThrough();
+        store = compactClass(cstore);
+        storeFactory = compactClass(ccfg.getCacheStoreFactory());
 
-        cfg.writeBehindEnabled = ccfg.isWriteBehindEnabled();
-        cfg.batchSz = ccfg.getWriteBehindBatchSize();
-        cfg.flushFreq = ccfg.getWriteBehindFlushFrequency();
-        cfg.flushSz = ccfg.getWriteBehindFlushSize();
-        cfg.flushThreadCnt = ccfg.getWriteBehindFlushThreadCount();
+        readThrough = ccfg.isReadThrough();
+        writeThrough = ccfg.isWriteThrough();
 
-        return cfg;
+        writeBehindEnabled = ccfg.isWriteBehindEnabled();
+        batchSz = ccfg.getWriteBehindBatchSize();
+        flushFreq = ccfg.getWriteBehindFlushFrequency();
+        flushSz = ccfg.getWriteBehindFlushSize();
+        flushThreadCnt = ccfg.getWriteBehindFlushThreadCount();
+
+        storeKeepBinary = ccfg.isStoreKeepBinary();
+
+        writeBehindCoalescing = ccfg.getWriteBehindCoalescing();
     }
 
     /**
      * @return {@code true} if cache has store.
      */
-    public boolean enabled() {
+    public boolean isEnabled() {
         return store != null;
     }
 
     /**
      * @return {@code true} if cache has JDBC store.
      */
-    public boolean jdbcStore() {
+    public boolean isJdbcStore() {
         return jdbcStore;
     }
 
     /**
      * @return Cache store class name.
      */
-    @Nullable public String store() {
+    @Nullable public String getStore() {
         return store;
     }
 
     /**
      * @return Cache store factory class name..
      */
-    public String storeFactory() {
+    public String getStoreFactory() {
         return storeFactory;
     }
 
     /**
      * @return Whether cache should operate in read-through mode.
      */
-    public boolean readThrough() {
+    public boolean isReadThrough() {
         return readThrough;
     }
 
     /**
      * @return Whether cache should operate in write-through mode.
      */
-    public boolean writeThrough() {
+    public boolean isWriteThrough() {
         return writeThrough;
     }
 
     /**
      * @return Flag indicating whether write-behind behaviour should be used for the cache store.
      */
-    public boolean writeBehindEnabled() {
+    public boolean isWriteBehindEnabled() {
         return writeBehindEnabled;
-    }
-
-    /**
-     * @param writeBehindEnabled New flag indicating whether write-behind behaviour should be used for the cache store.
-     */
-    public void writeBehindEnabled(boolean writeBehindEnabled) {
-        this.writeBehindEnabled = writeBehindEnabled;
     }
 
     /**
      * @return Maximum batch size for write-behind cache store operations.
      */
-    public int batchSize() {
+    public int getBatchSize() {
         return batchSz;
-    }
-
-    /**
-     * @param batchSize New maximum batch size for write-behind cache store operations.
-     */
-    public void batchSize(int batchSize) {
-        this.batchSz = batchSize;
     }
 
     /**
      * @return Frequency with which write-behind cache is flushed to the cache store in milliseconds.
      */
-    public long flushFrequency() {
+    public long getFlushFrequency() {
         return flushFreq;
-    }
-
-    /**
-     * @param flushFreq New frequency with which write-behind cache is flushed to the cache store in milliseconds.
-     */
-    public void flushFrequency(long flushFreq) {
-        this.flushFreq = flushFreq;
     }
 
     /**
      * @return Maximum object count in write-behind cache.
      */
-    public int flushSize() {
+    public int getFlushSize() {
         return flushSz;
-    }
-
-    /**
-     * @param flushSize New maximum object count in write-behind cache.
-     */
-    public void flushSize(int flushSize) {
-        this.flushSz = flushSize;
     }
 
     /**
      * @return Number of threads that will perform cache flushing.
      */
-    public int flushThreadCount() {
+    public int getFlushThreadCount() {
         return flushThreadCnt;
     }
 
     /**
-     * @param flushThreadCnt New number of threads that will perform cache flushing.
+     * @return Keep binary in store flag.
      */
-    public void flushThreadCount(int flushThreadCnt) {
-        this.flushThreadCnt = flushThreadCnt;
+    public boolean isStoreKeepBinary() {
+        return storeKeepBinary;
+    }
+
+    /**
+     * @return Write coalescing flag.
+     */
+    public boolean getWriteBehindCoalescing() {
+        return writeBehindCoalescing;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void writeExternalData(ObjectOutput out) throws IOException {
+        out.writeBoolean(jdbcStore);
+        U.writeString(out, store);
+        U.writeString(out, storeFactory);
+        out.writeBoolean(readThrough);
+        out.writeBoolean(writeThrough);
+        out.writeBoolean(writeBehindEnabled);
+        out.writeInt(batchSz);
+        out.writeLong(flushFreq);
+        out.writeInt(flushSz);
+        out.writeInt(flushThreadCnt);
+        out.writeBoolean(storeKeepBinary);
+        out.writeBoolean(writeBehindCoalescing);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
+        jdbcStore = in.readBoolean();
+        store = U.readString(in);
+        storeFactory = U.readString(in);
+        readThrough = in.readBoolean();
+        writeThrough = in.readBoolean();
+        writeBehindEnabled = in.readBoolean();
+        batchSz = in.readInt();
+        flushFreq = in.readLong();
+        flushSz = in.readInt();
+        flushThreadCnt = in.readInt();
+        storeKeepBinary = in.readBoolean();
+        writeBehindCoalescing = in.readBoolean();
     }
 
     /** {@inheritDoc} */

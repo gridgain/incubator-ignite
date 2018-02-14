@@ -17,23 +17,36 @@
 
 package org.apache.ignite.yardstick;
 
-import org.apache.ignite.*;
-import org.apache.ignite.cache.*;
-import org.apache.ignite.cache.eviction.lru.*;
-import org.apache.ignite.configuration.*;
-import org.apache.ignite.internal.util.*;
-import org.apache.ignite.spi.communication.tcp.*;
-import org.springframework.beans.*;
-import org.springframework.beans.factory.xml.*;
-import org.springframework.context.support.*;
-import org.springframework.core.io.*;
-import org.yardstickframework.*;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Map;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteSpring;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.eviction.lru.LruEvictionPolicy;
+import org.apache.ignite.configuration.BinaryConfiguration;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.ConnectorConfiguration;
+import org.apache.ignite.configuration.DataStorageConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.NearCacheConfiguration;
+import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.yardstick.io.FileUtils;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.core.io.UrlResource;
+import org.yardstickframework.BenchmarkConfiguration;
+import org.yardstickframework.BenchmarkServer;
+import org.yardstickframework.BenchmarkUtils;
 
-import java.net.*;
-import java.util.*;
-
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMemoryMode.*;
+import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_MARSHALLER;
 
 /**
  * Standalone Ignite node.
@@ -67,50 +80,70 @@ public class IgniteNode implements BenchmarkServer {
 
         BenchmarkUtils.jcommander(cfg.commandLineArguments(), args, "<ignite-node>");
 
-        IgniteConfiguration c = loadConfiguration(args.configuration());
+        IgniteBiTuple<IgniteConfiguration, ? extends ApplicationContext> tup = loadConfiguration(args.configuration());
+
+        IgniteConfiguration c = tup.get1();
 
         assert c != null;
 
-        for (CacheConfiguration cc : c.getCacheConfiguration()) {
-            // IgniteNode can not run in CLIENT_ONLY mode,
-            // except the case when it's used inside IgniteAbstractBenchmark.
-            CacheDistributionMode distroMode = args.distributionMode() == CLIENT_ONLY && !clientMode ?
-                PARTITIONED_ONLY : args.distributionMode();
+        if (args.cleanWorkDirectory())
+            FileUtils.cleanDirectory(U.workDirectory(c.getWorkDirectory(), c.getIgniteHome()));
 
-            cc.setWriteSynchronizationMode(args.syncMode());
-            cc.setDistributionMode(distroMode);
+        ApplicationContext appCtx = tup.get2();
 
-            if (args.orderMode() != null)
-                cc.setAtomicWriteOrderMode(args.orderMode());
+        assert appCtx != null;
 
-            cc.setBackups(args.backups());
+        CacheConfiguration[] ccfgs = c.getCacheConfiguration();
 
-            if (args.restTcpPort() != 0) {
-                ConnectorConfiguration ccc = new ConnectorConfiguration();
+        if (ccfgs != null) {
+            for (CacheConfiguration cc : ccfgs) {
+                // IgniteNode can not run in CLIENT_ONLY mode,
+                // except the case when it's used inside IgniteAbstractBenchmark.
+                boolean cl = args.isClientOnly() && (args.isNearCache() || clientMode);
 
-                ccc.setPort(args.restTcpPort());
+                if (cl)
+                    c.setClientMode(true);
 
-                if (args.restTcpHost() != null)
-                    ccc.setHost(args.restTcpHost());
+                if (args.isNearCache()) {
+                    NearCacheConfiguration nearCfg = new NearCacheConfiguration();
 
-                c.setConnectorConfiguration(ccc);
+                    int nearCacheSize = args.getNearCacheSize();
+
+                    if (nearCacheSize != 0)
+                        nearCfg.setNearEvictionPolicy(new LruEvictionPolicy(nearCacheSize));
+
+                    cc.setNearConfiguration(nearCfg);
+                }
+
+                if (args.cacheGroup() != null)
+                    cc.setGroupName(args.cacheGroup());
+
+                cc.setWriteSynchronizationMode(args.syncMode());
+
+                cc.setBackups(args.backups());
+
+                if (args.restTcpPort() != 0) {
+                    ConnectorConfiguration ccc = new ConnectorConfiguration();
+
+                    ccc.setPort(args.restTcpPort());
+
+                    if (args.restTcpHost() != null)
+                        ccc.setHost(args.restTcpHost());
+
+                    c.setConnectorConfiguration(ccc);
+                }
+
+                cc.setReadThrough(args.isStoreEnabled());
+
+                cc.setWriteThrough(args.isStoreEnabled());
+
+                cc.setWriteBehindEnabled(args.isWriteBehind());
+
+                BenchmarkUtils.println(cfg, "Cache configured with the following parameters: " + cc);
             }
-
-            if (args.isOffHeap()) {
-                cc.setOffHeapMaxMemory(0);
-
-                if (args.isOffheapValues())
-                    cc.setMemoryMode(OFFHEAP_VALUES);
-                else
-                    cc.setEvictionPolicy(new CacheLruEvictionPolicy(50000));
-            }
-
-            cc.setReadThrough(args.isStoreEnabled());
-
-            cc.setWriteThrough(args.isStoreEnabled());
-
-            cc.setWriteBehindEnabled(args.isWriteBehind());
         }
+        else
+            BenchmarkUtils.println(cfg, "There are no caches configured");
 
         TransactionConfiguration tc = c.getTransactionConfiguration();
 
@@ -124,15 +157,38 @@ public class IgniteNode implements BenchmarkServer {
 
         c.setCommunicationSpi(commSpi);
 
-        ignite = Ignition.start(c);
+        if (args.getPageSize() != DataStorageConfiguration.DFLT_PAGE_SIZE) {
+            DataStorageConfiguration memCfg = c.getDataStorageConfiguration();
+
+            if (memCfg == null) {
+                memCfg = new DataStorageConfiguration();
+
+                c.setDataStorageConfiguration(memCfg);
+            }
+
+            memCfg.setPageSize(args.getPageSize());
+        }
+
+        if (args.persistentStoreEnabled()) {
+            DataStorageConfiguration pcCfg = new DataStorageConfiguration();
+
+            c.setBinaryConfiguration(new BinaryConfiguration().setCompactFooter(false));
+
+            c.setDataStorageConfiguration(pcCfg);
+        }
+
+        ignite = IgniteSpring.start(c, appCtx);
+
+        BenchmarkUtils.println("Configured marshaller: " + ignite.cluster().localNode().attribute(ATTR_MARSHALLER));
     }
 
     /**
      * @param springCfgPath Spring configuration file path.
-     * @return Grid configuration.
+     * @return Tuple with grid configuration and Spring application context.
      * @throws Exception If failed.
      */
-    private static IgniteConfiguration loadConfiguration(String springCfgPath) throws Exception {
+    public static IgniteBiTuple<IgniteConfiguration, ? extends ApplicationContext> loadConfiguration(String springCfgPath)
+        throws Exception {
         URL url;
 
         try {
@@ -174,7 +230,7 @@ public class IgniteNode implements BenchmarkServer {
         if (cfgMap == null || cfgMap.isEmpty())
             throw new Exception("Failed to find ignite configuration in: " + url);
 
-        return cfgMap.values().iterator().next();
+        return new IgniteBiTuple<>(cfgMap.values().iterator().next(), springCtx);
     }
 
     /** {@inheritDoc} */

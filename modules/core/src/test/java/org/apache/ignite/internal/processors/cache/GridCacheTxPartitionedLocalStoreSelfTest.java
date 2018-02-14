@@ -17,21 +17,16 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import org.apache.ignite.cache.*;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.*;
-import static org.apache.ignite.cache.CacheDistributionMode.*;
-import static org.apache.ignite.cache.CacheMode.*;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  *
  */
 public class GridCacheTxPartitionedLocalStoreSelfTest extends GridCacheAbstractLocalStoreSelfTest {
-    /** {@inheritDoc} */
-    @Override protected CacheDistributionMode getDistributionMode() {
-        return PARTITIONED_ONLY;
-    }
-
     /** {@inheritDoc} */
     @Override protected CacheAtomicityMode getAtomicMode() {
         return TRANSACTIONAL;

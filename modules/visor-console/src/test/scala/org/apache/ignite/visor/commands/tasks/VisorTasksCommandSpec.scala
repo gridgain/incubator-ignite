@@ -26,6 +26,7 @@ import org.scalatest._
 
 import java.util
 
+import org.apache.ignite.visor.commands.open.VisorOpenCommand._
 import org.apache.ignite.visor.commands.tasks.VisorTasksCommand._
 
 import scala.collection.JavaConversions._
@@ -34,7 +35,7 @@ import scala.collection._
 /**
  * Unit test for 'tasks' command.
  */
-class VisorTasksCommandSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
+class VisorTasksCommandSpec extends FunSpec with Matchers with BeforeAndAfterAll {
     /**
      * Open visor and execute several tasks before all tests.
      */
@@ -46,27 +47,17 @@ class VisorTasksCommandSpec extends FlatSpec with Matchers with BeforeAndAfterAl
         visor.open(config("visor-demo-node"), "n/a")
 
         try {
-            val compute = ignite.compute().withAsync
+            val compute = ignite.compute()
 
-            compute.withName("TestTask1").execute(new TestTask1(), null)
+            val fut1 = compute.withName("TestTask1").executeAsync(new TestTask1(), null)
 
-            val fut1 = compute.future()
+            val fut2 = compute.withName("TestTask1").executeAsync(new TestTask1(), null)
 
-            compute.withName("TestTask1").execute(new TestTask1(), null)
+            val fut3 = compute.withName("TestTask1").executeAsync(new TestTask1(), null)
 
-            val fut2 = compute.future()
+            val fut4 = compute.withName("TestTask2").executeAsync(new TestTask2(), null)
 
-            compute.withName("TestTask1").execute(new TestTask1(), null)
-
-            val fut3 = compute.future()
-
-            compute.withName("TestTask2").execute(new TestTask2(), null)
-
-            val fut4 = compute.future()
-
-            compute.withName("Test3").execute(new Test3(), null)
-
-            val fut5 = compute.future()
+            val fut5 = compute.withName("Test3").executeAsync(new Test3(), null)
 
             fut1.get
             fut2.get
@@ -82,13 +73,13 @@ class VisorTasksCommandSpec extends FlatSpec with Matchers with BeforeAndAfterAl
     /**
      * Creates grid configuration for provided grid host.
      *
-     * @param name Grid name.
+     * @param name Ignite instance name.
      * @return Grid configuration.
      */
     private def config(name: String): IgniteConfiguration = {
         val cfg = new IgniteConfiguration
 
-        cfg.setGridName(name)
+        cfg.setIgniteInstanceName(name)
         cfg.setIncludeEventTypes(EVTS_ALL: _*)
 
         cfg
@@ -103,78 +94,78 @@ class VisorTasksCommandSpec extends FlatSpec with Matchers with BeforeAndAfterAl
         Ignition.stopAll(false)
     }
 
-    behavior of "A 'tasks' visor command"
+    describe("A 'tasks' visor command") {
+        it("should print tasks when called w/o arguments") {
+            visor.tasks()
+        }
 
-    it should "print tasks when called w/o arguments" in {
-        visor.tasks()
-    }
+        it("should print error message with incorrect argument") {
+            visor.tasks("-xx")
+        }
 
-    it should "print error message with incorrect argument" in {
-        visor.tasks("-xx")
-    }
+        it("should print task summary when called for specific task") {
+            visor.tasks("-n=@t1")
+        }
 
-    it should "print task summary when called for specific task" in {
-        visor.tasks("-n=@t1")
-    }
+        it("should print execution when called for specific execution") {
+            visor.tasks("-e=@e1")
+        }
 
-    it should "print execution when called for specific execution" in {
-        visor.tasks("-e=@e1")
-    }
+        it("should print all tasks") {
+            visor.tasks("-l")
+        }
 
-    it should "print all tasks" in {
-        visor.tasks("-l")
-    }
+        it("should print all tasks and executions") {
+            visor.tasks("-l -a")
+        }
 
-    it should "print all tasks and executions" in {
-        visor.tasks("-l -a")
-    }
+        it("should print tasks that started during last 5 seconds") {
+            visor.tasks("-l -t=5s")
+        }
 
-    it should "print tasks that started during last 5 seconds" in {
-        visor.tasks("-l -t=5s")
-    }
+        it("should print error message about invalid time period") {
+            visor.tasks("-l -t=x2s")
+        }
 
-    it should "print error message about invalid time period" in {
-        visor.tasks("-l -t=x2s")
-    }
+        it("should print error message about negative time period") {
+            visor.tasks("-l -t=-10s")
+        }
 
-    it should "print error message about negative time period" in {
-        visor.tasks("-l -t=-10s")
-    }
+        it("should print error message about invalid time period specification") {
+            visor.tasks("-l -t=10x")
+        }
 
-    it should "print error message about invalid time period specification" in {
-        visor.tasks("-l -t=10x")
-    }
+        it("should print task summary for the first task") {
+            visor.tasks("-n=TestTask1")
+        }
 
-    it should "print task summary for the first task" in {
-        visor.tasks("-n=TestTask1")
-    }
+        it("should print task summary and executions for the first task") {
+            visor.tasks("-n=TestTask1 -a")
+        }
 
-    it should "print task summary and executions for the first task" in {
-        visor.tasks("-n=TestTask1 -a")
-    }
+        it("should print list of tasks grouped by nodes") {
+            visor.tasks("-g")
+        }
 
-    it should "print list of tasks grouped by nodes" in {
-        visor.tasks("-g")
-    }
+        it("should print list of tasks that started during last 5 minutes grouped by nodes") {
+            visor.tasks("-g -t=5m")
+        }
 
-    it should "print list of tasks that started during last 5 minutes grouped by nodes" in {
-        visor.tasks("-g -t=5m")
-    }
+        it("should print list of tasks grouped by hosts") {
+            visor.tasks("-h")
+        }
 
-    it should "print list of tasks grouped by hosts" in {
-        visor.tasks("-h")
-    }
+        it("should print list of tasks that started during last 5 minutes grouped by hosts") {
+            visor.tasks("-h -t=5m")
+        }
 
-    it should "print list of tasks that started during last 5 minutes grouped by hosts" in {
-        visor.tasks("-h -t=5m")
-    }
+        it("should print list of tasks filtered by substring") {
+            visor.tasks("-s=TestTask")
+        }
 
-    it should "print list of tasks filtered by substring" in {
-        visor.tasks("-s=TestTask")
-    }
-
-    it should "print list of tasks and executions filtered by substring" in {
-        visor.tasks("-s=TestTask -a")
+        it("should print list of tasks and executions filtered by substring") {
+            visor.tasks("-s=TestTask -a")
+        }
     }
 }
 

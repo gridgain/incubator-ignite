@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.events;
 
-import org.apache.ignite.events.*;
-import org.apache.ignite.internal.managers.discovery.*;
-import org.apache.ignite.internal.util.typedef.internal.*;
-
-import java.io.*;
+import org.apache.ignite.events.DiscoveryEvent;
+import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
+import org.apache.ignite.internal.managers.discovery.GridDiscoveryManager;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * Custom event.
@@ -29,11 +29,11 @@ import java.io.*;
 public class DiscoveryCustomEvent extends DiscoveryEvent {
     /** */
     private static final long serialVersionUID = 0L;
-    
+
     /**
      * Built-in event type: custom event sent.
      * <br>
-     * Generated when someone invoke {@link GridDiscoveryManager#sendCustomEvent(Serializable)}.
+     * Generated when someone invoke {@link GridDiscoveryManager#sendCustomEvent(DiscoveryCustomMessage)}.
      * <p>
      *
      * @see DiscoveryCustomEvent
@@ -41,7 +41,10 @@ public class DiscoveryCustomEvent extends DiscoveryEvent {
     public static final int EVT_DISCOVERY_CUSTOM_EVT = 18;
 
     /** */
-    private Serializable data;
+    private DiscoveryCustomMessage customMsg;
+
+    /** Affinity topology version. */
+    private AffinityTopologyVersion affTopVer;
 
     /**
      * Default constructor.
@@ -53,15 +56,29 @@ public class DiscoveryCustomEvent extends DiscoveryEvent {
     /**
      * @return Data.
      */
-    public Serializable data() {
-        return data;
+    public DiscoveryCustomMessage customMessage() {
+        return customMsg;
     }
 
     /**
-     * @param data New data.
+     * @param customMsg New customMessage.
      */
-    public void data(Serializable data) {
-        this.data = data;
+    public void customMessage(DiscoveryCustomMessage customMsg) {
+        this.customMsg = customMsg;
+    }
+
+    /**
+     * @return Affinity topology version.
+     */
+    public AffinityTopologyVersion affinityTopologyVersion() {
+        return affTopVer;
+    }
+
+    /**
+     * @param affTopVer Affinity topology version.
+     */
+    public void affinityTopologyVersion(AffinityTopologyVersion affTopVer) {
+        this.affTopVer = affTopVer;
     }
 
     /** {@inheritDoc} */
