@@ -31,6 +31,7 @@ import org.apache.ignite.internal.processors.cache.persistence.wal.FileWALPointe
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -57,6 +58,8 @@ public class LocalPendingTransactionsTrackerTest {
     @BeforeClass
     public static void setUpClass() {
         timeoutExecutor = new ScheduledThreadPoolExecutor(1);
+
+        U.onGridStart();
     }
 
     /**
@@ -78,7 +81,7 @@ public class LocalPendingTransactionsTrackerTest {
 
             long endTime = timeoutObj.endTime();
 
-            timeoutExecutor.schedule(timeoutObj::onTimeout, endTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+            timeoutExecutor.schedule(timeoutObj::onTimeout, endTime - U.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
             return null;
         });
@@ -270,11 +273,11 @@ public class LocalPendingTransactionsTrackerTest {
         txCommit(2);
         txCommit(2);
 
-        long curTs = System.currentTimeMillis();
+        long curTs = U.currentTimeMillis();
 
         Set<GridCacheVersion> pendingTxs = fut.get();
 
-        assertTrue("Waiting for awaitFinishOfPreparedTxs future too long", System.currentTimeMillis() - curTs < 1_000);
+        assertTrue("Waiting for awaitFinishOfPreparedTxs future too long", U.currentTimeMillis() - curTs < 1_000);
 
         assertEquals(3, pendingTxs.size());
         assertTrue(pendingTxs.contains(nearXidVersion(1)));
@@ -380,7 +383,7 @@ public class LocalPendingTransactionsTrackerTest {
     /**
      *
      */
-    @Test
+    @Test(timeout = 10_000)
     public void testConsistentCutUseCase() throws Exception {
         txPrepare(1);
         txPrepare(2);
