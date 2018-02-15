@@ -263,6 +263,14 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
 
         ignite1 = startGrid(1);
 
+        awaitPartitionMapExchange();
+
+        for (Ignite ignite : G.allGrids()) {
+            for (String cacheName : CACHE_NAMES) {
+                ignite.cache(cacheName).rebalance().get();
+            }
+        }
+
         // Convince of data match on nodes
 
         assertEquals("Data on nodes must match", 0, diffCaches(ignite0, ignite1));
