@@ -25,27 +25,26 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CachePeekMode;
-import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.TopologyValidator;
-import org.apache.ignite.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.IgniteNodeAttributes;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareResponse;
 import org.apache.ignite.internal.processors.cache.distributed.dht.IgniteCacheTopologySplitAbstractTest;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -55,8 +54,14 @@ import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
-import org.apache.ignite.transactions.TransactionConcurrency;
-import org.apache.ignite.transactions.TransactionIsolation;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionTimeoutException;
+
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.configuration.IgniteConfiguration.DFLT_FAILURE_DETECTION_TIMEOUT;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 
 /**
  * Data may be lost in a split-brain scenario
@@ -73,6 +78,12 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
 
     /**  */
     private static final String[] CACHE_NAMES = {"cache0", "cache1"};
+
+    /**  */
+    private static final long SHORT_TX_TIMEOUT = DFLT_FAILURE_DETECTION_TIMEOUT - 5000L;
+
+    /**  */
+    private static final long LONG_TX_TIMEOUT = DFLT_FAILURE_DETECTION_TIMEOUT + 5000L;
 
     /**  */
     private Collection<TestRecordingCommunicationSpi> comms = new ArrayList<>();
@@ -112,17 +123,16 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
 
         cfg.setConsistentId(idx);
 
-        cfg.setDataStorageConfiguration(new DataStorageConfiguration());
+        cfg.setDataStorageConfiguration(new DataStorageConfiguration()
+            .setDefaultDataRegionConfiguration(
+                new DataRegionConfiguration()
+                    .setPersistenceEnabled(true)
+            )
+        );
 
         CacheConfiguration[] ccfgs = getCacheConfigurations();
 
         cfg.setCacheConfiguration(ccfgs);
-
-        cfg.setTransactionConfiguration(new TransactionConfiguration()
-            .setDefaultTxTimeout(disco.failureDetectionTimeout() + 5000L)
-            .setDefaultTxConcurrency(TransactionConcurrency.OPTIMISTIC)
-            .setDefaultTxIsolation(TransactionIsolation.SERIALIZABLE)
-        );
 
         return cfg;
     }
@@ -138,8 +148,8 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
                 .setAffinity(new RendezvousAffinityFunction(false, 4))
                 .setBackups(1)
                 .setTopologyValidator(new NotSingleNode())
-                .setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL)
-                .setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+                .setAtomicityMode(TRANSACTIONAL)
+                .setWriteSynchronizationMode(FULL_SYNC);
 
             cfgs[i] = c;
         }
@@ -181,31 +191,46 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
 
         Ignite ignite1 = startGrid(1);
 
-        final AtomicInteger putCnt = new AtomicInteger();
+        ignite0.cluster().active(true);
 
         // Find primary keys and create tasks will do puts
 
         Collection<Callable<Void>> tasks = new ArrayList<>();
 
         for (final Ignite ignite : G.allGrids()) {
+            boolean autocommit = true;
+
             for (String cacheName : CACHE_NAMES) {
                 final IgniteCache<Object, Object> cache = ignite.cache(cacheName);
 
-                final int priKey = primaryKeys(cache, 1).get(0);
+                List<Integer> priKeys = primaryKeys(cache, 3);
 
-                tasks.add(new Callable<Void>() {
-                    @Override public Void call() throws Exception {
-                        if (log.isInfoEnabled())
-                            log.info(">>> put: ignite=" + ignite.name() + ", cache=" + cacheName +
-                                ", key=" + priKey);
+                for (final Integer priKey : priKeys) {
+                    autocommit ^= true;
 
-                        cache.put(priKey, ignite.name() + "_" + priKey);
+                    final long timeout = autocommit ? SHORT_TX_TIMEOUT : LONG_TX_TIMEOUT;
 
-                        putCnt.incrementAndGet();
+                    tasks.add(new Callable<Void>() {
+                        @Override public Void call() throws Exception {
+                            if (log.isInfoEnabled())
+                                log.info(">>> put: ignite=" + ignite.name() + ", cache=" + cacheName +
+                                    ", key=" + priKey + ", timeout=" + timeout);
 
-                        return null;
-                    }
-                });
+                            Transaction tx = ignite.transactions().txStart(OPTIMISTIC, SERIALIZABLE);
+                            try {
+                                tx.timeout(timeout);
+
+                                cache.put(priKey, ignite.name() + "_" + priKey);
+
+                                tx.commit();
+                            }
+                            finally {
+                                tx.close();
+                            }
+                            return null;
+                        }
+                    });
+                }
             }
         }
 
@@ -218,7 +243,15 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
         for (TestRecordingCommunicationSpi comm : comms) {
             comm.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
                 @Override public boolean apply(ClusterNode node, Message message) {
-                    return message instanceof GridDhtTxPrepareRequest;
+                    if (message instanceof GridDhtTxPrepareRequest) {
+                        GridDhtTxPrepareRequest req = (GridDhtTxPrepareRequest)message;
+
+                        return req.timeout() > SHORT_TX_TIMEOUT;
+                    }
+                    else if (message instanceof GridDhtTxPrepareResponse)
+                        return true;
+
+                    return false;
                 }
             });
         }
@@ -234,7 +267,7 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
             futs.add(exec.submit(task));
         }
 
-        Thread.sleep(1000L);
+        Thread.sleep(DFLT_FAILURE_DETECTION_TIMEOUT);
 
         // Simulate a split for the discovery and communication
         // Wait for node failures finished
@@ -249,11 +282,17 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
             ;
 
         for (Future<?> fut : futs)
-            fut.get();
+            try {
+                fut.get();
+            }
+            catch (ExecutionException e) {
+                if (!(e.getCause() instanceof TransactionTimeoutException))
+                    throw e;
+            }
 
         // Convince of data differs on nodes
 
-        assertEquals("Data on nodes must NOT match", 4, diffCaches(ignite0, ignite1));
+        assertEquals("Data on nodes must NOT match", tasks.size(), diffCaches(ignite0, ignite1));
 
         // Simulate network restored and restart the second node
 
@@ -271,7 +310,7 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
             }
         }
 
-        // Convince of data match on nodes
+        // Convince of data async
 
         assertEquals("Data on nodes must match", 0, diffCaches(ignite0, ignite1));
 
@@ -286,7 +325,7 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
                 }
             }
 
-            assertEquals("Data was lost on " + peekMode + " partitions", putCnt.get(), totalSize);
+            assertEquals("Data was lost on " + peekMode + " partitions", tasks.size(), totalSize);
         }
     }
 
@@ -306,7 +345,8 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
             Map<Object, Cache.Entry<Object, Object>> map1 = collectEntries(cache1, keys);
 
             if (log.isInfoEnabled())
-                log.info(">>> diff: cache=" + cacheName + ", keys=" + keys + ", map0=" + map0 + ", map1=" + map1);
+                log.info(">>> diff: cache=" + cacheName + ", keys=" + keys +
+                    ", ignite0=" + map0 + ", ignite1=" + map1);
 
             for (Object key : keys) {
                 Cache.Entry<Object, Object> entry0 = map0.get(key);
@@ -315,7 +355,7 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
 
                 if (entry0 == null || entry1 == null || !Objects.equals(entry0.getValue(), entry1.getValue())) {
                     U.warn(log, "Entries differ: cache=" + cacheName +
-                        ", entry0=" + entry0 + ", entry1=" + entry1);
+                        ", ignite0=" + entry0 + ", ignite1=" + entry1);
 
                     ++diff;
                 }
