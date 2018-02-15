@@ -411,9 +411,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
             Collection<TestObject> cFromCache = c.get(0);
 
             assertEquals(1, cFromCache.size());
-            Object obj = cFromCache.iterator().next();
-            TestObject next = cFromCache.iterator().next();
-            assertEquals(123, next.val);
+            assertEquals(123, cFromCache.iterator().next().val);
 
             IgniteCache<Integer, Collection<BinaryObject>> kpc = keepBinaryCache();
 
