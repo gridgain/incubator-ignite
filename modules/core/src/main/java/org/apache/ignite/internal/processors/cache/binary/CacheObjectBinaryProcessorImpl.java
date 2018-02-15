@@ -492,7 +492,7 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
                 for (Object item : col)
                     pCol.add(marshalToBinary(item));
 
-                return pCol;
+                return BinaryUtils.convertToSingletonListIfPossible(pCol);
             }
         }
 

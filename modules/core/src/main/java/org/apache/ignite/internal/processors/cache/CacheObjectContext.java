@@ -199,7 +199,7 @@ import org.apache.ignite.internal.util.typedef.F;
         for (Object obj : col)
             col0.add(unwrapBinary(obj, keepBinary, cpy));
 
-        return col0;
+        return BinaryUtils.convertToSingletonListIfPossible(col0);
     }
 
     /**

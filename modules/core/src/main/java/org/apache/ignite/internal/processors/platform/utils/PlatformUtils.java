@@ -947,7 +947,7 @@ public class PlatformUtils {
         for (Object obj : col)
             col0.add(unwrapBinary(obj));
 
-        return col0;
+        return BinaryUtils.convertToSingletonListIfPossible(col0);
     }
 
     /**

@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,6 +37,7 @@ import javax.cache.processor.MutableEntry;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteBinary;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.binary.BinaryNameMapper;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjectBuilder;
@@ -395,6 +397,41 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
             }
         }
     }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testSingletonList() throws Exception {
+        System.setProperty(IgniteSystemProperties.IGNITE_SUPPORT_SINGLETON_COLLECTION_SERIALIZATION, "true");
+        try {
+            IgniteCache<Integer, Collection<TestObject>> c = jcache(0);
+
+            c.put(0, Collections.singletonList(new TestObject(123)));
+
+            Collection<TestObject> cFromCache = c.get(0);
+
+            assertEquals(1, cFromCache.size());
+            Object obj = cFromCache.iterator().next();
+            TestObject next = cFromCache.iterator().next();
+            assertEquals(123, next.val);
+
+            IgniteCache<Integer, Collection<BinaryObject>> kpc = keepBinaryCache();
+
+            Collection<?> cBinary = kpc.get(0);
+
+            assertEquals(1, cBinary.size());
+
+            Object bObj = cBinary.iterator().next();
+
+            assertTrue(bObj instanceof BinaryObject);
+            assertEquals(Collections.singletonList(null).getClass(), cBinary.getClass());
+
+            assertEquals(Integer.valueOf(123), ((BinaryObject)bObj).field("val"));
+        }finally {
+            System.clearProperty(IgniteSystemProperties.IGNITE_SUPPORT_SINGLETON_COLLECTION_SERIALIZATION);
+        }
+    }
+
 
     /**
      * @throws Exception If failed.

@@ -19,6 +19,7 @@ package org.apache.ignite;
 
 import java.io.Serializable;
 import java.lang.management.RuntimeMXBean;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
@@ -514,6 +515,11 @@ public final class IgniteSystemProperties {
      * @deprecated Should be removed in Apache Ignite 2.0.
      */
     public static final String IGNITE_UNWRAP_BINARY_FOR_INDEXING_SPI = "IGNITE_UNWRAP_BINARY_FOR_INDEXING_SPI";
+
+    /**
+     * Property allowing to serialize a singleton collection obtained by {@link Collections#singletonList(Object)}.
+     */
+    public static final String IGNITE_SUPPORT_SINGLETON_COLLECTION_SERIALIZATION = "IGNITE_SUPPORT_SINGLETON_COLLECTION_SERIALIZATION";
 
     /**
      * Enforces singleton.

@@ -31,6 +31,7 @@ import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,6 +59,7 @@ import org.apache.ignite.binary.BinaryType;
 import org.apache.ignite.binary.Binarylizable;
 import org.apache.ignite.internal.binary.builder.BinaryLazyValue;
 import org.apache.ignite.internal.binary.streams.BinaryInputStream;
+import org.apache.ignite.internal.util.MutableSingletonList;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -90,6 +92,9 @@ public class BinaryUtils {
 
     /** Binary classes. */
     private static final Collection<Class<?>> BINARY_CLS = new HashSet<>();
+
+    /** Class for SingletonList obtained at runtime. */
+    public static final Class<? extends Collection> SINGLETON_LIST_CLS = Collections.singletonList(null).getClass();
 
     /** Flag: user type. */
     public static final short FLAG_USR_TYP = 0x0001;
@@ -679,7 +684,8 @@ public class BinaryUtils {
             (!wrapTrees() && cls == TreeSet.class) ||
             cls == ConcurrentSkipListSet.class ||
             cls == ArrayList.class ||
-            cls == LinkedList.class;
+            cls == LinkedList.class ||
+            BinaryUtils.isSingletonCollection(cls);
     }
 
     /**
@@ -690,7 +696,7 @@ public class BinaryUtils {
         if (arr == null)
             return false;
 
-        Class<?> cls =  arr.getClass();
+        Class<?> cls = arr.getClass();
 
         return cls == byte[].class || cls == short[].class || cls == int[].class || cls == long[].class ||
             cls == float[].class || cls == double[].class || cls == char[].class || cls == boolean[].class ||
@@ -720,6 +726,8 @@ public class BinaryUtils {
             return new ArrayList<>(((Collection)col).size());
         else if (cls == LinkedList.class)
             return new LinkedList<>();
+        else if (BinaryUtils.isSingletonCollection(cls))
+            return new MutableSingletonList<>();
 
         return null;
     }
@@ -1100,7 +1108,7 @@ public class BinaryUtils {
      * @return {@code True} if this is a special collection class.
      */
     public static boolean isSpecialCollection(Class cls) {
-        return ArrayList.class.equals(cls) || LinkedList.class.equals(cls) ||
+        return ArrayList.class.equals(cls) || LinkedList.class.equals(cls) || BinaryUtils.isSingletonCollection(cls) ||
             HashSet.class.equals(cls) || LinkedHashSet.class.equals(cls);
     }
 
@@ -1887,6 +1895,11 @@ public class BinaryUtils {
 
                     break;
 
+                case GridBinaryMarshaller.SINGLETON_LIST:
+                    col = new MutableSingletonList<>();
+
+                    break;
+
                 case GridBinaryMarshaller.HASH_SET:
                     col = U.newHashSet(size);
 
@@ -1917,7 +1930,7 @@ public class BinaryUtils {
         for (int i = 0; i < size; i++)
             col.add(deserializeOrUnmarshal(in, ctx, ldr, handles, deserialize));
 
-        return col;
+        return colType == GridBinaryMarshaller.SINGLETON_LIST ? U.convertToSingletonList(col) : col;
     }
 
     /**
@@ -2082,6 +2095,38 @@ public class BinaryUtils {
         }
         else
             return null;
+    }
+
+    /**
+     * Determines whether singleton collection serialization enabled.
+     *
+     * @return {@code true} if custom Java serialization logic exists, {@code false} otherwise.
+     * @see IgniteSystemProperties#IGNITE_SUPPORT_SINGLETON_COLLECTION_SERIALIZATION
+     */
+    public static boolean isSingletonCollectionSerializationEnabled() {
+        return Boolean.getBoolean(IgniteSystemProperties.IGNITE_SUPPORT_SINGLETON_COLLECTION_SERIALIZATION);
+    }
+
+    /**
+     * Determines whether target class could be serialized as singleton collection.
+     *
+     * @param cls target class.
+     * @return {@code True} if target class could be serialized as singleton collection.
+     */
+    public static boolean isSingletonCollection(Class cls) {
+        return cls != null && isSingletonCollectionSerializationEnabled() && SINGLETON_LIST_CLS.equals(cls);
+    }
+
+    /**
+     * Converts target collection to singleton list if collection is {@link MutableSingletonList},
+     * otherwise returns same collection.
+     *
+     * @param pCol collection.
+     * @param <T> type of elements.
+     * @return origin collection or singleton list.
+     */
+    public static <T> Collection<T> convertToSingletonListIfPossible(Collection<T> pCol) {
+        return (pCol instanceof MutableSingletonList) ? U.convertToSingletonList(pCol) : pCol;
     }
 
     /**
