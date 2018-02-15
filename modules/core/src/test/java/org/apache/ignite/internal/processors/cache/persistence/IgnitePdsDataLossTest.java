@@ -235,7 +235,8 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
         }
 
         // Simulate a split at the middle of commit
-        // Transaction will be successfully mapped by not prepared
+        // Some transaction will be successfully mapped by not prepared
+        // Other will be prepared but not finished
 
         if (log.isInfoEnabled())
             log.info(">>> Simulate commit loss");
@@ -256,7 +257,7 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
             });
         }
 
-        // Do one put per cache per node
+        // Do transactional puts
         // All puts will be initiated on a primary node with unique keys
 
         ExecutorService exec = Executors.newFixedThreadPool(tasks.size());
@@ -274,7 +275,7 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
 
         splitAndWait();
 
-        // Waiting for transactions finished without errors
+        // Waiting for transactions finished
 
         exec.shutdown();
 
