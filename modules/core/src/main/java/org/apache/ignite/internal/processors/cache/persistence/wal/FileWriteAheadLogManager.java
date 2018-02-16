@@ -449,12 +449,10 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             File file = new File(walArchiveDir, segmentName);
 
-            if (file.exists())
-                res.add(file);
-            else if ((file = new File(walArchiveDir, segmentName + ".zip")).exists())
+            if (file.exists() || (file = new File(walArchiveDir, segmentName + ".zip")).exists())
                 res.add(file);
             else
-                throw new IgniteCheckedException("WAL archive segment has been deleted [idx=" + i + "]");
+                break;
         }
 
         return res;

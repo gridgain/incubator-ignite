@@ -357,7 +357,7 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
 
         DataRegionConfiguration[] regCfgs = memCfg.getDataRegionConfigurations();
 
-        Set<String> regNames = (regCfgs != null) ? U.<String>newHashSet(regCfgs.length) : new HashSet<String>(0);
+        Set<String> regNames = (regCfgs != null) ? U.newHashSet(regCfgs.length) : new HashSet<String>(0);
 
         checkSystemDataRegionSizeConfiguration(
             memCfg.getSystemRegionInitialSize(),
@@ -377,8 +377,11 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
      * @param regNames Region names.
      * @param regCfg Reg config.
      */
-    private void checkDataRegionConfiguration(DataStorageConfiguration memCfg, Set<String> regNames,
-        DataRegionConfiguration regCfg) throws IgniteCheckedException {
+    private void checkDataRegionConfiguration(
+        DataStorageConfiguration memCfg,
+        Set<String> regNames,
+        DataRegionConfiguration regCfg
+    ) throws IgniteCheckedException {
         assert regCfg != null;
 
         checkDataRegionName(regCfg.getName(), regNames);
