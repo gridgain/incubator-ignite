@@ -448,11 +448,19 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             String segmentName = FileDescriptor.fileName(i);
 
             File file = new File(walArchiveDir, segmentName);
+            File fileZip = new File(walArchiveDir, segmentName + ".zip");
 
-            if (file.exists() || (file = new File(walArchiveDir, segmentName + ".zip")).exists())
+            if (file.exists() || fileZip.exists())
                 res.add(file);
-            else
+            else {
+                if (log.isInfoEnabled()){
+                    log.info("Segment not found: " + file.getName() + "/" + fileZip.getName());
+
+                    log.info("Stop iteration on idx: " + i);
+                }
+
                 break;
+            }
         }
 
         return res;
