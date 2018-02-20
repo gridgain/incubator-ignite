@@ -97,6 +97,7 @@ import static org.apache.ignite.cache.CacheMode.REPLICATED;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.ReadMode.GET;
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.ReadMode.SCAN;
+import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.WriteMode.KEY_VALUE;
 import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
@@ -1592,140 +1593,140 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_SingleNode() throws Exception {
-        accountsTxReadAll(1, 0, 0, 64, null, false, GET);
+        accountsTxReadAll(1, 0, 0, 64, null, false, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_WithRemoves_SingleNode() throws Exception {
-        accountsTxReadAll(1, 0, 0, 64, null, true, GET);
+        accountsTxReadAll(1, 0, 0, 64, null, true, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_SingleNode_SinglePartition() throws Exception {
-        accountsTxReadAll(1, 0, 0, 1, null, false, GET);
+        accountsTxReadAll(1, 0, 0, 1, null, false, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_WithRemoves_SingleNode_SinglePartition() throws Exception {
-        accountsTxReadAll(1, 0, 0, 1, null, true, GET);
+        accountsTxReadAll(1, 0, 0, 1, null, true, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_ClientServer_Backups0() throws Exception {
-        accountsTxReadAll(4, 2, 0, 64, null, false, GET);
+        accountsTxReadAll(4, 2, 0, 64, null, false, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_WithRemoves_ClientServer_Backups0() throws Exception {
-        accountsTxReadAll(4, 2, 0, 64, null, true, GET);
+        accountsTxReadAll(4, 2, 0, 64, null, true, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_ClientServer_Backups1() throws Exception {
-        accountsTxReadAll(4, 2, 1, 64, null, false, GET);
+        accountsTxReadAll(4, 2, 1, 64, null, false, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_WithRemoves_ClientServer_Backups1() throws Exception {
-        accountsTxReadAll(4, 2, 1, 64, null, true, GET);
+        accountsTxReadAll(4, 2, 1, 64, null, true, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_ClientServer_Backups2() throws Exception {
-        accountsTxReadAll(4, 2, 2, 64, null, false, GET);
+        accountsTxReadAll(4, 2, 2, 64, null, false, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_WithRemoves_ClientServer_Backups2() throws Exception {
-        accountsTxReadAll(4, 2, 2, 64, null, true, GET);
+        accountsTxReadAll(4, 2, 2, 64, null, true, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_SingleNode_SinglePartition() throws Exception {
-        accountsTxReadAll(1, 0, 0, 1, null, false, SCAN);
+        accountsTxReadAll(1, 0, 0, 1, null, false, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_WithRemoves_SingleNode_SinglePartition() throws Exception {
-        accountsTxReadAll(1, 0, 0, 1, null, true, SCAN);
+        accountsTxReadAll(1, 0, 0, 1, null, true, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_SingleNode() throws Exception {
-        accountsTxReadAll(1, 0, 0, 64, null, false, SCAN);
+        accountsTxReadAll(1, 0, 0, 64, null, false, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_WithRemoves_SingleNode() throws Exception {
-        accountsTxReadAll(1, 0, 0, 64, null, true, SCAN);
+        accountsTxReadAll(1, 0, 0, 64, null, true, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_ClientServer_Backups0() throws Exception {
-        accountsTxReadAll(4, 2, 0, 64, null, false, SCAN);
+        accountsTxReadAll(4, 2, 0, 64, null, false, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_WithRemoves_ClientServer_Backups0() throws Exception {
-        accountsTxReadAll(4, 2, 0, 64, null, true, SCAN);
+        accountsTxReadAll(4, 2, 0, 64, null, true, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_ClientServer_Backups1() throws Exception {
-        accountsTxReadAll(4, 2, 1, 64, null, false, SCAN);
+        accountsTxReadAll(4, 2, 1, 64, null, false, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_WithRemoves_ClientServer_Backups1() throws Exception {
-        accountsTxReadAll(4, 2, 1, 64, null, true, SCAN);
+        accountsTxReadAll(4, 2, 1, 64, null, true, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_ClientServer_Backups2() throws Exception {
-        accountsTxReadAll(4, 2, 2, 64, null, false, SCAN);
+        accountsTxReadAll(4, 2, 2, 64, null, false, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_WithRemoves_ClientServer_Backups2() throws Exception {
-        accountsTxReadAll(4, 2, 2, 64, null, true, SCAN);
+        accountsTxReadAll(4, 2, 2, 64, null, true, SCAN, KEY_VALUE);
     }
 
     /**
