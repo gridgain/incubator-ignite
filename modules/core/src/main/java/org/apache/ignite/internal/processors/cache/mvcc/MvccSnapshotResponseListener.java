@@ -17,19 +17,21 @@
 
 package org.apache.ignite.internal.processors.cache.mvcc;
 
+import java.util.UUID;
+import org.apache.ignite.IgniteCheckedException;
+
 /**
- * MVCC version. This is unique version allowing to order all reads and writes within a cluster. Consists of two parts:
- * - coordinator version - number which increases on every coordinator change;
- * - counter - local coordinator counter which is increased on every update.
+ *
  */
-public interface MvccVersion {
+public interface MvccSnapshotResponseListener {
     /**
-     * @return Coordinator version.
+     * @param crdId Coordinator node ID.
+     * @param res Version.
      */
-    public long coordinatorVersion();
+    public void onResponse(UUID crdId, MvccSnapshot res);
 
     /**
-     * @return Local counter.
+     * @param e Error.
      */
-    public long counter();
+    public void onError(IgniteCheckedException e);
 }

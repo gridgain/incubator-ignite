@@ -23,6 +23,7 @@ import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
@@ -44,7 +45,7 @@ import static org.apache.ignite.internal.processors.cache.persistence.tree.io.Mv
  */
 public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRow, GridH2Row> {
     /** */
-    private final MvccVersion mvccVer;
+    private final MvccSnapshot mvccSnapshot;
 
     /** */
     private final IndexingQueryCacheFilter filter;
@@ -54,15 +55,15 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
 
     /**
      * @param filter Cache filter.
-     * @param mvccVer Mvcc version.
+     * @param mvccSnapshot MVCC snapshot.
      * @param cctx Cache context.
      * @param lsnr Page lock listener.
      */
-    public H2TreeFilterClosure(IndexingQueryCacheFilter filter, MvccVersion mvccVer, GridCacheContext cctx) {
-        assert (filter != null || mvccVer != null) && cctx != null ;
+    public H2TreeFilterClosure(IndexingQueryCacheFilter filter, MvccSnapshot mvccSnapshot, GridCacheContext cctx) {
+        assert (filter != null || mvccSnapshot != null) && cctx != null ;
 
         this.filter = filter;
-        this.mvccVer = mvccVer;
+        this.mvccSnapshot = mvccSnapshot;
         this.cctx = cctx;
     }
 
@@ -71,7 +72,7 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
         long pageAddr, int idx)  throws IgniteCheckedException {
 
         return (filter  == null || applyFilter((H2RowLinkIO)io, pageAddr, idx))
-            && (mvccVer == null || applyMvcc((H2RowLinkIO)io, pageAddr, idx));
+            && (mvccSnapshot == null || applyMvcc((H2RowLinkIO)io, pageAddr, idx));
     }
 
     /**
@@ -100,16 +101,16 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
         assert unmaskCoordinatorVersion(rowCrdVer) == rowCrdVer : rowCrdVer;
         assert rowCrdVer > 0 : rowCrdVer;
 
-        int cmp = Long.compare(mvccVer.coordinatorVersion(), rowCrdVer);
+        int cmp = Long.compare(mvccSnapshot.coordinatorVersion(), rowCrdVer);
 
         if (cmp == 0) {
             long rowCntr = io.getMvccCounter(pageAddr, idx);
 
-            cmp = Long.compare(mvccVer.counter(), rowCntr);
+            cmp = Long.compare(mvccSnapshot.counter(), rowCntr);
 
             return cmp >= 0 &&
                 !newVersionAvailable(io, pageAddr, idx) &&
-                !mvccVer.activeTransactions().contains(rowCntr);
+                !mvccSnapshot.activeTransactions().contains(rowCntr);
         }
         else
             return cmp > 0;
@@ -161,12 +162,12 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
         if (newCrd == 0)
             return false;
 
-        int cmp = Long.compare(mvccVer.coordinatorVersion(), newCrd);
+        int cmp = Long.compare(mvccSnapshot.coordinatorVersion(), newCrd);
 
         if (cmp == 0) {
             assert assertMvccVersionValid(newCrd, newCntr);
 
-            return newCntr <= mvccVer.counter() && !mvccVer.activeTransactions().contains(newCntr);
+            return newCntr <= mvccSnapshot.counter() && !mvccSnapshot.activeTransactions().contains(newCntr);
         }
         else
             return cmp < 0;

@@ -36,13 +36,9 @@ public class GridCacheMvccEntryInfo extends GridCacheEntryInfo {
     private long mvccCntr;
 
     /** {@inheritDoc} */
-    @Override public void mvccCoordinatorVersion(long mvccCrdVer) {
-        this.mvccCrdVer = mvccCrdVer;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void mvccCounter(long mvccCntr) {
-        this.mvccCntr = mvccCntr;
+    @Override public void mvccVersion(long crdVer, long ctr) {
+        this.mvccCrdVer = crdVer;
+        this.mvccCntr = ctr;
     }
 
     /** {@inheritDoc} */

@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.processors.cache.mvcc;
 
-import java.util.UUID;
-import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.plugin.extensions.communication.Message;
 
 /**
- *
+ * MVCC snapshot which holds the following information:
+ * - Current MVCC version which should be used for visibility checks
+ * - List of active transactions which should not be visible to current transaction
+ * - Cleanup version which is used to help vacuum process.
  */
-public interface MvccResponseListener {
+public interface MvccSnapshot extends MvccVersion, Message {
     /**
-     * @param crdId Coordinator node ID.
-     * @param res Version.
+     * @return Active transactions.
      */
-    public void onMvccResponse(UUID crdId, MvccVersion res);
+    public MvccLongList activeTransactions();
 
     /**
-     * @param e Error.
+     * @return Cleanup version (all smaller versions are safe to remove).
      */
-    public void onMvccError(IgniteCheckedException e);
+    public long cleanupVersion();
+
+    /**
+     * @return Version without active transactions.
+     */
+    public MvccSnapshot withoutActiveTransactions();
 }

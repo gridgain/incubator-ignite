@@ -44,6 +44,7 @@ import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccLongList;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
@@ -109,7 +110,7 @@ public final class GridDhtTxQueryEnlistFuture extends GridCacheFutureAdapter<Gri
     private AffinityTopologyVersion topVer;
 
     /** */
-    private final MvccVersion mvccVer;
+    private final MvccSnapshot mvccSnapshot;
 
     /** Lock version. */
     private GridCacheVersion lockVer;
@@ -164,7 +165,7 @@ public final class GridDhtTxQueryEnlistFuture extends GridCacheFutureAdapter<Gri
      * @param nearNodeId Near node ID.
      * @param nearLockVer Near lock version.
      * @param topVer Topology version.
-     * @param mvccVer Mvcc version.
+     * @param mvccSnapshot Mvcc snapshot.
      * @param threadId Thread ID.
      * @param nearFutId Near future id.
      * @param nearMiniId Near mini future id.
@@ -183,7 +184,7 @@ public final class GridDhtTxQueryEnlistFuture extends GridCacheFutureAdapter<Gri
         UUID nearNodeId,
         GridCacheVersion nearLockVer,
         AffinityTopologyVersion topVer,
-        MvccVersion mvccVer,
+        MvccSnapshot mvccSnapshot,
         long threadId,
         IgniteUuid nearFutId,
         int nearMiniId,
@@ -209,7 +210,7 @@ public final class GridDhtTxQueryEnlistFuture extends GridCacheFutureAdapter<Gri
         this.nearLockVer = nearLockVer;
         this.nearFutId = nearFutId;
         this.nearMiniId = nearMiniId;
-        this.mvccVer = mvccVer;
+        this.mvccSnapshot = mvccSnapshot;
         this.topVer = topVer;
         this.cacheIds = cacheIds;
         this.parts = parts;
@@ -288,7 +289,7 @@ public final class GridDhtTxQueryEnlistFuture extends GridCacheFutureAdapter<Gri
             long cnt = 0;
 
             try (GridCloseableIterator<?> it = cctx.kernalContext().query()
-                .prepareDistributedUpdate(cctx, cacheIds, parts, schema, qry, params, flags, pageSize, (int)timeout, topVer, mvccVer, cancel)) {
+                .prepareDistributedUpdate(cctx, cacheIds, parts, schema, qry, params, flags, pageSize, (int)timeout, topVer, mvccSnapshot, cancel)) {
                 while (it.hasNext()) {
                     Object row = it.next();
 
@@ -535,7 +536,7 @@ public final class GridDhtTxQueryEnlistFuture extends GridCacheFutureAdapter<Gri
                     tx.resolveTaskName(),
                     null,
                     true,
-                    mvccVer);
+                    mvccSnapshot);
 
             CacheInvokeEntry invokeEntry = new CacheInvokeEntry(entry.key(), oldVal, entry.version(), true, entry);
 
@@ -735,13 +736,13 @@ public final class GridDhtTxQueryEnlistFuture extends GridCacheFutureAdapter<Gri
         if (ver == null)
             return true;
 
-        int cmp = Long.compare(ver.coordinatorVersion(), mvccVer.coordinatorVersion());
+        int cmp = Long.compare(ver.coordinatorVersion(), mvccSnapshot.coordinatorVersion());
 
         if (cmp == 0) {
-            cmp = Long.compare(ver.counter(), mvccVer.counter());
+            cmp = Long.compare(ver.counter(), mvccSnapshot.counter());
 
             if (cmp < 0) {
-                MvccLongList txs = mvccVer.activeTransactions();
+                MvccLongList txs = mvccSnapshot.activeTransactions();
 
                 if (txs != null && txs.contains(ver.counter()))
                     cmp = 1;

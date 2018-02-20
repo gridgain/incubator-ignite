@@ -801,7 +801,6 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
      * @param qry Query.
      * @param transformer Transformer.
      * @param locNode Local node.
-     * @param mvccCrd Non null mvcc coordinator node if need ack mvcc query as finished on iterator close.
      * @return Full-scan row iterator.
      * @throws IgniteCheckedException If failed to get iterator.
      */
@@ -809,7 +808,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
     private GridCloseableIterator scanIterator(final GridCacheQueryAdapter<?> qry, IgniteClosure transformer,
         boolean locNode)
         throws IgniteCheckedException {
-        assert !cctx.mvccEnabled() || qry.mvccVersion() != null;
+        assert !cctx.mvccEnabled() || qry.mvccSnapshot() != null;
 
         final IgniteBiPredicate<K, V> keyValFilter = qry.scanFilter();
 
@@ -848,12 +847,12 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
 
                 locPart = locPart0;
 
-                it = cctx.offheap().cachePartitionIterator(cctx.cacheId(), part, qry.mvccVersion());
+                it = cctx.offheap().cachePartitionIterator(cctx.cacheId(), part, qry.mvccSnapshot());
             }
             else {
                 locPart = null;
 
-                it = cctx.offheap().cacheIterator(cctx.cacheId(), true, backups, topVer, qry.mvccVersion());
+                it = cctx.offheap().cacheIterator(cctx.cacheId(), true, backups, topVer, qry.mvccSnapshot());
             }
 
             return new ScanQueryIterator(it, qry, topVer, locPart, keyValFilter, transformer, locNode, cctx, log);

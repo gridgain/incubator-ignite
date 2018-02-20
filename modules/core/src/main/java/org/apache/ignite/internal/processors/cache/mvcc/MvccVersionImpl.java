@@ -15,68 +15,78 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.mvcc.msg;
+package org.apache.ignite.internal.processors.cache.mvcc;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.managers.communication.GridIoMessageFactory;
-import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
+import java.nio.ByteBuffer;
+
 /**
- *
+ * Base MVCC version implementation.
  */
-public class MvccTxCounterRequest implements MvccMessage {
+public class MvccVersionImpl implements MvccVersion, Message {
     /** */
     private static final long serialVersionUID = 0L;
 
-    /** */
-    private long futId;
+    /** Coordinator version. */
+    private long crdVer;
 
-    /** */
-    private GridCacheVersion txId;
+    /** Local counter. */
+    private long cntr;
 
     /**
-     * Required by {@link GridIoMessageFactory}.
+     * Constructor.
      */
-    public MvccTxCounterRequest() {
+    public MvccVersionImpl() {
         // No-op.
     }
 
     /**
-     * @param futId Future ID.
-     * @param txId Transaction ID.
+     * @param crdVer Coordinator version.
+     * @param cntr Counter.
      */
-    public MvccTxCounterRequest(long futId, GridCacheVersion txId) {
-        assert txId != null;
-
-        this.futId = futId;
-        this.txId = txId;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean waitForCoordinatorInit() {
-        return true;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean processedFromNioThread() {
-        return true;
+    public MvccVersionImpl(long crdVer, long cntr) {
+        this.crdVer = crdVer;
+        this.cntr = cntr;
     }
 
     /**
-     * @return Future ID.
+     * @return Coordinator version.
      */
-    public long futureId() {
-        return futId;
+    public long coordinatorVersion() {
+        return crdVer;
     }
 
     /**
-     * @return Transaction ID.
+     * @return Local counter.
      */
-    public GridCacheVersion txId() {
-        return txId;
+    public long counter() {
+        return cntr;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object o) {
+        if (this == o)
+            return true;
+
+        if (o == null || getClass() != o.getClass())
+            return false;
+
+        MvccVersionImpl that = (MvccVersionImpl) o;
+
+        return crdVer == that.crdVer && cntr == that.cntr;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        int res = (int) (crdVer ^ (crdVer >>> 32));
+
+        res = 31 * res + (int) (cntr ^ (cntr >>> 32));
+
+        return res;
     }
 
     /** {@inheritDoc} */
@@ -92,13 +102,13 @@ public class MvccTxCounterRequest implements MvccMessage {
 
         switch (writer.state()) {
             case 0:
-                if (!writer.writeLong("futId", futId))
+                if (!writer.writeLong("cntr", cntr))
                     return false;
 
                 writer.incrementState();
 
             case 1:
-                if (!writer.writeMessage("txId", txId))
+                if (!writer.writeLong("crdVer", crdVer))
                     return false;
 
                 writer.incrementState();
@@ -117,7 +127,7 @@ public class MvccTxCounterRequest implements MvccMessage {
 
         switch (reader.state()) {
             case 0:
-                futId = reader.readLong("futId");
+                cntr = reader.readLong("cntr");
 
                 if (!reader.isLastRead())
                     return false;
@@ -125,7 +135,7 @@ public class MvccTxCounterRequest implements MvccMessage {
                 reader.incrementState();
 
             case 1:
-                txId = reader.readMessage("txId");
+                crdVer = reader.readLong("crdVer");
 
                 if (!reader.isLastRead())
                     return false;
@@ -134,12 +144,12 @@ public class MvccTxCounterRequest implements MvccMessage {
 
         }
 
-        return reader.afterMessageRead(MvccTxCounterRequest.class);
+        return reader.afterMessageRead(MvccVersionImpl.class);
     }
 
     /** {@inheritDoc} */
     @Override public short directType() {
-        return 129;
+        return 143;
     }
 
     /** {@inheritDoc} */
@@ -154,6 +164,6 @@ public class MvccTxCounterRequest implements MvccMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(MvccTxCounterRequest.class, this);
+        return S.toString(MvccVersionImpl.class, this);
     }
 }

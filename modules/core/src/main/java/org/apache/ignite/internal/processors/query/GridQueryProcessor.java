@@ -65,6 +65,7 @@ import org.apache.ignite.internal.processors.cache.DynamicCacheDescriptor;
 import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryFuture;
@@ -1995,18 +1996,18 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @param pageSize Fetch page size.
      * @param timeout Timeout.
      * @param topVer Topology version.
-     * @param mvccVer Mvc version.
+     * @param mvccSnapshot MVCC snapshot.
      * @param cancel Query cancel object.
      * @return Cursor over entries which are going to be changed.
      * @throws IgniteCheckedException If failed.
      */
     public GridCloseableIterator<?> prepareDistributedUpdate(GridCacheContext<?, ?> cctx, int[] cacheIds,
         int[] parts, String schema, String qry, Object[] params, int flags, int pageSize, int timeout,
-        AffinityTopologyVersion topVer, MvccVersion mvccVer,
+        AffinityTopologyVersion topVer, MvccSnapshot mvccSnapshot,
         GridQueryCancel cancel) throws IgniteCheckedException {
         checkxEnabled();
 
-        return idx.prepareDistributedUpdate(cctx, cacheIds, parts, schema, qry, params, flags, pageSize, timeout, topVer, mvccVer, cancel);
+        return idx.prepareDistributedUpdate(cctx, cacheIds, parts, schema, qry, params, flags, pageSize, timeout, topVer, mvccSnapshot, cancel);
     }
 
     /**
