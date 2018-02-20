@@ -30,6 +30,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.wal.record.BaselineTopologyRecord;
 import org.apache.ignite.internal.pagemem.wal.record.CacheState;
 import org.apache.ignite.internal.pagemem.wal.record.CheckpointRecord;
+import org.apache.ignite.internal.pagemem.wal.record.ConsistentCutRecord;
 import org.apache.ignite.internal.pagemem.wal.record.DataEntry;
 import org.apache.ignite.internal.pagemem.wal.record.DataRecord;
 import org.apache.ignite.internal.pagemem.wal.record.ExchangeRecord;
@@ -100,6 +101,9 @@ public class RecordDataV2Serializer implements RecordDataSerializer {
             case BASELINE_TOP_RECORD:
                 return bltRecSerializer.size((BaselineTopologyRecord)rec);
 
+            case CONSISTENT_CUT:
+                return 0;
+
             default:
                 return delegateSerializer.size(rec);
         }
@@ -159,6 +163,9 @@ public class RecordDataV2Serializer implements RecordDataSerializer {
 
             case BASELINE_TOP_RECORD:
                 return bltRecSerializer.read(in);
+
+            case CONSISTENT_CUT:
+                return new ConsistentCutRecord();
 
             default:
                 return delegateSerializer.readRecord(type, in);
@@ -234,6 +241,9 @@ public class RecordDataV2Serializer implements RecordDataSerializer {
             case BASELINE_TOP_RECORD:
                 bltRecSerializer.write((BaselineTopologyRecord)rec, buf);
 
+                break;
+
+            case CONSISTENT_CUT:
                 break;
 
             default:

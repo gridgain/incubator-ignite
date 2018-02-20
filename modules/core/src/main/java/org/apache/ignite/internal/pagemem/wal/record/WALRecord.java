@@ -175,7 +175,10 @@ public abstract class WALRecord {
         EXCHANGE,
 
         /** Baseline topology record. */
-        BASELINE_TOP_RECORD;
+        BASELINE_TOP_RECORD,
+
+        /** Consistent cut record. */
+        CONSISTENT_CUT;
 
         /** */
         private static final RecordType[] VALS = RecordType.values();
