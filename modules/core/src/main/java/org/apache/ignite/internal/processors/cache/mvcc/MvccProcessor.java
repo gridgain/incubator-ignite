@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.processors.cache.mvcc;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -31,6 +34,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.DataRegionConfiguration;
+import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.events.Event;
 import org.apache.ignite.internal.GridKernalContext;
@@ -56,10 +61,13 @@ import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccQuerySnapshotReq
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccSnapshotResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccTxSnapshotRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccWaitTxsRequest;
+import org.apache.ignite.internal.processors.cache.persistence.DatabaseLifecycleListener;
+import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.GridAtomicLong;
 import org.apache.ignite.internal.util.GridLongList;
+import org.apache.ignite.internal.util.GridSpinReadWriteLock;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.F;
@@ -79,11 +87,13 @@ import static org.apache.ignite.events.EventType.EVT_NODE_SEGMENTED;
 import static org.apache.ignite.internal.GridTopic.TOPIC_CACHE_COORDINATOR;
 import static org.apache.ignite.internal.events.DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
+import static org.apache.ignite.internal.processors.cache.mvcc.TxLog.TX_LOG_CACHE_ID;
+import static org.apache.ignite.internal.processors.cache.mvcc.TxLog.TX_LOG_CACHE_NAME;
 
 /**
  * MVCC processor.
  */
-public class MvccProcessor extends GridProcessorAdapter {
+public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifecycleListener {
     /** */
     public static final long MVCC_COUNTER_NA = 0L;
 
@@ -139,11 +149,16 @@ public class MvccProcessor extends GridProcessorAdapter {
     /** For tests only. */
     private static IgniteClosure<Collection<ClusterNode>, ClusterNode> crdC;
 
+    /** */
+    private TxLog txLog;
+
     /**
      * @param ctx Context.
      */
     public MvccProcessor(GridKernalContext ctx) {
         super(ctx);
+
+        ctx.internalSubscriptionProcessor().registerDatabaseListener(this);
     }
 
     /**
@@ -225,6 +240,33 @@ public class MvccProcessor extends GridProcessorAdapter {
 
             assert discoData != null;
         }
+    }
+
+    /**
+     * @param ver Version to check.
+     * @return State for given mvcc version.
+     * @throws IgniteCheckedException If fails.
+     */
+    public TxState state(MvccVersion ver) throws IgniteCheckedException {
+        return txLog.get(ver.coordinatorVersion(), ver.counter());
+    }
+
+    /**
+     * @param ver Version.
+     * @param state State.
+     * @throws IgniteCheckedException If fails;
+     */
+    public void updateState(MvccVersion ver, TxState state) throws IgniteCheckedException {
+        txLog.put(ver.coordinatorVersion(), ver.counter(), state);
+    }
+
+    /**
+     * Removes all less or equals to the given one records from Tx log.
+     * @param ver Version.
+     * @throws IgniteCheckedException If fails.
+     */
+    public void removeUntil(MvccVersion ver) throws IgniteCheckedException {
+        txLog.removeUntil(ver.coordinatorVersion(), ver.counter());
     }
 
     /**
@@ -731,6 +773,68 @@ public class MvccProcessor extends GridProcessorAdapter {
 
         if (fut != null)
             fut.onDone();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onInitDataRegions(IgniteCacheDatabaseSharedManager mgr) throws IgniteCheckedException {
+        DataStorageConfiguration dscfg = dataStorageConfiguration();
+
+        mgr.addDataRegion(
+            dscfg,
+            createTxLogRegion(dscfg),
+            CU.isPersistenceEnabled(ctx.config()));
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onActivate(IgniteCacheDatabaseSharedManager mgr) throws IgniteCheckedException {
+        if (!CU.isPersistenceEnabled(ctx.config())) {
+            assert txLog == null;
+
+            txLog = new TxLog(ctx, mgr);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void beforeMemoryRestore(IgniteCacheDatabaseSharedManager mgr) throws IgniteCheckedException {
+        assert CU.isPersistenceEnabled(ctx.config());
+        assert txLog == null;
+
+        ctx.cache().context().pageStore().initializeForRegion(TX_LOG_CACHE_ID, 1, mgr.dataRegion(TX_LOG_CACHE_NAME));
+    }
+
+    /** {@inheritDoc} */
+    @Override public void afterMemoryRestore(IgniteCacheDatabaseSharedManager mgr) throws IgniteCheckedException {
+        assert CU.isPersistenceEnabled(ctx.config());
+        assert txLog == null;
+
+        txLog = new TxLog(ctx, mgr);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onDeactivate(IgniteCacheDatabaseSharedManager mgr) {
+        txLog = null;
+    }
+
+    /**
+     * TODO move to configuration.
+     * @return Data region configuration.
+     */
+    private DataRegionConfiguration createTxLogRegion(DataStorageConfiguration dscfg) {
+        DataRegionConfiguration cfg = new DataRegionConfiguration();
+
+        cfg.setName(TX_LOG_CACHE_NAME);
+        cfg.setInitialSize(dscfg.getSystemRegionInitialSize());
+        cfg.setMaxSize(dscfg.getSystemRegionMaxSize());
+        cfg.setPersistenceEnabled(CU.isPersistenceEnabled(dscfg));
+        return cfg;
+    }
+
+    /**
+     *
+     * @return Data storage configuration.
+     */
+    private DataStorageConfiguration dataStorageConfiguration() {
+        return ctx.config().getDataStorageConfiguration();
     }
 
     /**
