@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -80,6 +81,9 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
     private static final String[] CACHE_NAMES = {"cache0", "cache1"};
 
     /**  */
+    private static final int KEY_CNT = 3;
+
+    /**  */
     private static final long SHORT_TX_TIMEOUT = DFLT_FAILURE_DETECTION_TIMEOUT - 5000L;
 
     /**  */
@@ -87,6 +91,11 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
 
     /**  */
     private Collection<TestRecordingCommunicationSpi> comms = new ArrayList<>();
+
+    /**  */
+    private static Object value(Ignite ignite, Integer priKey) {
+        return ignite.name() + "_" + priKey;
+    }
 
     /** {@inheritDoc} */
     public String getTestIgniteInstanceName() {
@@ -197,13 +206,17 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
 
         Collection<Callable<Void>> tasks = new ArrayList<>();
 
+        List<Integer> allKeys = new ArrayList<>();
+
         for (final Ignite ignite : G.allGrids()) {
             boolean autocommit = true;
 
             for (String cacheName : CACHE_NAMES) {
                 final IgniteCache<Object, Object> cache = ignite.cache(cacheName);
 
-                List<Integer> priKeys = primaryKeys(cache, 3);
+                List<Integer> priKeys = primaryKeys(cache, KEY_CNT);
+
+                allKeys.addAll(priKeys);
 
                 for (final Integer priKey : priKeys) {
                     autocommit ^= true;
@@ -220,7 +233,7 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
                             try {
                                 tx.timeout(timeout);
 
-                                cache.put(priKey, ignite.name() + "_" + priKey);
+                                cache.put(priKey, value(ignite, priKey));
 
                                 tx.commit();
                             }
@@ -291,9 +304,14 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
                     throw e;
             }
 
+        Collection<String> errors = new ArrayList<>();
+
         // Convince of data differs on nodes
 
-        assertEquals("Data on nodes must NOT match", tasks.size(), diffCaches(ignite0, ignite1));
+        int diff0 = diffCaches(ignite0, ignite1);
+
+        if (tasks.size() != diff0)
+            errors.add("Data on nodes must NOT match until rejoin: expected=" + tasks.size() + ", actual=" + diff0);
 
         // Simulate network restored and restart the second node
 
@@ -313,7 +331,10 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
 
         // Convince of data async
 
-        assertEquals("Data on nodes must match", 0, diffCaches(ignite0, ignite1));
+        int diff1 = diffCaches(ignite0, ignite1);
+
+        if (diff1 != 0)
+            errors.add("Data on nodes must match after rejoin: actual=" + diff0);
 
         // Convince of data loss
 
@@ -326,7 +347,49 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
                 }
             }
 
-            assertEquals("Data was lost on " + peekMode + " partitions", tasks.size(), totalSize);
+            if (tasks.size() != totalSize)
+                errors.add("Data was lost on " + peekMode + " partitions");
+        }
+
+        // Convince of data loss
+
+        for (Ignite ignite : G.allGrids())
+            for (String cacheName : CACHE_NAMES) {
+                IgniteCache<Object, Object> cache = ignite.cache(cacheName);
+
+                for (Integer key : allKeys) {
+                    Object old = cache.get(key);
+
+                    boolean absent = cache.putIfAbsent(key, value(ignite0, key));
+
+                    if (absent) {
+                        if (old != null)
+                            errors.add("Data has been overwritten: ignite=" + ignite.name() + ", cache=" + cacheName +
+                                ", key=" + key + ", value=" + old);
+                    }
+                    else {
+                        if (old == null)
+                            errors.add("Data has to be overwritten: ignite=" + ignite.name() + " ,cache=" + cacheName +
+                                ", key=" + key + ", value=" + old);
+                    }
+
+                    if (absent)
+                        errors.add("Entry was not present: ignite=" + ignite.name() + " ,cache=" + cacheName +
+                            ", key=" + key);
+                }
+            }
+
+        if (!errors.isEmpty()) {
+            StringBuilder b = new StringBuilder(10000);
+
+            Iterator<String> it = errors.iterator();
+
+            b.append(it.next());
+
+            while (it.hasNext())
+                b.append('\n').append(it.next());
+
+            fail(b.toString());
         }
     }
 
@@ -383,6 +446,7 @@ public class IgnitePdsDataLossTest extends IgniteCacheTopologySplitAbstractTest 
     /**  */
     private static class NotSingleNode implements TopologyValidator {
 
+        /** {@inheritDoc} */
         @Override public boolean validate(Collection<ClusterNode> nodes) {
             return nodes.size() > 1;
         }
