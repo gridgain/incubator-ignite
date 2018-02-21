@@ -19,8 +19,14 @@ package org.apache.ignite.internal.processors.cache.persistence.tree.io;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.pagemem.PageUtils;
+import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.util.GridStringBuilder;
+
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIOUtils.writeCacheIdFragment;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIOUtils.writeExpireTimeFragment;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIOUtils.writeVersionFragment;
 
 /**
  * Data pages IO.
@@ -40,17 +46,6 @@ public class DataPageIO extends AbstractDataPageIO<CacheDataRow> {
 
     /** {@inheritDoc} */
     @Override
-    protected void writeFragmentData(
-        final CacheDataRow row,
-        final ByteBuffer buf,
-        final int rowOff,
-        final int payloadSize
-    ) throws IgniteCheckedException {
-        DataPageIOUtils.writeFragmentData(row, buf, rowOff, payloadSize, false);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     protected void writeRowData(
         long pageAddr,
         int dataOff,
@@ -58,12 +53,152 @@ public class DataPageIO extends AbstractDataPageIO<CacheDataRow> {
         CacheDataRow row,
         boolean newRow
     ) throws IgniteCheckedException {
-        DataPageIOUtils.writeRowData(pageAddr, dataOff, payloadSize, row, newRow, false);
+
+        long addr = pageAddr + dataOff;
+
+        int cacheIdSize = row.cacheId() != 0 ? 4 : 0;
+
+        if (newRow) {
+            PageUtils.putShort(addr, 0, (short)payloadSize);
+            addr += 2;
+
+            if (cacheIdSize != 0) {
+                PageUtils.putInt(addr, 0, row.cacheId());
+
+                addr += cacheIdSize;
+            }
+
+            addr += row.key().putValue(addr);
+        }
+        else
+            addr += (2 + cacheIdSize  + row.key().valueBytesLength(null));
+
+        addr += row.value().putValue(addr);
+
+        CacheVersionIO.write(addr, row.version(), false);
+        addr += CacheVersionIO.size(row.version(), false);
+
+        PageUtils.putLong(addr, 0, row.expireTime());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void writeFragmentData(
+        final CacheDataRow row,
+        final ByteBuffer buf,
+        final int rowOff,
+        final int payloadSize
+    ) throws IgniteCheckedException {
+
+        final int keySize = row.key().valueBytesLength(null);
+
+        final int valSize = row.value().valueBytesLength(null);
+
+        int written = writeFragment(row, buf, rowOff, payloadSize,
+            DataPageIOUtils.EntryPart.CACHE_ID, keySize, valSize);
+
+        written += writeFragment(row, buf, rowOff + written, payloadSize - written,
+            DataPageIOUtils.EntryPart.KEY, keySize, valSize);
+
+        written += writeFragment(row, buf, rowOff + written, payloadSize - written,
+            DataPageIOUtils.EntryPart.EXPIRE_TIME, keySize, valSize);
+        written += writeFragment(row, buf, rowOff + written, payloadSize - written,
+            DataPageIOUtils.EntryPart.VALUE, keySize, valSize);
+        written += writeFragment(row, buf, rowOff + written, payloadSize - written,
+            DataPageIOUtils.EntryPart.VERSION, keySize, valSize);
+
+        assert written == payloadSize;
+    }
+
+    /**
+     * Try to write fragment data.
+     *
+     * @param row Row.
+     * @param buf Byte buffer.
+     * @param rowOff Offset in row data bytes.
+     * @param payloadSize Data length that should be written in this fragment.
+     * @param type Type of the part of entry.
+     * @param keySize Key size.
+     * @param valSize Value size.
+     * @return Actually written data.
+     * @throws IgniteCheckedException If fail.
+     */
+    private int writeFragment(
+        final CacheDataRow row,
+        final ByteBuffer buf,
+        final int rowOff,
+        final int payloadSize,
+        final DataPageIOUtils.EntryPart type,
+        final int keySize,
+        final int valSize
+    ) throws IgniteCheckedException {
+        if (payloadSize == 0)
+            return 0;
+
+        final int prevLen;
+        final int curLen;
+
+        int cacheIdSize = row.cacheId() == 0 ? 0 : 4;
+
+        switch (type) {
+            case CACHE_ID:
+                prevLen = 0;
+                curLen = cacheIdSize;
+
+                break;
+
+            case KEY:
+                prevLen = cacheIdSize;
+                curLen = cacheIdSize + keySize;
+
+                break;
+
+            case EXPIRE_TIME:
+                prevLen = cacheIdSize + keySize;
+                curLen = cacheIdSize + keySize + 8;
+
+                break;
+
+            case VALUE:
+                prevLen = cacheIdSize + keySize + 8;
+                curLen = cacheIdSize + keySize + valSize + 8;
+
+                break;
+
+            case VERSION:
+                prevLen = cacheIdSize + keySize + valSize + 8;
+                curLen = cacheIdSize + keySize + valSize + CacheVersionIO.size(row.version(), false) + 8;
+
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown entry part type: " + type);
+        }
+
+        if (curLen <= rowOff)
+            return 0;
+
+        final int len = Math.min(curLen - rowOff, payloadSize);
+
+        if (type == DataPageIOUtils.EntryPart.EXPIRE_TIME)
+            writeExpireTimeFragment(buf, row.expireTime(), rowOff, len, prevLen);
+        else if (type == DataPageIOUtils.EntryPart.CACHE_ID)
+            writeCacheIdFragment(buf, row.cacheId(), rowOff, len, prevLen);
+        else if (type != DataPageIOUtils.EntryPart.VERSION) {
+            // Write key or value.
+            final CacheObject co = type == DataPageIOUtils.EntryPart.KEY ? row.key() : row.value();
+
+            co.putValue(buf, rowOff - prevLen, len);
+        }
+        else
+            writeVersionFragment(buf, row.version(), rowOff, len, prevLen);
+
+        return len;
     }
 
     /** {@inheritDoc} */
     @Override public int getRowSize(CacheDataRow row) throws IgniteCheckedException {
-        return getRowSize(row, row.cacheId() != 0);
+        return DataPageIOUtils.getRowSize(row, row.cacheId() != 0);
     }
 
     /** {@inheritDoc} */
@@ -71,20 +206,5 @@ public class DataPageIO extends AbstractDataPageIO<CacheDataRow> {
         sb.a("DataPageIO [\n");
         printPageLayout(addr, pageSize, sb);
         sb.a("\n]");
-    }
-
-    /**
-     * @param row Row.
-     * @param withCacheId If {@code true} adds cache ID size.
-     * @return Entry size on page.
-     * @throws IgniteCheckedException If failed.
-     */
-    public static int getRowSize(CacheDataRow row, boolean withCacheId) throws IgniteCheckedException {
-        int len = row.key().valueBytesLength(null);
-
-        if (!row.removed())
-            len += row.value().valueBytesLength(null) + CacheVersionIO.size(row.version(), false) + 8;
-
-        return len + (withCacheId ? 4 : 0);
     }
 }

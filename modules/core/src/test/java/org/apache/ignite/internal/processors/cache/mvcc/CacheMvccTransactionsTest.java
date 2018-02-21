@@ -4378,8 +4378,8 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
             if (i == 0)
                 prevVal = curVal;
             else {
-                assertEquals("Different results on " + readMode.name() + " and " +
-                    readModes[i - 1] +" read modes.", prevVal, curVal);
+                assertEquals("Different results on " + readModes[i - 1].name() + " and " +
+                    readMode.name() + " read modes.", prevVal, curVal);
 
                 prevVal = curVal;
             }
@@ -4400,7 +4400,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
      * @param readMode Read mode.
      * @return Value.
      */
-    private Object getByReadMode(boolean inTx, IgniteCache cache, Object key, ReadMode readMode) {
+    private Object getByReadMode(boolean inTx, IgniteCache cache, final Object key, ReadMode readMode) {
 
         // TODO Remove in IGNITE-6938
         if (inTx)

@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.processors.cache.tree;
 
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
-import org.apache.ignite.internal.processors.cache.persistence.freelist.FreeList;
+import org.apache.ignite.internal.processors.cache.persistence.freelist.CacheFreeList;
 import org.apache.ignite.internal.util.typedef.internal.CU;
-
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.versionForRemovedValue;
 
 /**
  *
@@ -37,16 +39,42 @@ public class CacheDataRowStore extends RowStore {
     /** */
     private final CacheGroupContext grp;
 
+    /** */
+    private final CacheFreeList cacheFreeList;
+
     /**
      * @param grp Cache group.
      * @param freeList Free list.
      * @param partId Partition number.
      */
-    public CacheDataRowStore(CacheGroupContext grp, FreeList freeList, int partId) {
+    public CacheDataRowStore(CacheGroupContext grp, CacheFreeList freeList, int partId) {
         super(grp, freeList);
 
         this.partId = partId;
         this.grp = grp;
+        this.cacheFreeList = freeList;
+    }
+
+    /**
+     * Marks row as removed.
+     *
+     * @param link Link.
+     * @param newVer Remove operation version.
+     * @throws IgniteCheckedException If failed.
+     */
+    public void mvccMarkRemoved(long link, MvccVersion newVer) throws IgniteCheckedException {
+        if (!persistenceEnabled)
+            cacheFreeList.mvccMarkRemoved(link, newVer);
+        else {
+            ctx.database().checkpointReadLock();
+
+            try {
+                cacheFreeList.mvccMarkRemoved(link, newVer);
+            }
+            finally {
+                ctx.database().checkpointReadUnlock();
+            }
+        }
     }
 
     /**
@@ -71,15 +99,10 @@ public class CacheDataRowStore extends RowStore {
      * @param crdVer Mvcc coordinator version.
      * @param mvccCntr Mvcc counter.
      * @return Search row.
+     * @throws IgniteCheckedException If failed.
      */
-    MvccDataRow mvccRow(int cacheId, int hash, long link, CacheDataRowAdapter.RowData rowData, long crdVer, long mvccCntr) {
-        if (versionForRemovedValue(crdVer)) {
-            if (rowData == CacheDataRowAdapter.RowData.NO_KEY || rowData == CacheDataRowAdapter.RowData.LINK_ONLY)
-                return MvccDataRow.removedRowNoKey(link, partId, cacheId, crdVer, mvccCntr);
-            else
-                rowData = CacheDataRowAdapter.RowData.KEY_ONLY;
-        }
-
+    MvccDataRow mvccRow(int cacheId, int hash, long link, CacheDataRowAdapter.RowData rowData, long crdVer, long mvccCntr)
+        throws IgniteCheckedException {
         MvccDataRow dataRow = new MvccDataRow(grp,
             hash,
             link,
@@ -91,6 +114,38 @@ public class CacheDataRowStore extends RowStore {
         initDataRow(dataRow, cacheId);
 
         return dataRow;
+    }
+
+    /**
+     * Checks if new version available.
+     *
+     * @param io Row link IO.
+     * @param pageAddr Page address.
+     * @param idx Index.
+     * @return {@code True} if a newer version is available for the given row.
+     * @throws IgniteCheckedException If failed.
+     */
+    public boolean isRemoved(RowLinkIO io, long pageAddr, int idx)
+        throws IgniteCheckedException {
+        long link = io.getLink(pageAddr, idx);
+
+        return MvccProcessor.isRemoved(grp, link);
+    }
+
+    /**
+     * Checks if row is visible for snapshot.
+     *
+     * @param io Row link IO.
+     * @param pageAddr Page address.
+     * @param idx Index.
+     * @return {@code True} if a newer version is available for the given row.
+     * @throws IgniteCheckedException If failed.
+     */
+    public boolean isVisible(RowLinkIO io, long pageAddr, int idx, MvccSnapshot snapshot)
+        throws IgniteCheckedException {
+        long link = io.getLink(pageAddr, idx);
+
+        return MvccProcessor.isVisible(grp, link, snapshot);
     }
 
     /**

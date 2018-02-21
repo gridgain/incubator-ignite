@@ -68,7 +68,7 @@ public class PendingRow {
      * @throws IgniteCheckedException If failed.
      */
     PendingRow initKey(CacheGroupContext grp) throws IgniteCheckedException {
-        CacheDataRowAdapter rowData = new CacheDataRowAdapter(link);
+        CacheDataRowAdapter rowData = grp.mvccEnabled() ? new MvccDataRow(link) : new CacheDataRowAdapter(link);
         rowData.initFromLink(grp, CacheDataRowAdapter.RowData.KEY_ONLY);
 
         key = rowData.key();

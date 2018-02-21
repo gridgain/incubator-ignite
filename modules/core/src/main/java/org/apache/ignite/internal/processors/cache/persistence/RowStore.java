@@ -33,7 +33,7 @@ public class RowStore {
     private final FreeList freeList;
 
     /** */
-    private final GridCacheSharedContext ctx;
+    protected final GridCacheSharedContext ctx;
 
     /** */
     protected final PageMemory pageMem;
@@ -42,7 +42,7 @@ public class RowStore {
     protected final CacheObjectContext coctx;
 
     /** */
-    private final boolean persistenceEnabled;
+    protected final boolean persistenceEnabled;
 
     /** Row cache cleaner. */
     private GridQueryRowCacheCleaner rowCacheCleaner;
@@ -98,20 +98,22 @@ public class RowStore {
         else {
             ctx.database().checkpointReadLock();
 
-        try {
-            freeList.insertDataRow(row);
+            try {
+                freeList.insertDataRow(row);
 
-        assert row.link() != 0L;
-        }finally {
-            ctx.database().checkpointReadUnlock();}
+                assert row.link() != 0L;
+            }
+            finally {
+                ctx.database().checkpointReadUnlock();
+            }
         }
     }
 
     /**
      * @param link Row link.
      * @param row New row data.
-     * @throws IgniteCheckedException If failed.
      * @return {@code True} if was able to update row.
+     * @throws IgniteCheckedException If failed.
      */
     public boolean updateRow(long link, CacheDataRow row) throws IgniteCheckedException {
         assert !persistenceEnabled || ctx.database().checkpointLockIsHeldByThread();

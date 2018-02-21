@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.processors.cache.tree;
 
 import org.apache.ignite.internal.pagemem.PageUtils;
+import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
+import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.IOVersions;
 import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.lang.IgniteInClosure;
 
 /**
  *
@@ -35,6 +38,14 @@ public final class MvccDataInnerIO extends AbstractDataInnerIO {
      */
     private MvccDataInnerIO(int ver) {
         super(T_DATA_REF_MVCC_INNER, ver, true, 28);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void visit(long pageAddr, IgniteInClosure<CacheSearchRow> c) {
+        int cnt = getCount(pageAddr);
+
+        for (int i = 0; i < cnt; i++)
+            c.apply(new MvccDataRow(getLink(pageAddr, i)));
     }
 
     /** {@inheritDoc} */

@@ -58,7 +58,7 @@ class RebuildIndexFromHashClosure implements SchemaIndexCacheVisitorClosure {
         }
 
         // prevRowAvailable is always true with MVCC on, and always false *on index rebuild* with MVCC off.
-        qryMgr.store(row, mvccVer, null, mvccEnabled, true);
+        qryMgr.store(row, null, mvccEnabled, true);
 
         if (mvccEnabled) {
             mvccVer = new GridCacheMvccEntryInfo();

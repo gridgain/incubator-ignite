@@ -44,8 +44,10 @@ import org.apache.ignite.internal.cluster.ClusterTopologyServerNotFoundException
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestQuery;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTx;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTxAndQuery;
@@ -58,6 +60,8 @@ import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccQuerySnapshotReq
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccSnapshotResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccTxSnapshotRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccWaitTxsRequest;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.GridAtomicLong;
@@ -81,6 +85,9 @@ import static org.apache.ignite.events.EventType.EVT_NODE_SEGMENTED;
 import static org.apache.ignite.internal.GridTopic.TOPIC_CACHE_COORDINATOR;
 import static org.apache.ignite.internal.events.DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
+import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
+import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
 
 /**
  * MVCC processor.
@@ -100,12 +107,6 @@ public class MvccProcessor extends GridProcessorAdapter {
 
     /** */
     private static final byte MSG_POLICY = SYSTEM_POOL;
-
-    /** */
-    private static final long CRD_VER_MASK = 0x3F_FF_FF_FF_FF_FF_FF_FFL;
-
-    /** */
-    private static final long RMVD_VAL_VER_MASK = 0x80_00_00_00_00_00_00_00L;
 
     /** */
     private volatile MvccCoordinator curCrd;
@@ -165,34 +166,9 @@ public class MvccProcessor extends GridProcessorAdapter {
      * @return Always {@code true}.
      */
     public static boolean assertMvccVersionValid(long crdVer, long cntr) {
-        assert unmaskCoordinatorVersion(crdVer) > 0;
-        assert cntr != MVCC_COUNTER_NA;
+        assert crdVer > 0 && cntr != MVCC_COUNTER_NA;
 
         return true;
-    }
-
-    /**
-     * @param crdVer Coordinator version.
-     * @return Coordinator version with removed value flag.
-     */
-    public static long createVersionForRemovedValue(long crdVer) {
-        return crdVer | RMVD_VAL_VER_MASK;
-    }
-
-    /**
-     * @param crdVer Coordinator version with flags.
-     * @return {@code True} if removed value flag is set.
-     */
-    public static boolean versionForRemovedValue(long crdVer) {
-        return (crdVer & RMVD_VAL_VER_MASK) != 0;
-    }
-
-    /**
-     * @param crdVer Coordinator version with flags.
-     * @return Coordinator version.
-     */
-    public static long unmaskCoordinatorVersion(long crdVer) {
-        return crdVer & CRD_VER_MASK;
     }
 
     /**
@@ -202,6 +178,129 @@ public class MvccProcessor extends GridProcessorAdapter {
     public static IgniteCheckedException noCoordinatorError(AffinityTopologyVersion topVer) {
         return new ClusterTopologyServerNotFoundException("Mvcc coordinator is not assigned for " +
             "topology version: " + topVer);
+    }
+
+    /**
+     * Checks if the a row marked as deleted.
+     *
+     * @param grp Cache group context.
+     * @param link Link to the row.
+     * @return {@code True} if row is visible for the given snapshot.
+     * @throws IgniteCheckedException If failed.
+     */
+    public static boolean isRemoved(CacheGroupContext grp, long link)
+        throws IgniteCheckedException {
+        assert grp.mvccEnabled();
+
+        PageMemory pageMem = grp.dataRegion().pageMemory();
+        int grpId = grp.groupId();
+
+        long pageId = pageId(link);
+        long page = pageMem.acquirePage(grpId, pageId);
+
+        try {
+            long pageAddr = pageMem.readLock(grpId, pageId, page);
+
+            try{
+                MvccDataPageIO dataIo = MvccDataPageIO.VERSIONS.forPage(pageAddr);
+
+                DataPagePayload data = dataIo.readPayload(pageAddr, itemId(link), pageMem.pageSize());
+
+                assert data.payloadSize() >= MVCC_INFO_SIZE : "MVCC info should fit on the very first data page.";
+
+                long mvccCrd = dataIo.mvccCoordinator(pageAddr, data.offset());
+                long mvccCntr = dataIo.mvccCounter(pageAddr, data.offset());
+                long newMvccCrd = dataIo.newMvccCoordinator(pageAddr, data.offset());
+                long newMvccCntr = dataIo.newMvccCounter(pageAddr, data.offset());
+
+                assert mvccCrd > 0 && mvccCntr > MVCC_COUNTER_NA;
+                assert newMvccCrd > 0 == newMvccCntr > MVCC_COUNTER_NA;
+
+                return newMvccCrd > 0;
+            }
+            finally {
+                pageMem.readUnlock(grpId, pageId, page);
+            }
+        }
+        finally {
+            pageMem.releasePage(grpId, pageId, page);
+        }
+    }
+
+
+    /**
+     * Checks if the a row marked as deleted.
+     *
+     * @param grp Cache group context.
+     * @param link Link to the row.
+     * @return {@code True} if row is visible for the given snapshot.
+     * @throws IgniteCheckedException If failed.
+     */
+    public static boolean isVisible(CacheGroupContext grp, long link, MvccSnapshot snapshot)
+        throws IgniteCheckedException {
+        assert grp.mvccEnabled();
+
+        PageMemory pageMem = grp.dataRegion().pageMemory();
+        int grpId = grp.groupId();
+
+        long pageId = pageId(link);
+        long page = pageMem.acquirePage(grpId, pageId);
+
+        try {
+            long pageAddr = pageMem.readLock(grpId, pageId, page);
+
+            try{
+                MvccDataPageIO dataIo = MvccDataPageIO.VERSIONS.forPage(pageAddr);
+
+                DataPagePayload data = dataIo.readPayload(pageAddr, itemId(link), pageMem.pageSize());
+
+                assert data.payloadSize() >= MVCC_INFO_SIZE : "MVCC info should fit on the very first data page.";
+
+                long mvccCrd = dataIo.mvccCoordinator(pageAddr, data.offset());
+                long mvccCntr = dataIo.mvccCounter(pageAddr, data.offset());
+                long newMvccCrd = dataIo.newMvccCoordinator(pageAddr, data.offset());
+                long newMvccCntr = dataIo.newMvccCounter(pageAddr, data.offset());
+
+                assert mvccCrd > 0 && mvccCntr > MVCC_COUNTER_NA;
+                assert newMvccCrd > 0 == newMvccCntr > MVCC_COUNTER_NA;
+
+                return isVisibleForSnapshot(snapshot, mvccCrd, mvccCntr, newMvccCrd, newMvccCntr);
+            }
+            finally {
+                pageMem.readUnlock(grpId, pageId, page);
+            }
+        }
+        finally {
+            pageMem.releasePage(grpId, pageId, page);
+        }
+    }
+
+    /**
+     * Checks if version is visible from the given snapshot.
+     *
+     * @param snapshot Snapshot.
+     * @param mvccCrd Mvcc coordinator.
+     * @param mvccCntr Mvcc counter.
+     * @param newMvccCrd New mvcc coordinator.
+     * @param newMvccCntr New mvcc counter.
+     * @return {@code True} if visible.
+     */
+    public static boolean isVisibleForSnapshot(MvccSnapshot snapshot, long mvccCrd, long mvccCntr, long newMvccCrd,
+        long newMvccCntr) {
+
+        long snapshotCrd = snapshot.coordinatorVersion();
+        long snapshotCntr = snapshot.counter();
+
+        if (mvccCrd > snapshotCrd || mvccCrd == snapshotCrd && mvccCntr > snapshotCntr ||
+            mvccCrd == snapshotCrd && snapshot.activeTransactions().contains(mvccCntr))
+            return false; // invisible if xid_min transaction is in the future or is active now.
+        else if (newMvccCrd == 0 && newMvccCntr == MVCC_COUNTER_NA)
+            return true; // visible if xid_max is empty.
+        else if (newMvccCrd == snapshotCrd && newMvccCntr == snapshotCntr)
+            return false; // invisible if deleted by the current tx.
+        else // visible if xid_max is in the future or is active now.
+            return newMvccCrd > snapshotCrd || newMvccCrd == snapshotCrd && newMvccCntr > snapshotCntr ||
+                (newMvccCrd == snapshotCrd && snapshot.activeTransactions().contains(newMvccCntr));
     }
 
     /** {@inheritDoc} */

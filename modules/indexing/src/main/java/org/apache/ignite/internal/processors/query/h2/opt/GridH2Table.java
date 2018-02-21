@@ -433,15 +433,14 @@ public class GridH2Table extends TableBase {
      * @param idxRebuild If index rebuild is in progress.
      * @throws IgniteCheckedException If failed.
      */
-    public void update(CacheDataRow row, @Nullable CacheDataRow prevRow, @Nullable MvccVersion newVer,
-        boolean prevRowAvailable, boolean idxRebuild) throws IgniteCheckedException {
+    public void update(CacheDataRow row, @Nullable CacheDataRow prevRow,  boolean prevRowAvailable,
+        boolean idxRebuild) throws IgniteCheckedException {
         assert desc != null;
 
-        GridH2KeyValueRowOnheap row0 = (GridH2KeyValueRowOnheap)desc.createRow(row, newVer);
-        GridH2KeyValueRowOnheap prevRow0 = prevRow != null ? (GridH2KeyValueRowOnheap)desc.createRow(prevRow, null) :
+        GridH2KeyValueRowOnheap row0 = (GridH2KeyValueRowOnheap)desc.createRow(row);
+        GridH2KeyValueRowOnheap prevRow0 = prevRow != null ? (GridH2KeyValueRowOnheap)desc.createRow(prevRow) :
             null;
 
-        assert !cctx.mvccEnabled() || prevRow0 == null;
 
         row0.prepareValuesCache();
 
@@ -505,7 +504,7 @@ public class GridH2Table extends TableBase {
      * @throws IgniteCheckedException If failed.
      */
     public boolean remove(CacheDataRow row) throws IgniteCheckedException {
-        GridH2Row row0 = desc.createRow(row, null);
+        GridH2Row row0 = desc.createRow(row);
 
         lock(false);
 

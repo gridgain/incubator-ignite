@@ -132,6 +132,7 @@ import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
 import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
 import static org.apache.ignite.internal.GridClosureCallMode.BROADCAST;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.OWNING;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.isVisible;
 import static org.apache.ignite.internal.processors.cache.query.GridCacheQueryType.SCAN;
 import static org.apache.ignite.internal.processors.cache.query.GridCacheQueryType.SPI;
 import static org.apache.ignite.internal.processors.cache.query.GridCacheQueryType.SQL;
@@ -377,13 +378,12 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
 
     /**
      * @param newRow New row.
-     * @param mvccVer Mvcc version for update.
      * @param prevRow Previous row.
      * @param prevRowAvailable Whether previous row is available.
      * @param idxRebuild If index rebuild is in progress.
      * @throws IgniteCheckedException In case of error.
      */
-    public void store(CacheDataRow newRow, @Nullable MvccVersion mvccVer, @Nullable CacheDataRow prevRow,
+    public void store(CacheDataRow newRow, @Nullable CacheDataRow prevRow,
         boolean prevRowAvailable, boolean idxRebuild) throws IgniteCheckedException {
         assert enabled();
         assert newRow != null && newRow.value() != null && newRow.link() != 0 : newRow;
@@ -403,7 +403,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
             }
 
             if (qryProcEnabled)
-                qryProc.store(cctx, newRow, mvccVer, prevRow, prevRowAvailable, idxRebuild);
+                qryProc.store(cctx, newRow, prevRow, prevRowAvailable, idxRebuild);
         }
         finally {
             invalidateResultCache();
@@ -418,7 +418,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
      * @param newVer Mvcc version for remove operation.
      * @throws IgniteCheckedException Thrown in case of any errors.
      */
-    public void remove(KeyCacheObject key, @Nullable CacheDataRow prevRow, @Nullable MvccVersion newVer)
+    public void remove(KeyCacheObject key, @Nullable CacheDataRow prevRow)
         throws IgniteCheckedException {
         if (!QueryUtils.isEnabled(cctx.config()))
             return; // No-op.
@@ -435,7 +435,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
 
             // val may be null if we have no previous value. We should not call processor in this case.
             if (qryProcEnabled && prevRow != null)
-                qryProc.remove(cctx, prevRow, newVer);
+                qryProc.remove(cctx, prevRow);
         }
         finally {
             invalidateResultCache();
@@ -3019,9 +3019,6 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
 
             while (it.hasNext()) {
                 CacheDataRow row = it.next();
-
-                if (row.removed())
-                    continue;
 
                 KeyCacheObject key = row.key();
                 CacheObject val;

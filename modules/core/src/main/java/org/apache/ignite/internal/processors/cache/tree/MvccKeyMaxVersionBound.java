@@ -27,8 +27,6 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.versionForRemovedValue;
-
 /**
  *
  */
@@ -59,7 +57,9 @@ public class MvccKeyMaxVersionBound extends SearchRow implements BPlusTree.TreeR
     {
         RowLinkIO rowIo = (RowLinkIO)io;
 
-        if (versionForRemovedValue(rowIo.getMvccCoordinatorVersion(pageAddr, idx)))
+        CacheDataRowStore rowStore = ((CacheDataTree)tree).rowStore();
+
+        if (rowStore.isRemoved(rowIo, pageAddr, idx))
             resRow = null;
         else
             resRow = ((CacheDataTree)tree).getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);

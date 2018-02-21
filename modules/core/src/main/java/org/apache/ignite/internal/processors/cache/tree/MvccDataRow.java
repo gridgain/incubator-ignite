@@ -17,29 +17,36 @@
 
 package org.apache.ignite.internal.processors.cache.tree;
 
+import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.assertMvccVersionValid;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.versionForRemovedValue;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
 
 /**
  *
  */
 public class MvccDataRow extends DataRow {
-    /** */
-    private long crdVer;
+    /** Mvcc coordinator version. */
+    @GridToStringInclude
+    private long mvccCrd;
 
-    /** */
-    private long mvccCntr = MVCC_COUNTER_NA;
+    /** Mvcc counter. */
+    @GridToStringInclude
+    private long mvccCntr;
 
-    /**
-     *
-     */
-    private MvccDataRow() {
-        // No-op.
-    }
+    /** New mvcc coordinator version. */
+    @GridToStringInclude
+    private long newMvccCrd;
+
+    /** New mvcc counter. */
+    @GridToStringInclude
+    private long newMvccCntr;
 
     /**
      * @param link Link.
@@ -62,40 +69,37 @@ public class MvccDataRow extends DataRow {
 
         assertMvccVersionValid(crdVer, mvccCntr);
 
-        assert rowData == RowData.LINK_ONLY || dataMvccCrd == crdVer && dataMvccCntr == mvccCntr;
+        assert rowData == RowData.LINK_ONLY || this.mvccCrd == crdVer && this.mvccCntr == mvccCntr;
 
-        this.crdVer = crdVer;
-        this.mvccCntr = mvccCntr;
+        if (rowData == RowData.LINK_ONLY) {
+            this.mvccCrd = crdVer;
+            this.mvccCntr = mvccCntr;
+        }
     }
 
-    /**
-     * @param link Link.
-     * @param part Partition.
-     * @param cacheId Cache ID.
-     * @param crdVer Mvcc coordinator version.
-     * @param mvccCntr Mvcc counter.
-     * @return Row.
-     */
-    static MvccDataRow removedRowNoKey(
-        long link,
-        int part,
-        int cacheId,
-        long crdVer,
-        long mvccCntr) {
-        MvccDataRow row = new MvccDataRow();
+    /** {@inheritDoc} */
+    @Override protected int readHeader(long addr, int off) {
+        // xid_min.
+        mvccCrd = PageUtils.getLong(addr, off);
+        mvccCntr = PageUtils.getLong(addr, off + 8);
 
-        row.link = link;
-        row.cacheId = cacheId;
-        row.part = part;
-        row.crdVer = crdVer;
-        row.mvccCntr = mvccCntr;
+        // xid_max.
+        newMvccCrd = PageUtils.getLong(addr, off + 16);
+        newMvccCntr = PageUtils.getLong(addr, off + 24);
 
-        return row;
+        assert mvccCrd > 0 && mvccCntr > MVCC_COUNTER_NA;
+
+        return MVCC_INFO_SIZE;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected AbstractDataPageIO getDataPageIo(long pageAddr) {
+        return MvccDataPageIO.VERSIONS.forPage(pageAddr);
     }
 
     /** {@inheritDoc} */
     @Override public long mvccCoordinatorVersion() {
-        return crdVer;
+        return mvccCrd;
     }
 
     /** {@inheritDoc} */
@@ -105,23 +109,25 @@ public class MvccDataRow extends DataRow {
 
     /** {@inheritDoc} */
     @Override public void mvccVersion(long crdVer, long mvccCntr) {
-        this.crdVer = crdVer;
+        this.mvccCrd = crdVer;
         this.mvccCntr = mvccCntr;
     }
 
     /** {@inheritDoc} */
     @Override public boolean removed() {
-        return versionForRemovedValue(crdVer);
+        assert (newMvccCrd > 0) == (newMvccCntr > MVCC_COUNTER_NA);
+
+        return newMvccCrd > 0;
     }
 
     /** {@inheritDoc} */
     @Override public long newMvccCoordinatorVersion() {
-        return newDataMvccCrd;
+        return newMvccCrd;
     }
 
     /** {@inheritDoc} */
     @Override public long newMvccCounter() {
-        return newDataMvccCntr;
+        return newMvccCntr;
     }
 
     /** {@inheritDoc} */

@@ -28,9 +28,6 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.unmaskCoordinatorVersion;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.versionForRemovedValue;
-
 /**
  * Search row which is based on specific MVCC snapshot and return only records visible to that snapshot.
  */
@@ -71,17 +68,18 @@ public class MvccSnapshotBasedSearchRow extends SearchRow implements BPlusTree.T
 
         RowLinkIO rowIo = (RowLinkIO)io;
 
-        long crdVerMasked = rowIo.getMvccCoordinatorVersion(pageAddr, idx);
+        long crdVer = rowIo.getMvccCoordinatorVersion(pageAddr, idx);
 
         if (snapshot.activeTransactions().size() > 0) {
-            long rowCrdVer = unmaskCoordinatorVersion(crdVerMasked);
 
-            if (rowCrdVer == snapshot.coordinatorVersion())
+            if (crdVer == snapshot.coordinatorVersion())
                 visible = !snapshot.activeTransactions().contains(rowIo.getMvccCounter(pageAddr, idx));
         }
 
+        CacheDataRowStore rowStore = ((CacheDataTree)tree).rowStore();
+
         if (visible) {
-            if (versionForRemovedValue(crdVerMasked))
+            if (!rowStore.isVisible(rowIo, pageAddr, idx, snapshot))
                 resRow = null;
             else
                 resRow = ((CacheDataTree)tree).getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);

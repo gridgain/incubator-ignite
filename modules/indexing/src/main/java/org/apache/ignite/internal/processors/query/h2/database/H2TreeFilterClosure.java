@@ -37,7 +37,6 @@ import org.apache.ignite.spi.indexing.IndexingQueryCacheFilter;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.assertMvccVersionValid;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.unmaskCoordinatorVersion;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
 
 /**
@@ -98,7 +97,6 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
 
         long rowCrdVer = io.getMvccCoordinatorVersion(pageAddr, idx);
 
-        assert unmaskCoordinatorVersion(rowCrdVer) == rowCrdVer : rowCrdVer;
         assert rowCrdVer > 0 : rowCrdVer;
 
         int cmp = Long.compare(mvccSnapshot.coordinatorVersion(), rowCrdVer);

@@ -40,7 +40,6 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.assertMvccVersionValid;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.unmaskCoordinatorVersion;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
 
 /**
@@ -169,8 +168,7 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
 
         long mvccCrdVer = io.getMvccCoordinatorVersion(pageAddr, idx);
 
-        cmp = Long.compare(unmaskCoordinatorVersion(row.mvccCoordinatorVersion()),
-            unmaskCoordinatorVersion(mvccCrdVer));
+        cmp = Long.compare(row.mvccCoordinatorVersion(), mvccCrdVer);
 
         if (cmp != 0)
             return cmp;
@@ -284,7 +282,7 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
         }
 
         // TODO GG-11768.
-        CacheDataRowAdapter other = new CacheDataRowAdapter(link);
+        CacheDataRowAdapter other = grp.mvccEnabled() ? new MvccDataRow(link) : new CacheDataRowAdapter(link);
         other.initFromLink(grp, CacheDataRowAdapter.RowData.KEY_ONLY);
 
         byte[] bytes1 = other.key().valueBytes(grp.cacheObjectContext());
@@ -319,46 +317,5 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
         }
 
         return 0;
-    }
-
-    public void setNewVersion(BPlusIO treeIo, long pageAddr, int idx,
-        MvccVersion newMvccVer) throws IgniteCheckedException {
-        assert grp.mvccEnabled() && newMvccVer != null;
-        assertMvccVersionValid(newMvccVer.coordinatorVersion(), newMvccVer.counter());
-
-        long link = ((RowLinkIO)treeIo).getLink(pageAddr, idx);
-
-        long pageId = pageId(link);
-        long page = acquirePage(pageId);
-
-        try {
-            long dataPageAddr = writeLock(pageId, page);
-
-            assert dataPageAddr != 0L : link;
-
-            try {
-                MvccDataPageIO dataIo = MvccDataPageIO.VERSIONS.forPage(dataPageAddr);
-
-                DataPagePayload data = dataIo.readPayload(dataPageAddr, itemId(link), pageSize());
-
-                assert data.payloadSize() >= MVCC_INFO_SIZE : "MVCC info should be fit on the very first data page.";
-
-                long addr = dataPageAddr + data.offset();
-
-                // Skip xid_min.
-                addr += 16;
-
-                PageUtils.putLong(addr, 0, newMvccVer.coordinatorVersion());
-                PageUtils.putLong(addr, 8, newMvccVer.counter());
-
-                addr++;
-            }
-            finally {
-                writeUnlock(pageId, page, dataPageAddr, true);
-            }
-        }
-        finally {
-            releasePage(pageId, page);
-        }
     }
 }

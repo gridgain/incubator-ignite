@@ -23,6 +23,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
@@ -33,9 +34,8 @@ import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.assertMvccVersionValid;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.unmaskCoordinatorVersion;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.versionForRemovedValue;
 
 /**
  *
@@ -62,6 +62,12 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
     /** */
     private CacheDataRow oldRow;
 
+    /** */
+    private long newMvccCrd;
+
+    /** */
+    private long newMvccCntr;
+
     /**
      * @param key Key.
      * @param val Value.
@@ -78,6 +84,7 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
         GridCacheVersion ver,
         long expireTime,
         MvccSnapshot mvccSnapshot,
+        MvccVersion newVer,
         boolean needOld,
         int part,
         int cacheId) {
@@ -85,6 +92,15 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
 
         this.mvccSnapshot = mvccSnapshot;
         this.needOld = needOld;
+
+        if (newVer == null) {
+            newMvccCrd = 0;
+            newMvccCntr = MVCC_COUNTER_NA;
+        }
+        else {
+            newMvccCrd = newVer.coordinatorVersion();
+            newMvccCntr = newVer.counter();
+        }
     }
 
     /**
@@ -122,7 +138,7 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
      * @return Always {@code true}.
      */
     private boolean assertVersion(RowLinkIO io, long pageAddr, int idx) {
-        long rowCrdVer = unmaskCoordinatorVersion(io.getMvccCoordinatorVersion(pageAddr, idx));
+        long rowCrdVer = io.getMvccCoordinatorVersion(pageAddr, idx);
         long rowCntr = io.getMvccCounter(pageAddr, idx);
 
         int cmp = Long.compare(unmaskedCoordinatorVersion(), rowCrdVer);
@@ -155,10 +171,11 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
 
         boolean txActive = false;
 
-        long rowCrdVerMasked = rowIo.getMvccCoordinatorVersion(pageAddr, idx);
-        long rowCrdVer = unmaskCoordinatorVersion(rowCrdVerMasked);
+        long rowCrdVer = rowIo.getMvccCoordinatorVersion(pageAddr, idx);
 
         long crdVer = unmaskedCoordinatorVersion();
+
+        boolean isFirstRmv = false;
 
         if (res == null) {
             int cmp = Long.compare(crdVer, rowCrdVer);
@@ -169,32 +186,35 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
             if (cmp == 0)
                 res = UpdateResult.VERSION_FOUND;
             else {
-                if (versionForRemovedValue(rowCrdVerMasked))
+                CacheDataRowStore rowStore = ((CacheDataTree)tree).rowStore();
+
+                isFirstRmv = rowStore.isRemoved(rowIo, pageAddr, idx);
+
+                if (isFirstRmv)
                     res = UpdateResult.PREV_NULL;
-                else {
+                else
                     res = UpdateResult.PREV_NOT_NULL;
 
-                    if (needOld)
-                        oldRow = ((CacheDataTree)tree).getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
-                }
-
-                ((CacheDataTree)tree).setNewVersion(io, pageAddr, idx, mvccSnapshot);
+                if (needOld)
+                    oldRow = ((CacheDataTree)tree).getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
+                else
+                    oldRow = ((CacheDataTree)tree).getRow(io, pageAddr, idx, RowData.LINK_WITH_HEADER);
             }
         }
-
-        // TODO check if old versions are marked with xid_max.
 
         // Suppose transactions on previous coordinator versions are done.
         if (checkActive && crdVer == rowCrdVer) {
             long rowMvccCntr = rowIo.getMvccCounter(pageAddr, idx);
 
-            if (mvccSnapshot.activeTransactions().contains(rowMvccCntr)) {
+            long activeTx = isFirstRmv ? oldRow.newMvccCounter() : rowMvccCntr;
+
+            if (mvccSnapshot.activeTransactions().contains(rowMvccCntr) || isFirstRmv) {
                 txActive = true;
 
                 if (activeTxs == null)
                     activeTxs = new GridLongList();
 
-                activeTxs.add(rowMvccCntr);
+                activeTxs.add(activeTx);
             }
         }
 
@@ -221,7 +241,7 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
                     if (cleanupRows == null)
                         cleanupRows = new ArrayList<>();
 
-                    cleanupRows.add(new MvccCleanupRow(cacheId, key, rowCrdVerMasked, rowCntr, rowIo.getLink(pageAddr, idx)));
+                    cleanupRows.add(new MvccCleanupRow(cacheId, key, rowCrdVer, rowCntr, rowIo.getLink(pageAddr, idx)));
                 }
                 else
                     canCleanup = true;
@@ -246,6 +266,16 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
     /** {@inheritDoc} */
     @Override public long mvccCounter() {
         return mvccSnapshot.counter();
+    }
+
+    /** {@inheritDoc} */
+    @Override public long newMvccCoordinatorVersion() {
+        return newMvccCrd;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long newMvccCounter() {
+        return newMvccCntr;
     }
 
     /** {@inheritDoc} */

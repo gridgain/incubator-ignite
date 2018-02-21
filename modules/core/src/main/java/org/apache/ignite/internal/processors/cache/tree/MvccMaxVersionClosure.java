@@ -28,8 +28,6 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.unmaskCoordinatorVersion;
-
 /**
  *
  */
@@ -60,8 +58,7 @@ public class MvccMaxVersionClosure extends SearchRow implements BPlusTree.TreeRo
     {
         RowLinkIO rowIo = (RowLinkIO)io;
 
-        res = new MvccVersionImpl(unmaskCoordinatorVersion(rowIo.getMvccCoordinatorVersion(pageAddr, idx)),
-            rowIo.getMvccCounter(pageAddr, idx));
+        res = new MvccVersionImpl(rowIo.getMvccCoordinatorVersion(pageAddr, idx), rowIo.getMvccCounter(pageAddr, idx));
 
         return false;  // Stop search.
     }
