@@ -25,6 +25,7 @@ import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.CacheGroupDescriptor;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedManager;
 import org.apache.ignite.internal.processors.cache.StoredCacheData;
+import org.apache.ignite.internal.processors.cache.persistence.DataRegion;
 import org.apache.ignite.internal.processors.cluster.IgniteChangeGlobalStateSupport;
 
 /**
@@ -40,6 +41,23 @@ public interface IgnitePageStoreManager extends GridCacheSharedManager, IgniteCh
      * Invoked after checkpoint recover is finished.
      */
     public void finishRecover() throws IgniteCheckedException;
+
+    /**
+     * Initializes disk store structures for specified data region.
+     *
+     * @param cacheId Cache id.
+     * @param partitions Partitions count.
+     * @param dataRegion Data region.
+     * @throws IgniteCheckedException If failed.
+     */
+    void initializeForRegion(int cacheId, int partitions, DataRegion dataRegion)
+        throws IgniteCheckedException;
+
+    /**
+     * @param cacheId Cache id.
+     * @return Registered data region.
+     */
+    DataRegion registeredRegion(int cacheId);
 
     /**
      * Callback called when a cache is starting.

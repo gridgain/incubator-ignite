@@ -113,8 +113,6 @@ import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.StoredCacheData;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionTopology;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionTopologyImpl;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
 import org.apache.ignite.internal.processors.cache.persistence.file.FileIO;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStore;
@@ -437,8 +435,8 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
     }
 
     /** {@inheritDoc} */
-    @Override protected void initDataRegions(DataStorageConfiguration memCfg) throws IgniteCheckedException {
-        super.initDataRegions(memCfg);
+    @Override protected void initDataRegions0(DataStorageConfiguration memCfg) throws IgniteCheckedException {
+        super.initDataRegions0(memCfg);
 
         addDataRegion(
             memCfg,
@@ -716,6 +714,12 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
     ) throws IgniteCheckedException {
         assert !cctx.localNode().isClient();
 
+        List<DatabaseLifecycleListener> lsnrs = getSubscribers(cctx.kernalContext());
+
+        for (DatabaseLifecycleListener lsnr : lsnrs) {
+            lsnr.beforeMemoryRestore(this);
+        }
+
         checkpointReadLock();
 
         try {
@@ -751,6 +755,11 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             metaStorage.init(this);
 
             notifyMetastorageReadyForReadWrite();
+
+            for (DatabaseLifecycleListener lsnr : lsnrs) {
+                lsnr.afterMemoryRestore(this);
+            }
+
         }
         catch (StorageException e) {
             throw new IgniteCheckedException(e);
@@ -3394,13 +3403,12 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     if (grpId != MetaStorage.METASTORAGE_CACHE_ID) {
                         CacheGroupContext grp = context().cache().cacheGroup(grpId);
 
-                        if (grp == null)
+                        DataRegion region = grp != null ? grp.dataRegion() : storeMgr.registeredRegion(grpId);
+
+                        if (region == null || !region.config().isPersistenceEnabled())
                             continue;
 
-                        if (!grp.dataRegion().config().isPersistenceEnabled())
-                            continue;
-
-                        pageMem = (PageMemoryEx)grp.dataRegion().pageMemory();
+                        pageMem = (PageMemoryEx)region.pageMemory();
                     }
                     else
                         pageMem = (PageMemoryEx)metaStorage.pageMemory();

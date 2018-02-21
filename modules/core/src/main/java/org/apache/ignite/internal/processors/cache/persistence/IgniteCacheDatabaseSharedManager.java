@@ -220,6 +220,16 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
         if (dataRegionsInitialized)
             return;
 
+        initDataRegions0(memCfg);
+
+        dataRegionsInitialized = true;
+    }
+
+    /**
+     * @param memCfg Database config.
+     * @throws IgniteCheckedException If failed to initialize swap path.
+     */
+    protected void initDataRegions0(DataStorageConfiguration memCfg) throws IgniteCheckedException {
         DataRegionConfiguration[] dataRegionCfgs = memCfg.getDataRegionConfigurations();
 
         int dataRegions = dataRegionCfgs == null ? 0 : dataRegionCfgs.length;
@@ -248,7 +258,17 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
             CU.isPersistenceEnabled(memCfg)
         );
 
-        dataRegionsInitialized = true;
+        for (DatabaseLifecycleListener lsnr : getSubscribers(cctx.kernalContext())) {
+            lsnr.onInitDataRegions(this);
+        }
+    }
+
+    /**
+     * @param kctx Kernal context.
+     * @return Database lifecycle listeners.
+     */
+    protected List<DatabaseLifecycleListener> getSubscribers(GridKernalContext kctx) {
+        return kctx.internalSubscriptionProcessor().getDatabaseSubscribers();
     }
 
     /**
@@ -256,7 +276,7 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
      * @param dataRegionCfg Data region config.
      * @throws IgniteCheckedException If failed to initialize swap path.
      */
-    protected void addDataRegion(
+    public void addDataRegion(
         DataStorageConfiguration dataStorageCfg,
         DataRegionConfiguration dataRegionCfg,
         boolean trackable
@@ -992,10 +1012,18 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
         startMemoryPolicies();
 
         initPageMemoryDataStructures(memCfg);
+
+        for (DatabaseLifecycleListener lsnr : getSubscribers(kctx)) {
+            lsnr.onActivate(this);
+        }
     }
 
     /** {@inheritDoc} */
     @Override public void onDeActivate(GridKernalContext kctx) {
+        for (DatabaseLifecycleListener lsnr : getSubscribers(kctx)) {
+            lsnr.onDeactivate(this);
+        }
+
         stop0(false);
     }
 

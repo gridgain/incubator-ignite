@@ -2779,7 +2779,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     /** {@inheritDoc} */
     @Override public <K, V> IgniteCache<K, V> createCache(CacheConfiguration<K, V> cacheCfg) {
         A.notNull(cacheCfg, "cacheCfg");
-        CU.validateCacheName(cacheCfg.getName());
+        CU.validateNewCacheName(cacheCfg.getName());
 
         guard();
 
@@ -2836,7 +2836,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
     /** {@inheritDoc} */
     @Override public <K, V> IgniteCache<K, V> createCache(String cacheName) {
-        CU.validateCacheName(cacheName);
+        CU.validateNewCacheName(cacheName);
 
         guard();
 
@@ -2865,7 +2865,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     @Override public <K, V> IgniteBiTuple<IgniteCache<K, V>, Boolean> getOrCreateCache0(
         CacheConfiguration<K, V> cacheCfg, boolean sql) {
         A.notNull(cacheCfg, "cacheCfg");
-        CU.validateCacheName(cacheCfg.getName());
+        CU.validateNewCacheName(cacheCfg.getName());
 
         guard();
 
@@ -2931,7 +2931,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
         NearCacheConfiguration<K, V> nearCfg
     ) {
         A.notNull(cacheCfg, "cacheCfg");
-        CU.validateCacheName(cacheCfg.getName());
+        CU.validateNewCacheName(cacheCfg.getName());
         A.notNull(nearCfg, "nearCfg");
 
         guard();
@@ -2960,7 +2960,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     @Override public <K, V> IgniteCache<K, V> getOrCreateCache(CacheConfiguration<K, V> cacheCfg,
         NearCacheConfiguration<K, V> nearCfg) {
         A.notNull(cacheCfg, "cacheCfg");
-        CU.validateCacheName(cacheCfg.getName());
+        CU.validateNewCacheName(cacheCfg.getName());
         A.notNull(nearCfg, "nearCfg");
 
         guard();
@@ -3001,7 +3001,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
     /** {@inheritDoc} */
     @Override public <K, V> IgniteCache<K, V> createNearCache(String cacheName, NearCacheConfiguration<K, V> nearCfg) {
-        CU.validateCacheName(cacheName);
+        CU.validateNewCacheName(cacheName);
         A.notNull(nearCfg, "nearCfg");
 
         guard();
@@ -3033,7 +3033,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     /** {@inheritDoc} */
     @Override public <K, V> IgniteCache<K, V> getOrCreateNearCache(String cacheName,
         NearCacheConfiguration<K, V> nearCfg) {
-        CU.validateCacheName(cacheName);
+        CU.validateNewCacheName(cacheName);
         A.notNull(nearCfg, "nearCfg");
 
         guard();
@@ -3162,7 +3162,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
     /** {@inheritDoc} */
     @Override public <K, V> IgniteCache<K, V> getOrCreateCache(String cacheName) {
-        CU.validateCacheName(cacheName);
+        CU.validateNewCacheName(cacheName);
 
         guard();
 
@@ -3188,7 +3188,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
      * @return Future that will be completed when cache is deployed.
      */
     public IgniteInternalFuture<?> getOrCreateCacheAsync(String cacheName, boolean checkThreadTx) {
-        CU.validateCacheName(cacheName);
+        CU.validateNewCacheName(cacheName);
 
         guard();
 
@@ -3208,7 +3208,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     /** {@inheritDoc} */
     @Override public <K, V> void addCacheConfiguration(CacheConfiguration<K, V> cacheCfg) {
         A.notNull(cacheCfg, "cacheCfg");
-        CU.validateCacheName(cacheCfg.getName());
+        CU.validateNewCacheName(cacheCfg.getName());
 
         guard();
 
