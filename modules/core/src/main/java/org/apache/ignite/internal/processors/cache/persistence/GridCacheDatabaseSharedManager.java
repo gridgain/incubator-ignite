@@ -3399,7 +3399,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
                     PageMemoryEx pageMem;
 
-                    // TODO add generic mapping.
+                    // TODO IGNITE-7792 add generic mapping.
                     if (grpId == MetaStorage.METASTORAGE_CACHE_ID)
                         pageMem = (PageMemoryEx)metaStorage.pageMemory();
                     else if (grpId == TxLog.TX_LOG_CACHE_ID)
