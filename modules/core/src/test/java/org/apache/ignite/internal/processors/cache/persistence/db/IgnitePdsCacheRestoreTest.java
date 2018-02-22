@@ -183,11 +183,11 @@ public class IgnitePdsCacheRestoreTest extends GridCommonAbstractTest {
         }
 
         if (fullRestart) {
-            ccfgs = configurations2(changeGroup); // https://issues.apache.org/jira/browse/IGNITE-7383
+            ccfgs = configurations2(changeGroup);
 
             startGrid(0);
 
-            ccfgs = configurations2(changeGroup); // https://issues.apache.org/jira/browse/IGNITE-7383
+            ccfgs = configurations2(changeGroup);
 
             startGrid(1).cluster().active(true);
         }
@@ -264,7 +264,7 @@ public class IgnitePdsCacheRestoreTest extends GridCommonAbstractTest {
     private CacheConfiguration[] configurations2(boolean changeGroup) {
         CacheConfiguration[] ccfgs = new CacheConfiguration[3];
 
-        ccfgs[0] = cacheConfiguration("c1", changeGroup ? "g2" : "g1");
+        ccfgs[0] = cacheConfiguration("c1", changeGroup ? "g2" : "g1"); // https://issues.apache.org/jira/browse/IGNITE-7383
         ccfgs[1] = cacheConfiguration("c2", "g1");
 
         ccfgs[2] = cacheConfiguration("c3", null);
