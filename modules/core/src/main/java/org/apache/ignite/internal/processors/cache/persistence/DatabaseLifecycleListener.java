@@ -31,7 +31,7 @@ public interface DatabaseLifecycleListener {
     void onInitDataRegions(IgniteCacheDatabaseSharedManager mgr) throws IgniteCheckedException;
 
     /**
-     * @param mgr Database shared manager.
+     * @param mgr Page store manager.
      *
      */
     void beforeMemoryRestore(IgniteCacheDatabaseSharedManager mgr) throws IgniteCheckedException;
@@ -45,10 +45,10 @@ public interface DatabaseLifecycleListener {
     /**
      * @param mgr Database shared manager.
      */
-    void onActivate(IgniteCacheDatabaseSharedManager mgr) throws IgniteCheckedException;
+    void afterInitialise(IgniteCacheDatabaseSharedManager mgr) throws IgniteCheckedException;
 
     /**
      * @param mgr Database shared manager.
      */
-    void onDeactivate(IgniteCacheDatabaseSharedManager mgr);
+    void beforeStop(IgniteCacheDatabaseSharedManager mgr);
 }

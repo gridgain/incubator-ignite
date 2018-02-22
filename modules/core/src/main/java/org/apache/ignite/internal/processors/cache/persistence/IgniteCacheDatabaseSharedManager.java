@@ -42,9 +42,11 @@ import org.apache.ignite.internal.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
+import org.apache.ignite.internal.processors.cache.CacheGroupDescriptor;
 import org.apache.ignite.internal.processors.cache.DynamicCacheDescriptor;
 import org.apache.ignite.internal.processors.cache.GridCacheMapEntry;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedManagerAdapter;
+import org.apache.ignite.internal.processors.cache.StoredCacheData;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
 import org.apache.ignite.internal.processors.cache.persistence.evict.FairFifoPageEvictionTracker;
 import org.apache.ignite.internal.processors.cache.persistence.evict.NoOpPageEvictionTracker;
@@ -664,6 +666,10 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
 
     /** {@inheritDoc} */
     @Override protected void stop0(boolean cancel) {
+        for (DatabaseLifecycleListener lsnr : getSubscribers(cctx.kernalContext())) {
+            lsnr.beforeStop(this);
+        }
+
         if (dataRegionMap != null) {
             for (DataRegion memPlc : dataRegionMap.values()) {
                 memPlc.pageMemory().stop();
@@ -1014,16 +1020,12 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
         initPageMemoryDataStructures(memCfg);
 
         for (DatabaseLifecycleListener lsnr : getSubscribers(kctx)) {
-            lsnr.onActivate(this);
+            lsnr.afterInitialise(this);
         }
     }
 
     /** {@inheritDoc} */
     @Override public void onDeActivate(GridKernalContext kctx) {
-        for (DatabaseLifecycleListener lsnr : getSubscribers(kctx)) {
-            lsnr.onDeactivate(this);
-        }
-
         stop0(false);
     }
 
@@ -1064,6 +1066,10 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
      * @param enabled flag.
      */
     public void walEnabled(int grpId, boolean enabled) {
+        // No-op.
+    }
+
+    public void initializeForCache(CacheGroupDescriptor descriptor, StoredCacheData data) throws IgniteCheckedException {
         // No-op.
     }
 }

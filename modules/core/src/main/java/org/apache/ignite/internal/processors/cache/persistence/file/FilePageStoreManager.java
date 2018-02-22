@@ -50,7 +50,6 @@ import org.apache.ignite.internal.processors.cache.CacheGroupDescriptor;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedManagerAdapter;
 import org.apache.ignite.internal.processors.cache.StoredCacheData;
 import org.apache.ignite.internal.processors.cache.persistence.AllocatedPageTracker;
-import org.apache.ignite.internal.processors.cache.persistence.DataRegion;
 import org.apache.ignite.internal.processors.cache.persistence.filename.PdsFolderSettings;
 import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage;
 import org.apache.ignite.internal.processors.cache.persistence.snapshot.IgniteCacheSnapshotManager;
@@ -209,34 +208,20 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
     }
 
     /** {@inheritDoc} */
-    @Override public void initializeForRegion(int cacheId, int partitions, DataRegion dataRegion)
+    @Override public void initialize(int cacheId, int partitions, String workingDir, AllocatedPageTracker tracker)
         throws IgniteCheckedException {
         if (!idxCacheStores.containsKey(cacheId)) {
-            AllocatedPageTracker allocatedTracker = dataRegion.memoryMetrics();
-
-            String regionName = dataRegion.config().getName();
-
-            File cacheWorkDir = new File(storeWorkDir, regionName);
-
             CacheStoreHolder holder = initDir(
-                cacheWorkDir,
+                new File(storeWorkDir, workingDir),
                 cacheId,
                 partitions,
-                allocatedTracker,
-                dataRegion);
+                tracker
+            );
 
             CacheStoreHolder old = idxCacheStores.put(cacheId, holder);
 
-            assert old == null : "Non-null old store holder for data region: " + regionName;
+            assert old == null : "Non-null old store holder for cacheId: " + cacheId;
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override public DataRegion registeredRegion(int cacheId) {
-        CacheStoreHolder holder = idxCacheStores.get(cacheId);
-
-        return holder != null && holder.getClass() == DataRegionAwareCacheStoreHolder.class ?
-            ((DataRegionAwareCacheStoreHolder)holder).region : null;
     }
 
     /** {@inheritDoc} */
@@ -264,8 +249,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
                     "metastorage"),
                 grpId,
                 1,
-                delta -> {/* No-op */},
-                null);
+                delta -> {/* No-op */}
+            );
 
             CacheStoreHolder old = idxCacheStores.put(grpId, holder);
 
@@ -443,8 +428,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         return initDir(cacheWorkDir,
             grpDesc.groupId(),
             grpDesc.config().getAffinity().partitions(),
-            allocatedTracker,
-            null);
+            allocatedTracker
+        );
     }
 
     /**
@@ -452,15 +437,13 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
      * @param grpId Group ID.
      * @param partitions Number of partitions.
      * @param allocatedTracker Metrics updater.
-     * @param dataRegion Data region.
      * @return Cache store holder.
      * @throws IgniteCheckedException If failed.
      */
     private CacheStoreHolder initDir(File cacheWorkDir,
         int grpId,
         int partitions,
-        AllocatedPageTracker allocatedTracker,
-        DataRegion dataRegion) throws IgniteCheckedException {
+        AllocatedPageTracker allocatedTracker) throws IgniteCheckedException {
         try {
             boolean dirExisted = checkAndInitCacheWorkDir(cacheWorkDir);
 
@@ -490,7 +473,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
                     partStores[partId] = partStore;
                 }
 
-            return dataRegion != null ? new DataRegionAwareCacheStoreHolder(idxStore, partStores, dataRegion) : new CacheStoreHolder(idxStore, partStores);
+            return new CacheStoreHolder(idxStore, partStores);
         }
         catch (PersistentStorageIOException e) {
             NodeInvalidator.INSTANCE.invalidate(cctx.kernalContext(), e);
@@ -884,28 +867,9 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         /**
          *
          */
-        public CacheStoreHolder(FilePageStore idxStore, FilePageStore[] partStores) {
+        CacheStoreHolder(FilePageStore idxStore, FilePageStore[] partStores) {
             this.idxStore = idxStore;
             this.partStores = partStores;
         }
     }
-
-    /**
-     *
-     */
-    private static class DataRegionAwareCacheStoreHolder extends CacheStoreHolder {
-
-        /** Data region */
-        private final DataRegion region;
-
-        /**
-         *
-         */
-        DataRegionAwareCacheStoreHolder(FilePageStore idxStore, FilePageStore[] partStores, DataRegion region) {
-            super(idxStore, partStores);
-
-            this.region = region;
-        }
-    }
-
 }

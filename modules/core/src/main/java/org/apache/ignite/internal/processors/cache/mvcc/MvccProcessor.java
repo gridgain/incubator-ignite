@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.processors.cache.mvcc;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -67,7 +64,6 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.GridAtomicLong;
 import org.apache.ignite.internal.util.GridLongList;
-import org.apache.ignite.internal.util.GridSpinReadWriteLock;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.F;
@@ -786,7 +782,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     }
 
     /** {@inheritDoc} */
-    @Override public void onActivate(IgniteCacheDatabaseSharedManager mgr) throws IgniteCheckedException {
+    @Override public void afterInitialise(IgniteCacheDatabaseSharedManager mgr) throws IgniteCheckedException {
         if (!CU.isPersistenceEnabled(ctx.config())) {
             assert txLog == null;
 
@@ -799,7 +795,8 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         assert CU.isPersistenceEnabled(ctx.config());
         assert txLog == null;
 
-        ctx.cache().context().pageStore().initializeForRegion(TX_LOG_CACHE_ID, 1, mgr.dataRegion(TX_LOG_CACHE_NAME));
+        ctx.cache().context().pageStore().initialize(TX_LOG_CACHE_ID, 1,
+            TX_LOG_CACHE_NAME, mgr.dataRegion(TX_LOG_CACHE_NAME).memoryMetrics());
     }
 
     /** {@inheritDoc} */
@@ -811,7 +808,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     }
 
     /** {@inheritDoc} */
-    @Override public void onDeactivate(IgniteCacheDatabaseSharedManager mgr) {
+    @Override public void beforeStop(IgniteCacheDatabaseSharedManager mgr) {
         txLog = null;
     }
 
