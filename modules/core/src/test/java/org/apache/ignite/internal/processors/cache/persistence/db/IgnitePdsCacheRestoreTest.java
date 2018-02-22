@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.persistence.db;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -37,6 +38,7 @@ import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
  *
  */
 public class IgnitePdsCacheRestoreTest extends GridCommonAbstractTest {
+
     /** */
     private static final TcpDiscoveryIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
 
@@ -49,6 +51,8 @@ public class IgnitePdsCacheRestoreTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
+
+        cfg.setConsistentId(igniteInstanceName);
 
         ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(IP_FINDER);
 
@@ -94,28 +98,56 @@ public class IgnitePdsCacheRestoreTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testRestoreAndNewCache1() throws Exception {
-        restoreAndNewCache(false);
+        restoreAndNewCache(false, false, false);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testRestoreAndNewCache2() throws Exception {
-        restoreAndNewCache(true);
+        restoreAndNewCache(true, false, false);
     }
 
     /**
-     * @param createNew If {@code true} need cache is added while node is stopped.
      * @throws Exception If failed.
      */
-    private void restoreAndNewCache(boolean createNew) throws Exception {
+    public void testRestoreAndNewCache3() throws Exception {
+        restoreAndNewCache(false, true, false);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testRestoreAndNewCache4() throws Exception {
+        restoreAndNewCache(false, false, true);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testRestoreAndNewCache5() throws Exception {
+        restoreAndNewCache(true, false, true);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testRestoreAndNewCache6() throws Exception {
+        restoreAndNewCache(false, true, true);
+    }
+
+    /**
+     * @param dynamicStart If {@code true} need cache is added while node is stopped.
+     * @throws Exception If failed.
+     */
+    private void restoreAndNewCache(boolean dynamicStart, boolean fullRestart, boolean changeGroup) throws Exception {
         for (int i = 0; i < 3; i++) {
             ccfgs = configurations1();
 
             startGrid(i);
         }
 
-        ignite(0).active(true);
+        ignite(0).cluster().active(true);
 
         IgniteCache<Object, Object> cache1 = ignite(2).cache("c1");
 
@@ -124,18 +156,41 @@ public class IgnitePdsCacheRestoreTest extends GridCommonAbstractTest {
         for (Integer key : keys)
             cache1.put(key, key);
 
-        stopGrid(2);
+        if (fullRestart)
+            stopAllGrids();
+        else
+            stopGrid(2);
 
-        if (createNew) {
+        if (dynamicStart) {
+            assert !fullRestart;
+
             // New cache is added when node is stopped.
-            ignite(0).getOrCreateCaches(Arrays.asList(configurations2()));
+            ignite(0).getOrCreateCaches(Arrays.asList(configurations2(changeGroup)));
         }
         else {
             // New cache is added on node restart.
-            ccfgs = configurations2();
+            ccfgs = configurations2(changeGroup);
         }
 
-        startGrid(2);
+        try {
+            startGrid(2);
+        }
+        catch (IgniteCheckedException e) {
+            if (changeGroup && e.getMessage().contains("Cache group name mismatch"))
+                return; // expected error
+
+            throw e;
+        }
+
+        if (fullRestart) {
+            ccfgs = configurations2(changeGroup); // https://issues.apache.org/jira/browse/IGNITE-7383
+
+            startGrid(0);
+
+            ccfgs = configurations2(changeGroup); // https://issues.apache.org/jira/browse/IGNITE-7383
+
+            startGrid(1).cluster().active(true);
+        }
 
         cache1 = ignite(2).cache("c1");
 
@@ -187,6 +242,9 @@ public class IgnitePdsCacheRestoreTest extends GridCommonAbstractTest {
 
             assertEquals(key, cache1.get(key));
         }
+
+        if (!dynamicStart && changeGroup)
+            fail("Test should fail on cache group change");
     }
 
     /**
@@ -195,7 +253,7 @@ public class IgnitePdsCacheRestoreTest extends GridCommonAbstractTest {
     private CacheConfiguration[] configurations1() {
         CacheConfiguration[] ccfgs = new CacheConfiguration[1];
 
-        ccfgs[0] = cacheConfiguration("c1");
+        ccfgs[0] = cacheConfiguration("c1", "g1");
 
         return ccfgs;
     }
@@ -203,13 +261,13 @@ public class IgnitePdsCacheRestoreTest extends GridCommonAbstractTest {
     /**
      * @return Configurations set 1.
      */
-    private CacheConfiguration[] configurations2() {
+    private CacheConfiguration[] configurations2(boolean changeGroup) {
         CacheConfiguration[] ccfgs = new CacheConfiguration[3];
 
-        ccfgs[0] = cacheConfiguration("c1");
-        ccfgs[1] = cacheConfiguration("c2");
-        ccfgs[2] = cacheConfiguration("c3");
+        ccfgs[0] = cacheConfiguration("c1", changeGroup ? "g2" : "g1");
+        ccfgs[1] = cacheConfiguration("c2", "g1");
 
+        ccfgs[2] = cacheConfiguration("c3", null);
         ccfgs[2].setDataRegionName(NO_PERSISTENCE_REGION);
 
         return ccfgs;
@@ -219,8 +277,11 @@ public class IgnitePdsCacheRestoreTest extends GridCommonAbstractTest {
      * @param name Cache name.
      * @return Cache configuration.
      */
-    private CacheConfiguration cacheConfiguration(String name) {
+    private CacheConfiguration cacheConfiguration(String name, String group) {
         CacheConfiguration ccfg = new CacheConfiguration(name);
+
+        if (group != null)
+            ccfg.setGroupName(group);
 
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
 
