@@ -519,7 +519,7 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
     /**
      * @return Latest serializer version.
      */
-    public int serializerVersion() {
+    @Override public int serializerVersion() {
         return serializerVersion;
     }
 
@@ -2133,7 +2133,7 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
         /**
          * @throws IgniteCheckedException If failed to close the WAL segment file.
          */
-        public void close() throws IgniteCheckedException {
+        @Override public void close() throws IgniteCheckedException {
             try {
                 fileIO.close();
             }
