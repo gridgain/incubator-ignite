@@ -30,8 +30,11 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.sql.Time;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -44,6 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -517,6 +521,47 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
     }
 
     /**
+     *  Collect wal segment files from low pointer (include) to high pointer (not include) and reserve low pointer.
+     *
+     * @param low Low bound.
+     * @param high High bound.
+     */
+    public Collection<File> getAndReserveWalFiles(FileWALPointer low, FileWALPointer high) throws IgniteCheckedException {
+        final long awaitIdx = high.index() - 1;
+
+        while (archiver.lastArchivedAbsoluteIndex() < awaitIdx)
+            LockSupport.parkNanos(Thread.currentThread(), 1_000_000);
+
+        if (!reserve(low))
+            throw new IgniteCheckedException("WAL archive segment has been deleted [idx=" + low.index() + "]");
+
+        List<File> res = new ArrayList<>();
+
+        for (long i = low.index(); i < high.index(); i++) {
+            String segmentName = FileWriteAheadLogManager.FileDescriptor.fileName(i);
+
+            File file = new File(walArchiveDir, segmentName);
+            File fileZip = new File(walArchiveDir, segmentName + ".zip");
+
+            if (file.exists())
+                res.add(file);
+            else if (fileZip.exists())
+                res.add(fileZip);
+            else {
+                if (log.isInfoEnabled()) {
+                    log.info("Segment not found: " + file.getName() + "/" + fileZip.getName());
+
+                    log.info("Stopped iteration on idx: " + i);
+                }
+
+                break;
+            }
+        }
+
+        return res;
+    }
+
+    /**
      * @return Latest serializer version.
      */
     @Override public int serializerVersion() {
@@ -572,7 +617,13 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
         // Need to calculate record size first.
         record.size(serializer.size(record));
 
-        for (; ; currWrHandle = rollOver(currWrHandle)) {
+        while (true) {
+            if (record.rollOver()){
+                assert cctx.database().checkpointLockIsHeldByThread();
+
+                currWrHandle = rollOver(currWrHandle);
+            }
+
             WALPointer ptr = currWrHandle.addRecord(record);
 
             if (ptr != null) {
@@ -585,6 +636,8 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
 
                 return ptr;
             }
+            else
+                currWrHandle = rollOver(currWrHandle);
 
             checkNode();
 
