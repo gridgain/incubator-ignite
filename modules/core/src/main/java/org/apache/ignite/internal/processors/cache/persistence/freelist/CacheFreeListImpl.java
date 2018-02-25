@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.persistence.freelist;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
+import org.apache.ignite.internal.pagemem.wal.record.delta.MvccDataPageMarkRemovedRecord;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegion;
@@ -103,8 +104,13 @@ public class CacheFreeListImpl extends AbstractFreeList<CacheDataRow> implements
 
             assert newCrd > 0 == newCntr > MVCC_COUNTER_NA;
 
-            if (newCrd == 0)
+            if (newCrd == 0) {
                 iox.markRemoved(pageAddr, data.offset(), newVer);
+
+                if (needWalDeltaRecord(pageId, page, walPlc))
+                    wal.log(new MvccDataPageMarkRemovedRecord(cacheId, pageId, itemId, newVer.coordinatorVersion(),
+                        newVer.counter()));
+            }
 
             return Boolean.TRUE;
         }

@@ -63,6 +63,33 @@ public class MvccDataPageIO extends AbstractDataPageIO<CacheDataRow> {
     public void markRemoved(long pageAddr, int dataOff, MvccVersion newVer) {
         long addr = pageAddr + dataOff;
 
+        markRemoved(addr, newVer.coordinatorVersion(), newVer.counter());
+    }
+
+    /**
+     * Marks row as removed by new version.
+     *
+     * @param pageAddr Page address.
+     * @param itemId Item ID.
+     * @param pageSize Page size.
+     * @param mvccCrd Mvcc coordinator.
+     * @param mvccCntr Mvcc counter.
+     */
+    public void markRemoved(long pageAddr, int itemId, int pageSize, long mvccCrd, long mvccCntr) {
+        int dataOff = getDataOffset(pageAddr, itemId, pageSize);
+        long addr = pageAddr + dataOff;
+
+        markRemoved(addr, mvccCrd, mvccCntr);
+    }
+
+    /**
+     * Marks row removed.
+     *
+     * @param addr Address.
+     * @param mvccCrd Mvcc coordinator.
+     * @param mvccCntr Mvcc counter.
+     */
+    private void markRemoved(long addr, long mvccCrd, long mvccCntr) {
         // Skip xid_min.
         addr += 16;
 
@@ -72,8 +99,8 @@ public class MvccDataPageIO extends AbstractDataPageIO<CacheDataRow> {
 
         //assert prevCrd == 0 && prevCntr == MVCC_COUNTER_NA;
 
-        PageUtils.putLong(addr, 0, newVer.coordinatorVersion());
-        PageUtils.putLong(addr, 8, newVer.counter());
+        PageUtils.putLong(addr, 0, mvccCrd);
+        PageUtils.putLong(addr, 8, mvccCntr);
     }
 
     /**
