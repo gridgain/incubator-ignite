@@ -15,70 +15,51 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.tree;
+package org.apache.ignite.internal.processors.cache.tree.mvcc.search;
 
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
+import org.apache.ignite.internal.processors.cache.tree.CacheDataRowStore;
+import org.apache.ignite.internal.processors.cache.tree.CacheDataTree;
+import org.apache.ignite.internal.processors.cache.tree.RowLinkIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * Closure which returns the very first encountered row.
  */
-public class MvccKeyMaxVersionBound extends SearchRow implements BPlusTree.TreeRowClosure<CacheSearchRow, CacheDataRow> {
+public class MvccFirstRowTreeClosure implements MvccTreeClosure {
     /** */
-    private CacheDataRow resRow;
-
-    /**
-     * @param cacheId Cache ID.
-     * @param key Key.
-     */
-    public MvccKeyMaxVersionBound(int cacheId, KeyCacheObject key) {
-        super(cacheId, key);
-    }
+    private CacheDataRow res;
 
     /**
      * @return Found row.
      */
     @Nullable public CacheDataRow row() {
-        return resRow;
+        return res;
     }
 
     /** {@inheritDoc} */
     @Override public boolean apply(BPlusTree<CacheSearchRow, CacheDataRow> tree, BPlusIO<CacheSearchRow> io,
-        long pageAddr,
-        int idx)
-        throws IgniteCheckedException
-    {
+        long pageAddr, int idx) throws IgniteCheckedException {
         RowLinkIO rowIo = (RowLinkIO)io;
 
         CacheDataRowStore rowStore = ((CacheDataTree)tree).rowStore();
 
         if (rowStore.isRemoved(rowIo, pageAddr, idx))
-            resRow = null;
+            res = null;
         else
-            resRow = ((CacheDataTree)tree).getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
+            res = tree.getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
 
         return false;  // Stop search.
     }
 
     /** {@inheritDoc} */
-    @Override public long mvccCoordinatorVersion() {
-        return Long.MAX_VALUE;
-    }
-
-    /** {@inheritDoc} */
-    @Override public long mvccCounter() {
-        return Long.MAX_VALUE;
-    }
-
-    /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(MvccKeyMaxVersionBound.class, this);
+        return S.toString(MvccFirstRowTreeClosure.class, this);
     }
 }

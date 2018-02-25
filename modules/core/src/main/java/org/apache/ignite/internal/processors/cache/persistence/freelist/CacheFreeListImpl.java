@@ -32,7 +32,7 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataP
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageHandler;
-import org.apache.ignite.internal.processors.cache.tree.MvccUpdateRow;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccUpdateDataRow;
 
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
@@ -74,7 +74,7 @@ public class CacheFreeListImpl extends AbstractFreeList<CacheDataRow> implements
 
     /** {@inheritDoc} */
     @Override public IOVersions<? extends AbstractDataPageIO<CacheDataRow>> ioVersions(CacheDataRow row) {
-        return row instanceof MvccUpdateRow ? MvccDataPageIO.VERSIONS : DataPageIO.VERSIONS;
+        return row instanceof MvccUpdateDataRow ? MvccDataPageIO.VERSIONS : DataPageIO.VERSIONS;
     }
 
     /** {@inheritDoc} */

@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.tree;
+package org.apache.ignite.internal.processors.cache.tree.mvcc.data;
 
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.IOVersions;
+import org.apache.ignite.internal.processors.cache.tree.AbstractDataLeafIO;
 
 /**
  *
  */
-public final class CacheIdAwareMvccDataLeafIO extends AbstractDataLeafIO {
+public final class MvccCacheIdAwareDataLeafIO extends AbstractDataLeafIO {
     /** */
-    public static final IOVersions<CacheIdAwareMvccDataLeafIO> VERSIONS = new IOVersions<>(
-        new CacheIdAwareMvccDataLeafIO(1)
+    public static final IOVersions<MvccCacheIdAwareDataLeafIO> VERSIONS = new IOVersions<>(
+        new MvccCacheIdAwareDataLeafIO(1)
     );
 
     /**
      * @param ver Page format version.
      */
-    private CacheIdAwareMvccDataLeafIO(int ver) {
+    private MvccCacheIdAwareDataLeafIO(int ver) {
         super(T_CACHE_ID_DATA_REF_MVCC_LEAF, ver, 32);
     }
 
@@ -47,7 +48,7 @@ public final class CacheIdAwareMvccDataLeafIO extends AbstractDataLeafIO {
     }
 
     /** {@inheritDoc} */
-    @Override final boolean storeMvccVersion() {
+    @Override protected final boolean storeMvccVersion() {
         return true;
     }
 

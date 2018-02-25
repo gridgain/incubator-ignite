@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.tree;
+package org.apache.ignite.internal.processors.cache.tree.mvcc.data;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +29,11 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapt
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
+import org.apache.ignite.internal.processors.cache.tree.CacheDataRowStore;
+import org.apache.ignite.internal.processors.cache.tree.CacheDataTree;
+import org.apache.ignite.internal.processors.cache.tree.DataRow;
+import org.apache.ignite.internal.processors.cache.tree.RowLinkIO;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -40,7 +45,7 @@ import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.ass
 /**
  *
  */
-public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<CacheSearchRow, CacheDataRow> {
+public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosure<CacheSearchRow, CacheDataRow> {
     /** */
     private UpdateResult res;
 
@@ -51,7 +56,7 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
     private GridLongList activeTxs;
 
     /** */
-    private List<MvccCleanupRow> cleanupRows;
+    private List<MvccLinkAwareSearchRow> cleanupRows;
 
     /** */
     private final MvccSnapshot mvccSnapshot;
@@ -78,7 +83,7 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
      * @param part Partition.
      * @param cacheId Cache ID.
      */
-    public MvccUpdateRow(
+    public MvccUpdateDataRow(
         KeyCacheObject key,
         CacheObject val,
         GridCacheVersion ver,
@@ -127,7 +132,7 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
     /**
      * @return Rows which are safe to cleanup.
      */
-    public List<MvccCleanupRow> cleanupRows() {
+    public List<MvccLinkAwareSearchRow> cleanupRows() {
         return cleanupRows;
     }
 
@@ -241,7 +246,7 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
                     if (cleanupRows == null)
                         cleanupRows = new ArrayList<>();
 
-                    cleanupRows.add(new MvccCleanupRow(cacheId, key, rowCrdVer, rowCntr, rowIo.getLink(pageAddr, idx)));
+                    cleanupRows.add(new MvccLinkAwareSearchRow(cacheId, key, rowCrdVer, rowCntr, rowIo.getLink(pageAddr, idx)));
                 }
                 else
                     canCleanup = true;
@@ -280,7 +285,7 @@ public class MvccUpdateRow extends DataRow implements BPlusTree.TreeRowClosure<C
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(MvccUpdateRow.class, this, "super", super.toString());
+        return S.toString(MvccUpdateDataRow.class, this, "super", super.toString());
     }
 
     /**

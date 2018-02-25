@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.tree;
+package org.apache.ignite.internal.processors.cache.tree.mvcc.search;
 
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.tree.SearchRow;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- *
+ * Search row for minimum key version.
  */
-public class MvccKeyMinVersionBound extends SearchRow {
+public class MvccMinSearchRow extends SearchRow {
     /**
      * @param cacheId Cache ID.
      * @param key Key.
      */
-    public MvccKeyMinVersionBound(int cacheId, KeyCacheObject key) {
+    public MvccMinSearchRow(int cacheId, KeyCacheObject key) {
         super(cacheId, key);
     }
 
@@ -44,6 +45,6 @@ public class MvccKeyMinVersionBound extends SearchRow {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(MvccKeyMinVersionBound.class, this);
+        return S.toString(MvccMinSearchRow.class, this);
     }
 }

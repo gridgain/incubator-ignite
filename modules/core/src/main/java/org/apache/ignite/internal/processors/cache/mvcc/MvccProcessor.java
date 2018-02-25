@@ -28,14 +28,12 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.events.Event;
 import org.apache.ignite.internal.GridKernalContext;
-import org.apache.ignite.internal.GridTopic;
 import org.apache.ignite.internal.IgniteDiagnosticPrepareContext;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
@@ -100,15 +98,6 @@ public class MvccProcessor extends GridProcessorAdapter {
     public static final long MVCC_START_CNTR = 1L;
 
     /** */
-    private static final boolean STAT_CNTRS = false;
-
-    /** */
-    private static final GridTopic MSG_TOPIC = TOPIC_CACHE_COORDINATOR;
-
-    /** */
-    private static final byte MSG_POLICY = SYSTEM_POOL;
-
-    /** */
     private volatile MvccCoordinator curCrd;
 
     /** */
@@ -118,6 +107,7 @@ public class MvccProcessor extends GridProcessorAdapter {
     private final GridAtomicLong committedCntr = new GridAtomicLong(1L);
 
     /** */
+    // TODO: Why do we need GridCacheVersion here? It is never used at the moment. Failover in future?
     private final ConcurrentSkipListMap<Long, GridCacheVersion> activeTxs = new ConcurrentSkipListMap<>();
 
     /** */
@@ -143,9 +133,6 @@ public class MvccProcessor extends GridProcessorAdapter {
 
     /** Topology version when local node was assigned as coordinator. */
     private long crdVer;
-
-    /** */
-    private StatCounter[] statCntrs;
 
     /** */
     private MvccDiscoveryData discoData = new MvccDiscoveryData(null);
@@ -305,20 +292,10 @@ public class MvccProcessor extends GridProcessorAdapter {
 
     /** {@inheritDoc} */
     @Override public void start() throws IgniteCheckedException {
-        statCntrs = new StatCounter[7];
-
-        statCntrs[0] = new CounterWithAvg("MvccTxSnapshotRequest", "avgTxs");
-        statCntrs[1] = new CounterWithAvg("MvccSnapshotResponse", "avgFutTime");
-        statCntrs[2] = new StatCounter("MvccAckRequestTx");
-        statCntrs[3] = new CounterWithAvg("CoordinatorTxAckResponse", "avgFutTime");
-        statCntrs[4] = new StatCounter("TotalRequests");
-        statCntrs[5] = new StatCounter("MvccWaitTxsRequest");
-        statCntrs[6] = new CounterWithAvg("CoordinatorWaitTxsResponse", "avgFutTime");
-
         ctx.event().addLocalEventListener(new CacheCoordinatorNodeFailListener(),
             EVT_NODE_FAILED, EVT_NODE_LEFT);
 
-        ctx.io().addMessageListener(MSG_TOPIC, new CoordinatorMessageListener());
+        ctx.io().addMessageListener(TOPIC_CACHE_COORDINATOR, new CoordinatorMessageListener());
     }
 
     /** {@inheritDoc} */
@@ -327,6 +304,7 @@ public class MvccProcessor extends GridProcessorAdapter {
     }
 
     /** {@inheritDoc} */
+    @SuppressWarnings("ConstantConditions")
     @Override public void collectGridNodeData(DiscoveryDataBag dataBag) {
         Integer cmpId = discoveryDataType().ordinal();
 
@@ -424,18 +402,6 @@ public class MvccProcessor extends GridProcessorAdapter {
     }
 
     /**
-     * @param log Logger.
-     */
-    public void dumpStatistics(IgniteLogger log) {
-        if (STAT_CNTRS) {
-            log.info("Mvcc coordinator statistics: ");
-
-            for (StatCounter cntr : statCntrs)
-                cntr.dumpInfo(log);
-        }
-    }
-
-    /**
      * @param tx Transaction.
      * @return Counter.
      */
@@ -471,10 +437,7 @@ public class MvccProcessor extends GridProcessorAdapter {
         snapshotFuts.put(fut.id, fut);
 
         try {
-            ctx.io().sendToGridTopic(crd.nodeId(),
-                MSG_TOPIC,
-                new MvccTxSnapshotRequest(fut.id, txVer),
-                MSG_POLICY);
+            sendMessage(crd.nodeId(), new MvccTxSnapshotRequest(fut.id, txVer));
         }
         catch (IgniteCheckedException e) {
             if (snapshotFuts.remove(fut.id) != null)
@@ -497,10 +460,7 @@ public class MvccProcessor extends GridProcessorAdapter {
             new MvccNewQueryAckRequest(mvccVer.coordinatorVersion(), trackCntr);
 
         try {
-            ctx.io().sendToGridTopic(crd.nodeId(),
-                MSG_TOPIC,
-                msg,
-                MSG_POLICY);
+            sendMessage(crd.nodeId(), msg);
         }
         catch (ClusterTopologyCheckedException e) {
             if (log.isDebugEnabled())
@@ -544,10 +504,7 @@ public class MvccProcessor extends GridProcessorAdapter {
         snapshotFuts.put(fut.id, fut);
 
         try {
-            ctx.io().sendToGridTopic(crd.nodeId(),
-                MSG_TOPIC,
-                new MvccQuerySnapshotRequest(fut.id),
-                MSG_POLICY);
+            sendMessage(crd.nodeId(), new MvccQuerySnapshotRequest(fut.id));
         }
         catch (IgniteCheckedException e) {
             if (snapshotFuts.remove(fut.id) != null)
@@ -571,10 +528,7 @@ public class MvccProcessor extends GridProcessorAdapter {
         ackFuts.put(fut.id, fut);
 
         try {
-            ctx.io().sendToGridTopic(crdId,
-                MSG_TOPIC,
-                new MvccWaitTxsRequest(fut.id, txs),
-                MSG_POLICY);
+            sendMessage(crdId, new MvccWaitTxsRequest(fut.id, txs));
         }
         catch (IgniteCheckedException e) {
             if (ackFuts.remove(fut.id) != null) {
@@ -607,7 +561,7 @@ public class MvccProcessor extends GridProcessorAdapter {
         MvccAckRequestTx msg = createTxAckMessage(fut.id, updateVer, readVer);
 
         try {
-            ctx.io().sendToGridTopic(crd, MSG_TOPIC, msg, MSG_POLICY);
+            sendMessage(crd, msg);
         }
         catch (IgniteCheckedException e) {
             if (ackFuts.remove(fut.id) != null) {
@@ -665,10 +619,7 @@ public class MvccProcessor extends GridProcessorAdapter {
         msg.skipResponse(true);
 
         try {
-            ctx.io().sendToGridTopic(crdId,
-                MSG_TOPIC,
-                msg,
-                MSG_POLICY);
+            sendMessage(crdId, msg);
         }
         catch (ClusterTopologyCheckedException e) {
             if (log.isDebugEnabled())
@@ -695,14 +646,8 @@ public class MvccProcessor extends GridProcessorAdapter {
 
         MvccSnapshotResponse res = assignTxSnapshot(msg.txId(), msg.futureId());
 
-        if (STAT_CNTRS)
-            statCntrs[0].update(res.size());
-
         try {
-            ctx.io().sendToGridTopic(node,
-                MSG_TOPIC,
-                res,
-                MSG_POLICY);
+            sendMessage(node.id(), res);
         }
         catch (ClusterTopologyCheckedException e) {
             if (log.isDebugEnabled())
@@ -731,10 +676,7 @@ public class MvccProcessor extends GridProcessorAdapter {
         MvccSnapshotResponse res = assignQueryCounter(nodeId, msg.futureId());
 
         try {
-            ctx.io().sendToGridTopic(node,
-                MSG_TOPIC,
-                res,
-                MSG_POLICY);
+            sendMessage(node.id(), res);
         }
         catch (ClusterTopologyCheckedException e) {
             if (log.isDebugEnabled())
@@ -755,9 +697,6 @@ public class MvccProcessor extends GridProcessorAdapter {
         MvccSnapshotFuture fut = snapshotFuts.remove(msg.futureId());
 
         if (fut != null) {
-            if (STAT_CNTRS)
-                statCntrs[1].update((System.nanoTime() - fut.startTime) * 1000);
-
             fut.onResponse(msg);
         }
         else {
@@ -798,15 +737,9 @@ public class MvccProcessor extends GridProcessorAdapter {
                 prevCrdQueries.onQueryDone(nodeId, msg.queryCoordinatorVersion(), msg.queryCounter());
         }
 
-        if (STAT_CNTRS)
-            statCntrs[2].update();
-
         if (!msg.skipResponse()) {
             try {
-                ctx.io().sendToGridTopic(nodeId,
-                    MSG_TOPIC,
-                    new MvccFutureResponse(msg.futureId()),
-                    MSG_POLICY);
+                sendMessage(nodeId, new MvccFutureResponse(msg.futureId()));
             }
             catch (ClusterTopologyCheckedException e) {
                 if (log.isDebugEnabled())
@@ -826,12 +759,6 @@ public class MvccProcessor extends GridProcessorAdapter {
         WaitAckFuture fut = ackFuts.remove(msg.futureId());
 
         if (fut != null) {
-            if (STAT_CNTRS) {
-                StatCounter cntr = fut.ackTx ? statCntrs[3] : statCntrs[6];
-
-                cntr.update((System.nanoTime() - fut.startTime) * 1000);
-            }
-
             fut.onResponse();
         }
         else {
@@ -849,6 +776,7 @@ public class MvccProcessor extends GridProcessorAdapter {
     private MvccSnapshotResponse assignTxSnapshot(GridCacheVersion txId, long futId) {
         assert crdVer != 0;
 
+        // TODO: Race
         long nextCtr = mvccCntr.incrementAndGet();
 
         MvccSnapshotResponse res = new MvccSnapshotResponse();
@@ -1021,6 +949,7 @@ public class MvccProcessor extends GridProcessorAdapter {
 
         return res;
 
+        // TODO: Dead code?
 //        MvccSnapshotResponse res = new MvccSnapshotResponse();
 //
 //        Long mvccCntr;
@@ -1094,6 +1023,8 @@ public class MvccProcessor extends GridProcessorAdapter {
      */
     private void onQueryDone(UUID nodeId, Long mvccCntr) {
         activeQueries.onQueryDone(nodeId, mvccCntr);
+
+        // TODO: Dead code?
 //        AtomicInteger qryCnt = activeQueries.get(mvccCntr);
 //
 //        assert qryCnt != null : mvccCntr;
@@ -1110,9 +1041,8 @@ public class MvccProcessor extends GridProcessorAdapter {
      * @param nodeId Node ID.
      * @param msg Message.
      */
+    @SuppressWarnings("unchecked")
     private void processCoordinatorWaitTxsRequest(final UUID nodeId, final MvccWaitTxsRequest msg) {
-        statCntrs[5].update();
-
         GridLongList txs = msg.transactions();
 
         GridCompoundFuture resFut = null;
@@ -1160,10 +1090,7 @@ public class MvccProcessor extends GridProcessorAdapter {
      */
     private void sendFutureResponse(UUID nodeId, MvccWaitTxsRequest msg) {
         try {
-            ctx.io().sendToGridTopic(nodeId,
-                MSG_TOPIC,
-                new MvccFutureResponse(msg.futureId()),
-                MSG_POLICY);
+            sendMessage(nodeId, new MvccFutureResponse(msg.futureId()));
         }
         catch (ClusterTopologyCheckedException e) {
             if (log.isDebugEnabled())
@@ -1236,10 +1163,7 @@ public class MvccProcessor extends GridProcessorAdapter {
         MvccActiveQueriesMessage msg = new MvccActiveQueriesMessage(activeQueries);
 
         try {
-            ctx.io().sendToGridTopic(nodeId,
-                MSG_TOPIC,
-                msg,
-                MSG_POLICY);
+            sendMessage(nodeId, msg);
         }
         catch (IgniteCheckedException e) {
             U.error(log, "Failed to send active queries to mvcc coordinator: " + e);
@@ -1277,9 +1201,20 @@ public class MvccProcessor extends GridProcessorAdapter {
     }
 
     /**
+     * Send IO message.
+     *
+     * @param nodeId Node ID.
+     * @param msg Message.
+     */
+    private void sendMessage(UUID nodeId, Message msg) throws IgniteCheckedException {
+        ctx.io().sendToGridTopic(nodeId, TOPIC_CACHE_COORDINATOR, msg, SYSTEM_POOL);
+    }
+
+    /**
      * @param log Logger.
      * @param diagCtx Diagnostic request.
      */
+    // TODO: Proper use of diagnostic context.
     public void dumpDebugInfo(IgniteLogger log, @Nullable IgniteDiagnosticPrepareContext diagCtx) {
         boolean first = true;
 
@@ -1319,9 +1254,6 @@ public class MvccProcessor extends GridProcessorAdapter {
         /** */
         public final MvccCoordinator crd;
 
-        /** */
-        long startTime;
-
         /**
          * @param id Future ID.
          * @param crd Mvcc coordinator.
@@ -1331,9 +1263,6 @@ public class MvccProcessor extends GridProcessorAdapter {
             this.id = id;
             this.crd = crd;
             this.lsnr = lsnr;
-
-            if (STAT_CNTRS)
-                startTime = System.nanoTime();
         }
 
         /** {@inheritDoc} */
@@ -1392,9 +1321,6 @@ public class MvccProcessor extends GridProcessorAdapter {
         private final UUID crdId;
 
         /** */
-        long startTime;
-
-        /** */
         final boolean ackTx;
 
         /**
@@ -1408,9 +1334,6 @@ public class MvccProcessor extends GridProcessorAdapter {
             this.id = id;
             this.crdId = crdId;
             this.ackTx = ackTx;
-
-            if (STAT_CNTRS)
-                startTime = System.nanoTime();
         }
 
         /** {@inheritDoc} */
@@ -1475,9 +1398,6 @@ public class MvccProcessor extends GridProcessorAdapter {
     private class CoordinatorMessageListener implements GridMessageListener {
         /** {@inheritDoc} */
         @Override public void onMessage(UUID nodeId, Object msg, byte plc) {
-            if (STAT_CNTRS)
-                statCntrs[4].update();
-
             MvccMessage msg0 = (MvccMessage)msg;
 
             if (msg0.waitForCoordinatorInit()) {
@@ -1523,80 +1443,14 @@ public class MvccProcessor extends GridProcessorAdapter {
             return "CoordinatorMessageListener[]";
         }
     }
-    /**
-     *
-     */
-    static class StatCounter {
-        /** */
-        final String name;
-
-        /** */
-        final LongAdder cntr = new LongAdder();
-
-        public StatCounter(String name) {
-            this.name = name;
-        }
-
-        void update() {
-            cntr.increment();
-        }
-
-        void update(GridLongList arg) {
-            throw new UnsupportedOperationException();
-        }
-
-        void update(long arg) {
-            throw new UnsupportedOperationException();
-        }
-
-        void dumpInfo(IgniteLogger log) {
-            long totalCnt = cntr.sumThenReset();
-
-            if (totalCnt > 0)
-                log.info(name + " [cnt=" + totalCnt + ']');
-        }
-    }
 
     /**
      *
      */
-    static class CounterWithAvg extends StatCounter {
-        /** */
-        final LongAdder total = new LongAdder();
-
-        /** */
-        final String avgName;
-
-        CounterWithAvg(String name, String avgName) {
-            super(name);
-
-            this.avgName = avgName;
-        }
-
-        @Override void update(GridLongList arg) {
-            update(arg != null ? arg.size() : 0);
-        }
-
-        @Override void update(long add) {
-            cntr.increment();
-
-            total.add(add);
-        }
-
-        void dumpInfo(IgniteLogger log) {
-            long totalCnt = cntr.sumThenReset();
-            long totalSum = total.sumThenReset();
-
-            if (totalCnt > 0)
-                log.info(name + " [cnt=" + totalCnt + ", " + avgName + "=" + ((float)totalSum / totalCnt) + ']');
-        }
-    }
-
-    /**
-     *
-     */
+    // TODO: Revisit WaitTxFuture purpose and usages. Looks like we do not need it at all.
     private static class WaitTxFuture extends GridFutureAdapter {
         /** */
+        // TODO: Unused?
         private final long txId;
 
         /**

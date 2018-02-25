@@ -20,8 +20,8 @@ package org.apache.ignite.internal.processors.cache.persistence.tree.io;
 import java.nio.ByteBuffer;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
-import org.apache.ignite.internal.processors.cache.tree.MvccDataRow;
-import org.apache.ignite.internal.processors.cache.tree.MvccUpdateRow;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccUpdateDataRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
@@ -49,7 +49,7 @@ public class DataPageIOUtils {
 
         assert !(row instanceof MvccDataRow);
 
-        if (row instanceof MvccUpdateRow)
+        if (row instanceof MvccUpdateDataRow)
             len += MVCC_INFO_SIZE;
 
         return len + (withCacheId ? 4 : 0);

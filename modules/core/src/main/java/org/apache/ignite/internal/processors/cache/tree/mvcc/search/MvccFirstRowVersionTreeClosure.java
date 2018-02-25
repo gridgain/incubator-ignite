@@ -15,47 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.tree;
+package org.apache.ignite.internal.processors.cache.tree.mvcc.search;
 
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionImpl;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
+import org.apache.ignite.internal.processors.cache.tree.RowLinkIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * Closure which returns version of the very first encountered row.
  */
-public class MvccMaxVersionClosure extends SearchRow implements BPlusTree.TreeRowClosure<CacheSearchRow, CacheDataRow> {
-    /** */
+public class MvccFirstRowVersionTreeClosure implements MvccTreeClosure {
+    /** Maximum MVCC version found for the row. */
     private MvccVersion res;
 
     /**
-     * @param cacheId Cache ID.
-     * @param key Key.
+     * @return Maximum MVCC version found for the row.
      */
-    public MvccMaxVersionClosure(int cacheId, KeyCacheObject key) {
-        super(cacheId, key);
-    }
-
-    /**
-     * @return Mvcc version of found row.
-     */
-    @Nullable public MvccVersion mvccVersion() {
+    @Nullable public MvccVersion maxMvccVersion() {
         return res;
     }
 
     /** {@inheritDoc} */
     @Override public boolean apply(BPlusTree<CacheSearchRow, CacheDataRow> tree, BPlusIO<CacheSearchRow> io,
-        long pageAddr,
-        int idx)
-        throws IgniteCheckedException
-    {
+        long pageAddr, int idx) throws IgniteCheckedException {
         RowLinkIO rowIo = (RowLinkIO)io;
 
         res = new MvccVersionImpl(rowIo.getMvccCoordinatorVersion(pageAddr, idx), rowIo.getMvccCounter(pageAddr, idx));
@@ -63,20 +52,8 @@ public class MvccMaxVersionClosure extends SearchRow implements BPlusTree.TreeRo
         return false;  // Stop search.
     }
 
-    // TODO: What is going on here with versions?
-    /** {@inheritDoc} */
-    @Override public long mvccCoordinatorVersion() {
-        return Long.MAX_VALUE;
-    }
-
-    // TODO: What is going on here with versions?
-    /** {@inheritDoc} */
-    @Override public long mvccCounter() {
-        return Long.MAX_VALUE;
-    }
-
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(MvccMaxVersionClosure.class, this);
+        return S.toString(MvccFirstRowVersionTreeClosure.class, this);
     }
 }

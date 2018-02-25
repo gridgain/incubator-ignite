@@ -15,39 +15,49 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.tree;
+package org.apache.ignite.internal.processors.cache.tree.mvcc.search;
 
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccLongList;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
+import org.apache.ignite.internal.processors.cache.tree.CacheDataRowStore;
+import org.apache.ignite.internal.processors.cache.tree.CacheDataTree;
+import org.apache.ignite.internal.processors.cache.tree.RowLinkIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Search row which is based on specific MVCC snapshot and return only records visible to that snapshot.
+ * Search row which returns the first row visible for the given snapshot. Usage:
+ * - set this row as the upper bound
+ * - pass the same row as search closure.
  */
-public class MvccSnapshotBasedSearchRow extends SearchRow implements BPlusTree.TreeRowClosure<CacheSearchRow, CacheDataRow> {
-    /** */
-    private final MvccSnapshot snapshot;
+public class MvccSnapshotSearchRow extends MvccSearchRow implements MvccTreeClosure {
+    /** Active transactions. */
+    private final MvccLongList activeTxs;
 
-    /** */
+    /** Resulting row. */
     private CacheDataRow resRow;
 
+    /** */
+    private MvccSnapshot snapshot;
+
     /**
+     * Constructor.
+     *
      * @param cacheId Cache ID.
      * @param key Key.
-     * @param snapshot MVCC snapshot.
+     * @param snapshot Snapshot.
      */
-    public MvccSnapshotBasedSearchRow(int cacheId, KeyCacheObject key, MvccSnapshot snapshot) {
-        super(cacheId, key);
+    public MvccSnapshotSearchRow(int cacheId, KeyCacheObject key, MvccSnapshot snapshot) {
+        super(cacheId, key, snapshot.coordinatorVersion(), snapshot.counter());
 
-        assert snapshot != null;
-
+        this.activeTxs = snapshot.activeTransactions();
         this.snapshot = snapshot;
     }
 
@@ -59,21 +69,19 @@ public class MvccSnapshotBasedSearchRow extends SearchRow implements BPlusTree.T
     }
 
     /** {@inheritDoc} */
-    @Override public boolean apply(BPlusTree<CacheSearchRow, CacheDataRow> tree,
-        BPlusIO<CacheSearchRow> io,
-        long pageAddr,
-        int idx) throws IgniteCheckedException
-    {
+    @Override public boolean apply(BPlusTree<CacheSearchRow, CacheDataRow> tree, BPlusIO<CacheSearchRow> io,
+        long pageAddr, int idx) throws IgniteCheckedException {
         boolean visible = true;
 
         RowLinkIO rowIo = (RowLinkIO)io;
 
-        long crdVer = rowIo.getMvccCoordinatorVersion(pageAddr, idx);
+        long rowCrdVer = rowIo.getMvccCoordinatorVersion(pageAddr, idx);
 
-        if (snapshot.activeTransactions().size() > 0) {
+        if (activeTxs != null && activeTxs.size() > 0) {
 
-            if (crdVer == snapshot.coordinatorVersion())
-                visible = !snapshot.activeTransactions().contains(rowIo.getMvccCounter(pageAddr, idx));
+            // TODO: What is the purpose of this check?
+            if (rowCrdVer == crdVer)
+                visible = !activeTxs.contains(rowIo.getMvccCounter(pageAddr, idx));
         }
 
         CacheDataRowStore rowStore = ((CacheDataTree)tree).rowStore();
@@ -82,7 +90,7 @@ public class MvccSnapshotBasedSearchRow extends SearchRow implements BPlusTree.T
             if (!rowStore.isVisible(rowIo, pageAddr, idx, snapshot))
                 resRow = null;
             else
-                resRow = ((CacheDataTree)tree).getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
+                resRow = tree.getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
 
             return false; // Stop search.
         }
@@ -91,17 +99,7 @@ public class MvccSnapshotBasedSearchRow extends SearchRow implements BPlusTree.T
     }
 
     /** {@inheritDoc} */
-    @Override public long mvccCoordinatorVersion() {
-        return snapshot.coordinatorVersion();
-    }
-
-    /** {@inheritDoc} */
-    @Override public long mvccCounter() {
-        return snapshot.counter();
-    }
-
-    /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(MvccSnapshotBasedSearchRow.class, this);
+        return S.toString(MvccSnapshotSearchRow.class, this);
     }
 }
