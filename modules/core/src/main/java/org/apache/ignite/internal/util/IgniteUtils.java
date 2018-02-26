@@ -3504,6 +3504,8 @@ public abstract class IgniteUtils {
                     }
                 }
             } catch (IOException e) {
+                e.printStackTrace();
+
                 return false;
             }
         }
@@ -3515,6 +3517,7 @@ public abstract class IgniteUtils {
             }
             catch (IOException ignore) {
                 // Ignore it here...
+                ignore.printStackTrace();
             }
         }
 
@@ -3523,6 +3526,7 @@ public abstract class IgniteUtils {
 
             return true;
         } catch (IOException e) {
+            e.printStackTrace();
             return false;
         }
     }
