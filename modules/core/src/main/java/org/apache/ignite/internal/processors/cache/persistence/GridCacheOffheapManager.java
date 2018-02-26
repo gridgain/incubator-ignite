@@ -168,7 +168,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
             metaWasUpdated |= saveStoreMetadata(store, ctx, !metaWasUpdated, false);
         }
 
-        if (ctx.nextSnapshot()) {
+        if (ctx.nextSnapshot() && !grp.isLocal()) {
             List<GridDhtLocalPartition> partitions = grp.topology().localPartitions();
 
             for (int i = 0; i < partitions.size(); i++) {
