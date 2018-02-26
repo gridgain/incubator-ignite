@@ -73,6 +73,7 @@ import java.nio.channels.FileLock;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.charset.Charset;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -3525,6 +3526,12 @@ public abstract class IgniteUtils {
             Files.delete(path);
 
             return true;
+        } catch (DirectoryNotEmptyException e) {
+            e.printStackTrace();
+
+            System.err.println(Arrays.toString(path.toFile().listFiles()));
+
+            return false;
         } catch (IOException e) {
             e.printStackTrace();
             return false;
