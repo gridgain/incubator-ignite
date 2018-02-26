@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.persistence.pagemem;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.plugin.IgnitePluginProcessor;
 import org.apache.ignite.internal.util.lang.GridInClosure3X;
 import org.apache.ignite.plugin.PluginProvider;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.logger.GridTestLog4jLogger;
@@ -96,11 +98,11 @@ public class PageMemoryImplTest extends GridCommonAbstractTest {
 
         memory.beginCheckpoint();
 
-        FullPageId lastPage = null;
+        final AtomicReference<FullPageId> lastPage = new AtomicReference<>();
 
         try {
             for (FullPageId fullPageId : pages) {
-                lastPage = fullPageId;
+                lastPage.set(fullPageId);
 
                 releaseWriteLock(memory, fullPageId);
             }
@@ -111,8 +113,16 @@ public class PageMemoryImplTest extends GridCommonAbstractTest {
 
         memory.finishCheckpoint();
 
-
-        releaseWriteLock(memory, lastPage); //we should be able get lock again
+        GridTestUtils.runAsync(new Runnable() {
+            @Override public void run() {
+                try {
+                    releaseWriteLock(memory, lastPage.get()); //we should be able get lock again
+                }
+                catch (IgniteCheckedException e) {
+                    throw new AssertionError(e);
+                }
+            }
+        }).get(getTestTimeout());
     }
 
     /**
