@@ -30,7 +30,7 @@ import org.apache.ignite.internal.processors.query.GridQueryRowCacheCleaner;
  */
 public class RowStore {
     /** */
-    private final FreeList freeList;
+    protected final FreeList freeList;
 
     /** */
     protected final GridCacheSharedContext ctx;

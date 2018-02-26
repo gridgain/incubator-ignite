@@ -48,7 +48,6 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapt
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.RootPage;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
-import org.apache.ignite.internal.processors.cache.persistence.freelist.CacheFreeList;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIOUtils;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
@@ -1028,7 +1027,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         throws IgniteCheckedException {
         final long rootPage = allocateForTree();
 
-        CacheDataRowStore rowStore = new CacheDataRowStore(grp, (CacheFreeList)grp.freeList(), p);
+        CacheDataRowStore rowStore = new CacheDataRowStore(grp, grp.freeList(), p);
 
         String idxName = treeName(p);
 

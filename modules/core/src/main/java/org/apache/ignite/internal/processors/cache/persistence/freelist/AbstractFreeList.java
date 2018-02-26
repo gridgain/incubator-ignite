@@ -528,6 +528,20 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     }
 
     /** {@inheritDoc} */
+    @Override public <S, R> R updateDataRow(long link, PageHandler<S, R> pageHnd, S arg) throws IgniteCheckedException {
+        assert link != 0;
+
+        long pageId = PageIdUtils.pageId(link);
+        int itemId = PageIdUtils.itemId(link);
+
+        R updRes = write(pageId, pageHnd, arg, itemId, null);
+
+        assert updRes != null; // Can't fail here.
+
+        return updRes;
+    }
+
+    /** {@inheritDoc} */
     @Override public void removeDataRowByLink(long link) throws IgniteCheckedException {
         assert link != 0;
 

@@ -18,33 +18,21 @@
 package org.apache.ignite.internal.processors.cache.persistence.freelist;
 
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
-import org.apache.ignite.internal.pagemem.wal.record.delta.MvccDataPageMarkRemovedRecord;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegion;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.IOVersions;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
-import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageHandler;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccUpdateDataRow;
-
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
-import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
 
 /**
  * FreeList implementation for cache.
  */
-public class CacheFreeListImpl extends AbstractFreeList<CacheDataRow> implements CacheFreeList {
-    /** Mvcc remove handler. */
-    private final PageHandler<MvccVersion, Boolean> mvccRmvMarker = new MvccMarkRemovedHandler();
-
+public class CacheFreeListImpl extends AbstractFreeList<CacheDataRow> {
     /**
      * @param cacheId Cache id.
      * @param name Name.
@@ -62,18 +50,6 @@ public class CacheFreeListImpl extends AbstractFreeList<CacheDataRow> implements
     }
 
     /** {@inheritDoc} */
-    @Override public void mvccMarkRemoved(long link, MvccVersion newVer) throws IgniteCheckedException {
-        assert link != 0;
-
-        long pageId = PageIdUtils.pageId(link);
-        int itemId = PageIdUtils.itemId(link);
-
-        Boolean res = write(pageId, mvccRmvMarker, newVer, itemId, null);
-
-        assert res != null && res;
-    }
-
-    /** {@inheritDoc} */
     @Override public IOVersions<? extends AbstractDataPageIO<CacheDataRow>> ioVersions(CacheDataRow row) {
         return row instanceof MvccUpdateDataRow ? MvccDataPageIO.VERSIONS : DataPageIO.VERSIONS;
     }
@@ -81,38 +57,5 @@ public class CacheFreeListImpl extends AbstractFreeList<CacheDataRow> implements
     /** {@inheritDoc} */
     @Override public String toString() {
         return "FreeList [name=" + name + ']';
-    }
-
-    /**
-     * Mvcc remove handler.
-     */
-    private final class MvccMarkRemovedHandler extends PageHandler<MvccVersion, Boolean> {
-
-        /** {@inheritDoc} */
-        @Override public Boolean run(int cacheId, long pageId, long page, long pageAddr, PageIO io, Boolean walPlc,
-            MvccVersion newVer, int itemId) throws IgniteCheckedException {
-            assert io instanceof MvccDataPageIO;
-
-            MvccDataPageIO iox = (MvccDataPageIO)io;
-
-            DataPagePayload data = iox.readPayload(pageAddr, itemId, pageSize());
-
-            assert data.payloadSize() >= MVCC_INFO_SIZE : "MVCC info should be fit on the very first data page.";
-
-            long newCrd = iox.newMvccCoordinator(pageAddr, data.offset());
-            long newCntr = iox.newMvccCounter(pageAddr, data.offset());
-
-            assert newCrd > 0 == newCntr > MVCC_COUNTER_NA;
-
-            if (newCrd == 0) {
-                iox.markRemoved(pageAddr, data.offset(), newVer);
-
-                if (needWalDeltaRecord(pageId, page, walPlc))
-                    wal.log(new MvccDataPageMarkRemovedRecord(cacheId, pageId, itemId, newVer.coordinatorVersion(),
-                        newVer.counter()));
-            }
-
-            return Boolean.TRUE;
-        }
     }
 }

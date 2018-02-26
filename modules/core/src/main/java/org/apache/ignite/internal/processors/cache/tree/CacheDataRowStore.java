@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.cache.tree;
 
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.pagemem.wal.record.delta.MvccDataPageMarkRemovedRecord;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
@@ -26,9 +27,16 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
-import org.apache.ignite.internal.processors.cache.persistence.freelist.CacheFreeList;
+import org.apache.ignite.internal.processors.cache.persistence.freelist.FreeList;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageHandler;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
 import org.apache.ignite.internal.util.typedef.internal.CU;
+
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
 
 /**
  *
@@ -40,20 +48,19 @@ public class CacheDataRowStore extends RowStore {
     /** */
     private final CacheGroupContext grp;
 
-    /** */
-    private final CacheFreeList cacheFreeList;
+    /** Mvcc remove handler. */
+    private final PageHandler<MvccVersion, Boolean> mvccRmvMarker = new MvccMarkRemovedHandler();
 
     /**
      * @param grp Cache group.
      * @param freeList Free list.
      * @param partId Partition number.
      */
-    public CacheDataRowStore(CacheGroupContext grp, CacheFreeList freeList, int partId) {
+    public CacheDataRowStore(CacheGroupContext grp, FreeList freeList, int partId) {
         super(grp, freeList);
 
         this.partId = partId;
         this.grp = grp;
-        this.cacheFreeList = freeList;
     }
 
     /**
@@ -65,12 +72,12 @@ public class CacheDataRowStore extends RowStore {
      */
     public void mvccMarkRemoved(long link, MvccVersion newVer) throws IgniteCheckedException {
         if (!persistenceEnabled)
-            cacheFreeList.mvccMarkRemoved(link, newVer);
+            freeList.updateDataRow(link, mvccRmvMarker, newVer);
         else {
             ctx.database().checkpointReadLock();
 
             try {
-                cacheFreeList.mvccMarkRemoved(link, newVer);
+                freeList.updateDataRow(link, mvccRmvMarker, newVer);
             }
             finally {
                 ctx.database().checkpointReadUnlock();
@@ -172,5 +179,37 @@ public class CacheDataRowStore extends RowStore {
             dataRow.cacheId(cacheId);
 
         return dataRow;
+    }
+
+    /**
+     * Mvcc remove handler.
+     */
+    private final class MvccMarkRemovedHandler extends PageHandler<MvccVersion, Boolean> {
+        /** {@inheritDoc} */
+        @Override public Boolean run(int cacheId, long pageId, long page, long pageAddr, PageIO io, Boolean walPlc,
+            MvccVersion newVer, int itemId) throws IgniteCheckedException {
+            assert io instanceof MvccDataPageIO;
+
+            MvccDataPageIO iox = (MvccDataPageIO)io;
+
+            DataPagePayload data = iox.readPayload(pageAddr, itemId, pageMem.pageSize());
+
+            assert data.payloadSize() >= MVCC_INFO_SIZE : "MVCC info should be fit on the very first data page.";
+
+            long newCrd = iox.newMvccCoordinator(pageAddr, data.offset());
+            long newCntr = iox.newMvccCounter(pageAddr, data.offset());
+
+            assert newCrd > 0 == newCntr > MVCC_COUNTER_NA;
+
+            if (newCrd == 0) {
+                iox.markRemoved(pageAddr, data.offset(), newVer);
+
+                if (isWalDeltaRecordNeeded(pageMem, cacheId, pageId, page, ctx.wal(), walPlc))
+                    ctx.wal().log(new MvccDataPageMarkRemovedRecord(cacheId, pageId, itemId,
+                        newVer.coordinatorVersion(), newVer.counter()));
+            }
+
+            return Boolean.TRUE;
+        }
     }
 }
