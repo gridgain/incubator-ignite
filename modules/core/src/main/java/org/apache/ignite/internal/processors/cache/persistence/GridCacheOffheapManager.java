@@ -159,9 +159,6 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
         boolean metaWasUpdated = false;
 
-        if (ctx.nextSnapshot())
-            System.err.println(Thread.currentThread() + " - onCheckpointBegin!!!" );
-
         for (CacheDataStore store : partDataStores.values()) {
             RowStore rowStore = store.rowStore();
 
@@ -185,8 +182,6 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
                 }
             }
         }
-
-        System.err.println(Thread.currentThread().getName() + " -!!!!- " + ctx.partitionStatMap());
     }
 
     /**
