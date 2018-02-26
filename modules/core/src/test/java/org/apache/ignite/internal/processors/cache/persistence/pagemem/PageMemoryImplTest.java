@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.processors.cache.persistence.pagemem;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.mem.DirectMemoryProvider;
@@ -25,16 +28,20 @@ import org.apache.ignite.internal.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagemem.FullPageId;
 import org.apache.ignite.internal.pagemem.PageIdAllocator;
+import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointLockStateChecker;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.plugin.IgnitePluginProcessor;
 import org.apache.ignite.internal.util.lang.GridInClosure3X;
 import org.apache.ignite.plugin.PluginProvider;
 import org.apache.ignite.testframework.junits.GridTestKernalContext;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.logger.GridTestLog4jLogger;
+
+import static org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl.CHECKPOINT_POOL_OVERFLOW_ERROR_MSG;
 
 /**
  *
@@ -61,6 +68,71 @@ public class PageMemoryImplTest extends GridCommonAbstractTest {
         }
 
         assertFalse(memory.safeToUpdate());
+    }
+
+    /**
+     *
+     * @throws Exception if failed
+     */
+    public void testCheckpointBufferOverusageDontCauseWriteLockLeak() throws Exception {
+        PageMemoryImpl memory = createPageMemory();
+
+        List<FullPageId> pages = new ArrayList<>();
+
+        try {
+            while (!Thread.currentThread().isInterrupted()) {
+                long pageId = memory.allocatePage(1, PageIdAllocator.INDEX_PARTITION, PageIdAllocator.FLAG_IDX);
+
+                FullPageId fullPageId = new FullPageId(pageId, 1);
+
+                pages.add(fullPageId);
+
+                releaseWriteLock(memory, fullPageId); //to set page id, otherwise we would fail with assertion error
+            }
+        }
+        catch (IgniteOutOfMemoryException ignore) {
+            //Success
+        }
+
+        memory.beginCheckpoint();
+
+        FullPageId lastPage = null;
+
+        try {
+            for (FullPageId fullPageId : pages) {
+                lastPage = fullPageId;
+
+                releaseWriteLock(memory, fullPageId);
+            }
+        }
+        catch (Exception ex) {
+            assertEquals(CHECKPOINT_POOL_OVERFLOW_ERROR_MSG, ex.getMessage());
+        }
+
+        memory.finishCheckpoint();
+
+
+        releaseWriteLock(memory, lastPage); //we should be able get lock again
+    }
+
+    /**
+     * @param memory Memory.
+     * @param fullPageId Full page id.
+     */
+    private void releaseWriteLock(PageMemoryImpl memory, FullPageId fullPageId) throws IgniteCheckedException {
+        long page = memory.acquirePage(1, fullPageId.pageId());
+
+        long address = memory.writeLock(1, fullPageId.pageId(), page);
+
+        PageIO.setPageId(address, fullPageId.pageId());
+
+        PageIO.setType(address, PageIO.T_BPLUS_META);
+
+        PageUtils.putShort(address, PageIO.VER_OFF, (short)1);
+
+        memory.writeUnlock(1, fullPageId.pageId(), page, Boolean.FALSE, true);
+
+        memory.releasePage(1, fullPageId.pageId(), page);
     }
 
     /**
