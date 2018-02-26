@@ -180,7 +180,7 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
 
         long crdVer = unmaskedCoordinatorVersion();
 
-        boolean isFirstRmv = false;
+        boolean isFirstRmvd = false;
 
         if (res == null) {
             int cmp = Long.compare(crdVer, rowCrdVer);
@@ -193,17 +193,17 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
             else {
                 CacheDataRowStore rowStore = ((CacheDataTree)tree).rowStore();
 
-                isFirstRmv = rowStore.isRemoved(rowIo, pageAddr, idx);
+                isFirstRmvd = rowStore.isRemoved(rowIo, pageAddr, idx);
 
-                if (isFirstRmv)
+                if (isFirstRmvd)
                     res = UpdateResult.PREV_NULL;
                 else
                     res = UpdateResult.PREV_NOT_NULL;
 
                 if (needOld)
-                    oldRow = ((CacheDataTree)tree).getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
+                    oldRow = tree.getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
                 else
-                    oldRow = ((CacheDataTree)tree).getRow(io, pageAddr, idx, RowData.LINK_WITH_HEADER);
+                    oldRow = tree.getRow(io, pageAddr, idx, RowData.LINK_WITH_HEADER);
             }
         }
 
@@ -211,9 +211,9 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
         if (checkActive && crdVer == rowCrdVer) {
             long rowMvccCntr = rowIo.getMvccCounter(pageAddr, idx);
 
-            long activeTx = isFirstRmv ? oldRow.newMvccCounter() : rowMvccCntr;
+            long activeTx = isFirstRmvd ? oldRow.newMvccCounter() : rowMvccCntr;
 
-            if (mvccSnapshot.activeTransactions().contains(rowMvccCntr) || isFirstRmv) {
+            if (mvccSnapshot.activeTransactions().contains(rowMvccCntr) || isFirstRmvd) {
                 txActive = true;
 
                 if (activeTxs == null)

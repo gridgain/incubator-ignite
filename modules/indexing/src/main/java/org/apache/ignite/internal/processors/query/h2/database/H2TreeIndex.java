@@ -31,6 +31,8 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
 import org.apache.ignite.internal.processors.query.h2.H2Cursor;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2IndexBase;
+import org.apache.ignite.internal.processors.query.h2.opt.GridH2MvccMaxVersionSearchRow;
+import org.apache.ignite.internal.processors.query.h2.opt.GridH2MvccMinVersionSearchRow;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Row;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2SearchRow;
@@ -206,6 +208,11 @@ public class H2TreeIndex extends GridH2IndexBase {
 //                return new H2Cursor(tree.find((GridH2SearchRow)lower,
 //                    (GridH2SearchRow)upper, filter(GridH2QueryContext.get()), null));
 //            }
+
+            if (cctx.mvccEnabled()) {
+                lower = lower == null ? null : new GridH2MvccMaxVersionSearchRow((GridH2SearchRow)lower);
+                upper = upper == null ? null : new GridH2MvccMinVersionSearchRow((GridH2SearchRow)upper);
+            }
 
             return new H2Cursor(tree.find((GridH2SearchRow)lower,
                 (GridH2SearchRow)upper, filter(GridH2QueryContext.get()), null));
@@ -388,6 +395,11 @@ public class H2TreeIndex extends GridH2IndexBase {
         @Nullable SearchRow last,
         BPlusTree.TreeRowClosure<GridH2SearchRow, GridH2Row> filter) {
         try {
+            if (cctx.mvccEnabled()) {
+                first = first == null ? null : new GridH2MvccMaxVersionSearchRow((GridH2SearchRow)first);
+                last = last == null ? null : new GridH2MvccMinVersionSearchRow((GridH2SearchRow)last);
+            }
+
             GridCursor<GridH2Row> range = ((BPlusTree)t).find(first, last, filter, null);
 
             if (range == null)

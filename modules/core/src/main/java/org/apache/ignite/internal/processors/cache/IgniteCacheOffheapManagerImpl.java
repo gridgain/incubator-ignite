@@ -1569,7 +1569,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 GridCacheQueryManager qryMgr = cctx.queries();
 
                 if (qryMgr.enabled())
-                    qryMgr.store(updateRow, oldRow, true, false);
+                    qryMgr.store(updateRow, null, true, false);
 
                 updatePendingEntries(cctx, updateRow, oldRow);
 
@@ -1601,7 +1601,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 // Make sure value bytes initialized.
                 key.valueBytes(coCtx);
 
-                boolean needOld = hasPendingEntries || cctx.isQueryEnabled();
+                boolean needOld = hasPendingEntries;
 
                 MvccUpdateDataRow updateRow = new MvccUpdateDataRow(
                     key,
@@ -1616,26 +1616,21 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 dataTree.iterate(updateRow, new MvccMinSearchRow(cacheId, key), updateRow);
 
+                cleanup(cctx, updateRow.cleanupRows());
+
                 MvccUpdateDataRow.UpdateResult res = updateRow.updateResult();
 
                 if (res == MvccUpdateDataRow.UpdateResult.VERSION_FOUND) {
                     assert !primary : updateRow;
 
-                    cleanup(cctx, updateRow.cleanupRows());
-
                     return null;
                 }
-                else {
-                    if (res == MvccUpdateDataRow.UpdateResult.PREV_NOT_NULL)
-                        decrementSize(cacheId);
+                else if (res == MvccUpdateDataRow.UpdateResult.PREV_NOT_NULL) {
+                    decrementSize(cacheId);
 
-                    cleanup(cctx, updateRow.cleanupRows());
-                }
+                    CacheDataRow oldRow = updateRow.oldRow();
 
-                CacheDataRow oldRow = updateRow.oldRow();
-
-                if (oldRow != null) {
-                    assert oldRow.link() != 0 : oldRow;
+                    assert oldRow != null && oldRow.link() != 0 : oldRow;
 
                     rowStore.mvccMarkRemoved(oldRow.link(), mvccSnapshot);
 
@@ -1715,7 +1710,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                     assert cleanupRow.link() != 0 : cleanupRow;
 
-                    if (qryMgr.enabled() && !isRemoved(grp, cleanupRow.link())) {
+                    if (qryMgr.enabled()) {
                         CacheDataRow oldRow = dataTree.remove(cleanupRow);
 
                         assert oldRow != null : cleanupRow;

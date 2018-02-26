@@ -441,7 +441,6 @@ public class GridH2Table extends TableBase {
         GridH2KeyValueRowOnheap prevRow0 = prevRow != null ? (GridH2KeyValueRowOnheap)desc.createRow(prevRow) :
             null;
 
-
         row0.prepareValuesCache();
 
         if (prevRow0 != null)

@@ -483,8 +483,13 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                             }
                         }
                         catch (Throwable e) {
-                            if (e.getMessage() == null || !e.getMessage().contains("Mvcc version mismatch."))
+                            if (e.getMessage() == null || !(e.getMessage().contains("Mvcc version mismatch.") ||
+                                // TODO Remove this in IGNITE-7188.
+                                e.getMessage().contains("Failed to acquire lock within provided timeout for transaction"))) {
+                                error("Writer error: ", e);
+
                                 throw e;
+                            }
                         }
                         finally {
                             cache.readUnlock();

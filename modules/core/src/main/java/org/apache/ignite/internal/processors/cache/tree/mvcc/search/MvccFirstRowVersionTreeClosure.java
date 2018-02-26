@@ -24,6 +24,7 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
+import org.apache.ignite.internal.processors.cache.tree.CacheDataTree;
 import org.apache.ignite.internal.processors.cache.tree.RowLinkIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
@@ -47,7 +48,12 @@ public class MvccFirstRowVersionTreeClosure implements MvccTreeClosure {
         long pageAddr, int idx) throws IgniteCheckedException {
         RowLinkIO rowIo = (RowLinkIO)io;
 
-        res = new MvccVersionImpl(rowIo.getMvccCoordinatorVersion(pageAddr, idx), rowIo.getMvccCounter(pageAddr, idx));
+        boolean rmvd = ((CacheDataTree)tree).rowStore().isRemoved(rowIo, pageAddr, idx);
+
+        if (rmvd)
+            res = new MvccVersionImpl(Long.MAX_VALUE, Long.MAX_VALUE);
+        else
+            res = new MvccVersionImpl(rowIo.getMvccCoordinatorVersion(pageAddr, idx), rowIo.getMvccCounter(pageAddr, idx));
 
         return false;  // Stop search.
     }

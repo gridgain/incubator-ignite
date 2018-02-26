@@ -326,27 +326,24 @@ public abstract class H2Tree extends BPlusTree<GridH2SearchRow, GridH2Row> {
      * @return Comparison result.
      */
     private int mvccCompare(H2RowLinkIO io, long pageAddr, int idx, GridH2SearchRow r2) {
-        if (mvccEnabled && !r2.indexSearchRow()) {
-            long crdVer1 = io.getMvccCoordinatorVersion(pageAddr, idx);
-            long crdVer2 = r2.mvccCoordinatorVersion();
+        if (!mvccEnabled)
+            return 0;
 
-            assert crdVer1 != 0;
-            assert crdVer2 != 0 : r2;
+        long crdVer1 = io.getMvccCoordinatorVersion(pageAddr, idx);
+        long crdVer2 = r2.mvccCoordinatorVersion();
 
-            int c = Long.compare(crdVer1, crdVer2);
+        assert crdVer1 != 0;
 
-            if (c != 0)
-                return c;
+        int c = Long.compare(crdVer2, crdVer1);
 
-            long cntr = io.getMvccCounter(pageAddr, idx);
+        if (c != 0)
+            return c;
 
-            assert cntr != MVCC_COUNTER_NA;
-            assert r2.mvccCounter() != MVCC_COUNTER_NA : r2;
+        long cntr = io.getMvccCounter(pageAddr, idx);
 
-            return Long.compare(cntr, r2.mvccCounter());
-        }
+        assert cntr != MVCC_COUNTER_NA;
 
-        return 0;
+        return Long.compare(r2.mvccCounter(), cntr);
     }
 
     /**
@@ -355,25 +352,18 @@ public abstract class H2Tree extends BPlusTree<GridH2SearchRow, GridH2Row> {
      * @return Comparison result.
      */
     private int mvccCompare(GridH2SearchRow r1, GridH2SearchRow r2) {
-        if (mvccEnabled && !r2.indexSearchRow()) {
-            long crdVer1 = r1.mvccCoordinatorVersion();
-            long crdVer2 = r2.mvccCoordinatorVersion();
+        if (!mvccEnabled)
+            return 0;
 
-            assert crdVer1 != 0 : r1;
-            assert crdVer2 != 0 : r2;
+        long crdVer1 = r1.mvccCoordinatorVersion();
+        long crdVer2 = r2.mvccCoordinatorVersion();
 
-            int c = Long.compare(crdVer1, crdVer2);
+        int c = Long.compare(crdVer2, crdVer1);
 
-            if (c != 0)
-                return c;
+        if (c != 0)
+            return c;
 
-            assert r1.mvccCounter() != MVCC_COUNTER_NA : r1;
-            assert r2.mvccCounter() != MVCC_COUNTER_NA : r2;
-
-            return Long.compare(r1.mvccCounter(), r2.mvccCounter());
-        }
-
-        return 0;
+        return Long.compare(r2.mvccCounter(), r1.mvccCounter());
     }
 
     /**
