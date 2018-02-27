@@ -26,12 +26,10 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.IOVersions;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccCacheIdAwareDataInnerIO;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccCacheIdAwareDataLeafIO;
@@ -43,7 +41,7 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
-import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 
 /**
  *
@@ -226,8 +224,7 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
             assert pageAddr != 0L : link;
 
             try {
-                AbstractDataPageIO io = grp.mvccEnabled() ? MvccDataPageIO.VERSIONS.forPage(pageAddr) :
-                    DataPageIO.VERSIONS.forPage(pageAddr);
+                DataPageIO io = DataPageIO.VERSIONS.forPage(pageAddr);
 
                 DataPagePayload data = io.readPayload(pageAddr,
                     itemId(link),

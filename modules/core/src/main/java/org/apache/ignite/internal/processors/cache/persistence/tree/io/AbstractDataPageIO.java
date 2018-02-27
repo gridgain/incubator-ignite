@@ -215,16 +215,6 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
     }
 
     /**
-     * Returns row header size. Row header (i.e. MVCC info) is always located
-     * on the very first page of pages chain.
-     *
-     * @return Row header size.
-     */
-    public int getHeaderSize() {
-        return 0;
-    }
-
-    /**
      * @param pageAddr Page address.
      * @return {@code true} If there is no useful data in this page.
      */
@@ -988,11 +978,12 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
             Math.min(rowSize - written, getFreeSpace(pageAddr));
 
         int remain = rowSize - written - payloadSize;
+        int hdrSize = row.headerSize();
 
         // We need page header (i.e. MVCC info) is located entirely on the very first page in chain.
         // So we force moving it to the next page if it could not fit entirely on this page.
-        if (remain > 0 && remain < getHeaderSize())
-            payloadSize -= getHeaderSize() - remain;
+        if (remain > 0 && remain < hdrSize)
+            payloadSize -= hdrSize - remain;
 
         int fullEntrySize = getPageEntrySize(payloadSize, SHOW_PAYLOAD_LEN | SHOW_LINK | SHOW_ITEM);
         int dataOff = getDataOffsetForWrite(pageAddr, fullEntrySize, directCnt, indirectCnt, pageSize);
@@ -1248,13 +1239,6 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
 
         PageUtils.putBytes(pageAddr, dataOff, payload);
     }
-
-    /**
-     * @param row Row.
-     * @return Row size in page.
-     * @throws IgniteCheckedException if failed.
-     */
-    public abstract int getRowSize(T row) throws IgniteCheckedException;
 
     /**
      * Defines closure interface for applying computations to data page items.

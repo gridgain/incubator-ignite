@@ -52,6 +52,8 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.getRowSize;
+
 /**
  *
  */
@@ -403,6 +405,16 @@ public class CacheFreeListImplSelfTest extends GridCommonAbstractTest {
 
         /** {@inheritDoc} */
         @Override public int partition() {
+            return 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override public int size() throws IgniteCheckedException {
+            return getRowSize(this);
+        }
+
+        /** {@inheritDoc} */
+        @Override public int headerSize() {
             return 0;
         }
 

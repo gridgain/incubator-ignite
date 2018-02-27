@@ -61,7 +61,7 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.MetaPageUpdateLastSuc
 import org.apache.ignite.internal.pagemem.wal.record.delta.MetaPageUpdateLastSuccessfulSnapshotId;
 import org.apache.ignite.internal.pagemem.wal.record.delta.MetaPageUpdateNextSnapshotId;
 import org.apache.ignite.internal.pagemem.wal.record.delta.MetaPageUpdatePartitionDataRecord;
-import org.apache.ignite.internal.pagemem.wal.record.delta.MvccDataPageMarkRemovedRecord;
+import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccMarkRemovedRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.NewRootInitRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.PageListMetaResetCountRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.PagesListAddPageRecord;
@@ -512,7 +512,7 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
                 long newMvccCrd = in.readLong();
                 long newMvccCntr = in.readLong();
 
-                res = new MvccDataPageMarkRemovedRecord(cacheId, pageId, itemId, newMvccCrd, newMvccCntr);
+                res = new DataPageMvccMarkRemovedRecord(cacheId, pageId, itemId, newMvccCrd, newMvccCntr);
 
                 break;
 
@@ -1038,7 +1038,7 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
                 break;
 
             case MVCC_DATA_PAGE_MARK_REMOVED_RECORD:
-                MvccDataPageMarkRemovedRecord rmvRec = (MvccDataPageMarkRemovedRecord)rec;
+                DataPageMvccMarkRemovedRecord rmvRec = (DataPageMvccMarkRemovedRecord)rec;
 
                 buf.putInt(rmvRec.groupId());
                 buf.putLong(rmvRec.pageId());

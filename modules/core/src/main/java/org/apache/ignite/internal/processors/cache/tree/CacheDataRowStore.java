@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.processors.cache.tree;
 
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.pagemem.wal.record.delta.MvccDataPageMarkRemovedRecord;
+import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccMarkRemovedRecord;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
@@ -28,15 +28,15 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapt
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.FreeList;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageHandler;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
-import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 
 /**
  *
@@ -188,9 +188,9 @@ public class CacheDataRowStore extends RowStore {
         /** {@inheritDoc} */
         @Override public Boolean run(int cacheId, long pageId, long page, long pageAddr, PageIO io, Boolean walPlc,
             MvccVersion newVer, int itemId) throws IgniteCheckedException {
-            assert io instanceof MvccDataPageIO;
+            assert grp.mvccEnabled();
 
-            MvccDataPageIO iox = (MvccDataPageIO)io;
+            DataPageIO iox = (DataPageIO)io;
 
             DataPagePayload data = iox.readPayload(pageAddr, itemId, pageMem.pageSize());
 
@@ -205,7 +205,7 @@ public class CacheDataRowStore extends RowStore {
                 iox.markRemoved(pageAddr, data.offset(), newVer);
 
                 if (isWalDeltaRecordNeeded(pageMem, cacheId, pageId, page, ctx.wal(), walPlc))
-                    ctx.wal().log(new MvccDataPageMarkRemovedRecord(cacheId, pageId, itemId,
+                    ctx.wal().log(new DataPageMvccMarkRemovedRecord(cacheId, pageId, itemId,
                         newVer.coordinatorVersion(), newVer.counter()));
             }
 

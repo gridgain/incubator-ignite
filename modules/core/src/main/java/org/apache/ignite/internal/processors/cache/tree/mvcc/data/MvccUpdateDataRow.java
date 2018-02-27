@@ -41,6 +41,7 @@ import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.assertMvccVersionValid;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 
 /**
  *
@@ -281,6 +282,20 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
     /** {@inheritDoc} */
     @Override public long newMvccCounter() {
         return newMvccCntr;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int size() throws IgniteCheckedException {
+        assert mvccCoordinatorVersion() > 0 && mvccCounter() > MVCC_COUNTER_NA;
+
+        return super.size() + MVCC_INFO_SIZE;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int headerSize() {
+        assert mvccCoordinatorVersion() > 0 && mvccCounter() > MVCC_COUNTER_NA;
+
+        return MVCC_INFO_SIZE;
     }
 
     /** {@inheritDoc} */

@@ -30,7 +30,6 @@ import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.IncompleteCacheObject;
 import org.apache.ignite.internal.processors.cache.IncompleteObject;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.CacheVersionIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
@@ -45,6 +44,7 @@ import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
 import static org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter.RowData.LINK_WITH_HEADER;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.getRowSize;
 
 /**
  * Cache data row adapter.
@@ -149,7 +149,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
                 assert pageAddr != 0L : nextLink;
 
                 try {
-                    AbstractDataPageIO io = getDataPageIo(pageAddr);
+                    DataPageIO io = DataPageIO.VERSIONS.forPage(pageAddr);
 
                     DataPagePayload data = io.readPayload(pageAddr,
                         itemId(nextLink),
@@ -202,16 +202,6 @@ public class CacheDataRowAdapter implements CacheDataRow {
         while(nextLink != 0);
 
         assert isReady() || rowData == LINK_WITH_HEADER : "ready";
-    }
-
-    /**
-     * Returns page IO for this row.
-     *
-     * @param pageAddr Page address,
-     * @return Data page IO.
-     */
-    protected AbstractDataPageIO getDataPageIo(long pageAddr) {
-        return DataPageIO.VERSIONS.forPage(pageAddr);
     }
 
     /**
@@ -303,7 +293,6 @@ public class CacheDataRowAdapter implements CacheDataRow {
      * @param addr Address.
      * @param rowData Required row data.
      * @param readCacheId {@code true} If need to read cache ID.
-     * @param readMvcc {@code True} if need to read MVCC xid_min and xid_max.
      * @throws IgniteCheckedException If failed.
      */
     protected void readFullRow(
@@ -629,6 +618,16 @@ public class CacheDataRowAdapter implements CacheDataRow {
     /** {@inheritDoc} */
     @Override public long newMvccCounter() {
         return MVCC_COUNTER_NA;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int size() throws IgniteCheckedException {
+        return getRowSize(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int headerSize() {
+        return 0;
     }
 
     /** {@inheritDoc} */

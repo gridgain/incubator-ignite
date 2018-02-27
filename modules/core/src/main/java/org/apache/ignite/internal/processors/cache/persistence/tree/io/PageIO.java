@@ -225,9 +225,6 @@ public abstract class PageIO {
     /** */
     public static final short T_H2_MVCC_REF_INNER = 29;
 
-    /** */
-    public static final short T_MVCC_DATA = 30;
-
     /** Index for payload == 1. */
     public static final short T_H2_EX_REF_LEAF_START = 10_000;
 
@@ -511,9 +508,6 @@ public abstract class PageIO {
         switch (type) {
             case T_DATA:
                 return (Q)DataPageIO.VERSIONS.forVersion(ver);
-
-            case T_MVCC_DATA:
-                return (Q)MvccDataPageIO.VERSIONS.forVersion(ver);
 
             case T_BPLUS_META:
                 return (Q)BPlusMetaIO.VERSIONS.forVersion(ver);

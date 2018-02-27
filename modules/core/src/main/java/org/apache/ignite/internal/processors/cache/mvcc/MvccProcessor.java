@@ -58,8 +58,8 @@ import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccQuerySnapshotReq
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccSnapshotResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccTxSnapshotRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccWaitTxsRequest;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.GridAtomicLong;
@@ -85,7 +85,7 @@ import static org.apache.ignite.internal.events.DiscoveryCustomEvent.EVT_DISCOVE
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
-import static org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO.MVCC_INFO_SIZE;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 
 /**
  * MVCC processor.
@@ -189,7 +189,7 @@ public class MvccProcessor extends GridProcessorAdapter {
             long pageAddr = pageMem.readLock(grpId, pageId, page);
 
             try{
-                MvccDataPageIO dataIo = MvccDataPageIO.VERSIONS.forPage(pageAddr);
+                DataPageIO dataIo = DataPageIO.VERSIONS.forPage(pageAddr);
 
                 DataPagePayload data = dataIo.readPayload(pageAddr, itemId(link), pageMem.pageSize());
 
@@ -237,7 +237,7 @@ public class MvccProcessor extends GridProcessorAdapter {
             long pageAddr = pageMem.readLock(grpId, pageId, page);
 
             try{
-                MvccDataPageIO dataIo = MvccDataPageIO.VERSIONS.forPage(pageAddr);
+                DataPageIO dataIo = DataPageIO.VERSIONS.forPage(pageAddr);
 
                 DataPagePayload data = dataIo.readPayload(pageAddr, itemId(link), pageMem.pageSize());
 

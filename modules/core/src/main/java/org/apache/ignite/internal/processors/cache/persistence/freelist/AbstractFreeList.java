@@ -28,8 +28,8 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageInsertFragmen
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageInsertRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageRemoveRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageUpdateRecord;
-import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegion;
+import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.Storable;
 import org.apache.ignite.internal.processors.cache.persistence.evict.PageEvictionTracker;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
@@ -100,7 +100,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
             throws IgniteCheckedException {
             AbstractDataPageIO<T> io = (AbstractDataPageIO<T>)iox;
 
-            int rowSize = io.getRowSize(row);
+            int rowSize = row.size();
 
             boolean updated = io.updateRow(pageAddr, itemId, pageSize(), null, row, rowSize);
 
@@ -146,7 +146,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
             throws IgniteCheckedException {
             AbstractDataPageIO<T> io = (AbstractDataPageIO<T>)iox;
 
-            int rowSize = io.getRowSize(row);
+            int rowSize = row.size();
             int oldFreeSpace = io.getFreeSpace(pageAddr);
 
             assert oldFreeSpace > 0 : oldFreeSpace;
@@ -467,7 +467,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
 
     /** {@inheritDoc} */
     @Override public void insertDataRow(T row) throws IgniteCheckedException {
-        int rowSize = ioVersions(row).latest().getRowSize(row);
+        int rowSize = row.size();
 
         int written = 0;
 
@@ -480,14 +480,14 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
             long pageId = 0L;
 
             if (freeSpace == MIN_SIZE_FOR_DATA_PAGE)
-                pageId = takeEmptyPage(emptyDataPagesBucket, ioVersions(row));
+                pageId = takeEmptyPage(emptyDataPagesBucket, ioVersions());
 
             boolean reuseBucket = false;
 
             // TODO: properly handle reuse bucket.
             if (pageId == 0L) {
                 for (int b = bucket(freeSpace, false) + 1; b < BUCKETS - 1; b++) {
-                    pageId = takeEmptyPage(b, ioVersions(row));
+                    pageId = takeEmptyPage(b, ioVersions());
 
                     if (pageId != 0L) {
                         reuseBucket = isReuseBucket(b);
@@ -504,7 +504,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
             else
                 pageId = PageIdUtils.changePartitionId(pageId, (row.partition()));
 
-            AbstractDataPageIO<T> init = reuseBucket || allocated ? ioVersions(row).latest() : null;
+            AbstractDataPageIO<T> init = reuseBucket || allocated ? ioVersions().latest() : null;
 
             written = write(pageId, writeRow, init, row, written, FAIL_I);
 
@@ -610,7 +610,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     /**
      * @return IOVersions.
      */
-    public abstract IOVersions<? extends AbstractDataPageIO<T>> ioVersions(T row);
+    public abstract IOVersions<? extends AbstractDataPageIO<T>> ioVersions();
 
     /** {@inheritDoc} */
     @Override public String toString() {

@@ -19,14 +19,14 @@ package org.apache.ignite.internal.pagemem.wal.record.delta;
 
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.PageMemory;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.MvccDataPageIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
  * MVCC mark removed record.
  */
-public class MvccDataPageMarkRemovedRecord extends PageDeltaRecord {
+public class DataPageMvccMarkRemovedRecord extends PageDeltaRecord {
     /** */
     private int itemId;
 
@@ -43,7 +43,7 @@ public class MvccDataPageMarkRemovedRecord extends PageDeltaRecord {
      * @param newMvccCrd New MVCC coordinator version.
      * @param newMvccCntr New MVCC counter version.
      */
-    public MvccDataPageMarkRemovedRecord(int grpId, long pageId, int itemId, long newMvccCrd, long newMvccCntr) {
+    public DataPageMvccMarkRemovedRecord(int grpId, long pageId, int itemId, long newMvccCrd, long newMvccCntr) {
         super(grpId, pageId);
 
         this.itemId = itemId;
@@ -53,7 +53,7 @@ public class MvccDataPageMarkRemovedRecord extends PageDeltaRecord {
 
     /** {@inheritDoc} */
     @Override public void applyDelta(PageMemory pageMem, long pageAddr) throws IgniteCheckedException {
-        MvccDataPageIO io = PageIO.getPageIO(pageAddr);
+        DataPageIO io = PageIO.getPageIO(pageAddr);
 
         io.markRemoved(pageAddr, itemId, pageMem.pageSize(), newMvccCrd, newMvccCntr);
     }
@@ -86,6 +86,6 @@ public class MvccDataPageMarkRemovedRecord extends PageDeltaRecord {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(MvccDataPageMarkRemovedRecord.class, this, "super", super.toString());
+        return S.toString(DataPageMvccMarkRemovedRecord.class, this, "super", super.toString());
     }
 }

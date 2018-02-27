@@ -49,7 +49,6 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.RootPage;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIOUtils;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryManager;
 import org.apache.ignite.internal.processors.cache.tree.CacheDataRowStore;
@@ -1313,12 +1312,12 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             // Use grp.sharedGroup() flag since it is possible cacheId is not yet set here.
             boolean sizeWithCacheId = grp.sharedGroup();
 
-            int oldLen = DataPageIOUtils.getRowSize(oldRow, sizeWithCacheId);
+            int oldLen = oldRow.size();
 
             if (oldLen > updateValSizeThreshold)
                 return false;
 
-            int newLen = DataPageIOUtils.getRowSize(dataRow, sizeWithCacheId);
+            int newLen = dataRow.size();
 
             return oldLen == newLen;
         }
