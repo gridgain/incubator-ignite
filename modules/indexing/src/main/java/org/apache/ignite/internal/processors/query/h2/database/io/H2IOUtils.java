@@ -22,7 +22,7 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Row;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2SearchRow;
 
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.assertMvccVersionValid;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.assertMvccVersionValid;
 
 /**
  *
@@ -84,18 +84,6 @@ class H2IOUtils {
 
             PageUtils.putLong(dstPageAddr, dstOff + 8, mvccCrdVer);
             PageUtils.putLong(dstPageAddr, dstOff + 16, mvccCntr);
-
-//            long newMvccCrdVer = rowIo.getNewMvccCoordinatorVersion(srcPageAddr, srcIdx);
-//
-//            PageUtils.putLong(dstPageAddr, dstOff + 24, newMvccCrdVer);
-//
-//            if (newMvccCrdVer != 0) {
-//                long newMvccCntr = rowIo.getNewMvccCounter(srcPageAddr, srcIdx);
-//
-//                assertMvccVersionValid(newMvccCrdVer, newMvccCntr);
-//
-//                PageUtils.putLong(dstPageAddr, dstOff + 32, newMvccCntr);
-//            }
         }
     }
 }

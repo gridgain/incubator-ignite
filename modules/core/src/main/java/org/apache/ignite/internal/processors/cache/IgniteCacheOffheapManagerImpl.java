@@ -88,8 +88,8 @@ import org.jetbrains.annotations.Nullable;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_START_CNTR;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.isRemoved;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.isVisibleForSnapshot;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.hasNewMvccVersion;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.isVisibleForSnapshot;
 
 /**
  *
@@ -1669,7 +1669,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 assert rmvd : row;
 
-                boolean rmvdVal = isRemoved(grp, row.link());
+                boolean rmvdVal = hasNewMvccVersion(grp, row.link());
 
                 if (cleanup && !rmvdVal) {
                     if (cctx.queries().enabled())
@@ -2277,32 +2277,14 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 while (cur.next()) {
                     CacheDataRow row = cur.get();
 
-                    long rowCrdVer = row.mvccCoordinatorVersion();
-
-                    if (snapshot != null) {
-                        if (rowCrdVer > snapshot.coordinatorVersion())
-                            continue;
-
-                        if (rowCrdVer == snapshot.coordinatorVersion() && row.mvccCounter() > snapshot.counter())
-                            continue;
-
-                        MvccLongList txs = snapshot.activeTransactions();
-
-                        if (txs != null && rowCrdVer == snapshot.coordinatorVersion() && txs.contains(row.mvccCounter()))
-                            continue;
-                    }
-
-                    if (curKey != null && row.key().equals(curKey))
-                        continue;
-
                     boolean visible = isVisibleForSnapshot(snapshot, row.mvccCoordinatorVersion(), row.mvccCounter(),
                         row.newMvccCoordinatorVersion(), row.newMvccCounter());
 
-                    if (!visible) {
-                        curKey = row.key();
-
+                    if (!visible)
                         continue;
-                    }
+
+                    if (curKey != null && row.key().equals(curKey))
+                        continue;
 
                     curRow = row;
 

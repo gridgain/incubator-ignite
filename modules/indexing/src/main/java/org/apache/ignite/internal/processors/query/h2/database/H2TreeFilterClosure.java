@@ -30,7 +30,7 @@ import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.spi.indexing.IndexingQueryCacheFilter;
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.isVisible;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.isVisibleForSnapshot;
 
 /**
  *
@@ -65,7 +65,7 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
         long link = ((H2RowLinkIO)io).getLink(pageAddr, idx);
 
         return (filter  == null || applyFilter((H2RowLinkIO)io, pageAddr, idx))
-            && (mvccSnapshot == null || isVisible(cctx.group(), link, mvccSnapshot));
+            && (mvccSnapshot == null || isVisibleForSnapshot(cctx.group(), link, mvccSnapshot));
     }
 
     /**

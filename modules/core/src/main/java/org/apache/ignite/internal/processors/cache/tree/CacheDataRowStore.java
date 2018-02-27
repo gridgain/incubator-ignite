@@ -20,8 +20,8 @@ package org.apache.ignite.internal.processors.cache.tree;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccMarkRemovedRecord;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
@@ -36,6 +36,7 @@ import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.hasNewMvccVersion;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 
 /**
@@ -137,7 +138,7 @@ public class CacheDataRowStore extends RowStore {
         throws IgniteCheckedException {
         long link = io.getLink(pageAddr, idx);
 
-        return MvccProcessor.isRemoved(grp, link);
+        return hasNewMvccVersion(grp, link);
     }
 
     /**
@@ -149,11 +150,11 @@ public class CacheDataRowStore extends RowStore {
      * @return {@code True} if a newer version is available for the given row.
      * @throws IgniteCheckedException If failed.
      */
-    public boolean isVisible(RowLinkIO io, long pageAddr, int idx, MvccSnapshot snapshot)
+    public boolean isVisibleForSnapshot(RowLinkIO io, long pageAddr, int idx, MvccSnapshot snapshot)
         throws IgniteCheckedException {
         long link = io.getLink(pageAddr, idx);
 
-        return MvccProcessor.isVisible(grp, link, snapshot);
+        return MvccUtils.isVisibleForSnapshot(grp, link, snapshot);
     }
 
     /**

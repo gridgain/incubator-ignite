@@ -87,7 +87,7 @@ public class MvccSnapshotSearchRow extends MvccSearchRow implements MvccTreeClos
         CacheDataRowStore rowStore = ((CacheDataTree)tree).rowStore();
 
         if (visible) {
-            if (!rowStore.isVisible(rowIo, pageAddr, idx, snapshot))
+            if (!rowStore.isVisibleForSnapshot(rowIo, pageAddr, idx, snapshot))
                 resRow = null;
             else
                 resRow = tree.getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
