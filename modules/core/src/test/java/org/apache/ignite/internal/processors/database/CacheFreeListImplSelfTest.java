@@ -45,14 +45,13 @@ import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetrics
 import org.apache.ignite.internal.processors.cache.persistence.evict.NoOpPageEvictionTracker;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.CacheFreeListImpl;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.FreeList;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.CacheVersionIO;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
-
-import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.getRowSize;
 
 /**
  *
@@ -410,7 +409,11 @@ public class CacheFreeListImplSelfTest extends GridCommonAbstractTest {
 
         /** {@inheritDoc} */
         @Override public int size() throws IgniteCheckedException {
-            return getRowSize(this);
+            int len = key().valueBytesLength(null);
+
+            len += value().valueBytesLength(null) + CacheVersionIO.size(version(), false) + 8;
+
+            return len + (cacheId() != 0 ? 4 : 0);
         }
 
         /** {@inheritDoc} */

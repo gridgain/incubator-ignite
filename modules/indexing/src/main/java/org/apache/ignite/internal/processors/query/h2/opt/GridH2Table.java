@@ -30,8 +30,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteInterruptedException;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.query.QueryTable;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
@@ -462,11 +460,9 @@ public class GridH2Table extends TableBase {
                     replaced = prevRow0 != null;
                 }
 
-                assert (cctx.mvccEnabled() && idxRebuild ||
-                        replaced == (row0.newMvccCoordinatorVersion() != 0)) ||
-                        (replaced && prevRow0 != null) ||
-                        (!replaced && prevRow0 == null) :
-                        "Replaced: " + replaced;
+                assert (cctx.mvccEnabled() && idxRebuild && replaced)
+                    || replaced && prevRow0 != null
+                    || !replaced && prevRow0 == null : "Replaced: " + replaced;
 
                 if (!replaced)
                     size.increment();
@@ -546,7 +542,7 @@ public class GridH2Table extends TableBase {
     private void addToIndex(GridH2IndexBase idx, GridH2Row row, GridH2Row prevRow, boolean idxRebuild) {
         boolean replaced = idx.putx(row);
 
-        assert !idx.ctx.mvccEnabled() || idxRebuild || replaced == (row.newMvccCoordinatorVersion() != 0);
+        assert  !replaced || !idx.ctx.mvccEnabled() || idxRebuild;
 
         // Row was not replaced, need to remove manually.
         if (!replaced && prevRow != null)

@@ -18,16 +18,18 @@
 package org.apache.ignite.internal.processors.cache.tree.mvcc.search;
 
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionImpl;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
-import org.apache.ignite.internal.processors.cache.tree.CacheDataTree;
 import org.apache.ignite.internal.processors.cache.tree.RowLinkIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.getNewVersion;
 
 /**
  * Closure which returns version of the very first encountered row.
@@ -35,6 +37,16 @@ import org.jetbrains.annotations.Nullable;
 public class MvccFirstRowVersionTreeClosure implements MvccTreeClosure {
     /** Maximum MVCC version found for the row. */
     private MvccVersion res;
+
+    /** */
+    private CacheGroupContext grp;
+
+    /**
+     * @param grp Group context.
+     */
+    public MvccFirstRowVersionTreeClosure(CacheGroupContext grp) {
+        this.grp = grp;
+    }
 
     /**
      * @return Maximum MVCC version found for the row.
@@ -48,10 +60,10 @@ public class MvccFirstRowVersionTreeClosure implements MvccTreeClosure {
         long pageAddr, int idx) throws IgniteCheckedException {
         RowLinkIO rowIo = (RowLinkIO)io;
 
-        boolean rmvd = ((CacheDataTree)tree).rowStore().isRemoved(rowIo, pageAddr, idx);
+        MvccVersion newVer = getNewVersion(grp, rowIo.getLink(pageAddr, idx));
 
-        if (rmvd)
-            res = new MvccVersionImpl(Long.MAX_VALUE, Long.MAX_VALUE);
+        if (newVer != null)
+            res = newVer;
         else
             res = new MvccVersionImpl(rowIo.getMvccCoordinatorVersion(pageAddr, idx), rowIo.getMvccCounter(pageAddr, idx));
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.cache.tree.mvcc.search;
 
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccLongList;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
@@ -26,11 +27,11 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapt
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
-import org.apache.ignite.internal.processors.cache.tree.CacheDataRowStore;
-import org.apache.ignite.internal.processors.cache.tree.CacheDataTree;
 import org.apache.ignite.internal.processors.cache.tree.RowLinkIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.isVisibleForSnapshot;
 
 /**
  * Search row which returns the first row visible for the given snapshot. Usage:
@@ -38,6 +39,9 @@ import org.jetbrains.annotations.Nullable;
  * - pass the same row as search closure.
  */
 public class MvccSnapshotSearchRow extends MvccSearchRow implements MvccTreeClosure {
+    /** */
+    private final CacheGroupContext grp;
+
     /** Active transactions. */
     private final MvccLongList activeTxs;
 
@@ -50,13 +54,15 @@ public class MvccSnapshotSearchRow extends MvccSearchRow implements MvccTreeClos
     /**
      * Constructor.
      *
+     * @param grp Group context.
      * @param cacheId Cache ID.
      * @param key Key.
      * @param snapshot Snapshot.
      */
-    public MvccSnapshotSearchRow(int cacheId, KeyCacheObject key, MvccSnapshot snapshot) {
+    public MvccSnapshotSearchRow(CacheGroupContext grp, int cacheId, KeyCacheObject key, MvccSnapshot snapshot) {
         super(cacheId, key, snapshot.coordinatorVersion(), snapshot.counter());
 
+        this.grp = grp;
         this.activeTxs = snapshot.activeTransactions();
         this.snapshot = snapshot;
     }
@@ -84,10 +90,10 @@ public class MvccSnapshotSearchRow extends MvccSearchRow implements MvccTreeClos
                 visible = !activeTxs.contains(rowIo.getMvccCounter(pageAddr, idx));
         }
 
-        CacheDataRowStore rowStore = ((CacheDataTree)tree).rowStore();
-
         if (visible) {
-            if (!rowStore.isVisibleForSnapshot(rowIo, pageAddr, idx, snapshot))
+            long link = rowIo.getLink(pageAddr, idx);
+
+            if (!isVisibleForSnapshot(grp, link, snapshot))
                 resRow = null;
             else
                 resRow = tree.getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);

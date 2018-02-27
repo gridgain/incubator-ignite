@@ -20,7 +20,11 @@ package org.apache.ignite.internal.processors.cache.tree.mvcc.data;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
+import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.tree.DataRow;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
@@ -34,19 +38,19 @@ import static org.apache.ignite.internal.processors.cache.persistence.tree.io.Da
 public class MvccDataRow extends DataRow {
     /** Mvcc coordinator version. */
     @GridToStringInclude
-    private long mvccCrd;
+    protected long mvccCrd;
 
     /** Mvcc counter. */
     @GridToStringInclude
-    private long mvccCntr;
+    protected long mvccCntr;
 
     /** New mvcc coordinator version. */
     @GridToStringInclude
-    private long newMvccCrd;
+    protected long newMvccCrd;
 
     /** New mvcc counter. */
     @GridToStringInclude
-    private long newMvccCntr;
+    protected long newMvccCntr;
 
     /**
      * @param link Link.
@@ -74,6 +78,34 @@ public class MvccDataRow extends DataRow {
         if (rowData == RowData.LINK_ONLY) {
             this.mvccCrd = crdVer;
             this.mvccCntr = mvccCntr;
+        }
+    }
+
+    /**
+     * @param key Key.
+     * @param val Value.
+     * @param ver Version.
+     * @param part Partition.
+     * @param expireTime Expire time.
+     * @param cacheId Cache ID.
+     * @param mvccCrd Mvcc coordinator.
+     * @param mvccCntr Mvcc counter.
+     * @param newVer New mvcc version.
+     */
+    public MvccDataRow(KeyCacheObject key, CacheObject val, GridCacheVersion ver, int part, long expireTime,
+        int cacheId, long mvccCrd, long mvccCntr, MvccVersion newVer) {
+        super(key, val, ver, part, expireTime, cacheId);
+
+        this.mvccCrd = mvccCrd;
+        this.mvccCntr = mvccCntr;
+
+        if (newVer == null) {
+            newMvccCrd = 0;
+            newMvccCntr = MVCC_COUNTER_NA;
+        }
+        else {
+            newMvccCrd = newVer.coordinatorVersion();
+            newMvccCntr = newVer.counter();
         }
     }
 
@@ -110,8 +142,6 @@ public class MvccDataRow extends DataRow {
 
     /** {@inheritDoc} */
     @Override public boolean removed() {
-        assert (newMvccCrd > 0) == (newMvccCntr > MVCC_COUNTER_NA);
-
         return newMvccCrd > 0;
     }
 
@@ -127,15 +157,11 @@ public class MvccDataRow extends DataRow {
 
     /** {@inheritDoc} */
     @Override public int size() throws IgniteCheckedException {
-        assert mvccCoordinatorVersion() > 0 && mvccCounter() > MVCC_COUNTER_NA;
-
         return super.size() + MVCC_INFO_SIZE;
     }
 
     /** {@inheritDoc} */
     @Override public int headerSize() {
-        assert mvccCoordinatorVersion() > 0 && mvccCounter() > MVCC_COUNTER_NA;
-
         return MVCC_INFO_SIZE;
     }
 

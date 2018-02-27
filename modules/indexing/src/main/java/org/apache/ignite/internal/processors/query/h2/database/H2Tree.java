@@ -326,7 +326,7 @@ public abstract class H2Tree extends BPlusTree<GridH2SearchRow, GridH2Row> {
      * @return Comparison result.
      */
     private int mvccCompare(H2RowLinkIO io, long pageAddr, int idx, GridH2SearchRow r2) {
-        if (!mvccEnabled)
+        if (!mvccEnabled || r2.indexSearchRow())
             return 0;
 
         long crdVer1 = io.getMvccCoordinatorVersion(pageAddr, idx);
@@ -334,7 +334,7 @@ public abstract class H2Tree extends BPlusTree<GridH2SearchRow, GridH2Row> {
 
         assert crdVer1 != 0;
 
-        int c = Long.compare(crdVer2, crdVer1);
+        int c = -Long.compare(crdVer1, crdVer2);
 
         if (c != 0)
             return c;
@@ -343,7 +343,7 @@ public abstract class H2Tree extends BPlusTree<GridH2SearchRow, GridH2Row> {
 
         assert cntr != MVCC_COUNTER_NA;
 
-        return Long.compare(r2.mvccCounter(), cntr);
+        return -Long.compare(cntr, r2.mvccCounter());
     }
 
     /**
@@ -352,18 +352,18 @@ public abstract class H2Tree extends BPlusTree<GridH2SearchRow, GridH2Row> {
      * @return Comparison result.
      */
     private int mvccCompare(GridH2SearchRow r1, GridH2SearchRow r2) {
-        if (!mvccEnabled)
+        if (!mvccEnabled || r2.indexSearchRow())
             return 0;
 
         long crdVer1 = r1.mvccCoordinatorVersion();
         long crdVer2 = r2.mvccCoordinatorVersion();
 
-        int c = Long.compare(crdVer2, crdVer1);
+        int c = -Long.compare(crdVer1, crdVer2);
 
         if (c != 0)
             return c;
 
-        return Long.compare(r2.mvccCounter(), r1.mvccCounter());
+        return -Long.compare(r1.mvccCounter(), r2.mvccCounter());
     }
 
     /**

@@ -65,7 +65,7 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
         long link = ((H2RowLinkIO)io).getLink(pageAddr, idx);
 
         return (filter  == null || applyFilter((H2RowLinkIO)io, pageAddr, idx))
-            && (mvccSnapshot == null || isVisibleForSnapshot(cctx.group(), link, mvccSnapshot));
+            && (mvccSnapshot == null || applyMvcc((H2RowLinkIO)io, pageAddr, idx));
     }
 
     /**
@@ -78,6 +78,34 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
         assert filter != null;
 
         return filter.applyPartition(PageIdUtils.partId(pageId(io.getLink(pageAddr, idx))));
+    }
+
+    /**
+     * @param io Row IO.
+     * @param pageAddr Page address.
+     * @param idx Item index.
+     * @return {@code True} if row passes the filter.
+     */
+    private boolean applyMvcc(H2RowLinkIO io, long pageAddr, int idx) throws IgniteCheckedException {
+        assert io.storeMvccInfo() : io;
+
+        long rowCrdVer = io.getMvccCoordinatorVersion(pageAddr, idx);
+
+        assert rowCrdVer > 0 : rowCrdVer;
+
+        int cmp = Long.compare(mvccSnapshot.coordinatorVersion(), rowCrdVer);
+
+        if (cmp == 0) {
+            long rowCntr = io.getMvccCounter(pageAddr, idx);
+
+            cmp = Long.compare(mvccSnapshot.counter(), rowCntr);
+
+            return cmp >= 0 &&
+                !mvccSnapshot.activeTransactions().contains(rowCntr) &&
+                isVisibleForSnapshot(cctx.group(), io.getLink(pageAddr, idx), mvccSnapshot);
+        }
+        else
+            return cmp > 0;
     }
 
     /** {@inheritDoc} */

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.tree.mvcc.data;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
@@ -29,9 +30,6 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapt
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
-import org.apache.ignite.internal.processors.cache.tree.CacheDataRowStore;
-import org.apache.ignite.internal.processors.cache.tree.CacheDataTree;
-import org.apache.ignite.internal.processors.cache.tree.DataRow;
 import org.apache.ignite.internal.processors.cache.tree.RowLinkIO;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
@@ -39,14 +37,16 @@ import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.assertMvccVersionValid;
-import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.hasNewMvccVersion;
 
 /**
  *
  */
-public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosure<CacheSearchRow, CacheDataRow> {
+public class MvccUpdateDataRow extends MvccDataRow implements BPlusTree.TreeRowClosure<CacheSearchRow, CacheDataRow> {
+    /** */
+    private final CacheGroupContext grp;
+
     /** */
     private UpdateResult res;
 
@@ -68,12 +68,6 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
     /** */
     private CacheDataRow oldRow;
 
-    /** */
-    private long newMvccCrd;
-
-    /** */
-    private long newMvccCntr;
-
     /**
      * @param key Key.
      * @param val Value.
@@ -83,6 +77,7 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
      * @param needOld {@code True} if need previous value.
      * @param part Partition.
      * @param cacheId Cache ID.
+     * @param grp Group context.
      */
     public MvccUpdateDataRow(
         KeyCacheObject key,
@@ -93,72 +88,13 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
         MvccVersion newVer,
         boolean needOld,
         int part,
-        int cacheId) {
-        super(key, val, ver, part, expireTime, cacheId);
+        int cacheId,
+        CacheGroupContext grp) {
+        super(key, val, ver, part, expireTime, cacheId, mvccSnapshot.coordinatorVersion(), mvccSnapshot.counter(), newVer);
 
         this.mvccSnapshot = mvccSnapshot;
         this.needOld = needOld;
-
-        if (newVer == null) {
-            newMvccCrd = 0;
-            newMvccCntr = MVCC_COUNTER_NA;
-        }
-        else {
-            newMvccCrd = newVer.coordinatorVersion();
-            newMvccCntr = newVer.counter();
-        }
-    }
-
-    /**
-     * @return Old row.
-     */
-    public CacheDataRow oldRow() {
-        return oldRow;
-    }
-
-    /**
-     * @return {@code True} if previous value was non-null.
-     */
-    public UpdateResult updateResult() {
-        return res == null ? UpdateResult.PREV_NULL : res;
-    }
-
-    /**
-     * @return Active transactions to wait for.
-     */
-    @Nullable public GridLongList activeTransactions() {
-        return activeTxs;
-    }
-
-    /**
-     * @return Rows which are safe to cleanup.
-     */
-    public List<MvccLinkAwareSearchRow> cleanupRows() {
-        return cleanupRows;
-    }
-
-    /**
-     * @param io IO.
-     * @param pageAddr Page address.
-     * @param idx Item index.
-     * @return Always {@code true}.
-     */
-    private boolean assertVersion(RowLinkIO io, long pageAddr, int idx) {
-        long rowCrdVer = io.getMvccCoordinatorVersion(pageAddr, idx);
-        long rowCntr = io.getMvccCounter(pageAddr, idx);
-
-        int cmp = Long.compare(unmaskedCoordinatorVersion(), rowCrdVer);
-
-        if (cmp == 0)
-            cmp = Long.compare(mvccSnapshot.counter(), rowCntr);
-
-        // Can be equals if execute update on backup and backup already rebalanced value updated on primary.
-        assert cmp >= 0 : "[updCrd=" + unmaskedCoordinatorVersion() +
-            ", updCntr=" + mvccSnapshot.counter() +
-            ", rowCrd=" + rowCrdVer +
-            ", rowCntr=" + rowCntr + ']';
-
-        return true;
+        this.grp = grp;
     }
 
     /** {@inheritDoc} */
@@ -179,7 +115,7 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
 
         long rowCrdVer = rowIo.getMvccCoordinatorVersion(pageAddr, idx);
 
-        long crdVer = unmaskedCoordinatorVersion();
+        long crdVer = mvccCoordinatorVersion();
 
         boolean isFirstRmvd = false;
 
@@ -192,9 +128,7 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
             if (cmp == 0)
                 res = UpdateResult.VERSION_FOUND;
             else {
-                CacheDataRowStore rowStore = ((CacheDataTree)tree).rowStore();
-
-                isFirstRmvd = rowStore.isRemoved(rowIo, pageAddr, idx);
+                isFirstRmvd = hasNewMvccVersion(grp, rowIo.getLink(pageAddr, idx));
 
                 if (isFirstRmvd)
                     res = UpdateResult.PREV_NULL;
@@ -214,7 +148,7 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
 
             long activeTx = isFirstRmvd ? oldRow.newMvccCounter() : rowMvccCntr;
 
-            if (mvccSnapshot.activeTransactions().contains(rowMvccCntr) || isFirstRmvd) {
+            if (mvccSnapshot.activeTransactions().contains(activeTx)) {
                 txActive = true;
 
                 if (activeTxs == null)
@@ -258,44 +192,55 @@ public class MvccUpdateDataRow extends DataRow implements BPlusTree.TreeRowClosu
     }
 
     /**
-     * @return Coordinator version without flags.
+     * @return Old row.
      */
-    protected long unmaskedCoordinatorVersion() {
-        return mvccSnapshot.coordinatorVersion();
+    public CacheDataRow oldRow() {
+        return oldRow;
     }
 
-    /** {@inheritDoc} */
-    @Override public long mvccCoordinatorVersion() {
-        return mvccSnapshot.coordinatorVersion();
+    /**
+     * @return {@code True} if previous value was non-null.
+     */
+    public UpdateResult updateResult() {
+        return res == null ? UpdateResult.PREV_NULL : res;
     }
 
-    /** {@inheritDoc} */
-    @Override public long mvccCounter() {
-        return mvccSnapshot.counter();
+    /**
+     * @return Active transactions to wait for.
+     */
+    @Nullable public GridLongList activeTransactions() {
+        return activeTxs;
     }
 
-    /** {@inheritDoc} */
-    @Override public long newMvccCoordinatorVersion() {
-        return newMvccCrd;
+    /**
+     * @return Rows which are safe to cleanup.
+     */
+    public List<MvccLinkAwareSearchRow> cleanupRows() {
+        return cleanupRows;
     }
 
-    /** {@inheritDoc} */
-    @Override public long newMvccCounter() {
-        return newMvccCntr;
-    }
+    /**
+     * @param io IO.
+     * @param pageAddr Page address.
+     * @param idx Item index.
+     * @return Always {@code true}.
+     */
+    private boolean assertVersion(RowLinkIO io, long pageAddr, int idx) {
+        long rowCrdVer = io.getMvccCoordinatorVersion(pageAddr, idx);
+        long rowCntr = io.getMvccCounter(pageAddr, idx);
 
-    /** {@inheritDoc} */
-    @Override public int size() throws IgniteCheckedException {
-        assert mvccCoordinatorVersion() > 0 && mvccCounter() > MVCC_COUNTER_NA;
+        int cmp = Long.compare(mvccCoordinatorVersion(), rowCrdVer);
 
-        return super.size() + MVCC_INFO_SIZE;
-    }
+        if (cmp == 0)
+            cmp = Long.compare(mvccSnapshot.counter(), rowCntr);
 
-    /** {@inheritDoc} */
-    @Override public int headerSize() {
-        assert mvccCoordinatorVersion() > 0 && mvccCounter() > MVCC_COUNTER_NA;
+        // Can be equals if execute update on backup and backup already rebalanced value updated on primary.
+        assert cmp >= 0 : "[updCrd=" + mvccCoordinatorVersion() +
+            ", updCntr=" + mvccSnapshot.counter() +
+            ", rowCrd=" + rowCrdVer +
+            ", rowCntr=" + rowCntr + ']';
 
-        return MVCC_INFO_SIZE;
+        return true;
     }
 
     /** {@inheritDoc} */

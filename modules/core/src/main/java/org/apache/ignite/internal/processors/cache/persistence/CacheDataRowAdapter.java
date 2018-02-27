@@ -44,7 +44,6 @@ import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
 import static org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter.RowData.LINK_WITH_HEADER;
-import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.getRowSize;
 
 /**
  * Cache data row adapter.
@@ -622,7 +621,11 @@ public class CacheDataRowAdapter implements CacheDataRow {
 
     /** {@inheritDoc} */
     @Override public int size() throws IgniteCheckedException {
-        return getRowSize(this);
+        int len = key().valueBytesLength(null);
+
+        len += value().valueBytesLength(null) + CacheVersionIO.size(version(), false) + 8;
+
+        return len + (cacheId() != 0 ? 4 : 0);
     }
 
     /** {@inheritDoc} */

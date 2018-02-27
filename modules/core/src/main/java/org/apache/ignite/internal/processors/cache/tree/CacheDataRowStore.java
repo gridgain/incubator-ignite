@@ -18,26 +18,14 @@
 package org.apache.ignite.internal.processors.cache.tree;
 
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccMarkRemovedRecord;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.FreeList;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
-import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageHandler;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
 import org.apache.ignite.internal.util.typedef.internal.CU;
-
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.hasNewMvccVersion;
-import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 
 /**
  *
@@ -49,9 +37,6 @@ public class CacheDataRowStore extends RowStore {
     /** */
     private final CacheGroupContext grp;
 
-    /** Mvcc remove handler. */
-    private final PageHandler<MvccVersion, Boolean> mvccRmvMarker = new MvccMarkRemovedHandler();
-
     /**
      * @param grp Cache group.
      * @param freeList Free list.
@@ -62,28 +47,6 @@ public class CacheDataRowStore extends RowStore {
 
         this.partId = partId;
         this.grp = grp;
-    }
-
-    /**
-     * Marks row as removed.
-     *
-     * @param link Link.
-     * @param newVer Remove operation version.
-     * @throws IgniteCheckedException If failed.
-     */
-    public void mvccMarkRemoved(long link, MvccVersion newVer) throws IgniteCheckedException {
-        if (!persistenceEnabled)
-            freeList.updateDataRow(link, mvccRmvMarker, newVer);
-        else {
-            ctx.database().checkpointReadLock();
-
-            try {
-                freeList.updateDataRow(link, mvccRmvMarker, newVer);
-            }
-            finally {
-                ctx.database().checkpointReadUnlock();
-            }
-        }
     }
 
     /**
@@ -126,38 +89,6 @@ public class CacheDataRowStore extends RowStore {
     }
 
     /**
-     * Checks if new version available.
-     *
-     * @param io Row link IO.
-     * @param pageAddr Page address.
-     * @param idx Index.
-     * @return {@code True} if a newer version is available for the given row.
-     * @throws IgniteCheckedException If failed.
-     */
-    public boolean isRemoved(RowLinkIO io, long pageAddr, int idx)
-        throws IgniteCheckedException {
-        long link = io.getLink(pageAddr, idx);
-
-        return hasNewMvccVersion(grp, link);
-    }
-
-    /**
-     * Checks if row is visible for snapshot.
-     *
-     * @param io Row link IO.
-     * @param pageAddr Page address.
-     * @param idx Index.
-     * @return {@code True} if a newer version is available for the given row.
-     * @throws IgniteCheckedException If failed.
-     */
-    public boolean isVisibleForSnapshot(RowLinkIO io, long pageAddr, int idx, MvccSnapshot snapshot)
-        throws IgniteCheckedException {
-        long link = io.getLink(pageAddr, idx);
-
-        return MvccUtils.isVisibleForSnapshot(grp, link, snapshot);
-    }
-
-    /**
      * @param dataRow Data row.
      * @param cacheId Cache ID.
      */
@@ -180,37 +111,5 @@ public class CacheDataRowStore extends RowStore {
             dataRow.cacheId(cacheId);
 
         return dataRow;
-    }
-
-    /**
-     * Mvcc remove handler.
-     */
-    private final class MvccMarkRemovedHandler extends PageHandler<MvccVersion, Boolean> {
-        /** {@inheritDoc} */
-        @Override public Boolean run(int cacheId, long pageId, long page, long pageAddr, PageIO io, Boolean walPlc,
-            MvccVersion newVer, int itemId) throws IgniteCheckedException {
-            assert grp.mvccEnabled();
-
-            DataPageIO iox = (DataPageIO)io;
-
-            DataPagePayload data = iox.readPayload(pageAddr, itemId, pageMem.pageSize());
-
-            assert data.payloadSize() >= MVCC_INFO_SIZE : "MVCC info should be fit on the very first data page.";
-
-            long newCrd = iox.newMvccCoordinator(pageAddr, data.offset());
-            long newCntr = iox.newMvccCounter(pageAddr, data.offset());
-
-            assert newCrd > 0 == newCntr > MVCC_COUNTER_NA;
-
-            if (newCrd == 0) {
-                iox.markRemoved(pageAddr, data.offset(), newVer);
-
-                if (isWalDeltaRecordNeeded(pageMem, cacheId, pageId, page, ctx.wal(), walPlc))
-                    ctx.wal().log(new DataPageMvccMarkRemovedRecord(cacheId, pageId, itemId,
-                        newVer.coordinatorVersion(), newVer.counter()));
-            }
-
-            return Boolean.TRUE;
-        }
     }
 }

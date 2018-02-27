@@ -242,7 +242,8 @@ public class DataPageIO extends AbstractDataPageIO<CacheDataRow> {
      */
     public void markRemoved(long pageAddr, int itemId, int pageSize, long mvccCrd, long mvccCntr) {
         int dataOff = getDataOffset(pageAddr, itemId, pageSize);
-        long addr = pageAddr + dataOff;
+
+        long addr = pageAddr + dataOff + (isFragmented(pageAddr, dataOff) ? 10 : 2);
 
         markRemoved(addr, mvccCrd, mvccCntr);
     }
@@ -431,19 +432,6 @@ public class DataPageIO extends AbstractDataPageIO<CacheDataRow> {
         sb.a("DataPageIO [\n");
         printPageLayout(addr, pageSize, sb);
         sb.a("\n]");
-    }
-
-    /**
-     * @param row Row.
-     * @return Entry size on page.
-     * @throws IgniteCheckedException If failed.
-     */
-    public static int getRowSize(CacheDataRow row) throws IgniteCheckedException {
-        int len = row.key().valueBytesLength(null);
-
-        len += row.value().valueBytesLength(null) + CacheVersionIO.size(row.version(), false) + 8;
-
-        return len + (row.cacheId() != 0 ? 4 : 0);
     }
 
     /**
