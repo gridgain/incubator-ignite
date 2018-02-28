@@ -420,6 +420,7 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
 
         if (!cctx.kernalContext().clientNode()) {
             assert archiver != null;
+
             archiver.start();
 
             if (compressor != null)
