@@ -79,7 +79,7 @@ public abstract class GridH2Row extends GridH2SearchRowAdapter implements CacheD
 
     /** {@inheritDoc} */
     @Override public int hash() {
-        throw new UnsupportedOperationException();
+        return row.hash();
     }
 
     /** {@inheritDoc} */
@@ -99,7 +99,7 @@ public abstract class GridH2Row extends GridH2SearchRowAdapter implements CacheD
 
     /** {@inheritDoc} */
     @Override public boolean removed() {
-        throw new UnsupportedOperationException();
+        return row.removed();
     }
 
     /** {@inheritDoc} */
@@ -107,17 +107,18 @@ public abstract class GridH2Row extends GridH2SearchRowAdapter implements CacheD
         return false;
     }
 
-    /**
-     * @return Part of new mvcc version.
-     */
-    public long newMvccCoordinatorVersion() {
-        return 0;
+    /** {@inheritDoc} */
+    @Override public long newMvccCoordinatorVersion() {
+        return row.newMvccCoordinatorVersion();
     }
 
-    /**
-     * @return Part of new mvcc version.
-     */
-    public long newMvccCounter() {
-        return MvccProcessor.MVCC_COUNTER_NA;
+    /** {@inheritDoc} */
+    @Override public long newMvccCounter() {
+        return row.newMvccCounter();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void mvccVersion(long crdVer, long mvccCntr) {
+        row.mvccVersion(crdVer, mvccCntr);
     }
 }
