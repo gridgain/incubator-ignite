@@ -48,15 +48,7 @@ export default angular
             redirectTo: (trans) => {
                 return trans.injector().get('User').read()
                     .then(() => {
-                        try {
-                            const {name, params} = JSON.parse(localStorage.getItem('lastStateChangeSuccess'));
-
-                            const restored = trans.router.stateService.target(name, params);
-
-                            return restored.valid() ? restored : 'base.configuration.tabs';
-                        } catch (ignored) {
-                            return 'base.configuration.tabs';
-                        }
+                        return 'default-state';
                     })
                     .catch(() => true);
             },
