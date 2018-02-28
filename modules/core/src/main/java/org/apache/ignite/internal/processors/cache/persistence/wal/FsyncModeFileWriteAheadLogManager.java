@@ -92,12 +92,14 @@ import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.CIX1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
@@ -1094,7 +1096,7 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
             createFile(first);
         }
         else
-            checkFiles(0, false, null);
+            checkFiles(0, false, null, null);
     }
 
     /**
@@ -1242,6 +1244,8 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
          */
         private Map<Long, Integer> locked = new HashMap<>();
 
+        private long lastAllocatedIdx;
+
         /**
          *
          */
@@ -1249,6 +1253,7 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
             super("wal-file-archiver%" + cctx.igniteInstanceName());
 
             this.lastAbsArchivedIdx = lastAbsArchivedIdx;
+            this.lastAllocatedIdx = lastAbsArchivedIdx;
         }
 
         /**
@@ -1428,7 +1433,11 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
                     // Notify archiver thread.
                     notifyAll();
 
-                    while (curAbsWalIdx - lastAbsArchivedIdx > dsCfg.getWalSegments() && cleanException == null)
+                    int segments = dsCfg.getWalSegments();
+
+                    while (
+                        (curAbsWalIdx < segments && curAbsWalIdx > lastAllocatedIdx) ||
+                        (curAbsWalIdx - lastAbsArchivedIdx > segments && cleanException == null))
                         wait();
 
                     return curAbsWalIdx;
@@ -1557,9 +1566,19 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
          * {@link FsyncModeFileWriteAheadLogManager#checkOrPrepareFiles()}
          */
         private void allocateRemainingFiles() throws IgniteCheckedException {
+            final FileArchiver archiver = this;
+
             checkFiles(1, true, new IgnitePredicate<Integer>() {
                 @Override public boolean apply(Integer integer) {
                     return !checkStop();
+                }
+            }, new CI1<Integer>() {
+                @Override public void apply(Integer allocatedIdx) {
+                    synchronized (archiver){
+                        lastAllocatedIdx = allocatedIdx;
+
+                        archiver.notifyAll();
+                    }
                 }
             });
         }
@@ -1876,7 +1895,12 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
      * @param p Predicate Exit condition.
      * @throws IgniteCheckedException if validation or create file fail.
      */
-    private void checkFiles(int startWith, boolean create, IgnitePredicate<Integer> p) throws IgniteCheckedException {
+    private void checkFiles(
+        int startWith,
+        boolean create,
+        IgnitePredicate<Integer> p,
+        IgniteInClosure<Integer> allocated
+    ) throws IgniteCheckedException {
         for (int i = startWith; i < dsCfg.getWalSegments() && (p == null || (p != null && p.apply(i))); i++) {
             File checkFile = new File(walWorkDir, FileDescriptor.fileName(i));
 
@@ -1888,8 +1912,12 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
                     throw new IgniteCheckedException("Failed to initialize WAL log segment " +
                         "(WAL segment size change is not supported):" + checkFile.getAbsolutePath());
             }
-            else if (create)
+            else if (create){
                 createFile(checkFile);
+
+                if (allocated != null)
+                    allocated.apply(i);
+            }
         }
     }
 
