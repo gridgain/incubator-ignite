@@ -643,11 +643,6 @@ public class CacheDataRowAdapter implements CacheDataRow {
         return MVCC_COUNTER_NA;
     }
 
-    /** {@inheritDoc} */
-    @Override public boolean removed() {
-        return false;
-    }
-
     /**
      *
      */

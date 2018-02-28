@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.processors.cache.tree.mvcc.search;
 
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.processors.cache.CacheGroupContext;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccLongList;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
@@ -40,7 +40,7 @@ import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.isVisib
  */
 public class MvccSnapshotSearchRow extends MvccSearchRow implements MvccTreeClosure {
     /** */
-    private final CacheGroupContext grp;
+    private final GridCacheContext cctx;
 
     /** Active transactions. */
     private final MvccLongList activeTxs;
@@ -54,15 +54,16 @@ public class MvccSnapshotSearchRow extends MvccSearchRow implements MvccTreeClos
     /**
      * Constructor.
      *
-     * @param grp Group context.
-     * @param cacheId Cache ID.
+     * @param cctx
      * @param key Key.
      * @param snapshot Snapshot.
      */
-    public MvccSnapshotSearchRow(CacheGroupContext grp, int cacheId, KeyCacheObject key, MvccSnapshot snapshot) {
-        super(cacheId, key, snapshot.coordinatorVersion(), snapshot.counter());
+    public MvccSnapshotSearchRow(GridCacheContext cctx, KeyCacheObject key,
+        MvccSnapshot snapshot) {
+        super(cctx.cacheId(), key, snapshot.coordinatorVersion(), snapshot.counter());
 
-        this.grp = grp;
+        this.cctx = cctx;
+
         this.activeTxs = snapshot.activeTransactions();
         this.snapshot = snapshot;
     }
@@ -93,7 +94,7 @@ public class MvccSnapshotSearchRow extends MvccSearchRow implements MvccTreeClos
         if (visible) {
             long link = rowIo.getLink(pageAddr, idx);
 
-            if (!isVisibleForSnapshot(grp, link, snapshot))
+            if (!isVisibleForSnapshot(cctx, link, snapshot))
                 resRow = null;
             else
                 resRow = tree.getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);

@@ -21,7 +21,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.cluster.ClusterTopologyServerNotFoundException;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
-import org.apache.ignite.internal.processors.cache.CacheGroupContext;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 
@@ -35,13 +35,13 @@ import static org.apache.ignite.internal.processors.cache.persistence.tree.io.Da
  */
 public class MvccUtils {
     /** */
-    private static IsVisibleMvccClosure isVisible = new IsVisibleMvccClosure();
+    private static MvccClosure<Boolean> isVisible = new IsVisible();
 
     /** */
-    private static HasNewVersionMvccClosure hasNewVer = new HasNewVersionMvccClosure();
+    private static MvccClosure<Boolean> hasNewVer = new HasNewVersion();
 
     /** */
-    private static GetNewVersionMvccClosure getNewVer = new GetNewVersionMvccClosure();
+    private static MvccClosure<MvccVersion> getNewVer = new GetNewVersion();
 
     /**
      *
@@ -100,49 +100,49 @@ public class MvccUtils {
     /**
      * Checks if a row has not empty new version (xid_max).
      *
-     * @param grp Cache group context.
+     * @param cctx Cache context.
      * @param link Link to the row.
      * @return {@code True} if row has a new version.
      * @throws IgniteCheckedException If failed.
      */
-    public static boolean hasNewMvccVersion(CacheGroupContext grp, long link)
+    public static boolean hasNewMvccVersion(GridCacheContext cctx, long link)
         throws IgniteCheckedException {
-        return applyMvccClosure(grp, link, hasNewVer, null);
+        return invoke(cctx, link, hasNewVer, null);
     }
 
 
     /**
      * Checks if a row is visible for the given snapshot.
      *
-     * @param grp Cache group context.
+     * @param cctx Cache context.
      * @param link Link to the row.
      * @param snapshot Mvcc snapshot.
      * @return {@code True} if row is visible for the given snapshot.
      * @throws IgniteCheckedException If failed.
      */
-    public static boolean isVisibleForSnapshot(CacheGroupContext grp, long link, MvccSnapshot snapshot)
+    public static boolean isVisibleForSnapshot(GridCacheContext cctx, long link, MvccSnapshot snapshot)
         throws IgniteCheckedException {
-        return applyMvccClosure(grp, link, isVisible, snapshot);
+        return invoke(cctx, link, isVisible, snapshot);
     }
 
     /**
      * Returns new version of row (xid_max) if any.
      *
-     * @param grp Cache group context.
+     * @param cctx Cache context.
      * @param link Link to the row.
      * @return New {@code MvccVersion} if row has xid_max, or null if doesn't.
      * @throws IgniteCheckedException If failed.
      */
-    public static MvccVersion getNewVersion(CacheGroupContext grp, long link)
+    public static MvccVersion getNewVersion(GridCacheContext cctx, long link)
         throws IgniteCheckedException {
-        return applyMvccClosure(grp, link, getNewVer, null);
+        return invoke(cctx, link, getNewVer, null);
     }
 
     /**
      * Encapsulates common logic for working with row mvcc info: page locking/unlocking, checks and other.
      * Strategy pattern.
      *
-     * @param grp Cache group.
+     * @param cctx Cache group.
      * @param link Row link.
      * @param clo Closure to apply.
      * @param snapshot Mvcc snapshot.
@@ -150,12 +150,12 @@ public class MvccUtils {
      * @return Result.
      * @throws IgniteCheckedException If failed.
      */
-    private static <R> R applyMvccClosure(CacheGroupContext grp, long link, MvccClosure<R> clo, MvccSnapshot snapshot)
+    private static <R> R invoke(GridCacheContext cctx, long link, MvccClosure<R> clo, MvccSnapshot snapshot)
         throws IgniteCheckedException {
-        assert grp.mvccEnabled();
+        assert cctx.mvccEnabled();
 
-        PageMemory pageMem = grp.dataRegion().pageMemory();
-        int grpId = grp.groupId();
+        PageMemory pageMem = cctx.dataRegion().pageMemory();
+        int grpId = cctx.groupId();
 
         long pageId = pageId(link);
         long page = pageMem.acquirePage(grpId, pageId);
@@ -209,7 +209,7 @@ public class MvccUtils {
     /**
      * Closure for checking row visibility for snapshot.
      */
-    private static class IsVisibleMvccClosure implements MvccClosure<Boolean> {
+    private static class IsVisible implements MvccClosure<Boolean> {
         /** {@inheritDoc} */
         @Override public Boolean apply(MvccSnapshot snapshot, long mvccCrd, long mvccCntr,
             long newMvccCrd, long newMvccCntr) {
@@ -220,7 +220,7 @@ public class MvccUtils {
     /**
      * Closure for checking if row has a new version (xid_max).
      */
-    private static class HasNewVersionMvccClosure implements MvccClosure<Boolean> {
+    private static class HasNewVersion implements MvccClosure<Boolean> {
         /** {@inheritDoc} */
         @Override public Boolean apply(MvccSnapshot snapshot, long mvccCrd, long mvccCntr,
             long newMvccCrd, long newMvccCntr) {
@@ -231,7 +231,7 @@ public class MvccUtils {
     /**
      * Closure for getting xid_max version of row.
      */
-    private static class GetNewVersionMvccClosure implements MvccClosure<MvccVersion> {
+    private static class GetNewVersion implements MvccClosure<MvccVersion> {
         /** {@inheritDoc} */
         @Override public MvccVersion apply(MvccSnapshot snapshot, long mvccCrd, long mvccCntr,
             long newMvccCrd, long newMvccCntr) {

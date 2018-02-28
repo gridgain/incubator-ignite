@@ -466,10 +466,6 @@ public class CacheFreeListImplSelfTest extends GridCommonAbstractTest {
             return 0;
         }
 
-        /** {@inheritDoc} */
-        @Override public boolean removed() {
-            return false;
-        }
     }
 
     /**

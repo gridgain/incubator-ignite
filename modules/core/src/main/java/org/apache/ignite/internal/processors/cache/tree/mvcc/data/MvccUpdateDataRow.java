@@ -20,13 +20,12 @@ package org.apache.ignite.internal.processors.cache.tree.mvcc.data;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
-import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
@@ -45,7 +44,7 @@ import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.hasNewM
  */
 public class MvccUpdateDataRow extends MvccDataRow implements BPlusTree.TreeRowClosure<CacheSearchRow, CacheDataRow> {
     /** */
-    private final CacheGroupContext grp;
+    private final GridCacheContext cctx;
 
     /** */
     private UpdateResult res;
@@ -63,9 +62,6 @@ public class MvccUpdateDataRow extends MvccDataRow implements BPlusTree.TreeRowC
     private final MvccSnapshot mvccSnapshot;
 
     /** */
-    private final boolean needOld;
-
-    /** */
     private CacheDataRow oldRow;
 
     /**
@@ -74,10 +70,9 @@ public class MvccUpdateDataRow extends MvccDataRow implements BPlusTree.TreeRowC
      * @param ver Version.
      * @param expireTime Expire time.
      * @param mvccSnapshot MVCC snapshot.
-     * @param needOld {@code True} if need previous value.
+     * @param newVer Update version.
      * @param part Partition.
-     * @param cacheId Cache ID.
-     * @param grp Group context.
+     * @param cctx Cache context.
      */
     public MvccUpdateDataRow(
         KeyCacheObject key,
@@ -86,15 +81,20 @@ public class MvccUpdateDataRow extends MvccDataRow implements BPlusTree.TreeRowC
         long expireTime,
         MvccSnapshot mvccSnapshot,
         MvccVersion newVer,
-        boolean needOld,
         int part,
-        int cacheId,
-        CacheGroupContext grp) {
-        super(key, val, ver, part, expireTime, cacheId, mvccSnapshot.coordinatorVersion(), mvccSnapshot.counter(), newVer);
+        GridCacheContext cctx) {
+        super(key,
+            val,
+            ver,
+            part,
+            expireTime,
+            cctx.cacheId(),
+            mvccSnapshot.coordinatorVersion(),
+            mvccSnapshot.counter(),
+            newVer);
 
         this.mvccSnapshot = mvccSnapshot;
-        this.needOld = needOld;
-        this.grp = grp;
+        this.cctx = cctx;
     }
 
     /** {@inheritDoc} */
@@ -128,17 +128,14 @@ public class MvccUpdateDataRow extends MvccDataRow implements BPlusTree.TreeRowC
             if (cmp == 0)
                 res = UpdateResult.VERSION_FOUND;
             else {
-                isFirstRmvd = hasNewMvccVersion(grp, rowIo.getLink(pageAddr, idx));
+                isFirstRmvd = hasNewMvccVersion(cctx, rowIo.getLink(pageAddr, idx));
 
                 if (isFirstRmvd)
                     res = UpdateResult.PREV_NULL;
                 else
                     res = UpdateResult.PREV_NOT_NULL;
 
-                if (needOld)
-                    oldRow = tree.getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
-                else
-                    oldRow = tree.getRow(io, pageAddr, idx, RowData.LINK_WITH_HEADER);
+                oldRow = tree.getRow(io, pageAddr, idx, RowData.LINK_WITH_HEADER);
             }
         }
 

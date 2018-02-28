@@ -141,11 +141,6 @@ public class MvccDataRow extends DataRow {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean removed() {
-        return newMvccCrd > 0;
-    }
-
-    /** {@inheritDoc} */
     @Override public long newMvccCoordinatorVersion() {
         return newMvccCrd;
     }

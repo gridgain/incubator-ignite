@@ -56,11 +56,6 @@ public interface CacheDataRow extends CacheSearchRow, Storable {
     public void key(KeyCacheObject key);
 
     /**
-     * @return {@code True} if this is row for cache remove operation (used only with mvcc).
-     */
-    public boolean removed();
-
-    /**
      * @param crdVer Mvcc coordinator version.
      * @param mvccCntr Mvcc counter.
      */

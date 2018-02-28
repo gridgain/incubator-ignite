@@ -61,9 +61,6 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
     /** {@inheritDoc} */
     @Override public boolean apply(BPlusTree<GridH2SearchRow, GridH2Row> tree, BPlusIO<GridH2SearchRow> io,
         long pageAddr, int idx)  throws IgniteCheckedException {
-
-        long link = ((H2RowLinkIO)io).getLink(pageAddr, idx);
-
         return (filter  == null || applyFilter((H2RowLinkIO)io, pageAddr, idx))
             && (mvccSnapshot == null || applyMvcc((H2RowLinkIO)io, pageAddr, idx));
     }
@@ -102,10 +99,10 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
 
             return cmp >= 0 &&
                 !mvccSnapshot.activeTransactions().contains(rowCntr) &&
-                isVisibleForSnapshot(cctx.group(), io.getLink(pageAddr, idx), mvccSnapshot);
+                isVisibleForSnapshot(cctx, io.getLink(pageAddr, idx), mvccSnapshot);
         }
         else
-            return cmp > 0;
+            return cmp > 0 && isVisibleForSnapshot(cctx, io.getLink(pageAddr, idx), mvccSnapshot);
     }
 
     /** {@inheritDoc} */
