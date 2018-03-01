@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.processors.odbc;
 
-import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.*;
 import org.apache.ignite.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.binary.BinaryReaderExImpl;
@@ -212,6 +211,19 @@ public class ClientListenerNioListener extends GridNioServerListenerAdapter<byte
         ClientListenerConnectionContext connCtx = null;
 
         try {
+            // TODO: implement authentication (other team is working on it)
+            // >>> START OF TEMPORARY CODE
+            if (msg.length > 8) {
+                String user = reader.readString();
+                String pwd = reader.readString();
+
+                if (!"user".equals(user) && !"password".equals(pwd))
+                    // TODO: do not change the exception message. The client parses it to understand what happened.
+                    // (or change the "success flag" semantics to be a status code instead of 0/1).
+                    throw new IgniteCheckedException("Invalid user name or password");
+            }
+            // >>> END OF TEMPORARY CODE
+
             connCtx = prepareContext(clientType);
 
             ensureClientPermissions(clientType);

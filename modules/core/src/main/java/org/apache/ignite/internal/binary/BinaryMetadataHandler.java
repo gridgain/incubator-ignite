@@ -20,6 +20,8 @@ package org.apache.ignite.internal.binary;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryType;
 
+import java.util.*;
+
 /**
  * Binary meta data handler.
  */
@@ -60,4 +62,11 @@ public interface BinaryMetadataHandler {
      * @throws BinaryObjectException In case of error.
      */
     public BinaryType metadata(int typeId, int schemaId) throws BinaryObjectException;
+
+    /**
+     * Gets all metadata known to the node.
+     * @return Metadata collection
+     * @throws BinaryObjectException
+     */
+    public Collection<BinaryType> metadata() throws BinaryObjectException;
 }

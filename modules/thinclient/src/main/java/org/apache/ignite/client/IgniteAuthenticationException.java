@@ -15,37 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.platform.client;
+package org.apache.ignite.client;
 
 /**
- * Client status codes.
+ * Indicates Ignite server the client is connected to closed the connection and no longer available.
  */
-public final class ClientStatus {
+public class IgniteAuthenticationException extends IgniteClientException {
+    /** Serial version uid. */
+    private static final long serialVersionUID = 7338239988823521260L;
+
+    /** Message. */
+    private static final String MSG = "Invalid user name or password";
+
     /**
-     * No-op constructor to prevent instantiation.
+     * Default constructor.
      */
-    private ClientStatus (){
-        // No-op.
+    IgniteAuthenticationException() {
+        super(SystemEvent.AUTH_FAILED, MSG);
     }
 
-    /** Command succeeded. */
-    public static final int SUCCESS = 0;
-
-    /** Command failed. */
-    public static final int FAILED = 1;
-
-    /** Invalid op code. */
-    public static final int INVALID_OP_CODE = 2;
-
-    /** Cache does not exist. */
-    public static final int CACHE_DOES_NOT_EXIST = 1000;
-
-    /** Cache already exists. */
-    public static final int CACHE_EXISTS = 1001;
-
-    /** Too many cursors. */
-    public static final int TOO_MANY_CURSORS = 1010;
-
-    /** Resource does not exist. */
-    public static final int RESOURCE_DOES_NOT_EXIST = 1011;
+    /**
+     * Constructs a new exception with the specified cause and a detail
+     * message of <tt>(cause==null ? null : cause.toString())</tt>.
+     *
+     * @param cause the cause.
+     */
+    IgniteAuthenticationException(Throwable cause) {
+        super(SystemEvent.AUTH_FAILED, MSG, cause);
+    }
 }

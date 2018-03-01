@@ -453,7 +453,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             File file = new File(walArchiveDir, segmentName);
             File fileZip = new File(walArchiveDir, segmentName + ".zip");
 
-            if (file.exists())
+            if (file.exists() || fileZip.exists())
                 res.add(file);
             else if (fileZip.exists())
                 res.add(fileZip);

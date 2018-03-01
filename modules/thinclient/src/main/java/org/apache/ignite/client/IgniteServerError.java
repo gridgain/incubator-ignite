@@ -15,37 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.platform.client;
+package org.apache.ignite.client;
 
 /**
- * Client status codes.
+ * Ignite server failed to process client request.
  */
-public final class ClientStatus {
+public class IgniteServerError extends IgniteClientError {
+    /** Serial version uid. */
+    private static final long serialVersionUID = -1930515656936185076L;
+
     /**
-     * No-op constructor to prevent instantiation.
+     * Constructs a new exception with the specified detail message.
      */
-    private ClientStatus (){
-        // No-op.
+    IgniteServerError(SystemEvent evt, String srvMsg, int srvCode, long reqId) {
+        super(
+            evt,
+            String.format("Ignite failed to process request [%s]: %s (server status code [%s])", reqId, srvMsg, srvCode)
+        );
     }
-
-    /** Command succeeded. */
-    public static final int SUCCESS = 0;
-
-    /** Command failed. */
-    public static final int FAILED = 1;
-
-    /** Invalid op code. */
-    public static final int INVALID_OP_CODE = 2;
-
-    /** Cache does not exist. */
-    public static final int CACHE_DOES_NOT_EXIST = 1000;
-
-    /** Cache already exists. */
-    public static final int CACHE_EXISTS = 1001;
-
-    /** Too many cursors. */
-    public static final int TOO_MANY_CURSORS = 1010;
-
-    /** Resource does not exist. */
-    public static final int RESOURCE_DOES_NOT_EXIST = 1011;
 }

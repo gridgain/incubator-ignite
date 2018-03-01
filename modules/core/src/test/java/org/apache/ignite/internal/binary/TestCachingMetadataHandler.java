@@ -20,6 +20,7 @@ package org.apache.ignite.internal.binary;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryType;
 
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -51,5 +52,10 @@ public class TestCachingMetadataHandler implements BinaryMetadataHandler {
     /** {@inheritDoc} */
     @Override public BinaryType metadata(int typeId, int schemaId) throws BinaryObjectException {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public Collection<BinaryType> metadata() throws BinaryObjectException {
+        return metas.values();
     }
 }

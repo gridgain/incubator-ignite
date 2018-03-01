@@ -15,37 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.platform.client;
+package org.apache.ignite.client;
+
+import org.apache.ignite.client.system.*;
+import org.junit.runner.*;
+import org.junit.runners.*;
 
 /**
- * Client status codes.
+ * System tests.
  */
-public final class ClientStatus {
-    /**
-     * No-op constructor to prevent instantiation.
-     */
-    private ClientStatus (){
-        // No-op.
-    }
-
-    /** Command succeeded. */
-    public static final int SUCCESS = 0;
-
-    /** Command failed. */
-    public static final int FAILED = 1;
-
-    /** Invalid op code. */
-    public static final int INVALID_OP_CODE = 2;
-
-    /** Cache does not exist. */
-    public static final int CACHE_DOES_NOT_EXIST = 1000;
-
-    /** Cache already exists. */
-    public static final int CACHE_EXISTS = 1001;
-
-    /** Too many cursors. */
-    public static final int TOO_MANY_CURSORS = 1010;
-
-    /** Resource does not exist. */
-    public static final int RESOURCE_DOES_NOT_EXIST = 1011;
+@RunWith(Suite.class)
+@Suite.SuiteClasses({
+    FunctionalTest.class,
+    IgniteBinaryTest.class,
+    LoadTest.class,
+    ReliabilityTest.class,
+    SecurityTest.class
+})
+public class ThinClientSystemTestSuite {
 }

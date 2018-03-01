@@ -1,0 +1,562 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.client;
+
+import org.apache.ignite.internal.binary.*;
+import org.apache.ignite.internal.binary.streams.*;
+
+import javax.net.ssl.*;
+import java.io.*;
+import java.net.*;
+import java.security.*;
+import java.security.cert.*;
+import java.util.concurrent.atomic.*;
+import java.util.function.*;
+import java.util.stream.*;
+
+import org.apache.ignite.internal.processors.platform.client.ClientStatus;
+
+/**
+ * Implements {@link ClientChannel} over TCP.
+ */
+class TcpClientChannel implements ClientChannel {
+    /** Channel. */
+    private final Socket sock;
+
+    /** Output stream. */
+    private final OutputStream out;
+
+    /** Input stream. */
+    private final InputStream in;
+
+    /** Version. */
+    private final ProtocolVersion ver = new ProtocolVersion((short)1, (short)0, (short)0);
+
+    /** Request id. */
+    private final AtomicLong reqId = new AtomicLong(1);
+
+    /** Constructor. */
+    TcpClientChannel(ClientChannelConfiguration cfg) throws IgniteUnavailableException, IgniteAuthenticationException {
+        validateConfiguration(cfg);
+
+        try {
+            sock = createSocket(cfg);
+
+            out = sock.getOutputStream();
+            in = sock.getInputStream();
+        }
+        catch (IOException e) {
+            throw new IgniteUnavailableException(e);
+        }
+
+        handshake(cfg.getCredentialsProvider());
+    }
+
+    /** {@inheritDoc} */
+    @Override public void close() throws Exception {
+        in.close();
+        out.close();
+        sock.close();
+    }
+
+    /** {@inheritDoc} */
+    @Override public long send(ClientOperation op, Consumer<BinaryOutputStream> payloadWriter)
+        throws IgniteUnavailableException {
+        long id = reqId.getAndIncrement();
+
+        try (BinaryOutputStream req = new BinaryHeapOutputStream(1024)) {
+            req.writeInt(0); // reserve an integer for the request size
+            req.writeShort(op.code());
+            req.writeLong(id);
+
+            if (payloadWriter != null)
+                payloadWriter.accept(req);
+
+            req.writeInt(0, req.position() - 4); // actual size
+
+            write(req.array(), req.position());
+        }
+
+        return id;
+    }
+
+    /** {@inheritDoc} */
+    public <T> T receive(ClientOperation op, long reqId, Function<BinaryInputStream, T> payloadReader)
+        throws IgniteUnavailableException {
+        final int MIN_RES_SIZE = 8 + 4; // minimal response size: long (8 bytes) ID + int (4 bytes) status
+
+        int resSize = new BinaryHeapInputStream(read(4)).readInt();
+
+        if (resSize < 0)
+            throw new IgniteProtocolError(String.format("Invalid response size: %s", resSize));
+
+        if (resSize == 0)
+            return null;
+
+        BinaryInputStream resIn = new BinaryHeapInputStream(read(MIN_RES_SIZE));
+
+        long resId = resIn.readLong();
+
+        if (resId != reqId)
+            throw new IgniteProtocolError(String.format("Unexpected response ID [%s], [%s] was expected", resId, reqId));
+
+        int status = resIn.readInt();
+
+        if (status != 0) {
+            resIn = new BinaryHeapInputStream(read(resSize - MIN_RES_SIZE));
+
+            String err = new BinaryReaderExImpl(null, resIn, null, true).readString();
+
+            throw new IgniteServerError(getSystemEvent(status), err, status, reqId);
+        }
+
+        if (resSize <= MIN_RES_SIZE || payloadReader == null)
+            return null;
+
+        BinaryInputStream payload = new BinaryHeapInputStream(read(resSize - MIN_RES_SIZE));
+
+        return payloadReader.apply(payload);
+    }
+
+    /** Validate {@link IgniteClientConfiguration}. */
+    private static void validateConfiguration(ClientChannelConfiguration cfg) {
+        String error = null;
+
+        if (cfg == null)
+            error = "Ignite client configuration must be specified";
+        else if (cfg.getHost() == null && cfg.getHost().length() == 0)
+            error = "A cluster node must be specified in the Ignite client configuration";
+        else if (cfg.getPort() < 1024 || cfg.getPort() > 49151)
+            error = String.format("Ignite client port %s is out of valid ports range 1024...49151", cfg.getPort());
+
+        if (error != null)
+            throw new IllegalArgumentException(error);
+    }
+
+    /** Create socket. */
+    private static Socket createSocket(ClientChannelConfiguration cfg) throws IOException {
+        Socket sock = cfg.getSslMode() == SslMode.REQUIRE ?
+            new ClientSslSocketFactory(cfg).create() :
+            new Socket(cfg.getHost(), cfg.getPort());
+
+        sock.setTcpNoDelay(cfg.isTcpNoDelay());
+
+        if (cfg.getTimeout() > 0)
+            sock.setSoTimeout(cfg.getTimeout());
+
+        if (cfg.getSendBufferSize() > 0)
+            sock.setSendBufferSize(cfg.getSendBufferSize());
+
+        if (cfg.getReceiveBufferSize() > 0)
+            sock.setReceiveBufferSize(cfg.getReceiveBufferSize());
+
+        return sock;
+    }
+
+    /** Serialize String for thin client protocol. */
+    private static byte[] marshalString(String s) {
+        try (BinaryOutputStream out = new BinaryHeapOutputStream(s == null ? 1 : s.length() + 20);
+             BinaryRawWriterEx writer = new BinaryWriterExImpl(null, out, null, null)
+        ) {
+            writer.writeString(s);
+
+            return out.arrayCopy();
+        }
+    }
+
+    /** Client handshake. */
+    private void handshake(CredentialsProvider credProvider)
+        throws IgniteUnavailableException, IgniteAuthenticationException {
+        handshakeReq(credProvider);
+        handshakeRes();
+    }
+
+    /** Send handshake request. */
+    private void handshakeReq(CredentialsProvider credProvider) throws IgniteUnavailableException {
+        try (BinaryOutputStream req = new BinaryOffheapOutputStream(32)) {
+            req.writeInt(0); // reserve an integer for the request size
+            req.writeByte((byte)1); // handshake code, always 1
+            req.writeShort(ver.major());
+            req.writeShort(ver.minor());
+            req.writeShort(ver.patch());
+            req.writeByte((byte)2); // client code, always 2
+
+            if (credProvider != null) {
+                try {
+                    Credentials cred = credProvider.get();
+
+                    if (cred == null)
+                        throw new NullPointerException("cred");
+
+                    req.writeByteArray(marshalString(cred.getUser()));
+                    req.writeByteArray(marshalString(cred.getPassword()));
+                }
+                catch (Exception e) {
+                    throw new IgniteClientError(SystemEvent.CRED_PROVIDER_FAILED, "Credentials provider failed", e);
+                }
+            }
+
+            req.writeInt(0, req.position() - 4); // actual size
+
+            write(req.array(), req.position());
+        }
+    }
+
+    /** Receive and handle handshake response. */
+    private void handshakeRes() throws IgniteUnavailableException, IgniteAuthenticationException {
+        int resSize = new BinaryHeapInputStream(read(4)).readInt();
+
+        if (resSize <= 0)
+            throw new IgniteProtocolError(String.format("Invalid handshake response size: %s", resSize));
+
+        BinaryInputStream res = new BinaryHeapInputStream(read(resSize));
+
+        if (!res.readBoolean()) { // success flag
+            ProtocolVersion srvVer = new ProtocolVersion(res.readShort(), res.readShort(), res.readShort());
+
+            String err = new BinaryReaderExImpl(null, res, null, true).readString();
+
+            if (err != null && err.toUpperCase().matches("INVALID\\s+USER.*"))
+                throw new IgniteAuthenticationException();
+            else
+                throw new IgniteProtocolVersionMismatch(ver, srvVer, err);
+        }
+    }
+
+    /** Read bytes from the input stream. */
+    private byte[] read(int len) throws IgniteUnavailableException {
+        byte[] bytes = new byte[len];
+        int bytesNum;
+        int readBytesNum = 0;
+
+        while (readBytesNum < len) {
+            try {
+                bytesNum = in.read(bytes, readBytesNum, len - readBytesNum);
+            }
+            catch (IOException e) {
+                throw new IgniteUnavailableException(e);
+            }
+
+            if (bytesNum < 0)
+                throw new IgniteUnavailableException();
+
+            readBytesNum += bytesNum;
+        }
+
+        return bytes;
+    }
+
+    /** Write bytes to the output stream. */
+    private void write(byte[] bytes, int len) throws IgniteUnavailableException {
+        try {
+            out.write(bytes, 0, len);
+        }
+        catch (IOException e) {
+            throw new IgniteUnavailableException(e);
+        }
+    }
+
+    /** Convert response field "status code" to system event */
+    private SystemEvent getSystemEvent(int statusCode) {
+        switch (statusCode) {
+            case ClientStatus.CACHE_EXISTS:
+                return SystemEvent.CACHE_EXISTS;
+            case ClientStatus.CACHE_DOES_NOT_EXIST:
+                return SystemEvent.CACHE_DOES_NOT_EXIST;
+            case ClientStatus.INVALID_OP_CODE:
+                return SystemEvent.UNSUPPORTED_OPERATION;
+            case ClientStatus.TOO_MANY_CURSORS:
+                return SystemEvent.TOO_MANY_CURSORS;
+            case ClientStatus.RESOURCE_DOES_NOT_EXIST:
+                return SystemEvent.RESOURCE_DOES_NOT_EXIST;
+            default:
+                return SystemEvent.SERVER_ERROR;
+        }
+    }
+
+    /** SSL Socket Factory. */
+    private static class ClientSslSocketFactory {
+        /** Trust manager ignoring all certificate checks. */
+        private static TrustManager ignoreErrorsTrustMgr = new X509TrustManager() {
+            @Override public X509Certificate[] getAcceptedIssuers() {
+                return null;
+            }
+
+            @Override public void checkServerTrusted(X509Certificate[] arg0, String arg1) {
+            }
+
+            @Override public void checkClientTrusted(X509Certificate[] arg0, String arg1) {
+            }
+        };
+
+        /** Config. */
+        private final ClientChannelConfiguration cfg;
+
+        /** Constructor. */
+        ClientSslSocketFactory(ClientChannelConfiguration cfg) {
+            this.cfg = cfg;
+        }
+
+        /** Create SSL socket. */
+        SSLSocket create() throws IOException {
+            SSLSocket sock = (SSLSocket)getSslSocketFactory(cfg).createSocket(cfg.getHost(), cfg.getPort());
+
+            sock.setUseClientMode(true);
+
+            sock.startHandshake();
+
+            return sock;
+        }
+
+        /** Create SSL socket factory. */
+        private static SSLSocketFactory getSslSocketFactory(ClientChannelConfiguration cfg) {
+            BiFunction<String, String, String> or = (val, dflt) -> val == null || val.length() == 0 ? dflt : val;
+
+            String keyStore = or.apply(
+                cfg.getSslClientCertificateKeyStorePath(),
+                System.getProperty("javax.net.ssl.keyStore")
+            );
+
+            String keyStoreType = or.apply(
+                cfg.getSslClientCertificateKeyStoreType(),
+                or.apply(System.getProperty("javax.net.ssl.keyStoreType"), "JKS")
+            );
+
+            String keyStorePwd = or.apply(
+                cfg.getSslClientCertificateKeyStorePassword(),
+                System.getProperty("javax.net.ssl.keyStorePassword")
+            );
+
+            String trustStore = or.apply(
+                cfg.getSslTrustCertificateKeyStorePath(),
+                System.getProperty("javax.net.ssl.trustStore")
+            );
+
+            String trustStoreType = or.apply(
+                cfg.getSslTrustCertificateKeyStoreType(),
+                or.apply(System.getProperty("javax.net.ssl.trustStoreType"), "JKS")
+            );
+
+            String trustStorePwd = or.apply(
+                cfg.getSslTrustCertificateKeyStorePassword(),
+                System.getProperty("javax.net.ssl.trustStorePassword")
+            );
+
+            String algorithm = or.apply(cfg.getSslKeyAlgorithm(), "SunX509");
+
+            String proto = or.apply(cfg.getSslProtocol(), "TLS");
+
+            if (Stream.of(keyStore, keyStorePwd, keyStoreType, trustStore, trustStorePwd, trustStoreType)
+                .allMatch(s -> s == null || s.length() == 0)
+                ) {
+                try {
+                    return SSLContext.getDefault().getSocketFactory();
+                }
+                catch (NoSuchAlgorithmException e) {
+                    throw new IgniteClientError(
+                        SystemEvent.CRYPTO_ALGORITHM_UNAVAILABLE,
+                        "Default SSL context cryptographic algorithm is not available",
+                        e
+                    );
+                }
+            }
+
+            KeyManager[] keyManagers = getKeyManagers(algorithm, keyStore, keyStoreType, keyStorePwd);
+
+            TrustManager[] trustManagers = cfg.isSslTrustAll() ?
+                new TrustManager[] {ignoreErrorsTrustMgr} :
+                getTrustManagers(algorithm, trustStore, trustStoreType, trustStorePwd);
+
+            try {
+                SSLContext sslCtx = SSLContext.getInstance(proto);
+
+                sslCtx.init(keyManagers, trustManagers, null);
+
+                return sslCtx.getSocketFactory();
+            }
+            catch (NoSuchAlgorithmException e) {
+                throw new IgniteClientError(
+                    SystemEvent.CRYPTO_ALGORITHM_UNAVAILABLE,
+                    "SSL context cryptographic algorithm is not available",
+                    e
+                );
+            }
+            catch (KeyManagementException e) {
+                throw new IgniteClientError(SystemEvent.SSL_INIT_ERROR, "Failed to create SSL Context", e);
+            }
+        }
+
+        /** */
+        private static KeyManager[] getKeyManagers(
+            String algorithm,
+            String keyStore,
+            String keyStoreType,
+            String keyStorePwd
+        ) {
+            KeyManagerFactory keyMgrFactory;
+
+            try {
+                keyMgrFactory = KeyManagerFactory.getInstance(algorithm);
+            }
+            catch (NoSuchAlgorithmException e) {
+                throw new IgniteClientError(
+                    SystemEvent.CRYPTO_ALGORITHM_UNAVAILABLE,
+                    "Key manager cryptographic algorithm is not available",
+                    e
+                );
+            }
+
+            Predicate<String> empty = s -> s == null || s.length() == 0;
+
+            if (!empty.test(keyStore) && !empty.test(keyStoreType)) {
+                char[] pwd = (keyStorePwd == null) ? new char[0] : keyStorePwd.toCharArray();
+
+                KeyStore store = loadKeyStore("Client", keyStore, keyStoreType, pwd);
+
+                try {
+                    keyMgrFactory.init(store, pwd);
+                }
+                catch (UnrecoverableKeyException e) {
+                    throw new IgniteClientError(
+                        SystemEvent.SSL_INIT_ERROR,
+                        "Could not recover key store key",
+                        e
+                    );
+                }
+                catch (KeyStoreException e) {
+                    throw new IgniteClientError(
+                        SystemEvent.KEYSTORE_TYPE_NOT_FOUND,
+                        String.format("Client key store provider of type [%s] is not available", keyStoreType),
+                        e
+                    );
+                }
+                catch (NoSuchAlgorithmException e) {
+                    throw new IgniteClientError(
+                        SystemEvent.CRYPTO_ALGORITHM_UNAVAILABLE,
+                        "Client key store integrity check algorithm is not available",
+                        e
+                    );
+                }
+            }
+
+            return keyMgrFactory.getKeyManagers();
+        }
+
+        /** */
+        private static TrustManager[] getTrustManagers(
+            String algorithm,
+            String trustStore,
+            String trustStoreType,
+            String trustStorePwd
+        ) {
+            TrustManagerFactory trustMgrFactory;
+
+            try {
+                trustMgrFactory = TrustManagerFactory.getInstance(algorithm);
+            }
+            catch (NoSuchAlgorithmException e) {
+                throw new IgniteClientError(
+                    SystemEvent.CRYPTO_ALGORITHM_UNAVAILABLE,
+                    "Trust manager cryptographic algorithm is not available",
+                    e
+                );
+            }
+
+            Predicate<String> empty = s -> s == null || s.length() == 0;
+
+            if (!empty.test(trustStore) && !empty.test(trustStoreType)) {
+                char[] pwd = (trustStorePwd == null) ? new char[0] : trustStorePwd.toCharArray();
+
+                KeyStore store = loadKeyStore("Trust", trustStore, trustStoreType, pwd);
+
+                try {
+                    trustMgrFactory.init(store);
+                }
+                catch (KeyStoreException e) {
+                    throw new IgniteClientError(
+                        SystemEvent.KEYSTORE_TYPE_NOT_FOUND,
+                        String.format("Trust key store provider of type [%s] is not available", trustStoreType),
+                        e
+                    );
+                }
+            }
+
+            return trustMgrFactory.getTrustManagers();
+        }
+
+        /** */
+        private static KeyStore loadKeyStore(String lb, String path, String type, char[] pwd) {
+            InputStream in = null;
+
+            try {
+                KeyStore store = KeyStore.getInstance(type);
+
+                in = new FileInputStream(new File(path));
+
+                store.load(in, pwd);
+
+                return store;
+            }
+            catch (KeyStoreException e) {
+                throw new IgniteClientError(
+                    SystemEvent.KEYSTORE_TYPE_NOT_FOUND,
+                    String.format("%s key store provider of type [%s] is not available", lb, type),
+                    e
+                );
+            }
+            catch (FileNotFoundException e) {
+                throw new IgniteClientError(
+                    SystemEvent.KEYSTORE_FILE_DOES_NOT_EXIST,
+                    String.format("%s key store file [%s] does not exist", lb, path),
+                    e
+                );
+            }
+            catch (NoSuchAlgorithmException e) {
+                throw new IgniteClientError(
+                    SystemEvent.CRYPTO_ALGORITHM_UNAVAILABLE,
+                    String.format("%s key store integrity check algorithm is not available", lb),
+                    e
+                );
+            }
+            catch (CertificateException e) {
+                throw new IgniteClientError(
+                    SystemEvent.SSL_INIT_ERROR,
+                    String.format("Could not load certificate from %s key store", lb),
+                    e
+                );
+            }
+            catch (IOException e) {
+                throw new IgniteClientError(
+                    SystemEvent.SSL_INIT_ERROR,
+                    String.format("Could not read %s key store", lb),
+                    e
+                );
+            }
+            finally {
+                if (in != null) {
+                    try {
+                        in.close();
+                    }
+                    catch (IOException ignored) {
+                        // Fail silently
+                    }
+                }
+            }
+        }
+    }
+}
