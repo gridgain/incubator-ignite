@@ -580,6 +580,10 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
                         return ctx.io().formatter();
                     }
 
+                    @Override public MessageFormatter defaultMessageFormatter() {
+                        return ctx.io().defaultFormatter();
+                    }
+
                     @Override public MessageFactory messageFactory() {
                         return ctx.io().messageFactory();
                     }

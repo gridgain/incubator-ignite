@@ -2274,14 +2274,24 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 GridNioMessageReaderFactory readerFactory = new GridNioMessageReaderFactory() {
                     private MessageFormatter formatter;
 
+                    private MessageFormatter defaultFormatter;
+
                     @Override public MessageReader reader(GridNioSession ses, MessageFactory msgFactory)
                         throws IgniteCheckedException {
                         if (formatter == null)
                             formatter = getSpiContext().messageFormatter();
 
+                        if (defaultFormatter == null)
+                            defaultFormatter = getSpiContext().defaultMessageFormatter();
+
                         assert formatter != null;
 
+                        assert defaultFormatter != null;
+
                         ConnectionKey key = ses.meta(CONN_IDX_META);
+
+                        if (key == CONN_CHECK_DUMMY_KEY)
+                            return defaultFormatter.reader(null, msgFactory);
 
                         return key != null ? formatter.reader(key.nodeId(), msgFactory) : null;
                     }
@@ -2290,13 +2300,23 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 GridNioMessageWriterFactory writerFactory = new GridNioMessageWriterFactory() {
                     private MessageFormatter formatter;
 
+                    private MessageFormatter defaultFormatter;
+
                     @Override public MessageWriter writer(GridNioSession ses) throws IgniteCheckedException {
                         if (formatter == null)
                             formatter = getSpiContext().messageFormatter();
 
+                        if (defaultFormatter == null)
+                            defaultFormatter = getSpiContext().defaultMessageFormatter();
+
                         assert formatter != null;
 
+                        assert defaultFormatter != null;
+
                         ConnectionKey key = ses.meta(CONN_IDX_META);
+
+                        if (key == CONN_CHECK_DUMMY_KEY)
+                            return defaultFormatter.writer(null);
 
                         return key != null ? formatter.writer(key.nodeId()) : null;
                     }

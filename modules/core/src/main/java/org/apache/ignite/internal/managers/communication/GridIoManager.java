@@ -195,6 +195,9 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     /** */
     private MessageFormatter formatter;
 
+    /** */
+    private MessageFormatter defaultFormatter;
+
     /** Stopping flag. */
     private boolean stopping;
 
@@ -250,6 +253,15 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     }
 
     /**
+     * @return
+     */
+    public MessageFormatter defaultFormatter() {
+        assert defaultFormatter != null;
+
+        return defaultFormatter;
+    }
+
+    /**
      * Resets metrics for this manager.
      */
     public void resetMetrics() {
@@ -281,6 +293,8 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
         ctx.addNodeAttribute(DIRECT_PROTO_VER_ATTR, DIRECT_PROTO_VER);
 
+        defaultFormatter = createDirectMessageFormatter();
+
         MessageFormatter[] formatterExt = ctx.plugins().extensions(MessageFormatter.class);
 
         if (formatterExt != null && formatterExt.length > 0) {
@@ -290,22 +304,8 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
             formatter = formatterExt[0];
         }
-        else {
-            formatter = new MessageFormatter() {
-                @Override public MessageWriter writer(UUID rmtNodeId) throws IgniteCheckedException {
-                    assert rmtNodeId != null;
-
-                    return new DirectMessageWriter(U.directProtocolVersion(ctx, rmtNodeId));
-                }
-
-                @Override public MessageReader reader(UUID rmtNodeId, MessageFactory msgFactory)
-                    throws IgniteCheckedException {
-
-                    return new DirectMessageReader(msgFactory,
-                        rmtNodeId != null ? U.directProtocolVersion(ctx, rmtNodeId) : GridIoManager.DIRECT_PROTO_VER);
-                }
-            };
-        }
+        else
+            formatter = createDirectMessageFormatter();
 
         MessageFactory[] msgs = ctx.plugins().extensions(MessageFactory.class);
 
@@ -367,6 +367,26 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                 }
             }
         });
+    }
+
+    /**
+     *
+     */
+    private MessageFormatter createDirectMessageFormatter() {
+        return new MessageFormatter() {
+            @Override public MessageWriter writer(UUID rmtNodeId) throws IgniteCheckedException {
+                assert rmtNodeId != null;
+
+                return new DirectMessageWriter(U.directProtocolVersion(ctx, rmtNodeId));
+            }
+
+            @Override public MessageReader reader(UUID rmtNodeId, MessageFactory msgFactory)
+                throws IgniteCheckedException {
+
+                return new DirectMessageReader(msgFactory,
+                    rmtNodeId != null ? U.directProtocolVersion(ctx, rmtNodeId) : GridIoManager.DIRECT_PROTO_VER);
+            }
+        };
     }
 
     /**

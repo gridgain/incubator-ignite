@@ -568,6 +568,11 @@ public class GridSpiTestContext implements IgniteSpiContext {
     }
 
     /** {@inheritDoc} */
+    @Override public MessageFormatter defaultMessageFormatter() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
     @Override public MessageFactory messageFactory() {
         if (factory == null)
             factory = new GridIoMessageFactory(null);

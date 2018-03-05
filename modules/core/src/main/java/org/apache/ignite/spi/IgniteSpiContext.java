@@ -320,6 +320,12 @@ public interface IgniteSpiContext {
     public MessageFormatter messageFormatter();
 
     /**
+     *
+     * @return
+     */
+    public MessageFormatter defaultMessageFormatter();
+
+    /**
      * Gets message factory.
      *
      * @return Message factory.

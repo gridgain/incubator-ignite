@@ -914,6 +914,11 @@ public abstract class IgniteSpiAdapter implements IgniteSpi {
         }
 
         /** {@inheritDoc} */
+        @Override public MessageFormatter defaultMessageFormatter() {
+            return msgFormatter;
+        }
+
+        /** {@inheritDoc} */
         @Override public MessageFactory messageFactory() {
             return msgFactory;
         }
