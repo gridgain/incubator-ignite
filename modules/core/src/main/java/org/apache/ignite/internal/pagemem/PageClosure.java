@@ -17,40 +17,18 @@
 
 package org.apache.ignite.internal.pagemem;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.lifecycle.LifecycleAware;
+import org.apache.ignite.IgniteCheckedException;
 
 /**
+ * Page closure.
  */
-public interface PageMemory extends LifecycleAware, PageIdAllocator, PageSupport {
-    /**
-     * @return Page size in bytes.
-     */
-    public int pageSize();
+public interface PageClosure {
 
     /**
-     * @return Page size with system overhead, in bytes.
-     */
-    public int systemPageSize();
-
-    /**
+     * Apply closure to page with the given address. Page is under th write lock.
+     *
      * @param pageAddr Page address.
-     * @return Page byte buffer.
+     * @throws IgniteCheckedException If failed.
      */
-    public ByteBuffer pageBuffer(long pageAddr);
-
-    /**
-     * @return Total number of loaded pages in memory.
-     */
-    public long loadedPages();
-
-    /**
-     * Number of pages used in checkpoint buffer.
-     */
-    public int checkpointBufferPagesCount();
-
-    /**
-     * @return Page visitor.
-     */
-    public PageVisitor pageVisitor();
+    public void apply(long pageAddr) throws IgniteCheckedException;
 }

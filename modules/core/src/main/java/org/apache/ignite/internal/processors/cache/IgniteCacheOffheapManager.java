@@ -29,6 +29,7 @@ import org.apache.ignite.internal.processors.cache.persistence.RootPage;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryRowCacheCleaner;
 import org.apache.ignite.internal.util.GridAtomicLong;
@@ -743,5 +744,13 @@ public interface IgniteCacheOffheapManager {
          * @param rowCacheCleaner Rows cache cleaner.
          */
         public void setRowCacheCleaner(GridQueryRowCacheCleaner rowCacheCleaner);
+
+        /**
+         * @param cctx Cache context.
+         * @param cleanupRows Rows to cleanup.
+         * @throws IgniteCheckedException If failed.
+         */
+        public void cleanup(GridCacheContext cctx, @Nullable List<MvccLinkAwareSearchRow> cleanupRows)
+            throws IgniteCheckedException;
     }
 }

@@ -73,7 +73,8 @@ public class MvccDataRow extends DataRow {
 
         assertMvccVersionValid(crdVer, mvccCntr);
 
-        assert rowData == RowData.LINK_ONLY || this.mvccCrd == crdVer && this.mvccCntr == mvccCntr;
+        assert rowData == RowData.LINK_ONLY || this.mvccCrd == crdVer && this.mvccCntr == mvccCntr :
+            "rowData=" + rowData + "; tree counter=" + mvccCntr + "; data counter=" + this.mvccCntr;
 
         if (rowData == RowData.LINK_ONLY) {
             this.mvccCrd = crdVer;
@@ -157,7 +158,7 @@ public class MvccDataRow extends DataRow {
 
     /** {@inheritDoc} */
     @Override public int headerSize() {
-        return MVCC_INFO_SIZE;
+        return MVCC_INFO_SIZE + 4; // Cache id.
     }
 
     /** {@inheritDoc} */

@@ -48,6 +48,7 @@ import org.apache.ignite.internal.pagemem.FullPageId;
 import org.apache.ignite.internal.pagemem.PageIdAllocator;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageUtils;
+import org.apache.ignite.internal.pagemem.PageVisitor;
 import org.apache.ignite.internal.pagemem.store.IgnitePageStoreManager;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.pagemem.wal.WALIterator;
@@ -1598,6 +1599,11 @@ public class PageMemoryImpl implements PageMemoryEx {
         int hash = U.hash(pageId * 65537 + grpId);
 
         return U.safeAbs(hash) % segments;
+    }
+
+    /** {@inheritDoc} */
+    @Override public PageVisitor pageVisitor() {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**

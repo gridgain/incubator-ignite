@@ -1536,7 +1536,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 if (res == MvccUpdateDataRow.UpdateResult.VERSION_FOUND) {
                     assert !primary : updateRow;
 
-                    cleanup(cctx, updateRow.cleanupRows());
+                    //cleanup(cctx, updateRow.cleanupRows());
 
                     return null;
                 }
@@ -1576,7 +1576,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 updatePendingEntries(cctx, updateRow, oldRow);
 
-                cleanup(cctx, updateRow.cleanupRows());
+                //cleanup(cctx, updateRow.cleanupRows());
 
                 return updateRow.activeTransactions();
             }
@@ -1616,7 +1616,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 dataTree.iterate(updateRow, new MvccMinSearchRow(cacheId, key), updateRow);
 
-                cleanup(cctx, updateRow.cleanupRows());
+                //cleanup(cctx, updateRow.cleanupRows());
 
                 MvccUpdateDataRow.UpdateResult res = updateRow.updateResult();
 
@@ -1690,16 +1690,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             }
         }
 
-        /**
-         * @param cctx Cache context.
-         * @param cleanupRows Rows to cleanup.
-         * @return Removed row link of {@code 0} if not found.
-         * @throws IgniteCheckedException If failed.
-         */
-        private long cleanup(GridCacheContext cctx, @Nullable List<MvccLinkAwareSearchRow> cleanupRows)
+        /** {@inheritDoc} */
+        @Override public void cleanup(GridCacheContext cctx, @Nullable List<MvccLinkAwareSearchRow> cleanupRows)
             throws IgniteCheckedException {
-            long rmvRowLink = 0;
-
             if (cleanupRows != null) {
                 GridCacheQueryManager qryMgr = cctx.queries();
 
@@ -1711,21 +1704,20 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     if (qryMgr.enabled()) {
                         CacheDataRow oldRow = dataTree.remove(cleanupRow);
 
-                        assert oldRow != null : cleanupRow;
+                        // assert oldRow != null : cleanupRow; //TODO Could be removed by another cleanup method.
 
-                        qryMgr.remove(oldRow.key(), oldRow);
+                        if (oldRow != null)
+                            qryMgr.remove(oldRow.key(), oldRow);
                     }
                     else {
                         boolean rmvd = dataTree.removex(cleanupRow);
 
-                        assert rmvd;
+                        // assert rmvd; //TODO Could be removed by another cleanup method.
                     }
 
                     rowStore.removeRow(cleanupRow.link());
                 }
             }
-
-            return rmvRowLink;
         }
 
         /** {@inheritDoc} */

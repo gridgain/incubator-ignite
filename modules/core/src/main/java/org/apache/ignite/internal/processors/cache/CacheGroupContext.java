@@ -205,8 +205,6 @@ public class CacheGroupContext {
 
         depEnabled = ctx.kernalContext().deploy().enabled() && !ctx.kernalContext().cacheObjects().isBinaryEnabled(ccfg);
 
-        storeCacheId = affNode && dataRegion.config().getPageEvictionMode() != DataPageEvictionMode.DISABLED;
-
         log = ctx.kernalContext().log(getClass());
 
         caches = new ArrayList<>();
@@ -214,6 +212,8 @@ public class CacheGroupContext {
         mxBean = new CacheGroupMetricsMXBeanImpl(this);
 
         mvccEnabled = mvccEnabled(ctx.gridConfig(), ccfg, cacheType);
+
+        storeCacheId = affNode && dataRegion.config().getPageEvictionMode() != DataPageEvictionMode.DISABLED || mvccEnabled;
     }
 
     /**

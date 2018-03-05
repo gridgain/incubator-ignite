@@ -17,40 +17,18 @@
 
 package org.apache.ignite.internal.pagemem;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.lifecycle.LifecycleAware;
+import org.apache.ignite.IgniteCheckedException;
 
 /**
+ * Page visitor.
  */
-public interface PageMemory extends LifecycleAware, PageIdAllocator, PageSupport {
-    /**
-     * @return Page size in bytes.
-     */
-    public int pageSize();
+public interface PageVisitor {
 
     /**
-     * @return Page size with system overhead, in bytes.
+     * Visit pages and pass them to closure.
+     *
+     * @param clo Closure.
+     * @throws IgniteCheckedException If failed.
      */
-    public int systemPageSize();
-
-    /**
-     * @param pageAddr Page address.
-     * @return Page byte buffer.
-     */
-    public ByteBuffer pageBuffer(long pageAddr);
-
-    /**
-     * @return Total number of loaded pages in memory.
-     */
-    public long loadedPages();
-
-    /**
-     * Number of pages used in checkpoint buffer.
-     */
-    public int checkpointBufferPagesCount();
-
-    /**
-     * @return Page visitor.
-     */
-    public PageVisitor pageVisitor();
+    public void visit(PageClosure clo) throws IgniteCheckedException;
 }

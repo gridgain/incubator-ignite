@@ -18,14 +18,22 @@
 package org.apache.ignite.internal.processors.cache.mvcc;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
@@ -41,8 +49,16 @@ import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.pagemem.PageClosure;
+import org.apache.ignite.internal.pagemem.PageIdUtils;
+import org.apache.ignite.internal.pagemem.PageMemory;
+import org.apache.ignite.internal.pagemem.PageVisitor;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestQuery;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTx;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTxAndQuery;
@@ -55,15 +71,23 @@ import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccQuerySnapshotReq
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccSnapshotResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccTxSnapshotRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccWaitTxsRequest;
+import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.GridAtomicLong;
 import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
@@ -78,6 +102,7 @@ import static org.apache.ignite.events.EventType.EVT_NODE_SEGMENTED;
 import static org.apache.ignite.internal.GridTopic.TOPIC_CACHE_COORDINATOR;
 import static org.apache.ignite.internal.events.DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.getPageIO;
 
 /**
  * MVCC processor.
@@ -132,6 +157,15 @@ public class MvccProcessor extends GridProcessorAdapter {
     /** For tests only. */
     private static IgniteClosure<Collection<ClusterNode>, ClusterNode> crdC;
 
+    /** Vacuum process listeners list. */
+    private final Collection<PageMemory> pagesHolders = new CopyOnWriteArrayList<>();
+
+    /** */
+    private final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+
+    /** */
+    private final AtomicLong lastCleanupVer = new AtomicLong();
+
     /**
      * @param ctx Context.
      */
@@ -145,6 +179,29 @@ public class MvccProcessor extends GridProcessorAdapter {
             EVT_NODE_FAILED, EVT_NODE_LEFT);
 
         ctx.io().addMessageListener(TOPIC_CACHE_COORDINATOR, new CoordinatorMessageListener());
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onKernalStart(boolean active) throws IgniteCheckedException {
+        super.onKernalStart(active);
+
+        VacuumCleaner cleaner = new VacuumCleaner(ctx.igniteInstanceName(), "mvcc-vacuum-cleaner", log);
+
+        scheduledExecutor.scheduleWithFixedDelay(cleaner, 1000,1000, TimeUnit.MILLISECONDS);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onKernalStop(boolean cancel) {
+        super.onKernalStop(cancel);
+
+        scheduledExecutor.shutdownNow();
+
+        try {
+            scheduledExecutor.awaitTermination(1000, TimeUnit.MILLISECONDS);
+        }
+        catch (InterruptedException e) {
+            // Ignore.
+        }
     }
 
     /** {@inheritDoc} */
@@ -660,6 +717,8 @@ public class MvccProcessor extends GridProcessorAdapter {
 
         res.init(futId, crdVer, nextCtr, cleanupVer);
 
+        updateLastCleanupVersion(cleanupVer);
+
         return res;
     }
 
@@ -1060,6 +1119,145 @@ public class MvccProcessor extends GridProcessorAdapter {
     }
 
     /**
+     * @param pagesHolder Pages holder to add to holders list.
+     */
+    public void addPageHolder(PageMemory pagesHolder) {
+        System.out.println("ADD Page holder " + pagesHolder);
+        pagesHolders.add(pagesHolder);
+    }
+
+    /**
+     * @param pagesHolder Pages holder to remove from holders list.
+     */
+    public void removePageHolder(PageMemory pagesHolder) {
+        pagesHolders.remove(pagesHolder);
+    }
+
+    /**
+     * Runs vacuum process.
+     */
+    public void runVacuum() throws IgniteCheckedException {
+        System.out.println("RUN VACUUM! =====================================");
+
+        AtomicInteger cnt = new AtomicInteger();
+
+        final Map<Integer, Set<Long>> cachesToLinks = new HashMap<>();
+
+        // TODO Interruption
+        for (PageMemory holder : pagesHolders) {
+            PageVisitor visitor = holder.pageVisitor();
+
+            final int pageSize = holder.pageSize();
+
+            visitor.visit(new PageClosure() {
+                @Override public void apply(long pageAddr) throws IgniteCheckedException {
+                    PageIO io = getPageIO(pageAddr);
+
+                    if (io instanceof DataPageIO) { // TODO Is it a MVCC page/entry? We need to know it somehow.
+                        DataPageIO iox = (DataPageIO)io;
+
+                        List<T2<Long, Integer>> res = iox.forAllItems(pageAddr, new MvccNewVerCC(pageSize, iox, pageAddr));
+
+                        for (T2<Long, Integer> linkAndCache : res) {
+                            if (linkAndCache != null) {
+                                int cacheId = linkAndCache.get2();
+                                long link = linkAndCache.get1();
+
+                                Set<Long> links = cachesToLinks.get(cacheId);
+
+                                if (links == null)
+                                    cachesToLinks.put(cacheId, links = new HashSet<>());
+
+                                links.add(link);
+                            }
+                        }
+                    }
+
+                    cnt.incrementAndGet();
+                }
+            });
+
+            System.out.println("Visited: " + cnt.get());
+        }
+
+        int cleanupCnt = 0;
+
+        for (Integer cacheId : cachesToLinks.keySet()) {
+            GridCacheContext cctx = ctx.cache().context().cacheContext(cacheId);
+
+            assert cctx != null;
+
+            Set<Long> links = cachesToLinks.get(cacheId);
+
+            for (Long link : links) {
+                MvccDataRow row = new MvccDataRow(link);
+
+                row.initFromLink(cctx.group(), CacheDataRowAdapter.RowData.KEY_ONLY);
+
+                KeyCacheObject key = row.key();
+
+                int p = cctx.affinity().partition(key);
+
+                GridDhtLocalPartition part = cctx.topology().localPartition(p);
+
+                MvccLinkAwareSearchRow searchRow = new MvccLinkAwareSearchRow(cacheId, key,
+                    row.mvccCoordinatorVersion(), row.mvccCounter(), row.link());
+
+//                GridCacheEntryEx entry = cctx.cache().entryEx(key);
+//
+//                entry.lockEntry();
+//
+//                try {
+                    cctx.offheap().dataStore(part).cleanup(cctx, Collections.singletonList(searchRow));
+
+                    cleanupCnt++;
+//                }
+//                finally {
+//                    entry.unlockEntry();
+//                }
+            }
+        }
+
+        System.out.println("Cleaned up " + cleanupCnt + " entries");
+    }
+
+    /**
+     *
+     */
+    private class MvccNewVerCC implements AbstractDataPageIO.CC<T2<Long, Integer>> {
+        private final int pageSize;
+        private final DataPageIO io;
+        private final long pageAddr;
+
+        public MvccNewVerCC(int pageSize, DataPageIO io, long pageAddr) {
+            this.pageSize = pageSize;
+            this.io = io;
+            this.pageAddr = pageAddr;
+        }
+
+        /** {@inheritDoc} */
+        @Override public T2<Long, Integer> apply(long link) throws IgniteCheckedException {
+            int itemId = PageIdUtils.itemId(link);
+
+            MvccVersion newVer = io.newMvccVersion(pageAddr, itemId, pageSize);
+
+            long lastCleanupVer0 = lastCleanupVer.get();
+
+            if (newVer != null &&
+                (newVer.coordinatorVersion() < crdVer ||
+                    (newVer.coordinatorVersion() == crdVer && newVer.counter() < lastCleanupVer0))) {
+                int cacheId = io.getCacheId(pageAddr, itemId, pageSize);
+
+                assert cacheId != 0;
+
+                return new T2<>(link, cacheId);
+            }
+            else
+                return null;
+        }
+    }
+
+    /**
      * @param log Logger.
      * @param diagCtx Diagnostic request.
      */
@@ -1088,6 +1286,20 @@ public class MvccProcessor extends GridProcessorAdapter {
 
             U.warn(log, ">>> " + waitAckFut.toString());
         }
+    }
+
+    /**
+     * Updates last cleanup version if needed.
+     *
+     * @param cleanupVer New cleanup version.
+     */
+    private void updateLastCleanupVersion(long cleanupVer) {
+        long lastCleanupVer0;
+
+        do {
+            lastCleanupVer0 = lastCleanupVer.get();
+        }
+        while (cleanupVer > lastCleanupVer0 && !lastCleanupVer.compareAndSet(lastCleanupVer0, cleanupVer));
     }
 
     /**
@@ -1124,6 +1336,8 @@ public class MvccProcessor extends GridProcessorAdapter {
          */
         void onResponse(MvccSnapshotResponse res) {
             assert res.counter() != MVCC_COUNTER_NA;
+
+            updateLastCleanupVersion(res.cleanupVersion());
 
             if (lsnr != null)
                 lsnr.onResponse(crd.nodeId(), res);
@@ -1307,6 +1521,34 @@ public class MvccProcessor extends GridProcessorAdapter {
          */
         WaitTxFuture(long txId) {
             this.txId = txId;
+        }
+    }
+
+    /**
+     * Mvcc garbage collection worker.
+     * TODO: Indexes, Backups?, Launch options, Persistence, Scan queries cleanup issue
+     */
+    private class VacuumCleaner extends GridWorker {
+
+        /**
+         * @param igniteInstanceName Instance name.
+         * @param name Worker name.
+         * @param log Logger.
+         */
+        protected VacuumCleaner(@Nullable String igniteInstanceName, String name, IgniteLogger log) {
+            super(igniteInstanceName, name, log);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void body() throws InterruptedException, IgniteInterruptedCheckedException {
+            try {
+                System.out.println("Started vacuum cleaner.");
+
+                runVacuum();
+            }
+            catch (Throwable e) { // TODO
+                log.error("Error occurred when vacuum is running.", e);
+            }
         }
     }
 }

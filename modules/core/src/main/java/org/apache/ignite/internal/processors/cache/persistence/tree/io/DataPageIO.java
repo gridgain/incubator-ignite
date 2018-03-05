@@ -22,6 +22,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionImpl;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.GridStringBuilder;
@@ -241,11 +242,23 @@ public class DataPageIO extends AbstractDataPageIO<CacheDataRow> {
      * @param mvccCntr Mvcc counter.
      */
     public void markRemoved(long pageAddr, int itemId, int pageSize, long mvccCrd, long mvccCntr) {
-        int dataOff = getDataOffset(pageAddr, itemId, pageSize);
-
-        long addr = pageAddr + dataOff + (isFragmented(pageAddr, dataOff) ? 10 : 2);
+        long addr = getMvccInfoAddress(pageAddr, itemId, pageSize);
 
         markRemoved(addr, mvccCrd, mvccCntr);
+    }
+
+    /**
+     * Returns Mvcc info address.
+     *
+     * @param pageAddr page
+     * @param itemId Item id.
+     * @param pageSize Page size.
+     * @return Mvcc info address.
+     */
+    private long getMvccInfoAddress(long pageAddr, int itemId, int pageSize) {
+        int dataOff = getDataOffset(pageAddr, itemId, pageSize);
+
+        return pageAddr + dataOff + (isFragmented(pageAddr, dataOff) ? 10 : 2);
     }
 
     /**
@@ -326,6 +339,48 @@ public class DataPageIO extends AbstractDataPageIO<CacheDataRow> {
 
         return PageUtils.getLong(addr, 8);
     }
+
+    /**
+     * Returns new MVCC version
+     *
+     * @param pageAddr Page address.
+     * @param itemId Item id.
+     * @param pageSize Page size.
+     * @return New MVCC version.
+     */
+    public MvccVersion newMvccVersion(long pageAddr, int itemId, int pageSize) {
+        long mvccInfoAddr  = getMvccInfoAddress(pageAddr, itemId, pageSize);
+
+        // Skip xid_min.
+        mvccInfoAddr += 16;
+
+        long newMvccCrd = PageUtils.getLong(mvccInfoAddr, 0);
+        long newMvccCntr = PageUtils.getLong(mvccInfoAddr, 8);
+
+        assert newMvccCrd > 0 == newMvccCntr > 0;
+
+        if (newMvccCrd == 0)
+            return null;
+
+        return new MvccVersionImpl(newMvccCrd, newMvccCntr);
+    }
+
+    /**
+     * Returns cache id.
+     *
+     * @param pageAddr Page address.
+     * @param itemId Item id.
+     * @param pageSize Page size.
+     * @return Cache id.
+     */
+    public int getCacheId(long pageAddr, int itemId, int pageSize) {
+        long addr  = getMvccInfoAddress(pageAddr, itemId, pageSize);
+
+        addr += MVCC_INFO_SIZE; // Skip MVCC info.
+
+        return PageUtils.getInt(addr, 0);
+    }
+
 
     /**
      * @param buf Byte buffer.

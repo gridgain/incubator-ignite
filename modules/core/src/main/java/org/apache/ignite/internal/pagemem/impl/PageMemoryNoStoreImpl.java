@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
@@ -31,8 +32,10 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.internal.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.mem.IgniteOutOfMemoryException;
+import org.apache.ignite.internal.pagemem.PageClosure;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
+import org.apache.ignite.internal.pagemem.PageVisitor;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
@@ -158,6 +161,9 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     /** */
     private final boolean trackAcquiredPages;
 
+    /** */
+    private final GridCacheSharedContext<?, ?> sharedCtx;
+
     /**
      * @param log Logger.
      * @param directMemoryProvider Memory allocator to use.
@@ -192,6 +198,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         totalPages = (int)(dataRegionCfg.getMaxSize() / sysPageSize);
 
         rwLock = new OffheapReadWriteLock(lockConcLvl);
+
+        this.sharedCtx = sharedCtx;
     }
 
     /** {@inheritDoc} */
@@ -228,6 +236,12 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         directMemoryProvider.initialize(chunks);
 
         addSegment(null);
+
+        // sharedCtx == null means that this is a test.
+        if (sharedCtx != null && !sharedCtx.database().systemDateRegionName().equals(dataRegionCfg.getName()))
+            sharedCtx.coordinators().addPageHolder(this);
+        else
+            System.out.println("skipped pagemem: " + dataRegionCfg.getName());
     }
 
     /** {@inheritDoc} */
@@ -235,6 +249,9 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     @Override public void stop() throws IgniteException {
         if (log.isDebugEnabled())
             log.debug("Stopping page memory.");
+
+        if (sharedCtx != null && !sharedCtx.database().systemDateRegionName().equals(dataRegionCfg.getName()))
+            sharedCtx.coordinators().removePageHolder(this);
 
         directMemoryProvider.shutdown();
 
@@ -641,6 +658,52 @@ public class PageMemoryNoStoreImpl implements PageMemory {
 
         // Only this synchronized method writes to segments, so it is safe to read twice.
         return segments[segments.length - 1];
+    }
+
+    /** {@inheritDoc} */
+    @Override public PageVisitor pageVisitor() {
+        return new NoStorePageVisitor();
+    }
+
+    /**
+     * Pages visitor.
+     */
+    private class NoStorePageVisitor implements PageVisitor {
+        /** {@inheritDoc} */
+        @Override public void visit(PageClosure clo) throws IgniteCheckedException {
+            System.out.println("allocatedPages=" + allocatedPages.get());
+
+            Segment[] segments0 = segments;
+
+            for (int segIdx = 0; segIdx < segments0.length; segIdx++) {
+                Segment curSeg = segments0[segIdx];
+
+                long segSize = GridUnsafe.getLongVolatile(null, curSeg.lastAllocatedIdxPtr);
+
+                for (int pageIdx = 0; pageIdx < segSize; pageIdx++) {
+                    long absPtr = curSeg.acquirePage(pageIdx);
+
+                    // TODO read/write lock
+                    if (rwLock.writeLock(absPtr + LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS)) {
+                        long pageAddr = absPtr + PAGE_OVERHEAD;
+
+                        try {
+                            clo.apply(pageAddr);
+                        }
+                        catch (Exception e) {
+                            System.out.println("Problems:" + e);
+
+                            throw e;
+                        }
+                        finally {
+                            rwLock.writeUnlock(absPtr + LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
+                        }
+                    }
+                    else
+                        System.out.println("Can not acquire lock segIdx=" + segIdx + "; pageIdx=" + pageIdx + ": absPtr=" + absPtr);
+                }
+            }
+        }
     }
 
     /**
