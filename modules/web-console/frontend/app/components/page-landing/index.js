@@ -48,7 +48,15 @@ export default angular
             redirectTo: (trans) => {
                 return trans.injector().get('User').read()
                     .then(() => {
-                        return 'default-state';
+                        try {
+                            const {name, params} = JSON.parse(localStorage.getItem('lastStateChangeSuccess'));
+
+                            const restored = trans.router.stateService.target(name, params);
+
+                            return restored.valid() && trans.$id === 0 ? restored : 'default-state';
+                        } catch (ignored) {
+                            return 'default-state';
+                        }
                     })
                     .catch(() => true);
             },
