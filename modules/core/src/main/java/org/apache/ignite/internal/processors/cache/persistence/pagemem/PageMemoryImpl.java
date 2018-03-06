@@ -88,6 +88,11 @@ import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_DELAYED_REPLACED_PAGE_WRITE;
 import static org.apache.ignite.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.T_DATA_REF_INNER;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.T_DATA_REF_LEAF;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.T_PAGE_LIST_META;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.T_PART_CNTRS;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.T_PART_META;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 /**
@@ -831,7 +836,6 @@ public class PageMemoryImpl implements PageMemoryEx {
      * @param fullId Full page ID.
      * @param buf Destination byte buffer. Note: synchronization to provide ByteBuffer safety should be done outside
      * this method.
-     *
      * @throws IgniteCheckedException If failed to start WAL iteration, if incorrect page type observed in data, etc.
      * @throws StorageException If it was not possible to restore page, page not found in WAL.
      */
@@ -2064,9 +2068,9 @@ public class PageMemoryImpl implements PageMemoryEx {
         /**
          * Removes random oldest page for page replacement from memory to storage.
          *
+         * @param saveDirtyPage Replaced page writer, implementation to save dirty page to persistent storage.
          * @return Relative address for removed page, now it can be replaced by allocated or reloaded page.
          * @throws IgniteCheckedException If failed to evict page.
-         * @param saveDirtyPage Replaced page writer, implementation to save dirty page to persistent storage.
          */
         private long removePageForReplacement(ReplacedPageWriter saveDirtyPage) throws IgniteCheckedException {
             assert getWriteHoldCount() > 0;
@@ -2112,6 +2116,8 @@ public class PageMemoryImpl implements PageMemoryEx {
                 long dirtyTs = Long.MAX_VALUE;
                 long metaAddr = INVALID_REL_PTR;
                 long metaTs = Long.MAX_VALUE;
+                long indexAddr = INVALID_REL_PTR;
+                long indexTs = Long.MAX_VALUE;
 
                 for (int i = 0; i < RANDOM_PAGES_EVICT_NUM; i++) {
                     ++iterations;
@@ -2156,17 +2162,25 @@ public class PageMemoryImpl implements PageMemoryEx {
                     final long pageTs = PageHeader.readTimestamp(absPageAddr);
 
                     final boolean dirty = isDirty(absPageAddr);
+                    final boolean isIndex = isIndexPage(absPageAddr);
                     final boolean storMeta = isStoreMetadataPage(absPageAddr);
 
-                    if (pageTs < cleanTs && !dirty && !storMeta) {
+                    assert 0 < PageIO.getVersion(absPageAddr+PAGE_OVERHEAD);
+
+                    if (pageTs < cleanTs && !dirty && !storMeta && !isIndex) {
                         cleanAddr = rndAddr;
 
                         cleanTs = pageTs;
                     }
-                    else if (pageTs < dirtyTs && dirty && !storMeta) {
+                    else if (pageTs < dirtyTs && dirty && !storMeta && !isIndex) {
                         dirtyAddr = rndAddr;
 
                         dirtyTs = pageTs;
+                    }
+                    else if (pageTs < indexTs && !storMeta && isIndex) {
+                        indexAddr = rndAddr;
+
+                        indexTs = pageTs;
                     }
                     else if (pageTs < metaTs && storMeta) {
                         metaAddr = rndAddr;
@@ -2178,6 +2192,8 @@ public class PageMemoryImpl implements PageMemoryEx {
                         relRmvAddr = cleanAddr;
                     else if (dirtyAddr != INVALID_REL_PTR)
                         relRmvAddr = dirtyAddr;
+                    else if (indexAddr != INVALID_REL_PTR)
+                        relRmvAddr = indexAddr;
                     else
                         relRmvAddr = metaAddr;
                 }
@@ -2216,21 +2232,25 @@ public class PageMemoryImpl implements PageMemoryEx {
          * @return {@code True} if page is related to partition metadata, which is loaded in saveStoreMetadata().
          */
         private boolean isStoreMetadataPage(long absPageAddr) {
-            try {
-                long dataAddr = absPageAddr + PAGE_OVERHEAD;
+            long dataAddr = absPageAddr + PAGE_OVERHEAD;
 
-                int type = PageIO.getType(dataAddr);
-                int ver = PageIO.getVersion(dataAddr);
+            int type = PageIO.getType(dataAddr);
 
-                PageIO io = PageIO.getPageIO(type, ver);
+            return type == T_PART_META ||
+                type == T_PAGE_LIST_META ||
+                type == T_PART_CNTRS;
+        }
 
-                return io instanceof PagePartitionMetaIO
-                    || io instanceof PagesListMetaIO
-                    || io instanceof PagePartitionCountersIO;
-            }
-            catch (IgniteCheckedException ignored) {
-                return false;
-            }
+        /**
+         * @param absPageAddr Absolute page address
+         * @return {@code True} if page is related to index page.
+         */
+        private boolean isIndexPage(long absPageAddr) {
+            long dataAddr = absPageAddr + PAGE_OVERHEAD;
+
+            int type = PageIO.getType(dataAddr);
+
+            return type == T_DATA_REF_INNER || type == T_DATA_REF_LEAF;
         }
 
         /**
