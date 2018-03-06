@@ -27,8 +27,14 @@ import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.DataRegionConfiguration;
+import org.apache.ignite.configuration.DataStorageConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.examples.datagrid.CacheQueryExample;
 import org.apache.ignite.examples.model.Organization;
+import org.apache.ignite.internal.util.typedef.internal.U;
+
+import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.DFLT_STORE_DIR;
 
 /**
  * This example demonstrates the usage of Apache Ignite Persistent Store.
@@ -58,48 +64,141 @@ public class PersistentStoreExample {
      * @throws Exception If failed.
      */
     public static void main(String[] args) throws Exception {
-        Ignition.setClientMode(true);
+        U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), "cp", false));
+        U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), DFLT_STORE_DIR, false));
+        U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), "marshaller", false));
+        U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), "binary_meta", false));
 
-        try (Ignite ignite = Ignition.start("examples/config/persistentstore/example-persistent-store.xml")) {
-            // Activate the cluster. Required to do if the persistent store is enabled because you might need
-            // to wait while all the nodes, that store a subset of data on disk, join the cluster.
-            ignite.active(true);
+        IgniteConfiguration cfg = new IgniteConfiguration();
 
-            CacheConfiguration<Long, Organization> cacheCfg = new CacheConfiguration<>(ORG_CACHE);
+        cfg.setMvccEnabled(true);
 
-            cacheCfg.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
-            cacheCfg.setBackups(1);
-            cacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
-            cacheCfg.setIndexedTypes(Long.class, Organization.class);
+        // Durable Memory configuration.
+        DataStorageConfiguration storageCfg = new DataStorageConfiguration();
+        cfg.setDataStorageConfiguration(storageCfg);
 
-            IgniteCache<Long, Organization> cache = ignite.getOrCreateCache(cacheCfg);
+        // Creating a new data region.
+        DataRegionConfiguration regionCfg1 = new DataRegionConfiguration();
+        regionCfg1.setName("PERS_region");
+        regionCfg1.setPersistenceEnabled(true);
+        regionCfg1.setInitialSize(100L * 1024 * 1024);
+        regionCfg1.setMaxSize(500L * 1024 * 1024);
 
-            if (UPDATE) {
-                System.out.println("Populating the cache...");
+        // Creating a new data region.
+        DataRegionConfiguration regionCfg2 = new DataRegionConfiguration();
+        regionCfg2.setName("IN_MEM_region");
+        regionCfg2.setPersistenceEnabled(false);
+        regionCfg2.setInitialSize(100L * 1024 * 1024);
+        regionCfg2.setMaxSize(500L * 1024 * 1024);
 
-                try (IgniteDataStreamer<Long, Organization> streamer = ignite.dataStreamer(ORG_CACHE)) {
-                    streamer.allowOverwrite(true);
+        storageCfg.setDataRegionConfigurations(regionCfg1, regionCfg2);
 
-                    for (long i = 0; i < 100_000; i++) {
-                        streamer.addData(i, new Organization(i, "organization-" + i));
+        try (Ignite ignite = Ignition.start(cfg)) {
 
-                        if (i > 0 && i % 10_000 == 0)
-                            System.out.println("Done: " + i);
-                    }
-                }
-            }
+            ignite.cluster().active(true);
+
+            // cache1
+            CacheConfiguration<Long, Integer> cacheCfg1 = new CacheConfiguration<>("cache1");
+            cacheCfg1.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+            cacheCfg1.setBackups(0);
+            cacheCfg1.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+            IgniteCache<Long, Integer> cache1 = ignite.getOrCreateCache(cacheCfg1);
+            for (int j = 0; j < 2; j++)
+                for (int i = 0; i < 5; i++)
+                    cache1.put((long)i, i*i);
+
+
+            // cache2
+            CacheConfiguration<Long, Integer> cacheCfg2 = new CacheConfiguration<>("cache2");
+            cacheCfg2.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+            cacheCfg2.setBackups(1);
+            cacheCfg2.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+            cacheCfg2.setGroupName("group1");
+            cacheCfg2.setDataRegionName("PERS_region");
+            IgniteCache<Long, Integer> cache2 = ignite.getOrCreateCache(cacheCfg2);
+            for (int j = 0; j < 3; j++)
+                for (int i = 0; i < 10; i++)
+                    cache2.put((long)i, i*i);
+
+            // cache3
+            CacheConfiguration<Long, Integer> cacheCfg3 = new CacheConfiguration<>("cache3");
+            cacheCfg3.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+            cacheCfg3.setBackups(1);
+            cacheCfg3.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+            cacheCfg3.setGroupName("group1");
+            cacheCfg3.setDataRegionName("PERS_region");
+            IgniteCache<Long, Integer> cache3 = ignite.getOrCreateCache(cacheCfg3);
+            for (int j = 0; j < 3; j++)
+                for (int i = 0; i < 20; i++)
+                    cache3.put((long)i, i*i);
+
+            // cache4
+            CacheConfiguration<Long, Integer> cacheCfg4 = new CacheConfiguration<>("cache4");
+            cacheCfg4.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+            cacheCfg4.setBackups(1);
+            cacheCfg4.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+            cacheCfg4.setGroupName("group2");
+            cacheCfg4.setDataRegionName("IN_MEM_region");
+            IgniteCache<Long, Integer> cache4 = ignite.getOrCreateCache(cacheCfg4);
+            for (int j = 0; j < 3; j++)
+                for (int i = 0; i < 40; i++)
+                    cache4.put((long)i, i*i);
+
+            // cache5
+            CacheConfiguration<Long, Integer> cacheCfg5 = new CacheConfiguration<>("cache5");
+            cacheCfg5.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+            cacheCfg5.setBackups(1);
+            cacheCfg5.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+            cacheCfg5.setGroupName("group2");
+            cacheCfg5.setDataRegionName("IN_MEM_region");
+            IgniteCache<Long, Integer> cache5 = ignite.getOrCreateCache(cacheCfg5);
+            for (int j = 0; j < 3; j++)
+                for (int i = 0; i < 1080; i++)
+                    cache5.put((long)i, i*i);
+
+            // cache6
+            CacheConfiguration<Long, Integer> cacheCfg6 = new CacheConfiguration<>("cache6");
+            cacheCfg6.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+            cacheCfg6.setBackups(1);
+            cacheCfg6.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+            IgniteCache<Long, Integer> cache6 = ignite.getOrCreateCache(cacheCfg6);
+            for (int j = 0; j < 4; j++)
+                for (int i = 0; i < 60; i++)
+                    cache6.put((long)i, i*i);
+
+
+
+
+//            if (UPDATE) {
+//                System.out.println("Populating the cache...");
+//
+//                try (IgniteDataStreamer<Long, Organization> streamer = ignite.dataStreamer(ORG_CACHE)) {
+//                    streamer.allowOverwrite(true);
+//
+//                    for (long i = 0; i < 100_000; i++) {
+//                        streamer.addData(i, new Organization(i, "organization-" + i));
+//
+//                        if (i > 0 && i % 10_000 == 0)
+//                            System.out.println("Done: " + i);
+//                    }
+//                }
+//            }
 
             // Run SQL without explicitly calling to loadCache().
-            QueryCursor<List<?>> cur = cache.query(
-                new SqlFieldsQuery("select id, name from Organization where name like ?")
-                    .setArgs("organization-54321"));
-
-            System.out.println("SQL Result: " + cur.getAll());
+//            QueryCursor<List<?>> cur = cache1.query(
+//                new SqlFieldsQuery("select id, name from Organization where name like ?")
+//                    .setArgs("organization-54321"));
+//
+//            System.out.println("SQL Result: " + cur.getAll());
 
             // Run get() without explicitly calling to loadCache().
-            Organization org = cache.get(54321l);
+            Integer org = cache1.get(54321l);
+
+            Thread.sleep(5000);
 
             System.out.println("GET Result: " + org);
+
+
         }
     }
 }

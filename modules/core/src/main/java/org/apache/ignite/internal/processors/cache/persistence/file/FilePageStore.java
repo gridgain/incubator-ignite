@@ -337,8 +337,9 @@ public class FilePageStore implements PageStore {
             assert pageBuf.capacity() == pageSize;
             assert pageBuf.position() == 0;
             assert pageBuf.order() == ByteOrder.nativeOrder();
+            if (off > (allocated.get() - headerSize()))
             assert off <= (allocated.get() - headerSize()) : "calculatedOffset=" + off +
-                ", allocated=" + allocated.get() + ", headerSize="+headerSize();
+                ", allocated=" + allocated.get() + ", headerSize="+headerSize() + "; pageId=" +pageId;
 
             int len = pageSize;
 
@@ -472,6 +473,8 @@ public class FilePageStore implements PageStore {
         init();
 
         lock.readLock().lock();
+
+        System.out.println("write pageId" + pageId + "; allocated=" + allocated.get());
 
         try {
             if (tag < this.tag)

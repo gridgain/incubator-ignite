@@ -75,7 +75,10 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
     private static final int LINK_SIZE = 8;
 
     /** */
-    private static final int FRAGMENTED_FLAG = 0b10000000_00000000;
+    protected static final int FRAGMENTED_FLAG = 0b10000000_00000000;
+
+    /** */
+    protected static final int FIRST_CHUNK_FLAG = 0b01000000_00000000;
 
     /** */
     public static final int MIN_DATA_PAGE_OVERHEAD = ITEMS_OFF + ITEM_SIZE + PAYLOAD_LEN_SIZE + LINK_SIZE;
@@ -136,6 +139,8 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
             payloadLen &= ~FRAGMENTED_FLAG; // We are fragmented and have a link.
         else
             show &= ~SHOW_LINK; // We are not fragmented, never have a link.
+
+        payloadLen &= ~FIRST_CHUNK_FLAG;
 
         return getPageEntrySize(payloadLen, show);
     }
@@ -268,6 +273,57 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
             long link = PageIdUtils.link(pageId, i);
 
             res.add(c.apply(link));
+        }
+
+        return res;
+    }
+
+    /**
+     * @param pageAddr Page address.
+     * @param c Closure.
+     * @param <T> Closure return type.
+     * @return Collection of closure results for all items in page.
+     * @throws IgniteCheckedException In case of error in closure body.
+     */
+    // TODO rename or rewrite.
+    public <T> List<T> forAllItemsWithNormalLinks(long pageAddr, CC<T> c) throws IgniteCheckedException {
+        long pageId = getPageId(pageAddr);
+        // TODO Split into two methods.
+        int directCnt = getDirectCount(pageAddr);
+        int indirectCnt = getIndirectCount(pageAddr);
+
+        List<T> res = new ArrayList<>(directCnt);
+
+        if (indirectCnt == 0) {
+            for (int i = 0; i < directCnt; i++) {
+
+                long link = PageIdUtils.link(pageId, i);
+
+                res.add(c.apply(link));
+            }
+        }
+        else {
+            Collection<Integer> directIdxs = new HashSet<>();
+
+            for (int i = directCnt; i < directCnt + indirectCnt; i++) {
+                short item = getItem(pageAddr, i);
+
+                int directIdx = directItemIndex(item);
+                directIdxs.add(directIdx);
+
+                int itemId = itemId(item);
+                long link = PageIdUtils.link(pageId, itemId);
+
+                res.add(c.apply(link));
+            }
+
+            for (int i = 0; i < directCnt; i++) {
+                if (!directIdxs.contains(i)) {
+                    long link = PageIdUtils.link(pageId, i);
+
+                    res.add(c.apply(link));
+                }
+            }
         }
 
         return res;
@@ -425,7 +481,7 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
         else
             b.a("]");
 
-        assert valid : b.toString();
+//        assert valid : b.toString();
     }
 
     /**
@@ -479,6 +535,15 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
      */
     protected boolean isFragmented(long pageAddr, int dataOff) {
         return (PageUtils.getShort(pageAddr, dataOff) & FRAGMENTED_FLAG) != 0;
+    }
+
+    /**
+     * @param pageAddr Page address.
+     * @param dataOff Data offset.
+     * @return {@code true} If this is the first chunk of fragmented row chain, or it is not fragmented.
+     */
+    protected boolean isFirstChunk(long pageAddr, int dataOff) {
+        return (PageUtils.getShort(pageAddr, dataOff) & FIRST_CHUNK_FLAG) != 0;
     }
 
     /**
@@ -978,12 +1043,22 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
             Math.min(rowSize - written, getFreeSpace(pageAddr));
 
         int remain = rowSize - written - payloadSize;
-        int hdrSize = row.headerSize();
+        int hdrSize = 0;
+
+        if (row != null)
+            hdrSize= row.headerSize();
 
         // We need page header (i.e. MVCC info) is located entirely on the very first page in chain.
         // So we force moving it to the next page if it could not fit entirely on this page.
         if (remain > 0 && remain < hdrSize)
             payloadSize -= hdrSize - remain;
+
+        assert rowSize - written - payloadSize >= 0;
+
+        short p = (short)(payloadSize | FRAGMENTED_FLAG);
+
+        if (rowSize - written - payloadSize == 0) // First chunk is written after all the others.
+            p |= FIRST_CHUNK_FLAG;
 
         int fullEntrySize = getPageEntrySize(payloadSize, SHOW_PAYLOAD_LEN | SHOW_LINK | SHOW_ITEM);
         int dataOff = getDataOffsetForWrite(pageAddr, fullEntrySize, directCnt, indirectCnt, pageSize);
@@ -993,8 +1068,6 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
 
             buf.position(dataOff);
 
-            short p = (short)(payloadSize | FRAGMENTED_FLAG);
-
             buf.putShort(p);
             buf.putLong(lastLink);
 
@@ -1003,7 +1076,7 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
             writeFragmentData(row, buf, rowOff, payloadSize);
         }
         else {
-            PageUtils.putShort(pageAddr, dataOff, (short)(payloadSize | FRAGMENTED_FLAG));
+            PageUtils.putShort(pageAddr, dataOff, p);
 
             PageUtils.putLong(pageAddr, dataOff + 2, lastLink);
 
@@ -1234,7 +1307,7 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
         int dataOff,
         byte[] payload
     ) {
-        PageUtils.putShort(pageAddr, dataOff, (short)payload.length);
+        PageUtils.putShort(pageAddr, dataOff, (short)(payload.length | FIRST_CHUNK_FLAG));
         dataOff += 2;
 
         PageUtils.putBytes(pageAddr, dataOff, payload);

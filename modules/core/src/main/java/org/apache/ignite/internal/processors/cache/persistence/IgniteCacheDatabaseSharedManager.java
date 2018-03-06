@@ -72,7 +72,7 @@ import static org.apache.ignite.configuration.DataStorageConfiguration.DFLT_DATA
 import static org.apache.ignite.configuration.DataStorageConfiguration.DFLT_PAGE_SIZE;
 
 /**
- *
+ * // TODO make map DataRegion -> List<CacheId></CacheId>
  */
 public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdapter
     implements IgniteChangeGlobalStateSupport, CheckpointLockStateChecker {

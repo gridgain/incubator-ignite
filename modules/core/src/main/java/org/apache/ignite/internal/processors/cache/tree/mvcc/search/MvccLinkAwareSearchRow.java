@@ -45,4 +45,11 @@ public class MvccLinkAwareSearchRow extends MvccSearchRow {
     @Override public long link() {
         return link;
     }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return "MvccLinkAwareSearchRow{" +
+            "link=" + link + "; mvccCounter=" + mvccCounter() +
+            '}';
+    }
 }

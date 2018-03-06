@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.Cac
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteDhtDemandedPartitionsMap;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteHistoricalIterator;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteRebalanceIteratorImpl;
+import org.apache.ignite.internal.processors.cache.mvcc.VacuumListener;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
@@ -99,7 +101,6 @@ import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_START_CNTR;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.hasNewMvccVersion;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.isVisibleForSnapshot;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.OWNING;
@@ -1632,8 +1633,6 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 updatePendingEntries(cctx, updateRow, oldRow);
 
-                cleanup(cctx, updateRow.cleanupRows());
-
                 return updateRow.activeTransactions();
             }
             finally {
@@ -1711,8 +1710,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             GridCursor<CacheDataRow> cur = dataTree.find(
                 new MvccMaxSearchRow(cacheId, key),
                 new MvccMinSearchRow(cacheId, key),
-                cleanup ? CacheDataRowAdapter.RowData.NO_KEY : CacheDataRowAdapter.RowData.LINK_ONLY
-            );
+                cleanup ? CacheDataRowAdapter.RowData.NO_KEY : CacheDataRowAdapter.RowData.LINK_WITH_HEADER);
 
             boolean first = true;
 
@@ -1727,13 +1725,11 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 assert rmvd : row;
 
-                if (cleanup) {
-                    if (cctx.queries().enabled())
-                        cctx.queries().remove(key, row);
+                if (cctx.queries().enabled())
+                    cctx.queries().remove(key, row);
 
-                    if (first)
-                        clearPendingEntries(cctx, row);
-                }
+                if (hasPendingEntries)
+                    clearPendingEntries(cctx, row);
 
                 rowStore.removeRow(row.link());
 
@@ -1746,16 +1742,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             }
         }
 
-        /**
-         * @param cctx Cache context.
-         * @param cleanupRows Rows to cleanup.
-         * @return Removed row link of {@code 0} if not found.
-         * @throws IgniteCheckedException If failed.
-         */
-        private long cleanup(GridCacheContext cctx, @Nullable List<MvccLinkAwareSearchRow> cleanupRows)
+        /** {@inheritDoc} */
+        @Override public void cleanup(GridCacheContext cctx, @Nullable List<MvccLinkAwareSearchRow> cleanupRows)
             throws IgniteCheckedException {
-            long rmvRowLink = 0;
-
             if (cleanupRows != null) {
                 GridCacheQueryManager qryMgr = cctx.queries();
 
@@ -1764,24 +1753,20 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                     assert cleanupRow.link() != 0 : cleanupRow;
 
-                    if (qryMgr.enabled()) {
-                        CacheDataRow oldRow = dataTree.remove(cleanupRow);
+                    CacheDataRow oldRow = dataTree.remove(cleanupRow);
 
-                        assert oldRow != null : cleanupRow;
+                    if (oldRow != null) { // oldRow == null means it was cleaned by another cleanup process.
+                        assert oldRow.mvccCounter() == cleanupRow.mvccCounter();
 
-                        qryMgr.remove(oldRow.key(), oldRow);
+                        if (qryMgr.enabled())
+                            qryMgr.remove(oldRow.key(), oldRow);
+
+                        clearPendingEntries(cctx, oldRow);
+
+                        rowStore.removeRow(cleanupRow.link());
                     }
-                    else {
-                        boolean rmvd = dataTree.removex(cleanupRow);
-
-                        assert rmvd;
-                    }
-
-                    rowStore.removeRow(cleanupRow.link());
                 }
             }
-
-            return rmvRowLink;
         }
 
         /** {@inheritDoc} */

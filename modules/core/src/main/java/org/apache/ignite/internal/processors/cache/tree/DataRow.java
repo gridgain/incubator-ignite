@@ -121,4 +121,18 @@ public class DataRow extends CacheDataRowAdapter {
     public void cacheId(int cacheId) {
         this.cacheId = cacheId;
     }
+
+    /**
+     * @param part Partition.
+     */
+    public void partition(int part) {
+        this.part = part;
+    }
+
+    /**
+     * @param hash Hash.
+     */
+    public void hash(int hash) {
+        this.hash = hash;
+    }
 }

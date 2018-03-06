@@ -110,7 +110,10 @@ public class MvccDataRow extends DataRow {
     }
 
     /** {@inheritDoc} */
-    @Override protected int readHeader(long addr, int off) {
+    @Override protected int readHeader(long addr, int off, boolean readCacheId) {
+        if (readCacheId)
+            cacheId = PageUtils.getInt(addr, off);
+
         // xid_min.
         mvccCrd = PageUtils.getLong(addr, off);
         mvccCntr = PageUtils.getLong(addr, off + 8);
@@ -121,7 +124,7 @@ public class MvccDataRow extends DataRow {
 
         assert mvccCrd > 0 && mvccCntr > MVCC_COUNTER_NA;
 
-        return MVCC_INFO_SIZE;
+        return MVCC_INFO_SIZE + (readCacheId ? 4 : 0);
     }
 
     /** {@inheritDoc} */
@@ -157,7 +160,7 @@ public class MvccDataRow extends DataRow {
 
     /** {@inheritDoc} */
     @Override public int headerSize() {
-        return MVCC_INFO_SIZE;
+        return MVCC_INFO_SIZE + 4; // Mvcc info + cache ID
     }
 
     /** {@inheritDoc} */

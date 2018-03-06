@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -40,6 +41,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.NodeInvalidator;
+import org.apache.ignite.internal.pagemem.FullPageId;
 import org.apache.ignite.internal.pagemem.PageIdAllocator;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
@@ -49,6 +51,8 @@ import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.CacheGroupDescriptor;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedManagerAdapter;
 import org.apache.ignite.internal.processors.cache.StoredCacheData;
+import org.apache.ignite.internal.processors.cache.mvcc.VacuumListener;
+import org.apache.ignite.internal.processors.cache.mvcc.VacuumPageLocator;
 import org.apache.ignite.internal.processors.cache.persistence.AllocatedPageTracker;
 import org.apache.ignite.internal.processors.cache.persistence.filename.PdsFolderSettings;
 import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage;
@@ -63,7 +67,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * File page store manager.
  */
-public class FilePageStoreManager extends GridCacheSharedManagerAdapter implements IgnitePageStoreManager {
+public class FilePageStoreManager extends GridCacheSharedManagerAdapter implements IgnitePageStoreManager,
+    VacuumListener {
     /** File suffix. */
     public static final String FILE_SUFFIX = ".bin";
 
@@ -134,6 +139,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         this.dsCfg = dsCfg;
 
         pageStoreV1FileIoFactory = pageStoreFileIoFactory = dsCfg.getFileIOFactory();
+
+        System.out.println("new FilePageStoreManager " + this);
     }
 
     /** {@inheritDoc} */
@@ -141,6 +148,9 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         final GridKernalContext ctx = cctx.kernalContext();
         if (ctx.clientNode())
             return;
+
+        System.out.println("FilePageStoreManager start0" );
+        cctx.coordinators().addVacuumListener(this);
 
         final PdsFolderSettings folderSettings = ctx.pdsFolderResolver().resolveFolders();
 
@@ -334,7 +344,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
      */
     public void read(int cacheId, long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteCheckedException {
         PageStore store = getStore(cacheId, PageIdUtils.partId(pageId));
-
+//        System.out.println("FileStorage read pageId=" + pageId + "; cacheId=" + cacheId + "; partId=" + PageIdUtils.partId(pageId) +
+//            "; pageIdx=" + PageIdUtils.pageIndex(pageId));
         try {
             store.read(pageId, pageBuf, keepCrc);
         }
@@ -368,6 +379,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
 
     /** {@inheritDoc} */
     @Override public void write(int grpId, long pageId, ByteBuffer pageBuf, int tag) throws IgniteCheckedException {
+        System.out.println("FileStoreManager write pageId=" + pageId + "; tag=" + tag);
         writeInternal(grpId, pageId, pageBuf, tag, true);
     }
 
@@ -852,6 +864,37 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
      */
     public int pageSize() {
         return dsCfg.getPageSize();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onVacuumStart(BlockingQueue<VacuumPageLocator> pageIdsQueue) throws Exception {
+        for (Integer grpId : idxCacheStores.keySet()) {
+
+            System.out.println("onVacuumStart grpId=" + grpId + "; cacheGroup" + cctx.cache().cacheGroup(grpId) + "; cacheContext=" + cctx.cacheContext(grpId));
+
+            CacheGroupContext grp = cctx.cache().cacheGroup(grpId);
+
+            if (grp == null || !grp.userCache() || !grp.mvccEnabled())
+                continue;
+
+            CacheStoreHolder store = idxCacheStores.get(grpId);
+
+            for (int partId = 0; partId < store.partStores.length; partId++) {
+                PageStore pageStore = getStore(grpId, partId);
+
+                for (int pageIdx = 2; pageIdx < pageStore.pages(); pageIdx++) {
+                    long pageId = PageIdUtils.pageId(partId, (byte) PageIdAllocator.FLAG_DATA, pageIdx);
+
+                    System.out.println("file storage add new locator pageId=" + pageId +"; partId=" + partId + "; pageIdx=" + pageIdx + "; pageStore.pages()=" + pageStore.pages());
+
+                    VacuumPageLocator pageLocator = new VacuumPageLocator(pageId, grpId, null);
+
+                    pageIdsQueue.add(pageLocator);
+                }
+            }
+
+            System.out.println("pages addresses=" + pageIdsQueue.size());
+        }
     }
 
     /**

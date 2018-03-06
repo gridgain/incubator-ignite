@@ -169,7 +169,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
                         first = false;
 
                         // Assume that row header is always located entirely on the very first page.
-                        hdrLen = readHeader(pageAddr, data.offset());
+                        hdrLen = readHeader(pageAddr, data.offset(), readCacheId);
 
                         if (rowData == LINK_WITH_HEADER)
                             return;
@@ -185,7 +185,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
 
                     boolean keyOnly = rowData == RowData.KEY_ONLY;
 
-                    incomplete = readFragment(sharedCtx, coctx, buf, keyOnly, readCacheId, incomplete);
+                    incomplete = readFragment(sharedCtx, coctx, buf, keyOnly, incomplete);
 
                     if (keyOnly && key != null)
                         return;
@@ -208,10 +208,16 @@ public class CacheDataRowAdapter implements CacheDataRow {
      *
      * @param addr Address.
      * @param off Offset
+     * @param readCacheId Whether read cache id.
      * @return Number of bytes read.
      */
-    protected int readHeader(long addr, int off) {
-        // No-op.
+    protected int readHeader(long addr, int off, boolean readCacheId) {
+        if (readCacheId) {
+            cacheId = PageUtils.getInt(addr, off);
+
+            return 4;
+        }
+
         return 0;
     }
 
@@ -220,7 +226,6 @@ public class CacheDataRowAdapter implements CacheDataRow {
      * @param coctx Cache object context.
      * @param buf Buffer.
      * @param keyOnly {@code true} If need to read only key object.
-     * @param readCacheId {@code true} If need to read cache ID.
      * @param incomplete Incomplete object.
      * @throws IgniteCheckedException If failed.
      * @return Read object.
@@ -230,18 +235,8 @@ public class CacheDataRowAdapter implements CacheDataRow {
         CacheObjectContext coctx,
         ByteBuffer buf,
         boolean keyOnly,
-        boolean readCacheId,
         IncompleteObject<?> incomplete
     ) throws IgniteCheckedException {
-        if (readCacheId && cacheId == 0) {
-            incomplete = readIncompleteCacheId(buf, incomplete);
-
-            if (cacheId == 0)
-                return incomplete;
-
-            incomplete = null;
-        }
-
         if (coctx == null) {
             // coctx can be null only when grp is null too, this means that
             // we are in process of eviction and cacheId is mandatory part of data.
@@ -303,16 +298,10 @@ public class CacheDataRowAdapter implements CacheDataRow {
         throws IgniteCheckedException {
         int off = 0;
 
-        off += readHeader(addr, off);
+        off += readHeader(addr, off, readCacheId);
 
         if (rowData == LINK_WITH_HEADER)
             return;
-
-        if (readCacheId) {
-            cacheId = PageUtils.getInt(addr, off);
-
-            off += 4;
-        }
 
         if (coctx == null)
             coctx = sharedCtx.cacheContext(cacheId).cacheObjectContext();

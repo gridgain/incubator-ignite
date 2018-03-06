@@ -22,6 +22,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccClusterRestartT
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccConfigurationValidationTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccProcessorTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccTransactionsTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccVacuumTest;
 
 /**
  *
@@ -38,6 +39,7 @@ public class IgniteCacheMvccTestSuite extends TestSuite {
         suite.addTestSuite(CacheMvccProcessorTest.class);
         suite.addTestSuite(CacheMvccClusterRestartTest.class);
         suite.addTestSuite(CacheMvccConfigurationValidationTest.class);
+        suite.addTestSuite(CacheMvccVacuumTest.class);
 
         return suite;
     }

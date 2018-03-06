@@ -963,6 +963,10 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
             assertTrue(ackFuts.isEmpty());
 
+            Throwable vacuumError = GridTestUtils.getFieldValue(crd, "vacuumError");
+
+            assertNull(X.getFullStackTrace(vacuumError), vacuumError);
+
             // TODO IGNITE-6739
             // checkActiveQueriesCleanup(node);
         }

@@ -45,9 +45,11 @@ import org.apache.ignite.internal.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagemem.FullPageId;
+import org.apache.ignite.internal.pagemem.PageClosure;
 import org.apache.ignite.internal.pagemem.PageIdAllocator;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageUtils;
+import org.apache.ignite.internal.pagemem.PageVisitor;
 import org.apache.ignite.internal.pagemem.store.IgnitePageStoreManager;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.pagemem.wal.WALIterator;
@@ -57,7 +59,9 @@ import org.apache.ignite.internal.pagemem.wal.record.PageSnapshot;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.InitNewPageRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.PageDeltaRecord;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointLockStateChecker;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointWriteProgressSupplier;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
@@ -464,6 +468,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         long pageId = storeMgr.allocatePage(grpId, partId, flags);
 
+        System.out.println("allocate pageId=" + pageId + "; partId=" + partId + "; flags=" + flags);
+
         assert PageIdUtils.pageIndex(pageId) > 0; //it's crucial for tracking pages (zero page is super one)
 
         // We need to allocate page in memory for marking it dirty to save it in the next checkpoint.
@@ -761,6 +767,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                 ByteBuffer buf = wrapPointer(pageAddr, pageSize());
 
+                //System.out.println("acquirePage storeMgr.read grpId=" + grpId + "; pageId=" + pageId);
                 try {
                     storeMgr.read(grpId, pageId, buf);
                 }
@@ -2205,6 +2212,8 @@ public class PageMemoryImpl implements PageMemoryEx {
                     fullPageId.groupId(),
                     PageIdUtils.effectivePageId(fullPageId.pageId())
                 );
+
+                System.out.println("remove for replacement pageId=" + fullPageId.pageId());
 
                 return relRmvAddr;
             }

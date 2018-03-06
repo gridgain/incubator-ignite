@@ -21,9 +21,11 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
@@ -31,9 +33,15 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.internal.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.mem.IgniteOutOfMemoryException;
+import org.apache.ignite.internal.pagemem.FullPageId;
+import org.apache.ignite.internal.pagemem.PageClosure;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
+import org.apache.ignite.internal.pagemem.PageVisitor;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor;
+import org.apache.ignite.internal.processors.cache.mvcc.VacuumListener;
+import org.apache.ignite.internal.processors.cache.mvcc.VacuumPageLocator;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -70,7 +78,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
  * on whether the page is in use or not.
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased", "FieldAccessedSynchronizedAndUnsynchronized"})
-public class PageMemoryNoStoreImpl implements PageMemory {
+public class PageMemoryNoStoreImpl implements PageMemory, VacuumListener {
     /** */
     public static final long PAGE_MARKER = 0xBEEAAFDEADBEEF01L;
 
@@ -192,6 +200,11 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         totalPages = (int)(dataRegionCfg.getMaxSize() / sysPageSize);
 
         rwLock = new OffheapReadWriteLock(lockConcLvl);
+
+        if (sharedCtx != null && !sharedCtx.database().systemDateRegionName().equals(dataRegionCfg.getName()))
+            sharedCtx.coordinators().addVacuumListener(this);
+
+        System.out.println("new PageMemNoStore " + this);
     }
 
     /** {@inheritDoc} */
@@ -642,6 +655,68 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         // Only this synchronized method writes to segments, so it is safe to read twice.
         return segments[segments.length - 1];
     }
+
+    /** {@inheritDoc} */
+    @Override public void onVacuumStart(BlockingQueue<VacuumPageLocator> pageIdsQueue) throws InterruptedException {
+        assert pageIdsQueue != null;
+
+        Segment[] segments0 = segments;
+
+        for (int segIdx = 0; segIdx < segments0.length; segIdx++) {
+            Segment curSeg = segments0[segIdx];
+
+            long segSize = GridUnsafe.getLongVolatile(null, curSeg.lastAllocatedIdxPtr);
+
+            for (int pageIdx = 0; pageIdx < segSize; pageIdx++) {
+
+                int fullPageIdx = (int)fromSegmentIndex(segIdx, pageIdx);
+
+                long pageId = PageIdUtils.pageId(-1, (byte)0, fullPageIdx);
+
+                VacuumPageLocator pageLocator = new VacuumPageLocator(pageId, 0, this);
+
+                pageIdsQueue.put(pageLocator);
+            }
+        }
+    }
+
+//    /**
+//     * Pages visitor.
+//     */
+//    private class NoStorePageVisitor implements PageVisitor {
+//        /** {@inheritDoc} */
+//        @Override public void visit(PageClosure clo) throws IgniteCheckedException {
+//            Segment[] segments0 = segments;
+//
+//            for (int segIdx = 0; segIdx < segments0.length; segIdx++) {
+//
+//                Segment curSeg = segments0[segIdx];
+//
+//                long segSize = GridUnsafe.getLongVolatile(null, curSeg.lastAllocatedIdxPtr);
+//
+//                for (int pageIdx = 0; pageIdx < segSize; pageIdx++) {
+//                    if (Thread.currentThread().isInterrupted())
+//                        return;
+//
+//                    //TODO acquire/release check.
+//                    long absPtr = curSeg.acquirePage(pageIdx);
+//
+//                    boolean locked = rwLock.readLock(absPtr + LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
+//
+//                    assert locked; // We do not use tags here.
+//
+//                    try {
+//                        long pageAddr = absPtr + PAGE_OVERHEAD;
+//
+//                        clo.apply(pageAddr);
+//                    }
+//                    finally {
+//                        rwLock.readUnlock(absPtr + LOCK_OFFSET);
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     /**
      *
