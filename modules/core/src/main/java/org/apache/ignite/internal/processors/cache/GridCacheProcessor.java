@@ -148,6 +148,7 @@ import org.apache.ignite.marshaller.MarshallerUtils;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.mxbean.CacheGroupMetricsMXBean;
 import org.apache.ignite.mxbean.IgniteMBeanAware;
+import org.apache.ignite.plugin.security.SecurityPermission;
 import org.apache.ignite.spi.IgniteNodeValidationResult;
 import org.apache.ignite.spi.discovery.DiscoveryDataBag;
 import org.apache.ignite.spi.discovery.DiscoveryDataBag.GridDiscoveryData;
@@ -3167,6 +3168,8 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         Collection<DynamicCacheChangeRequest> sndReqs = new ArrayList<>(reqs.size());
 
         for (DynamicCacheChangeRequest req : reqs) {
+            authorizeCacheChange(req);
+
             DynamicCacheStartFuture fut = new DynamicCacheStartFuture(req.requestId());
 
             try {
@@ -3229,6 +3232,24 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         }
 
         return res;
+    }
+
+    /**
+     * Authorize dynamic cache management.
+     */
+    private void authorizeCacheChange(DynamicCacheChangeRequest req) {
+        if (req.cacheType() == CacheType.USER) {
+            if (req.stop())
+                ctx.security().authorize(req.cacheName(), SecurityPermission.MANAGE_CACHE_DESTROY, null);
+            else {
+                ctx.security().authorize(req.cacheName(), SecurityPermission.MANAGE_CACHE_CREATE, null);
+
+                CacheConfiguration cacheCfg = req.startCacheConfiguration();
+
+                if (cacheCfg != null && cacheCfg.isOnheapCacheEnabled())
+                    ctx.security().authorize(req.cacheName(), SecurityPermission.MANAGE_CACHE_ONHEAP, null);
+            }
+        }
     }
 
     /**

@@ -18,17 +18,16 @@
 package org.apache.ignite.spi.discovery.tcp.ipfinder.vm;
 
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import org.apache.ignite.IgniteException;
-import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.internal.IgniteConfigurationException;
+import org.apache.ignite.internal.TcpAddressConfigLines;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.spi.IgniteSpiConfiguration;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinderAdapter;
@@ -50,16 +49,12 @@ import static org.apache.ignite.IgniteSystemProperties.IGNITE_TCP_DISCOVERY_ADDR
  * </ul>
  */
 public class TcpDiscoveryVmIpFinder extends TcpDiscoveryIpFinderAdapter {
-    /** Grid logger. */
-    @LoggerResource
-    private IgniteLogger log;
-
     /** Addresses. */
     @GridToStringInclude
     private Collection<InetSocketAddress> addrs;
 
-    /**
-     * Initialize from system property.
+    /*
+      Initialize from system property.
      */
     {
         String ips = IgniteSystemProperties.getString(IGNITE_TCP_DISCOVERY_ADDRESSES);
@@ -73,9 +68,9 @@ public class TcpDiscoveryVmIpFinder extends TcpDiscoveryIpFinderAdapter {
 
                     if (!F.isEmpty(s)) {
                         try {
-                            addrsList.addAll(address(s));
+                            addrsList.addAll(new TcpAddressConfigLines().set(s).getAddresses());
                         }
-                        catch (IgniteSpiException e) {
+                        catch (IgniteConfigurationException e) {
                             throw new IgniteException(e);
                         }
                     }
@@ -136,108 +131,14 @@ public class TcpDiscoveryVmIpFinder extends TcpDiscoveryIpFinderAdapter {
         if (F.isEmpty(addrs))
             return this;
 
-        Collection<InetSocketAddress> newAddrs = new LinkedHashSet<>();
-
-        for (String ipStr : addrs)
-            newAddrs.addAll(address(ipStr));
-
-        this.addrs = newAddrs;
+        try {
+            this.addrs = new TcpAddressConfigLines().set(addrs).getAddresses();
+        }
+        catch (IgniteConfigurationException ex) {
+            throw new IgniteSpiException(ex);
+        }
 
         return this;
-    }
-
-    /**
-     * Creates address from string.
-     *
-     * @param ipStr Address string.
-     * @return Socket addresses (may contain 1 or more addresses if provided string
-     *      includes port range).
-     * @throws IgniteSpiException If failed.
-     */
-    private static Collection<InetSocketAddress> address(String ipStr) throws IgniteSpiException {
-        ipStr = ipStr.trim();
-
-        String errMsg = "Failed to parse provided address: " + ipStr;
-
-        int colonCnt = ipStr.length() - ipStr.replace(":", "").length();
-
-        if (colonCnt > 1) {
-            // IPv6 address (literal IPv6 addresses are enclosed in square brackets, for example
-            // https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:443).
-            if (ipStr.startsWith("[")) {
-                ipStr = ipStr.substring(1);
-
-                if (ipStr.contains("]:"))
-                    return addresses(ipStr, "\\]\\:", errMsg);
-                else if (ipStr.endsWith("]"))
-                    ipStr = ipStr.substring(0, ipStr.length() - 1);
-                else
-                    throw new IgniteSpiException(errMsg);
-            }
-        }
-        else {
-            // IPv4 address.
-            if (ipStr.endsWith(":"))
-                ipStr = ipStr.substring(0, ipStr.length() - 1);
-            else if (ipStr.indexOf(':') >= 0)
-                return addresses(ipStr, "\\:", errMsg);
-        }
-
-        // Provided address does not contain port (will use default one).
-        return Collections.singleton(new InetSocketAddress(ipStr, 0));
-    }
-
-    /**
-     * Creates address from string with port information.
-     *
-     * @param ipStr Address string
-     * @param regexDelim Port regex delimiter.
-     * @param errMsg Error message.
-     * @return Socket addresses (may contain 1 or more addresses if provided string
-     *      includes port range).
-     * @throws IgniteSpiException If failed.
-     */
-    private static Collection<InetSocketAddress> addresses(String ipStr, String regexDelim, String errMsg)
-        throws IgniteSpiException {
-        String[] tokens = ipStr.split(regexDelim);
-
-        if (tokens.length == 2) {
-            String addrStr = tokens[0];
-            String portStr = tokens[1];
-
-            if (portStr.contains("..")) {
-                try {
-                    int port1 = Integer.parseInt(portStr.substring(0, portStr.indexOf("..")));
-                    int port2 = Integer.parseInt(portStr.substring(portStr.indexOf("..") + 2, portStr.length()));
-
-                    if (port2 < port1 || port1 == port2 || port1 <= 0 || port2 <= 0)
-                        throw new IgniteSpiException(errMsg);
-
-                    Collection<InetSocketAddress> res = new ArrayList<>(port2 - port1);
-
-                    // Upper bound included.
-                    for (int i = port1; i <= port2; i++)
-                        res.add(new InetSocketAddress(addrStr, i));
-
-                    return res;
-                }
-                catch (IllegalArgumentException e) {
-                    throw new IgniteSpiException(errMsg, e);
-                }
-            }
-            else {
-                try {
-                    int port = Integer.parseInt(portStr);
-
-                    return Collections.singleton(new InetSocketAddress(addrStr, port));
-                }
-                catch (IllegalArgumentException e) {
-                    throw new IgniteSpiException(errMsg, e);
-                }
-            }
-        }
-        else
-            throw new IgniteSpiException(errMsg);
     }
 
     /** {@inheritDoc} */

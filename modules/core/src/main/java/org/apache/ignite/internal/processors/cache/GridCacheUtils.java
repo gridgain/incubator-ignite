@@ -101,6 +101,7 @@ import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionRollbackException;
+import org.apache.ignite.plugin.security.SecurityException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jsr166.ConcurrentHashMap8;
@@ -1288,6 +1289,9 @@ public class GridCacheUtils {
 
         if (e.getCause() instanceof NullPointerException)
             return (NullPointerException)e.getCause();
+
+        if (e.getCause() instanceof SecurityException)
+            return (SecurityException)e.getCause();
 
         C1<IgniteCheckedException, IgniteException> converter = U.getExceptionConverter(e.getClass());
 

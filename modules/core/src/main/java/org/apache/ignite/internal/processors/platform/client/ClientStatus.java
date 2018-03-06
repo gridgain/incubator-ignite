@@ -45,4 +45,10 @@ public final class ClientStatus {
 
     /** Too many cursors. */
     public static final int TOO_MANY_CURSORS = 1010;
+
+    /** Resource does not exist. */
+    public static final int RESOURCE_DOES_NOT_EXIST = 1011;
+
+    /** Resource does not exist. */
+    public static final int SECURITY_VIOLATION = 1012;
 }

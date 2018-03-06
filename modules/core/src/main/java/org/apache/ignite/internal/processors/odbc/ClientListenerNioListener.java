@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.processors.odbc;
 
+import java.util.Collections;
+import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.configuration.ClientConnectorConfiguration;
@@ -29,11 +31,16 @@ import org.apache.ignite.internal.binary.streams.BinaryInputStream;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcConnectionContext;
 import org.apache.ignite.internal.processors.odbc.odbc.OdbcConnectionContext;
 import org.apache.ignite.internal.processors.platform.client.ClientConnectionContext;
+import org.apache.ignite.internal.processors.security.SecurityContext;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
 import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
 import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.nio.GridNioSessionMetaKey;
+import org.apache.ignite.plugin.security.AuthenticationContext;
+import org.apache.ignite.plugin.security.SecurityCredentials;
 import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.plugin.security.SecuritySubjectType.REMOTE_CLIENT;
 
 /**
  * Client message listener.
@@ -204,7 +211,26 @@ public class ClientListenerNioListener extends GridNioServerListenerAdapter<byte
         ClientListenerConnectionContext connCtx = null;
 
         try {
-            connCtx = prepareContext(clientType);
+            SecurityContext secCtx = null;
+
+            if (ctx.security().enabled()) {
+                // Do not change the exception message. The client parses it to understand what happened.
+                IgniteCheckedException authEx = new IgniteCheckedException("Invalid user name or password");
+
+                if (msg.length <= 8)
+                    throw authEx;
+                else {
+                    String user = reader.readString();
+                    String pwd = reader.readString();
+
+                    secCtx = authenticate(user, pwd);
+
+                    if (secCtx == null)
+                        throw authEx;
+                }
+            }
+
+            connCtx = prepareContext(clientType, secCtx);
 
             ensureClientPermissions(clientType);
 
@@ -242,13 +268,30 @@ public class ClientListenerNioListener extends GridNioServerListenerAdapter<byte
     }
 
     /**
+     * Authenticate thin client with the specified credentials.
+     */
+    private SecurityContext authenticate(String user, String pwd) throws IgniteCheckedException {
+        SecurityCredentials cred = new SecurityCredentials(user, pwd);
+
+        AuthenticationContext authCtx = new AuthenticationContext();
+
+        authCtx.subjectType(REMOTE_CLIENT);
+        authCtx.subjectId(UUID.randomUUID());
+        authCtx.nodeAttributes(Collections.emptyMap());
+        authCtx.credentials(cred);
+
+        return ctx.security().authenticate(authCtx);
+    }
+
+    /**
      * Prepare context.
      *
      * @param clientType Client type.
      * @return Context.
      * @throws IgniteCheckedException If failed.
      */
-    private ClientListenerConnectionContext prepareContext(byte clientType) throws IgniteCheckedException {
+    private ClientListenerConnectionContext prepareContext(byte clientType, SecurityContext secCtx)
+        throws IgniteCheckedException {
         switch (clientType) {
             case ODBC_CLIENT:
                 return new OdbcConnectionContext(ctx, busyLock, maxCursors);
@@ -257,7 +300,7 @@ public class ClientListenerNioListener extends GridNioServerListenerAdapter<byte
                 return new JdbcConnectionContext(ctx, busyLock, maxCursors);
 
             case THIN_CLIENT:
-                return new ClientConnectionContext(ctx, maxCursors);
+                return new ClientConnectionContext(ctx, maxCursors, secCtx);
         }
 
         throw new IgniteCheckedException("Unknown client type: " + clientType);
