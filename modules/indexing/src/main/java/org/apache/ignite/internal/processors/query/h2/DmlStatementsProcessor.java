@@ -52,8 +52,10 @@ import org.apache.ignite.internal.processors.bulkload.BulkLoadParser;
 import org.apache.ignite.internal.processors.bulkload.BulkLoadStreamerWriter;
 import org.apache.ignite.internal.processors.cache.CacheOperationContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.QueryCursorImpl;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
@@ -514,14 +516,6 @@ public class DmlStatementsProcessor {
 
             DmlDistributedPlanInfo distributedPlan = plan.distributedPlan();
 
-            if (distributedPlan == null)
-                throw new IgniteSQLException("Only distributed updates are supported at the moment",
-                    IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
-
-            if (plan.mode() == UpdateMode.INSERT && !plan.isLocalSubquery())
-                throw new IgniteSQLException("Insert from select is unsupported at the moment.",
-                    IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
-
             GridNearTxLocal tx = idx.activeTx();
 
             boolean implicit = (tx == null);
@@ -532,9 +526,64 @@ public class DmlStatementsProcessor {
             if (implicit)
                 tx = idx.txStart(cctx, fieldsQry.getTimeout());
 
-            idx.requestMvccVersion(cctx, tx);
+            MvccSnapshot mvccSnapshot = idx.requestMvccVersion(cctx, tx);
 
             try (GridNearTxLocal toCommit = commit ? tx : null) {
+                if (distributedPlan == null) {
+                    SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(), fieldsQry.isCollocated())
+                        .setArgs(fieldsQry.getArgs())
+                        .setDistributedJoins(fieldsQry.isDistributedJoins())
+                        .setEnforceJoinOrder(fieldsQry.isEnforceJoinOrder())
+                        .setLocal(fieldsQry.isLocal())
+                        .setPageSize(fieldsQry.getPageSize())
+                        .setTimeout(fieldsQry.getTimeout(), TimeUnit.MILLISECONDS);
+
+                    MvccQueryTracker mvccQueryTracker = new MvccQueryTracker(cctx,
+                        cctx.shared().coordinators().currentCoordinator(),
+                        mvccSnapshot);
+
+                    Iterable<List<?>> cur = (QueryCursorImpl<List<?>>)idx.querySqlFields(schemaName, newFieldsQry, true,
+                        true, mvccQueryTracker, cancel).get(0);
+
+                    int pageSize = loc ? 0 : fieldsQry.getPageSize();
+
+                    tx.addActiveCache(cctx, false);
+
+                    //TODO update/delete
+                    GridCacheOperation op = plan.mode() == UpdateMode.INSERT ?
+                        GridCacheOperation.CREATE : GridCacheOperation.UPDATE;
+
+                    GridNearTxQueryResultsEnlistFuture fut = new GridNearTxQueryResultsEnlistFuture(cctx, tx,
+                        mvccSnapshot, newFieldsQry.getTimeout(), plan.mode().ordinal(), op,
+                        new Iterator<IgniteBiTuple>() {
+                        final Iterator<List<?>> it = cur.iterator();
+
+                        @Override public boolean hasNext() {
+                            return it.hasNext();
+                        }
+
+                        @Override public IgniteBiTuple next() {
+                            try {
+                                IgniteBiTuple t = plan.processRow(it.next());
+
+                                return t;
+                            }
+                            catch (IgniteCheckedException e) {
+                                throw new IgniteException(e);
+                            }
+                        }
+                    }, pageSize);
+
+                    fut.init();
+
+                    UpdateResult res = new UpdateResult(fut.get(), X.EMPTY_OBJECT_ARRAY);
+
+                    if (commit)
+                        toCommit.commit();
+
+                    return res;
+                }
+
                 int[] ids = U.toIntArray(distributedPlan.getCacheIds());
 
                 int flags = 0;

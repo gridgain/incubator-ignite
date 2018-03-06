@@ -38,6 +38,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistResponse;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.GridCodegenConverter;
 import org.apache.ignite.internal.GridDirectCollection;
@@ -235,6 +237,8 @@ public class MessageCodeGenerator {
 //        gen.generateAndWrite(GridCacheVersionEx.class);
 //        gen.generateAndWrite(GridH2DmlRequest.class);
 //        gen.generateAndWrite(GridH2DmlResponse.class);
+        gen.generateAndWrite(GridNearTxQueryResultsEnlistRequest.class);
+        gen.generateAndWrite(GridNearTxQueryResultsEnlistResponse.class);
     }
 
     /**
