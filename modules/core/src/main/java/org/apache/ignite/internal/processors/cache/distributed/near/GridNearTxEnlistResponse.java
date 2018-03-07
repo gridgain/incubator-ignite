@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  *
  */
-public class GridNearTxQueryResultsEnlistResponse extends GridCacheIdMessage {
+public class GridNearTxEnlistResponse extends GridCacheIdMessage {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -62,7 +62,7 @@ public class GridNearTxQueryResultsEnlistResponse extends GridCacheIdMessage {
     /**
      * Default-constructor.
      */
-    public GridNearTxQueryResultsEnlistResponse() {
+    public GridNearTxEnlistResponse() {
         // No-op.
     }
 
@@ -74,7 +74,7 @@ public class GridNearTxQueryResultsEnlistResponse extends GridCacheIdMessage {
      * @param res Result.
      * @param err Error.
      */
-    public GridNearTxQueryResultsEnlistResponse(int cacheId, IgniteUuid futId, int miniId, GridCacheVersion lockVer,
+    public GridNearTxEnlistResponse(int cacheId, IgniteUuid futId, int miniId, GridCacheVersion lockVer,
         long res,Throwable err) {
         this.cacheId = cacheId;
         this.futId = futId;
@@ -265,7 +265,7 @@ public class GridNearTxQueryResultsEnlistResponse extends GridCacheIdMessage {
 
         }
 
-        return reader.afterMessageRead(GridNearTxQueryResultsEnlistResponse.class);
+        return reader.afterMessageRead(GridNearTxEnlistResponse.class);
     }
 
     /** {@inheritDoc} */
@@ -285,6 +285,6 @@ public class GridNearTxQueryResultsEnlistResponse extends GridCacheIdMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(GridNearTxQueryResultsEnlistResponse.class, this);
+        return S.toString(GridNearTxEnlistResponse.class, this);
     }
 }

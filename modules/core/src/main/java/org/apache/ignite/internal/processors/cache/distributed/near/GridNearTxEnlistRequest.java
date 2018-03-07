@@ -44,7 +44,7 @@ import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 /**
  *
  */
-public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
+public class GridNearTxEnlistRequest extends GridCacheIdMessage {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -111,7 +111,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
     /**
      * Default constructor.
      */
-    public GridNearTxQueryResultsEnlistRequest() {
+    public GridNearTxEnlistRequest() {
         // No-op.
     }
 
@@ -128,7 +128,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
      * @param clientFirst
      * @param timeout
      */
-    public GridNearTxQueryResultsEnlistRequest(int cacheId,
+    public GridNearTxEnlistRequest(int cacheId,
         long threadId,
         IgniteUuid futId,
         int miniId,
@@ -525,7 +525,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
 
         }
 
-        return reader.afterMessageRead(GridNearTxQueryResultsEnlistRequest.class);
+        return reader.afterMessageRead(GridNearTxEnlistRequest.class);
     }
 
     /** {@inheritDoc} */
@@ -545,6 +545,6 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(GridNearTxQueryResultsEnlistRequest.class, this);
+        return S.toString(GridNearTxEnlistRequest.class, this);
     }
 }

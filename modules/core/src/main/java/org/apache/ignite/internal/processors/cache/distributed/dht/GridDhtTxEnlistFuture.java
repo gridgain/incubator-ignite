@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
@@ -28,8 +29,9 @@ import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedExceptio
 import org.apache.ignite.internal.processors.cache.GridCacheLockTimeoutException;
 import org.apache.ignite.internal.processors.cache.GridCacheMvccCandidate;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
@@ -37,38 +39,40 @@ import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.internal.processors.cache.GridCacheOperation.CREATE;
+import static org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode.DUPLICATE_KEY;
+
 /**
- *
+ * Cache lock future.
  */
-public class GridDhtTxQueryResultsEnlistFuture
-    extends GridDhtTxQueryAbstractFuture<GridNearTxQueryResultsEnlistResponse> {
+public class GridDhtTxEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNearTxEnlistResponse> {
+    /** */
+    private Collection<IgniteBiTuple> rows;
 
     /** */
-    Collection<IgniteBiTuple> rows;
-
-    /** */
-    GridCacheOperation op;
-
+    private GridCacheOperation op;
 
     /**
-     *
-     * @param nearNodeId
-     * @param nearLockVer
-     * @param topVer
-     * @param mvccSnapshot
-     * @param threadId
-     * @param nearFutId
-     * @param nearMiniId
-     * @param tx
-     * @param timeout
-     * @param cctx
+     * @param nearNodeId Near node ID.
+     * @param nearLockVer Near lock version.
+     * @param topVer Topology version.
+     * @param mvccSnapshot Mvcc snapshot.
+     * @param threadId Thread ID.
+     * @param nearFutId Near future id.
+     * @param nearMiniId Near mini future id.
+     * @param tx Transaction.
+     * @param timeout Lock acquisition timeout.
+     * @param cctx Cache context.
+     * @param rows Collection of rows.
+     * @param op Cache operation.
      */
-    public GridDhtTxQueryResultsEnlistFuture(UUID nearNodeId,
+    public GridDhtTxEnlistFuture(UUID nearNodeId,
         GridCacheVersion nearLockVer,
         AffinityTopologyVersion topVer,
         MvccSnapshot mvccSnapshot,
@@ -80,7 +84,16 @@ public class GridDhtTxQueryResultsEnlistFuture
         GridCacheContext<?, ?> cctx,
         Collection<IgniteBiTuple> rows,
         GridCacheOperation op) {
-        super(nearNodeId, nearLockVer, topVer, mvccSnapshot, threadId, nearFutId, nearMiniId, tx, timeout, cctx);
+        super(nearNodeId,
+            nearLockVer,
+            topVer,
+            mvccSnapshot,
+            threadId,
+            nearFutId,
+            nearMiniId,
+            tx,
+            timeout,
+            cctx);
 
         this.rows = rows;
         this.op = op;
@@ -93,9 +106,9 @@ public class GridDhtTxQueryResultsEnlistFuture
         cctx.mvcc().addFuture(this);
 
         if (timeout > 0) {
-            //timeoutObj = new GridDhtTxQueryEnlistFuture.LockTimeoutObject();
+            timeoutObj = new LockTimeoutObject();
 
-            //cctx.time().addTimeoutObject(timeoutObj);
+            cctx.time().addTimeoutObject(timeoutObj);
         }
 
         GridDhtCacheAdapter<?, ?> cache = cctx.isNear() ? cctx.near().dht() : cctx.dht();
@@ -148,9 +161,9 @@ public class GridDhtTxQueryResultsEnlistFuture
 
     /**
      *
-     * @param entry
-     * @param row
-     * @return
+     * @param entry Entry.
+     * @param row Row.
+     * @return MVCC candidate.
      * @throws GridCacheEntryRemovedException
      * @throws GridDistributedLockCancelledException
      * @throws IgniteCheckedException
@@ -172,6 +185,24 @@ public class GridDhtTxQueryResultsEnlistFuture
 
         CacheObject val = cctx.toCacheObject(row);
 
+        if (op == CREATE) {
+            CacheObject oldVal = entry.innerGet(
+                null,
+                tx,
+                false,
+                false,
+                false,
+                tx.subjectId(),
+                null,
+                tx.resolveTaskName(),
+                null,
+                true,
+                mvccSnapshot);
+
+            if (oldVal != null)
+                throw new IgniteSQLException("Duplicate key during INSERT [key=" + entry.key() + ']', DUPLICATE_KEY);
+        }
+
         txEntry = tx.addEntry(op,
             val,
             null,
@@ -191,19 +222,32 @@ public class GridDhtTxQueryResultsEnlistFuture
         txEntry.markValid();
         txEntry.queryEnlisted(true);
 
-        GridCacheMvccCandidate c = entry.addDhtLocal(
-            nearNodeId,
-            nearLockVer,
-            topVer,
-            threadId,
-            lockVer,
-            null,
-            timeout,
-            false,
-            true,
-            false,
-            false
-        );
+        GridCacheMvccCandidate c;
+
+        while (true) { // The entry might get evicted.
+            try {
+                c = entry.addDhtLocal(
+                    nearNodeId,
+                    nearLockVer,
+                    topVer,
+                    threadId,
+                    lockVer,
+                    null,
+                    timeout,
+                    false,
+                    true,
+                    false,
+                    false
+                );
+
+                break;
+            }
+            catch (GridCacheEntryRemovedException ex) {
+                entry = cctx.dhtCache().entryExx(entry.key(), topVer);
+
+                txEntry.cached(entry);
+            }
+        }
 
         if (c == null && timeout < 0) {
 
@@ -236,13 +280,13 @@ public class GridDhtTxQueryResultsEnlistFuture
      * @param err Error.
      * @return Prepare response.
      */
-    @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse(@NotNull Throwable err) {
-        return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, 0, err);
+    @NotNull @Override public GridNearTxEnlistResponse createResponse(@NotNull Throwable err) {
+        return new GridNearTxEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, 0, err);
     }
 
     /** */
-    @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse(long res) {
-        return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, res, null);
+    @NotNull @Override public GridNearTxEnlistResponse createResponse(long res) {
+        return new GridNearTxEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, res, null);
     }
 
     /** {@inheritDoc} */
@@ -253,7 +297,7 @@ public class GridDhtTxQueryResultsEnlistFuture
         if (o == null || getClass() != o.getClass())
             return false;
 
-        GridDhtTxQueryResultsEnlistFuture future = (GridDhtTxQueryResultsEnlistFuture)o;
+        GridDhtTxEnlistFuture future = (GridDhtTxEnlistFuture)o;
 
         return Objects.equals(futId, future.futId);
     }
@@ -261,5 +305,18 @@ public class GridDhtTxQueryResultsEnlistFuture
     /** {@inheritDoc} */
     @Override public int hashCode() {
         return futId.hashCode();
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        HashSet<KeyCacheObject> pending;
+
+        synchronized (this) {
+            pending = new HashSet<>(pendingLocks);
+        }
+
+        return S.toString(GridDhtTxEnlistFuture.class, this,
+            "pendingLocks", pending,
+            "super", super.toString());
     }
 }

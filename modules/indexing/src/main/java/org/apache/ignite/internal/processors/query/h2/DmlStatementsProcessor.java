@@ -55,7 +55,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.QueryCursorImpl;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistFuture;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxEnlistFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
@@ -79,6 +79,7 @@ import org.apache.ignite.internal.sql.command.SqlBulkLoadCommand;
 import org.apache.ignite.internal.sql.command.SqlCommand;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashMap;
 import org.apache.ignite.internal.util.lang.GridCloseableIterator;
+import org.apache.ignite.internal.util.lang.GridIteratorAdapter;
 import org.apache.ignite.internal.util.lang.IgniteClosureX;
 import org.apache.ignite.internal.util.lang.IgniteSingletonIterator;
 import org.apache.ignite.internal.util.typedef.F;
@@ -542,37 +543,17 @@ public class DmlStatementsProcessor {
                         cctx.shared().coordinators().currentCoordinator(),
                         mvccSnapshot);
 
-                    Iterable<List<?>> cur = (QueryCursorImpl<List<?>>)idx.querySqlFields(schemaName, newFieldsQry, true,
+                    Iterable<List<?>> cur = idx.querySqlFields(schemaName, newFieldsQry, true,
                         true, mvccQueryTracker, cancel).get(0);
 
                     int pageSize = loc ? 0 : fieldsQry.getPageSize();
 
                     tx.addActiveCache(cctx, false);
 
-                    //TODO update/delete
-                    GridCacheOperation op = plan.mode() == UpdateMode.INSERT ?
-                        GridCacheOperation.CREATE : GridCacheOperation.UPDATE;
+                    TxDmlReducerIterator it = new TxDmlReducerIterator(plan, cur);
 
-                    GridNearTxQueryResultsEnlistFuture fut = new GridNearTxQueryResultsEnlistFuture(cctx, tx,
-                        mvccSnapshot, newFieldsQry.getTimeout(), plan.mode().ordinal(), op,
-                        new Iterator<IgniteBiTuple>() {
-                        final Iterator<List<?>> it = cur.iterator();
-
-                        @Override public boolean hasNext() {
-                            return it.hasNext();
-                        }
-
-                        @Override public IgniteBiTuple next() {
-                            try {
-                                IgniteBiTuple t = plan.processRow(it.next());
-
-                                return t;
-                            }
-                            catch (IgniteCheckedException e) {
-                                throw new IgniteException(e);
-                            }
-                        }
-                    }, pageSize);
+                    GridNearTxEnlistFuture fut = new GridNearTxEnlistFuture(cctx, tx,
+                        mvccSnapshot, newFieldsQry.getTimeout(), plan.mode().ordinal(), it.operation(), it, pageSize);
 
                     fut.init();
 
@@ -1442,6 +1423,83 @@ public class DmlStatementsProcessor {
          */
         @Override public IgniteBiTuple<?, ?> applyx(List<?> record) throws IgniteCheckedException {
             return plan.processRow(record);
+        }
+    }
+
+    /**
+     * Iterates over results of TX DML reducer.
+     */
+    private static class TxDmlReducerIterator extends GridIteratorAdapter<IgniteBiTuple> {
+        /** */
+        final UpdatePlan plan;
+
+        /** */
+        final Iterable<List<?>> cur;
+
+        /** */
+        final Iterator<List<?>> it;
+
+        /**
+         *
+         * @param plan
+         */
+        TxDmlReducerIterator(UpdatePlan plan, Iterable<List<?>> cur) {
+            this.plan = plan;
+            this.cur = cur;
+
+            it = cur.iterator();
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean hasNextX() throws IgniteCheckedException {
+            return it.hasNext();
+        }
+
+        /** {@inheritDoc} */
+        @Override public IgniteBiTuple nextX() throws IgniteCheckedException {
+            switch (plan.mode()) {
+                case INSERT:
+                case MERGE:
+                    return plan.processRow(it.next());
+
+                case UPDATE: {
+                    T3<Object, Object, Object> row = plan.processRowForUpdate(it.next());
+
+                    return new IgniteBiTuple<>(row.get1(), row.get3());
+                }
+                case DELETE: {
+                    List<?> row = it.next();
+
+                    return new IgniteBiTuple<>(row.get(0), row.get(1));
+                }
+
+                default:
+                    throw new UnsupportedOperationException(String.valueOf(plan.mode()));
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public void removeX() throws IgniteCheckedException {
+            // No-op.
+        }
+
+        /**
+         *
+         * @return Cache operation.
+         */
+        public GridCacheOperation operation() {
+            switch (plan.mode()) {
+                case INSERT:
+                    return GridCacheOperation.CREATE;
+                case MERGE:
+                case UPDATE:
+                    return GridCacheOperation.UPDATE;
+                case DELETE:
+                    return GridCacheOperation.DELETE;
+
+                default:
+                    throw new UnsupportedOperationException(String.valueOf(plan.mode()));
+            }
         }
     }
 }
