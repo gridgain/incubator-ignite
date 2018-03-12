@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util.lang.gridfunc;
 
-import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.lang.IgniteCallable;
-import org.jsr166.ConcurrentLinkedDeque8;
+namespace Apache.Ignite.Linq.Impl.Dml
+{
+    using System.Linq.Expressions;
 
-/**
- * Deque factory.
- */
-public class ConcurrentDequeFactoryCallable implements IgniteCallable<ConcurrentLinkedDeque8> {
-    /** */
-    private static final long serialVersionUID = 0L;
+    /// <summary>
+    /// Contains information about member update
+    /// </summary>
+    internal struct MemberUpdateContainer
+    {
+        /// <summary>
+        /// Gets or sets member selector
+        /// </summary>
+        public Expression Selector { get; set; }
 
-    /** {@inheritDoc} */
-    @Override public ConcurrentLinkedDeque8 call() {
-        return new ConcurrentLinkedDeque8();
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return S.toString(ConcurrentDequeFactoryCallable.class, this);
+        /// <summary>
+        /// Gets or sets member new value
+        /// </summary>
+        public Expression Value { get; set; }
     }
 }
