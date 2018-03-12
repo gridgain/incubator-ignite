@@ -556,7 +556,12 @@ public class GridNearAtomicSingleUpdateFuture extends GridNearAtomicAbstractUpda
 
         boolean mappingKnown = cctx.topology().rebalanceFinished(topVer);
 
-        List<ClusterNode> nodes = cctx.affinity().nodesByKey(cacheKey, topVer);
+        int partition = cctx.affinity().partition(cacheKey);
+
+        List<ClusterNode> nodes = cctx.dht().topology().nodes(partition, topVer);
+
+        if (nodes == null)
+            nodes = cctx.affinity().nodesByPartition(partition, topVer);
 
         if (F.isEmpty(nodes))
             throw new ClusterTopologyServerNotFoundException("Failed to map keys for cache (all partition nodes " +

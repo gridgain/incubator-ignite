@@ -328,8 +328,10 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
 
         List<ClusterNode> dhtNodes = cctx.dht().topology().nodes(part, topVer);
 
-        if (dhtNodes == null)
+        if (dhtNodes == null) {
             dhtNodes = cctx.affinity().nodesByPartition(part, topVer);
+            log.warning("DHT changed " + cctx.group().cacheOrGroupName() + " " + part + " " + key + " " + topVer);
+        }
 
         if (dhtNodes.isEmpty()) {
             onDone(serverNotFoundError(topVer));
@@ -358,6 +360,8 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
             return null;
         }
 
+        log.warning("DHT get " + affNode + " " + cctx.group().cacheOrGroupName() + " " + part + " " + key + " " + topVer);
+
         return affNode;
     }
 
@@ -373,6 +377,8 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
 
         boolean readNoEntry = cctx.readNoEntry(expiryPlc, false);
         boolean evt = !skipVals;
+
+        log.warning("Local get " + cctx.localNodeId() + " " + cctx.group().cacheOrGroupName() + " " + part + " " + key + " " + topVer);
 
         while (true) {
             try {

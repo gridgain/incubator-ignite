@@ -828,8 +828,10 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
             return;
         }
 
-        if (mappingKnown && syncMode == FULL_SYNC && cctx.discovery().topologyVersion() != topVer.topologyVersion())
+        if (mappingKnown && syncMode == FULL_SYNC && cctx.discovery().topologyVersion() != topVer.topologyVersion()) {
             checkDhtNodes(futId);
+        } else {
+        }
     }
 
     private void checkDhtNodes(long futId) {
@@ -995,7 +997,12 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
             else
                 val = EntryProcessorResourceInjectorProxy.wrap(cctx.kernalContext(), (EntryProcessor)val);
 
-            List<ClusterNode> nodes = cctx.affinity().nodesByKey(cacheKey, topVer);
+            int partition = cctx.affinity().partition(cacheKey);
+
+            List<ClusterNode> nodes = cctx.dht().topology().nodes(partition, topVer);
+
+            if (nodes == null)
+                nodes = cctx.affinity().nodesByPartition(partition, topVer);
 
             if (F.isEmpty(nodes))
                 throw new ClusterTopologyServerNotFoundException("Failed to map keys for cache " +
@@ -1109,7 +1116,12 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
         else
             val = EntryProcessorResourceInjectorProxy.wrap(cctx.kernalContext(), (EntryProcessor)val);
 
-        List<ClusterNode> nodes = cctx.affinity().nodesByKey(cacheKey, topVer);
+        int partition = cctx.affinity().partition(cacheKey);
+
+        List<ClusterNode> nodes = cctx.dht().topology().nodes(partition, topVer);
+
+        if (nodes == null)
+            nodes = cctx.affinity().nodesByPartition(partition, topVer);
 
         if (F.isEmpty(nodes))
             throw new ClusterTopologyServerNotFoundException("Failed to map keys for cache " +

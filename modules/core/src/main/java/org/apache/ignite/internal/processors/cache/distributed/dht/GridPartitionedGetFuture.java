@@ -439,6 +439,8 @@ public class GridPartitionedGetFuture<K, V> extends CacheDistributedGetFutureAda
 
         old.put(key, false);
 
+        log.warning("DHT get " + remote + " " + cctx.group().cacheOrGroupName() + " " + part + " " + key + " " + topVer);
+
         return remote;
     }
 
@@ -456,6 +458,8 @@ public class GridPartitionedGetFuture<K, V> extends CacheDistributedGetFutureAda
 
         boolean readNoEntry = cctx.readNoEntry(expiryPlc, false);
         boolean evt = !skipVals;
+
+        log.warning("Local get " + cctx.localNodeId() + " " + cctx.group().cacheOrGroupName() + " " + part + " " + key + " " + topVer);
 
         while (true) {
             try {

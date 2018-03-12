@@ -155,6 +155,11 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
         return cfg;
     }
 
+    @Override
+    protected long getTestTimeout() {
+        return 60 * 60 * 1000;
+    }
+
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
@@ -1263,7 +1268,7 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
 
                 Object val = cache.get(key);
 
-                assertEquals(err, i, val);
+                assertEquals(err + " " + key, i, val);
             }
         }
     }
@@ -1301,7 +1306,7 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
 
                         Object val = cache.get(key);
 
-                        assertEquals(err, i, val);
+                        assertEquals(err + " S " + key, i, val);
                     }
 
                     for (int i = 0; i < 5; i++) {
@@ -1318,7 +1323,7 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
                         Map<Object, Object> res = cache.getAll(map.keySet());
 
                         for (Map.Entry<Integer, Integer> e : map.entrySet())
-                            assertEquals(err, e.getValue(), res.get(e.getKey()));
+                            assertEquals(err + " A " + e.getKey(), e.getValue(), res.get(e.getKey()));
                     }
 
                     if (cache.getConfiguration(CacheConfiguration.class).getAtomicityMode() == TRANSACTIONAL) {

@@ -645,15 +645,21 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
 
     /** {@inheritDoc} */
     @Override protected void putAll0(Map<? extends K, ? extends V> m) throws IgniteCheckedException {
-        updateAll0(m,
-            null,
-            null,
-            null,
-            null,
-            false,
-            false,
-            UPDATE,
-            false).get();
+        IgniteInternalFuture fut = updateAll0(m,
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                UPDATE,
+                false);
+
+        try {
+            fut.get(30000);
+        } catch (Exception e) {
+            int k = 2;
+        }
     }
 
     /** {@inheritDoc} */
@@ -1772,8 +1778,8 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
             }
         }
         catch (GridDhtInvalidPartitionException ignore) {
-            if (log.isDebugEnabled())
-                log.debug("Caught invalid partition exception for cache entry (will remap update request): " + req);
+            if (log.isInfoEnabled())
+                log.warning("Caught invalid partition exception for cache entry (will remap update request): " + req);
 
             res.remapTopologyVersion(ctx.topology().lastTopologyChangeVersion());
         }
@@ -2447,6 +2453,8 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                     /*updateCntr*/null,
                     dhtFut);
 
+                log.warning("[L][S] Success update " + ctx.group().cacheOrGroupName() + " " + ctx.localNodeId() + " " + k);
+
                 if (dhtFut != null) {
                     if (updRes.sendToDht()) { // Send to backups even in case of remove-remove scenarios.
                         GridCacheVersionConflictContext<?, ?> conflictCtx = updRes.conflictResolveResult();
@@ -2481,8 +2489,8 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                                 updRes.conflictExpireTime());
                     }
                     else {
-                        if (log.isDebugEnabled())
-                            log.debug("Entry did not pass the filter or conflict resolution (will skip write) " +
+                        if (log.isInfoEnabled())
+                            log.warning("Entry did not pass the filter or conflict resolution (will skip write) " +
                                 "[entry=" + entry + ", filter=" + Arrays.toString(req.filter()) + ']');
                     }
                 }
@@ -3192,6 +3200,8 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
 
                             entry.onUnlock();
 
+                            log.warning("Success update " + ctx.group().cacheOrGroupName() + " " + ctx.localNodeId() + " " + key + " " + val + " " + nodeId);
+
                             break; // While.
                         }
                         catch (GridCacheEntryRemovedException ignored) {
@@ -3213,6 +3223,7 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                 }
                 catch (GridDhtInvalidPartitionException ignored) {
                     // Ignore.
+                    U.error(log, "(Z) Failed to update key on backup node: " + key + " " + ctx.localNodeId(), ignored);
                 }
                 catch (IgniteCheckedException|RuntimeException e) {
                     if(e instanceof RuntimeException && !X.hasCause(e, IgniteOutOfMemoryException.class))
@@ -3446,8 +3457,8 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
             updateFut.onDhtResponse(nodeId, res);
         }
         else {
-            if (msgLog.isDebugEnabled()) {
-                msgLog.debug("Failed to find future for DHT atomic near response [futId=" + res.futureId() +
+            if (msgLog.isInfoEnabled()) {
+                msgLog.warning("Failed to find future for DHT atomic near response [futId=" + res.futureId() +
                     ", node=" + nodeId +
                     ", res=" + res + ']');
             }
