@@ -350,10 +350,10 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
                     pageMem.releasePage(grpId, partMetaId, partMetaPage);
                 }
             }
-            else
+            else if (needSnapshot)
                 tryAddEmptyPartitionToSnapshot(store, ctx);;
         }
-        else
+        else if (needSnapshot)
             tryAddEmptyPartitionToSnapshot(store, ctx);
 
         return wasSaveToMeta;
@@ -366,8 +366,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
      * @param ctx Snapshot context.
      */
     private void tryAddEmptyPartitionToSnapshot(CacheDataStore store, Context ctx) {
-        if (ctx.nextSnapshot() && getPartition(store).state() == OWNING) {
-
+        if (getPartition(store).state() == OWNING) {
             ctx.partitionStatMap().put(
                     new GroupPartitionId(grp.groupId(), store.partId()),
                     new PagesAllocationRange(0, 0));
