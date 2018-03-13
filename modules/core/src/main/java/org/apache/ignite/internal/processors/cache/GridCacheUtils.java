@@ -826,23 +826,6 @@ public class GridCacheUtils {
     }
 
     /**
-     * @param fut Future.
-     * @return String view of all safe-to-print future properties.
-     */
-    public static String futString(@Nullable GridCacheFuture fut, IgniteInternalTx tx) {
-        if (fut == null)
-            return "null";
-
-        return fut.getClass().getSimpleName() + "[futId=" + fut.futureId() +
-            ", done=" + fut.isDone() +
-            ", cancelled=" + fut.isCancelled() +
-            ", trackable=" + fut.trackable() +
-            ", startTime=" + fut.startTime() +
-            ", duration=" + fut.duration() + "ms" +
-            ", tx=" + txString(tx) +']';
-    }
-
-    /**
      * @param ctx Cache context.
      */
     public static void unwindEvicts(GridCacheContext ctx) {
@@ -1175,7 +1158,7 @@ public class GridCacheUtils {
     public static <K, V> void inTx(IgniteInternalCache<K, V> cache, TransactionConcurrency concurrency,
         TransactionIsolation isolation, IgniteInClosureX<IgniteInternalCache<K ,V>> clo) throws IgniteCheckedException {
 
-        try (GridNearTxLocal tx = cache.txStartEx(concurrency, isolation);) {
+        try (GridNearTxLocal tx = cache.txStartEx(concurrency, isolation)) {
             clo.applyx(cache);
 
             tx.commit();
