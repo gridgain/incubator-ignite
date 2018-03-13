@@ -47,6 +47,7 @@ import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.IgniteCacheOffheapManager;
 import org.apache.ignite.internal.processors.cache.IgniteCacheOffheapManagerImpl;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
@@ -166,9 +167,6 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
         for (CacheDataStore store : partDataStores.values()) {
             RowStore rowStore = store.rowStore();
 
-            if (rowStore == null)
-                continue;
-
             metaWasUpdated |= saveStoreMetadata(store, ctx, !metaWasUpdated, false);
         }
 
@@ -226,8 +224,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
                     if (beforeDestroy)
                         state = GridDhtPartitionState.EVICTED;
                     else {
-                        part = grp.topology().localPartition(store.partId(),
-                                AffinityTopologyVersion.NONE, false, true);
+                        part = getPartition(store);
 
                         if (part != null && part.state() != GridDhtPartitionState.EVICTED)
                             state = part.state();
@@ -353,9 +350,36 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
                     pageMem.releasePage(grpId, partMetaId, partMetaPage);
                 }
             }
+            else
+                tryAddEmptyPartitionToSnapshot(store, ctx);;
         }
+        else
+            tryAddEmptyPartitionToSnapshot(store, ctx);
 
         return wasSaveToMeta;
+    }
+
+    /**
+     * Will check that snapshot in progress and we need to snapshot this partition
+     *
+     * @param store Store.
+     * @param ctx Snapshot context.
+     */
+    private void tryAddEmptyPartitionToSnapshot(CacheDataStore store, Context ctx) {
+        if (ctx.nextSnapshot() && getPartition(store).state() == OWNING) {
+
+            ctx.partitionStatMap().put(
+                    new GroupPartitionId(grp.groupId(), store.partId()),
+                    new PagesAllocationRange(0, 0));
+        }
+    }
+
+    /**
+     * @param store Store.
+     */
+    private GridDhtLocalPartition getPartition(CacheDataStore store) {
+        return grp.topology().localPartition(store.partId(),
+                AffinityTopologyVersion.NONE, false, true);
     }
 
     /**
