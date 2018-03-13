@@ -28,6 +28,7 @@ import javax.cache.configuration.CacheEntryListenerConfiguration;
 import javax.cache.configuration.CompleteConfiguration;
 import javax.cache.configuration.Factory;
 import javax.cache.configuration.MutableConfiguration;
+import javax.cache.expiry.EternalExpiryPolicy;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.integration.CacheLoader;
 import javax.cache.integration.CacheWriter;
@@ -2155,8 +2156,8 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
      */
     private void verifyAtomicityModeAndExpiryPolicy(CacheAtomicityMode mode,
         Factory<? extends ExpiryPolicy> plcFactory) {
-        A.ensure(mode != CacheAtomicityMode.TRANSACTIONAL || plcFactory == null,
-            "Transactional cache may not have expiry policy.");
+        A.ensure(mode != CacheAtomicityMode.TRANSACTIONAL || plcFactory == null ||
+            plcFactory.create() instanceof EternalExpiryPolicy,"Transactional cache may not have expiry policy.");
     }
 
     /**
@@ -2202,6 +2203,8 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
 
     /** {@inheritDoc} */
     @Override public CacheConfiguration<K, V> setExpiryPolicyFactory(Factory<? extends ExpiryPolicy> factory) {
+        verifyAtomicityModeAndExpiryPolicy(atomicityMode, factory);
+
         super.setExpiryPolicyFactory(factory);
 
         return this;

@@ -19,9 +19,17 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 
 import java.util.concurrent.Callable;
 import javax.cache.CacheException;
+import javax.cache.configuration.Factory;
+import javax.cache.expiry.CreatedExpiryPolicy;
+import javax.cache.expiry.Duration;
+import javax.cache.expiry.ExpiryPolicy;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.CacheInterceptorAdapter;
+import org.apache.ignite.cache.store.CacheStore;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
@@ -92,5 +100,99 @@ public class CacheMvccConfigurationValidationTest extends GridCommonAbstractTest
         }, CacheException.class, null);
 
         node.createCache(new CacheConfiguration("cache2").setGroupName("grp1").setAtomicityMode(TRANSACTIONAL));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testTxCacheWithCacheStore() throws Exception {
+        checkTransactionalModeConflict("cacheStoreFactory", new Factory<CacheStore>() {
+            @Override public CacheStore create() {
+                return null;
+            }
+        }, "Transactional cache may not have a third party cache store.");
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testTxCacheWithExpiryPolicy() throws Exception {
+        checkTransactionalModeConflict("expiryPolicyFactory0", CreatedExpiryPolicy.factoryOf(Duration.FIVE_MINUTES),
+            "Transactional cache may not have expiry policy.");
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testTxCacheWithInterceptor() throws Exception {
+        checkTransactionalModeConflict("interceptor", new CacheInterceptorAdapter(),
+            "Transactional cache may not have an interceptor.");
+    }
+
+    /**
+     * Check that setting specified property conflicts with transactional cache atomicity mode.
+     * @param propName Property name.
+     * @param obj Property value.
+     * @param errMsg Expected error message.
+     * @throws IgniteCheckedException if failed.
+     */
+    private void checkTransactionalModeConflict(String propName, Object obj, String errMsg)
+        throws IgniteCheckedException {
+        final String setterName = "set" + propName.substring(0, 1).toUpperCase() + propName.substring(1);
+
+        {
+            final CacheConfiguration cfg = new TestConfiguration("cache");
+
+            U.invoke(TestConfiguration.class, cfg, setterName, obj);
+
+            GridTestUtils.assertThrows(log, new Callable<Void>() {
+                @Override public Void call() throws Exception {
+                    cfg.setAtomicityMode(TRANSACTIONAL);
+
+                    return null;
+                }
+            }, IllegalArgumentException.class, errMsg);
+        }
+
+        {
+            final CacheConfiguration cfg = new TestConfiguration("cache");
+
+            cfg.setAtomicityMode(TRANSACTIONAL);
+
+            GridTestUtils.assertThrows(log, new Callable<Void>() {
+                @Override public Void call() throws Exception {
+                    try {
+                        U.invoke(TestConfiguration.class, cfg, setterName, obj);
+                    }
+                    catch (IgniteCheckedException e) {
+                        assertNotNull(e.getCause().getCause());
+
+                        throw (Exception)e.getCause().getCause();
+                    }
+
+                    return null;
+                }
+            }, IllegalArgumentException.class, errMsg);
+        }
+    }
+
+    /**
+     * Dummy class to overcome ambiguous method name "setExpiryPolicyFactory".
+     */
+    private final static class TestConfiguration extends CacheConfiguration {
+        /**
+         *
+         */
+        TestConfiguration(String cacheName) {
+            super(cacheName);
+        }
+
+        /**
+         *
+         */
+        @SuppressWarnings("unused")
+        public void setExpiryPolicyFactory0(Factory<ExpiryPolicy> plcFactory) {
+            super.setExpiryPolicyFactory(plcFactory);
+        }
     }
 }
