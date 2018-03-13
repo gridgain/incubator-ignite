@@ -4194,7 +4194,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
             registerMBean("Kernal", metricsBean.getClass().getSimpleName(), metricsBean, ClusterMetricsMXBean.class);
 
             // Transactions
-            TransactionsMXBean transactionsMXBean = new TransactionsMXBeanImpl(ctx.cache().transactions());
+            TransactionsMXBean transactionsMXBean = new TransactionsMXBeanImpl(ctx);
             registerMBean("Transactions", transactionsMXBean.getClass().getSimpleName(), transactionsMXBean, TransactionsMXBean.class);
 
             // Executors
