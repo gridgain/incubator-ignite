@@ -169,21 +169,6 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
             metaWasUpdated |= saveStoreMetadata(store, ctx, !metaWasUpdated, false);
         }
-
-        if (ctx.nextSnapshot() && !grp.isLocal()) {
-            List<GridDhtLocalPartition> partitions = grp.topology().localPartitions();
-
-            for (int i = 0; i < partitions.size(); i++) {
-                GridDhtLocalPartition part = partitions.get(i);
-
-                if (part.state() == OWNING) {
-                    GroupPartitionId key = new GroupPartitionId(grp.groupId(), i);
-
-                    if (!ctx.partitionStatMap().containsKey(key))
-                        ctx.partitionStatMap().put(key, new PagesAllocationRange(0, 0));
-                }
-            }
-        }
     }
 
     /**
