@@ -51,8 +51,11 @@ public class TrackingPageIO extends PageIO {
         new TrackingPageIO(1)
     );
 
-    /** Marked as corrupted snaphot tag. */
-    public static final long MARKED_AS_CORRUPTED_SNAPHOT_TAG = -1;
+    /** Corrupt flag mask. */
+    public static final long CORRUPT_FLAG_MASK = 1L << 63;
+
+    /** Corrupt flag mask. */
+    public static final long CORRUPT_FLAG_FILTER_MASK = ~CORRUPT_FLAG_MASK;
 
     /** Last snapshot offset. */
     public static final int LAST_SNAPSHOT_TAG_OFFSET = COMMON_HEADER_END;
@@ -85,8 +88,7 @@ public class TrackingPageIO extends PageIO {
      * @param pageSize Page size.
      */
     public void markChanged(ByteBuffer buf, long pageId, long nextSnapshotTag, long lastSuccessfulSnapshotTag, int pageSize) {
-        if (!validateSnapshotTag(buf, nextSnapshotTag, lastSuccessfulSnapshotTag, pageSize))
-            return;
+        validateSnapshotTag(buf, nextSnapshotTag, lastSuccessfulSnapshotTag, pageSize);
 
         int cntOfPage = countOfPageToTrack(pageSize);
 
@@ -126,11 +128,10 @@ public class TrackingPageIO extends PageIO {
 
         long last = getLastSnapshotTag(buf);
 
-        if (last == MARKED_AS_CORRUPTED_SNAPHOT_TAG)
-            return false;
-
         if(last > nextSnapshotTag) { //we have lost snapshot tag therefore should mark this tracking as corrupted
-            setLastSnasphotTag(buf, MARKED_AS_CORRUPTED_SNAPHOT_TAG);
+            PageHandler.zeroMemory(buf, LAST_SNAPSHOT_TAG_OFFSET, buf.capacity() - LAST_SNAPSHOT_TAG_OFFSET);
+
+            setLastSnasphotTag(buf, nextSnapshotTag | CORRUPT_FLAG_MASK);
 
             return false;
         }
@@ -190,14 +191,46 @@ public class TrackingPageIO extends PageIO {
      * @param nextSnapshotTag Next snapshot tag.
      */
     private void setLastSnasphotTag(ByteBuffer buf, long nextSnapshotTag) {
+        if (isCorrupted(buf))
+            nextSnapshotTag = nextSnapshotTag | CORRUPT_FLAG_MASK;
+
+        buf.putLong(LAST_SNAPSHOT_TAG_OFFSET, nextSnapshotTag);
+    }
+
+    /**
+     * @param buf Buffer.
+     * @param nextSnapshotTag Next snapshot tag.
+     */
+    private void setLastSnasphotTag0(ByteBuffer buf, long nextSnapshotTag) {
         buf.putLong(LAST_SNAPSHOT_TAG_OFFSET, nextSnapshotTag);
     }
 
     /**
      * @param buf Buffer.
      */
+    private long getLastSnapshotTag0(ByteBuffer buf) {
+        return buf.getLong(LAST_SNAPSHOT_TAG_OFFSET) ;
+    }
+
+    /**
+     * @param buf Buffer.
+     */
     private long getLastSnapshotTag(ByteBuffer buf) {
-        return buf.getLong(LAST_SNAPSHOT_TAG_OFFSET);
+        return getLastSnapshotTag0(buf) & CORRUPT_FLAG_FILTER_MASK;
+    }
+
+    /**
+     * @param buf Buffer.
+     */
+    public boolean isCorrupted(ByteBuffer buf) {
+        return getLastSnapshotTag0(buf) < 0;
+    }
+
+    /**
+     * @param buf Buffer.
+     */
+    public void resetCorruptFlag(ByteBuffer buf) {
+        setLastSnasphotTag0(buf, getLastSnapshotTag(buf));
     }
 
     /**
@@ -218,7 +251,7 @@ public class TrackingPageIO extends PageIO {
      */
     public boolean wasChanged(ByteBuffer buf, long pageId, long curSnapshotTag, long lastSuccessfulSnapshotTag, int pageSize)
         throws TrackingPageIsCorruptedException {
-        if (!validateSnapshotTag(buf, curSnapshotTag + 1, lastSuccessfulSnapshotTag, pageSize))
+        if (isCorrupted(buf) || !validateSnapshotTag(buf, curSnapshotTag + 1, lastSuccessfulSnapshotTag, pageSize))
             throw TrackingPageIsCorruptedException.INSTANCE;
 
         if (countOfChangedPage(buf, curSnapshotTag, pageSize) < 1)
@@ -305,7 +338,8 @@ public class TrackingPageIO extends PageIO {
      */
     @Nullable public Long findNextChangedPage(ByteBuffer buf, long start, long curSnapshotTag,
         long lastSuccessfulSnapshotTag, int pageSize) throws TrackingPageIsCorruptedException {
-        validateSnapshotTag(buf, curSnapshotTag + 1, lastSuccessfulSnapshotTag, pageSize);
+        if (isCorrupted(buf) || !validateSnapshotTag(buf, curSnapshotTag + 1, lastSuccessfulSnapshotTag, pageSize))
+            throw TrackingPageIsCorruptedException.INSTANCE;
 
         int cntOfPage = countOfPageToTrack(pageSize);
 
