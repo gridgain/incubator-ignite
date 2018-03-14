@@ -26,24 +26,31 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
 import junit.framework.TestCase;
+import org.apache.ignite.internal.pagemem.PageIdAllocator;
+import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.util.GridUnsafe;
+import org.jetbrains.annotations.NotNull;
 
 /**
  *
  */
 public class TrackingPageIOTest extends TestCase {
     /** Page size. */
-    public static final int PAGE_SIZE = 2048;
+    public static final int PAGE_SIZE = 4096;
+
 
     /** */
     private final TrackingPageIO io = TrackingPageIO.VERSIONS.latest();
+
+
+    /** Track. */
+    private int track = io.countOfPageToTrack(PAGE_SIZE);
 
     /**
      *
      */
     public void testBasics() {
-        ByteBuffer buf = ByteBuffer.allocateDirect(PAGE_SIZE);
-        buf.order(ByteOrder.nativeOrder());
+        ByteBuffer buf = createBuffer();
 
         io.markChanged(buf, 2, 0, -1, PAGE_SIZE);
 
@@ -54,12 +61,17 @@ public class TrackingPageIOTest extends TestCase {
         assertFalse(io.wasChanged(buf, 2, 1,  0, PAGE_SIZE));
     }
 
+    @NotNull private ByteBuffer createBuffer() {
+        ByteBuffer buf = ByteBuffer.allocateDirect(PAGE_SIZE);
+        buf.order(ByteOrder.nativeOrder());
+        return buf;
+    }
+
     /**
      *
      */
     public void testMarkingRandomly() {
-        ByteBuffer buf = ByteBuffer.allocateDirect(PAGE_SIZE);
-        buf.order(ByteOrder.nativeOrder());
+        ByteBuffer buf = createBuffer();
 
         int cntOfPageToTrack = io.countOfPageToTrack(PAGE_SIZE);
 
@@ -71,8 +83,7 @@ public class TrackingPageIOTest extends TestCase {
      *
      */
     public void testZeroingRandomly() {
-        ByteBuffer buf = ByteBuffer.allocateDirect(PAGE_SIZE);
-        buf.order(ByteOrder.nativeOrder());
+        ByteBuffer buf = createBuffer();
 
         for (int i = 0; i < 1001; i++)
             checkMarkingRandomly(buf, i, true);
@@ -132,8 +143,7 @@ public class TrackingPageIOTest extends TestCase {
      * @throws Exception If failed.
      */
     public void testFindNextChangedPage() throws Exception {
-        ByteBuffer buf = ByteBuffer.allocateDirect(PAGE_SIZE);
-        buf.order(ByteOrder.nativeOrder());
+        ByteBuffer buf = createBuffer();
 
         for (int i = 0; i < 101; i++)
             checkFindingRandomly(buf, i);
@@ -188,8 +198,7 @@ public class TrackingPageIOTest extends TestCase {
      *
      */
     public void testMerging() {
-        ByteBuffer buf = ByteBuffer.allocateDirect(PAGE_SIZE);
-        buf.order(ByteOrder.nativeOrder());
+        ByteBuffer buf = createBuffer();
 
         ThreadLocalRandom rand = ThreadLocalRandom.current();
 
@@ -227,8 +236,7 @@ public class TrackingPageIOTest extends TestCase {
      *
      */
     public void testMerging_MarksShouldBeDropForSuccessfulBackup() {
-        ByteBuffer buf = ByteBuffer.allocateDirect(PAGE_SIZE);
-        buf.order(ByteOrder.nativeOrder());
+        ByteBuffer buf = createBuffer();
 
         ThreadLocalRandom rand = ThreadLocalRandom.current();
 
@@ -279,5 +287,30 @@ public class TrackingPageIOTest extends TestCase {
                 setIdx.add(i);
             }
         }
+    }
+
+    /**
+     * We should handle case when we lost snapshot tag and now it's lower than saved.
+     *
+     * @throws Exception
+     */
+    public void testThatWeDontFailIfSnapshotTagWasLost() throws Exception {
+        ByteBuffer buf = createBuffer();
+
+        ThreadLocalRandom rand = ThreadLocalRandom.current();
+
+        long basePageId = PageIdUtils.pageId(0, PageIdAllocator.FLAG_IDX, 1);
+
+        assert basePageId >= 0;
+
+        PageIO.setPageId(GridUnsafe.bufferAddress(buf), basePageId);
+
+        int oldTag = 10;
+
+        io.markChanged(buf, basePageId + 1, oldTag, oldTag - 1, PAGE_SIZE);
+
+        for (int i = 1; i < 100; i++)
+            io.markChanged(buf, basePageId + i, oldTag - 1, oldTag - 2, PAGE_SIZE);
+
     }
 }
