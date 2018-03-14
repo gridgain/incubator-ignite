@@ -40,7 +40,6 @@ import org.apache.ignite.internal.IgniteDiagnosticPrepareContext;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
-import org.apache.ignite.internal.cluster.ClusterTopologyServerNotFoundException;
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
@@ -97,12 +96,6 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     public static final long MVCC_START_CNTR = 1L;
 
     /** */
-    private static final long CRD_VER_MASK = 0x3F_FF_FF_FF_FF_FF_FF_FFL;
-
-    /** */
-    private static final long RMVD_VAL_VER_MASK = 0x80_00_00_00_00_00_00_00L;
-
-    /** */
     private volatile MvccCoordinator curCrd;
 
     /** */
@@ -155,51 +148,6 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         super(ctx);
 
         ctx.internalSubscriptionProcessor().registerDatabaseListener(this);
-    }
-
-    /**
-     * @param crdVer Mvcc coordinator version.
-     * @param cntr Counter.
-     * @return Always {@code true}.
-     */
-    public static boolean assertMvccVersionValid(long crdVer, long cntr) {
-        assert unmaskCoordinatorVersion(crdVer) > 0;
-        assert cntr != MVCC_COUNTER_NA;
-
-        return true;
-    }
-
-    /**
-     * @param crdVer Coordinator version.
-     * @return Coordinator version with removed value flag.
-     */
-    public static long createVersionForRemovedValue(long crdVer) {
-        return crdVer | RMVD_VAL_VER_MASK;
-    }
-
-    /**
-     * @param crdVer Coordinator version with flags.
-     * @return {@code True} if removed value flag is set.
-     */
-    public static boolean versionForRemovedValue(long crdVer) {
-        return (crdVer & RMVD_VAL_VER_MASK) != 0;
-    }
-
-    /**
-     * @param crdVer Coordinator version with flags.
-     * @return Coordinator version.
-     */
-    public static long unmaskCoordinatorVersion(long crdVer) {
-        return crdVer & CRD_VER_MASK;
-    }
-
-    /**
-     * @param topVer Topology version for cache operation.
-     * @return Error.
-     */
-    public static IgniteCheckedException noCoordinatorError(AffinityTopologyVersion topVer) {
-        return new ClusterTopologyServerNotFoundException("Mvcc coordinator is not assigned for " +
-            "topology version: " + topVer);
     }
 
     /** {@inheritDoc} */

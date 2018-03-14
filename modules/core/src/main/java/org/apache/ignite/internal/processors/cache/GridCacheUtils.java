@@ -1217,7 +1217,7 @@ public class GridCacheUtils {
     public static <K, V> void inTx(IgniteInternalCache<K, V> cache, TransactionConcurrency concurrency,
         TransactionIsolation isolation, IgniteInClosureX<IgniteInternalCache<K ,V>> clo) throws IgniteCheckedException {
 
-        try (GridNearTxLocal tx = cache.txStartEx(concurrency, isolation);) {
+        try (GridNearTxLocal tx = cache.txStartEx(concurrency, isolation)) {
             clo.applyx(cache);
 
             tx.commit();
@@ -1822,6 +1822,7 @@ public class GridCacheUtils {
                         entry.initialValue(
                             val,
                             ver,
+                            null,
                             null,
                             expiryPlc == null ? 0 : expiryPlc.forCreate(),
                             expiryPlc == null ? 0 : toExpireTime(expiryPlc.forCreate()),

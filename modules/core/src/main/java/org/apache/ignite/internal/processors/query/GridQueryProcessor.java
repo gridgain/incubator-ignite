@@ -265,7 +265,8 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                     idx.cancelAllQueries();
 
                 return;
-            } catch (InterruptedException ignored) {
+            }
+            catch (InterruptedException ignored) {
                 U.warn(log, "Interrupted while waiting for active queries cancellation.");
 
                 Thread.currentThread().interrupt();
@@ -1820,18 +1821,16 @@ public class GridQueryProcessor extends GridProcessorAdapter {
     /**
      * @param cctx Cache context.
      * @param newRow New row.
-     * @param mvccVer Mvcc version for update.
      * @param prevRow Previous row.
      * @param idxRebuild If index rebuild is in progress.
      * @throws IgniteCheckedException In case of error.
      */
     @SuppressWarnings({"unchecked", "ConstantConditions"})
-    public void store(GridCacheContext cctx, CacheDataRow newRow, @Nullable MvccVersion mvccVer,
-        @Nullable CacheDataRow prevRow, boolean prevRowAvailable, boolean idxRebuild)
+    public void store(GridCacheContext cctx, CacheDataRow newRow, @Nullable CacheDataRow prevRow,
+        boolean prevRowAvailable, boolean idxRebuild)
         throws IgniteCheckedException {
         assert cctx != null;
         assert newRow != null;
-        assert !cctx.mvccEnabled() || mvccVer != null || idxRebuild;
         assert prevRowAvailable || prevRow == null;
 
         KeyCacheObject key = newRow.key();
@@ -1871,16 +1870,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
             if (desc == null)
                 return;
 
-            if (cctx.mvccEnabled()) {
-                // Add new mvcc value.
-                idx.store(cctx, desc, newRow, null, null, true, idxRebuild);
-
-                // Set info about more recent version for previous record.
-                if (prevRow != null)
-                    idx.store(cctx, desc, prevRow, null, mvccVer, true, idxRebuild);
-            }
-            else
-                idx.store(cctx, desc, newRow, prevRow, null, prevRowAvailable, idxRebuild);
+            idx.store(cctx, desc, newRow, prevRow, prevRowAvailable, idxRebuild);
         }
         finally {
             busyLock.leaveBusy();
@@ -2019,13 +2009,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      */
     public List<FieldsQueryCursor<List<?>>> querySqlFields(final SqlFieldsQuery qry, final boolean keepBinary,
         final boolean failOnMultipleStmts) {
-        return querySqlFields(null, qry, keepBinary, failOnMultipleStmts);
-    }
-
-    @SuppressWarnings("unchecked")
-    public FieldsQueryCursor<List<?>> querySqlFields(final GridCacheContext<?,?> cctx, final SqlFieldsQuery qry,
-        final boolean keepBinary) {
-        return querySqlFields(cctx, qry, keepBinary, true).get(0);
+        return querySqlFields(null, qry, null, keepBinary, failOnMultipleStmts);
     }
 
     /**
@@ -2036,7 +2020,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @return Cursor.
      */
     public FieldsQueryCursor<List<?>> querySqlFields(final SqlFieldsQuery qry, final boolean keepBinary) {
-        return querySqlFields(null, qry, keepBinary, true).get(0);
+        return querySqlFields(null, qry, null, keepBinary, true).get(0);
     }
 
     /**
@@ -2044,14 +2028,16 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      *
      * @param cctx Cache context.
      * @param qry Query.
+     * @param cliCtx Client context.
      * @param keepBinary Keep binary flag.
      * @param failOnMultipleStmts If {@code true} the method must throws exception when query contains
      *      more then one SQL statement.
      * @return Cursor.
      */
     @SuppressWarnings("unchecked")
-    public List<FieldsQueryCursor<List<?>>> querySqlFields(@Nullable final GridCacheContext<?,?> cctx,
-        final SqlFieldsQuery qry, final boolean keepBinary, final boolean failOnMultipleStmts) {
+    public List<FieldsQueryCursor<List<?>>> querySqlFields(@Nullable final GridCacheContext<?, ?> cctx,
+        final SqlFieldsQuery qry, final SqlClientContext cliCtx, final boolean keepBinary,
+        final boolean failOnMultipleStmts) {
         checkxEnabled();
 
         validateSqlFieldsQuery(qry);
@@ -2079,7 +2065,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                     GridQueryCancel cancel = new GridQueryCancel();
 
                     List<FieldsQueryCursor<List<?>>> res =
-                        idx.querySqlFields(schemaName, qry, keepBinary, failOnMultipleStmts, null, cancel);
+                        idx.querySqlFields(schemaName, qry, cliCtx, keepBinary, failOnMultipleStmts, null, cancel);
 
                     if (cctx != null)
                         sendQueryExecutedEvent(qry.getSql(), qry.getArgs(), cctx);
@@ -2118,7 +2104,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @param schemaName Schema name.
      * @param streamer Data streamer.
      * @param qry Query.
-     * @return Iterator.
+     * @return Update counter.
      */
     public long streamUpdateQuery(@Nullable final String cacheName, final String schemaName,
         final IgniteDataStreamer<?, ?> streamer, final String qry, final Object[] args) {
@@ -2133,6 +2119,33 @@ public class GridQueryProcessor extends GridProcessorAdapter {
             return executeQuery(GridCacheQueryType.SQL_FIELDS, qry, cctx, new IgniteOutClosureX<Long>() {
                 @Override public Long applyx() throws IgniteCheckedException {
                     return idx.streamUpdateQuery(schemaName, qry, args, streamer);
+                }
+            }, true);
+        }
+        catch (IgniteCheckedException e) {
+            throw new CacheException(e);
+        }
+        finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * @param schemaName Schema name.
+     * @param cliCtx Client context.
+     * @param qry Query.
+     * @param args Query arguments.
+     * @return Update counters.
+     */
+    public List<Long> streamBatchedUpdateQuery(final String schemaName, final SqlClientContext cliCtx,
+        final String qry, final List<Object[]> args) {
+        if (!busyLock.enterBusy())
+            throw new IllegalStateException("Failed to execute query (grid is stopping).");
+
+        try {
+            return executeQuery(GridCacheQueryType.SQL_FIELDS, qry, null, new IgniteOutClosureX<List<Long>>() {
+                @Override public List<Long> applyx() throws IgniteCheckedException {
+                    return idx.streamBatchedUpdateQuery(schemaName, qry, args, cliCtx);
                 }
             }, true);
         }
@@ -2458,17 +2471,15 @@ public class GridQueryProcessor extends GridProcessorAdapter {
 
     /**
      * @param cctx Cache context.
-     * @param val Value removed from cache.
-     * @param newVer Mvcc version for remove operation.
+     * @param row Row removed from cache.
      * @throws IgniteCheckedException Thrown in case of any errors.
      */
-    public void remove(GridCacheContext cctx, CacheDataRow val, @Nullable MvccVersion newVer)
+    public void remove(GridCacheContext cctx, CacheDataRow row)
         throws IgniteCheckedException {
-        assert val != null;
-        assert cctx.mvccEnabled() || newVer == null;
+        assert row != null;
 
         if (log.isDebugEnabled())
-            log.debug("Remove [cacheName=" + cctx.name() + ", key=" + val.key()+ ", val=" + val.value() + "]");
+            log.debug("Remove [cacheName=" + cctx.name() + ", key=" + row.key()+ ", val=" + row.value() + "]");
 
         if (idx == null)
             return;
@@ -2479,23 +2490,14 @@ public class GridQueryProcessor extends GridProcessorAdapter {
         try {
             QueryTypeDescriptorImpl desc = typeByValue(cctx.name(),
                 cctx.cacheObjectContext(),
-                val.key(),
-                val.value(),
+                row.key(),
+                row.value(),
                 false);
 
             if (desc == null)
                 return;
 
-            if (cctx.mvccEnabled()) {
-                if (newVer != null) {
-                    // Set info about more recent version for previous record.
-                    idx.store(cctx, desc, val, null, newVer, true, false);
-                }
-                else
-                    idx.remove(cctx, desc, val);
-            }
-            else
-                idx.remove(cctx, desc, val);
+                idx.remove(cctx, desc, row);
         }
         finally {
             busyLock.leaveBusy();
