@@ -176,14 +176,14 @@ public class TrackingPageIO extends PageIO {
     /**
      * @param buf Buffer.
      */
-    long getLastSnapshotTag(ByteBuffer buf) {
+    private long getLastSnapshotTag(ByteBuffer buf) {
         return buf.getLong(LAST_SNAPSHOT_TAG_OFFSET);
     }
 
     /**
      * @param addr Address.
      */
-    long getLastSnapshotTag(long addr) {
+    private long getLastSnapshotTag(long addr) {
         return GridUnsafe.getLong(addr + LAST_SNAPSHOT_TAG_OFFSET);
     }
 
@@ -242,7 +242,7 @@ public class TrackingPageIO extends PageIO {
      *
      * @return true if snapshotTag is odd, otherwise - false
      */
-    boolean useLeftHalf(long snapshotTag) {
+    private boolean useLeftHalf(long snapshotTag) {
         return (snapshotTag & 0b1) == 0;
     }
 
