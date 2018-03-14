@@ -43,10 +43,6 @@ public class TrackingPageIOTest extends TestCase {
     /** */
     private final TrackingPageIO io = TrackingPageIO.VERSIONS.latest();
 
-
-    /** Track. */
-    private int track = io.countOfPageToTrack(PAGE_SIZE);
-
     /**
      *
      */
@@ -62,6 +58,9 @@ public class TrackingPageIOTest extends TestCase {
         assertFalse(io.wasChanged(buf, 2, 1,  0, PAGE_SIZE));
     }
 
+    /**
+     * @return byte buffer with right order
+     */
     @NotNull private ByteBuffer createBuffer() {
         ByteBuffer buf = ByteBuffer.allocateDirect(PAGE_SIZE);
         buf.order(ByteOrder.nativeOrder());
@@ -73,8 +72,6 @@ public class TrackingPageIOTest extends TestCase {
      */
     public void testMarkingRandomly() throws Exception {
         ByteBuffer buf = createBuffer();
-
-        int cntOfPageToTrack = io.countOfPageToTrack(PAGE_SIZE);
 
         for (int i = 0; i < 1001; i++)
             checkMarkingRandomly(buf, i, false);
@@ -269,6 +266,15 @@ public class TrackingPageIOTest extends TestCase {
             assertEquals("pageId = " + i, setIdx2.contains(i), io.wasChanged(buf, i, 5, 4, PAGE_SIZE));
     }
 
+    /**
+     * @param buf Buffer.
+     * @param track Track.
+     * @param basePageId Base page id.
+     * @param maxPageId Max page id.
+     * @param setIdx Set index.
+     * @param backupId Backup id.
+     * @param successfulBackupId Successful backup id.
+     */
     private void generateMarking(
         ByteBuffer buf,
         int track,
@@ -293,12 +299,10 @@ public class TrackingPageIOTest extends TestCase {
     /**
      * We should handle case when we lost snapshot tag and now it's lower than saved.
      *
-     * @throws Exception
+     * @throws Exception if failed.
      */
     public void testThatWeDontFailIfSnapshotTagWasLost() throws Exception {
         ByteBuffer buf = createBuffer();
-
-        ThreadLocalRandom rand = ThreadLocalRandom.current();
 
         long basePageId = PageIdUtils.pageId(0, PageIdAllocator.FLAG_IDX, 1);
 

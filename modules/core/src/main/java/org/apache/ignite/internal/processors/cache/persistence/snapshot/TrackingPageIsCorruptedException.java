@@ -20,7 +20,7 @@ package org.apache.ignite.internal.processors.cache.persistence.snapshot;
 import org.apache.ignite.IgniteCheckedException;
 
 /**
- *
+ * Thrown when corrupted tracking page was queried.
  */
 public class TrackingPageIsCorruptedException extends IgniteCheckedException {
     /** */
