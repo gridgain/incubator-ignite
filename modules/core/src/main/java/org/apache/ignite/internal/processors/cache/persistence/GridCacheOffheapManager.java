@@ -160,11 +160,8 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
         boolean metaWasUpdated = false;
 
-        for (CacheDataStore store : partDataStores.values()) {
-            RowStore rowStore = store.rowStore();
-
+        for (CacheDataStore store : partDataStores.values())
             metaWasUpdated |= saveStoreMetadata(store, ctx, !metaWasUpdated, false);
-        }
     }
 
     /**
