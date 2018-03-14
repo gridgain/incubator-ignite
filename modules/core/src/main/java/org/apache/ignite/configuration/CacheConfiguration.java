@@ -28,7 +28,6 @@ import javax.cache.configuration.CacheEntryListenerConfiguration;
 import javax.cache.configuration.CompleteConfiguration;
 import javax.cache.configuration.Factory;
 import javax.cache.configuration.MutableConfiguration;
-import javax.cache.expiry.EternalExpiryPolicy;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.integration.CacheLoader;
 import javax.cache.integration.CacheWriter;
@@ -852,8 +851,6 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
     @SuppressWarnings("unchecked")
     public CacheConfiguration<K, V> setCacheStoreFactory(
         Factory<? extends CacheStore<? super K, ? super V>> storeFactory) {
-        verifyAtomicityModeAndStoreFactory(atomicityMode, storeFactory);
-
         this.storeFactory = storeFactory;
 
         return this;
@@ -987,12 +984,6 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
      */
     @SuppressWarnings("unchecked")
     public CacheConfiguration<K, V> setAtomicityMode(CacheAtomicityMode atomicityMode) {
-        verifyAtomicityModeAndStoreFactory(atomicityMode, storeFactory);
-
-        verifyAtomicityModeAndExpiryPolicy(atomicityMode, expiryPolicyFactory);
-
-        verifyAtomicityModeAndInterceptor(atomicityMode, interceptor);
-
         this.atomicityMode = atomicityMode;
 
         return this;
@@ -1602,8 +1593,6 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
      * @return {@code this} for chaining.
      */
     public CacheConfiguration<K, V> setInterceptor(CacheInterceptor<K, V> interceptor) {
-        verifyAtomicityModeAndInterceptor(atomicityMode, interceptor);
-
         this.interceptor = interceptor;
 
         return this;
@@ -2136,41 +2125,6 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
         return QueryUtils.isSqlType(cls) ? cls : Object.class;
     }
 
-    /**
-     * Check that either cache atomicity mode is not {@link CacheAtomicityMode#TRANSACTIONAL}, or cache store factory is
-     * {@code null}.
-     * @param mode Atomicity mode.
-     * @param factory Cache store factory.
-     */
-    private void verifyAtomicityModeAndStoreFactory(CacheAtomicityMode mode,
-        Factory<? extends CacheStore<?, ?>> factory) {
-        A.ensure(mode != CacheAtomicityMode.TRANSACTIONAL || factory == null, "Transactional cache may not " +
-            "have a third party cache store.");
-    }
-
-    /**
-     * Check that either cache atomicity mode is not {@link CacheAtomicityMode#TRANSACTIONAL}, or expiry policy factory
-     * is {@code null}.
-     * @param mode Atomicity mode.
-     * @param plcFactory Expiry policy factory.
-     */
-    private void verifyAtomicityModeAndExpiryPolicy(CacheAtomicityMode mode,
-        Factory<? extends ExpiryPolicy> plcFactory) {
-        A.ensure(mode != CacheAtomicityMode.TRANSACTIONAL || plcFactory == null ||
-            plcFactory.create() instanceof EternalExpiryPolicy,"Transactional cache may not have expiry policy.");
-    }
-
-    /**
-     * Check that either cache atomicity mode is not {@link CacheAtomicityMode#TRANSACTIONAL}, or cache interceptor is
-     * {@code null}.
-     * @param mode Atomicity mode.
-     * @param interceptor Expiry policy factory.
-     */
-    private void verifyAtomicityModeAndInterceptor(CacheAtomicityMode mode, CacheInterceptor interceptor) {
-        A.ensure(mode != CacheAtomicityMode.TRANSACTIONAL || interceptor == null,
-            "Transactional cache may not have an interceptor.");
-    }
-
 
     /** {@inheritDoc} */
     @Override public CacheConfiguration<K, V> setStatisticsEnabled(boolean enabled) {
@@ -2203,8 +2157,6 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
 
     /** {@inheritDoc} */
     @Override public CacheConfiguration<K, V> setExpiryPolicyFactory(Factory<? extends ExpiryPolicy> factory) {
-        verifyAtomicityModeAndExpiryPolicy(atomicityMode, factory);
-
         super.setExpiryPolicyFactory(factory);
 
         return this;

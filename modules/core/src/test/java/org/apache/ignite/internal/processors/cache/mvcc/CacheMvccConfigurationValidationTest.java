@@ -106,11 +106,8 @@ public class CacheMvccConfigurationValidationTest extends GridCommonAbstractTest
      * @throws Exception If failed.
      */
     public void testTxCacheWithCacheStore() throws Exception {
-        checkTransactionalModeConflict("cacheStoreFactory", new Factory<CacheStore>() {
-            @Override public CacheStore create() {
-                return null;
-            }
-        }, "Transactional cache may not have a third party cache store.");
+        checkTransactionalModeConflict("cacheStoreFactory", new TestFactory(),
+            "Transactional cache may not have a third party cache store when MVCC is enabled.");
     }
 
     /**
@@ -118,7 +115,7 @@ public class CacheMvccConfigurationValidationTest extends GridCommonAbstractTest
      */
     public void testTxCacheWithExpiryPolicy() throws Exception {
         checkTransactionalModeConflict("expiryPolicyFactory0", CreatedExpiryPolicy.factoryOf(Duration.FIVE_MINUTES),
-            "Transactional cache may not have expiry policy.");
+            "Transactional cache may not have expiry policy when MVCC is enabled.");
     }
 
     /**
@@ -126,7 +123,7 @@ public class CacheMvccConfigurationValidationTest extends GridCommonAbstractTest
      */
     public void testTxCacheWithInterceptor() throws Exception {
         checkTransactionalModeConflict("interceptor", new CacheInterceptorAdapter(),
-            "Transactional cache may not have an interceptor.");
+            "Transactional cache may not have an interceptor when MVCC is enabled.");
     }
 
     /**
@@ -136,43 +133,26 @@ public class CacheMvccConfigurationValidationTest extends GridCommonAbstractTest
      * @param errMsg Expected error message.
      * @throws IgniteCheckedException if failed.
      */
+    @SuppressWarnings("ThrowableNotThrown")
     private void checkTransactionalModeConflict(String propName, Object obj, String errMsg)
-        throws IgniteCheckedException {
+        throws Exception {
         final String setterName = "set" + propName.substring(0, 1).toUpperCase() + propName.substring(1);
 
-        {
-            final CacheConfiguration cfg = new TestConfiguration("cache");
-
-            U.invoke(TestConfiguration.class, cfg, setterName, obj);
-
-            GridTestUtils.assertThrows(log, new Callable<Void>() {
-                @Override public Void call() throws Exception {
-                    cfg.setAtomicityMode(TRANSACTIONAL);
-
-                    return null;
-                }
-            }, IllegalArgumentException.class, errMsg);
-        }
-
-        {
+        try (final Ignite node = startGrid(0)) {
             final CacheConfiguration cfg = new TestConfiguration("cache");
 
             cfg.setAtomicityMode(TRANSACTIONAL);
 
-            GridTestUtils.assertThrows(log, new Callable<Void>() {
-                @Override public Void call() throws Exception {
-                    try {
-                        U.invoke(TestConfiguration.class, cfg, setterName, obj);
-                    }
-                    catch (IgniteCheckedException e) {
-                        assertNotNull(e.getCause().getCause());
+            U.invoke(TestConfiguration.class, cfg, setterName, obj);
 
-                        throw (Exception)e.getCause().getCause();
-                    }
+            GridTestUtils.assertThrows(log, new Callable<Void>() {
+                @SuppressWarnings("unchecked")
+                @Override public Void call() {
+                    node.getOrCreateCache(cfg);
 
                     return null;
                 }
-            }, IllegalArgumentException.class, errMsg);
+            }, IgniteCheckedException.class, errMsg);
         }
     }
 
@@ -193,6 +173,19 @@ public class CacheMvccConfigurationValidationTest extends GridCommonAbstractTest
         @SuppressWarnings("unused")
         public void setExpiryPolicyFactory0(Factory<ExpiryPolicy> plcFactory) {
             super.setExpiryPolicyFactory(plcFactory);
+        }
+    }
+
+    /**
+     *
+     */
+    private static class TestFactory implements Factory<CacheStore> {
+        /** Serial version uid. */
+        private static final long serialVersionUID = 0L;
+
+        /** {@inheritDoc} */
+        @Override public CacheStore create() {
+            return null;
         }
     }
 }

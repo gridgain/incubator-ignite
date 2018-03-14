@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
+import javax.cache.expiry.EternalExpiryPolicy;
 import javax.management.MBeanServer;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
@@ -157,6 +158,7 @@ import static org.apache.ignite.IgniteSystemProperties.IGNITE_CACHE_REMOVED_ENTR
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_SKIP_CONFIGURATION_CONSISTENCY_CHECK;
 import static org.apache.ignite.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheMode.LOCAL;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
@@ -515,6 +517,24 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             throw new IgniteCheckedException("Using cache group names reserved for datastructures is not allowed for " +
                 "other cache types [cacheName=" + cc.getName() + ", groupName=" + cc.getGroupName() +
                 ", cacheType=" + cacheType + "]");
+
+        if (cc.getAtomicityMode() == TRANSACTIONAL && c.isMvccEnabled()) {
+            if (cc.getCacheStoreFactory() != null) {
+                throw new IgniteCheckedException("Transactional cache may not have a third party cache store when " +
+                    "MVCC is enabled.");
+            }
+
+            if (cc.getExpiryPolicyFactory() != null && !(cc.getExpiryPolicyFactory().create() instanceof
+                EternalExpiryPolicy)) {
+                throw new IgniteCheckedException("Transactional cache may not have expiry policy when " +
+                    "MVCC is enabled.");
+            }
+
+            if (cc.getInterceptor() != null) {
+                throw new IgniteCheckedException("Transactional cache may not have an interceptor when " +
+                    "MVCC is enabled.");
+            }
+        }
     }
 
     /**
