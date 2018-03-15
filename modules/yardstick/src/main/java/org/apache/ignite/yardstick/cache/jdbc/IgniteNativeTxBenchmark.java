@@ -86,7 +86,9 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
 
         clearCaches();
 
-        fillTables();
+        int proc = Math.max(Runtime.getRuntime().availableProcessors() / 2, 1);
+
+        fillTables(proc);
     }
 
     /** {@inheritDoc} */
@@ -145,16 +147,16 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
     /**
      * Fill tables using native Ignite API.
      */
-    private void fillTables() throws Exception {
+    private void fillTables(int threads) throws Exception {
         startPreloadLogging(args.preloadLogsInterval());
 
-        ExecutorService svc = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        ExecutorService svc = Executors.newFixedThreadPool(threads);
 
         try {
-            ignite().log().info("Will load data using " + Runtime.getRuntime().availableProcessors() + " threads");
+            ignite().log().info("Will load data using " + threads + " threads");
 
             try (IgniteDataStreamer<Long, Accounts> dataLdr = ignite().dataStreamer(accounts.getName())) {
-                load(svc, dataLdr, accRows, new IgniteClosure<Long, Accounts>() {
+                load(svc, threads, dataLdr, accRows, new IgniteClosure<Long, Accounts>() {
                     @Override public Accounts apply(Long aLong) {
                         return null;
                     }
@@ -162,7 +164,7 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
             }
 
             try (IgniteDataStreamer<Long, Branches> dataLdr = ignite().dataStreamer(branches.getName())) {
-                load(svc, dataLdr, branchRows, new IgniteClosure<Long, Branches>() {
+                load(svc, threads, dataLdr, branchRows, new IgniteClosure<Long, Branches>() {
                     @Override public Branches apply(Long aLong) {
                         return new Branches(nextRandom(args.range()));
                     }
@@ -170,7 +172,7 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
             }
 
             try (IgniteDataStreamer<Long, Tellers> dataLdr = ignite().dataStreamer(tellers.getName())) {
-                load(svc, dataLdr, tellRows, new IgniteClosure<Long, Tellers>() {
+                load(svc, threads, dataLdr, tellRows, new IgniteClosure<Long, Tellers>() {
                     @Override public Tellers apply(Long aLong) {
                         return new Tellers(nextRandom(args.range()));
                     }
@@ -188,17 +190,19 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
      * Loads daata in multiple threads for more efficient serves utilization.
      *
      * @param svc Executor service to use.
+     * @param threads Number of threads.
      * @param ldr Data loader.
      * @param rows Rows to load.
      * @param producer Producer.
      */
     private <T> void load(
         ExecutorService svc,
+        int threads,
         final IgniteDataStreamer<Long, T> ldr,
         long rows,
         final IgniteClosure<Long, T> producer
     ) throws InterruptedException, ExecutionException {
-        long batch = rows / Runtime.getRuntime().availableProcessors();
+        long batch = rows / threads;
 
         if (batch == 0)
             batch = rows;
