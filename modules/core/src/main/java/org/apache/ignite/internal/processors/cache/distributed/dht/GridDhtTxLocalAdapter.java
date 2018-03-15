@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cluster.ClusterNode;
@@ -861,8 +862,6 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
      */
     public void clearLockFuture(@Nullable IgniteInternalFuture cond) {
         IgniteInternalFuture f = lockFut;
-
-        assert f != null : "Future can't be null before clear";
 
         if (cond != null && f != cond)
             return;
