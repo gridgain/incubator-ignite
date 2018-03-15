@@ -1244,7 +1244,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
      * appropriate message about corresponding operation type.
      * @param opType operation type to mention in error message.
      */
-    private void verifyMvccOperationSupport(String opType) {
+    protected void verifyMvccOperationSupport(String opType) {
         if (cacheCfg.getAtomicityMode() == CacheAtomicityMode.TRANSACTIONAL && gridCfg.isMvccEnabled())
             throw new UnsupportedOperationException(opType + " operations are not supported on transactional " +
                 "caches when MVCC is enabled.");

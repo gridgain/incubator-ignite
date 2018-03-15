@@ -1730,7 +1730,7 @@ public class GatewayProtectedCacheProxy<K, V> extends AsyncSupportAdapter<Ignite
     private void checkMvccDisabled(String opName) {
         if (delegate.getConfiguration(CacheConfiguration.class).getAtomicityMode() == CacheAtomicityMode.TRANSACTIONAL
             && delegate.context().kernalContext().config().isMvccEnabled())
-            throw new UnsupportedOperationException(opName + " is not supported for transactional caches " +
+            throw new UnsupportedOperationException(opName + " is not supported on transactional caches " +
                 "when MVCC is enabled.");
 
     }

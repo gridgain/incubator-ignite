@@ -589,6 +589,9 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
             return;
         }
 
+        //TODO IGNITE-7954
+        verifyMvccOperationSupport("Load");
+
         final AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
 
         // Version for all loaded entries.
