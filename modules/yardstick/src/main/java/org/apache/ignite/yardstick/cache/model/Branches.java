@@ -28,6 +28,23 @@ public class Branches {
     private long val;
 
     /** */
+    @QuerySqlField
+    private long val1;
+
+
+    /** */
+    @QuerySqlField
+    private long val2;
+
+    /** */
+    @QuerySqlField
+    private String s1;
+
+    /** */
+    @QuerySqlField
+    private String s2;
+
+    /** */
     public Branches() {
         // No-op.
     }
@@ -37,6 +54,14 @@ public class Branches {
      */
     public Branches(long val) {
         this.val = val;
+
+        this.val1 = val;
+
+        this.val2 = val;
+
+        this.s1 = Long.toBinaryString(val).substring(0, 16);
+
+        this.s2 = Long.toBinaryString(val).substring(0, 16).replace("0", "a");
     }
 
     /**
