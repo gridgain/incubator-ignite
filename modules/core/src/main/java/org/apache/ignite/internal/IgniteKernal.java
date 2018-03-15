@@ -118,6 +118,7 @@ import org.apache.ignite.internal.managers.loadbalancer.GridLoadBalancerManager;
 import org.apache.ignite.internal.marshaller.optimized.OptimizedMarshaller;
 import org.apache.ignite.internal.processors.GridProcessor;
 import org.apache.ignite.internal.processors.affinity.GridAffinityProcessor;
+import org.apache.ignite.internal.processors.cache.CacheConfigurationOverride;
 import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheProcessor;
@@ -448,14 +449,12 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     }
 
     /** {@inheritDoc} */
-    @Override
-    public boolean isRebalanceEnabled() {
+    @Override public boolean isRebalanceEnabled() {
         return ctx.cache().context().isRebalanceEnabled();
     }
 
     /** {@inheritDoc} */
-    @Override
-    public void rebalanceEnabled(boolean rebalanceEnabled) {
+    @Override public void rebalanceEnabled(boolean rebalanceEnabled) {
         ctx.cache().context().rebalanceEnabled(rebalanceEnabled);
     }
 
@@ -2779,7 +2778,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     /** {@inheritDoc} */
     @Override public <K, V> IgniteCache<K, V> createCache(CacheConfiguration<K, V> cacheCfg) {
         A.notNull(cacheCfg, "cacheCfg");
-        CU.validateCacheName(cacheCfg.getName());
+        CU.validateNewCacheName(cacheCfg.getName());
 
         guard();
 
@@ -2836,7 +2835,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
     /** {@inheritDoc} */
     @Override public <K, V> IgniteCache<K, V> createCache(String cacheName) {
-        CU.validateCacheName(cacheName);
+        CU.validateNewCacheName(cacheName);
 
         guard();
 
@@ -2865,7 +2864,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     @Override public <K, V> IgniteBiTuple<IgniteCache<K, V>, Boolean> getOrCreateCache0(
         CacheConfiguration<K, V> cacheCfg, boolean sql) {
         A.notNull(cacheCfg, "cacheCfg");
-        CU.validateCacheName(cacheCfg.getName());
+        CU.validateNewCacheName(cacheCfg.getName());
 
         guard();
 
@@ -2931,7 +2930,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
         NearCacheConfiguration<K, V> nearCfg
     ) {
         A.notNull(cacheCfg, "cacheCfg");
-        CU.validateCacheName(cacheCfg.getName());
+        CU.validateNewCacheName(cacheCfg.getName());
         A.notNull(nearCfg, "nearCfg");
 
         guard();
@@ -2960,7 +2959,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     @Override public <K, V> IgniteCache<K, V> getOrCreateCache(CacheConfiguration<K, V> cacheCfg,
         NearCacheConfiguration<K, V> nearCfg) {
         A.notNull(cacheCfg, "cacheCfg");
-        CU.validateCacheName(cacheCfg.getName());
+        CU.validateNewCacheName(cacheCfg.getName());
         A.notNull(nearCfg, "nearCfg");
 
         guard();
@@ -3001,7 +3000,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
     /** {@inheritDoc} */
     @Override public <K, V> IgniteCache<K, V> createNearCache(String cacheName, NearCacheConfiguration<K, V> nearCfg) {
-        CU.validateCacheName(cacheName);
+        CU.validateNewCacheName(cacheName);
         A.notNull(nearCfg, "nearCfg");
 
         guard();
@@ -3033,7 +3032,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     /** {@inheritDoc} */
     @Override public <K, V> IgniteCache<K, V> getOrCreateNearCache(String cacheName,
         NearCacheConfiguration<K, V> nearCfg) {
-        CU.validateCacheName(cacheName);
+        CU.validateNewCacheName(cacheName);
         A.notNull(nearCfg, "nearCfg");
 
         guard();
@@ -3162,7 +3161,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
     /** {@inheritDoc} */
     @Override public <K, V> IgniteCache<K, V> getOrCreateCache(String cacheName) {
-        CU.validateCacheName(cacheName);
+        CU.validateNewCacheName(cacheName);
 
         guard();
 
@@ -3184,11 +3183,14 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
     /**
      * @param cacheName Cache name.
+     * @param templateName Template name.
+     * @param cfgOverride Cache config properties to override.
      * @param checkThreadTx If {@code true} checks that current thread does not have active transactions.
      * @return Future that will be completed when cache is deployed.
      */
-    public IgniteInternalFuture<?> getOrCreateCacheAsync(String cacheName, boolean checkThreadTx) {
-        CU.validateCacheName(cacheName);
+    public IgniteInternalFuture<?> getOrCreateCacheAsync(String cacheName, String templateName,
+        CacheConfigurationOverride cfgOverride, boolean checkThreadTx) {
+        CU.validateNewCacheName(cacheName);
 
         guard();
 
@@ -3196,7 +3198,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
             checkClusterState();
 
             if (ctx.cache().cache(cacheName) == null)
-                return ctx.cache().getOrCreateFromTemplate(cacheName, checkThreadTx);
+                return ctx.cache().getOrCreateFromTemplate(cacheName, templateName, cfgOverride, checkThreadTx);
 
             return new GridFinishedFuture<>();
         }
@@ -3208,7 +3210,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     /** {@inheritDoc} */
     @Override public <K, V> void addCacheConfiguration(CacheConfiguration<K, V> cacheCfg) {
         A.notNull(cacheCfg, "cacheCfg");
-        CU.validateCacheName(cacheCfg.getName());
+        CU.validateNewCacheName(cacheCfg.getName());
 
         guard();
 
@@ -4031,7 +4033,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     }
 
     /** {@inheritDoc} */
-    public void dumpDebugInfo() {
+    @Override public void dumpDebugInfo() {
         try {
             GridKernalContextImpl ctx = this.ctx;
 
