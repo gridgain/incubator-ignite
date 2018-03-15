@@ -17,7 +17,13 @@
 
 package org.apache.ignite.yardstick.cache.jdbc;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.cache.processor.EntryProcessor;
@@ -26,8 +32,11 @@ import javax.cache.processor.MutableEntry;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.IgniteTransactions;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgniteOutClosure;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
+import org.apache.ignite.yardstick.cache.model.Account;
 import org.apache.ignite.yardstick.cache.model.Accounts;
 import org.apache.ignite.yardstick.cache.model.Branches;
 import org.apache.ignite.yardstick.cache.model.History;
@@ -139,22 +148,77 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
     private void fillTables() throws Exception {
         startPreloadLogging(args.preloadLogsInterval());
 
-        try (IgniteDataStreamer<Long, Accounts> dataLdr = ignite().dataStreamer(accounts.getName())) {
-            for (long i = 0; i < accRows; i++)
-                dataLdr.addData(i, new Accounts(nextRandom(args.range())));
-        }
+        ExecutorService svc = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
-        try (IgniteDataStreamer<Long, Branches> dataLdr = ignite().dataStreamer(branches.getName())) {
-            for (long i = 0; i < branchRows; i++)
-                dataLdr.addData(i, new Branches(nextRandom(args.range())));
-        }
+        try {
+            ignite().log().info("Will load data using " + Runtime.getRuntime().availableProcessors() + " threads");
 
-        try (IgniteDataStreamer<Long, Tellers> dataLdr = ignite().dataStreamer(tellers.getName())) {
-            for (long i = 0; i < tellRows; i++)
-                dataLdr.addData(i, new Tellers(nextRandom(args.range())));
+            try (IgniteDataStreamer<Long, Accounts> dataLdr = ignite().dataStreamer(accounts.getName())) {
+                load(svc, dataLdr, accRows, new IgniteClosure<Long, Accounts>() {
+                    @Override public Accounts apply(Long aLong) {
+                        return null;
+                    }
+                });
+            }
+
+            try (IgniteDataStreamer<Long, Branches> dataLdr = ignite().dataStreamer(branches.getName())) {
+                load(svc, dataLdr, branchRows, new IgniteClosure<Long, Branches>() {
+                    @Override public Branches apply(Long aLong) {
+                        return new Branches(nextRandom(args.range()));
+                    }
+                });
+            }
+
+            try (IgniteDataStreamer<Long, Tellers> dataLdr = ignite().dataStreamer(tellers.getName())) {
+                load(svc, dataLdr, tellRows, new IgniteClosure<Long, Tellers>() {
+                    @Override public Tellers apply(Long aLong) {
+                        return new Tellers(nextRandom(args.range()));
+                    }
+                });
+            }
+        }
+        finally {
+            svc.shutdownNow();
         }
 
         stopPreloadLogging();
+    }
+
+    /**
+     * Loads daata in multiple threads for more efficient serves utilization.
+     *
+     * @param svc Executor service to use.
+     * @param ldr Data loader.
+     * @param rows Rows to load.
+     * @param producer Producer.
+     */
+    private <T> void load(
+        ExecutorService svc,
+        final IgniteDataStreamer<Long, T> ldr,
+        long rows,
+        final IgniteClosure<Long, T> producer
+    ) throws InterruptedException, ExecutionException {
+        long batch = rows / Runtime.getRuntime().availableProcessors();
+
+        if (batch == 0)
+            batch = rows;
+
+        Collection<Future<?>> futs = new ArrayList<>();
+
+        for (long i = 0; i < rows; i += batch) {
+            final long start = i;
+            final long end = Math.min(start + batch, rows);
+
+            futs.add(svc.submit(new Runnable() {
+                @Override public void run() {
+                    for (long i = start; i < end; i++)
+                        ldr.addData(i, producer.apply(i));
+                }
+            }));
+        }
+
+        for (Future<?> fut : futs)
+            fut.get();
     }
 
     /**
