@@ -27,6 +27,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -463,10 +464,14 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
      * @param updateSeq Update sequence.
      */
     private void createPartitions(AffinityTopologyVersion affVer, List<List<ClusterNode>> aff, long updateSeq) {
+        log.info("Enter create partitions");
+
         if (!grp.affinityNode())
             return;
 
         int num = grp.affinity().partitions();
+
+        log.info("Num of partitions = " + num);
 
         for (int p = 0; p < num; p++) {
             if (node2part != null && node2part.valid()) {
@@ -476,13 +481,29 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     GridDhtLocalPartition locPart = createPartition(p);
 
                     updateSeq = updateLocal(p, locPart.state(), updateSeq, affVer);
+
+                    if (!grp.cacheOrGroupName().contains("sys"))
+                        log.info("Created partition 1 " + p + " for " + grp.cacheOrGroupName());
+                }
+                else if (p == 0) {
+                    log.warning("WTF1? " + aff.get(p));
                 }
             }
             // If this node's map is empty, we pre-create local partitions,
             // so local map will be sent correctly during exchange.
-            else if (localNode(p, aff))
+            else if (localNode(p, aff)) {
                 createPartition(p);
+                if (!grp.cacheOrGroupName().contains("sys"))
+                    log.info("Created partition 2 " + p + " for " + grp.cacheOrGroupName());
+            }
+            else if (p == 0) {
+                if (affVer.minorTopologyVersion() == 1)
+                    log.warning("WTF2? " + aff.get(p) + " " + node2part.valid());
+            }
+
         }
+
+        log.info("Exit create partitions");
     }
 
     /** {@inheritDoc} */
@@ -690,6 +711,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         ", fullMap=" + fullMapString() + ']');
                 }
 
+                log.info("After exchange enter.");
+
                 long updateSeq = this.updateSeq.incrementAndGet();
 
                 for (int p = 0; p < num; p++) {
@@ -758,8 +781,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
                                 changed = true;
 
-                                if (log.isDebugEnabled()) {
-                                    log.debug("Evicting " + state + " partition (it does not belong to affinity) [" +
+                                if (log.isInfoEnabled()) {
+                                    log.warning("Evicting " + state + " partition (it does not belong to affinity) [" +
                                         "grp=" + grp.cacheOrGroupName() + ", part=" + locPart + ']');
                                 }
                             }
@@ -783,6 +806,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
         finally {
             ctx.database().checkpointReadUnlock();
         }
+
+        log.info("After exchange exit " + changed);
 
         return changed;
     }
@@ -2219,8 +2244,12 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
             }
         }
 
+        long randomNumber = new Random().nextLong();
+
         // After all rents are finished resend partitions.
         if (!rentingFutures.isEmpty()) {
+            log.info("Renting partitions count " + rentingFutures.size() + " , " + randomNumber);
+
             final AtomicInteger rentingPartitions = new AtomicInteger(rentingFutures.size());
 
             for (IgniteInternalFuture<?> rentingFuture : rentingFutures) {
@@ -2231,7 +2260,15 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         lock.writeLock().lock();
 
                         try {
-                            this.updateSeq.incrementAndGet();
+                            log.info("Finished waiting for renting " + randomNumber);
+
+                            long updateSeq0 = this.updateSeq.incrementAndGet();
+
+                            ClusterNode oldest = discoCache.oldestAliveServerNode();
+
+                            if (ctx.localNode().equals(oldest) && node2part != null && node2part.updateSequence() < updateSeq0) {
+                                log.warning("Need to update whole node2part map " + node2part.updateSequence() + " with " + updateSeq0);
+                            }
 
                             ctx.exchange().scheduleResendPartitions();
                         }
