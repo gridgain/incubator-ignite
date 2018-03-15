@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.mvcc;
+package org.apache.ignite.internal.processors.cache.mvcc.txlog;
 
 /**
  *
@@ -62,12 +62,12 @@ public interface TxLogIO {
      * @param off Item offset.
      * @return Transaction state.
      */
-    TxState getState(long pageAddr, int off);
+    byte getState(long pageAddr, int off);
 
     /**
      * @param pageAddr Page address.
      * @param off Item offset.
      * @param state Transaction state.
      */
-    void setState(long pageAddr, int off, TxState state);
+    void setState(long pageAddr, int off, byte state);
 }

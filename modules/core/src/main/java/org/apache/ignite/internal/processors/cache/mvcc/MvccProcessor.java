@@ -57,6 +57,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccQuerySnapshotReq
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccSnapshotResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccTxSnapshotRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccWaitTxsRequest;
+import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog;
 import org.apache.ignite.internal.processors.cache.persistence.DatabaseLifecycleListener;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
@@ -82,8 +83,8 @@ import static org.apache.ignite.events.EventType.EVT_NODE_SEGMENTED;
 import static org.apache.ignite.internal.GridTopic.TOPIC_CACHE_COORDINATOR;
 import static org.apache.ignite.internal.events.DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
-import static org.apache.ignite.internal.processors.cache.mvcc.TxLog.TX_LOG_CACHE_ID;
-import static org.apache.ignite.internal.processors.cache.mvcc.TxLog.TX_LOG_CACHE_NAME;
+import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LOG_CACHE_ID;
+import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LOG_CACHE_NAME;
 
 /**
  * MVCC processor.
@@ -191,7 +192,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
      * @return State for given mvcc version.
      * @throws IgniteCheckedException If fails.
      */
-    public TxState state(MvccVersion ver) throws IgniteCheckedException {
+    public byte state(MvccVersion ver) throws IgniteCheckedException {
         return txLog.get(ver.coordinatorVersion(), ver.counter());
     }
 
@@ -200,7 +201,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
      * @param state State.
      * @throws IgniteCheckedException If fails;
      */
-    public void updateState(MvccVersion ver, TxState state) throws IgniteCheckedException {
+    public void updateState(MvccVersion ver, byte state) throws IgniteCheckedException {
         txLog.put(ver.coordinatorVersion(), ver.counter(), state);
     }
 
@@ -761,7 +762,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     }
 
     /**
-     * TODO move to configuration.
+     * TODO IGNITE-7966
      * @return Data region configuration.
      */
     private DataRegionConfiguration createTxLogRegion(DataStorageConfiguration dscfg) {

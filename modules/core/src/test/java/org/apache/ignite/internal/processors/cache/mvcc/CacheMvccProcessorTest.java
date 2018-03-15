@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.cache.mvcc;
 
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
 
 /**
  *

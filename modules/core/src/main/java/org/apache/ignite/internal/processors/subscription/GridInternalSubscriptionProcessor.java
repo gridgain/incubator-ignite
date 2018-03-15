@@ -69,7 +69,7 @@ public class GridInternalSubscriptionProcessor extends GridProcessorAdapter {
     }
 
     /** */
-    public List<DatabaseLifecycleListener> getDatabaseSubscribers() {
+    public List<DatabaseLifecycleListener> getDatabaseListeners() {
         return databaseListeners;
     }
 }

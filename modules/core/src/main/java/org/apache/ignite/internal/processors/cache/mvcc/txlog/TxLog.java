@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.mvcc;
+package org.apache.ignite.internal.processors.cache.mvcc.txlog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -187,7 +187,7 @@ public class TxLog implements DbCheckpointListener {
      * @return Transaction state for given version.
      * @throws IgniteCheckedException If failed.
      */
-    public TxState get(long major, long minor) throws IgniteCheckedException {
+    public byte get(long major, long minor) throws IgniteCheckedException {
         mgr.checkpointReadLock();
 
         try {
@@ -207,7 +207,7 @@ public class TxLog implements DbCheckpointListener {
      * @param state  Transaction state for given version.
      * @throws IgniteCheckedException If failed.
      */
-    public void put(long major, long minor, TxState state) throws IgniteCheckedException {
+    public void put(long major, long minor, byte state) throws IgniteCheckedException {
         mgr.checkpointReadLock();
 
         try {

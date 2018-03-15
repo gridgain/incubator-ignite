@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.mvcc;
+package org.apache.ignite.internal.processors.cache.mvcc.txlog;
 
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.IOVersions;
 
 /** */
-public class TxLogLeafIO extends BPlusLeafIO<TxSearchRow> implements TxLogIO {
+public class TxLogInnerIO extends BPlusInnerIO<TxSearchRow> implements TxLogIO {
     /** */
-    public static final IOVersions<TxLogLeafIO> VERSIONS = new IOVersions<>(new TxLogLeafIO(1));
+    public static final IOVersions<TxLogInnerIO> VERSIONS = new IOVersions<>(new TxLogInnerIO(1));
 
     /**
      * @param ver Page format version.
      */
-    protected TxLogLeafIO(int ver) {
-        super(T_TX_LOG_LEAF, ver, 17);
+    protected TxLogInnerIO(int ver) {
+        super(T_TX_LOG_INNER, ver, true, 8 + 8 + 1);
     }
 
     /** {@inheritDoc} */
@@ -68,7 +68,7 @@ public class TxLogLeafIO extends BPlusLeafIO<TxSearchRow> implements TxLogIO {
 
     /** {@inheritDoc} */
     @Override public int compare(long pageAddr, int off, TxSearchRow row) {
-        int cmp = Long.compare(getMajor(pageAddr, off), row.major());
+        int cmp = Long.compare(PageUtils.getLong(pageAddr, off), row.major());
 
         return cmp != 0 ? cmp : Long.compare(getMinor(pageAddr, off), row.minor());
     }
@@ -94,12 +94,12 @@ public class TxLogLeafIO extends BPlusLeafIO<TxSearchRow> implements TxLogIO {
     }
 
     /** {@inheritDoc} */
-    @Override public TxState getState(long pageAddr, int off) {
-        return TxState.fromByte(PageUtils.getByte(pageAddr, off + 16));
+    @Override public byte getState(long pageAddr, int off) {
+        return PageUtils.getByte(pageAddr, off + 16);
     }
 
     /** {@inheritDoc} */
-    @Override public void setState(long pageAddr, int off, TxState state) {
-        PageUtils.putByte(pageAddr, off + 16, state.asByte());
+    @Override public void setState(long pageAddr, int off, byte state) {
+        PageUtils.putByte(pageAddr, off + 16, state);
     }
 }

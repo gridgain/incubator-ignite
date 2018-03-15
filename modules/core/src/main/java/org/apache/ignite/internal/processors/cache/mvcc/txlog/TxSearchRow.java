@@ -15,36 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.mvcc;
+package org.apache.ignite.internal.processors.cache.mvcc.txlog;
 
 /**
  *
  */
-public enum TxState {
+public class TxSearchRow {
     /** */
-    PREPARED,
+    private final long major;
+
     /** */
-    ABORTED,
-    /** */
-    COMMITTED,
-    /** */
-    NA;
+    private final long minor;
 
     /**
-     * @return Byte representation.
+     * @param major Major version.
+     * @param minor Minor version
      */
-    public byte asByte() {
-        return (byte)ordinal();
+    public TxSearchRow(long major, long minor) {
+        this.major = major;
+        this.minor = minor;
     }
 
     /**
-     *
-     * @param b Byte representation.
-     * @return Tx state.
+     * @return Major version.
      */
-    public static TxState fromByte(byte b) {
-        assert b >= 0 && b < values().length;
+    public long major() {
+        return major;
+    }
 
-        return values()[b];
+    /**
+     * @return Minor version.
+     */
+    public long minor() {
+        return minor;
     }
 }

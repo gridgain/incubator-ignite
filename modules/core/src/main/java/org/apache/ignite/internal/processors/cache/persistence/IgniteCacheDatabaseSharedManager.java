@@ -60,7 +60,6 @@ import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaS
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
 import org.apache.ignite.internal.processors.cluster.IgniteChangeGlobalStateSupport;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -270,7 +269,7 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
      * @return Database lifecycle listeners.
      */
     protected List<DatabaseLifecycleListener> getSubscribers(GridKernalContext kctx) {
-        return kctx.internalSubscriptionProcessor().getDatabaseSubscribers();
+        return kctx.internalSubscriptionProcessor().getDatabaseListeners();
     }
 
     /**
@@ -1061,10 +1060,6 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
      * @param enabled flag.
      */
     public void walEnabled(int grpId, boolean enabled) {
-        // No-op.
-    }
-
-    public void initializeForCache(CacheGroupDescriptor descriptor, StoredCacheData data) throws IgniteCheckedException {
         // No-op.
     }
 }

@@ -15,38 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.mvcc;
+package org.apache.ignite.internal.processors.cache.mvcc.txlog;
 
 /**
  *
  */
-public class TxSearchRow {
+public class TxRow extends TxSearchRow {
     /** */
-    private final long major;
-
-    /** */
-    private final long minor;
+    private byte state;
 
     /**
      * @param major Major version.
-     * @param minor Minor version
+     * @param minor Minor version.
+     * @param state Transaction state.
      */
-    public TxSearchRow(long major, long minor) {
-        this.major = major;
-        this.minor = minor;
+    TxRow(long major, long minor, byte state) {
+        super(major, minor);
+
+        this.state = state;
     }
 
     /**
-     * @return Major version.
+     * @return Transaction state.
      */
-    public long major() {
-        return major;
-    }
-
-    /**
-     * @return Minor version.
-     */
-    public long minor() {
-        return minor;
+    public byte state() {
+        return state;
     }
 }
