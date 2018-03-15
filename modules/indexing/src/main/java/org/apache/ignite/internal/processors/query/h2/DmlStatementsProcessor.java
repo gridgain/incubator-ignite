@@ -538,7 +538,7 @@ public class DmlStatementsProcessor {
                         cctx.shared().coordinators().currentCoordinator(),
                         mvccSnapshot);
 
-                    Iterable<List<?>> cur = idx.querySqlFields(schemaName, newFieldsQry, true,
+                    Iterable<List<?>> cur = idx.querySqlFields(schemaName, newFieldsQry, null, true,
                         true, mvccQueryTracker, cancel).get(0);
 
                     int pageSize = loc ? 0 : fieldsQry.getPageSize();
