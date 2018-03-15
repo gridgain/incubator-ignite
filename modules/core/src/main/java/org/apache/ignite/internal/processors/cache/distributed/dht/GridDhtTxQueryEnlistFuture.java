@@ -22,7 +22,6 @@ import java.util.Objects;
 import java.util.UUID;
 import javax.cache.processor.EntryProcessor;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheInvokeEntry;
 import org.apache.ignite.internal.processors.cache.CacheObject;
@@ -43,7 +42,6 @@ import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -162,7 +160,7 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxEnlistAbstractFut
         GridDhtCacheAdapter<?, ?> cache = cctx.isNear() ? cctx.near().dht() : cctx.dht();
 
         try {
-            checkPartitions();
+            checkPartitions(parts);
 
             long cnt = 0;
 
@@ -226,39 +224,6 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxEnlistAbstractFut
         }
 
         readyLocks();
-    }
-
-    /**
-     * Checks whether all the necessary partitions are in {@link GridDhtPartitionState#OWNING} state.
-     * @throws ClusterTopologyCheckedException If failed.
-     */
-    private void checkPartitions() throws ClusterTopologyCheckedException {
-        if(cctx.isLocal() || !cctx.rebalanceEnabled())
-            return;
-
-        int[] parts0 = parts;
-
-        if (parts0 == null)
-            parts0 = U.toIntArray(
-                cctx.affinity()
-                    .primaryPartitions(cctx.localNodeId(), topVer));
-
-        GridDhtPartitionTopology top = cctx.topology();
-
-        try {
-            top.readLock();
-
-            for (int i = 0; i < parts0.length; i++) {
-                GridDhtLocalPartition p = top.localPartition(parts0[i]);
-
-                if (p == null || p.state() != GridDhtPartitionState.OWNING)
-                    throw new ClusterTopologyCheckedException("Cannot run update query. " +
-                        "Node must own all the necessary partitions."); // TODO IGNITE-7185 Send retry instead.
-            }
-        }
-        finally {
-            top.readUnlock();
-        }
     }
 
     /**

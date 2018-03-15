@@ -114,6 +114,8 @@ public class GridDhtTxEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNea
         GridDhtCacheAdapter<?, ?> cache = cctx.isNear() ? cctx.near().dht() : cctx.dht();
 
         try {
+            checkPartitions(null);
+
             long cnt = 0;
 
             for (IgniteBiTuple row : rows) {

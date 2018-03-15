@@ -48,6 +48,7 @@ import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -180,6 +181,39 @@ public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage
             cancel.cancel();
 
         return isCancelled();
+    }
+
+    /**
+     * Checks whether all the necessary partitions are in {@link GridDhtPartitionState#OWNING} state.
+     *
+     * @param parts Partitions.
+     * @throws ClusterTopologyCheckedException If failed.
+     */
+    protected void checkPartitions(@Nullable int[] parts) throws ClusterTopologyCheckedException {
+        if(cctx.isLocal() || !cctx.rebalanceEnabled())
+            return;
+
+        if (parts == null)
+            parts = U.toIntArray(
+                cctx.affinity()
+                    .primaryPartitions(cctx.localNodeId(), topVer));
+
+        GridDhtPartitionTopology top = cctx.topology();
+
+        try {
+            top.readLock();
+
+            for (int i = 0; i < parts.length; i++) {
+                GridDhtLocalPartition p = top.localPartition(parts[i]);
+
+                if (p == null || p.state() != GridDhtPartitionState.OWNING)
+                    throw new ClusterTopologyCheckedException("Cannot run update query. " +
+                        "Node must own all the necessary partitions."); // TODO IGNITE-7185 Send retry instead.
+            }
+        }
+        finally {
+            top.readUnlock();
+        }
     }
 
     /**

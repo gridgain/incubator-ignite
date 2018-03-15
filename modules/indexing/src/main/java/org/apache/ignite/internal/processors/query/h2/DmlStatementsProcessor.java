@@ -541,14 +541,12 @@ public class DmlStatementsProcessor {
                     Iterable<List<?>> cur = idx.querySqlFields(schemaName, newFieldsQry, null, true,
                         true, mvccQueryTracker, cancel).get(0);
 
-                    int pageSize = loc ? 0 : fieldsQry.getPageSize();
-
                     tx.addActiveCache(cctx, false);
 
                     TxDmlReducerIterator it = new TxDmlReducerIterator(plan, cur);
 
-                    GridNearTxEnlistFuture fut = new GridNearTxEnlistFuture(cctx, tx,
-                        mvccSnapshot, newFieldsQry.getTimeout(), plan.mode().ordinal(), it.operation(), it, pageSize);
+                    GridNearTxEnlistFuture fut = new GridNearTxEnlistFuture(cctx, tx, mvccSnapshot,
+                        newFieldsQry.getTimeout(), plan.mode().ordinal(), it.operation(), it, fieldsQry.getPageSize());
 
                     fut.init();
 

@@ -19,9 +19,10 @@ package org.apache.ignite.internal.processors.cache.distributed.near;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
@@ -55,12 +56,24 @@ import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteUuid;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cache lock future.
  */
 public class GridNearTxEnlistFuture extends GridCacheCompoundIdentityFuture<Long>
     implements GridCacheVersionedFuture<Long>, MvccSnapshotResponseListener {
+    /** */
+    public static final int DFLT_BATCH_SIZE = 1024;
+
+    /** Done field updater. */
+    private static final AtomicIntegerFieldUpdater<GridNearTxEnlistFuture> DONE_UPD =
+        AtomicIntegerFieldUpdater.newUpdater(GridNearTxEnlistFuture.class, "done");
+
+    /** */
+    @SuppressWarnings("unused")
+    @GridToStringExclude
+    private volatile int done;
 
     /** Cache context. */
     @GridToStringExclude
@@ -97,7 +110,7 @@ public class GridNearTxEnlistFuture extends GridCacheCompoundIdentityFuture<Long
     private int batchSize;
 
     /** */
-    private final Map<UUID, Batch> batches = new ConcurrentHashMap<>();
+    private final Map<UUID, Batch> batches = new HashMap<>();
 
     /** */
     private AffinityTopologyVersion topVer;
@@ -143,7 +156,7 @@ public class GridNearTxEnlistFuture extends GridCacheCompoundIdentityFuture<Long
         this.mode = mode;
         this.op = op;
         this.it = it;
-        this.batchSize = batchSize;
+        this.batchSize = batchSize > 0 ? batchSize : DFLT_BATCH_SIZE;
 
         threadId = tx.threadId();
         futId = IgniteUuid.randomUuid();
@@ -292,7 +305,16 @@ public class GridNearTxEnlistFuture extends GridCacheCompoundIdentityFuture<Long
      * @param nodeId
      */
     private void sendNextBatches(UUID nodeId) {
-        Collection<Batch> next = mapRows(nodeId);
+        Collection<Batch> next;
+
+        try {
+            next = mapRows(nodeId);
+        }
+        catch (IgniteCheckedException e) {
+            onDone(e);
+
+            return;
+        }
 
         if (next == null)
             return;
@@ -311,16 +333,17 @@ public class GridNearTxEnlistFuture extends GridCacheCompoundIdentityFuture<Long
 
     /**
      *
-     * @param nodeId
-     * @return
+     * @param nodeId Id of node acknowledged the last batch.
+     * @return Collection of newly completed batches.
+     * @throws IgniteCheckedException If failed.
      */
-    private synchronized Collection<Batch> mapRows(UUID nodeId) {
+    private synchronized Collection<Batch> mapRows(UUID nodeId) throws IgniteCheckedException {
         if (nodeId != null)
             batches.remove(nodeId);
 
         ArrayList<Batch> res = null;
 
-        IgniteBiTuple cur = (peek != null) ? peek : (it.hasNext() ? it.next() : null);
+        IgniteBiTuple cur = (peek != null) ? peek : (it.hasNextX() ? it.nextX() : null);
 
         while (cur != null) {
             ClusterNode node = cctx.affinity().primaryByKey(cur.getKey(), topVer);
@@ -344,7 +367,7 @@ public class GridNearTxEnlistFuture extends GridCacheCompoundIdentityFuture<Long
 
             batch.add(cur);
 
-            cur = it.hasNext() ? it.next() : null;
+            cur = it.hasNextX() ? it.nextX() : null;
 
             if (batch.size() == batchSize) {
                 batch.completed(true);
@@ -522,6 +545,36 @@ public class GridNearTxEnlistFuture extends GridCacheCompoundIdentityFuture<Long
             mini.onResult(res, null);
     }
 
+    /** {@inheritDoc} */
+    @Override public boolean onDone(@Nullable Long res, @Nullable Throwable err) {
+        if (!DONE_UPD.compareAndSet(this, 0, 1))
+            return false;
+
+        cctx.tm().txContext(tx);
+
+        if (err != null)
+            tx.setRollbackOnly();
+
+        if (!X.hasCause(err, IgniteTxTimeoutCheckedException.class) && tx.trackTimeout()) {
+            // Need restore timeout before onDone is called and next tx operation can proceed.
+            boolean add = tx.addTimeoutHandler();
+
+            assert add;
+        }
+
+        if (super.onDone(res, err)) {
+            // Clean up.
+            cctx.mvcc().removeVersionedFuture(this);
+
+            if (timeoutObj != null)
+                cctx.time().removeTimeoutObject(timeoutObj);
+
+            return true;
+        }
+
+        return false;
+    }
+
     /**
      * Finds pending mini future by the given mini ID.
      *
@@ -606,6 +659,11 @@ public class GridNearTxEnlistFuture extends GridCacheCompoundIdentityFuture<Long
     /** {@inheritDoc} */
     @Override public void onError(IgniteCheckedException e) {
         onDone(e);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(GridNearTxEnlistFuture.class, this, super.toString());
     }
 
     /**
