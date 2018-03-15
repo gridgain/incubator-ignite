@@ -117,29 +117,31 @@ public class GridDhtTxEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNea
             long cnt = 0;
 
             for (IgniteBiTuple row : rows) {
-                if (isCancelled())
-                    return;
+                while (true) {
+                    if (isCancelled())
+                        return;
 
-                GridDhtCacheEntry entry = cache.entryExx(cctx.toCacheKeyObject(row.get1()), topVer);
+                    GridDhtCacheEntry entry = cache.entryExx(cctx.toCacheKeyObject(row.get1()), topVer);
 
-                try {
-                    addEntry(entry, row.get2());
+                    try {
+                        addEntry(entry, row.get2());
 
-                    cnt++;
+                        cnt++;
 
-                    break;
-                }
-                catch (GridCacheEntryRemovedException ignore) {
-                    if (log.isDebugEnabled())
-                        log.debug("Got removed entry when adding lock (will retry): " + entry);
-                }
-                catch (GridDistributedLockCancelledException e) {
-                    if (log.isDebugEnabled())
-                        log.debug("Failed to add entry [err=" + e + ", entry=" + entry + ']');
+                        break;
+                    }
+                    catch (GridCacheEntryRemovedException ignore) {
+                        if (log.isDebugEnabled())
+                            log.debug("Got removed entry when adding lock (will retry): " + entry);
+                    }
+                    catch (GridDistributedLockCancelledException e) {
+                        if (log.isDebugEnabled())
+                            log.debug("Failed to add entry [err=" + e + ", entry=" + entry + ']');
 
-                    onDone(e);
+                        onDone(e);
 
-                    return;
+                        return;
+                    }
                 }
             }
 

@@ -80,9 +80,6 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxEnlistAbstractFut
     /** Fetch page size. */
     private final int pageSize;
 
-    /** Processed entries count. */
-    private long cnt;
-
     /**
      * @param nearNodeId Near node ID.
      * @param nearLockVer Near lock version.

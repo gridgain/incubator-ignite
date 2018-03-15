@@ -561,6 +561,27 @@ public class GridNearTxEnlistFuture extends GridCacheCompoundIdentityFuture<Long
 
     /** {@inheritDoc} */
     @Override public boolean onNodeLeft(UUID nodeId) {
+        for (IgniteInternalFuture<?> fut : futures()) {
+            MiniFuture f = (MiniFuture)fut;
+
+            if (f.node.id().equals(nodeId)) {
+                if (log.isDebugEnabled())
+                    log.debug("Found mini-future for left node [nodeId=" + nodeId + ", mini=" + f + ", fut=" +
+                        this + ']');
+
+                ClusterTopologyCheckedException topEx = new ClusterTopologyCheckedException("Failed to enlist keys " +
+                    "(primary node left grid, retry transaction if possible) [node=" + nodeId + ']');
+
+                topEx.retryReadyFuture(cctx.shared().nextAffinityReadyFuture(topVer));
+
+                return f.onResult(null, topEx);
+            }
+        }
+
+        if (log.isDebugEnabled())
+            log.debug("Future does not have mapping for left node (ignoring) [nodeId=" + nodeId +
+                ", fut=" + this + ']');
+
         return false;
     }
 

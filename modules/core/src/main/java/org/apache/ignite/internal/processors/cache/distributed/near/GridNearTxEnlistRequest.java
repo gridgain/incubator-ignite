@@ -269,6 +269,7 @@ public class GridNearTxEnlistRequest extends GridCacheIdMessage {
                 keys[i].prepareMarshal(objCtx);
 
                 values[i] = cctx.toCacheObject(row.getValue());
+                values[i].prepareMarshal(objCtx);
 
                 i++;
             }
@@ -282,8 +283,14 @@ public class GridNearTxEnlistRequest extends GridCacheIdMessage {
         if (keys != null) {
             rows = new ArrayList<>(keys.length);
 
+            CacheObjectContext objCtx = ctx.cacheContext(cacheId).cacheObjectContext();
+
             for (int i = 0; i < keys.length; i++) {
-                keys[i].finishUnmarshal(ctx.cacheContext(cacheId).cacheObjectContext(), ldr);
+                keys[i].finishUnmarshal(objCtx, ldr);
+
+                if (values[i] != null)
+                    values[i].finishUnmarshal(objCtx, ldr);
+
                 rows.add(new IgniteBiTuple<>(keys[i], values[i]));
             }
 

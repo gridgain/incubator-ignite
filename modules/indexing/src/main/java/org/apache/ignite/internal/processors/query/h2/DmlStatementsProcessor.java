@@ -530,7 +530,8 @@ public class DmlStatementsProcessor {
             MvccSnapshot mvccSnapshot = idx.requestMvccVersion(cctx, tx);
 
             try (GridNearTxLocal toCommit = commit ? tx : null) {
-                if (distributedPlan == null) {
+                if (distributedPlan == null || ((plan.mode() == UpdateMode.INSERT || plan.mode() == UpdateMode.MERGE) &&
+                    !plan.isLocalSubquery())) {
                     SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(), fieldsQry.isCollocated())
                         .setArgs(fieldsQry.getArgs())
                         .setDistributedJoins(fieldsQry.isDistributedJoins())
