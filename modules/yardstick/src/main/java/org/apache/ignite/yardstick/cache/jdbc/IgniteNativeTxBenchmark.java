@@ -87,7 +87,7 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
         clearCaches();
 
 //        int proc = Math.max(Runtime.getRuntime().availableProcessors() / 2, 1);
-        int proc = 1;
+        int proc = args.getLoadThreads();
 
 
         fillTables(proc);
@@ -208,6 +208,8 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
 
         if (batch == 0)
             batch = rows;
+
+        ldr.perNodeParallelOperations(args.getNodeParallelOperations());
 
         Collection<Future<?>> futs = new ArrayList<>();
 

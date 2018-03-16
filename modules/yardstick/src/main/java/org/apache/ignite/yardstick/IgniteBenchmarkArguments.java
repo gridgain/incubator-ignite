@@ -95,6 +95,30 @@ public class IgniteBenchmarkArguments {
     private int scaleFactor = 1;
 
     /** */
+    @Parameter(names = {"-ltr", "--loadThreads"}, description = "Load threads.")
+    private int loadThreads = 1;
+
+    /** */
+    @Parameter(names = {"-npo", "--nodeParallelOperations"}, description = "Node Parallel Operations.")
+    private int nodeParallelOperations = 4;
+
+    public int getLoadThreads() {
+        return loadThreads;
+    }
+
+    public void setLoadThreads(int loadThreads) {
+        this.loadThreads = loadThreads;
+    }
+
+    public int getNodeParallelOperations() {
+        return nodeParallelOperations;
+    }
+
+    public void setNodeParallelOperations(int nodeParallelOperations) {
+        this.nodeParallelOperations = nodeParallelOperations;
+    }
+
+    /** */
     @Parameter(names = {"-ntv", "--native"}, description = "Native benchmarking flag")
     private boolean ntv = false;
 
