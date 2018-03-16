@@ -33,10 +33,8 @@ import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.IgniteTransactions;
 import org.apache.ignite.lang.IgniteClosure;
-import org.apache.ignite.lang.IgniteOutClosure;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
-import org.apache.ignite.yardstick.cache.model.Account;
 import org.apache.ignite.yardstick.cache.model.Accounts;
 import org.apache.ignite.yardstick.cache.model.Branches;
 import org.apache.ignite.yardstick.cache.model.History;
@@ -86,11 +84,9 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
 
         clearCaches();
 
-//        int proc = Math.max(Runtime.getRuntime().availableProcessors() / 2, 1);
-        int proc = 1;
+        int loadThreads = args.loadThreads();
 
-
-        fillTables(proc);
+        fillTables(loadThreads);
     }
 
     /** {@inheritDoc} */
@@ -160,7 +156,7 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
             try (IgniteDataStreamer<Long, Accounts> dataLdr = ignite().dataStreamer(accounts.getName())) {
                 load(svc, threads, dataLdr, accRows, new IgniteClosure<Long, Accounts>() {
                     @Override public Accounts apply(Long aLong) {
-                        return null;
+                        return new Accounts(nextRandom(args.range()));
                     }
                 });
             }

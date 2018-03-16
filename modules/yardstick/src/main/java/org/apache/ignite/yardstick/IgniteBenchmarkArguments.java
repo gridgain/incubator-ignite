@@ -252,6 +252,10 @@ public class IgniteBenchmarkArguments {
     @Parameter(names = {"-stbs", "--streamerBufSize"}, description = "Data streamer buffer size")
     private int streamerBufSize = IgniteDataStreamer.DFLT_PER_NODE_BUFFER_SIZE;
 
+    /** */
+    @Parameter(names = {"-ldt", "--loadThreads"}, description = "Number of threads to load data")
+    private int loadThreads = 1;
+
     /**
      * @return {@code True} if need set {@link DataStorageConfiguration}.
      */
@@ -629,6 +633,13 @@ public class IgniteBenchmarkArguments {
      */
     public int streamerBufferSize() {
         return streamerBufSize;
+    }
+
+    /**
+     * @return Number of threads to load data with.
+     */
+    public int loadThreads() {
+        return loadThreads;
     }
 
     /** {@inheritDoc} */
