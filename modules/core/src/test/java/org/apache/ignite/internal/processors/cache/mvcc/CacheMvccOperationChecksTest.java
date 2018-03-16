@@ -55,7 +55,7 @@ public class CacheMvccOperationChecksTest extends CacheMvccAbstractTest {
     /**
      * @throws Exception if failed.
      */
-    public void testClearOperations() throws Exception {
+    public void testClearOperationsUnsupported() throws Exception {
         checkOperationUnsupported("clear", m("Clear"), E);
 
         checkOperationUnsupported("clearAsync", m("Clear"), E);
@@ -73,7 +73,7 @@ public class CacheMvccOperationChecksTest extends CacheMvccAbstractTest {
     /**
      * @throws Exception if failed.
      */
-    public void testLoadOperations() throws Exception {
+    public void testLoadOperationsUnsupported() throws Exception {
         checkOperationUnsupported("loadCache", m("Load"), t(IgniteBiPredicate.class, Object[].class),
             P, new Object[]{ 1 });
 
@@ -90,7 +90,7 @@ public class CacheMvccOperationChecksTest extends CacheMvccAbstractTest {
     /**
      * @throws Exception if failed.
      */
-    public void testLockOperations() throws Exception {
+    public void testLockOperationsUnsupported() throws Exception {
         checkOperationUnsupported("lock", m("Lock"), t(Object.class), 1);
 
         checkOperationUnsupported("lockAll", m("Lock"), t(Collection.class), Collections.singleton(1));
@@ -99,7 +99,7 @@ public class CacheMvccOperationChecksTest extends CacheMvccAbstractTest {
     /**
      * @throws Exception if failed.
      */
-    public void testPeekOperations() throws Exception {
+    public void testPeekOperationsUnsupported() throws Exception {
         checkOperationUnsupported("localPeek", m("Peek"), t(Object.class, CachePeekMode[].class), 1,
             new CachePeekMode[]{CachePeekMode.NEAR});
     }
@@ -107,14 +107,14 @@ public class CacheMvccOperationChecksTest extends CacheMvccAbstractTest {
     /**
      * @throws Exception if failed.
      */
-    public void testEvictOperations() throws Exception {
+    public void testEvictOperationsUnsupported() throws Exception {
         checkOperationUnsupported("localEvict", m("Evict"), t(Collection.class), Collections.singleton(1));
     }
 
     /**
      * @throws Exception if failed.
      */
-    public void testWithExpiryPolicy() throws Exception {
+    public void testWithExpiryPolicyUnsupported() throws Exception {
         checkOperationUnsupported("withExpiryPolicy", "withExpiryPolicy is not supported on " +
             "transactional caches when MVCC is enabled.", t(ExpiryPolicy.class),
             EternalExpiryPolicy.factoryOf().create());
