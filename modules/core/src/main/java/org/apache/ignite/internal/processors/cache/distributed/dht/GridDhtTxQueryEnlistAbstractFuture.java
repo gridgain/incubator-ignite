@@ -54,9 +54,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Abstract cache lock future.
+ * Abstract future processing transaction enlisting and locking
+ * of entries produced with DML queries.
  */
-public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage> extends GridCacheFutureAdapter<T>
+public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMessage> extends GridCacheFutureAdapter<T>
     implements GridCacheVersionedFuture<T> {
 
     /** Future ID. */
@@ -74,10 +75,10 @@ public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage
     protected long threadId;
 
     /** Future ID. */
-    protected IgniteUuid nearFutId;
+    IgniteUuid nearFutId;
 
     /** Future ID. */
-    protected int nearMiniId;
+    int nearMiniId;
 
     /** Transaction. */
     protected GridDhtTxLocalAdapter tx;
@@ -98,7 +99,7 @@ public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage
     protected UUID nearNodeId;
 
     /** Near lock version. */
-    protected GridCacheVersion nearLockVer;
+    GridCacheVersion nearLockVer;
 
     /** Timeout object. */
     @GridToStringExclude
@@ -106,7 +107,7 @@ public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage
 
     /** Pending locks. */
     @GridToStringExclude
-    protected final Collection<KeyCacheObject> pendingLocks;
+    final Collection<KeyCacheObject> pendingLocks;
 
     /** Lock timeout. */
     protected final long timeout;
@@ -136,7 +137,7 @@ public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage
      * @param timeout Lock acquisition timeout.
      * @param cctx Cache context.
      */
-    public GridDhtTxEnlistAbstractFuture(UUID nearNodeId,
+    GridDhtTxQueryEnlistAbstractFuture(UUID nearNodeId,
         GridCacheVersion nearLockVer,
         AffinityTopologyVersion topVer,
         MvccSnapshot mvccSnapshot,
@@ -172,7 +173,7 @@ public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage
 
         pendingLocks = new HashSet<>();
 
-        log = cctx.logger(GridDhtTxEnlistAbstractFuture.class);
+        log = cctx.logger(GridDhtTxQueryEnlistAbstractFuture.class);
     }
 
     /** {@inheritDoc} */
@@ -189,7 +190,8 @@ public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage
      * @param parts Partitions.
      * @throws ClusterTopologyCheckedException If failed.
      */
-    protected void checkPartitions(@Nullable int[] parts) throws ClusterTopologyCheckedException {
+    @SuppressWarnings("ForLoopReplaceableByForEach")
+    void checkPartitions(@Nullable int[] parts) throws ClusterTopologyCheckedException {
         if(cctx.isLocal() || !cctx.rebalanceEnabled())
             return;
 
@@ -219,7 +221,7 @@ public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage
     /**
      * Sets all local locks as ready.
      */
-    protected void readyLocks() {
+    void readyLocks() {
         if (log.isDebugEnabled())
             log.debug("Marking local locks as ready for DHT lock future: " + this);
 
@@ -391,6 +393,8 @@ public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage
 
     /** {@inheritDoc} */
     @Override public boolean onDone(@Nullable T res, @Nullable Throwable err) {
+        assert res != null ^ err != null;
+
         if (err != null)
             res = createResponse(err);
 
@@ -458,14 +462,13 @@ public abstract class GridDhtTxEnlistAbstractFuture<T extends GridCacheIdMessage
 
     /**
      * @param err Error.
-     * @return Prepare response.
+     * @return Prepared response.
      */
     public abstract T createResponse(@NotNull Throwable err);
 
     /**
-     *
-     * @param cnt
-     * @return
+     * @param cnt update count.
+     * @return Prepared response.
      */
     public abstract T createResponse(long cnt);
 

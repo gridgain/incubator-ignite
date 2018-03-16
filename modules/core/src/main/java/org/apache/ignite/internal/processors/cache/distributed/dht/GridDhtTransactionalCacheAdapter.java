@@ -59,9 +59,9 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTran
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistFuture;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxEnlistFuture;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxEnlistRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxEnlistResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistFuture;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistResponse;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxRemote;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearUnlockRequest;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
@@ -199,16 +199,16 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 }
             });
 
-        ctx.io().addCacheHandler(ctx.cacheId(), GridNearTxEnlistRequest.class,
-            new CI2<UUID, GridNearTxEnlistRequest>() {
-            @Override public void apply(UUID nodeId, GridNearTxEnlistRequest req) {
+        ctx.io().addCacheHandler(ctx.cacheId(), GridNearTxQueryResultsEnlistRequest.class,
+            new CI2<UUID, GridNearTxQueryResultsEnlistRequest>() {
+            @Override public void apply(UUID nodeId, GridNearTxQueryResultsEnlistRequest req) {
                 processNearTxEnlistRequest(nodeId, req);
             }
         });
 
-        ctx.io().addCacheHandler(ctx.cacheId(), GridNearTxEnlistResponse.class,
-            new CI2<UUID, GridNearTxEnlistResponse>() {
-            @Override public void apply(UUID nodeId, GridNearTxEnlistResponse req) {
+        ctx.io().addCacheHandler(ctx.cacheId(), GridNearTxQueryResultsEnlistResponse.class,
+            new CI2<UUID, GridNearTxQueryResultsEnlistResponse>() {
+            @Override public void apply(UUID nodeId, GridNearTxQueryResultsEnlistResponse req) {
                 processNearTxEnlistResponse(nodeId, req);
             }
         });
@@ -1920,7 +1920,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
      * @param nodeId Node ID.
      * @param req Request.
      */
-    private void processNearTxEnlistRequest(UUID nodeId, final GridNearTxEnlistRequest req) {
+    private void processNearTxEnlistRequest(UUID nodeId, final GridNearTxQueryResultsEnlistRequest req) {
         assert nodeId != null;
         assert req != null;
 
@@ -1942,7 +1942,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                  req.taskNameHash());
         }
         catch (IgniteCheckedException ex) {
-            GridNearTxEnlistResponse res = new GridNearTxEnlistResponse(req.cacheId(),
+            GridNearTxQueryResultsEnlistResponse res = new GridNearTxQueryResultsEnlistResponse(req.cacheId(),
                 req.futureId(),
                 req.miniId(),
                 req.version(),
@@ -1962,7 +1962,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             return;
         }
 
-        GridDhtTxEnlistFuture fut = new GridDhtTxEnlistFuture(
+        GridDhtTxQueryResultsEnlistFuture fut = new GridDhtTxQueryResultsEnlistFuture(
             nodeId,
             req.version(),
             req.topologyVersion(),
@@ -2114,8 +2114,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
      * @param nodeId Node ID.
      * @param res Response.
      */
-    private void processNearTxEnlistResponse(UUID nodeId, final GridNearTxEnlistResponse res) {
-        GridNearTxEnlistFuture fut = (GridNearTxEnlistFuture)
+    private void processNearTxEnlistResponse(UUID nodeId, final GridNearTxQueryResultsEnlistResponse res) {
+        GridNearTxQueryResultsEnlistFuture fut = (GridNearTxQueryResultsEnlistFuture)
             ctx.mvcc().versionedFuture(res.version(), res.futureId());
 
         if (fut != null)
@@ -2149,9 +2149,9 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
 
             if (res == null) {
                 assert future.error() != null : future;
-                assert future instanceof GridDhtTxEnlistAbstractFuture;
+                assert future instanceof GridDhtTxQueryEnlistAbstractFuture;
 
-                res = ((GridDhtTxEnlistAbstractFuture<Rsp>)future).createResponse(future.error());
+                res = ((GridDhtTxQueryEnlistAbstractFuture<Rsp>)future).createResponse(future.error());
             }
 
             if (res.error() == null && tx.empty()) {

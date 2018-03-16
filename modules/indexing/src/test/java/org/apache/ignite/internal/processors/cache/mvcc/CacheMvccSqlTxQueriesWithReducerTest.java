@@ -27,7 +27,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
-import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.testframework.GridTestUtils;
@@ -241,4 +241,57 @@ public class CacheMvccSqlTxQueriesWithReducerTest extends CacheMvccAbstractTest 
         }
     }
 
+    /**
+     * @throws Exception If failed.
+     */
+    public void testQueryDelete() throws Exception {
+        ccfgs = new CacheConfiguration[] {
+            cacheConfiguration(PARTITIONED, FULL_SYNC, 2, DFLT_PARTITION_COUNT)
+                .setName("int")
+                .setIndexedTypes(Integer.class, Integer.class),
+            cacheConfiguration(PARTITIONED, FULL_SYNC, 2, DFLT_PARTITION_COUNT)
+                .setIndexedTypes(Integer.class,
+                CacheMvccSqlTxQueriesTest.MvccTestSqlIndexValue.class),
+        };
+
+        startGridsMultiThreaded(4);
+
+        Random rnd = ThreadLocalRandom.current();
+
+        Ignite checkNode  = grid(rnd.nextInt(4));
+        Ignite updateNode = grid(rnd.nextInt(4));
+
+        IgniteCache cache = checkNode.cache("int");
+
+        cache.putAll(F.asMap(1, 1, 3, 3, 5, 5));
+
+        cache = checkNode.cache(DEFAULT_CACHE_NAME);
+
+        final int count = 6;
+
+        Map<Integer, CacheMvccSqlTxQueriesTest.MvccTestSqlIndexValue> vals = new HashMap<>(count);
+
+        for (int idx = 1; idx <= count; ++idx)
+            vals.put(idx, new CacheMvccSqlTxQueriesTest.MvccTestSqlIndexValue(idx));
+
+
+        IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
+
+        try (Transaction tx = updateNode.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            //tx.timeout(TIMEOUT);
+
+            String sqlText = "DELETE FROM MvccTestSqlIndexValue t " +
+                "WHERE EXISTS (SELECT 1 FROM \"int\".Integer WHERE t._key = _key)";
+
+            SqlFieldsQuery qry = new SqlFieldsQuery(sqlText);
+
+            qry.setDistributedJoins(true);
+
+            try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
+                assertEquals(3L, cur.iterator().next().get(0));
+            }
+
+            tx.commit();
+        }
+    }
 }

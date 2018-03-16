@@ -31,7 +31,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheMvccCandidate;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxEnlistResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
@@ -43,15 +43,16 @@ import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.CREATE;
 import static org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode.DUPLICATE_KEY;
 
 /**
- * Cache lock future.
+ * Future processing transaction enlisting and locking of entries
+ * produces by complex DML queries with reduce step.
  */
-public class GridDhtTxEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNearTxEnlistResponse> {
+public class GridDhtTxQueryResultsEnlistFuture
+    extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryResultsEnlistResponse> {
     /** */
     private Collection<IgniteBiTuple> rows;
 
@@ -72,7 +73,7 @@ public class GridDhtTxEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNea
      * @param rows Collection of rows.
      * @param op Cache operation.
      */
-    public GridDhtTxEnlistFuture(UUID nearNodeId,
+    public GridDhtTxQueryResultsEnlistFuture(UUID nearNodeId,
         GridCacheVersion nearLockVer,
         AffinityTopologyVersion topVer,
         MvccSnapshot mvccSnapshot,
@@ -167,16 +168,15 @@ public class GridDhtTxEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNea
      *
      * @param entry Entry.
      * @param row Row.
-     * @return MVCC candidate.
-     * @throws GridCacheEntryRemovedException
-     * @throws GridDistributedLockCancelledException
-     * @throws IgniteCheckedException
+     * @throws GridCacheEntryRemovedException If entry was removed.
+     * @throws GridDistributedLockCancelledException If lock is canceled.
+     * @throws IgniteCheckedException If failed.
      */
-    @Nullable private GridCacheMvccCandidate addEntry(GridDhtCacheEntry entry, Object row)
+    private void addEntry(GridDhtCacheEntry entry, Object row)
         throws GridCacheEntryRemovedException, GridDistributedLockCancelledException, IgniteCheckedException {
         // Check if the future is timed out.
         if (isCancelled())
-            return null;
+            return;
 
         assert !entry.detached();
 
@@ -260,7 +260,7 @@ public class GridDhtTxEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNea
 
             onDone(new GridCacheLockTimeoutException(lockVer));
 
-            return null;
+            return;
         }
 
         synchronized (this) {
@@ -271,26 +271,21 @@ public class GridDhtTxEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNea
         }
 
         // Double check if the future has already timed out.
-        if (isCancelled()) {
+        if (isCancelled())
             entry.removeLock(lockVer);
-
-            return null;
-        }
-
-        return c;
     }
 
     /**
      * @param err Error.
      * @return Prepare response.
      */
-    @NotNull @Override public GridNearTxEnlistResponse createResponse(@NotNull Throwable err) {
-        return new GridNearTxEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, 0, err);
+    @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse(@NotNull Throwable err) {
+        return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, 0, err);
     }
 
     /** */
-    @NotNull @Override public GridNearTxEnlistResponse createResponse(long res) {
-        return new GridNearTxEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, res, null);
+    @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse(long res) {
+        return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, res, null);
     }
 
     /** {@inheritDoc} */
@@ -301,7 +296,7 @@ public class GridDhtTxEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNea
         if (o == null || getClass() != o.getClass())
             return false;
 
-        GridDhtTxEnlistFuture future = (GridDhtTxEnlistFuture)o;
+        GridDhtTxQueryResultsEnlistFuture future = (GridDhtTxQueryResultsEnlistFuture)o;
 
         return Objects.equals(futId, future.futId);
     }
@@ -319,7 +314,7 @@ public class GridDhtTxEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNea
             pending = new HashSet<>(pendingLocks);
         }
 
-        return S.toString(GridDhtTxEnlistFuture.class, this,
+        return S.toString(GridDhtTxQueryResultsEnlistFuture.class, this,
             "pendingLocks", pending,
             "super", super.toString());
     }

@@ -55,7 +55,7 @@ import static org.apache.ignite.internal.processors.cache.GridCacheOperation.UPD
 /**
  * Cache lock future.
  */
-public final class GridDhtTxQueryEnlistFuture extends GridDhtTxEnlistAbstractFuture<GridNearTxQueryEnlistResponse>  {
+public final class GridDhtTxQueryEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryEnlistResponse> {
 
     /** Involved cache ids. */
     private final int[] cacheIds;

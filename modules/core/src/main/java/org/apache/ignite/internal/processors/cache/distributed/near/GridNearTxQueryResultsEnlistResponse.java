@@ -31,9 +31,9 @@ import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * A response to {@link GridNearTxQueryResultsEnlistRequest}.
  */
-public class GridNearTxEnlistResponse extends GridCacheIdMessage {
+public class GridNearTxQueryResultsEnlistResponse extends GridCacheIdMessage {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -62,7 +62,7 @@ public class GridNearTxEnlistResponse extends GridCacheIdMessage {
     /**
      * Default-constructor.
      */
-    public GridNearTxEnlistResponse() {
+    public GridNearTxQueryResultsEnlistResponse() {
         // No-op.
     }
 
@@ -74,7 +74,7 @@ public class GridNearTxEnlistResponse extends GridCacheIdMessage {
      * @param res Result.
      * @param err Error.
      */
-    public GridNearTxEnlistResponse(int cacheId, IgniteUuid futId, int miniId, GridCacheVersion lockVer,
+    public GridNearTxQueryResultsEnlistResponse(int cacheId, IgniteUuid futId, int miniId, GridCacheVersion lockVer,
         long res,Throwable err) {
         this.cacheId = cacheId;
         this.futId = futId;
@@ -265,7 +265,7 @@ public class GridNearTxEnlistResponse extends GridCacheIdMessage {
 
         }
 
-        return reader.afterMessageRead(GridNearTxEnlistResponse.class);
+        return reader.afterMessageRead(GridNearTxQueryResultsEnlistResponse.class);
     }
 
     /** {@inheritDoc} */
@@ -285,6 +285,6 @@ public class GridNearTxEnlistResponse extends GridCacheIdMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(GridNearTxEnlistResponse.class, this);
+        return S.toString(GridNearTxQueryResultsEnlistResponse.class, this);
     }
 }

@@ -42,23 +42,14 @@ import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 
 /**
- *
+ * Request to enlist into transaction and acquire locks for entries produced
+ * with complex DML queries with reducer step.
+ * 
+ * One request per batch of entries is used.
  */
-public class GridNearTxEnlistRequest extends GridCacheIdMessage {
+public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
     /** */
     private static final long serialVersionUID = 0L;
-
-    /** */
-    private static final byte MERGE = 0;
-
-    /** */
-    private static final byte INSERT = 1;
-
-    /** */
-    private static final byte UPDATE = 2;
-
-    /** */
-    private static final byte DELETE = 3;
 
     /** */
     private long threadId;
@@ -111,24 +102,24 @@ public class GridNearTxEnlistRequest extends GridCacheIdMessage {
     /**
      * Default constructor.
      */
-    public GridNearTxEnlistRequest() {
+    public GridNearTxQueryResultsEnlistRequest() {
         // No-op.
     }
 
     /**
      *
-     * @param cacheId
-     * @param threadId
-     * @param futId
-     * @param miniId
-     * @param subjId
-     * @param topVer
-     * @param lockVer
-     * @param mvccSnapshot
-     * @param clientFirst
-     * @param timeout
+     * @param cacheId Cache id.
+     * @param threadId Thread id.
+     * @param futId Future id.
+     * @param miniId Mini-future id.
+     * @param subjId Transaction subject id.
+     * @param topVer Topology version.
+     * @param lockVer Lock version.
+     * @param mvccSnapshot Mvcc snapshot.
+     * @param clientFirst First client request flag.
+     * @param timeout Timeout.
      */
-    public GridNearTxEnlistRequest(int cacheId,
+    GridNearTxQueryResultsEnlistRequest(int cacheId,
         long threadId,
         IgniteUuid futId,
         int miniId,
@@ -229,22 +220,14 @@ public class GridNearTxEnlistRequest extends GridCacheIdMessage {
     }
 
     /**
-     * @return
-     */
-    public byte mode() {
-        return mode;
-    }
-
-    /**
-     * @return
+     * @return Collection of rows.
      */
     public Collection<IgniteBiTuple> rows() {
         return rows;
     }
 
     /**
-     *
-     * @return
+     * @return Cache operation.
      */
     public GridCacheOperation operation() {
         return op;
@@ -532,7 +515,7 @@ public class GridNearTxEnlistRequest extends GridCacheIdMessage {
 
         }
 
-        return reader.afterMessageRead(GridNearTxEnlistRequest.class);
+        return reader.afterMessageRead(GridNearTxQueryResultsEnlistRequest.class);
     }
 
     /** {@inheritDoc} */
@@ -552,6 +535,6 @@ public class GridNearTxEnlistRequest extends GridCacheIdMessage {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(GridNearTxEnlistRequest.class, this);
+        return S.toString(GridNearTxQueryResultsEnlistRequest.class, this);
     }
 }
