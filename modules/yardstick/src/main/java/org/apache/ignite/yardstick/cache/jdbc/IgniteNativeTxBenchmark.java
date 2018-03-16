@@ -86,7 +86,9 @@ public class IgniteNativeTxBenchmark extends IgniteAbstractBenchmark {
 
         clearCaches();
 
-        int proc = Math.max(Runtime.getRuntime().availableProcessors() / 2, 1);
+//        int proc = Math.max(Runtime.getRuntime().availableProcessors() / 2, 1);
+        int proc = 1;
+
 
         fillTables(proc);
     }
