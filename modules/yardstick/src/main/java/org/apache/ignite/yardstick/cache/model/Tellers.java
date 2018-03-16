@@ -18,6 +18,7 @@
 package org.apache.ignite.yardstick.cache.model;
 
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Entity class for benchmark.
@@ -59,9 +60,9 @@ public class Tellers {
 
         this.val2 = val;
 
-        this.s1 = Long.toBinaryString(val).substring(0, 16);
+        this.s1 = U.hexLong(val);
 
-        this.s2 = Long.toBinaryString(val).substring(0, 16).replace("0", "a");
+        this.s2 = U.hexLong(0L - val);
     }
 
     /**
