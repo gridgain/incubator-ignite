@@ -17,15 +17,24 @@
 
 package org.apache.ignite.internal.processors.cache.mvcc;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
@@ -45,6 +54,11 @@ import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
+import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestQuery;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTx;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTxAndQuery;
@@ -58,21 +72,30 @@ import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccSnapshotResponse
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccTxSnapshotRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccWaitTxsRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog;
+import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.DatabaseLifecycleListener;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.GridAtomicLong;
 import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
+import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.lang.GridCursor;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgniteInClosure;
+import org.apache.ignite.lang.IgniteReducer;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.discovery.DiscoveryDataBag;
+import org.apache.ignite.thread.IgniteThread;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.events.EventType.EVT_CLIENT_NODE_DISCONNECTED;
@@ -83,8 +106,12 @@ import static org.apache.ignite.events.EventType.EVT_NODE_SEGMENTED;
 import static org.apache.ignite.internal.GridTopic.TOPIC_CACHE_COORDINATOR;
 import static org.apache.ignite.internal.events.DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.EVICTED;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.OWNING;
+import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.RENTING;
 import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LOG_CACHE_ID;
 import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LOG_CACHE_NAME;
+import static org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter.RowData.KEY_ONLY;
 
 /**
  * MVCC processor.
@@ -136,11 +163,33 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     /** */
     private MvccDiscoveryData discoData = new MvccDiscoveryData(null);
 
+    /** */
+    private TxLog txLog;
+
+    /** */
+    private ScheduledExecutorService vacuumScheduledExecutor;
+
+    /** */
+    private VacuumScheduler vacuumScheduler;
+
+    /** */
+    private final BlockingQueue<VacuumTask> cleanupQueue = new LinkedBlockingQueue<>();
+
+    /** */
+    private List<VacuumWorker> vacuumWorkers;
+
+    /** Flag whether vacuum is stopped. */
+    private volatile boolean vacuumStopped;
+
+    /** */
+    private final Semaphore vacuumSemaphore = new Semaphore(1);
+
     /** For tests only. */
     private static IgniteClosure<Collection<ClusterNode>, ClusterNode> crdC;
 
-    /** */
-    private TxLog txLog;
+    /** For tests only. */
+    private volatile Throwable vacuumError;
+
 
     /**
      * @param ctx Context.
@@ -149,6 +198,57 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         super(ctx);
 
         ctx.internalSubscriptionProcessor().registerDatabaseListener(this);
+
+        if (!ctx.clientNode()) {
+            vacuumScheduledExecutor = Executors.newSingleThreadScheduledExecutor(
+                new ThreadFactory() {
+                    @Override public Thread newThread(Runnable r) {
+                        Thread thread = new Thread(r, "vacuum-scheduler-node-" + ctx.grid().localNode().order());
+
+                        thread.setDaemon(true);
+
+                        return thread;
+                    }
+                });
+
+            vacuumScheduler = new VacuumScheduler();
+
+            vacuumWorkers = new ArrayList<>(ctx.config().getMvccVacuumThreadCnt());
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onKernalStart(boolean active) throws IgniteCheckedException {
+        super.onKernalStart(active);
+
+        if (!ctx.clientNode()) {
+            vacuumStopped = false;
+
+            for (int i = 0; i < ctx.config().getMvccVacuumThreadCnt(); i++) {
+                VacuumWorker vacuumWorker = new VacuumWorker();
+
+                vacuumWorkers.add(vacuumWorker);
+
+                new IgniteThread(vacuumWorker).start();
+            }
+
+            int interval = ctx.config().getMvccVacuumTimeInterval();
+
+            vacuumScheduledExecutor.scheduleWithFixedDelay(vacuumScheduler, interval, interval, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onKernalStop(boolean cancel) {
+        super.onKernalStop(cancel);
+
+        if (!ctx.clientNode()) {
+            vacuumStopped = true;
+
+            U.cancel(vacuumScheduler);
+            U.cancel(vacuumWorkers);
+            U.shutdownNow(MvccProcessor.class, vacuumScheduledExecutor, log);
+        }
     }
 
     /** {@inheritDoc} */
@@ -842,7 +942,22 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
             else
                 qryCnt.incrementAndGet();
 
-            res.init(futId, crdVer, mvccCntr, MVCC_COUNTER_NA);
+            long cleanupVer;
+
+            if (prevCrdQueries.previousQueriesDone()) {
+                cleanupVer = Math.min(trackCntr, committedCntr.get());
+
+                cleanupVer--;
+
+                Long qryVer = minimalQueryCounter();
+
+                if (qryVer != null && qryVer <= cleanupVer)
+                    cleanupVer = qryVer - 1;
+            }
+            else
+                cleanupVer = -1;
+
+            res.init(futId, crdVer, mvccCntr, cleanupVer);
 
             return res;
         }
@@ -1193,6 +1308,87 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     }
 
     /**
+     * Runs vacuum process.
+     *
+     * @return {@code Future} with {@link MvccVacuumMetrics}.
+     * @throws IgniteCheckedException If failed.
+     * @throws InterruptedException If failed.
+     */
+    public IgniteInternalFuture<MvccVacuumMetrics> runVacuum() throws IgniteCheckedException, InterruptedException {
+        if (vacuumStopped)
+            return new GridFinishedFuture<>(new MvccVacuumMetrics());
+
+        GridCompoundFuture<MvccVacuumMetrics, MvccVacuumMetrics> compoundFut =
+            new GridCompoundFuture<>(new VacuumMetricsReducer());
+
+        vacuumSemaphore.acquire();
+
+        compoundFut.listen(new IgniteInClosure<IgniteInternalFuture<MvccVacuumMetrics>>() {
+            @Override public void apply(IgniteInternalFuture<MvccVacuumMetrics> fut) {
+                vacuumSemaphore.release();
+
+                try {
+                    MvccVacuumMetrics metrics = fut.get();
+
+                    if (log.isInfoEnabled())
+                        log.info("Vacuum completed. " + metrics);
+                }
+                catch (IgniteCheckedException e) {
+                    log.error("Vacuum error. ", e);
+                }
+            }
+        });
+
+        try {
+            IgniteInternalFuture<MvccSnapshot> cntrFut = requestQuerySnapshot(curCrd);
+
+            MvccSnapshot snapshot = cntrFut.get();
+
+            ackQueryDone(curCrd, snapshot);
+
+            if (log.isInfoEnabled())
+                log.info("Started vacuum with cleanup version=" + snapshot.cleanupVersion() + '.');
+
+            for (CacheGroupContext grp : ctx.cache().cacheGroups()) {
+                if (vacuumStopped)
+                    break;
+
+                if (!grp.userCache() || !grp.mvccEnabled())
+                    continue;
+
+                List<GridDhtLocalPartition> parts = grp.topology().localPartitions();
+
+                if (parts.isEmpty())
+                    continue;
+
+                for (int i = 0; i < parts.size(); i++) {
+                    if (vacuumStopped)
+                        break;
+
+                    GridDhtLocalPartition part = parts.get(i);
+
+                    GridFutureAdapter<MvccVacuumMetrics> fut = new GridFutureAdapter<>();
+
+                    compoundFut.add(fut);
+
+                    VacuumTask task = new VacuumTask(snapshot.cleanupVersion(), part, fut);
+
+                    cleanupQueue.put(task);
+                }
+            }
+
+            compoundFut.markInitialized();
+
+            return compoundFut;
+        }
+        catch (Throwable e) {
+            compoundFut.onDone(e);
+
+            throw e;
+        }
+    }
+
+    /**
      *
      */
     private class MvccSnapshotFuture extends GridFutureAdapter<MvccSnapshot> implements MvccFuture {
@@ -1409,6 +1605,282 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
          */
         WaitTxFuture(long txId) {
             this.txId = txId;
+        }
+    }
+
+    /**
+     * Mvcc garbage collection worker.
+     */
+    private class VacuumScheduler extends GridWorker {
+        /**
+         *
+         */
+        VacuumScheduler() {
+            super(ctx.igniteInstanceName(), "vacuum-scheduler", MvccProcessor.this.log);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void body() throws InterruptedException, IgniteInterruptedCheckedException {
+            if (isCancelled() || vacuumStopped)
+                return;
+
+            try {
+                if (log.isInfoEnabled())
+                    log.info("Vacuum started by scheduler.");
+
+                IgniteInternalFuture<MvccVacuumMetrics> res = runVacuum();
+
+                res.get();
+            }
+            catch (IgniteCheckedException e) {
+                log.error("Error occurred during scheduled vacuum process.", e);
+
+                vacuumError = e;
+            }
+            catch (Throwable e) {
+                vacuumError = e;
+
+                throw e;
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public void cancel() {
+            super.cancel();
+
+            vacuumStopped = true;
+        }
+    }
+
+    /** */
+    private static int workerCntr;
+
+    /**
+     *
+     */
+    private class VacuumWorker extends GridWorker {
+        /**
+         *
+         */
+        private VacuumWorker() {
+            super(ctx.igniteInstanceName(), "vacuum-cleaner-cache-id=" + workerCntr++, MvccProcessor.this.log);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void body() throws InterruptedException, IgniteInterruptedCheckedException {
+            while (!isCancelled() && !vacuumStopped) {
+                VacuumTask task = cleanupQueue.take();
+
+                long cleanupVer = task.cleanupVer();
+                GridDhtLocalPartition part = task.part();
+                GridFutureAdapter<MvccVacuumMetrics> fut = task.future();
+
+                try {
+                    MvccVacuumMetrics metrics = processPartition(part, cleanupVer);
+
+                    fut.onDone(metrics);
+                }
+                catch (IgniteCheckedException e) {
+                    vacuumError = e;
+
+                    log.error("Error occurred during vacuum cleanup [partition=" + part + ", cleanupVer=" +
+                        cleanupVer + ']', e);
+
+                    fut.onDone(e);
+                }
+                catch (Throwable e) {
+                    vacuumError = e;
+
+                    fut.onDone(e);
+
+                    throw e;
+                }
+            }
+        }
+
+        /**
+         * Process partition.
+         *
+         * @param part Partition.
+         * @param cleanupVer Cleanup version.
+         * @return Number of cleaned rows.
+         * @throws IgniteCheckedException If failed.
+         */
+        private MvccVacuumMetrics processPartition(GridDhtLocalPartition part, long cleanupVer) throws IgniteCheckedException {
+            long startNanoTime = System.nanoTime();
+
+            boolean reserved = false;
+
+            if (part != null && part.state() != EVICTED)
+                reserved = (part.state() == OWNING || part.state() == RENTING) && part.reserve();
+
+            if (!reserved)
+                return null;
+
+            try {
+                GridCursor<? extends CacheDataRow> cursor = part.dataStore().cursor(KEY_ONLY);
+
+                KeyCacheObject prevKey = null;
+                MvccDataRow row = null;
+                List<MvccLinkAwareSearchRow> cleanupRows = new ArrayList<>();
+                MvccVacuumMetrics metrics = new MvccVacuumMetrics();
+
+                while (cursor.next() && !vacuumStopped) {
+                    row = (MvccDataRow)cursor.get();
+
+                    // Cleanup if key changed.
+                    if (prevKey == null || !prevKey.equals(row.key()))
+                        runCleanup(part, cleanupRows, metrics);
+
+                    long newCrd = row.newMvccCoordinatorVersion();
+                    long newCntr = row.newMvccCounter();
+                    long curCrdVer = curCrd.coordinatorVersion();
+
+                    if (newCrd != 0 && (newCrd < curCrdVer || (newCrd == curCrdVer && newCntr <= cleanupVer)))
+                        cleanupRows.add(new MvccLinkAwareSearchRow(row.cacheId(), row.key(), row.mvccCoordinatorVersion(),
+                            row.mvccCounter(), row.link()));
+
+                    metrics.addScannedRowsCount(1);
+
+                    if (part.state() == RENTING)
+                        break;
+                }
+
+                // Cleanup the rest.
+                runCleanup(part, cleanupRows, metrics);
+
+                metrics.addSearchNanoTime(System.nanoTime() - startNanoTime - metrics.cleanupNanoTime());
+
+                return metrics;
+            }
+            finally {
+                part.release();
+            }
+        }
+
+        /**
+         * Runs cleanup.
+         *
+         * @param part Partition.
+         * @param cleanupRows Rows to cleanup.
+         * @param metrics Metrics object.
+         * @throws IgniteCheckedException If failed.
+         */
+        private void runCleanup(GridDhtLocalPartition part, List<MvccLinkAwareSearchRow> cleanupRows,
+            MvccVacuumMetrics metrics) throws IgniteCheckedException {
+            if (!cleanupRows.isEmpty()) {
+
+                MvccLinkAwareSearchRow row = cleanupRows.get(0);
+
+                int cacheId = row.cacheId() == 0 ? part.group().groupId() : row.cacheId();
+
+                GridCacheContext cctx = ctx.cache().context().cacheContext(cacheId);
+
+                assert cctx != null;
+
+                GridCacheEntryEx entry = cctx.cache().entryEx(row.key());
+
+                entry.lockEntry();
+
+                try {
+                    cctx.shared().database().checkpointReadLock();
+
+                    try {
+                        long cleanupStartNanoTime = System.nanoTime();
+
+                        part.dataStore().cleanup(cctx, cleanupRows);
+
+                        metrics.addCleanupNanoTime(System.nanoTime() - cleanupStartNanoTime);
+                        metrics.addCleanupRowsCnt(cleanupRows.size());
+
+                        cleanupRows.clear();
+                    }
+                    finally {
+                        cctx.shared().database().checkpointReadUnlock();
+                    }
+                }
+                finally {
+                    entry.unlockEntry();
+                }
+            }
+        }
+    }
+
+    /**
+     *
+     */
+    private static class VacuumTask {
+        /** */
+        private final long cleanupVer;
+
+        /** */
+        private final GridDhtLocalPartition part;
+
+        /** */
+        private final GridFutureAdapter<MvccVacuumMetrics> fut;
+
+        /**
+         * @param cleanupVer Cleanup version.
+         * @param part Partition to cleanup.
+         * @param fut Vacuum future.
+         */
+        VacuumTask(long cleanupVer,
+            GridDhtLocalPartition part,
+            GridFutureAdapter<MvccVacuumMetrics> fut) {
+            this.cleanupVer = cleanupVer;
+            this.part = part;
+            this.fut = fut;
+        }
+
+        /**
+         * @return Cleanup version.
+         */
+        public long cleanupVer() {
+            return cleanupVer;
+        }
+
+        /**
+         * @return Partition to cleanup.
+         */
+        public GridDhtLocalPartition part() {
+            return part;
+        }
+
+        /**
+         * @return Vacuum future.
+         */
+        public GridFutureAdapter<MvccVacuumMetrics> future() {
+            return fut;
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return S.toString(VacuumTask.class, this);
+        }
+    }
+
+    /**
+     *
+     */
+    private static class VacuumMetricsReducer implements IgniteReducer<MvccVacuumMetrics, MvccVacuumMetrics> {
+        /** */
+        private final MvccVacuumMetrics m = new MvccVacuumMetrics();
+
+        /** {@inheritDoc} */
+        @Override public boolean collect(@Nullable MvccVacuumMetrics metrics) {
+            assert metrics != null;
+
+            m.addCleanupRowsCnt(metrics.cleanupRowsCount());
+            m.addScannedRowsCount(metrics.scannedRowsCount());
+            m.addSearchNanoTime(metrics.searchNanoTime());
+            m.addCleanupNanoTime(metrics.cleanupNanoTime());
+
+            return true;
+        }
+
+        /** {@inheritDoc} */
+        @Override public MvccVacuumMetrics reduce() {
+            return m;
         }
     }
 }

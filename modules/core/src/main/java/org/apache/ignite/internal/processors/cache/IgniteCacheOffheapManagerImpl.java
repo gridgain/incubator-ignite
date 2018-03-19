@@ -1731,8 +1731,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     if (cctx.queries().enabled())
                         cctx.queries().remove(key, row);
 
-                    if (first)
-                        clearPendingEntries(cctx, row);
+                    clearPendingEntries(cctx, row);
                 }
 
                 rowStore.removeRow(row.link());
@@ -1749,13 +1748,10 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         /**
          * @param cctx Cache context.
          * @param cleanupRows Rows to cleanup.
-         * @return Removed row link of {@code 0} if not found.
          * @throws IgniteCheckedException If failed.
          */
-        private long cleanup(GridCacheContext cctx, @Nullable List<MvccLinkAwareSearchRow> cleanupRows)
+        @Override public void cleanup(GridCacheContext cctx, @Nullable List<MvccLinkAwareSearchRow> cleanupRows)
             throws IgniteCheckedException {
-            long rmvRowLink = 0;
-
             if (cleanupRows != null) {
                 GridCacheQueryManager qryMgr = cctx.queries();
 
@@ -1764,24 +1760,20 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                     assert cleanupRow.link() != 0 : cleanupRow;
 
-                    if (qryMgr.enabled()) {
-                        CacheDataRow oldRow = dataTree.remove(cleanupRow);
+                    CacheDataRow oldRow = dataTree.remove(cleanupRow);
 
-                        assert oldRow != null : cleanupRow;
+                    if (oldRow != null) { // oldRow == null means it was cleaned by another cleanup process.
+                        assert oldRow.mvccCounter() == cleanupRow.mvccCounter();
 
-                        qryMgr.remove(oldRow.key(), oldRow);
+                        if (qryMgr.enabled())
+                            qryMgr.remove(oldRow.key(), oldRow);
+
+                        clearPendingEntries(cctx, oldRow);
+
+                        rowStore.removeRow(cleanupRow.link());
                     }
-                    else {
-                        boolean rmvd = dataTree.removex(cleanupRow);
-
-                        assert rmvd;
-                    }
-
-                    rowStore.removeRow(cleanupRow.link());
                 }
             }
-
-            return rmvRowLink;
         }
 
         /** {@inheritDoc} */
@@ -2082,6 +2074,11 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         /** {@inheritDoc} */
         @Override public GridCursor<? extends CacheDataRow> cursor() throws IgniteCheckedException {
             return dataTree.find(null, null);
+        }
+
+        /** {@inheritDoc} */
+        @Override public GridCursor<? extends CacheDataRow> cursor(Object x) throws IgniteCheckedException {
+            return dataTree.find(null, null, x);
         }
 
         /** {@inheritDoc} */

@@ -108,7 +108,6 @@ import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
  * TODO IGNITE-6739: tests reload
  * TODO IGNITE-6739: extend tests to use single/mutiple nodes, all tx types.
  * TODO IGNITE-6739: test with cache groups.
- * TODO IGNITE-6739: add check for cleanup in all test (at the and do update for all keys, check there are 2 versions left).
  */
 @SuppressWarnings("unchecked")
 public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
@@ -2143,7 +2142,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
                                 tx.commit();
                             }
 
-                            if (key > 1_000_000)
+                            if (key > 100_000)
                                 break;
                         }
                         finally {
@@ -4211,6 +4210,8 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
         cache.remove(key);
 
         cctx.offheap().mvccRemoveAll((GridCacheMapEntry)cctx.cache().entryEx(key));
+
+        crd.ackQueryDone(crd.currentCoordinator(), fut.get());
     }
 
     /**
