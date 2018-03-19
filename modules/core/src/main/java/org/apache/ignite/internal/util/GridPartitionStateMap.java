@@ -52,41 +52,47 @@ public class GridPartitionStateMap extends AbstractMap<Integer, GridDhtPartition
     @Override public Set<Entry<Integer, GridDhtPartitionState>> entrySet() {
         return new AbstractSet<Entry<Integer, GridDhtPartitionState>>() {
             @Override public Iterator<Entry<Integer, GridDhtPartitionState>> iterator() {
-                final int size = states.isEmpty() ? 0 : (states.length() - 1)/ BITS + 1;
-
                 return new Iterator<Entry<Integer, GridDhtPartitionState>>() {
-                    private int next;
+                    private int idx;
                     private int cur;
 
                     @Override public boolean hasNext() {
-                        while(state(next) == null && next < size)
-                            next++;
+                        idx = states.nextSetBit(idx);
 
-                        return next < size;
+                        return idx != -1;
                     }
 
                     @Override public Entry<Integer, GridDhtPartitionState> next() {
                         if (!hasNext())
                             throw new NoSuchElementException();
 
-                        cur = next;
-                        next++;
+                        cur = idx / BITS;
+                        int bitN = idx % BITS;
 
-                        return new Entry<Integer, GridDhtPartitionState>() {
-                            int p = cur;
+                        Entry<Integer, GridDhtPartitionState> entry = new Entry<Integer, GridDhtPartitionState>() {
+                            int firstIdx = idx;
 
                             @Override public Integer getKey() {
-                                return p;
+                                return cur;
                             }
 
                             @Override public GridDhtPartitionState getValue() {
-                                return state(p);
+                                int st = 1 << bitN;
+
+                                for (int i = bitN + 1; i < BITS - bitN; i++)
+                                    st |= ((states.get(firstIdx + i) ? 1 : 0) << i);
+
+                                return GridDhtPartitionState.fromOrdinal(st - 1);
                             }
 
                             @Override public GridDhtPartitionState setValue(GridDhtPartitionState val) {
-                                return setState(p, val);
+                                return setState(cur, val);
                             }
                         };
+
+                        idx += (BITS - bitN);
+
+                        return entry;
                     }
 
                     @Override public void remove() {
