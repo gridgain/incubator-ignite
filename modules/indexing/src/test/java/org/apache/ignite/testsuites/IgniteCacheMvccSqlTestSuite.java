@@ -18,25 +18,29 @@
 package org.apache.ignite.testsuites;
 
 import junit.framework.TestSuite;
-import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccClusterRestartTest;
-import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccConfigurationValidationTest;
-import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccOperationChecksTest;
-import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccTransactionsTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccIteratorTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccLocalEntriesTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccScanQueryTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSizeTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSqlQueriesTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSqlTxQueriesTest;
 
 /**
  *
  */
-public class IgniteCacheMvccTestSuite extends TestSuite {
+public class IgniteCacheMvccSqlTestSuite extends TestSuite {
     /**
      * @return Test suite.
      */
     public static TestSuite suite() {
-        TestSuite suite = new TestSuite("IgniteCache MVCC Test Suite");
+        TestSuite suite = new TestSuite("IgniteCache SQL MVCC Test Suite");
 
-        suite.addTestSuite(CacheMvccTransactionsTest.class);
-        suite.addTestSuite(CacheMvccClusterRestartTest.class);
-        suite.addTestSuite(CacheMvccConfigurationValidationTest.class);
-        suite.addTestSuite(CacheMvccOperationChecksTest.class);
+        suite.addTestSuite(CacheMvccSizeTest.class);
+        suite.addTestSuite(CacheMvccScanQueryTest.class);
+        suite.addTestSuite(CacheMvccLocalEntriesTest.class);
+        suite.addTestSuite(CacheMvccIteratorTest.class);
+        suite.addTestSuite(CacheMvccSqlQueriesTest.class);
+        suite.addTestSuite(CacheMvccSqlTxQueriesTest.class);
 
         return suite;
     }
