@@ -20,7 +20,11 @@ package org.apache.ignite.testsuites;
 import junit.framework.TestSuite;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccClusterRestartTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccConfigurationValidationTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccIteratorWithConcurrentTransactionTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccLocalEntriesWithConcurrentTransactionTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccOperationChecksTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccScanQueryWithConcurrentTransactionTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSizeWithConcurrentTransactionTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccTransactionsTest;
 
 /**
@@ -37,6 +41,10 @@ public class IgniteCacheMvccTestSuite extends TestSuite {
         suite.addTestSuite(CacheMvccClusterRestartTest.class);
         suite.addTestSuite(CacheMvccConfigurationValidationTest.class);
         suite.addTestSuite(CacheMvccOperationChecksTest.class);
+        suite.addTestSuite(CacheMvccIteratorWithConcurrentTransactionTest.class);
+        suite.addTestSuite(CacheMvccLocalEntriesWithConcurrentTransactionTest.class);
+        suite.addTestSuite(CacheMvccScanQueryWithConcurrentTransactionTest.class);
+        suite.addTestSuite(CacheMvccSizeWithConcurrentTransactionTest.class);
 
         return suite;
     }

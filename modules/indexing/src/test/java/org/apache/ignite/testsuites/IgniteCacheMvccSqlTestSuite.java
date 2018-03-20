@@ -18,10 +18,10 @@
 package org.apache.ignite.testsuites;
 
 import junit.framework.TestSuite;
-import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccIteratorTest;
-import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccLocalEntriesTest;
-import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccScanQueryTest;
-import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSizeTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccIteratorWithConcurrentJdbcTransactionTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccLocalEntriesWithConcurrentJdbcTransactionTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccScanQueryWithConcurrentJdbcTransactionTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSizeWithConcurrentJdbcTransactionTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSqlQueriesTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSqlTxQueriesTest;
 
@@ -35,10 +35,10 @@ public class IgniteCacheMvccSqlTestSuite extends TestSuite {
     public static TestSuite suite() {
         TestSuite suite = new TestSuite("IgniteCache SQL MVCC Test Suite");
 
-        suite.addTestSuite(CacheMvccSizeTest.class);
-        suite.addTestSuite(CacheMvccScanQueryTest.class);
-        suite.addTestSuite(CacheMvccLocalEntriesTest.class);
-        suite.addTestSuite(CacheMvccIteratorTest.class);
+        suite.addTestSuite(CacheMvccSizeWithConcurrentJdbcTransactionTest.class);
+        suite.addTestSuite(CacheMvccScanQueryWithConcurrentJdbcTransactionTest.class);
+        suite.addTestSuite(CacheMvccLocalEntriesWithConcurrentJdbcTransactionTest.class);
+        suite.addTestSuite(CacheMvccIteratorWithConcurrentJdbcTransactionTest.class);
         suite.addTestSuite(CacheMvccSqlQueriesTest.class);
         suite.addTestSuite(CacheMvccSqlTxQueriesTest.class);
 

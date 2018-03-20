@@ -91,16 +91,6 @@ public abstract class CacheMvccAbstractFeatureTest extends CacheMvccAbstractTest
      * @throws Exception if failed.
      */
     void doTestConsistency(IgniteClosure2X<CountDownLatch, CountDownLatch, ?> clo) throws Exception {
-        doTestConsistency(clo, false);
-
-        doTestConsistency(clo, true);
-    }
-
-    /**
-     * @param clo Closure to check consistency upon.
-     * @throws Exception if failed.
-     */
-    void doTestConsistency(IgniteClosure2X<CountDownLatch, CountDownLatch, ?> clo, boolean jdbcTx) throws Exception {
         ExecutorService svc = Executors.newFixedThreadPool(2);
 
         CountDownLatch startLatch = new CountDownLatch(1);
@@ -131,7 +121,7 @@ public abstract class CacheMvccAbstractFeatureTest extends CacheMvccAbstractTest
                     }
 
                     try {
-                        modifyData(jdbcTx);
+                        modifyData(jdbcTx());
                     }
                     catch (SQLException e) {
                         throw new IgniteException(e);
@@ -148,6 +138,13 @@ public abstract class CacheMvccAbstractFeatureTest extends CacheMvccAbstractTest
         finally {
             svc.shutdown();
         }
+    }
+
+    /**
+     * @return Whether native or SQL transactions must be used.
+     */
+    boolean jdbcTx() {
+        return false;
     }
 
     /**

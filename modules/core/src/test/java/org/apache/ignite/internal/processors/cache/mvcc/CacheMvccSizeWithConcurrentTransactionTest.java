@@ -17,49 +17,36 @@
 
 package org.apache.ignite.internal.processors.cache.mvcc;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import javax.cache.Cache;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.internal.util.lang.IgniteClosure2X;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  *
  */
-public class CacheMvccLocalEntriesTest extends CacheMvccAbstractFeatureTest {
+public class CacheMvccSizeWithConcurrentTransactionTest extends CacheMvccAbstractFeatureTest {
     /**
      * @throws Exception if failed.
      */
-    public void testLocalEntries() throws Exception {
+    public void testSize() throws Exception {
         doTestConsistency(clo);
     }
 
     /** Test closure. */
-    private final IgniteClosure2X<CountDownLatch, CountDownLatch, List<Person>> clo =
-        new IgniteClosure2X<CountDownLatch, CountDownLatch, List<Person>>() {
-        @Override public List<Person> applyx(CountDownLatch startLatch, CountDownLatch endLatch2)
+    private final IgniteClosure2X<CountDownLatch, CountDownLatch, Integer> clo =
+        new IgniteClosure2X<CountDownLatch, CountDownLatch, Integer>() {
+        @Override public Integer applyx(CountDownLatch startLatch, CountDownLatch endLatch2)
             throws IgniteCheckedException {
-            Iterator<Cache.Entry<Integer, Person>> it = cache().localEntries(CachePeekMode.PRIMARY).iterator();
-
-            List<Cache.Entry<Integer, Person>> pres = new ArrayList<>();
-
-            for (int i = 0; i < 10; i++)
-                pres.add(it.next());
-
             if (startLatch != null)
                 startLatch.countDown();
 
-            while (it.hasNext())
-                pres.add(it.next());
+            int res = cache().size();
 
             if (endLatch2 != null)
                 U.await(endLatch2);
 
-            return entriesToPersons(pres);
+            return res;
         }
     };
 }
