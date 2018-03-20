@@ -31,7 +31,7 @@ export class FormField {
         else if (label) {
             this._selector = Selector(() => {
                 return Array
-                    .from(window.document.querySelectorAll(LABEL_CLASS))
+                    .from(window.document.querySelectorAll(this.constructor.LABEL_SELECTOR))
                     .filter((el) => el.textContent.contains(label))
                     .map((el) => el.parent(this.constructor.ROOT_SELECTOR))
                     .pop();
