@@ -54,7 +54,6 @@ import org.apache.ignite.internal.processors.cache.CacheOperationContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.QueryCursorImpl;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
@@ -522,6 +521,16 @@ public class DmlStatementsProcessor {
             MvccSnapshot mvccSnapshot = idx.requestMvccVersion(cctx, tx);
 
             try (GridNearTxLocal toCommit = commit ? tx : null) {
+                long timeout;
+
+                if (implicit)
+                    timeout = tx.remainingTime();
+                else {
+                    long tm1 = tx.remainingTime(), tm2 = fieldsQry.getTimeout();
+
+                    timeout = tm1 > 0 && tm2 > 0 ? Math.min(tm1, tm2) : Math.max(tm1, tm2);
+                }
+
                 if (distributedPlan == null || ((plan.mode() == UpdateMode.INSERT || plan.mode() == UpdateMode.MERGE) &&
                     !plan.isLocalSubquery())) {
                     SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(), fieldsQry.isCollocated())
@@ -530,7 +539,7 @@ public class DmlStatementsProcessor {
                         .setEnforceJoinOrder(fieldsQry.isEnforceJoinOrder())
                         .setLocal(fieldsQry.isLocal())
                         .setPageSize(fieldsQry.getPageSize())
-                        .setTimeout(fieldsQry.getTimeout(), TimeUnit.MILLISECONDS);
+                        .setTimeout((int)timeout, TimeUnit.MILLISECONDS);
 
                     MvccQueryTracker mvccQueryTracker = new MvccQueryTracker(cctx,
                         cctx.shared().coordinators().currentCoordinator(),
@@ -543,10 +552,8 @@ public class DmlStatementsProcessor {
 
                     TxDmlReducerIterator it = new TxDmlReducerIterator(plan, cur);
 
-                    GridNearTxQueryResultsEnlistFuture fut = new GridNearTxQueryResultsEnlistFuture(cctx, tx, mvccSnapshot,
-                        newFieldsQry.getTimeout(), plan.mode().ordinal(), it.operation(), it, fieldsQry.getPageSize());
-
-                    fut.init();
+                    IgniteInternalFuture<Long> fut = tx.updateAsync(cctx, mvccSnapshot, it.operation(), it,
+                        fieldsQry.getPageSize(), timeout);
 
                     UpdateResult res = new UpdateResult(fut.get(), X.EMPTY_OBJECT_ARRAY);
 
@@ -565,16 +572,6 @@ public class DmlStatementsProcessor {
 
                 if (distributedPlan.isReplicatedOnly())
                     flags |= GridH2QueryRequest.FLAG_REPLICATED;
-
-                long timeout;
-
-                if (implicit)
-                    timeout = tx.remainingTime();
-                else {
-                    long tm1 = tx.remainingTime(), tm2 = fieldsQry.getTimeout();
-
-                    timeout = tm1 > 0 && tm2 > 0 ? Math.min(tm1, tm2) : Math.max(tm1, tm2);
-                }
 
                 int[] parts = fieldsQry.getPartitions();
 

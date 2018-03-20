@@ -723,7 +723,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             req.timeout(),
             ctx);
 
-        fut.listen(new NearTxEnlistResultHandler<>(tx, nearNode, req.version()));
+        fut.listen(new NearTxQueryEnlistResultHandler<>(tx, nearNode, req.version()));
 
         fut.init();
     }
@@ -1976,7 +1976,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             req.rows(),
             req.operation());
 
-        fut.listen(new NearTxEnlistResultHandler<>(tx, nearNode, req.version()));
+        fut.listen(new NearTxQueryEnlistResultHandler<>(tx, nearNode, req.version()));
 
         fut.init();
     }
@@ -2126,7 +2126,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
      *
      * @param <Rsp>
      */
-    private class NearTxEnlistResultHandler<Rsp extends GridCacheIdMessage> implements CI1<IgniteInternalFuture<Rsp>> {
+    private class NearTxQueryEnlistResultHandler<Rsp extends GridCacheIdMessage>
+        implements CI1<IgniteInternalFuture<Rsp>> {
         /** */
         private GridDhtTxLocal tx;
 
@@ -2137,7 +2138,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
         private GridCacheVersion version;
 
         /** */
-        private NearTxEnlistResultHandler(GridDhtTxLocal tx, ClusterNode nearNode, GridCacheVersion version) {
+        private NearTxQueryEnlistResultHandler(GridDhtTxLocal tx, ClusterNode nearNode, GridCacheVersion version) {
             this.tx = tx;
             this.nearNode = nearNode;
             this.version = version;

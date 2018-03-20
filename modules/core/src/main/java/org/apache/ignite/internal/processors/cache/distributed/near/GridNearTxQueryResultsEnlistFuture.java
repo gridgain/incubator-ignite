@@ -98,9 +98,6 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
     /** */
     private long timeout;
 
-    /** Update mode. */
-    private final int mode;
-
     /** */
     private GridCacheOperation op;
 
@@ -135,16 +132,14 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
      * @param tx Transaction.
      * @param mvccSnapshot MVCC Snapshot.
      * @param timeout Timeout.
-     * @param mode Update mode.
      * @param op Cache operation.
      * @param it Rows iterator.
      * @param batchSize Batch size.
      */
-    public GridNearTxQueryResultsEnlistFuture(GridCacheContext<?, ?> cctx,
+    GridNearTxQueryResultsEnlistFuture(GridCacheContext<?, ?> cctx,
         GridNearTxLocal tx,
         MvccSnapshot mvccSnapshot,
         long timeout,
-        int mode,
         GridCacheOperation op,
         GridIterator<IgniteBiTuple> it,
         int batchSize) {
@@ -154,7 +149,6 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
         this.tx = tx;
         this.mvccSnapshot = mvccSnapshot;
         this.timeout = timeout;
-        this.mode = mode;
         this.op = op;
         this.it = it;
         this.batchSize = batchSize > 0 ? batchSize : DFLT_BATCH_SIZE;
@@ -464,7 +458,6 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
             false,
             timeout,
             tx.taskNameHash(),
-            (byte)mode,
             rows,
             op);
 
@@ -526,7 +519,6 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
             clientFirst,
             timeout,
             tx.taskNameHash(),
-            (byte)mode,
             batchFut.rows(),
             op);
 
