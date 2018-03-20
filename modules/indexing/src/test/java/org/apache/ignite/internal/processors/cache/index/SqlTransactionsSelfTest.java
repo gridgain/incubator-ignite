@@ -206,6 +206,10 @@ public class SqlTransactionsSelfTest extends AbstractSchemaSelfTest {
 
         checkCacheOperationThrows("put", 1, 1);
 
+        checkCacheOperationThrows("remove", 1);
+
+        checkCacheOperationThrows("remove", 1, 1);
+
         checkCacheOperationThrows("getAll", new HashSet<>(Arrays.asList(1, 2)));
 
         checkCacheOperationThrows("putAll", Collections.singletonMap(1, 1));
@@ -213,6 +217,10 @@ public class SqlTransactionsSelfTest extends AbstractSchemaSelfTest {
         checkCacheOperationThrows("getAllAsync", new HashSet<>(Arrays.asList(1, 2)));
 
         checkCacheOperationThrows("putAllAsync", Collections.singletonMap(1, 1));
+
+        checkCacheOperationThrows("removeAsync", 1);
+
+        checkCacheOperationThrows("removeAsync", 1, 1);
     }
 
     /**

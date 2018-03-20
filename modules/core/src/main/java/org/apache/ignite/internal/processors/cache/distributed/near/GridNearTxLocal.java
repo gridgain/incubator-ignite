@@ -1474,6 +1474,9 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
         cacheCtx.checkSecurity(SecurityPermission.CACHE_REMOVE);
 
+        if (sql)
+            return txTypeMismatchFinishFuture();
+
         if (retval)
             needReturnValue(true);
 
@@ -1711,7 +1714,8 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         try {
             beforePut(cacheCtx, false, true);
 
-            final IgniteInternalFuture<Long> fut = enlistQuery(cacheCtx, cacheIds, parts, schema, qry, params, flags, pageSize, timeout);
+            final IgniteInternalFuture<Long> fut = enlistQuery(cacheCtx, cacheIds, parts, schema, qry, params, flags,
+                pageSize, timeout);
 
             return nonInterruptable(new GridEmbeddedFuture<>(fut.chain(new CX1<IgniteInternalFuture<Long>, Boolean>() {
                 @Override public Boolean applyx(IgniteInternalFuture<Long> fut0) throws IgniteCheckedException {
@@ -1793,8 +1797,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             return new GridFinishedFuture<>(Collections.<K, V>emptyMap());
 
         if (sql)
-            return new GridFinishedFuture<>(new IgniteCheckedException("Cache operations are forbidden " +
-                "within SQL transactions."));
+            return txTypeMismatchFinishFuture();
 
         init();
 
@@ -2530,6 +2533,15 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             recovery,
             expiryPlc,
             c);
+    }
+
+    /**
+     * @param <T>
+     * @return
+     */
+    private static <T> IgniteInternalFuture<T> txTypeMismatchFinishFuture() {
+        return new GridFinishedFuture<>(new IgniteCheckedException("Cache operations are forbidden " +
+            "within SQL transactions."));
     }
 
     /**
