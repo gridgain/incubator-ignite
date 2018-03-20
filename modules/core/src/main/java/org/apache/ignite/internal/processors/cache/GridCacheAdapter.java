@@ -4135,6 +4135,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                     READ_COMMITTED,
                     tCfg.getDefaultTxTimeout(),
                     !ctx.skipStore(),
+                    op.sql(),
                     0
                 );
 
@@ -4234,6 +4235,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                     READ_COMMITTED,
                     txCfg.getDefaultTxTimeout(),
                     !skipStore,
+                    false,
                     0);
 
                 return asyncOp(tx, op, opCtx, /*retry*/false);
@@ -4922,6 +4924,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                 READ_COMMITTED,
                 CU.transactionConfiguration(ctx, ctx.kernalContext().config()).getDefaultTxTimeout(),
                 opCtx == null || !opCtx.skipStore(),
+                false,
                 0);
 
             IgniteInternalFuture<T> fut = asyncOp(tx, op, opCtx, retry);
@@ -5104,11 +5107,23 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         /** Flag to indicate only-one-key operation. */
         private final boolean single;
 
+        /** Flag to indicate SQL operation. */
+        private final boolean sql;
+
         /**
          * @param single Flag to indicate only-one-key operation.
          */
         SyncOp(boolean single) {
+            this(single, false);
+        }
+
+        /**
+         * @param single Flag to indicate only-one-key operation.
+         * @param sql Flag to indicate SQL operation.
+         */
+        SyncOp(boolean single, boolean sql) {
             this.single = single;
+            this.sql = sql;
         }
 
         /**
@@ -5116,6 +5131,13 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
          */
         final boolean single() {
             return single;
+        }
+
+        /**
+         * @return Flag to indicate SQL operation.
+         */
+        public boolean sql() {
+            return sql;
         }
 
         /**
