@@ -1928,6 +1928,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         if (tx != null) {
             assert tx.state() == TransactionState.ACTIVE;
 
+            if (!tx.sql())
+                throw new IgniteSQLException("SQL operations are forbidden within non-SQL transactions.",
+                    IgniteQueryErrorCode.TRANSACTION_TYPE_MISMATCH);
+
             return tx;
         }
 
@@ -1937,16 +1941,17 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     /** {@inheritDoc} */
     @SuppressWarnings({"StringEquality", "unchecked"})
     @Override public List<FieldsQueryCursor<List<?>>> querySqlFields(String schemaName, SqlFieldsQuery qry,
-        @Nullable SqlClientContext cliCtx, boolean keepBinary, boolean failOnMultipleStmts, MvccQueryTracker tracker, GridQueryCancel cancel) {
+        @Nullable SqlClientContext cliCtx, boolean keepBinary, boolean failOnMultipleStmts, MvccQueryTracker tracker,
+        GridQueryCancel cancel) {
         GridNearTxLocal tx = null;
 
         try {
+            final boolean startTx = autoStartTx(qry);
+
             List<FieldsQueryCursor<List<?>>> res = tryQueryDistributedSqlFieldsNative(schemaName, qry, cliCtx);
 
             if (res != null)
                 return res;
-
-            final boolean startTx = autoStartTx(qry);
 
             {
                 // First, let's check if we already have a two-step query for this statement...
@@ -2317,7 +2322,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      * @return {@code True} if need to start transaction.
      */
     private boolean autoStartTx(SqlFieldsQuery qry) {
-        return qry instanceof SqlFieldsQueryEx && !((SqlFieldsQueryEx)qry).isAutoCommit() && activeTx() == null;
+        // Let's do this call before anything else so that we always check tx type properly.
+        GridNearTxLocal tx = activeTx();
+
+        return qry instanceof SqlFieldsQueryEx && !((SqlFieldsQueryEx)qry).isAutoCommit() && tx == null;
     }
 
     /** {@inheritDoc} */
