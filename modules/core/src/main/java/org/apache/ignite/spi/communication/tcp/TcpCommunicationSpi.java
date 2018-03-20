@@ -63,6 +63,7 @@ import org.apache.ignite.events.Event;
 import org.apache.ignite.internal.IgniteClientDisconnectedCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.util.GridConcurrentFactory;
@@ -2409,6 +2410,13 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
         if (log.isTraceEnabled())
             log.trace("Sending message with ack to node [node=" + node + ", msg=" + msg + ']');
 
+        if (isLocalNodeDisconnected()) {
+            if (log.isDebugEnabled())
+                log.debug("Sending a message is canceled due to local node disconnecting." +
+                    "[node=" + node + ", msg=" + msg + ']');
+            return;
+        }
+
         ClusterNode locNode = getLocalNode();
 
         if (locNode == null)
@@ -2608,8 +2616,16 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 client = fut.get();
 
-                if (client == null)
-                    continue;
+                if (client == null) {
+                    if (log.isInfoEnabled())
+                        log.info(String.format("Unable to reserve client [client=null, thread=%s, disconnected=%b].",
+                            Thread.currentThread().getName(), isLocalNodeDisconnected()));
+
+                    if (isLocalNodeDisconnected())
+                        throw new IgniteCheckedException("Unable to create TCP client due to local node disconnecting.");
+                    else
+                        continue;
+                }
 
                 if (getSpiContext().node(nodeId) == null) {
                     if (removeNodeClient(nodeId, client))
@@ -2627,6 +2643,18 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
                 // Client has just been closed by idle worker. Help it and try again.
                 removeNodeClient(nodeId, client);
         }
+    }
+
+    /**
+     * @return {@code True} if local node in disconnected state.
+     */
+    private boolean isLocalNodeDisconnected() {
+        boolean disconnected = false;
+
+        if (ignite instanceof IgniteKernal)
+            disconnected = ((IgniteKernal)ignite).context().clientDisconnected();
+
+        return disconnected;
     }
 
     /**

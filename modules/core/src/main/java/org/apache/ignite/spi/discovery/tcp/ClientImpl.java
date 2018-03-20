@@ -481,6 +481,9 @@ class ClientImpl extends TcpDiscoveryImpl {
         throws IgniteSpiException, InterruptedException {
         List<InetSocketAddress> addrs = null;
 
+        if (log.isInfoEnabled())
+            log.info(String.format("joinTopology [prevAddr=%s, timeout=%d]", prevAddr, timeout));
+
         long startTime = U.currentTimeMillis();
 
         while (true) {
@@ -1016,6 +1019,9 @@ class ClientImpl extends TcpDiscoveryImpl {
 
                         try {
                             msg = U.unmarshal(spi.marshaller(), in, U.resolveClassLoader(spi.ignite().configuration()));
+
+                            if (log.isInfoEnabled())
+                                log.info("SocketReader received: " + msg);
                         }
                         catch (IgniteCheckedException e) {
                             if (log.isDebugEnabled())
@@ -1400,6 +1406,9 @@ class ClientImpl extends TcpDiscoveryImpl {
                 while (true) {
                     T2<SocketStream, Boolean> joinRes = joinTopology(prevAddr, timeout);
 
+                    if (log.isInfoEnabled())
+                        log.info("Reconnector: joinTopology complete.");
+
                     if (joinRes == null) {
                         if (join) {
                             joinError(new IgniteSpiException("Join process timed out, connection failed and " +
@@ -1555,6 +1564,9 @@ class ClientImpl extends TcpDiscoveryImpl {
 
                 while (true) {
                     Object msg = queue.take();
+
+                    if (log.isInfoEnabled())
+                        log.info("MessageWorker received: " + msg);
 
                     if (msg == JOIN_TIMEOUT) {
                         if (state == STARTING) {
@@ -1834,9 +1846,15 @@ class ClientImpl extends TcpDiscoveryImpl {
 
             joinCnt++;
 
+            if (log.isInfoEnabled())
+                log.info(String.format("tryJoin [state=%s, joinCnt=%d]", state.toString(), joinCnt));
+
             T2<SocketStream, Boolean> joinRes;
             try {
                 joinRes = joinTopology(null, spi.joinTimeout);
+
+                if (log.isInfoEnabled())
+                    log.info("tryJoin: joinTopology complete.");
             }
             catch (IgniteSpiException e) {
                 joinError(e);
@@ -1872,6 +1890,9 @@ class ClientImpl extends TcpDiscoveryImpl {
             }
 
             sockReader.setSocket(joinRes.get1(), locNode.clientRouterNodeId());
+
+            if (log.isInfoEnabled())
+                log.info("tryJoin complete.");
         }
 
         /**
