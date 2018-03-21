@@ -246,8 +246,12 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
                 keys[i] = cctx.toCacheKeyObject(row.getKey());
                 keys[i].prepareMarshal(objCtx);
 
-                values[i] = cctx.toCacheObject(row.getValue());
-                values[i].prepareMarshal(objCtx);
+                Object val = row.getValue();
+
+                if (val != null) {
+                    values[i] = cctx.toCacheObject(val);
+                    values[i].prepareMarshal(objCtx);
+                }
 
                 i++;
             }

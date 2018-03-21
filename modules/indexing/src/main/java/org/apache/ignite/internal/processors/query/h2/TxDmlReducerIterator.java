@@ -20,7 +20,6 @@ package org.apache.ignite.internal.processors.query.h2;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.query.h2.dml.UpdatePlan;
 import org.apache.ignite.internal.util.lang.GridIteratorAdapter;
 import org.apache.ignite.internal.util.typedef.T3;
@@ -78,24 +77,5 @@ class TxDmlReducerIterator extends GridIteratorAdapter<IgniteBiTuple> {
     /** {@inheritDoc} */
     @Override public void removeX() throws IgniteCheckedException {
         // No-op.
-    }
-
-    /**
-     *
-     * @return Cache operation.
-     */
-    public GridCacheOperation operation() {
-        switch (plan.mode()) {
-            case INSERT:
-                return GridCacheOperation.CREATE;
-            case MERGE:
-            case UPDATE:
-                return GridCacheOperation.UPDATE;
-            case DELETE:
-                return GridCacheOperation.DELETE;
-
-            default:
-                throw new UnsupportedOperationException(String.valueOf(plan.mode()));
-        }
     }
 }

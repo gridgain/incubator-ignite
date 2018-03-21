@@ -52,6 +52,7 @@ import org.apache.ignite.internal.processors.bulkload.BulkLoadProcessor;
 import org.apache.ignite.internal.processors.bulkload.BulkLoadStreamerWriter;
 import org.apache.ignite.internal.processors.cache.CacheOperationContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.QueryCursorImpl;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
@@ -77,6 +78,7 @@ import org.apache.ignite.internal.sql.command.SqlBulkLoadCommand;
 import org.apache.ignite.internal.sql.command.SqlCommand;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashMap;
 import org.apache.ignite.internal.util.lang.GridCloseableIterator;
+import org.apache.ignite.internal.util.lang.GridIterator;
 import org.apache.ignite.internal.util.lang.IgniteClosureX;
 import org.apache.ignite.internal.util.lang.IgniteSingletonIterator;
 import org.apache.ignite.internal.util.typedef.F;
@@ -533,26 +535,39 @@ public class DmlStatementsProcessor {
 
                 if (distributedPlan == null || ((plan.mode() == UpdateMode.INSERT || plan.mode() == UpdateMode.MERGE) &&
                     !plan.isLocalSubquery())) {
-                    SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(), fieldsQry.isCollocated())
-                        .setArgs(fieldsQry.getArgs())
-                        .setDistributedJoins(fieldsQry.isDistributedJoins())
-                        .setEnforceJoinOrder(fieldsQry.isEnforceJoinOrder())
-                        .setLocal(fieldsQry.isLocal())
-                        .setPageSize(fieldsQry.getPageSize())
-                        .setTimeout((int)timeout, TimeUnit.MILLISECONDS);
-
                     MvccQueryTracker mvccQueryTracker = new MvccQueryTracker(cctx,
                         cctx.shared().coordinators().currentCoordinator(),
                         mvccSnapshot);
 
-                    Iterable<List<?>> cur = idx.querySqlFields(schemaName, newFieldsQry, null, true,
-                        true, mvccQueryTracker, cancel).get(0);
+                    GridIterator<IgniteBiTuple> it;
+
+                    if (plan.fastResult())
+                        it = plan.getFastRowAsIterator(fieldsQry.getArgs());
+                    else {
+                        Iterable<List<?>> cur;
+
+                        if (plan.hasRows())
+                            cur = plan.createRows(fieldsQry.getArgs());
+                        else {
+                            SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(),
+                                fieldsQry.isCollocated())
+                                .setArgs(fieldsQry.getArgs())
+                                .setDistributedJoins(fieldsQry.isDistributedJoins())
+                                .setEnforceJoinOrder(fieldsQry.isEnforceJoinOrder())
+                                .setLocal(fieldsQry.isLocal())
+                                .setPageSize(fieldsQry.getPageSize())
+                                .setTimeout((int)timeout, TimeUnit.MILLISECONDS);
+
+                            cur = idx.querySqlFields(schemaName, newFieldsQry, null, true,
+                                true, mvccQueryTracker, cancel).get(0);
+                        }
+
+                        it = new TxDmlReducerIterator(plan, cur);
+                    }
 
                     tx.addActiveCache(cctx, false);
 
-                    TxDmlReducerIterator it = new TxDmlReducerIterator(plan, cur);
-
-                    IgniteInternalFuture<Long> fut = tx.updateAsync(cctx, mvccSnapshot, it.operation(), it,
+                    IgniteInternalFuture<Long> fut = tx.updateAsync(cctx, mvccSnapshot, cacheOperation(plan.mode()), it,
                         fieldsQry.getPageSize(), timeout);
 
                     UpdateResult res = new UpdateResult(fut.get(), X.EMPTY_OBJECT_ARRAY);
@@ -1368,6 +1383,25 @@ public class DmlStatementsProcessor {
      */
     static boolean isDmlStatement(Prepared stmt) {
         return stmt instanceof Merge || stmt instanceof Insert || stmt instanceof Update || stmt instanceof Delete;
+    }
+
+    /**
+     * @param mode Update mode.
+     * @return Cache operation.
+     */
+    private static GridCacheOperation cacheOperation(UpdateMode mode) {
+        switch (mode) {
+            case INSERT:
+                return GridCacheOperation.CREATE;
+            case MERGE:
+            case UPDATE:
+                return GridCacheOperation.UPDATE;
+            case DELETE:
+                return GridCacheOperation.DELETE;
+
+            default:
+                throw new UnsupportedOperationException(String.valueOf(mode));
+        }
     }
 
     /**

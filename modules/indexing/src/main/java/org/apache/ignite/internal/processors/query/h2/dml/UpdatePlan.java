@@ -38,6 +38,8 @@ import org.apache.ignite.internal.processors.query.h2.UpdateResult;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RowDescriptor;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
 import org.apache.ignite.internal.util.GridCloseableIteratorAdapter;
+import org.apache.ignite.internal.util.lang.GridIterator;
+import org.apache.ignite.internal.util.lang.GridIteratorAdapter;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -547,6 +549,18 @@ public final class UpdatePlan {
     }
 
     /**
+     * @param args Query parameters.
+     * @return Iterator.
+     * @throws IgniteCheckedException If failed.
+     */
+    public GridIterator<IgniteBiTuple> getFastRowAsIterator(Object[] args) throws IgniteCheckedException {
+        if (fastUpdate != null)
+            return new SingleEntryIterator<>(fastUpdate.getRow(args));
+
+        return null;
+    }
+
+    /**
      * Abstract iterator.
      */
     private abstract static class AbstractIterator extends GridCloseableIteratorAdapter<Object> {
@@ -850,6 +864,39 @@ public final class UpdatePlan {
                     return;
                 }
             }
+        }
+    }
+
+    /** */
+    private final class SingleEntryIterator<T> extends GridIteratorAdapter<T> {
+        /** */
+        private boolean first = true;
+
+        /** */
+        private T entry;
+
+        /** */
+        private SingleEntryIterator(T entry) {
+            this.entry = entry;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean hasNextX() throws IgniteCheckedException {
+            return first;
+        }
+
+        /** {@inheritDoc} */
+        @Override public T nextX() throws IgniteCheckedException {
+            T res = first ? entry : null;
+
+            first = false;
+
+            return res;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void removeX() throws IgniteCheckedException {
+            // No-op.
         }
     }
 }
