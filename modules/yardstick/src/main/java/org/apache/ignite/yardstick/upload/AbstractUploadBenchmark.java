@@ -41,7 +41,7 @@ public abstract class AbstractUploadBenchmark extends AbstractJdbcBenchmark {
     long warmupRowsCnt;
 
     /** Factory that hides all the test data details. */
-    protected QueryFactory queries = new QueryFactory();
+    protected volatile QueryFactory queries;
 
     /** {@inheritDoc} */
     @Override public final void setUp(BenchmarkConfiguration cfg) throws Exception {
@@ -87,7 +87,9 @@ public abstract class AbstractUploadBenchmark extends AbstractJdbcBenchmark {
     /**
      * Creates empty table.
      */
-    @Override protected void setupData() throws Exception{
+    @Override protected void setupData() throws Exception {
+        queries = new QueryFactory(args.atomicMode());
+
         dropAndCreate();
     }
 
@@ -117,6 +119,9 @@ public abstract class AbstractUploadBenchmark extends AbstractJdbcBenchmark {
      */
     private final void dropAndCreate() throws SQLException {
         executeUpdate(QueryFactory.DROP_TABLE_IF_EXISTS);
+
+        BenchmarkUtils.println(cfg, "Creating table with schema: " + queries.createTable());
+
         executeUpdate(queries.createTable());
     }
 
