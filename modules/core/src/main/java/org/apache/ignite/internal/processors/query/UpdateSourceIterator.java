@@ -15,38 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.mvcc.txlog;
+package org.apache.ignite.internal.processors.query;
 
-/**
- *
- */
-public class TxSearchRow {
-    /** */
-    private final long major;
+import org.apache.ignite.internal.processors.cache.GridCacheOperation;
+import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 
-    /** */
-    private final long minor;
+/** */
+public interface UpdateSourceIterator<T> extends GridCloseableIterator<T> {
+    /**
+     * Callback method which should be called before moving iteration into another thread.
+     */
+    public void beforeDetach();
 
     /**
-     * @param major Major version.
-     * @param minor Minor version
+     * @return CacheOperation.
      */
-    public TxSearchRow(long major, long minor) {
-        this.major = major;
-        this.minor = minor;
-    }
-
-    /**
-     * @return Major version.
-     */
-    public long major() {
-        return major;
-    }
-
-    /**
-     * @return Minor version.
-     */
-    public long minor() {
-        return minor;
-    }
+    public GridCacheOperation operation();
 }

@@ -2088,7 +2088,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                     U.warn(log, msg);
 
                     try {
-                        tx.rollbackDhtLocal();
+                        if (tx != null)
+                            tx.rollbackDhtLocal();
                     }
                     catch (IgniteCheckedException ex) {
                         U.error(log, "Failed to rollback the transaction: " + tx, ex);
@@ -2155,7 +2156,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 res = ((GridDhtTxQueryEnlistAbstractFuture<Rsp>)future).createResponse(future.error());
             }
 
-            if (res.error() == null && tx.empty()) {
+            if (/*res.removeMapping() || (*/res.error() == null && tx.empty()) {
                 final Rsp res0 = res;
 
                 tx.rollbackDhtLocalAsync().listen(new CI1<IgniteInternalFuture<IgniteInternalTx>>() {
@@ -2187,8 +2188,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                     ", res=" + res + ']', e);
 
                 try {
-                    if (tx != null)
-                        tx.rollbackDhtLocalAsync();
+                    tx.rollbackDhtLocalAsync();
                 }
                 catch (Throwable e1) {
                     e.addSuppressed(e1);

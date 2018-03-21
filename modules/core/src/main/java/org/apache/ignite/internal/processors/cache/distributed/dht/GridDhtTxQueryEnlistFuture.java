@@ -17,21 +17,17 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.UUID;
 import javax.cache.processor.EntryProcessor;
-import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheInvokeEntry;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedException;
-import org.apache.ignite.internal.processors.cache.GridCacheLockTimeoutException;
 import org.apache.ignite.internal.processors.cache.GridCacheMvccCandidate;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
-import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
@@ -39,12 +35,18 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
-import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.pagemem.wal.WALPointer;
+import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
+import org.apache.ignite.internal.processors.cache.GridCacheUpdateTxResult;
+import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
+import org.apache.ignite.internal.util.typedef.CI1;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.CREATE;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.DELETE;
@@ -77,6 +79,9 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxQueryEnlistAbstra
 
     /** Fetch page size. */
     private final int pageSize;
+
+    /** Query iterator */
+    private UpdateSourceIterator<?> it;
 
     /**
      * @param nearNodeId Near node ID.
@@ -147,8 +152,6 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxQueryEnlistAbstra
      *
      */
     public void init() {
-        cancel = new GridQueryCancel();
-
         cctx.mvcc().addFuture(this);
 
         if (timeout > 0) {
@@ -157,53 +160,21 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxQueryEnlistAbstra
             cctx.time().addTimeoutObject(timeoutObj);
         }
 
-        GridDhtCacheAdapter<?, ?> cache = cctx.isNear() ? cctx.near().dht() : cctx.dht();
+        UpdateSourceIterator<?> it;
 
         try {
             checkPartitions(parts);
 
-            long cnt = 0;
+            it = cctx.kernalContext().query()
+                .prepareDistributedUpdate(cctx, cacheIds, parts, schema, qry,
+                        params, flags, pageSize, 0, topVer, mvccSnapshot, new GridQueryCancel());
 
-            try (GridCloseableIterator<?> it = cctx.kernalContext().query()
-                .prepareDistributedUpdate(cctx, cacheIds, parts, schema, qry, params, flags, pageSize, (int)timeout, topVer, mvccSnapshot, cancel)) {
-                while (it.hasNext()) {
-                    Object row = it.next();
-
-                    KeyCacheObject key = key(row);
-
-                    while (true) {
-                        if (isCancelled())
-                            return;
-
-                        GridDhtCacheEntry entry = cache.entryExx(key, topVer);
-
-                        try {
-                            addEntry(entry, row);
-
-                            cnt++;
-
-                            break;
-                        }
-                        catch (GridCacheEntryRemovedException ignore) {
-                            if (log.isDebugEnabled())
-                                log.debug("Got removed entry when adding lock (will retry): " + entry);
-                        }
-                        catch (GridDistributedLockCancelledException e) {
-                            if (log.isDebugEnabled())
-                                log.debug("Failed to add entry [err=" + e + ", entry=" + entry + ']');
-
-                            onDone(e);
-
-                            return;
-                        }
-                    }
-                }
-            }
-
-            if (cnt == 0) {
+            if (!it.hasNext()) {
                 GridNearTxQueryEnlistResponse res = createResponse(0);
 
                 res.removeMapping(tx.empty());
+
+                U.close(it, log);
 
                 onDone(res);
 
@@ -212,7 +183,7 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxQueryEnlistAbstra
 
             tx.addActiveCache(cctx, false);
 
-            this.cnt = cnt;
+            this.it = it;
         }
         catch (Throwable e) {
             onDone(e);
@@ -223,156 +194,177 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxQueryEnlistAbstra
             return;
         }
 
-        readyLocks();
+        continueLoop(null);
     }
 
-    /**
-     * Adds entry to future.
-     *
-     * @param entry Entry to add.
-     * @param row Source row.
-     * @return Lock candidate.
-     * @throws GridCacheEntryRemovedException If entry was removed.
-     * @throws GridDistributedLockCancelledException If lock is canceled.
-     */
+    /** */
     @SuppressWarnings("unchecked")
-    @Nullable private GridCacheMvccCandidate addEntry(GridDhtCacheEntry entry, Object row)
-        throws GridCacheEntryRemovedException, GridDistributedLockCancelledException, IgniteCheckedException {
-        if (log.isDebugEnabled())
-            log.debug("Adding entry: " + entry);
+    private void continueLoop(WALPointer ptr) {
+        if (isDone())
+            return;
 
-        if (entry == null)
-            return null;
+        GridDhtCacheAdapter cache = cctx.dhtCache();
 
-        // Check if the future is timed out.
-        if (isCancelled())
-            return null;
+        try {
+            while (true) {
+                if (!it.hasNext()) {
+                    if (ptr != null && !cctx.tm().logTxRecords())
+                        cctx.shared().wal().fsync(ptr);
 
-        assert !entry.detached();
+                    onDone(createResponse(cnt));
 
-        IgniteTxEntry txEntry = tx.entry(entry.txKey());
+                    return;
+                }
 
-        if (txEntry != null) {
-            throw new IgniteSQLException("One row cannot be changed twice in the same transaction. " +
-                "Operation is unsupported at the moment.", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
-        }
+                Object row = it.next();
+                KeyCacheObject key = key(row);
 
-        Object[] row0 = row.getClass().isArray() ? (Object[])row : null;
-        CacheObject val = row0 != null && (row0.length == 2 || row0.length == 4) ? cctx.toCacheObject(row0[1]) : null;
-        EntryProcessor entryProcessor = row0 != null && row0.length == 4 ? (EntryProcessor)row0[2] : null;
-        Object[] invokeArgs = entryProcessor != null ? (Object[])row0[3] : null;
-        GridCacheOperation op = !row.getClass().isArray() ? DELETE : entryProcessor != null ? TRANSFORM : UPDATE;
+                GridDhtCacheEntry entry = cache.entryExx(key);
 
-        if (op == TRANSFORM) {
-            CacheObject oldVal = val;
+                if (log.isDebugEnabled())
+                    log.debug("Adding entry: " + entry);
 
-            if (oldVal == null)
-                oldVal = entry.innerGet(
-                    null,
-                    tx,
-                    false,
-                    false,
-                    false,
-                    tx.subjectId(),
-                    null,
-                    tx.resolveTaskName(),
-                    null,
-                    true,
-                    mvccSnapshot);
+                assert !entry.detached();
 
-            CacheInvokeEntry invokeEntry = new CacheInvokeEntry(entry.key(), oldVal, entry.version(), true, entry);
+                IgniteTxEntry txEntry = tx.entry(entry.txKey());
 
-            entryProcessor.process(invokeEntry, invokeArgs);
+                if (txEntry != null) {
+                    throw new IgniteSQLException("One row cannot be changed twice in the same transaction. " +
+                            "Operation is unsupported at the moment.", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+                }
 
-            val = cctx.toCacheObject(invokeEntry.value());
+                GridCacheOperation op = it.operation();
 
-            cctx.validateKeyAndValue(entry.key(), val);
+                Object[] row0 = row.getClass().isArray() ? (Object[])row : null;
 
-            if (oldVal == null && val != null)
-                op = CREATE;
-            else if (oldVal != null && val == null)
-                op = DELETE;
-            else if (oldVal != null && val != null && invokeEntry.modified())
-                op = UPDATE;
-            else
-                op = READ;
-        }
-        else if (op == UPDATE) {
-            assert val != null;
+                CacheObject val = null;
 
-            cctx.validateKeyAndValue(entry.key(), val);
-        }
+                if (op == CREATE || op == UPDATE) {
+                    assert row0 != null;
 
-        txEntry = tx.addEntry(op,
-            val,
-            null,
-            null,
-            entry,
-            null,
-            CU.empty0(),
-            false,
-            -1L,
-            -1L,
-            null,
-            true,
-            true,
-            false);
+                    val = cctx.toCacheObject(row0[1]);
+                }
 
-        GridCacheMvccCandidate c;
+                GridCacheUpdateTxResult res;
 
-        while (true) {
-            try {
-                c = entry.addDhtLocal(
-                    nearNodeId,
-                    nearLockVer,
-                    topVer,
-                    threadId,
-                    lockVer,
-                    null,
-                    timeout,
-                    false,
-                    true,
-                    false,
-                    false
-                );
+                while (true) {
+                    cctx.shared().database().checkpointReadLock();
 
-                break;
-            }
-            catch (GridCacheEntryRemovedException ignored) {
-                entry = cctx.dhtCache().entryExx(entry.key(), topVer);
+                    try {
+                        if (op == DELETE)
+                            res = entry.mvccRemove(
+                                    tx,
+                                    cctx.localNodeId(),
+                                    topVer,
+                                    null,
+                                    mvccSnapshot);
+                        else if (op == CREATE || op == UPDATE)
+                            res = entry.mvccSet(
+                                    tx,
+                                    cctx.localNodeId(),
+                                    val,
+                                    0,
+                                    topVer,
+                                    null,
+                                    mvccSnapshot,
+                                    op);
+                        else
+                            throw new IgniteSQLException("Cannot acquire lock for operation [op= " + op + "]" + // TODO SELECT FOR UPDATE
+                                    "Operation is unsupported at the moment ", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
 
+                        break;
+                    } catch (GridCacheEntryRemovedException ignored) {
+                        entry = cctx.dhtCache().entryExx(entry.key(), topVer);
+                    }
+                    finally {
+                        cctx.shared().database().checkpointReadUnlock();
+                    }
+                }
+
+                ptr = res.loggedPointer();
+
+                IgniteInternalFuture<GridCacheUpdateTxResult> updateFuture = res.updateFuture();
+
+                if (updateFuture != null) {
+                    GridCacheOperation finalOp = op;
+                    CacheObject finalVal = val;
+                    GridDhtCacheEntry finalEntry = entry;
+
+                    it.beforeDetach();
+
+                    updateFuture.listen(new CI1<IgniteInternalFuture<GridCacheUpdateTxResult>>() {
+                        @Override public void apply(IgniteInternalFuture<GridCacheUpdateTxResult> fut) {
+                            try {
+                                GridCacheUpdateTxResult res = fut.get();
+
+                                assert res.updateFuture() == null;
+
+                                IgniteTxEntry txEntry = tx.entry(finalEntry.txKey());
+
+                                if (txEntry != null) {
+                                    throw new IgniteSQLException("One row cannot be changed twice in the same transaction. " +
+                                            "Operation is unsupported at the moment.", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+                                }
+
+                                txEntry = tx.addEntry(finalOp,
+                                        finalVal,
+                                        null,
+                                        null,
+                                        finalEntry,
+                                        null,
+                                        CU.empty0(),
+                                        false,
+                                        -1L,
+                                        -1L,
+                                        null,
+                                        true,
+                                        true,
+                                        false);
+
+                                txEntry.markValid();
+                                txEntry.queryEnlisted(true);
+                                txEntry.cached(finalEntry);
+
+                                cnt++;
+
+                                continueLoop(res.loggedPointer());
+                            } catch (Throwable e) {
+                                onDone(e);
+                            }
+                        }
+                    });
+
+                    break;
+                }
+
+                txEntry = tx.addEntry(op,
+                        val,
+                        null,
+                        null,
+                        entry,
+                        null,
+                        CU.empty0(),
+                        false,
+                        -1L,
+                        -1L,
+                        null,
+                        true,
+                        true,
+                        false);
+
+                txEntry.markValid();
+                txEntry.queryEnlisted(true);
                 txEntry.cached(entry);
+
+                cnt++;
             }
         }
+        catch (Throwable e) {
+            onDone(e);
 
-        txEntry.markValid();
-        txEntry.queryEnlisted(true);
-
-        if (c == null && timeout < 0) {
-
-            if (log.isDebugEnabled())
-                log.debug("Failed to acquire lock with negative timeout: " + entry);
-
-            onDone(new GridCacheLockTimeoutException(lockVer));
-
-            return null;
+            if (e instanceof Error)
+                throw (Error)e;
         }
-
-        synchronized (this) {
-            entries.add(c == null || c.reentry() ? null : entry);
-
-            if (c != null && !c.reentry())
-                pendingLocks.add(entry.key());
-        }
-
-        // Double check if the future has already timed out.
-        if (isCancelled()) {
-            entry.removeLock(lockVer);
-
-            return null;
-        }
-
-        return c;
     }
 
     /**
@@ -381,6 +373,36 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxQueryEnlistAbstra
      */
     private KeyCacheObject key(Object row) {
         return cctx.toCacheKeyObject(row.getClass().isArray() ? ((Object[])row)[0] : row);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean onOwnerChanged(GridCacheEntryEx entry, GridCacheMvccCandidate owner) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean onDone(@Nullable GridNearTxQueryEnlistResponse res, @Nullable Throwable err) {
+        if (err != null)
+            res = createResponse(err);
+
+        assert res != null;
+
+        if (super.onDone(res, null)) {
+            if (log.isDebugEnabled())
+                log.debug("Completing future: " + this);
+
+            // Clean up.
+            cctx.mvcc().removeVersionedFuture(this);
+
+            if (timeoutObj != null)
+                cctx.time().removeTimeoutObject(timeoutObj);
+
+            U.close(it, log);
+
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -419,14 +441,6 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxQueryEnlistAbstra
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        HashSet<KeyCacheObject> pending;
-
-        synchronized (this) {
-            pending = new HashSet<>(pendingLocks);
-        }
-
-        return S.toString(GridDhtTxQueryEnlistFuture.class, this,
-            "pendingLocks", pending,
-            "super", super.toString());
+        return S.toString(GridDhtTxQueryEnlistFuture.class, this);
     }
 }

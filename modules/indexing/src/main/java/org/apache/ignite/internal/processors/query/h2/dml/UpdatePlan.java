@@ -859,7 +859,7 @@ public final class UpdatePlan {
 
                     desc.validateKeyAndValue(key, val);
 
-                    curr = new Object[] {key, null, new DmlTxInsertEntryProcessor(val), null};
+                    curr = new Object[] {key, val};
 
                     return;
                 }
