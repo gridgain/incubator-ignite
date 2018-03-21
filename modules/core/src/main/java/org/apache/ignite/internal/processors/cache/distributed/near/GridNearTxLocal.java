@@ -2536,11 +2536,10 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     }
 
     /**
-     * @param <T>
-     * @return
+     * @return Finished future with error message about tx type mismatch.
      */
-    private static <T> IgniteInternalFuture<T> txTypeMismatchFinishFuture() {
-        return new GridFinishedFuture<>(new IgniteCheckedException("Cache operations are forbidden " +
+    private static IgniteInternalFuture txTypeMismatchFinishFuture() {
+        return new GridFinishedFuture(new IgniteCheckedException("Cache operations are forbidden " +
             "within SQL transactions."));
     }
 
