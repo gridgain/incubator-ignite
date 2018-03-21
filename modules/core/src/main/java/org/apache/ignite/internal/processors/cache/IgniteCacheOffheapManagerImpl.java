@@ -1731,7 +1731,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     if (cctx.queries().enabled())
                         cctx.queries().remove(key, row);
 
-                    clearPendingEntries(cctx, row);
+                    if (first)
+                        clearPendingEntries(cctx, row);
                 }
 
                 rowStore.removeRow(row.link());

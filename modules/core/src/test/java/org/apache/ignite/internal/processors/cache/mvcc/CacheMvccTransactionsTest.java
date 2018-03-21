@@ -4218,6 +4218,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
      * @throws Exception If failed.
      */
     public void testExpiration() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-7956");
         final IgniteEx node = startGrid(0);
 
         IgniteCache cache = node.createCache(cacheConfiguration(PARTITIONED, FULL_SYNC, 1, 64));

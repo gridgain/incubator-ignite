@@ -20,7 +20,7 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 /**
  *
  */
-public class MvccVacuumMetrics {
+public class VacuumMetrics {
     /** */
     private long cleanupRowsCnt;
 

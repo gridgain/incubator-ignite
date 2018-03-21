@@ -973,7 +973,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
             assertTrue(ackFuts.isEmpty());
 
-            Throwable vacuumError = GridTestUtils.getFieldValue(crd, "vacuumError");
+            Throwable vacuumError = crd.getVacuumError();
 
             assertNull(X.getFullStackTrace(vacuumError), vacuumError);
 
@@ -992,9 +992,11 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
         // Run vacuum manually.
         for (Ignite node : G.allGrids()) {
-            final MvccProcessor crd = ((IgniteKernal)node).context().cache().context().coordinators();
+            if (!node.configuration().isClientMode()) {
+                final MvccProcessor crd = ((IgniteKernal)node).context().cache().context().coordinators();
 
-            fut.add(crd.runVacuum());
+                fut.add(crd.runVacuum());
+            }
         }
 
         fut.markInitialized();
@@ -1017,7 +1019,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
                     List<T2<Object, MvccVersion>> vers = cctx.offheap().mvccAllVersions(cctx, key);
 
-                    assertTrue("[entry="  + entry + "; vers=" + vers + ']', vers.size() <= 2);
+                    assertTrue("[entry="  + entry + "; vers=" + vers + ']', vers.size() <= 1);
                 }
             }
         }
