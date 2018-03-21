@@ -104,6 +104,7 @@ import org.apache.ignite.internal.processors.query.QueryField;
 import org.apache.ignite.internal.processors.query.QueryIndexDescriptorImpl;
 import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.processors.query.SqlClientContext;
+import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
 import org.apache.ignite.internal.processors.query.h2.database.H2RowFactory;
 import org.apache.ignite.internal.processors.query.h2.database.H2TreeIndex;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasInnerIO;
@@ -2329,7 +2330,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     }
 
     /** {@inheritDoc} */
-    @Override public GridCloseableIterator<?> prepareDistributedUpdate(GridCacheContext<?, ?> cctx, int[] ids,
+    @Override public UpdateSourceIterator<?> prepareDistributedUpdate(GridCacheContext<?, ?> cctx, int[] ids,
         int[] parts,
         String schema, String qry, Object[] params, int flags,
         int pageSize, int timeout, AffinityTopologyVersion topVer,
@@ -2846,6 +2847,26 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 it.remove();
             }
         }
+    }
+
+    /**
+     * Removes from cache and returns associated with current thread connection.
+     * @return Connection associated with current thread.
+     */
+    public Connection detach() {
+        Thread key = Thread.currentThread();
+
+        H2ConnectionWrapper connWrapper = connCache.get();
+
+        Connection connection = conns.remove(key);
+
+        connCache.remove();
+
+        stmtCache.remove(key);
+
+        assert connWrapper.connection() == connection;
+
+        return connection;
     }
 
     /**
