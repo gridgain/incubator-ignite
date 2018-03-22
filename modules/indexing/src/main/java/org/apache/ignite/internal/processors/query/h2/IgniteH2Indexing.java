@@ -1929,9 +1929,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         if (tx != null) {
             assert tx.state() == TransactionState.ACTIVE;
 
-            if (!tx.sql())
-                throw new IgniteSQLException("SQL operations are forbidden within non-SQL transactions.",
-                    IgniteQueryErrorCode.TRANSACTION_TYPE_MISMATCH);
+            if (!tx.isOperationAllowed(true))
+                throw new IgniteSQLException("SQL queries and cache operations " +
+                    "may not be used in the same transaction.", IgniteQueryErrorCode.TRANSACTION_TYPE_MISMATCH);
 
             return tx;
         }

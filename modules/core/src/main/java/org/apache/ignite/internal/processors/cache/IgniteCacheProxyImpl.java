@@ -74,6 +74,7 @@ import org.apache.ignite.internal.AsyncSupportAdapter;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.CacheQuery;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryFuture;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryType;
@@ -348,7 +349,7 @@ public class IgniteCacheProxyImpl<K, V> extends AsyncSupportAdapter<IgniteCache<
     /** {@inheritDoc} */
     @Override public Lock lockAll(final Collection<? extends K> keys) {
         //TODO IGNITE-7764
-        verifyMvccOperationSupport("Lock");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Lock");
 
         return new CacheLockImpl<>(ctx.gate(), delegate, new CacheOperationContext(), keys);
     }
@@ -610,17 +611,6 @@ public class IgniteCacheProxyImpl<K, V> extends AsyncSupportAdapter<IgniteCache<
         catch (IgniteCheckedException e) {
             throw U.convertException(e);
         }
-    }
-
-    /**
-     * Throw an {@link UnsupportedOperationException} if this cache is transactional and MVCC is enabled with
-     * appropriate message about corresponding operation type.
-     * @param opType operation type to mention in error message.
-     */
-    private void verifyMvccOperationSupport(String opType) {
-        if (!delegate.context().atomic() && delegate.context().gridConfig().isMvccEnabled())
-            throw new UnsupportedOperationException(opType + " operations are not supported on transactional " +
-                "caches when MVCC is enabled.");
     }
 
     /** {@inheritDoc} */

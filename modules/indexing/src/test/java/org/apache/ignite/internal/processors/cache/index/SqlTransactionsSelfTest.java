@@ -152,11 +152,14 @@ public class SqlTransactionsSelfTest extends AbstractSchemaSelfTest {
     }
 
     /**
-     * Check that trying to run given SQL statement both locally and in distributed mode yields an exception.
+     * Check that trying to run given SQL statement both locally and in distributed mode yields an exception
+     * if transaction already has been marked as being of SQL type.
      * @param sql SQL statement.
      */
     private void assertSqlOperationWithinNonSqlTransactionThrows(final String sql) {
         try (Transaction ignored = node().transactions().txStart()) {
+            node().cache("ints").put(1, 1);
+
             assertSqlException(new RunnableX() {
                 @Override public void run() throws Exception {
                     execute(node(), sql);
@@ -165,6 +168,8 @@ public class SqlTransactionsSelfTest extends AbstractSchemaSelfTest {
         }
 
         try (Transaction ignored = node().transactions().txStart()) {
+            node().cache("ints").put(1, 1);
+
             assertSqlException(new RunnableX() {
                 @Override public void run() throws Exception {
                     node().cache("ints").query(new SqlFieldsQuery(sql).setLocal(true)).getAll();
@@ -174,7 +179,7 @@ public class SqlTransactionsSelfTest extends AbstractSchemaSelfTest {
     }
 
     /**
-     * Test that attempting to perform a cache GET operation from within an SQL transaction fails.
+     * Test that attempting to perform a cache API operation from within an SQL transaction fails.
      */
     @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
     private void checkCacheOperationThrows(final String opName, final Object... args) {
@@ -225,7 +230,8 @@ public class SqlTransactionsSelfTest extends AbstractSchemaSelfTest {
 
                     return null;
                 }
-            }, IgniteCheckedException.class, "Cache operations are forbidden within SQL transactions.");
+            }, IgniteCheckedException.class,
+                "SQL queries and cache operations may not be used in the same transaction.");
         }
         finally {
             try {

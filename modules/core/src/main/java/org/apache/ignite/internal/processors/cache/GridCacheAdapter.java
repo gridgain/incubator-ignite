@@ -53,7 +53,6 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
-import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheEntry;
 import org.apache.ignite.cache.CacheInterceptor;
 import org.apache.ignite.cache.CacheMetrics;
@@ -92,6 +91,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTopolo
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.dr.GridCacheDrInfo;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxLocalAdapter;
@@ -761,7 +761,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         ctx.checkSecurity(SecurityPermission.CACHE_READ);
 
         //TODO IGNITE-7955
-        verifyMvccOperationSupport("Peek");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Peek");
 
         PeekModes modes = parsePeekModes(peekModes, false);
 
@@ -1071,7 +1071,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         ctx.checkSecurity(SecurityPermission.CACHE_REMOVE);
 
         //TODO IGNITE-7952
-        verifyMvccOperationSupport("Clear");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Clear");
 
         List<GridCacheClearAllRunnable<K, V>> jobs = splitClearLocally(srv, near, readers);
 
@@ -1143,7 +1143,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
      */
     private void clear(@Nullable Set<? extends K> keys) throws IgniteCheckedException {
         //TODO IGNITE-7952
-        verifyMvccOperationSupport("Clear");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Clear");
 
         if (isLocal()) {
             if (keys == null)
@@ -1163,7 +1163,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
      */
     private IgniteInternalFuture<?> clearAsync(@Nullable final Set<? extends K> keys) {
         //TODO IGNITE-7952
-        verifyMvccOperationSupport("Clear");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Clear");
 
         if (isLocal())
             return clearLocallyAsync(keys);
@@ -1221,7 +1221,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             return;
 
         //TODO IGNITE-7952
-        verifyMvccOperationSupport("Clear");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Clear");
 
         GridCacheVersion obsoleteVer = ctx.versions().next();
 
@@ -1237,17 +1237,6 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                     ex);
             }
         }
-    }
-
-    /**
-     * Throw an {@link UnsupportedOperationException} if this cache is transactional and MVCC is enabled with
-     * appropriate message about corresponding operation type.
-     * @param opType operation type to mention in error message.
-     */
-    protected void verifyMvccOperationSupport(String opType) {
-        if (cacheCfg.getAtomicityMode() == CacheAtomicityMode.TRANSACTIONAL && gridCfg.isMvccEnabled())
-            throw new UnsupportedOperationException(opType + " operations are not supported on transactional " +
-                "caches when MVCC is enabled.");
     }
 
     /**
@@ -3327,7 +3316,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             validateCacheKeys(keys);
 
         //TODO IGNITE-7764
-        verifyMvccOperationSupport("Lock");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Lock");
 
         IgniteInternalFuture<Boolean> fut = lockAllAsync(keys, timeout);
 
@@ -3358,7 +3347,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             validateCacheKey(key);
 
         //TODO IGNITE-7764
-        verifyMvccOperationSupport("Lock");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Lock");
 
         return lockAllAsync(Collections.singletonList(key), timeout);
     }
@@ -3470,7 +3459,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
     @Override public void localLoadCache(final IgniteBiPredicate<K, V> p, Object[] args)
         throws IgniteCheckedException {
         //TODO IGNITE-7954
-        verifyMvccOperationSupport("Load");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Load");
 
         final boolean replicate = ctx.isDrEnabled();
         final AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
@@ -3612,7 +3601,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             return new GridFinishedFuture<>();
 
         //TODO IGNITE-7954
-        verifyMvccOperationSupport("Load");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Load");
 
         CacheOperationContext opCtx = ctx.operationContextPerCall();
 
@@ -3699,7 +3688,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
     public void localLoad(Collection<? extends K> keys, @Nullable ExpiryPolicy plc, final boolean keepBinary)
         throws IgniteCheckedException {
         //TODO IGNITE-7954
-        verifyMvccOperationSupport("Load");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Load");
 
         final boolean replicate = ctx.isDrEnabled();
         final AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
@@ -3774,7 +3763,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         assert !F.isEmpty(nodes) : "There are not datanodes fo cache: " + ctx.name();
 
         //TODO IGNITE-7954
-        verifyMvccOperationSupport("Load");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Load");
 
         final boolean keepBinary = opCtx != null && opCtx.isKeepBinary();
 
@@ -4521,7 +4510,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
      */
     private boolean clearLocally0(K key, boolean readers) {
         //TODO IGNITE-7952
-        verifyMvccOperationSupport("Clear");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Clear");
 
         ctx.checkSecurity(SecurityPermission.CACHE_REMOVE);
 
@@ -4561,7 +4550,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             validateCacheKey(key);
 
         //TODO IGNITE-7956
-        verifyMvccOperationSupport("Evict");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Evict");
 
         return evictx(key, ctx.versions().next(), CU.empty0());
     }
@@ -4577,7 +4566,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             validateCacheKey(keys);
 
         //TODO IGNITE-7956
-        verifyMvccOperationSupport("Evict");
+        MvccUtils.verifyMvccOperationSupport(ctx, "Evict");
 
         GridCacheVersion obsoleteVer = ctx.versions().next();
 

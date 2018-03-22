@@ -137,6 +137,10 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     private static final AtomicReferenceFieldUpdater<GridNearTxLocal, NearTxFinishFuture> FINISH_FUT_UPD =
         AtomicReferenceFieldUpdater.newUpdater(GridNearTxLocal.class, NearTxFinishFuture.class, "finishFut");
 
+    /** */
+    private static final String TX_TYPE_MISMATCH_ERR_MSG =
+        "SQL queries and cache operations may not be used in the same transaction.";
+
     /** DHT mappings. */
     private IgniteTxMappings mappings;
 
@@ -178,8 +182,11 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     /** */
     private MvccQueryTracker mvccTracker;
 
-    /** Whether this transaction was started via SQL API or not. */
-    private boolean sql;
+    /** Whether this transaction is for SQL operations or not.<p>
+     * {@code null} means there haven't been any calls made on this transaction, and first operation will give this
+     * field actual value.
+     */
+    private Boolean sql;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -198,7 +205,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
      * @param isolation Isolation.
      * @param timeout Timeout.
      * @param storeEnabled Store enabled flag.
-     * @param sql Whether this transaction was started via SQL API or not.
+     * @param sql Whether this transaction was started via SQL API or not, or {@code null} if unknown.
      * @param txSize Transaction size.
      * @param subjId Subject ID.
      * @param taskNameHash Task name hash code.
@@ -213,7 +220,8 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         TransactionIsolation isolation,
         long timeout,
         boolean storeEnabled,
-        boolean sql, int txSize,
+        Boolean sql,
+        int txSize,
         @Nullable UUID subjId,
         int taskNameHash
     ) {
@@ -1474,7 +1482,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
         cacheCtx.checkSecurity(SecurityPermission.CACHE_REMOVE);
 
-        if (sql)
+        if (!isOperationAllowed(false))
             return txTypeMismatchFinishFuture();
 
         if (retval)
@@ -1796,7 +1804,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         if (F.isEmpty(keys))
             return new GridFinishedFuture<>(Collections.<K, V>emptyMap());
 
-        if (sql)
+        if (!isOperationAllowed(false))
             return txTypeMismatchFinishFuture();
 
         init();
@@ -2539,8 +2547,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
      * @return Finished future with error message about tx type mismatch.
      */
     private static IgniteInternalFuture txTypeMismatchFinishFuture() {
-        return new GridFinishedFuture(new IgniteCheckedException("Cache operations are forbidden " +
-            "within SQL transactions."));
+        return new GridFinishedFuture(new IgniteCheckedException(TX_TYPE_MISMATCH_ERR_MSG));
     }
 
     /**
@@ -4035,10 +4042,17 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     }
 
     /**
-     * @return SQL flag.
+     * @return {@code true} if this transaction does not have type flag set or it matches invoking operation,
+     * {@code false} otherwise.
      */
-    public boolean sql() {
-        return sql;
+    public boolean isOperationAllowed(boolean sqlOp) {
+        if (sql == null) {
+            sql = sqlOp;
+
+            return true;
+        }
+
+        return sql == sqlOp;
     }
 
     /**
@@ -4239,11 +4253,11 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
         cacheCtx.checkSecurity(SecurityPermission.CACHE_PUT);
 
-        if (sql && !this.sql)
-            throw new IgniteCheckedException("SQL operations are forbidden within non-SQL transactions.");
+        if (sql && !isOperationAllowed(sql))
+            throw new IgniteCheckedException(TX_TYPE_MISMATCH_ERR_MSG);
 
-        if (!sql && this.sql)
-            throw new IgniteCheckedException("Cache operations are forbidden within SQL transactions.");
+        if (!sql && !isOperationAllowed(sql))
+            throw new IgniteCheckedException(TX_TYPE_MISMATCH_ERR_MSG);
 
         if (retval)
             needReturnValue(true);
