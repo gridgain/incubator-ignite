@@ -60,6 +60,7 @@ export default class AuthService {
     remindPassword(email) {
         return this._auth('password/forgot', {email}).then(() => this.$state.go('password.send'));
     }
+
     // TODO IGNITE-7994: Remove _auth and move API calls to corresponding methods
     /**
      * Performs the REST API call.
