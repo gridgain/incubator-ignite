@@ -44,15 +44,18 @@ import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshotResponseList
 import org.apache.ignite.internal.processors.cache.mvcc.MvccTxInfo;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.lang.GridIterator;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteUuid;
@@ -102,7 +105,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
     private GridCacheOperation op;
 
     /** */
-    private final GridIterator<IgniteBiTuple> it;
+    private final UpdateSourceIterator<IgniteBiTuple> it;
 
     /** */
     private int batchSize;
@@ -141,7 +144,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
         MvccSnapshot mvccSnapshot,
         long timeout,
         GridCacheOperation op,
-        GridIterator<IgniteBiTuple> it,
+        UpdateSourceIterator<IgniteBiTuple> it,
         int batchSize) {
         super(CU.longReducer());
 
@@ -369,7 +372,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
 
             peek = null;
 
-            batch.add(cur);
+            batch.add(op == GridCacheOperation.DELETE ? cur.getKey() : new Object[] { cur.getKey(), cur.getValue()});
 
             cur = it.hasNextX() ? it.nextX() : null;
 
@@ -382,6 +385,8 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
                 res.add(batch);
             }
         }
+
+        it.beforeDetach();
 
         if (it.hasNext() || peek != null)
             return res;
@@ -445,7 +450,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
         long timeout) {
         tx.init();
 
-        Collection<IgniteBiTuple> rows = batchFut.rows();
+        Collection<Object> rows = batchFut.rows();
 
         GridNearTxQueryResultsEnlistRequest req = new GridNearTxQueryResultsEnlistRequest(cctx.cacheId(),
             threadId,
@@ -561,6 +566,8 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
         }
 
         if (super.onDone(res, err)) {
+            U.close(it, log);
+
             // Clean up.
             cctx.mvcc().removeVersionedFuture(this);
 
@@ -677,7 +684,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
         private final ClusterNode node;
 
         /** Rows. */
-        private ArrayList<IgniteBiTuple> rows = new ArrayList<>();
+        private ArrayList<Object> rows = new ArrayList<>();
 
         /** Readiness flag. Set when batch is full or no new rows are expected. */
         private boolean ready;
@@ -701,7 +708,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
          *
          * @param row Row.
          */
-        public void add(IgniteBiTuple row) {
+        public void add(Object row) {
             rows.add(row);
         }
 
@@ -715,7 +722,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
         /**
          * @return Collection of rows.
          */
-        public Collection<IgniteBiTuple> rows() {
+        public Collection<Object> rows() {
             return rows;
         }
 

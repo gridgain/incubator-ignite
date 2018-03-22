@@ -20,17 +20,21 @@ package org.apache.ignite.internal.processors.query.h2;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.internal.processors.query.h2.dml.UpdatePlan;
-import org.apache.ignite.internal.util.lang.GridIteratorAdapter;
-import org.apache.ignite.internal.util.typedef.T3;
+import org.apache.ignite.internal.util.GridCloseableIteratorAdapterEx;
+import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Iterates over results of TX DML reducer.
  */
-class TxDmlReducerIterator extends GridIteratorAdapter<IgniteBiTuple> {
+class TxDmlReducerIterator extends GridCloseableIteratorAdapterEx<IgniteBiTuple> {
     /** */
     private final UpdatePlan plan;
+
+    /** */
+    private final QueryCursor<List<?>> cur;
 
     /** */
     private final Iterator<List<?>> it;
@@ -40,42 +44,25 @@ class TxDmlReducerIterator extends GridIteratorAdapter<IgniteBiTuple> {
      * @param plan Update plan.
      * @param cur Cursor.
      */
-    TxDmlReducerIterator(UpdatePlan plan, Iterable<List<?>> cur) {
+    TxDmlReducerIterator(UpdatePlan plan, QueryCursor<List<?>> cur) {
         this.plan = plan;
+        this.cur = cur;
 
         it = cur.iterator();
     }
 
-    /** {@inheritDoc} */
-    @Override public boolean hasNextX() throws IgniteCheckedException {
+    /** {@inheritDoc} **/
+    @Override protected IgniteBiTuple onNext() throws IgniteCheckedException {
+        return plan.processRowForTx(it.next());
+    }
+
+    /** {@inheritDoc} **/
+    @Override protected boolean onHasNext() throws IgniteCheckedException {
         return it.hasNext();
     }
 
-    /** {@inheritDoc} */
-    @Override public IgniteBiTuple nextX() throws IgniteCheckedException {
-        switch (plan.mode()) {
-            case INSERT:
-            case MERGE:
-                return plan.processRow(it.next());
-
-            case UPDATE: {
-                T3<Object, Object, Object> row = plan.processRowForUpdate(it.next());
-
-                return new IgniteBiTuple<>(row.get1(), row.get3());
-            }
-            case DELETE: {
-                List<?> row = it.next();
-
-                return new IgniteBiTuple<>(row.get(0), row.get(1));
-            }
-
-            default:
-                throw new UnsupportedOperationException(String.valueOf(plan.mode()));
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public void removeX() throws IgniteCheckedException {
-        // No-op.
+    /** {@inheritDoc} **/
+    @Override protected void onClose() throws IgniteCheckedException {
+        cur.close();
     }
 }

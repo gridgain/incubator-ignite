@@ -41,7 +41,6 @@ import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryInfo;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedException;
-import org.apache.ignite.internal.processors.cache.GridCacheIdMessage;
 import org.apache.ignite.internal.processors.cache.GridCacheLockTimeoutException;
 import org.apache.ignite.internal.processors.cache.GridCacheMvccCandidate;
 import org.apache.ignite.internal.processors.cache.GridCacheReturn;
@@ -1983,19 +1982,19 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
 
     /**
      *
-     * @param nodeId
-     * @param nearNode
-     * @param nearLockVer
-     * @param nearFutId
-     * @param nearMiniId
-     * @param firstClientReq
-     * @param topVer
-     * @param nearThreadId
-     * @param timeout
-     * @param txSubjectId
-     * @param txTaskNameHash
-     * @return
-     * @throws IgniteCheckedException
+     * @param nodeId Near node id.
+     * @param nearNode Near node.
+     * @param nearLockVer Near lock version.
+     * @param nearFutId Near future id.
+     * @param nearMiniId Near mini-future id.
+     * @param firstClientReq First client request flag.
+     * @param topVer Topology version.
+     * @param nearThreadId Near node thread id.
+     * @param timeout Timeout.
+     * @param txSubjectId Transaction subject id.
+     * @param txTaskNameHash Transaction task name hash.
+     * @return Transaction.
+     * @throws IgniteCheckedException If failed.
      */
     private GridDhtTxLocal initTxTopologyVersion(UUID nodeId,
         ClusterNode nearNode,
@@ -2127,7 +2126,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
      *
      * @param <Rsp>
      */
-    private class NearTxQueryEnlistResultHandler<Rsp extends GridCacheIdMessage>
+    private class NearTxQueryEnlistResultHandler<Rsp extends GridNearTxQueryEnlistResponse>
         implements CI1<IgniteInternalFuture<Rsp>> {
         /** */
         private GridDhtTxLocal tx;
@@ -2156,7 +2155,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 res = ((GridDhtTxQueryEnlistAbstractFuture<Rsp>)future).createResponse(future.error());
             }
 
-            if (/*res.removeMapping() || (*/res.error() == null && tx.empty()) {
+            if (res.removeMapping()) {
                 final Rsp res0 = res;
 
                 tx.rollbackDhtLocalAsync().listen(new CI1<IgniteInternalFuture<IgniteInternalTx>>() {

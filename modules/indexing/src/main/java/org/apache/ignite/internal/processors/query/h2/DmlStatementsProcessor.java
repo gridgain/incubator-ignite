@@ -79,7 +79,8 @@ import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryReq
 import org.apache.ignite.internal.sql.command.SqlBulkLoadCommand;
 import org.apache.ignite.internal.sql.command.SqlCommand;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashMap;
-import org.apache.ignite.internal.util.lang.GridIterator;
+import org.apache.ignite.internal.util.GridCloseableIteratorAdapterEx;
+import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.lang.IgniteClosureX;
 import org.apache.ignite.internal.util.lang.IgniteSingletonIterator;
 import org.apache.ignite.internal.util.typedef.F;
@@ -540,15 +541,15 @@ public class DmlStatementsProcessor {
                         cctx.shared().coordinators().currentCoordinator(),
                         mvccSnapshot);
 
-                    GridIterator<IgniteBiTuple> it;
+                    UpdateSourceIterator<IgniteBiTuple> it;
+
+                    GridCacheOperation op = cacheOperation(plan.mode());
 
                     if (plan.fastResult())
-                        it = plan.getFastRowAsIterator(fieldsQry.getArgs());
+                        it = new DmlUpdateSingleEntryIterator<>(op, plan.getFastRow(fieldsQry.getArgs()));
                     else {
-                        Iterable<List<?>> cur;
-
                         if (plan.hasRows())
-                            cur = plan.createRows(fieldsQry.getArgs());
+                            it = new DmlUpdateResultsIterator(op, plan, plan.createRows(fieldsQry.getArgs()));
                         else {
                             SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(),
                                 fieldsQry.isCollocated())
@@ -559,16 +560,16 @@ public class DmlStatementsProcessor {
                                 .setPageSize(fieldsQry.getPageSize())
                                 .setTimeout((int)timeout, TimeUnit.MILLISECONDS);
 
-                            cur = idx.querySqlFields(schemaName, newFieldsQry, null, true,
+                            FieldsQueryCursor cur = idx.querySqlFields(schemaName, newFieldsQry, null, true,
                                 true, mvccQueryTracker, cancel).get(0);
-                        }
 
-                        it = new TxDmlReducerIterator(plan, cur);
+                            it = new UpdateIteratorAdapter<>(op, new TxDmlReducerIterator(plan, cur));
+                        }
                     }
 
                     tx.addActiveCache(cctx, false);
 
-                    IgniteInternalFuture<Long> fut = tx.updateAsync(cctx, mvccSnapshot, cacheOperation(plan.mode()), it,
+                    IgniteInternalFuture<Long> fut = tx.updateAsync(cctx, mvccSnapshot, op, it,
                         fieldsQry.getPageSize(), timeout);
 
                     UpdateResult res = new UpdateResult(fut.get(), X.EMPTY_OBJECT_ARRAY);
@@ -1193,31 +1194,7 @@ public class DmlStatementsProcessor {
             }, cancel);
         }
 
-        return new UpdateSourceIteratorAdapter(cacheOperation(plan.mode()), plan.iteratorForTransaction(cur, topVer)) {
-            /** */
-            private static final long serialVersionUID = 6035896197816149820L;
-
-            /** */
-            private volatile Connection conn;
-
-            /** {@inheritDoc} */
-            @Override public void beforeDetach() {
-                Connection conn0 = conn = idx.detach();
-
-                if (isClosed()) // Double check
-                    U.close(conn0, log);
-            }
-
-            /** {@inheritDoc} */
-            @Override protected void onClose() throws IgniteCheckedException {
-                super.onClose();
-
-                Connection conn0 = conn;
-
-                if (conn0 != null)
-                    U.close(conn0, log);
-            }
-        };
+        return new UpdateIteratorAdapter(cacheOperation(plan.mode()), plan.iteratorForTransaction(cur, topVer));
     }
 
     /**
@@ -1474,4 +1451,134 @@ public class DmlStatementsProcessor {
         }
     }
 
+    /** */
+    private class UpdateIteratorAdapter<T> extends UpdateSourceIteratorAdapter<T> {
+        /** */
+        private static final long serialVersionUID = 6035896197816149820L;
+
+        /** */
+        private volatile Connection conn;
+
+        /** */
+        UpdateIteratorAdapter(GridCacheOperation op, GridCloseableIterator<T> it) {
+            super(op, it);
+        }
+
+        /** {@inheritDoc} */
+        @Override public void beforeDetach() {
+            Connection conn0 = conn = idx.detach();
+
+            if (isClosed()) // Double check
+                U.close(conn0, log);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void onClose() throws IgniteCheckedException {
+            super.onClose();
+
+            Connection conn0 = conn;
+
+            if (conn0 != null)
+                U.close(conn0, log);
+        }
+    }
+
+    /** */
+    private static class DmlUpdateResultsIterator
+        extends GridCloseableIteratorAdapterEx<IgniteBiTuple> implements UpdateSourceIterator<IgniteBiTuple> {
+        /** */
+        private static final long serialVersionUID = 0L;
+
+        /** */
+        private GridCacheOperation op;
+
+        /** */
+        private UpdatePlan plan;
+
+        /** */
+        private Iterator<List<?>> it;
+
+        /** */
+        DmlUpdateResultsIterator(GridCacheOperation op, UpdatePlan plan, Iterable<List<?>> rows) {
+            this.op = op;
+            this.plan = plan;
+            this.it = rows.iterator();
+        }
+
+        /** {@inheritDoc} */
+        @Override public void beforeDetach() {
+            //No-op
+        }
+
+        /** {@inheritDoc} */
+        @Override public GridCacheOperation operation() {
+            return op;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected IgniteBiTuple onNext() throws IgniteCheckedException {
+            return plan.processRowForTx(it.next());
+        }
+
+        /** {@inheritDoc} */
+        @Override protected boolean onHasNext() throws IgniteCheckedException {
+            return it.hasNext();
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void onClose() throws IgniteCheckedException {
+            //No-op
+        }
+    }
+
+    /** */
+    private static class DmlUpdateSingleEntryIterator<T>
+        extends GridCloseableIteratorAdapterEx<T> implements UpdateSourceIterator<T> {
+        /** */
+        private static final long serialVersionUID = 0L;
+
+        /** */
+        private GridCacheOperation op;
+
+        /** */
+        private boolean first = true;
+
+        /** */
+        private T entry;
+
+        /** */
+        DmlUpdateSingleEntryIterator(GridCacheOperation op, T entry) {
+            this.op = op;
+            this.entry = entry;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void beforeDetach() {
+            //No-op
+        }
+
+        /** {@inheritDoc} */
+        @Override public GridCacheOperation operation() {
+            return op;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected T onNext() throws IgniteCheckedException {
+            T res = first ? entry : null;
+
+            first = false;
+
+            return res;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected boolean onHasNext() throws IgniteCheckedException {
+            return first;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void onClose() throws IgniteCheckedException {
+            //No-op
+        }
+    }
 }

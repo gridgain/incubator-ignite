@@ -553,11 +553,35 @@ public final class UpdatePlan {
      * @return Iterator.
      * @throws IgniteCheckedException If failed.
      */
-    public GridIterator<IgniteBiTuple> getFastRowAsIterator(Object[] args) throws IgniteCheckedException {
+    public IgniteBiTuple getFastRow(Object[] args) throws IgniteCheckedException {
         if (fastUpdate != null)
-            return new SingleEntryIterator<>(fastUpdate.getRow(args));
+            return fastUpdate.getRow(args);
 
         return null;
+    }
+
+    /**
+     * @param row Row.
+     * @return Resulting entry.
+     * @throws IgniteCheckedException If failed.
+     */
+    public IgniteBiTuple processRowForTx(List<?> row) throws IgniteCheckedException {
+        switch (mode()) {
+            case INSERT:
+            case MERGE:
+                return processRow(row);
+
+            case UPDATE: {
+                T3<Object, Object, Object> row0 = processRowForUpdate(row);
+
+                return new IgniteBiTuple<>(row0.get1(), row0.get3());
+            }
+            case DELETE:
+                return new IgniteBiTuple<>(row.get(0), null);
+
+            default:
+                throw new UnsupportedOperationException(String.valueOf(mode()));
+        }
     }
 
     /**
@@ -864,39 +888,6 @@ public final class UpdatePlan {
                     return;
                 }
             }
-        }
-    }
-
-    /** */
-    private final class SingleEntryIterator<T> extends GridIteratorAdapter<T> {
-        /** */
-        private boolean first = true;
-
-        /** */
-        private T entry;
-
-        /** */
-        private SingleEntryIterator(T entry) {
-            this.entry = entry;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean hasNextX() throws IgniteCheckedException {
-            return first;
-        }
-
-        /** {@inheritDoc} */
-        @Override public T nextX() throws IgniteCheckedException {
-            T res = first ? entry : null;
-
-            first = false;
-
-            return res;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void removeX() throws IgniteCheckedException {
-            // No-op.
         }
     }
 }

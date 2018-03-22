@@ -35,7 +35,6 @@ import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
@@ -83,7 +82,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
 
     /** */
     @GridDirectTransient
-    private Collection<IgniteBiTuple> rows;
+    private Collection<Object> rows;
 
     /** */
     @GridToStringExclude
@@ -127,7 +126,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
         boolean clientFirst,
         long timeout,
         int taskNameHash,
-        Collection<IgniteBiTuple> rows,
+        Collection<Object> rows,
         GridCacheOperation op) {
         this.cacheId = cacheId;
         this.threadId = threadId;
@@ -217,7 +216,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
     /**
      * @return Collection of rows.
      */
-    public Collection<IgniteBiTuple> rows() {
+    public Collection<Object> rows() {
         return rows;
     }
 
@@ -238,15 +237,24 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
 
         if (rows != null && keys == null) {
             keys = new KeyCacheObject[rows.size()];
-            values = new CacheObject[keys.length];
 
             int i = 0;
 
-            for (IgniteBiTuple row : rows) {
-                keys[i] = cctx.toCacheKeyObject(row.getKey());
-                keys[i].prepareMarshal(objCtx);
+            values = (op == GridCacheOperation.DELETE) ? null : new CacheObject[keys.length];
 
-                Object val = row.getValue();
+            for (Object row : rows) {
+                Object key;
+                Object val = null;
+
+                if (row instanceof Object[]) {
+                    key = ((Object[])row)[0];
+                    val = ((Object[])row)[1];
+                }
+                else
+                    key = row;
+
+                keys[i] = cctx.toCacheKeyObject(key);
+                keys[i].prepareMarshal(objCtx);
 
                 if (val != null) {
                     values[i] = cctx.toCacheObject(val);
@@ -270,10 +278,14 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
             for (int i = 0; i < keys.length; i++) {
                 keys[i].finishUnmarshal(objCtx, ldr);
 
-                if (values[i] != null)
-                    values[i].finishUnmarshal(objCtx, ldr);
+                if (op == GridCacheOperation.DELETE)
+                    rows.add(keys[i]);
+                else {
+                    if (values[i] != null)
+                        values[i].finishUnmarshal(objCtx, ldr);
 
-                rows.add(new IgniteBiTuple<>(keys[i], values[i]));
+                    rows.add(new Object[] {keys[i], values[i]});
+                }
             }
 
             keys = null;

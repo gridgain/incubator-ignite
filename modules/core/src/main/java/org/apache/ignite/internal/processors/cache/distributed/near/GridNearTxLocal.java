@@ -71,6 +71,7 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.processors.cache.transactions.TransactionProxy;
 import org.apache.ignite.internal.processors.cache.transactions.TransactionProxyImpl;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
 import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
@@ -1739,7 +1740,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
      * @return Operation future.
      */
     public IgniteInternalFuture<Long> updateAsync(GridCacheContext cacheCtx, MvccSnapshot mvccSnapshot,
-        GridCacheOperation op, GridIterator<IgniteBiTuple> it, int pageSize, long timeout) {
+        GridCacheOperation op, UpdateSourceIterator<IgniteBiTuple> it, int pageSize, long timeout) {
         try {
             beforePut(cacheCtx, false);
 

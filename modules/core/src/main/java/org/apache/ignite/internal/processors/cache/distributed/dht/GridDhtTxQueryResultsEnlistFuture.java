@@ -18,28 +18,19 @@
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
-import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
-import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedException;
-import org.apache.ignite.internal.processors.cache.GridCacheLockTimeoutException;
-import org.apache.ignite.internal.processors.cache.GridCacheMvccCandidate;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
-import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
-import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
-import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
-import org.apache.ignite.internal.processors.query.GridQueryCancel;
-import org.apache.ignite.internal.processors.query.IgniteSQLException;
-import org.apache.ignite.internal.util.typedef.internal.CU;
+import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
+import org.apache.ignite.internal.util.GridCloseableIteratorAdapterEx;
 import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 
@@ -50,7 +41,7 @@ import org.jetbrains.annotations.NotNull;
 public class GridDhtTxQueryResultsEnlistFuture
     extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryResultsEnlistResponse> {
     /** */
-    private Collection<IgniteBiTuple> rows;
+    private Collection<Object> rows;
 
     /** */
     private GridCacheOperation op;
@@ -79,7 +70,7 @@ public class GridDhtTxQueryResultsEnlistFuture
         GridDhtTxLocalAdapter tx,
         long timeout,
         GridCacheContext<?, ?> cctx,
-        Collection<IgniteBiTuple> rows,
+        Collection<Object> rows,
         GridCacheOperation op) {
         super(nearNodeId,
             nearLockVer,
@@ -88,6 +79,7 @@ public class GridDhtTxQueryResultsEnlistFuture
             threadId,
             nearFutId,
             nearMiniId,
+            null,
             tx,
             timeout,
             cctx);
@@ -96,46 +88,18 @@ public class GridDhtTxQueryResultsEnlistFuture
         this.op = op;
     }
 
-    /** */
-    public void init() {
-        cancel = new GridQueryCancel();
-
-        cctx.mvcc().addFuture(this);
-
-        if (timeout > 0) {
-            timeoutObj = new LockTimeoutObject();
-
-            cctx.time().addTimeoutObject(timeoutObj);
-        }
-
-        try {
-            checkPartitions(null);
-
-            tx.addActiveCache(cctx, false);
-
-            this.cnt = rows.size();
-        }
-        catch (Throwable e) {
-            onDone(e);
-
-            if (e instanceof Error)
-                throw (Error)e;
-
-            return;
-        }
-
+    /** {@inheritDoc} */
+    @Override protected UpdateSourceIterator<?> createIterator() throws IgniteCheckedException {
+        return new UpdateResultsIterator<>(op, rows);
     }
 
-    /**
-     * @param err Error.
-     * @return Prepare response.
-     */
+    /** {@inheritDoc} */
     @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse(@NotNull Throwable err) {
         return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, 0, err);
     }
 
-    /** */
-    @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse(long res) {
+    /** {@inheritDoc} */
+    @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse(long res, boolean removeMapping) {
         return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, res, null);
     }
 
@@ -160,5 +124,56 @@ public class GridDhtTxQueryResultsEnlistFuture
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(GridDhtTxQueryResultsEnlistFuture.class, this);
+    }
+
+    /** */
+    private class UpdateResultsIterator<T>
+        extends GridCloseableIteratorAdapterEx<T> implements UpdateSourceIterator<T>  {
+        /** */
+        private static final long serialVersionUID = 0L;
+        /** */
+        private final GridCacheOperation op;
+        /** */
+        private final Iterator<T> it;
+
+        /**
+         * @param op Cache operation.
+         * @param rows Rows.
+         */
+        private UpdateResultsIterator(GridCacheOperation op, Collection<T> rows) {
+            this.op = op;
+
+            it = rows.iterator();
+        }
+
+        /** {@inheritDoc} */
+        @Override public void beforeDetach() {
+            //No-op.
+        }
+
+        /** {@inheritDoc} */
+        @Override public GridCacheOperation operation() {
+            return op;
+        }
+
+        /** {@inheritDoc} */
+        @Override protected T onNext() throws IgniteCheckedException {
+            return it.next();
+        }
+
+        /** {@inheritDoc} */
+        @Override protected boolean onHasNext() throws IgniteCheckedException {
+            return it.hasNext();
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void onRemove() throws IgniteCheckedException {
+            // No-op
+        }
+
+        /** {@inheritDoc} */
+        @Override protected void onClose() throws IgniteCheckedException {
+            // No-op
+        }
     }
 }
