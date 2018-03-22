@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteTransactions;
@@ -39,6 +41,7 @@ import org.apache.ignite.cache.CacheEntry;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
+import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.cache.query.SqlQuery;
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
@@ -56,6 +59,8 @@ import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
+import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
+import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.lang.GridInClosure3;
 import org.apache.ignite.internal.util.typedef.F;
@@ -295,16 +300,34 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
             @Override public void apply(IgniteCache<Object, Object> cache) {
                 final IgniteTransactions txs = cache.unwrap(Ignite.class).transactions();
 
-                Map<Integer, MvccTestAccount> accounts = new HashMap<>();
+                if (writeMode == WriteMode.KEY_VALUE) {
+                    Map<Integer, MvccTestAccount> accounts = new HashMap<>();
 
-                for (int i = 0; i < ACCOUNTS; i++)
-                    accounts.put(i, new MvccTestAccount(ACCOUNT_START_VAL, 1));
+                    for (int i = 0; i < ACCOUNTS; i++)
+                        accounts.put(i, new MvccTestAccount(ACCOUNT_START_VAL, 1));
 
-                try (Transaction tx = txs.txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                    cache.putAll(accounts);
+                    try (Transaction tx = txs.txStart(PESSIMISTIC, REPEATABLE_READ)) {
+                        cache.putAll(accounts);
 
-                    tx.commit();
+                        tx.commit();
+                    }
                 }
+                else if (writeMode == WriteMode.DML) {
+                    try (Transaction tx = txs.txStart(PESSIMISTIC, REPEATABLE_READ)) {
+                        SqlFieldsQuery qry = new SqlFieldsQuery("insert into MvccTestAccount(_key, val, updateCnt) values " +
+                                "(?," + ACCOUNT_START_VAL + ",1)");
+
+                        for (int i = 0; i < ACCOUNTS; i++) {
+                            try (FieldsQueryCursor<List<?>> cur = cache.query(qry.setArgs(i))) {
+                                assertEquals(1L, cur.iterator().next().get(0));
+                            }
+
+                            tx.commit();
+                        }
+                    }
+                }
+                else
+                    assert false : "Unknown write mode";
             }
         };
 
@@ -325,11 +348,13 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
                             cnt++;
 
-                            Integer id1 = rnd.nextInt(ACCOUNTS);
-                            Integer id2 = rnd.nextInt(ACCOUNTS);
+                            int i1 = rnd.nextInt(ACCOUNTS), i2 = rnd.nextInt(ACCOUNTS);
 
-                            while (id1.equals(id2))
-                                id2 = rnd.nextInt(ACCOUNTS);
+                            while (i2 == i1)
+                                i2 = rnd.nextInt(ACCOUNTS);
+
+                            Integer id1 = Math.min(i1, i2);
+                            Integer id2 = Math.max(i1, i2);
 
                             TreeSet<Integer> keys = new TreeSet<>();
 
@@ -347,7 +372,6 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
                             try (Transaction tx = txs.txStart(PESSIMISTIC, REPEATABLE_READ)) {
                                 tx.timeout(TX_TIMEOUT);
-
 
                                 Map<Integer, MvccTestAccount> accounts = null;
 
@@ -493,9 +517,9 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                             }
                         }
                         catch (Throwable e) {
-                            if (e.getMessage() == null || !(e.getMessage().contains("Mvcc version mismatch.") ||
-                                // TODO Remove this in IGNITE-7188.
-                                e.getMessage().contains("Failed to acquire lock within provided timeout for transaction"))) {
+                            IgniteSQLException sqlEx = X.cause(e, IgniteSQLException.class);
+
+                            if (sqlEx == null || sqlEx.statusCode() != IgniteQueryErrorCode.CONCURRENT_UPDATE) {
                                 error("Writer error: ", e);
 
                                 throw e;
@@ -540,10 +564,17 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                                 case SCAN: {
                                     accounts = new HashMap<>();
 
-                                    for (IgniteCache.Entry<Integer, MvccTestAccount> e : cache.cache) {
-                                        MvccTestAccount old = accounts.put(e.getKey(), e.getValue());
+                                    Iterator<Cache.Entry<Integer, MvccTestAccount>> it = cache.cache.iterator();
 
-                                        assertNull(old);
+                                    try {
+                                        for (; it.hasNext(); ) {
+                                            IgniteCache.Entry<Integer, MvccTestAccount> e = it.next();
+                                            MvccTestAccount old = accounts.put(e.getKey(), e.getValue());
+
+                                            assertNull(old);
+                                        }
+                                    } finally {
+                                        U.closeQuiet((AutoCloseable) it);
                                     }
 
                                     break;
@@ -556,7 +587,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                                         SqlQuery<Integer, MvccTestAccount> qry =
                                             new SqlQuery<>(MvccTestAccount.class, "_key >= 0");
 
-                                        for (IgniteCache.Entry<Integer, MvccTestAccount> e : cache.cache.query(qry)) {
+                                        for (IgniteCache.Entry<Integer, MvccTestAccount> e : cache.cache.query(qry).getAll()) {
                                             MvccTestAccount old = accounts.put(e.getKey(), e.getValue());
 
                                             assertNull(old);
@@ -565,7 +596,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                                     else {
                                         SqlFieldsQuery qry = new SqlFieldsQuery("select _key, val from MvccTestAccount");
 
-                                        for (List<?> row : cache.cache.query(qry)) {
+                                        for (List<?> row : cache.cache.query(qry).getAll()) {
                                             Integer id = (Integer)row.get(0);
                                             Integer val = (Integer)row.get(1);
 
@@ -684,7 +715,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
         SqlFieldsQuery qry = new SqlFieldsQuery("select _key, val, updateCnt from MvccTestAccount");
 
-        for (List<?> row : cache.cache.query(qry)) {
+        for (List<?> row : cache.cache.query(qry).getAll()) {
             Integer id = (Integer)row.get(0);
             Integer val = (Integer)row.get(1);
             Integer updateCnt = (Integer)row.get(2);
@@ -960,7 +991,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
         for (Ignite node : G.allGrids()) {
             final MvccProcessor crd = ((IgniteKernal)node).context().cache().context().coordinators();
 
-            Map activeTxs = GridTestUtils.getFieldValue(crd, "activeTxs");
+            Set activeTxs = GridTestUtils.getFieldValue(crd, "activeTxs");
 
             assertTrue("Txs on node [node=" + node.name() + ", txs=" + activeTxs.toString() + ']',
                 activeTxs.isEmpty());
