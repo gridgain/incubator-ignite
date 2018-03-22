@@ -29,7 +29,6 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQu
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
-import org.apache.ignite.internal.util.GridCloseableIteratorAdapterEx;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
@@ -39,12 +38,13 @@ import org.jetbrains.annotations.NotNull;
  * produces by complex DML queries with reduce step.
  */
 public class GridDhtTxQueryResultsEnlistFuture
-    extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryResultsEnlistResponse> {
-    /** */
-    private Collection<Object> rows;
-
+    extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryResultsEnlistResponse>
+    implements UpdateSourceIterator<Object>{
     /** */
     private GridCacheOperation op;
+
+    /** */
+    private Iterator<Object> it;
 
     /**
      * @param nearNodeId Near node ID.
@@ -84,13 +84,14 @@ public class GridDhtTxQueryResultsEnlistFuture
             timeout,
             cctx);
 
-        this.rows = rows;
         this.op = op;
+
+        it = rows.iterator();
     }
 
     /** {@inheritDoc} */
     @Override protected UpdateSourceIterator<?> createIterator() throws IgniteCheckedException {
-        return new UpdateResultsIterator<>(op, rows);
+        return this;
     }
 
     /** {@inheritDoc} */
@@ -126,54 +127,53 @@ public class GridDhtTxQueryResultsEnlistFuture
         return S.toString(GridDhtTxQueryResultsEnlistFuture.class, this);
     }
 
-    /** */
-    private class UpdateResultsIterator<T>
-        extends GridCloseableIteratorAdapterEx<T> implements UpdateSourceIterator<T>  {
-        /** */
-        private static final long serialVersionUID = 0L;
-        /** */
-        private final GridCacheOperation op;
-        /** */
-        private final Iterator<T> it;
+    /** {@inheritDoc} */
+    @Override public void beforeDetach() {
+        //No-op.
+    }
 
-        /**
-         * @param op Cache operation.
-         * @param rows Rows.
-         */
-        private UpdateResultsIterator(GridCacheOperation op, Collection<T> rows) {
-            this.op = op;
+    /** {@inheritDoc} */
+    @Override public GridCacheOperation operation() {
+        return op;
+    }
 
-            it = rows.iterator();
-        }
+    /** {@inheritDoc} */
+    @Override public boolean isClosed() {
+        return false;
+    }
 
-        /** {@inheritDoc} */
-        @Override public void beforeDetach() {
-            //No-op.
-        }
+    /** {@inheritDoc} */
+    @Override public void close() throws IgniteCheckedException {
+        // No-op.
+    }
 
-        /** {@inheritDoc} */
-        @Override public GridCacheOperation operation() {
-            return op;
-        }
+    /** {@inheritDoc} */
+    public boolean hasNextX() throws IgniteCheckedException {
+        return hasNext();
+    }
 
-        /** {@inheritDoc} */
-        @Override protected T onNext() throws IgniteCheckedException {
-            return it.next();
-        }
+    /** {@inheritDoc} */
+    public Object nextX() throws IgniteCheckedException {
+        return next();
+    }
 
-        /** {@inheritDoc} */
-        @Override protected boolean onHasNext() throws IgniteCheckedException {
-            return it.hasNext();
-        }
+    /** {@inheritDoc} */
+    @Override public void removeX() throws IgniteCheckedException {
+        // No-op.
+    }
 
-        /** {@inheritDoc} */
-        @Override protected void onRemove() throws IgniteCheckedException {
-            // No-op
-        }
+    /** {@inheritDoc} */
+    @Override public boolean hasNext() {
+        return it.hasNext();
+    }
 
-        /** {@inheritDoc} */
-        @Override protected void onClose() throws IgniteCheckedException {
-            // No-op
-        }
+    /** {@inheritDoc} */
+    @Override public Object next() {
+        return it.next();
+    }
+
+    /** {@inheritDoc} */
+    @NotNull @Override public Iterator<Object> iterator() {
+        throw new UnsupportedOperationException("not implemented");
     }
 }

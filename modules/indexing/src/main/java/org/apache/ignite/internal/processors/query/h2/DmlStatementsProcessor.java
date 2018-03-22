@@ -79,7 +79,6 @@ import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryReq
 import org.apache.ignite.internal.sql.command.SqlBulkLoadCommand;
 import org.apache.ignite.internal.sql.command.SqlCommand;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashMap;
-import org.apache.ignite.internal.util.GridCloseableIteratorAdapterEx;
 import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.lang.IgniteClosureX;
 import org.apache.ignite.internal.util.lang.IgniteSingletonIterator;
@@ -95,6 +94,7 @@ import org.h2.command.dml.Delete;
 import org.h2.command.dml.Insert;
 import org.h2.command.dml.Merge;
 import org.h2.command.dml.Update;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode.DUPLICATE_KEY;
@@ -1485,7 +1485,7 @@ public class DmlStatementsProcessor {
 
     /** */
     private static class DmlUpdateResultsIterator
-        extends GridCloseableIteratorAdapterEx<IgniteBiTuple> implements UpdateSourceIterator<IgniteBiTuple> {
+        implements UpdateSourceIterator<IgniteBiTuple> {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -1516,24 +1516,48 @@ public class DmlStatementsProcessor {
         }
 
         /** {@inheritDoc} */
-        @Override protected IgniteBiTuple onNext() throws IgniteCheckedException {
-            return plan.processRowForTx(it.next());
+        @Override public boolean isClosed() {
+            return false;
         }
 
         /** {@inheritDoc} */
-        @Override protected boolean onHasNext() throws IgniteCheckedException {
+        @Override public void close() throws IgniteCheckedException {
+            // No-op.
+        }
+
+        /** {@inheritDoc} */
+        public boolean hasNextX() throws IgniteCheckedException {
             return it.hasNext();
         }
 
         /** {@inheritDoc} */
-        @Override protected void onClose() throws IgniteCheckedException {
-            //No-op
+        public IgniteBiTuple nextX() throws IgniteCheckedException {
+            return plan.processRowForTx(it.next());
+        }
+
+        /** {@inheritDoc} */
+        @Override public void removeX() throws IgniteCheckedException {
+            // No-op.
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean hasNext() {
+            return it.hasNext();
+        }
+
+        /** {@inheritDoc} */
+        @Override public IgniteBiTuple next() {
+            throw new UnsupportedOperationException("not implemented");
+        }
+
+        /** {@inheritDoc} */
+        @NotNull @Override public Iterator<IgniteBiTuple> iterator() {
+            throw new UnsupportedOperationException("not implemented");
         }
     }
 
     /** */
-    private static class DmlUpdateSingleEntryIterator<T>
-        extends GridCloseableIteratorAdapterEx<T> implements UpdateSourceIterator<T> {
+    private static class DmlUpdateSingleEntryIterator<T> implements UpdateSourceIterator<T> {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -1563,7 +1587,22 @@ public class DmlStatementsProcessor {
         }
 
         /** {@inheritDoc} */
-        @Override protected T onNext() throws IgniteCheckedException {
+        @Override public boolean isClosed() {
+            return false;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void close() throws IgniteCheckedException {
+            // No-op.
+        }
+
+        /** {@inheritDoc} */
+        public boolean hasNextX() throws IgniteCheckedException {
+            return first;
+        }
+
+        /** {@inheritDoc} */
+        public T nextX() throws IgniteCheckedException {
             T res = first ? entry : null;
 
             first = false;
@@ -1572,13 +1611,23 @@ public class DmlStatementsProcessor {
         }
 
         /** {@inheritDoc} */
-        @Override protected boolean onHasNext() throws IgniteCheckedException {
+        @Override public void removeX() throws IgniteCheckedException {
+            // No-op.
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean hasNext() {
             return first;
         }
 
         /** {@inheritDoc} */
-        @Override protected void onClose() throws IgniteCheckedException {
-            //No-op
+        @Override public T next() {
+            throw new UnsupportedOperationException("not implemented");
+        }
+
+        /** {@inheritDoc} */
+        @NotNull @Override public Iterator<T> iterator() {
+            throw new UnsupportedOperationException("not implemented");
         }
     }
 }
