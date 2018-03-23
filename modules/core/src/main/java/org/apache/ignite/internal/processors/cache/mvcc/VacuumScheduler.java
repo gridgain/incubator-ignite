@@ -49,8 +49,8 @@ public class VacuumScheduler extends GridWorker {
             return;
 
         try {
-            if (log.isInfoEnabled())
-                log.info("Vacuum started by scheduler.");
+            if (log.isDebugEnabled())
+                log.debug("Vacuum started by scheduler.");
 
             IgniteInternalFuture<VacuumMetrics> res = ctx.coordinators().runVacuum();
 

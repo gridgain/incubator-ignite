@@ -2436,6 +2436,8 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
      * @throws Exception If failed.
      */
     public void testRebalanceSimple() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-8031");
+
         Ignite srv0 = startGrid(0);
 
         IgniteCache<Integer, Integer> cache =  (IgniteCache)srv0.createCache(
@@ -2493,12 +2495,30 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
 
         for (int i = 0; i < map.size(); i++)
             assertEquals(i + 2, (Object)resMap.get(i));
+
+        // Run fake transaction
+        try (Transaction tx = srv0.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            Integer val = cache.get(0);
+
+            cache.put(0, val);
+
+            tx.commit();
+        }
+
+        resMap = checkAndGetAll(false, cache, map.keySet(), GET, SCAN);
+
+        assertEquals(map.size(), map.size());
+
+        for (int i = 0; i < map.size(); i++)
+            assertEquals(i + 2, (Object)resMap.get(i));
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testRebalanceWithRemovedValuesSimple() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-8031");
+
         Ignite node = startGrid(0);
 
         IgniteTransactions txs = node.transactions();

@@ -821,7 +821,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
 
         lock.writeLock();
 
-        long ver = mvccCntr.incrementAndGet(), cleanupVer = committedCntr.get();
+        long ver = mvccCntr.incrementAndGet(), cleanupVer = committedCntr.get() + 1;
 
         for (Long txVer : activeTxs) {
             if (txVer < cleanupVer)
@@ -1300,8 +1300,8 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
                 try {
                     VacuumMetrics metrics = fut.get();
 
-                    if (log.isInfoEnabled())
-                        log.info("Vacuum completed. " + metrics);
+                    if (log.isDebugEnabled())
+                        log.debug("Vacuum completed. " + metrics);
                 }
                 catch (IgniteCheckedException e) {
                     U.error(log, "Vacuum error. ", e);
@@ -1312,18 +1312,18 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         try {
             MvccSnapshot snapshot;
 
-            AtomicReference<UUID> crdId0 = new AtomicReference<>();
+            AtomicReference<MvccTxInfo> txInfo = new AtomicReference<>();
 
-            if (ctx.localNodeId().equals(currentCoordinatorId())) {
+            if (ctx.localNodeId().equals(currentCoordinator().nodeId())) {
                 snapshot = requestTxSnapshotOnCoordinator(new GridCacheVersion());
 
-                crdId0.set(ctx.localNodeId());
+                txInfo.set(new MvccTxInfo(ctx.localNodeId(), snapshot));
             }
             else {
                 final IgniteInternalFuture<MvccSnapshot> cleanupVerFut =
                     requestTxSnapshot(curCrd, new MvccSnapshotResponseListener() {
                         @Override public void onResponse(UUID crdId, MvccSnapshot res) {
-                            crdId0.set(crdId);
+                            txInfo.set(new MvccTxInfo(crdId, res));
                         }
 
                         @Override public void onError(IgniteCheckedException e) {
@@ -1334,15 +1334,20 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
                 snapshot = cleanupVerFut.get();
             }
 
-            ackTxCommit(crdId0.get(), snapshot, null).get();
+            ackTxCommit(txInfo.get().coordinatorNodeId(), txInfo.get().snapshot(), null).get();
 
-            if (snapshot.cleanupVersion() <= MVCC_COUNTER_NA)
-                return new GridFinishedFuture<>(new VacuumMetrics());
+            if (snapshot.cleanupVersion() <= MVCC_COUNTER_NA) {
+                compoundFut.onDone(new VacuumMetrics(), null);
+
+                compoundFut.markInitialized();
+
+                return compoundFut;
+            }
 
             MvccVersion cleanupVer = new MvccVersionImpl(snapshot.coordinatorVersion(), snapshot.cleanupVersion());
 
-            if (log.isInfoEnabled())
-                log.info("Started vacuum with cleanup version=" + cleanupVer + '.');
+            if (log.isDebugEnabled())
+                log.debug("Started vacuum with cleanup version=" + cleanupVer + '.');
 
             for (CacheGroupContext grp : ctx.cache().cacheGroups()) {
                 if (Thread.currentThread().isInterrupted())
@@ -1439,9 +1444,9 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         assert !ctx.clientNode();
 
         synchronized (vacuumScheduledExecutor) {
-            assert vacuumScheduler != null || !vacuumScheduler.isCancelled();
+            if(vacuumScheduler != null && !vacuumScheduler.isCancelled())
+                U.cancel(vacuumScheduler);
 
-            U.cancel(vacuumScheduler);
             U.shutdownNow(MvccProcessor.class, vacuumScheduledExecutor, log);
         }
     }
