@@ -25,22 +25,22 @@ import java.util.Map;
 @MXBeanDescription("MBean that provides access to Ignite transactions.")
 public interface TransactionsMXBean {
     /**
-     * Gets active local transactions
+     * Gets all local active transactions
      *
-     * @return active local transactions.
+     * @return local active transactions.
      */
-    @MXBeanDescription("Local active transactions.")
-    public Map<String, String> getLocalActiveTransactions();
+    @MXBeanDescription("All local active transactions.")
+    public Map<String, String> getAllLocalTxs();
 
     /**
-     * Gets transaction info
+     * Gets long running local active transactions
      *
-     * @return Transaction info.
+     * @return local active transactions.
      */
-    @MXBeanDescription("Transaction info.")
-    @MXBeanParametersNames("txId")
-    @MXBeanParametersDescriptions("Transaction info.")
-    public String getTransaction(String txId);
+    @MXBeanDescription("Long running local active transactions.")
+    @MXBeanParametersNames("duration")
+    @MXBeanParametersDescriptions("Duration, at least (ms).")
+    public Map<String, String> getLongRunningLocalTxs(int duration);
 
     /**
      * Stop transaction.

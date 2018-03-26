@@ -258,7 +258,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     }
 
     /** {@inheritDoc} */
-    @Override protected UUID nearNodeId() {
+    @Override public UUID nearNodeId() {
         return cctx.localNodeId();
     }
 
