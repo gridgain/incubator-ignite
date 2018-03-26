@@ -36,7 +36,6 @@ import javax.cache.integration.CompletionListener;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorResult;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheEntry;
 import org.apache.ignite.cache.CacheEntryProcessor;
 import org.apache.ignite.cache.CacheMetrics;
@@ -48,8 +47,8 @@ import org.apache.ignite.cache.query.QueryDetailMetrics;
 import org.apache.ignite.cache.query.QueryMetrics;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.cluster.ClusterGroup;
-import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.AsyncSupportAdapter;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgniteClosure;
@@ -145,7 +144,7 @@ public class GatewayProtectedCacheProxy<K, V> extends AsyncSupportAdapter<Ignite
         CacheOperationContext prev = onEnter(gate, opCtx);
 
         try {
-            checkMvccDisabled("withExpiryPolicy");
+            MvccUtils.verifyMvccOperationSupport(delegate.context(), "withExpiryPolicy");
 
             return new GatewayProtectedCacheProxy<>(delegate, opCtx.withExpiryPolicy(plc), lock);
         }
@@ -1722,17 +1721,6 @@ public class GatewayProtectedCacheProxy<K, V> extends AsyncSupportAdapter<Ignite
             gate.leave();
         else
             gate.leaveNoLock();
-    }
-
-    /**
-     * Check that MVCC is not disabled
-     */
-    private void checkMvccDisabled(String opName) {
-        if (delegate.getConfiguration(CacheConfiguration.class).getAtomicityMode() == CacheAtomicityMode.TRANSACTIONAL
-            && delegate.context().kernalContext().config().isMvccEnabled())
-            throw new UnsupportedOperationException(opName + " is not supported on transactional caches " +
-                "when MVCC is enabled.");
-
     }
 
     /** {@inheritDoc} */

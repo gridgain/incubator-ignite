@@ -115,8 +115,7 @@ public class CacheMvccOperationChecksTest extends CacheMvccAbstractTest {
      * @throws Exception if failed.
      */
     public void testWithExpiryPolicyUnsupported() throws Exception {
-        checkOperationUnsupported("withExpiryPolicy", "withExpiryPolicy is not supported on " +
-            "transactional caches when MVCC is enabled.", t(ExpiryPolicy.class),
+        checkOperationUnsupported("withExpiryPolicy", m("withExpiryPolicy"), t(ExpiryPolicy.class),
             EternalExpiryPolicy.factoryOf().create());
     }
 
