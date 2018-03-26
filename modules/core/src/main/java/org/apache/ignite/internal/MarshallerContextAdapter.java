@@ -159,16 +159,21 @@ public abstract class MarshallerContextAdapter implements MarshallerContext {
 
     /** {@inheritDoc} */
     @Override public boolean registerClass(final int id, final Class cls) throws IgniteCheckedException {
+        log("[adapter] registerClass for id: " + id);
         Object clsNameOrFuture = map.get(id);
+
+        log("[adapter] registerClass - clsNameOrFuture: " + clsNameOrFuture);
 
         String clsName = clsNameOrFuture != null ?
             unwrap(clsNameOrFuture) :
             computeIfAbsent(id, new IgniteOutClosureX<String>() {
                 @Override public String applyx() throws IgniteCheckedException {
+                    log("[adapter] registerClass - call labmda");
                     return registerClassName(id, cls.getName()) ? cls.getName() : null;
                 }
             });
 
+        log("[adapter] registerClass - clsName: " + clsName);
         // The only way we can have clsName eq null here is a failing concurrent thread.
         if (clsName == null)
             return false;
@@ -180,17 +185,28 @@ public abstract class MarshallerContextAdapter implements MarshallerContext {
         return true;
     }
 
+    public static void log(String msg) {
+        System.out.println("[" + Thread.currentThread().getName() + "][" + System.currentTimeMillis() + "] " + msg);
+    }
+    
     /** {@inheritDoc} */
     @Override public Class getClass(final int id, ClassLoader ldr) throws ClassNotFoundException, IgniteCheckedException {
+       log("getClass for id:" + id);
+
         Object clsNameOrFuture = map.get(id);
+
+        log("getClass - clsNameOrFuture: " + clsNameOrFuture);
 
         String clsName = clsNameOrFuture != null ?
             unwrap(clsNameOrFuture) :
             computeIfAbsent(id, new IgniteOutClosureX<String>() {
                 @Override public String applyx() throws IgniteCheckedException {
+                    log("getClass - call internal lambda(className) for id:" + id);
                     return className(id);
                 }
             });
+
+        log("getClass for id - clsName: " + clsName);
 
         if (clsName == null)
             throw new ClassNotFoundException("Unknown type ID: " + id);
@@ -211,37 +227,50 @@ public abstract class MarshallerContextAdapter implements MarshallerContext {
     private String computeIfAbsent(int id, IgniteOutClosureX<String> clo) throws IgniteCheckedException {
         Object clsNameOrFuture = map.get(id);
 
+        log("computeIfAbsent - clsNameOrFuture:" + clsNameOrFuture);
         if (clsNameOrFuture == null) {
             GridFutureAdapter<String> fut = new GridFutureAdapter<>();
 
             Object old = map.putIfAbsent(id, fut);
 
+            log("computeIfAbsent - old:" + old);
             if (old == null) {
                 String clsName = null;
 
                 try {
                     try {
+                        log("computeIfAbsent - call lambda");
                         clsName = clo.applyx();
+
+                        log("computeIfAbsent - clsName:" + clsName);
 
                         fut.onDone(clsName);
 
                         clsNameOrFuture = clsName;
                     }
                     catch (Throwable e) {
+                        log("computeIfAbsent - exception:" + e);
+                        e.printStackTrace(System.out);
+
                         fut.onDone(e);
 
                         throw e;
                     }
                 }
                 finally {
-                    if (clsName != null)
-                        map.replace(id, fut, clsName);
-                    else
-                        map.remove(id, fut);
+                    if (clsName != null) {
+                        boolean replace = map.replace(id, fut, clsName);
+                        log("computeIfAbsent - replace with class name:" + clsName + " replaced?:" + replace);
+                    } else {
+                        boolean remove = map.remove(id, fut);
+                        log("computeIfAbsent - remove?:" + remove);
+                    }
                 }
             }
-            else
+            else {
+                log("computeIfAbsent - old not null unwrap it");
                 clsNameOrFuture = old;
+            }
         }
 
         // Unwrap the existing object.
@@ -256,9 +285,19 @@ public abstract class MarshallerContextAdapter implements MarshallerContext {
      * @throws IgniteCheckedException If future completed with an exception.
      */
     private String unwrap(Object clsNameOrFuture) throws IgniteCheckedException {
-        return clsNameOrFuture == null ? null :
-            clsNameOrFuture instanceof String ? (String)clsNameOrFuture :
-                ((GridFutureAdapter<String>)clsNameOrFuture).get();
+        log("unwrap - clsNameOrFuture " + clsNameOrFuture);
+        if(clsNameOrFuture == null ) {
+            return null;
+        }
+        if(clsNameOrFuture instanceof String){
+            log("unwrap - clsNameOrFuture is STRING: " + clsNameOrFuture);
+            return (String)clsNameOrFuture;
+        }
+        log("unwrap - clsNameOrFuture is FUTURE: " + clsNameOrFuture);
+        String s = ((GridFutureAdapter<String>) clsNameOrFuture).get();
+        log("unwrap - unwrapped future: " + s);
+        return s;
+
     }
 
     /** {@inheritDoc} */
