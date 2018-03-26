@@ -17,6 +17,7 @@
 
 package org.apache.ignite.yardstick.cache.model;
 
+import java.util.Arrays;
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
@@ -50,6 +51,10 @@ public class Tellers {
         // No-op.
     }
 
+    /** */
+    @QuerySqlField
+    private byte[] b;
+
     /**
      * @param val Id.
      */
@@ -63,6 +68,10 @@ public class Tellers {
         this.s1 = U.hexLong(val);
 
         this.s2 = U.hexLong(0L - val);
+
+        this.b = new byte[512];
+
+        Arrays.fill(this.b, (byte)val);
     }
 
     /**
