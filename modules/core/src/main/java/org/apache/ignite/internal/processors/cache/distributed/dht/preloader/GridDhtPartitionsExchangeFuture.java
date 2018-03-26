@@ -1701,6 +1701,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 if (!grp.isLocal())
                     grp.topology().onExchangeDone(this, grp.affinity().readyAffinity(res), false);
             }
+
+            cctx.walState().changeLocalStatesOnExchangeDone();
         }
 
         if (super.onDone(res, err)) {
