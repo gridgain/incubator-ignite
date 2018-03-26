@@ -122,6 +122,9 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
     protected CacheConfiguration ccfg;
 
     /** */
+    protected CacheConfiguration[] ccfgs;
+
+    /** */
     protected static final int TX_TIMEOUT = 3000;
 
     /** {@inheritDoc} */
@@ -139,8 +142,13 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
         cfg.setClientMode(client);
 
+        assert (ccfg == null) || (ccfgs == null);
+
         if (ccfg != null)
             cfg.setCacheConfiguration(ccfg);
+
+        if (ccfgs != null)
+            cfg.setCacheConfiguration(ccfgs);
 
         if (nodeAttr != null)
             cfg.setUserAttributes(F.asMap(nodeAttr, true));
@@ -298,18 +306,34 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
             @Override public void apply(IgniteCache<Object, Object> cache) {
                 final IgniteTransactions txs = cache.unwrap(Ignite.class).transactions();
 
-                try (Transaction tx = txs.txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                    SqlFieldsQuery qry = new SqlFieldsQuery("insert into MvccTestAccount(_key, val, updateCnt) values " +
-                            "(?," + ACCOUNT_START_VAL + ",1)");
+                if (writeMode == WriteMode.KEY_VALUE) {
+                    Map<Integer, MvccTestAccount> accounts = new HashMap<>();
 
-                    for (int i = 0; i < ACCOUNTS; i++) {
-                        try (FieldsQueryCursor<List<?>> cur = cache.query(qry.setArgs(i))) {
-                            assertEquals(1L, cur.iterator().next().get(0));
-                        }
+                    for (int i = 0; i < ACCOUNTS; i++)
+                        accounts.put(i, new MvccTestAccount(ACCOUNT_START_VAL, 1));
+
+                    try (Transaction tx = txs.txStart(PESSIMISTIC, REPEATABLE_READ)) {
+                        cache.putAll(accounts);
 
                         tx.commit();
                     }
                 }
+                else if (writeMode == WriteMode.DML) {
+                    try (Transaction tx = txs.txStart(PESSIMISTIC, REPEATABLE_READ)) {
+                        SqlFieldsQuery qry = new SqlFieldsQuery("insert into MvccTestAccount(_key, val, updateCnt) values " +
+                                "(?," + ACCOUNT_START_VAL + ",1)");
+
+                        for (int i = 0; i < ACCOUNTS; i++) {
+                            try (FieldsQueryCursor<List<?>> cur = cache.query(qry.setArgs(i))) {
+                                assertEquals(1L, cur.iterator().next().get(0));
+                            }
+
+                            tx.commit();
+                        }
+                    }
+                }
+                else
+                    assert false : "Unknown write mode";
             }
         };
 
