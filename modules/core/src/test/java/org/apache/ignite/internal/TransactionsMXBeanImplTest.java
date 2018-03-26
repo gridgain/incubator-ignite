@@ -12,24 +12,38 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
  *
  */
 public class TransactionsMXBeanImplTest extends GridCommonAbstractTest {
-    /**
-     *
-     */
-    public void testTransactions() throws Exception {
-        IgniteEx ignite = startGrid(0);
-        TransactionsMXBean txMXBean = mxBean();
+    @Override protected void beforeTestsStarted() throws Exception {
+        super.beforeTestsStarted();
 
-        ignite.transactions().txStart();
-        assertEquals(1, txMXBean.getLocalActiveTransactions().size());
+        U.resolveWorkDirectory(U.defaultWorkDirectory(), "marshaller", true);
+        U.resolveWorkDirectory(U.defaultWorkDirectory(), "binary_meta", true);
+    }
 
-        txMXBean.stopTransaction(txMXBean.getLocalActiveTransactions().keySet().iterator().next());
-        assertEquals(0, txMXBean.getLocalActiveTransactions().size());
+    /** {@inheritDoc} */
+    @Override protected void afterTest() throws Exception {
+        super.afterTest();
+
+        stopAllGrids();
     }
 
     /**
      *
      */
-    private TransactionsMXBean mxBean() throws Exception {
+    public void testTransactions() throws Exception {
+        IgniteEx ignite = startGrid(0);
+        TransactionsMXBean txMXBean = txMXBean();
+
+        ignite.transactions().txStart();
+        assertEquals(1, txMXBean.getAllLocalTxs().size());
+
+        txMXBean.stopTransaction(txMXBean.getAllLocalTxs().keySet().iterator().next());
+        assertEquals(0, txMXBean.getAllLocalTxs().size());
+    }
+
+    /**
+     *
+     */
+    private TransactionsMXBean txMXBean() throws Exception {
         ObjectName mbeanName = U.makeMBeanName(getTestIgniteInstanceName(0), "Transactions", TransactionsMXBeanImpl.class.getSimpleName());
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
         if (!mbeanSrv.isRegistered(mbeanName))
