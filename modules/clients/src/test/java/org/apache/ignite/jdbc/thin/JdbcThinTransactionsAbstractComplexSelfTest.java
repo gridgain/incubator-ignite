@@ -213,7 +213,7 @@ public abstract class JdbcThinTransactionsAbstractComplexSelfTest extends JdbcTh
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        personCache().clear();
+        execute("DELETE FROM \"Person\".Person");
 
         execute("DROP TABLE City");
 

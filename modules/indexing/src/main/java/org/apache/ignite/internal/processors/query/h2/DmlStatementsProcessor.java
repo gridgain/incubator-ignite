@@ -229,9 +229,10 @@ public class DmlStatementsProcessor {
 
         UpdatePlan plan = getPlanForStatement(schemaName, conn, prepared, fieldsQry, loc, null);
 
-        if (plan.hasRows() && plan.mode() == UpdateMode.INSERT) {
-            GridCacheContext<?, ?> cctx = plan.cacheContext();
+        GridCacheContext<?, ?> cctx = plan.cacheContext();
 
+        // For MVCC case, let's enlist batch elements one by one.
+        if (plan.hasRows() && plan.mode() == UpdateMode.INSERT && !cctx.mvccEnabled()) {
             CacheOperationContext opCtx = setKeepBinaryContext(cctx);
 
             try {
