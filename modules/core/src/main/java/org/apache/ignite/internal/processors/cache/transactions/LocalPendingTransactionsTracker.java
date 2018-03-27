@@ -87,7 +87,6 @@ public class LocalPendingTransactionsTracker {
 
     /** Tx finish await future. */
     private volatile GridFutureAdapter<Map<GridCacheVersion, WALPointer>> txFinishAwaitFut = null;
-    // todo GG-13416: handle timeout for hang in PREPARED txs
 
     /**
      *
