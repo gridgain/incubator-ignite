@@ -23,14 +23,14 @@ import java.util.Map;
  * Transactions MXBean interface.
  */
 @MXBeanDescription("MBean that provides access to Ignite transactions.")
-public interface TransactionsMXBean {
+public interface TxMXBean {
     /**
      * Gets all local active transactions
      *
      * @return local active transactions.
      */
     @MXBeanDescription("All local active transactions.")
-    public Map<String, String> getAllLocalTxs();
+    public Map<String, String> getAllLocalTransactions();
 
     /**
      * Gets long running local active transactions
@@ -40,7 +40,7 @@ public interface TransactionsMXBean {
     @MXBeanDescription("Long running local active transactions.")
     @MXBeanParametersNames("duration")
     @MXBeanParametersDescriptions("Duration, at least (ms).")
-    public Map<String, String> getLongRunningLocalTxs(int duration);
+    public Map<String, String> getLongRunningLocalTransactions(int duration);
 
     /**
      * Stop transaction.
@@ -48,6 +48,5 @@ public interface TransactionsMXBean {
     @MXBeanDescription("Stop transaction.")
     @MXBeanParametersNames("txId")
     @MXBeanParametersDescriptions("Transaction id to stop.")
-    public void stopTransaction(String txId);
-
+    public String stopTransaction(String txId);
 }

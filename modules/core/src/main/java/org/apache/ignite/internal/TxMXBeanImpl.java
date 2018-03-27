@@ -27,65 +27,67 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLoca
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgnitePredicate;
-import org.apache.ignite.mxbean.TransactionsMXBean;
+import org.apache.ignite.mxbean.TxMXBean;
 import org.apache.ignite.transactions.TransactionState;
 
 /**
  * Transactions MXBean implementation.
  */
-public class TransactionsMXBeanImpl implements TransactionsMXBean {
+public class TxMXBeanImpl implements TxMXBean {
     /** Grid kernal context. */
     private final GridKernalContextImpl gridKernalCtx;
 
     /**
      * @param ctx Context.
      */
-    TransactionsMXBeanImpl(GridKernalContextImpl ctx) {
+    TxMXBeanImpl(GridKernalContextImpl ctx) {
         this.gridKernalCtx = ctx;
     }
 
     /** {@inheritDoc} */
-    @Override public Map<String, String> getAllLocalTxs() {
+    @Override public Map<String, String> getAllLocalTransactions() {
         return getLocalTxs(0);
     }
 
     /** {@inheritDoc} */
-    @Override public Map<String, String> getLongRunningLocalTxs(final int duration) {
+    @Override public Map<String, String> getLongRunningLocalTransactions(final int duration) {
         return getLocalTxs(duration);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String stopTransaction(String txId) {
+        final Collection<IgniteTxAdapter> txs = localTxs(0);
+        if (!F.isEmpty(txId))
+            for (IgniteTxAdapter tx : txs)
+                if (tx.xid().toString().equals(txId)) {
+                    if (tx instanceof GridNearTxLocal) {
+                        ((GridNearTxLocal)tx).proxy().close();
+                        return String.format("Transaction %s is %s", tx.xid(), tx.state());
+                    }
+                    else
+                        throw new RuntimeException("Cant't stop non-near transaction " + txId);
+                }
+        throw new RuntimeException("Transaction with id " + txId + " is not found");
     }
 
     /**
      * @param duration Duration.
      */
     private Map<String, String> getLocalTxs(long duration) {
-        final Collection<IgniteTxAdapter> transactions = localTransactions(duration);
+        final Collection<IgniteTxAdapter> txs = localTxs(duration);
         final Map<UUID, ClusterNode> nodes = nodes();
 
-        final HashMap<String, String> res = new HashMap<>(transactions.size());
+        final HashMap<String, String> res = new HashMap<>(txs.size());
 
-        for (IgniteTxAdapter transaction : transactions)
-            res.put(transaction.xid().toString(), composeTx(nodes, transaction));
+        for (IgniteTxAdapter tx : txs)
+            res.put(tx.xid().toString(), composeTx(nodes, tx));
 
         return res;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void stopTransaction(String txId) {
-        final Collection<IgniteTxAdapter> transactions = localTransactions(0);
-        if (!F.isEmpty(txId))
-            for (IgniteTxAdapter transaction : transactions)
-                if (transaction.xid().toString().equals(txId)) {
-                    if (transaction instanceof GridNearTxLocal)
-                        ((GridNearTxLocal)transaction).proxy().close();
-                    else
-                        throw new RuntimeException("Cant't stop non-near transaction " + txId);
-                    return;
-                }
-        throw new RuntimeException("Transaction with id " + txId + " is not found");
     }
 
     /**
@@ -98,7 +100,7 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
             return "";
 
         return String.format("%s %s",
-            node.consistentId(),
+            node.id(),
             node.hostNames());
     }
 
@@ -107,22 +109,22 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
      * @param ids Ids.
      */
     private String composeNodeInfo(final Map<UUID, ClusterNode> nodes, final List<UUID> ids) {
-        final StringBuilder builder = new StringBuilder();
+        final GridStringBuilder sb = new GridStringBuilder();
 
-        builder.append("[");
+        sb.a("[");
 
         String delim = "";
 
         for (UUID id : ids) {
-            builder
-                .append(delim)
-                .append(composeNodeInfo(nodes, id));
+            sb
+                .a(delim)
+                .a(composeNodeInfo(nodes, id));
             delim = ", ";
         }
 
-        builder.append("]");
+        sb.a("]");
 
-        return builder.toString();
+        return sb.toString();
     }
 
     /**
@@ -134,24 +136,24 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
         final UUID originating = tx.originatingNodeId();
         final TransactionState txState = tx.state();
 
-        String topology = txState + ", ";
+        String top = txState + ", ";
 
         if (!node.equals(originating))
-            topology += "ORIGINATING: " + composeNodeInfo(nodes, tx.originatingNodeId()) + ", ";
+            top += "ORIGINATING: " + composeNodeInfo(nodes, tx.originatingNodeId()) + ", ";
         else
-            topology += "NEAR, ";
+            top += "NEAR, ";
 
         if (tx instanceof GridDhtTxLocalAdapter) {
             final List<UUID> primaryNodes;
             if (txState == TransactionState.PREPARING) {
                 if (!(primaryNodes = ((GridDhtTxLocalAdapter)tx).dhtPrimaryNodes(nodes)).isEmpty())
-                    topology += "PRIMARY: " + composeNodeInfo(nodes, primaryNodes) + ", ";
+                    top += "PRIMARY: " + composeNodeInfo(nodes, primaryNodes) + ", ";
             }
         }
 
         final Long duration = System.currentTimeMillis() - tx.startTime();
 
-        return topology + "DURATION: " + duration;
+        return top + "DURATION: " + duration;
     }
 
     /**
@@ -176,7 +178,7 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
     /**
      *
      */
-    private Collection<IgniteTxAdapter> localTransactions(long duration) {
+    private Collection<IgniteTxAdapter> localTxs(long duration) {
         final long start = System.currentTimeMillis();
         IgniteClosure<IgniteInternalTx, IgniteTxAdapter> c = new IgniteClosure<IgniteInternalTx, IgniteTxAdapter>() {
             @Override public IgniteTxAdapter apply(IgniteInternalTx tx) {
@@ -195,7 +197,7 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(TransactionsMXBeanImpl.class, this);
+        return S.toString(TxMXBeanImpl.class, this);
     }
 
 }
