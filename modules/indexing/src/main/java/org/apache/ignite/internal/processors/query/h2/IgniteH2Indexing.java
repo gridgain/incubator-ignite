@@ -141,12 +141,15 @@ import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.sql.SqlParseException;
 import org.apache.ignite.internal.sql.SqlParser;
 import org.apache.ignite.internal.sql.command.SqlAlterTableCommand;
+import org.apache.ignite.internal.sql.command.SqlAlterUserCommand;
 import org.apache.ignite.internal.sql.command.SqlBeginTransactionCommand;
 import org.apache.ignite.internal.sql.command.SqlBulkLoadCommand;
 import org.apache.ignite.internal.sql.command.SqlCommand;
 import org.apache.ignite.internal.sql.command.SqlCommitTransactionCommand;
 import org.apache.ignite.internal.sql.command.SqlCreateIndexCommand;
+import org.apache.ignite.internal.sql.command.SqlCreateUserCommand;
 import org.apache.ignite.internal.sql.command.SqlDropIndexCommand;
+import org.apache.ignite.internal.sql.command.SqlDropUserCommand;
 import org.apache.ignite.internal.sql.command.SqlRollbackTransactionCommand;
 import org.apache.ignite.internal.sql.command.SqlSetStreamingCommand;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashMap;
@@ -219,7 +222,7 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
 @SuppressWarnings({"UnnecessaryFullyQualifiedName", "NonFinalStaticVariableUsedInClassInitialization"})
 public class IgniteH2Indexing implements GridQueryIndexing {
     public static final Pattern INTERNAL_CMD_RE = Pattern.compile(
-        "^(create|drop)\\s+index|^alter\\s+table|^copy|^set|^begin|^commit|^rollback", Pattern.CASE_INSENSITIVE);
+        "^(create|drop)\\s+index|^alter\\s+table|^copy|^set|^begin|^commit|^rollback|^(create|alter|drop)\\s+user", Pattern.CASE_INSENSITIVE);
 
     /*
      * Register IO for indexes.
@@ -1709,7 +1712,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 || cmd instanceof SqlRollbackTransactionCommand
                 || cmd instanceof SqlBulkLoadCommand
                 || cmd instanceof SqlAlterTableCommand
-                || cmd instanceof SqlSetStreamingCommand))
+                || cmd instanceof SqlSetStreamingCommand
+                || cmd instanceof SqlCreateUserCommand
+                || cmd instanceof SqlAlterUserCommand
+                || cmd instanceof SqlDropUserCommand))
                 return null;
         }
         catch (Exception e) {
@@ -1858,6 +1864,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             REPEATABLE_READ,
             timeout,
             cctx == null || !cctx.skipStore(),
+            true,
             0
         );
     }
@@ -1928,6 +1935,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         if (tx != null) {
             assert tx.state() == TransactionState.ACTIVE;
 
+            if (!tx.isOperationAllowed(true))
+                throw new IgniteSQLException("SQL queries and cache operations " +
+                    "may not be used in the same transaction.", IgniteQueryErrorCode.TRANSACTION_TYPE_MISMATCH);
+
             return tx;
         }
 
@@ -1937,16 +1948,17 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     /** {@inheritDoc} */
     @SuppressWarnings({"StringEquality", "unchecked"})
     @Override public List<FieldsQueryCursor<List<?>>> querySqlFields(String schemaName, SqlFieldsQuery qry,
-        @Nullable SqlClientContext cliCtx, boolean keepBinary, boolean failOnMultipleStmts, MvccQueryTracker tracker, GridQueryCancel cancel) {
+        @Nullable SqlClientContext cliCtx, boolean keepBinary, boolean failOnMultipleStmts, MvccQueryTracker tracker,
+        GridQueryCancel cancel) {
         GridNearTxLocal tx = null;
 
         try {
+            final boolean startTx = autoStartTx(qry);
+
             List<FieldsQueryCursor<List<?>>> res = tryQueryDistributedSqlFieldsNative(schemaName, qry, cliCtx);
 
             if (res != null)
                 return res;
-
-            final boolean startTx = autoStartTx(qry);
 
             {
                 // First, let's check if we already have a two-step query for this statement...
@@ -2317,7 +2329,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      * @return {@code True} if need to start transaction.
      */
     private boolean autoStartTx(SqlFieldsQuery qry) {
-        return qry instanceof SqlFieldsQueryEx && !((SqlFieldsQueryEx)qry).isAutoCommit() && activeTx() == null;
+        // Let's do this call before anything else so that we always check tx type properly.
+        GridNearTxLocal tx = activeTx();
+
+        return qry instanceof SqlFieldsQueryEx && !((SqlFieldsQueryEx)qry).isAutoCommit() && tx == null;
     }
 
     /** {@inheritDoc} */
