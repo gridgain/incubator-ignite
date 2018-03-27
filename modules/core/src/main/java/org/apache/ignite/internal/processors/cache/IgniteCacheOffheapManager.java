@@ -22,13 +22,16 @@ import java.util.Map;
 import javax.cache.Cache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteDhtDemandedPartitionsMap;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccCounter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.RootPage;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccUpdateResult;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryRowCacheCleaner;
 import org.apache.ignite.internal.util.GridAtomicLong;
@@ -175,16 +178,8 @@ public interface IgniteCacheOffheapManager {
      * @return Cached row, if available, null otherwise.
      * @throws IgniteCheckedException If failed.
      */
-    @Nullable public CacheDataRow mvccRead(GridCacheContext cctx, KeyCacheObject key, MvccVersion ver)
+    @Nullable public CacheDataRow mvccRead(GridCacheContext cctx, KeyCacheObject key, MvccSnapshot ver)
         throws IgniteCheckedException;
-
-    /**
-     * @param cctx Cache context.
-     * @param key Key.
-     * @return Mvcc version of found row.
-     * @throws IgniteCheckedException If failed.
-     */
-    @Nullable MvccVersion findMaxMvccVersion(GridCacheContext cctx, KeyCacheObject key) throws IgniteCheckedException;
 
     /**
      * For testing only.
@@ -194,14 +189,15 @@ public interface IgniteCacheOffheapManager {
      * @return All stored versions for given key.
      * @throws IgniteCheckedException If failed.
      */
-    public List<T2<Object, MvccCounter>> mvccAllVersions(GridCacheContext cctx, KeyCacheObject key)
+    public List<T2<Object, MvccVersion>> mvccAllVersions(GridCacheContext cctx, KeyCacheObject key)
         throws IgniteCheckedException;
 
     /**
      * @param entry Entry.
      * @param val Value.
      * @param ver Version.
-     * @param mvccVer Mvcc update version.
+     * @param mvccVer MVCC version.
+     * @param newMvccVer New MVCC version.
      * @return {@code True} if value was inserted.
      * @throws IgniteCheckedException If failed.
      */
@@ -210,7 +206,8 @@ public interface IgniteCacheOffheapManager {
         @Nullable CacheObject val,
         GridCacheVersion ver,
         long expireTime,
-        MvccVersion mvccVer
+        MvccVersion mvccVer,
+        MvccVersion newMvccVer
     ) throws IgniteCheckedException;
 
     /**
@@ -219,30 +216,61 @@ public interface IgniteCacheOffheapManager {
      * @param val Value.
      * @param ver Cache version.
      * @param expireTime Expire time.
-     * @param mvccVer Mvcc update version.
-     * @return Transactions to wait for before finishing current transaction.
+     * @param mvccSnapshot MVCC snapshot.
+     * @return Update result.
      * @throws IgniteCheckedException If failed.
      */
-    @Nullable public GridLongList mvccUpdate(
-        boolean primary,
-        GridCacheMapEntry entry,
-        CacheObject val,
-        GridCacheVersion ver,
-        long expireTime,
-        MvccVersion mvccVer
+    @Nullable public MvccUpdateResult mvccUpdate(
+            boolean primary,
+            GridCacheMapEntry entry,
+            CacheObject val,
+            GridCacheVersion ver,
+            long expireTime,
+            MvccSnapshot mvccSnapshot
     ) throws IgniteCheckedException;
 
     /**
      * @param primary {@code True} if on primary node.
      * @param entry Entry.
-     * @param mvccVer Mvcc update version.
+     * @param mvccSnapshot MVCC snapshot.
+     * @return Update result.
+     * @throws IgniteCheckedException If failed.
+     */
+    @Nullable public MvccUpdateResult mvccRemove(
+        boolean primary,
+        GridCacheMapEntry entry,
+        MvccSnapshot mvccSnapshot
+    ) throws IgniteCheckedException;
+
+    /**
+     * @param primary {@code True} if on primary node.
+     * @param entry Entry.
+     * @param val Value.
+     * @param ver Cache version.
+     * @param expireTime Expire time.
+     * @param mvccSnapshot MVCC snapshot.
      * @return Transactions to wait for before finishing current transaction.
      * @throws IgniteCheckedException If failed.
      */
-    @Nullable public GridLongList mvccRemove(
-        boolean primary,
-        GridCacheMapEntry entry,
-        MvccVersion mvccVer
+    GridLongList mvccUpdateNative(
+            boolean primary,
+            GridCacheMapEntry entry,
+            CacheObject val,
+            GridCacheVersion ver,
+            long expireTime,
+            MvccSnapshot mvccSnapshot) throws IgniteCheckedException;
+
+    /**
+     * @param primary {@code True} if on primary node.
+     * @param entry Entry.
+     * @param mvccSnapshot MVCC snapshot.
+     * @return Transactions to wait for before finishing current transaction.
+     * @throws IgniteCheckedException If failed.
+     */
+    GridLongList mvccRemoveNative(
+            boolean primary,
+            GridCacheMapEntry entry,
+            MvccSnapshot mvccSnapshot
     ) throws IgniteCheckedException;
 
     /**
@@ -305,18 +333,18 @@ public interface IgniteCacheOffheapManager {
         boolean primary,
         boolean backup,
         AffinityTopologyVersion topVer,
-        @Nullable MvccVersion mvccVer)
+        @Nullable MvccSnapshot mvccSnapshot)
         throws IgniteCheckedException;
 
     /**
      * @param cacheId Cache ID.
      * @param part Partition.
-     * @param mvccVer MVCC version.
+     * @param mvccSnapshot MVCC snapshot.
      * @return Partition data iterator.
      * @throws IgniteCheckedException If failed.
      */
-    public GridIterator<CacheDataRow> cachePartitionIterator(int cacheId, final int part, @Nullable MvccVersion mvccVer)
-        throws IgniteCheckedException;
+    public GridIterator<CacheDataRow> cachePartitionIterator(int cacheId, final int part,
+        @Nullable MvccSnapshot mvccSnapshot) throws IgniteCheckedException;
 
     /**
      * @param part Partition number.
@@ -326,13 +354,21 @@ public interface IgniteCacheOffheapManager {
     public GridIterator<CacheDataRow> partitionIterator(final int part) throws IgniteCheckedException;
 
     /**
-     * @param part Partition.
+     * @param part Partition number.
      * @param topVer Topology version.
-     * @param partCntr Partition counter to get historical data if available.
+     * @return Iterator for given partition that will reserve partition state until it is closed.
+     * @throws IgniteCheckedException If failed.
+     */
+    public GridCloseableIterator<CacheDataRow> reservedIterator(final int part, final AffinityTopologyVersion topVer)
+        throws IgniteCheckedException;
+
+    /**
+     * @param parts Partitions.
      * @return Partition data iterator.
      * @throws IgniteCheckedException If failed.
      */
-    public IgniteRebalanceIterator rebalanceIterator(int part, AffinityTopologyVersion topVer, Long partCntr)
+    // TODO: MVCC>
+    public IgniteRebalanceIterator rebalanceIterator(IgniteDhtDemandedPartitionsMap parts, AffinityTopologyVersion topVer)
         throws IgniteCheckedException;
 
     /**
@@ -344,6 +380,7 @@ public interface IgniteCacheOffheapManager {
      * @return Entries iterator.
      * @throws IgniteCheckedException If failed.
      */
+    // TODO: MVCC>
     public <K, V> GridCloseableIterator<Cache.Entry<K, V>> cacheEntriesIterator(
         GridCacheContext cctx,
         final boolean primary,
@@ -357,6 +394,7 @@ public interface IgniteCacheOffheapManager {
      * @return Iterator.
      * @throws IgniteCheckedException If failed.
      */
+    // TODO: MVCC>
     public GridCloseableIterator<KeyCacheObject> cacheKeysIterator(int cacheId, final int part)
         throws IgniteCheckedException;
 
@@ -368,6 +406,7 @@ public interface IgniteCacheOffheapManager {
      * @return Entries count.
      * @throws IgniteCheckedException If failed.
      */
+    // TODO: MVCC>
     public long cacheEntriesCount(int cacheId, boolean primary, boolean backup, AffinityTopologyVersion topVer)
         throws IgniteCheckedException;
 
@@ -517,6 +556,14 @@ public interface IgniteCacheOffheapManager {
 
         /**
          * @param cctx Cache context.
+         * @param cleanupRows Rows to cleanup.
+         * @throws IgniteCheckedException If failed.
+         */
+        public void cleanup(GridCacheContext cctx, @Nullable List<MvccLinkAwareSearchRow> cleanupRows)
+            throws IgniteCheckedException;
+
+        /**
+         * @param cctx Cache context.
          * @param key Key.
          * @param val Value.
          * @param ver Version.
@@ -537,7 +584,8 @@ public interface IgniteCacheOffheapManager {
          * @param key Key.
          * @param val Value.
          * @param ver Version.
-         * @param mvccVer Mvcc version.
+         * @param mvccVer MVCC version.
+         * @param newMvccVer New MVCC version.
          * @return {@code True} if new value was inserted.
          * @throws IgniteCheckedException If failed.
          */
@@ -547,7 +595,8 @@ public interface IgniteCacheOffheapManager {
             @Nullable CacheObject val,
             GridCacheVersion ver,
             long expireTime,
-            MvccVersion mvccVer) throws IgniteCheckedException;
+            MvccVersion mvccVer,
+            MvccVersion newMvccVer) throws IgniteCheckedException;
 
         /**
          * @param cctx Cache context.
@@ -556,32 +605,65 @@ public interface IgniteCacheOffheapManager {
          * @param val Value.
          * @param ver Version.
          * @param expireTime Expire time.
-         * @param mvccVer Mvcc version.
-         * @return List of transactions to wait for.
+         * @param mvccSnapshot MVCC snapshot.
+         * @return Update result.
          * @throws IgniteCheckedException If failed.
          */
-        @Nullable GridLongList mvccUpdate(
-            GridCacheContext cctx,
-            boolean primary,
-            KeyCacheObject key,
-            CacheObject val,
-            GridCacheVersion ver,
-            long expireTime,
-            MvccVersion mvccVer) throws IgniteCheckedException;
+        MvccUpdateResult mvccUpdate(
+                GridCacheContext cctx,
+                boolean primary,
+                KeyCacheObject key,
+                CacheObject val,
+                GridCacheVersion ver,
+                long expireTime,
+                MvccSnapshot mvccSnapshot) throws IgniteCheckedException;
 
         /**
          * @param cctx Cache context.
          * @param primary {@code True} if update is executed on primary node.
          * @param key Key.
-         * @param mvccVer Mvcc version.
+         * @param mvccSnapshot MVCC snapshot.
          * @return List of transactions to wait for.
          * @throws IgniteCheckedException If failed.
          */
-        @Nullable GridLongList mvccRemove(
+        MvccUpdateResult mvccRemove(
             GridCacheContext cctx,
             boolean primary,
             KeyCacheObject key,
-            MvccVersion mvccVer) throws IgniteCheckedException;
+            MvccSnapshot mvccSnapshot) throws IgniteCheckedException;
+
+        /**
+         * @param cctx Cache context.
+         * @param primary {@code True} if update is executed on primary node.
+         * @param key Key.
+         * @param val Value.
+         * @param ver Version.
+         * @param expireTime Expire time.
+         * @param mvccSnapshot MVCC snapshot.
+         * @return Update result.
+         * @throws IgniteCheckedException If failed.
+         */
+        @Nullable GridLongList mvccUpdateNative(
+                GridCacheContext cctx,
+                boolean primary,
+                KeyCacheObject key,
+                CacheObject val,
+                GridCacheVersion ver,
+                long expireTime,
+                MvccSnapshot mvccSnapshot) throws IgniteCheckedException;
+
+        /**
+         * @param cctx Cache context.
+         * @param primary {@code True} if update is executed on primary node.
+         * @param key Key.
+         * @param mvccSnapshot MVCC snapshot.
+         * @return List of transactions to wait for.
+         * @throws IgniteCheckedException If failed.
+         */
+        @Nullable GridLongList mvccRemoveNative(GridCacheContext cctx,
+                                      boolean primary,
+                                      KeyCacheObject key,
+                                      MvccSnapshot mvccSnapshot) throws IgniteCheckedException;
 
         /**
          * @param cctx Cache context.
@@ -620,16 +702,8 @@ public interface IgniteCacheOffheapManager {
          * @return Data row.
          * @throws IgniteCheckedException If failed.
          */
-        public CacheDataRow mvccFind(GridCacheContext cctx, KeyCacheObject key, MvccVersion ver)
+        public CacheDataRow mvccFind(GridCacheContext cctx, KeyCacheObject key, MvccSnapshot snapshot)
             throws IgniteCheckedException;
-
-        /**
-         * @param cctx Cache context.
-         * @param key Key.
-         * @return Mvcc version of found row.
-         * @throws IgniteCheckedException If failed.
-         */
-        MvccVersion findMaxMvccVersion(GridCacheContext cctx, KeyCacheObject key) throws IgniteCheckedException;
 
         /**
          * For testing only.
@@ -639,7 +713,7 @@ public interface IgniteCacheOffheapManager {
          * @return All stored versions for given key.
          * @throws IgniteCheckedException If failed.
          */
-        List<T2<Object, MvccCounter>> mvccFindAllVersions(GridCacheContext cctx, KeyCacheObject key)
+        List<T2<Object, MvccVersion>> mvccFindAllVersions(GridCacheContext cctx, KeyCacheObject key)
             throws IgniteCheckedException;
 
         /**
@@ -649,11 +723,18 @@ public interface IgniteCacheOffheapManager {
         public GridCursor<? extends CacheDataRow> cursor() throws IgniteCheckedException;
 
         /**
-         * @param ver Mvcc version.
+         * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
          * @return Data cursor.
          * @throws IgniteCheckedException If failed.
          */
-        public GridCursor<? extends CacheDataRow> cursor(MvccVersion ver) throws IgniteCheckedException;
+        public GridCursor<? extends CacheDataRow> cursor(Object x) throws IgniteCheckedException;
+
+        /**
+         * @param mvccSnapshot MVCC snapshot.
+         * @return Data cursor.
+         * @throws IgniteCheckedException If failed.
+         */
+        public GridCursor<? extends CacheDataRow> cursor(MvccSnapshot mvccSnapshot) throws IgniteCheckedException;
 
         /**
          * @param cacheId Cache ID.
@@ -664,12 +745,12 @@ public interface IgniteCacheOffheapManager {
 
         /**
          * @param cacheId Cache ID.
-         * @param ver Mvcc version.
+         * @param mvccSnapshot Mvcc snapshot.
          * @return Data cursor.
          * @throws IgniteCheckedException If failed.
          */
-        public GridCursor<? extends CacheDataRow> cursor(int cacheId,
-            MvccVersion ver) throws IgniteCheckedException;
+        public GridCursor<? extends CacheDataRow> cursor(int cacheId, MvccSnapshot mvccSnapshot)
+            throws IgniteCheckedException;
 
         /**
          * @param cacheId Cache ID.
@@ -697,12 +778,12 @@ public interface IgniteCacheOffheapManager {
          * @param lower Lower bound.
          * @param upper Upper bound.
          * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
-         * @param ver Mvcc version.
+         * @param snapshot Mvcc snapshot.
          * @return Data cursor.
          * @throws IgniteCheckedException If failed.
          */
         public GridCursor<? extends CacheDataRow> cursor(int cacheId, KeyCacheObject lower,
-            KeyCacheObject upper, Object x, MvccVersion ver) throws IgniteCheckedException;
+            KeyCacheObject upper, Object x, MvccSnapshot snapshot) throws IgniteCheckedException;
 
         /**
          * Destroys the tree associated with the store.

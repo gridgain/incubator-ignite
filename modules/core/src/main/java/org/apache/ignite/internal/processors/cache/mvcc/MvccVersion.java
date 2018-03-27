@@ -17,34 +17,26 @@
 
 package org.apache.ignite.internal.processors.cache.mvcc;
 
-import org.apache.ignite.plugin.extensions.communication.Message;
+import org.jetbrains.annotations.NotNull;
 
 /**
- *
+ * MVCC version. This is unique version allowing to order all reads and writes within a cluster. Consists of two parts:
+ * - coordinator version - number which increases on every coordinator change;
+ * - counter - local coordinator counter which is increased on every update.
  */
-public interface MvccVersion extends Message {
-    /**
-     * @return Active transactions.
-     */
-    public MvccLongList activeTransactions();
-
+public interface MvccVersion extends Comparable<MvccVersion> {
     /**
      * @return Coordinator version.
      */
     public long coordinatorVersion();
 
     /**
-     * @return Cleanup version (all smaller versions are safe to remove).
-     */
-    public long cleanupVersion();
-
-    /**
-     * @return Counter.
+     * @return Local counter.
      */
     public long counter();
 
-    /**
-     * @return Version without active transactions.
-     */
-    public MvccVersion withoutActiveTransactions();
+    /** {@inheritDoc} */
+    @Override default int compareTo(@NotNull MvccVersion another) {
+        return  MvccUtils.compare(coordinatorVersion(), counter(), another.coordinatorVersion(), another.counter());
+    }
 }

@@ -35,7 +35,7 @@ import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.managers.communication.GridIoPolicy;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.query.GridQueryFieldMetadata;
 import org.apache.ignite.internal.util.GridBoundedConcurrentOrderedSet;
 import org.apache.ignite.internal.util.GridCloseableIteratorAdapter;
@@ -51,7 +51,7 @@ import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteReducer;
 import org.jetbrains.annotations.Nullable;
-import org.jsr166.ConcurrentHashMap8;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.ignite.cache.CacheMode.LOCAL;
 import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
@@ -75,11 +75,11 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
     private static final String TOPIC_PREFIX = "QUERY";
 
     /** {request ID -> thread} */
-    private ConcurrentMap<Long, Thread> threads = new ConcurrentHashMap8<>();
+    private ConcurrentMap<Long, Thread> threads = new ConcurrentHashMap<>();
 
     /** {request ID -> future} */
     private ConcurrentMap<Long, GridCacheDistributedQueryFuture<?, ?, ?>> futs =
-        new ConcurrentHashMap8<>();
+        new ConcurrentHashMap<>();
 
     /** Received requests to cancel. */
     private Collection<CancelMessageId> cancelIds =
@@ -196,7 +196,7 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
      */
     @SuppressWarnings("unchecked")
     @Override void processQueryRequest(UUID sndId, GridCacheQueryRequest req) {
-        assert req.mvccVersion() != null || !cctx.mvccEnabled() || req.cancel() ||
+        assert req.mvccSnapshot() != null || !cctx.mvccEnabled() || req.cancel() ||
             (req.type() == null && !req.fields()) : req; // Last assertion means next page request.
 
         if (req.cancel()) {
@@ -283,7 +283,7 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
                 req.keepBinary(),
                 req.subjectId(),
                 req.taskHash(),
-                req.mvccVersion()
+                req.mvccSnapshot()
             );
 
         return new GridCacheQueryInfo(
@@ -537,7 +537,7 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
 
             String clsName = qry.query().queryClassName();
 
-            MvccVersion mvccVer = qry.query().mvccVersion();
+            MvccSnapshot mvccSnapshot = qry.query().mvccSnapshot();
 
             final GridCacheQueryRequest req = new GridCacheQueryRequest(
                 cctx.cacheId(),
@@ -559,7 +559,7 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
                 qry.query().subjectId(),
                 qry.query().taskHash(),
                 queryTopologyVersion(),
-                mvccVer,
+                mvccSnapshot,
                 // Force deployment anyway if scan query is used.
                 cctx.deploymentEnabled() || (qry.query().scanFilter() != null && cctx.gridDeploy().enabled()));
 
@@ -590,7 +590,7 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
         Collection<ClusterNode> nodes) throws IgniteCheckedException {
         assert !cctx.isLocal() : cctx.name();
         assert qry.type() == GridCacheQueryType.SCAN: qry;
-        assert qry.mvccVersion() != null || !cctx.mvccEnabled();
+        assert qry.mvccSnapshot() != null || !cctx.mvccEnabled();
 
         GridCloseableIterator locIter0 = null;
 

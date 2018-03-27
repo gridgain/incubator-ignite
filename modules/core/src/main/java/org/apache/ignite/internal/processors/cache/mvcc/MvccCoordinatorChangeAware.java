@@ -27,5 +27,5 @@ public interface MvccCoordinatorChangeAware {
      * @param newCrd New coordinator.
      * @return Version used by this query.
      */
-    @Nullable public MvccVersion onMvccCoordinatorChange(MvccCoordinator newCrd);
+    @Nullable public MvccSnapshot onMvccCoordinatorChange(MvccCoordinator newCrd);
 }

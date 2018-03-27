@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Lock;
@@ -29,7 +30,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteInterruptedException;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.query.QueryTable;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
@@ -55,7 +55,6 @@ import org.h2.table.TableBase;
 import org.h2.table.TableType;
 import org.h2.value.DataType;
 import org.jetbrains.annotations.Nullable;
-import org.jsr166.ConcurrentHashMap8;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 import static org.apache.ignite.internal.processors.query.h2.opt.GridH2KeyValueRowOnheap.DEFAULT_COLUMNS_COUNT;
@@ -93,7 +92,7 @@ public class GridH2Table extends TableBase {
     private boolean destroyed;
 
     /** */
-    private final ConcurrentMap<Session, Boolean> sessions = new ConcurrentHashMap8<>();
+    private final ConcurrentMap<Session, Boolean> sessions = new ConcurrentHashMap<>();
 
     /** */
     private IndexColumn affKeyCol;
@@ -432,15 +431,13 @@ public class GridH2Table extends TableBase {
      * @param idxRebuild If index rebuild is in progress.
      * @throws IgniteCheckedException If failed.
      */
-    public void  update(CacheDataRow row, @Nullable CacheDataRow prevRow, @Nullable MvccVersion newVer,
-        boolean prevRowAvailable, boolean idxRebuild) throws IgniteCheckedException {
+    public void update(CacheDataRow row, @Nullable CacheDataRow prevRow,  boolean prevRowAvailable,
+        boolean idxRebuild) throws IgniteCheckedException {
         assert desc != null;
 
-        GridH2KeyValueRowOnheap row0 = (GridH2KeyValueRowOnheap)desc.createRow(row, newVer);
-        GridH2KeyValueRowOnheap prevRow0 = prevRow != null ? (GridH2KeyValueRowOnheap)desc.createRow(prevRow, null) :
+        GridH2KeyValueRowOnheap row0 = (GridH2KeyValueRowOnheap)desc.createRow(row);
+        GridH2KeyValueRowOnheap prevRow0 = prevRow != null ? (GridH2KeyValueRowOnheap)desc.createRow(prevRow) :
             null;
-
-        assert !cctx.mvccEnabled() || prevRow0 == null;
 
         row0.prepareValuesCache();
 
@@ -463,11 +460,9 @@ public class GridH2Table extends TableBase {
                     replaced = prevRow0 != null;
                 }
 
-                assert (cctx.mvccEnabled() && idxRebuild ||
-                        replaced == (row0.newMvccCoordinatorVersion() != 0)) ||
-                        (replaced && prevRow0 != null) ||
-                        (!replaced && prevRow0 == null) :
-                        "Replaced: " + replaced;
+                assert (cctx.mvccEnabled() && idxRebuild && replaced)
+                    || replaced && prevRow0 != null
+                    || !replaced && prevRow0 == null : "Replaced: " + replaced;
 
                 if (!replaced)
                     size.increment();
@@ -504,7 +499,7 @@ public class GridH2Table extends TableBase {
      * @throws IgniteCheckedException If failed.
      */
     public boolean remove(CacheDataRow row) throws IgniteCheckedException {
-        GridH2Row row0 = desc.createRow(row, null);
+        GridH2Row row0 = desc.createRow(row);
 
         lock(false);
 
@@ -547,7 +542,7 @@ public class GridH2Table extends TableBase {
     private void addToIndex(GridH2IndexBase idx, GridH2Row row, GridH2Row prevRow, boolean idxRebuild) {
         boolean replaced = idx.putx(row);
 
-        assert !idx.ctx.mvccEnabled() || idxRebuild || replaced == (row.newMvccCoordinatorVersion() != 0);
+        assert  !replaced || !idx.ctx.mvccEnabled() || idxRebuild;
 
         // Row was not replaced, need to remove manually.
         if (!replaced && prevRow != null)
@@ -1001,6 +996,11 @@ public class GridH2Table extends TableBase {
             setColumns(newCols);
 
             desc.refreshMetadataFromTypeDescriptor();
+
+            for (Index idx : getIndexes()) {
+                if (idx instanceof GridH2IndexBase)
+                    ((GridH2IndexBase)idx).refreshColumnIds();
+            }
 
             setModified();
         }

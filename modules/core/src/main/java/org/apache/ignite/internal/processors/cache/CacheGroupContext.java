@@ -40,6 +40,7 @@ import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentCache;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtAffinityAssignmentRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtAffinityAssignmentResponse;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionsEvictor;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionTopology;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionTopologyImpl;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPreloader;
@@ -127,6 +128,9 @@ public class CacheGroupContext {
 
     /** */
     private GridCachePreloader preldr;
+
+    /** Partition evictor. */
+    private GridDhtPartitionsEvictor evictor;
 
     /** */
     private final DataRegion dataRegion;
@@ -272,6 +276,13 @@ public class CacheGroupContext {
     }
 
     /**
+     * @return Partitions evictor.
+     */
+    public GridDhtPartitionsEvictor evictor() {
+        return evictor;
+    }
+
+    /**
      * @return IO policy for the given cache group.
      */
     public byte ioPolicy() {
@@ -409,6 +420,13 @@ public class CacheGroupContext {
      */
     public boolean eventRecordable(int type) {
         return cacheType.userCache() && ctx.gridEvents().isRecordable(type);
+    }
+
+    /**
+     * @return {@code True} if cache created by user.
+     */
+    public boolean userCache() {
+        return cacheType.userCache();
     }
 
     /**
@@ -907,6 +925,8 @@ public class CacheGroupContext {
         }
         else
             preldr = new GridCachePreloaderAdapter(this);
+
+        evictor = new GridDhtPartitionsEvictor(this);
 
         if (persistenceEnabled()) {
             try {

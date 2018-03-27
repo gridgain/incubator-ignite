@@ -25,6 +25,8 @@ import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
+import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLogInnerIO;
+import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLogLeafIO;
 import org.apache.ignite.internal.processors.cache.persistence.IndexStorageImpl;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListMetaIO;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListNodeIO;
@@ -33,14 +35,14 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageHan
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageLockListener;
 import org.apache.ignite.internal.processors.cache.tree.CacheIdAwareDataInnerIO;
 import org.apache.ignite.internal.processors.cache.tree.CacheIdAwareDataLeafIO;
-import org.apache.ignite.internal.processors.cache.tree.CacheIdAwareMvccDataInnerIO;
-import org.apache.ignite.internal.processors.cache.tree.CacheIdAwareMvccDataLeafIO;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccCacheIdAwareDataInnerIO;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccCacheIdAwareDataLeafIO;
 import org.apache.ignite.internal.processors.cache.tree.CacheIdAwarePendingEntryInnerIO;
 import org.apache.ignite.internal.processors.cache.tree.CacheIdAwarePendingEntryLeafIO;
 import org.apache.ignite.internal.processors.cache.tree.DataInnerIO;
 import org.apache.ignite.internal.processors.cache.tree.DataLeafIO;
-import org.apache.ignite.internal.processors.cache.tree.MvccDataInnerIO;
-import org.apache.ignite.internal.processors.cache.tree.MvccDataLeafIO;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataInnerIO;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataLeafIO;
 import org.apache.ignite.internal.processors.cache.tree.PendingEntryInnerIO;
 import org.apache.ignite.internal.processors.cache.tree.PendingEntryLeafIO;
 import org.apache.ignite.internal.util.GridStringBuilder;
@@ -224,6 +226,12 @@ public abstract class PageIO {
 
     /** */
     public static final short T_H2_MVCC_REF_INNER = 29;
+
+    /** */
+    public static final short T_TX_LOG_LEAF = 30;
+
+    /** */
+    public static final short T_TX_LOG_INNER = 31;
 
     /** Index for payload == 1. */
     public static final short T_H2_EX_REF_LEAF_START = 10_000;
@@ -595,6 +603,12 @@ public abstract class PageIO {
 
                 return (Q)h2MvccLeafIOs.forVersion(ver);
 
+            case T_TX_LOG_INNER:
+                return (Q)TxLogInnerIO.VERSIONS.forVersion(ver);
+
+            case T_TX_LOG_LEAF:
+                return (Q)TxLogLeafIO.VERSIONS.forVersion(ver);
+
             case T_DATA_REF_INNER:
                 return (Q)DataInnerIO.VERSIONS.forVersion(ver);
 
@@ -608,10 +622,10 @@ public abstract class PageIO {
                 return (Q)CacheIdAwareDataLeafIO.VERSIONS.forVersion(ver);
 
             case T_CACHE_ID_DATA_REF_MVCC_INNER:
-                return (Q)CacheIdAwareMvccDataInnerIO.VERSIONS.forVersion(ver);
+                return (Q) MvccCacheIdAwareDataInnerIO.VERSIONS.forVersion(ver);
 
             case T_CACHE_ID_DATA_REF_MVCC_LEAF:
-                return (Q)CacheIdAwareMvccDataLeafIO.VERSIONS.forVersion(ver);
+                return (Q) MvccCacheIdAwareDataLeafIO.VERSIONS.forVersion(ver);
 
             case T_DATA_REF_MVCC_INNER:
                 return (Q)MvccDataInnerIO.VERSIONS.forVersion(ver);

@@ -27,6 +27,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.eviction.EvictableEntry;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridDhtAtomicAbstractUpdateFuture;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
@@ -393,7 +394,7 @@ public class GridCacheTestEntryEx extends GridMetadataAwareAdapter implements Gr
         String taskName,
         @Nullable IgniteCacheExpiryPolicy expiryPlc,
         boolean keepBinary,
-        MvccVersion mvccVer) {
+        MvccSnapshot mvccVer) {
         return val;
     }
 
@@ -410,7 +411,7 @@ public class GridCacheTestEntryEx extends GridMetadataAwareAdapter implements Gr
         String taskName,
         @Nullable IgniteCacheExpiryPolicy expiryPlc,
         boolean keepBinary,
-        MvccVersion mvccVer,
+        MvccSnapshot mvccVer,
         @Nullable ReaderArguments args) throws IgniteCheckedException, GridCacheEntryRemovedException {
         assert false;
 
@@ -428,7 +429,7 @@ public class GridCacheTestEntryEx extends GridMetadataAwareAdapter implements Gr
         String taskName,
         @Nullable IgniteCacheExpiryPolicy expiryPlc,
         boolean keepBinary,
-        MvccVersion mvccVer,
+        MvccSnapshot mvccVer,
         @Nullable ReaderArguments readerArgs) {
         assert false;
 
@@ -462,13 +463,29 @@ public class GridCacheTestEntryEx extends GridMetadataAwareAdapter implements Gr
         String taskName,
         @Nullable GridCacheVersion dhtVer,
         @Nullable Long updateCntr,
-        MvccVersion mvccVer
+        MvccSnapshot mvccVer
     )
         throws IgniteCheckedException, GridCacheEntryRemovedException
     {
         rawPut(val, ttl);
 
-        return new GridCacheUpdateTxResult(true, null);
+        return new GridCacheUpdateTxResult(true);
+    }
+
+    /** {@inheritDoc} */
+    @Override public GridCacheUpdateTxResult mvccSet(@Nullable IgniteInternalTx tx, UUID affNodeId, CacheObject val, long ttl0, AffinityTopologyVersion topVer, @Nullable Long updateCntr, MvccSnapshot mvccVer, GridCacheOperation op) throws IgniteCheckedException, GridCacheEntryRemovedException {
+        rawPut(val, ttl);
+
+        return new GridCacheUpdateTxResult(true);
+    }
+
+    /** {@inheritDoc} */
+    @Override public GridCacheUpdateTxResult mvccRemove(@Nullable IgniteInternalTx tx, UUID affNodeId, AffinityTopologyVersion topVer, @Nullable Long updateCntr, MvccSnapshot mvccVer) throws IgniteCheckedException, GridCacheEntryRemovedException {
+        obsoleteVer = ver;
+
+        val = null;
+
+        return new GridCacheUpdateTxResult(true);
     }
 
     /** {@inheritDoc} */
@@ -547,13 +564,13 @@ public class GridCacheTestEntryEx extends GridMetadataAwareAdapter implements Gr
         String taskName,
         @Nullable GridCacheVersion dhtVer,
         @Nullable Long updateCntr,
-        MvccVersion mvccVer
+        MvccSnapshot mvccVer
         ) throws IgniteCheckedException, GridCacheEntryRemovedException {
         obsoleteVer = ver;
 
         val = null;
 
-        return new GridCacheUpdateTxResult(true, null);
+        return new GridCacheUpdateTxResult(true);
     }
 
     /** @inheritDoc */
@@ -645,6 +662,7 @@ public class GridCacheTestEntryEx extends GridMetadataAwareAdapter implements Gr
         CacheObject val,
         GridCacheVersion ver,
         MvccVersion mvccVer,
+        MvccVersion newMvccVer,
         long ttl,
         long expireTime,
         boolean preload,

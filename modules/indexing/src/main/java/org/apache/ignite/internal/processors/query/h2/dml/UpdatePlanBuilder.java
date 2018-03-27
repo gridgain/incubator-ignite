@@ -43,22 +43,10 @@ import org.apache.ignite.internal.processors.query.h2.opt.GridH2RowDescriptor;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlAlias;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlAst;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlColumn;
+import org.apache.ignite.internal.processors.query.h2.sql.*;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlConst;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlDelete;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlElement;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlInsert;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlMerge;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlParameter;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuery;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuerySplitter;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSelect;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlStatement;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlTable;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlUnion;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlUpdate;
 import org.apache.ignite.internal.sql.command.SqlBulkLoadCommand;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlParameter;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.CU;
@@ -89,11 +77,11 @@ public final class UpdatePlanBuilder {
      * @param loc Local query flag.
      * @param idx Indexing.
      * @param conn Connection.
-     * @param fieldsQuery Original query.
+     * @param fieldsQry Original query.
      * @return Update plan.
      */
     public static UpdatePlan planForStatement(Prepared prepared, boolean loc, IgniteH2Indexing idx,
-        @Nullable Connection conn, @Nullable SqlFieldsQuery fieldsQuery, @Nullable Integer errKeysPos)
+        @Nullable Connection conn, @Nullable SqlFieldsQuery fieldsQry, @Nullable Integer errKeysPos)
         throws IgniteCheckedException {
         assert !prepared.isQuery();
 
@@ -126,9 +114,12 @@ public final class UpdatePlanBuilder {
         }
 
         if (stmt instanceof GridSqlMerge || stmt instanceof GridSqlInsert)
-            return planForInsert(stmt, loc, idx, conn, fieldsQuery, mvccEnabled);
+            return planForInsert(stmt, loc, idx, conn, fieldsQry);
+        else if (stmt instanceof GridSqlUpdate || stmt instanceof GridSqlDelete)
+            return planForUpdate(stmt, loc, idx, conn, fieldsQry, errKeysPos);
         else
-            return planForUpdate(stmt, loc, idx, conn, fieldsQuery, errKeysPos, mvccEnabled);
+            throw new IgniteSQLException("Unsupported operation: " + prepared.getSQL(),
+                    IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
     }
 
     /**
@@ -139,13 +130,12 @@ public final class UpdatePlanBuilder {
      * @param idx Indexing.
      * @param conn Connection.
      * @param fieldsQuery Original query.
-     * @param mvccEnabled Mvcc enabled flag.
      * @return Update plan.
      * @throws IgniteCheckedException if failed.
      */
     @SuppressWarnings("ConstantConditions")
     private static UpdatePlan planForInsert(GridSqlStatement stmt, boolean loc, IgniteH2Indexing idx,
-        @Nullable Connection conn, @Nullable SqlFieldsQuery fieldsQuery, boolean mvccEnabled) throws IgniteCheckedException {
+        @Nullable Connection conn, @Nullable SqlFieldsQuery fieldsQuery) throws IgniteCheckedException {
         GridSqlQuery sel = null;
 
         GridSqlElement target;
@@ -171,13 +161,13 @@ public final class UpdatePlanBuilder {
 
             cols = ins.columns();
 
-            if (!mvccEnabled && noQuery(ins.rows()))
+            if (noQuery(ins.rows()))
                 elRows = ins.rows();
             else
                 sel = DmlAstUtils.selectForInsertOrMerge(cols, ins.rows(), ins.query());
 
             isTwoStepSubqry = (ins.query() != null);
-            rowsNum = isTwoStepSubqry || mvccEnabled ? 0 : ins.rows().size();
+            rowsNum = isTwoStepSubqry ? 0 : ins.rows().size();
         }
         else if (stmt instanceof GridSqlMerge) {
             GridSqlMerge merge = (GridSqlMerge) stmt;
@@ -189,13 +179,13 @@ public final class UpdatePlanBuilder {
 
             cols = merge.columns();
 
-            if (!mvccEnabled && noQuery(merge.rows()))
+            if (noQuery(merge.rows()))
                 elRows = merge.rows();
             else
                 sel = DmlAstUtils.selectForInsertOrMerge(cols, merge.rows(), merge.query());
 
             isTwoStepSubqry = (merge.query() != null);
-            rowsNum = isTwoStepSubqry || mvccEnabled ? 0 : merge.rows().size();
+            rowsNum = isTwoStepSubqry ? 0 : merge.rows().size();
         }
         else {
             throw new IgniteSQLException("Unexpected DML operation [cls=" + stmt.getClass().getName() + ']',
@@ -334,13 +324,11 @@ public final class UpdatePlanBuilder {
      * @param conn Connection.
      * @param fieldsQuery Original query.
      * @param errKeysPos index to inject param for re-run keys at. Null if it's not a re-run plan.
-     * @param mvccEnabled Mvcc enabled flag.
      * @return Update plan.
      * @throws IgniteCheckedException if failed.
      */
     private static UpdatePlan planForUpdate(GridSqlStatement stmt, boolean loc, IgniteH2Indexing idx,
-        @Nullable Connection conn, @Nullable SqlFieldsQuery fieldsQuery, @Nullable Integer errKeysPos,
-        boolean mvccEnabled)
+        @Nullable Connection conn, @Nullable SqlFieldsQuery fieldsQuery, @Nullable Integer errKeysPos)
         throws IgniteCheckedException {
         GridSqlElement target;
 
@@ -354,13 +342,13 @@ public final class UpdatePlanBuilder {
 
             GridSqlUpdate update = (GridSqlUpdate)stmt;
             target = update.target();
-            fastUpdate = !mvccEnabled ? DmlAstUtils.getFastUpdateArgs(update) : null;
+            fastUpdate = DmlAstUtils.getFastUpdateArgs(update);
             mode = UpdateMode.UPDATE;
         }
         else if (stmt instanceof GridSqlDelete) {
             GridSqlDelete del = (GridSqlDelete) stmt;
             target = del.from();
-            fastUpdate = !mvccEnabled ? DmlAstUtils.getFastDeleteArgs(del) : null;
+            fastUpdate = DmlAstUtils.getFastDeleteArgs(del);
             mode = UpdateMode.DELETE;
         }
         else

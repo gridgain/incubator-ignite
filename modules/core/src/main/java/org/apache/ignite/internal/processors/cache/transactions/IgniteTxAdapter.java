@@ -60,8 +60,9 @@ import org.apache.ignite.internal.processors.cache.GridCacheReturn;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheEntry;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccTxInfo;
+import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
 import org.apache.ignite.internal.processors.cache.store.CacheStoreManager;
 import org.apache.ignite.internal.processors.cache.version.GridCacheLazyPlainVersionedEntry;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
@@ -387,10 +388,10 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
     /**
      * @return Mvcc version for update operation, should be always initialized if mvcc is enabled.
      */
-    @Nullable protected final MvccVersion mvccVersionForUpdate() {
+    @Nullable protected final MvccSnapshot mvccSnapshotForUpdate() {
         assert !txState().mvccEnabled(cctx) || mvccInfo != null : "Mvcc is not initialized: " + this;
 
-        return mvccInfo != null ? mvccInfo.version() : null;
+        return mvccInfo != null ? mvccInfo.snapshot() : null;
     }
 
     /** {@inheritDoc} */
@@ -1125,9 +1126,39 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
                 if (state != ACTIVE && state != SUSPENDED)
                     seal();
 
-                if (cctx.wal() != null && cctx.tm().logTxRecords()) {
+                if (state == PREPARED || state == COMMITTED || state == ROLLED_BACK) {
+                    MvccSnapshot snapshot = mvccInfo() != null ? mvccInfo().snapshot() : null;
+
+                    if (snapshot != null) {
+                        byte txState;
+
+                        switch (state) {
+                            case PREPARED:
+                                txState = TxState.PREPARED;
+                                break;
+                            case ROLLED_BACK:
+                                txState = TxState.ABORTED;
+                                break;
+                            case COMMITTED:
+                                txState = TxState.COMMITTED;
+                                break;
+                            default:
+                                throw new IllegalStateException("Illegal state: " + state);
+                        }
+
+                        try {
+                            if (!cctx.localNode().isClient())
+                                cctx.coordinators().updateState(snapshot, txState);
+                        }
+                        catch (IgniteCheckedException e) {
+                            U.error(log, "Failed to log TxState: " + txState, e);
+
+                            throw new IgniteException("Failed to log TxState: " + txState, e);
+                        }
+                    }
+
                     // Log tx state change to WAL.
-                    if (state == PREPARED || state == COMMITTED || state == ROLLED_BACK) {
+                    if (cctx.wal() != null && cctx.tm().logTxRecords()) {
                         assert txNodes != null || state == ROLLED_BACK : "txNodes=" + txNodes + " state=" + state;
 
                         BaselineTopology baselineTop = cctx.kernalContext().state().clusterState().baselineTopology();

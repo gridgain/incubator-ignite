@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.managers.communication;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.GridJobCancelRequest;
 import org.apache.ignite.internal.GridJobExecuteRequest;
@@ -35,6 +36,9 @@ import org.apache.ignite.internal.managers.deployment.GridDeploymentRequest;
 import org.apache.ignite.internal.managers.deployment.GridDeploymentResponse;
 import org.apache.ignite.internal.managers.eventstorage.GridEventStorageMessage;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.authentication.UserAuthenticateRequestMessage;
+import org.apache.ignite.internal.processors.authentication.UserAuthenticateResponseMessage;
+import org.apache.ignite.internal.processors.authentication.UserManagementOperationFinishedMessage;
 import org.apache.ignite.internal.processors.cache.CacheEntryInfoCollection;
 import org.apache.ignite.internal.processors.cache.CacheEntryPredicateContainsValue;
 import org.apache.ignite.internal.processors.cache.CacheEntrySerializablePredicate;
@@ -86,6 +90,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.Update
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.CacheGroupAffinityMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtForceKeysRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtForceKeysResponse;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionDemandLegacyMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionDemandMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionExchangeId;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionSupplyMessage;
@@ -105,10 +110,12 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPr
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareResponse;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistResponse;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearUnlockRequest;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccCounter;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccTxInfo;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionWithoutTxs;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshotWithoutTxs;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionImpl;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestQuery;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTx;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTxAndQuery;
@@ -116,9 +123,9 @@ import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTxAndQ
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccActiveQueriesMessage;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccFutureResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccNewQueryAckRequest;
-import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccQueryVersionRequest;
-import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccTxCounterRequest;
-import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccVersionResponse;
+import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccQuerySnapshotRequest;
+import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccSnapshotResponse;
+import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccTxSnapshotRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccWaitTxsRequest;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryRequest;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryResponse;
@@ -176,14 +183,13 @@ import org.apache.ignite.spi.communication.tcp.messages.HandshakeMessage;
 import org.apache.ignite.spi.communication.tcp.messages.HandshakeMessage2;
 import org.apache.ignite.spi.communication.tcp.messages.NodeIdMessage;
 import org.apache.ignite.spi.communication.tcp.messages.RecoveryLastReceivedMessage;
-import org.jsr166.ConcurrentHashMap8;
 
 /**
  * Message factory implementation.
  */
 public class GridIoMessageFactory implements MessageFactory {
     /** Custom messages registry. Used for test purposes. */
-    private static final Map<Short, IgniteOutClosure<Message>> CUSTOM = new ConcurrentHashMap8<>();
+    private static final Map<Short, IgniteOutClosure<Message>> CUSTOM = new ConcurrentHashMap<>();
 
     /** Extensions. */
     private final MessageFactory[] ext;
@@ -528,6 +534,11 @@ public class GridIoMessageFactory implements MessageFactory {
                 break;
 
             case 44:
+                msg = new GridDhtPartitionDemandLegacyMessage();
+
+                break;
+
+            case 45:
                 msg = new GridDhtPartitionDemandMessage();
 
                 break;
@@ -898,92 +909,117 @@ public class GridIoMessageFactory implements MessageFactory {
                 break;
 
             case 129:
-                msg = new MvccTxCounterRequest();
+                msg = new WalStateAckMessage();
+
+                break;
+
+            case 130:
+                msg = new UserManagementOperationFinishedMessage();
 
                 break;
 
             case 131:
-                msg = new MvccAckRequestTx();
+                msg = new UserAuthenticateRequestMessage();
 
                 break;
 
             case 132:
-                msg = new MvccFutureResponse();
+                msg = new UserAuthenticateResponseMessage();
 
                 break;
 
             case 133:
-                msg = new MvccQueryVersionRequest();
+                msg = new MvccTxSnapshotRequest();
 
                 break;
 
             case 134:
-                msg = new MvccAckRequestQuery();
+                msg = new MvccAckRequestTx();
+
+                break;
+
+            case 135:
+                msg = new MvccFutureResponse();
 
                 break;
 
             case 136:
-                msg = new MvccVersionResponse();
+                msg = new MvccQuerySnapshotRequest();
 
                 break;
 
             case 137:
-                msg = new MvccWaitTxsRequest();
+                msg = new MvccAckRequestQuery();
 
                 break;
 
             case 138:
-                msg = new GridCacheMvccEntryInfo();
+                msg = new MvccSnapshotResponse();
 
                 break;
 
             case 139:
-                msg = new MvccTxInfo();
+                msg = new MvccWaitTxsRequest();
 
                 break;
 
             case 140:
-                msg = new MvccNewQueryAckRequest();
+                msg = new GridCacheMvccEntryInfo();
 
                 break;
 
             case 141:
-                msg = new MvccAckRequestTxAndQuery();
+                msg = new MvccTxInfo();
 
                 break;
 
             case 142:
-                msg = new MvccAckRequestTxAndQueryEx();
+                msg = new MvccNewQueryAckRequest();
 
                 break;
 
             case 143:
-                msg = new MvccCounter();
+                msg = new MvccAckRequestTxAndQuery();
 
                 break;
 
             case 144:
-                msg = new MvccActiveQueriesMessage();
+                msg = new MvccAckRequestTxAndQueryEx();
 
                 break;
 
             case 145:
-                msg = new MvccVersionWithoutTxs();
+                msg = new MvccVersionImpl();
 
                 break;
 
             case 146:
-                msg = new GridNearTxQueryEnlistRequest();
+                msg = new MvccActiveQueriesMessage();
 
                 break;
 
             case 147:
-                msg = new GridNearTxQueryEnlistResponse();
+                msg = new MvccSnapshotWithoutTxs();
 
                 break;
 
             case 148:
-                msg = new WalStateAckMessage();
+                msg = new GridNearTxQueryEnlistRequest();
+
+                break;
+
+            case 149:
+                msg = new GridNearTxQueryEnlistResponse();
+
+                break;
+
+            case 150:
+                msg = new GridNearTxQueryResultsEnlistRequest();
+
+                break;
+
+            case 151:
+                msg = new GridNearTxQueryResultsEnlistResponse();
 
                 break;
 

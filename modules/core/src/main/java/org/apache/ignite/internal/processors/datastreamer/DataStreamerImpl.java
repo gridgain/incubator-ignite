@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.DelayQueue;
@@ -43,7 +44,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import javax.cache.CacheException;
 import javax.cache.expiry.ExpiryPolicy;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteDataStreamer;
@@ -88,8 +88,8 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalP
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTopologyFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionWithoutTxs;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshotWithoutTxs;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.cacheobject.IgniteCacheObjectProcessor;
 import org.apache.ignite.internal.processors.dr.GridDrType;
@@ -115,7 +115,6 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.plugin.security.SecurityPermission;
 import org.apache.ignite.stream.StreamReceiver;
 import org.jetbrains.annotations.Nullable;
-import org.jsr166.ConcurrentHashMap8;
 
 import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
 import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
@@ -133,12 +132,12 @@ public class DataStreamerImpl<K, V> implements IgniteDataStreamer<K, V>, Delayed
     private static final int REMAP_SEMAPHORE_PERMISSIONS_COUNT = Integer.MAX_VALUE;
 
     /** Version which is less then any version generated on coordinator. */
-    private static final MvccVersion ISOLATED_STREAMER_MVCC_VER =
-        new MvccVersionWithoutTxs(1L, MvccProcessor.MVCC_START_CNTR, 0L);
+    private static final MvccSnapshot ISOLATED_STREAMER_MVCC_SNAPSHOT =
+        new MvccSnapshotWithoutTxs(1L, MvccProcessor.MVCC_START_CNTR, 0L);
 
     /** Version which is less then any version generated on coordinator (for remove). */
-    private static final MvccVersion ISOLATED_STREAMER_MVCC_VER_RMV =
-        new MvccVersionWithoutTxs(MvccProcessor.createVersionForRemovedValue(1L), MvccProcessor.MVCC_START_CNTR, 0L);
+    private static final MvccSnapshot ISOLATED_STREAMER_MVCC_SNAPSHOT_RMV =
+        new MvccSnapshotWithoutTxs(0, MvccProcessor.MVCC_START_CNTR, 0L);
 
     /** Cache receiver. */
     private StreamReceiver<K, V> rcvr = ISOLATED_UPDATER;
@@ -176,7 +175,7 @@ public class DataStreamerImpl<K, V> implements IgniteDataStreamer<K, V>, Delayed
 
     /** Mapping. */
     @GridToStringInclude
-    private ConcurrentMap<UUID, Buffer> bufMappings = new ConcurrentHashMap8<>();
+    private ConcurrentMap<UUID, Buffer> bufMappings = new ConcurrentHashMap<>();
 
     /** Discovery listener. */
     private final GridLocalEventListener discoLsnr;
@@ -1408,7 +1407,7 @@ public class DataStreamerImpl<K, V> implements IgniteDataStreamer<K, V>, Delayed
             this.node = node;
 
             locFuts = new GridConcurrentHashSet<>();
-            reqs = new ConcurrentHashMap8<>();
+            reqs = new ConcurrentHashMap<>();
 
             // Cache local node flag.
             isLocNode = node.equals(ctx.discovery().localNode());
@@ -2121,12 +2120,13 @@ public class DataStreamerImpl<K, V> implements IgniteDataStreamer<K, V>, Delayed
 
                     boolean primary = cctx.affinity().primaryByKey(cctx.localNode(), entry.key(), topVer);
 
-                    MvccVersion mvccVer = e.getValue() == null ?
-                        ISOLATED_STREAMER_MVCC_VER_RMV : ISOLATED_STREAMER_MVCC_VER;
+                    MvccSnapshot mvccSnapshot = e.getValue() == null ?
+                        ISOLATED_STREAMER_MVCC_SNAPSHOT_RMV : ISOLATED_STREAMER_MVCC_SNAPSHOT;
 
                     entry.initialValue(e.getValue(),
                         ver,
-                        mvccVer,
+                        mvccSnapshot,
+                        null,
                         ttl,
                         expiryTime,
                         false,
@@ -2147,9 +2147,7 @@ public class DataStreamerImpl<K, V> implements IgniteDataStreamer<K, V>, Delayed
                         // No-op.
                     }
                     catch (IgniteCheckedException ex) {
-                        IgniteLogger log = cache.unwrap(Ignite.class).log();
-
-                        U.error(log, "Failed to set initial value for cache entry: " + e, ex);
+                        throw new IgniteException("Failed to set initial value for cache entry", ex);
                     }
                     finally {
                         cctx.shared().database().checkpointReadUnlock();

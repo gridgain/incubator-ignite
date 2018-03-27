@@ -40,6 +40,7 @@ import org.apache.ignite.internal.IgniteVersionUtils;
 import org.apache.ignite.internal.binary.BinaryWriterExImpl;
 import org.apache.ignite.internal.processors.bulkload.BulkLoadAckClientParameters;
 import org.apache.ignite.internal.processors.bulkload.BulkLoadProcessor;
+import org.apache.ignite.internal.processors.authentication.AuthorizationContext;
 import org.apache.ignite.internal.processors.cache.QueryCursorImpl;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.cache.query.SqlFieldsQueryEx;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.NestedTxMode;
 import org.apache.ignite.internal.processors.query.QueryUtils;
+import org.apache.ignite.internal.processors.query.SqlClientContext;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.F;
@@ -90,6 +92,9 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
     /** Kernel context. */
     private final GridKernalContext ctx;
 
+    /** Client context. */
+    private final SqlClientContext cliCtx;
+
     /** Logger. */
     private final IgniteLogger log;
 
@@ -108,24 +113,6 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
     /** Current bulk load processors. */
     private final ConcurrentHashMap<Long, JdbcBulkLoadProcessor> bulkLoadRequests = new ConcurrentHashMap<>();
 
-    /** Distributed joins flag. */
-    private final boolean distributedJoins;
-
-    /** Enforce join order flag. */
-    private final boolean enforceJoinOrder;
-
-    /** Collocated flag. */
-    private final boolean collocated;
-
-    /** Replicated only flag. */
-    private final boolean replicatedOnly;
-
-    /** Lazy query execution flag. */
-    private final boolean lazy;
-
-    /** Skip reducer on update flag. */
-    private final boolean skipReducerOnUpdate;
-
     /** Automatic close of cursors. */
     private final boolean autoCloseCursors;
 
@@ -134,6 +121,9 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
 
     /** Protocol version. */
     private ClientListenerProtocolVersion protocolVer;
+
+    /** Authentication context */
+    private AuthorizationContext actx;
 
     /**
      * Constructor.
@@ -147,24 +137,31 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
      * @param autoCloseCursors Flag to automatically close server cursors.
      * @param lazy Lazy query execution flag.
      * @param skipReducerOnUpdate Skip reducer on update flag.
+     * @param actx Authentication context.
      * @param protocolVer Protocol version.
      */
     public JdbcRequestHandler(GridKernalContext ctx, GridSpinBusyLock busyLock, int maxCursors,
         boolean distributedJoins, boolean enforceJoinOrder, boolean collocated, boolean replicatedOnly,
         boolean autoCloseCursors, boolean lazy, boolean skipReducerOnUpdate, NestedTxMode nestedTxMode,
-        ClientListenerProtocolVersion protocolVer) {
+        AuthorizationContext actx, ClientListenerProtocolVersion protocolVer) {
         this.ctx = ctx;
+
+        this.cliCtx = new SqlClientContext(
+            ctx,
+            distributedJoins,
+            enforceJoinOrder,
+            collocated,
+            replicatedOnly,
+            lazy,
+            skipReducerOnUpdate
+        );
+
         this.busyLock = busyLock;
         this.maxCursors = maxCursors;
-        this.distributedJoins = distributedJoins;
-        this.enforceJoinOrder = enforceJoinOrder;
-        this.collocated = collocated;
-        this.replicatedOnly = replicatedOnly;
         this.autoCloseCursors = autoCloseCursors;
-        this.lazy = lazy;
-        this.skipReducerOnUpdate = skipReducerOnUpdate;
         this.nestedTxMode = nestedTxMode;
         this.protocolVer = protocolVer;
+        this.actx = actx;
 
         log = ctx.log(getClass());
 
@@ -214,6 +211,9 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
             return new JdbcResponse(IgniteQueryErrorCode.UNKNOWN,
                 "Failed to handle JDBC request because node is stopping.");
 
+        if (actx != null)
+            AuthorizationContext.context(actx);
+
         try {
             switch (req.type()) {
                 case QRY_EXEC:
@@ -257,6 +257,8 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
                 "Unsupported JDBC request [req=" + req + ']');
         }
         finally {
+            AuthorizationContext.clear();
+
             busyLock.leaveBusy();
         }
     }
@@ -353,6 +355,8 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
                 }
 
                 bulkLoadRequests.clear();
+
+                U.close(cliCtx, log);
             }
             finally {
                 busyLock.leaveBusy();
@@ -378,6 +382,8 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
 
         long qryId = QRY_ID_GEN.getAndIncrement();
 
+        assert !cliCtx.isStream();
+
         try {
             String sql = req.sqlQuery();
 
@@ -399,17 +405,17 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
 
                     qry = new SqlFieldsQueryEx(sql, false);
 
-                    if (skipReducerOnUpdate)
-                        qry.setSkipReducerOnUpdate(true);
+                    if (cliCtx.isSkipReducerOnUpdate())
+                        ((SqlFieldsQueryEx)qry).setSkipReducerOnUpdate(true);
             }
 
             qry.setArgs(req.arguments());
 
-            qry.setDistributedJoins(distributedJoins);
-            qry.setEnforceJoinOrder(enforceJoinOrder);
-            qry.setCollocated(collocated);
-            qry.setReplicatedOnly(replicatedOnly);
-            qry.setLazy(lazy);
+            qry.setDistributedJoins(cliCtx.isDistributedJoins());
+            qry.setEnforceJoinOrder(cliCtx.isEnforceJoinOrder());
+            qry.setCollocated(cliCtx.isCollocated());
+            qry.setReplicatedOnly(cliCtx.isReplicatedOnly());
+            qry.setLazy(cliCtx.isLazy());
             qry.setNestedTxMode(nestedTxMode);
             qry.setAutoCommit(req.autoCommit());
 
@@ -425,7 +431,7 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
 
             qry.setSchema(schemaName);
 
-            List<FieldsQueryCursor<List<?>>> results = ctx.query().querySqlFields(qry, true,
+            List<FieldsQueryCursor<List<?>>> results = ctx.query().querySqlFields(null, qry, cliCtx, true,
                 protocolVer.compareTo(VER_2_3_0) < 0);
 
             FieldsQueryCursor<List<?>> fieldsCur = results.get(0);
@@ -623,11 +629,11 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
 
                 qry = new SqlFieldsQueryEx(q.sql(), false);
 
-                qry.setDistributedJoins(distributedJoins);
-                qry.setEnforceJoinOrder(enforceJoinOrder);
-                qry.setCollocated(collocated);
-                qry.setReplicatedOnly(replicatedOnly);
-                qry.setLazy(lazy);
+                qry.setDistributedJoins(cliCtx.isDistributedJoins());
+                qry.setEnforceJoinOrder(cliCtx.isEnforceJoinOrder());
+                qry.setCollocated(cliCtx.isCollocated());
+                qry.setReplicatedOnly(cliCtx.isReplicatedOnly());
+                qry.setLazy(cliCtx.isLazy());
                 qry.setNestedTxMode(nestedTxMode);
                 qry.setAutoCommit(req.autoCommit());
 
@@ -641,6 +647,9 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
 
         if (qry != null)
             executeBatchedQuery(qry, updCntsAcc, firstErr);
+
+        if (req.isLastStreamBatch())
+            cliCtx.disableStreaming();
 
         int updCnts[] = U.toIntArray(updCntsAcc);
 
@@ -657,10 +666,21 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
      * @param updCntsAcc Per query rows updates counter.
      * @param firstErr First error data - code and message.
      */
+    @SuppressWarnings("ForLoopReplaceableByForEach")
     private void executeBatchedQuery(SqlFieldsQueryEx qry, List<Integer> updCntsAcc,
         IgniteBiTuple<Integer, String> firstErr) {
         try {
-            List<FieldsQueryCursor<List<?>>> qryRes = ctx.query().querySqlFields(qry, true, true);
+            if (cliCtx.isStream()) {
+                List<Long> cnt = ctx.query().streamBatchedUpdateQuery(qry.getSchema(), cliCtx, qry.getSql(),
+                    qry.batchedArguments());
+
+                for (int i = 0; i < cnt.size(); i++)
+                    updCntsAcc.add(cnt.get(i).intValue());
+
+                return;
+            }
+
+            List<FieldsQueryCursor<List<?>>> qryRes = ctx.query().querySqlFields(null, qry, cliCtx, true, true);
 
             for (FieldsQueryCursor<List<?>> cur : qryRes) {
                 if (cur instanceof BulkLoadContextCursor)

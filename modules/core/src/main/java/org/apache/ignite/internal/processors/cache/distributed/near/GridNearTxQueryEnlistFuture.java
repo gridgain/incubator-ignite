@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.distributed.near;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
@@ -37,10 +38,9 @@ import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTx
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTopologyFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxQueryEnlistFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccCoordinator;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccResponseListener;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshotResponseListener;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccTxInfo;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
@@ -57,16 +57,22 @@ import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.noCoordinatorError;
+
 /**
  * Cache lock future.
  */
 @SuppressWarnings("ForLoopReplaceableByForEach")
 public class GridNearTxQueryEnlistFuture extends GridCacheCompoundIdentityFuture<Long>
-    implements GridCacheVersionedFuture<Long>, MvccResponseListener {
+    implements GridCacheVersionedFuture<Long>, MvccSnapshotResponseListener {
 
     /** Done field updater. */
     private static final AtomicIntegerFieldUpdater<GridNearTxQueryEnlistFuture> DONE_UPD =
-        AtomicIntegerFieldUpdater.newUpdater(GridNearTxQueryEnlistFuture.class, "done");
+            AtomicIntegerFieldUpdater.newUpdater(GridNearTxQueryEnlistFuture.class, "done");
+
+    /** Done field updater. */
+    private static final AtomicReferenceFieldUpdater<GridNearTxQueryEnlistFuture, Throwable> EX_UPD =
+            AtomicReferenceFieldUpdater.newUpdater(GridNearTxQueryEnlistFuture.class, Throwable.class, "ex");
 
     /** Transaction. */
     private final GridNearTxLocal tx;
@@ -104,8 +110,8 @@ public class GridNearTxQueryEnlistFuture extends GridCacheCompoundIdentityFuture
     /** Timeout. */
     private final long timeout;
 
-    /** Mvcc version. */
-    private MvccVersion mvccVer;
+    /** MVCC snapshot. */
+    private MvccSnapshot mvccSnapshot;
 
     /** Mapped topology version. */
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
@@ -127,6 +133,11 @@ public class GridNearTxQueryEnlistFuture extends GridCacheCompoundIdentityFuture
     @SuppressWarnings("unused")
     @GridToStringExclude
     private volatile int done;
+
+    /** */
+    @SuppressWarnings("unused")
+    @GridToStringExclude
+    private volatile Throwable ex;
 
     /**
      * @param cctx Cache context.
@@ -160,7 +171,7 @@ public class GridNearTxQueryEnlistFuture extends GridCacheCompoundIdentityFuture
 
         lockVer = tx.xidVersion();
 
-        mvccVer = tx.mvccInfo() != null ? tx.mvccInfo().version() : null;
+        mvccSnapshot = tx.mvccInfo() != null ? tx.mvccInfo().snapshot() : null;
 
         futId = IgniteUuid.randomUuid();
 
@@ -302,24 +313,24 @@ public class GridNearTxQueryEnlistFuture extends GridCacheCompoundIdentityFuture
      * @param topLocked Topology locked flag.
      */
     private void map(final boolean remap, final boolean topLocked) {
-        if (cctx.mvccEnabled() && mvccVer == null) {
+        if (cctx.mvccEnabled() && mvccSnapshot == null) {
             MvccCoordinator mvccCrd = cctx.affinity().mvccCoordinator(topVer);
 
             if (mvccCrd == null) {
-                onDone(MvccProcessor.noCoordinatorError(topVer));
+                onDone(noCoordinatorError(topVer));
 
                 return;
             }
 
             if (cctx.localNodeId().equals(mvccCrd.nodeId())) {
-                MvccVersion mvccVer = cctx.shared().coordinators().requestTxCounterOnCoordinator(lockVer);
+                MvccSnapshot mvccVer = cctx.shared().coordinators().requestTxSnapshotOnCoordinator(lockVer);
 
-                onMvccResponse(cctx.localNodeId(), mvccVer);
+                onResponse(cctx.localNodeId(), mvccVer);
             }
             else {
-                cctx.shared().coordinators().requestTxCounter(mvccCrd, this, lockVer)
-                    .listen(new IgniteInClosure<IgniteInternalFuture<MvccVersion>>() {
-                        @Override public void apply(IgniteInternalFuture<MvccVersion> fut) {
+                cctx.shared().coordinators().requestTxSnapshot(mvccCrd, this, lockVer)
+                    .listen(new IgniteInClosure<IgniteInternalFuture<MvccSnapshot>>() {
+                        @Override public void apply(IgniteInternalFuture<MvccSnapshot> fut) {
                             if (fut.error() == null)
                                 // proceed mapping.
                                 map(remap, topLocked);
@@ -394,7 +405,7 @@ public class GridNearTxQueryEnlistFuture extends GridCacheCompoundIdentityFuture
                     tx.subjectId(),
                     topVer,
                     lockVer,
-                    mvccVer,
+                    mvccSnapshot,
                     cacheIds,
                     parts,
                     schema,
@@ -421,7 +432,7 @@ public class GridNearTxQueryEnlistFuture extends GridCacheCompoundIdentityFuture
                     tx.subjectId(),
                     topVer,
                     lockVer,
-                    mvccVer,
+                    mvccSnapshot,
                     cacheIds,
                     parts,
                     schema,
@@ -438,7 +449,7 @@ public class GridNearTxQueryEnlistFuture extends GridCacheCompoundIdentityFuture
                     cctx.localNode().id(),
                     req.version(),
                     req.topologyVersion(),
-                    req.mvccVersion(),
+                    req.mvccSnapshot(),
                     req.threadId(),
                     req.futureId(),
                     req.miniId(),
@@ -523,23 +534,52 @@ public class GridNearTxQueryEnlistFuture extends GridCacheCompoundIdentityFuture
         // No-op;
     }
 
-    @Override public void onMvccResponse(UUID crdId, MvccVersion res) {
-        mvccVer = res;
+    /** {@inheritDoc} */
+    @Override protected void logError(IgniteLogger log, String msg, Throwable e) {
+        // no-op
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void logDebug(IgniteLogger log, String msg) {
+        // no-op
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onResponse(UUID crdId, MvccSnapshot res) {
+        mvccSnapshot = res;
 
         if (tx != null)
             tx.mvccInfo(new MvccTxInfo(crdId, res));
     }
 
-    @Override public void onMvccError(IgniteCheckedException e) {
+    /** {@inheritDoc} */
+    @Override public void onError(IgniteCheckedException e) {
         onDone(e);
     }
 
     /** {@inheritDoc} */
-    @Override public boolean onDone(@Nullable Long res, @Nullable Throwable err) {
+    @Override protected boolean processFailure(Throwable err, IgniteInternalFuture<Long> fut) {
+        if (ex != null || !EX_UPD.compareAndSet(this, null, err))
+            ex.addSuppressed(err);
+
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean onDone(@Nullable Long res, @Nullable Throwable err, boolean cancelled) {
         if (!DONE_UPD.compareAndSet(this, 0, 1))
             return false;
 
         cctx.tm().txContext(tx);
+
+        Throwable ex0 = ex;
+
+        if (ex0 != null) {
+            if (err != null)
+                ex0.addSuppressed(err);
+
+            err = ex0;
+        }
 
         if (err != null)
             tx.setRollbackOnly();
@@ -551,7 +591,7 @@ public class GridNearTxQueryEnlistFuture extends GridCacheCompoundIdentityFuture
             assert add;
         }
 
-        if (super.onDone(res, err)) {
+        if (super.onDone(res, err, cancelled)) {
             // Clean up.
             cctx.mvcc().removeVersionedFuture(this);
 

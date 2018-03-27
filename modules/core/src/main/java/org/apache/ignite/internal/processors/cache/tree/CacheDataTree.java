@@ -31,12 +31,17 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageI
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.IOVersions;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccCacheIdAwareDataInnerIO;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccCacheIdAwareDataLeafIO;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataInnerIO;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataLeafIO;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.unmaskCoordinatorVersion;
+import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 
 /**
  *
@@ -91,7 +96,7 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
      */
     private static IOVersions<? extends AbstractDataInnerIO> innerIO(CacheGroupContext grp) {
         if (grp.mvccEnabled())
-            return grp.sharedGroup() ? CacheIdAwareMvccDataInnerIO.VERSIONS : MvccDataInnerIO.VERSIONS;
+            return grp.sharedGroup() ? MvccCacheIdAwareDataInnerIO.VERSIONS : MvccDataInnerIO.VERSIONS;
 
         return grp.sharedGroup() ? CacheIdAwareDataInnerIO.VERSIONS : DataInnerIO.VERSIONS;
     }
@@ -102,7 +107,7 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
      */
     private static IOVersions<? extends AbstractDataLeafIO> leafIO(CacheGroupContext grp) {
         if (grp.mvccEnabled())
-            return grp.sharedGroup() ? CacheIdAwareMvccDataLeafIO.VERSIONS : MvccDataLeafIO.VERSIONS;
+            return grp.sharedGroup() ? MvccCacheIdAwareDataLeafIO.VERSIONS : MvccDataLeafIO.VERSIONS;
 
         return grp.sharedGroup() ? CacheIdAwareDataLeafIO.VERSIONS : DataLeafIO.VERSIONS;
     }
@@ -110,7 +115,7 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
     /**
      * @return Row store.
      */
-    CacheDataRowStore rowStore() {
+    public CacheDataRowStore rowStore() {
         return rowStore;
     }
 
@@ -164,8 +169,7 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
 
         long mvccCrdVer = io.getMvccCoordinatorVersion(pageAddr, idx);
 
-        cmp = Long.compare(unmaskCoordinatorVersion(row.mvccCoordinatorVersion()),
-            unmaskCoordinatorVersion(mvccCrdVer));
+        cmp = Long.compare(row.mvccCoordinatorVersion(), mvccCrdVer);
 
         if (cmp != 0)
             return cmp;
@@ -180,7 +184,7 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
     }
 
     /** {@inheritDoc} */
-    @Override protected CacheDataRow getRow(BPlusIO<CacheSearchRow> io, long pageAddr, int idx, Object flags)
+    @Override public CacheDataRow getRow(BPlusIO<CacheSearchRow> io, long pageAddr, int idx, Object flags)
         throws IgniteCheckedException {
         RowLinkIO rowIo = (RowLinkIO)io;
 
@@ -229,6 +233,9 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
                 if (data.nextLink() == 0) {
                     long addr = pageAddr + data.offset();
 
+                    if (grp.mvccEnabled())
+                        addr += MVCC_INFO_SIZE; // Skip MVCC info.
+
                     if (grp.storeCacheIdInDataPage())
                         addr += 4; // Skip cache id.
 
@@ -275,7 +282,7 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
         }
 
         // TODO GG-11768.
-        CacheDataRowAdapter other = new CacheDataRowAdapter(link);
+        CacheDataRowAdapter other = grp.mvccEnabled() ? new MvccDataRow(link) : new CacheDataRowAdapter(link);
         other.initFromLink(grp, CacheDataRowAdapter.RowData.KEY_ONLY);
 
         byte[] bytes1 = other.key().valueBytes(grp.cacheObjectContext());

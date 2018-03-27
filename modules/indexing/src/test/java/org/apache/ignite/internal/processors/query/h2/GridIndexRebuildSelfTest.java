@@ -34,7 +34,7 @@ import org.apache.ignite.internal.processors.cache.IgniteCacheOffheapManager;
 import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.index.DynamicIndexAbstractSelfTest;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccCounter;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryManager;
@@ -45,8 +45,6 @@ import org.apache.ignite.internal.util.lang.GridCursor;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
-
-import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.DFLT_STORE_DIR;
 
 /**
  * Index rebuild after node restart test.
@@ -81,7 +79,7 @@ public class GridIndexRebuildSelfTest extends DynamicIndexAbstractSelfTest {
         super.beforeTest();
 
         // Just in case.
-        deleteRecursively(U.resolveWorkDirectory(U.defaultWorkDirectory(), DFLT_STORE_DIR, false));
+        cleanPersistenceDir();
 
         INSTANCE = this;
     }
@@ -181,7 +179,7 @@ public class GridIndexRebuildSelfTest extends DynamicIndexAbstractSelfTest {
                 int key  = row.key().value(icache.context().cacheObjectContext(), false);
 
                 if (mvccEnabled) {
-                    List<T2<Object, MvccCounter>> vers = store.mvccFindAllVersions(icache.context(), row.key());
+                    List<T2<Object, MvccVersion>> vers = store.mvccFindAllVersions(icache.context(), row.key());
 
                     if (!afterRebuild || key <= AMOUNT / 2)
                         assertEquals(key, vers.size());
@@ -210,7 +208,7 @@ public class GridIndexRebuildSelfTest extends DynamicIndexAbstractSelfTest {
      * @throws IgniteCheckedException if failed.
      */
     private static void lockVersion(IgniteEx node) throws IgniteCheckedException {
-        node.context().coordinators().requestQueryCounter(node.context().coordinators().currentCoordinator()).get();
+        node.context().coordinators().requestQuerySnapshot(node.context().coordinators().currentCoordinator()).get();
     }
 
     /**
@@ -270,14 +268,14 @@ public class GridIndexRebuildSelfTest extends DynamicIndexAbstractSelfTest {
 
         stopAllGrids();
 
-        deleteRecursively(U.resolveWorkDirectory(U.defaultWorkDirectory(), DFLT_STORE_DIR, false));
+        cleanPersistenceDir();
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTestsStopped() throws Exception {
         super.afterTestsStopped();
 
-        deleteRecursively(U.resolveWorkDirectory(U.defaultWorkDirectory(), DFLT_STORE_DIR, false));
+        cleanPersistenceDir();
     }
 
     /**

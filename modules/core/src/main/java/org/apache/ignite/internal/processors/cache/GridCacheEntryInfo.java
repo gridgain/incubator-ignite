@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import java.nio.ByteBuffer;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.GridDirectTransient;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccEmptyLongList;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccLongList;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -30,6 +27,8 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+
+import java.nio.ByteBuffer;
 
 /**
  * Entry information that gets passed over wire.
@@ -69,27 +68,13 @@ public class GridCacheEntryInfo implements Message, MvccVersion {
     private boolean deleted;
 
     /**
-     * @param mvccCrdVer Mvcc coordinator version.
+     * Set MVCC version.
+     *
+     * @param crdVer Coordinator version.
+     * @param ctr Counter.
      */
-    public void mvccCoordinatorVersion(long mvccCrdVer) {
+    public void mvccVersion(long crdVer, long ctr) {
         // No-op.
-    }
-
-    /**
-     * @param mvccCntr Mvcc counter.
-     */
-    public void mvccCounter(long mvccCntr) {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override public final MvccLongList activeTransactions() {
-        return MvccEmptyLongList.INSTANCE;
-    }
-
-    /** {@inheritDoc} */
-    @Override public final MvccVersion withoutActiveTransactions() {
-        return this;
     }
 
     /** {@inheritDoc} */
@@ -98,12 +83,36 @@ public class GridCacheEntryInfo implements Message, MvccVersion {
     }
 
     /** {@inheritDoc} */
-    @Override public long cleanupVersion() {
+    @Override public long counter() {
         return 0;
     }
 
-    /** {@inheritDoc} */
-    @Override public long counter() {
+    /**
+     * @param newCrdVer New coordinator version.
+     * @param newCtr New counter.
+     */
+    public void newMvccVersion(long newCrdVer, long newCtr) {
+        // No-op.
+    }
+
+    /**
+     * @return New MVCC version.
+     */
+    public MvccVersion newMvccVersion() {
+        return null;
+    }
+
+    /**
+     * @return new MVCC coordinator version.
+     */
+    public long newCoordinatorVersion() {
+        return 0;
+    }
+
+    /**
+     * @return new MVCC counter version.
+     */
+    public long newCounter() {
         return 0;
     }
 

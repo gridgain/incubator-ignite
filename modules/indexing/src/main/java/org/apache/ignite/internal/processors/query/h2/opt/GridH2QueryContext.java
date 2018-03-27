@@ -25,12 +25,12 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridReservable;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.spi.indexing.IndexingQueryFilter;
 import org.jetbrains.annotations.Nullable;
-import org.jsr166.ConcurrentHashMap8;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.ignite.internal.processors.query.h2.opt.DistributedJoinMode.OFF;
 import static org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryType.MAP;
@@ -43,7 +43,7 @@ public class GridH2QueryContext {
     private static final ThreadLocal<GridH2QueryContext> qctx = new ThreadLocal<>();
 
     /** */
-    private static final ConcurrentMap<Key, GridH2QueryContext> qctxs = new ConcurrentHashMap8<>();
+    private static final ConcurrentMap<Key, GridH2QueryContext> qctxs = new ConcurrentHashMap<>();
 
     /** */
     private final Key key;
@@ -85,7 +85,7 @@ public class GridH2QueryContext {
     private GridH2CollocationModel qryCollocationMdl;
 
     /** */
-    private MvccVersion mvccVer;
+    private MvccSnapshot mvccSnapshot;
 
     /**
      * @param locNodeId Local node ID.
@@ -117,18 +117,18 @@ public class GridH2QueryContext {
     }
 
     /**
-     * @return Mvcc version.
+     * @return Mvcc snapshot.
      */
-    @Nullable public MvccVersion mvccVersion() {
-        return mvccVer;
+    @Nullable public MvccSnapshot mvccSnapshot() {
+        return mvccSnapshot;
     }
 
     /**
-     * @param mvccVer Mvcc version.
+     * @param mvccSnapshot Mvcc snapshot.
      * @return {@code this}.
      */
-    public GridH2QueryContext mvccVersion(MvccVersion mvccVer) {
-        this.mvccVer = mvccVer;
+    public GridH2QueryContext mvccSnapshot(MvccSnapshot mvccSnapshot) {
+        this.mvccSnapshot = mvccSnapshot;
 
         return this;
     }

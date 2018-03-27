@@ -67,7 +67,7 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPr
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestQuery;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTx;
-import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccVersionResponse;
+import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccSnapshotResponse;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.lang.GridInClosure3;
@@ -97,6 +97,7 @@ import static org.apache.ignite.cache.CacheMode.REPLICATED;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.ReadMode.GET;
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.ReadMode.SCAN;
+import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.WriteMode.KEY_VALUE;
 import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
@@ -107,7 +108,6 @@ import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
  * TODO IGNITE-6739: tests reload
  * TODO IGNITE-6739: extend tests to use single/mutiple nodes, all tx types.
  * TODO IGNITE-6739: test with cache groups.
- * TODO IGNITE-6739: add check for cleanup in all test (at the and do update for all keys, check there are 2 versions left).
  */
 @SuppressWarnings("unchecked")
 public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
@@ -1126,7 +1126,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
             private AtomicInteger cntr = new AtomicInteger();
 
             @Override public void apply(ClusterNode node, Message msg) {
-                if (msg instanceof MvccVersionResponse) {
+                if (msg instanceof MvccSnapshotResponse) {
                     if (cntr.incrementAndGet() == 2) {
                         getLatch.countDown();
 
@@ -1274,7 +1274,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
             private boolean blocked;
 
             @Override public boolean apply(ClusterNode node, Message msg) {
-                if (!blocked && (msg instanceof MvccVersionResponse)) {
+                if (!blocked && (msg instanceof MvccSnapshotResponse)) {
                     blocked = true;
 
                     return true;
@@ -1592,140 +1592,140 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_SingleNode() throws Exception {
-        accountsTxReadAll(1, 0, 0, 64, null, false, GET);
+        accountsTxReadAll(1, 0, 0, 64, null, false, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_WithRemoves_SingleNode() throws Exception {
-        accountsTxReadAll(1, 0, 0, 64, null, true, GET);
+        accountsTxReadAll(1, 0, 0, 64, null, true, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_SingleNode_SinglePartition() throws Exception {
-        accountsTxReadAll(1, 0, 0, 1, null, false, GET);
+        accountsTxReadAll(1, 0, 0, 1, null, false, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_WithRemoves_SingleNode_SinglePartition() throws Exception {
-        accountsTxReadAll(1, 0, 0, 1, null, true, GET);
+        accountsTxReadAll(1, 0, 0, 1, null, true, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_ClientServer_Backups0() throws Exception {
-        accountsTxReadAll(4, 2, 0, 64, null, false, GET);
+        accountsTxReadAll(4, 2, 0, 64, null, false, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_WithRemoves_ClientServer_Backups0() throws Exception {
-        accountsTxReadAll(4, 2, 0, 64, null, true, GET);
+        accountsTxReadAll(4, 2, 0, 64, null, true, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_ClientServer_Backups1() throws Exception {
-        accountsTxReadAll(4, 2, 1, 64, null, false, GET);
+        accountsTxReadAll(4, 2, 1, 64, null, false, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_WithRemoves_ClientServer_Backups1() throws Exception {
-        accountsTxReadAll(4, 2, 1, 64, null, true, GET);
+        accountsTxReadAll(4, 2, 1, 64, null, true, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_ClientServer_Backups2() throws Exception {
-        accountsTxReadAll(4, 2, 2, 64, null, false, GET);
+        accountsTxReadAll(4, 2, 2, 64, null, false, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxGetAll_WithRemoves_ClientServer_Backups2() throws Exception {
-        accountsTxReadAll(4, 2, 2, 64, null, true, GET);
+        accountsTxReadAll(4, 2, 2, 64, null, true, GET, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_SingleNode_SinglePartition() throws Exception {
-        accountsTxReadAll(1, 0, 0, 1, null, false, SCAN);
+        accountsTxReadAll(1, 0, 0, 1, null, false, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_WithRemoves_SingleNode_SinglePartition() throws Exception {
-        accountsTxReadAll(1, 0, 0, 1, null, true, SCAN);
+        accountsTxReadAll(1, 0, 0, 1, null, true, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_SingleNode() throws Exception {
-        accountsTxReadAll(1, 0, 0, 64, null, false, SCAN);
+        accountsTxReadAll(1, 0, 0, 64, null, false, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_WithRemoves_SingleNode() throws Exception {
-        accountsTxReadAll(1, 0, 0, 64, null, true, SCAN);
+        accountsTxReadAll(1, 0, 0, 64, null, true, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_ClientServer_Backups0() throws Exception {
-        accountsTxReadAll(4, 2, 0, 64, null, false, SCAN);
+        accountsTxReadAll(4, 2, 0, 64, null, false, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_WithRemoves_ClientServer_Backups0() throws Exception {
-        accountsTxReadAll(4, 2, 0, 64, null, true, SCAN);
+        accountsTxReadAll(4, 2, 0, 64, null, true, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_ClientServer_Backups1() throws Exception {
-        accountsTxReadAll(4, 2, 1, 64, null, false, SCAN);
+        accountsTxReadAll(4, 2, 1, 64, null, false, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_WithRemoves_ClientServer_Backups1() throws Exception {
-        accountsTxReadAll(4, 2, 1, 64, null, true, SCAN);
+        accountsTxReadAll(4, 2, 1, 64, null, true, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_ClientServer_Backups2() throws Exception {
-        accountsTxReadAll(4, 2, 2, 64, null, false, SCAN);
+        accountsTxReadAll(4, 2, 2, 64, null, false, SCAN, KEY_VALUE);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testAccountsTxScan_WithRemoves_ClientServer_Backups2() throws Exception {
-        accountsTxReadAll(4, 2, 2, 64, null, true, SCAN);
+        accountsTxReadAll(4, 2, 2, 64, null, true, SCAN, KEY_VALUE);
     }
 
     /**
@@ -2142,7 +2142,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
                                 tx.commit();
                             }
 
-                            if (key > 1_000_000)
+                            if (key > 100_000)
                                 break;
                         }
                         finally {
@@ -2436,6 +2436,8 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
      * @throws Exception If failed.
      */
     public void testRebalanceSimple() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-8031");
+
         Ignite srv0 = startGrid(0);
 
         IgniteCache<Integer, Integer> cache =  (IgniteCache)srv0.createCache(
@@ -2493,12 +2495,30 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
 
         for (int i = 0; i < map.size(); i++)
             assertEquals(i + 2, (Object)resMap.get(i));
+
+        // Run fake transaction
+        try (Transaction tx = srv0.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            Integer val = cache.get(0);
+
+            cache.put(0, val);
+
+            tx.commit();
+        }
+
+        resMap = checkAndGetAll(false, cache, map.keySet(), GET, SCAN);
+
+        assertEquals(map.size(), map.size());
+
+        for (int i = 0; i < map.size(); i++)
+            assertEquals(i + 2, (Object)resMap.get(i));
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testRebalanceWithRemovedValuesSimple() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-8031");
+
         Ignite node = startGrid(0);
 
         IgniteTransactions txs = node.transactions();
@@ -2593,7 +2613,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
 
         TestRecordingCommunicationSpi crdSpi = TestRecordingCommunicationSpi.spi(ignite(0));
 
-        crdSpi.blockMessages(MvccVersionResponse.class, client.name());
+        crdSpi.blockMessages(MvccSnapshotResponse.class, client.name());
 
         IgniteInternalFuture fut = GridTestUtils.runAsync(new Callable() {
             @Override public Object call() throws Exception {
@@ -3543,7 +3563,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
 
             crdSpi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
                 @Override public boolean apply(ClusterNode node, Message msg) {
-                    return msg instanceof MvccVersionResponse;
+                    return msg instanceof MvccSnapshotResponse;
                 }
             });
 
@@ -4135,7 +4155,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
         MvccProcessor crd = cctx.kernalContext().coordinators();
 
         // Start query to prevent cleanup.
-        IgniteInternalFuture<MvccVersion> fut = crd.requestQueryCounter(crd.currentCoordinator());
+        IgniteInternalFuture<MvccSnapshot> fut = crd.requestQuerySnapshot(crd.currentCoordinator());
 
         fut.get();
 
@@ -4158,7 +4178,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
 
             KeyCacheObject key0 = cctx.toCacheKeyObject(key);
 
-            List<T2<Object, MvccCounter>> vers = cctx.offheap().mvccAllVersions(cctx, key0);
+            List<T2<Object, MvccVersion>> vers = cctx.offheap().mvccAllVersions(cctx, key0);
 
             assertEquals(10, vers.size());
 
@@ -4166,11 +4186,11 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
 
             checkRow(cctx, row, key0, vers.get(0).get1());
 
-            for (T2<Object, MvccCounter> ver : vers) {
-                MvccCounter cntr = ver.get2();
+            for (T2<Object, MvccVersion> ver : vers) {
+                MvccVersion cntr = ver.get2();
 
-                MvccVersion readVer =
-                    new MvccVersionWithoutTxs(cntr.coordinatorVersion(), cntr.counter(), 0);
+                MvccSnapshot readVer =
+                    new MvccSnapshotWithoutTxs(cntr.coordinatorVersion(), cntr.counter(), 0);
 
                 row = cctx.offheap().mvccRead(cctx, key0, readVer);
 
@@ -4187,10 +4207,10 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
                 key0,
                 vers.get(0).get1());
 
-            MvccVersionResponse ver = version(vers.get(0).get2().coordinatorVersion(), 100000);
+            MvccSnapshotResponse ver = version(vers.get(0).get2().coordinatorVersion(), 100000);
 
             for (int v = 0; v < vers.size(); v++) {
-                MvccCounter cntr = vers.get(v).get2();
+                MvccVersion cntr = vers.get(v).get2();
 
                 ver.addTx(cntr.counter());
 
@@ -4210,12 +4230,15 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
         cache.remove(key);
 
         cctx.offheap().mvccRemoveAll((GridCacheMapEntry)cctx.cache().entryEx(key));
+
+        crd.ackQueryDone(crd.currentCoordinator(), fut.get());
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testExpiration() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-7956");
         final IgniteEx node = startGrid(0);
 
         IgniteCache cache = node.createCache(cacheConfiguration(PARTITIONED, FULL_SYNC, 1, 64));
@@ -4298,8 +4321,8 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
      * @param cntr Counter.
      * @return Version.
      */
-    private MvccVersionResponse version(long crdVer, long cntr) {
-        return new MvccVersionResponse(crdVer, cntr, 0);
+    private MvccSnapshotResponse version(long crdVer, long cntr) {
+        return new MvccSnapshotResponse(crdVer, cntr, 0);
     }
 
     /**
@@ -4377,8 +4400,8 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
             if (i == 0)
                 prevVal = curVal;
             else {
-                assertEquals("Different results on " + readMode.name() + " and " +
-                    readModes[i - 1] +" read modes.", prevVal, curVal);
+                assertEquals("Different results on " + readModes[i - 1].name() + " and " +
+                    readMode.name() + " read modes.", prevVal, curVal);
 
                 prevVal = curVal;
             }
@@ -4399,7 +4422,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
      * @param readMode Read mode.
      * @return Value.
      */
-    private Object getByReadMode(boolean inTx, IgniteCache cache, Object key, ReadMode readMode) {
+    private Object getByReadMode(boolean inTx, IgniteCache cache, final Object key, ReadMode readMode) {
 
         // TODO Remove in IGNITE-6938
         if (inTx)

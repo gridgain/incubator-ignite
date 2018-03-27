@@ -28,8 +28,8 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageInsertFragmen
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageInsertRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageRemoveRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageUpdateRecord;
-import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegion;
+import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.Storable;
 import org.apache.ignite.internal.processors.cache.persistence.evict.PageEvictionTracker;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
@@ -63,7 +63,10 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     /** */
     private static final int MIN_PAGE_FREE_SPACE = 8;
 
-    /** */
+    /**
+     * Step between buckets in free list, measured in powers of two.
+     * For example, for page size 4096 and 256 buckets, shift is 4 and step is 16 bytes.
+     */
     private final int shift;
 
     /** */
@@ -100,7 +103,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
             throws IgniteCheckedException {
             AbstractDataPageIO<T> io = (AbstractDataPageIO<T>)iox;
 
-            int rowSize = io.getRowSize(row);
+            int rowSize = row.size();
 
             boolean updated = io.updateRow(pageAddr, itemId, pageSize(), null, row, rowSize);
 
@@ -146,7 +149,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
             throws IgniteCheckedException {
             AbstractDataPageIO<T> io = (AbstractDataPageIO<T>)iox;
 
-            int rowSize = io.getRowSize(row);
+            int rowSize = row.size();
             int oldFreeSpace = io.getFreeSpace(pageAddr);
 
             assert oldFreeSpace > 0 : oldFreeSpace;
@@ -368,27 +371,22 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     }
 
     /**
-     * Calculates average fill factor over FreeListImpl instance.
+     * Calculates free space tracked by this FreeListImpl instance.
      *
-     * @return Tuple (numenator, denominator).
+     * @return Free space available for use, in bytes.
      */
-    public T2<Long, Long> fillFactor() {
-        long pageSize = pageSize();
-
-        long totalSize = 0;
-        long loadSize = 0;
+    public long freeSpace() {
+        long freeSpace = 0;
 
         for (int b = BUCKETS - 2; b > 0; b--) {
-            long bsize = pageSize - ((REUSE_BUCKET - b) << shift);
+            long perPageFreeSpace = b << shift;
 
             long pages = bucketsSize[b].longValue();
 
-            loadSize += pages * (pageSize - bsize);
-
-            totalSize += pages * pageSize;
+            freeSpace += pages * perPageFreeSpace;
         }
 
-        return totalSize == 0 ? new T2<>(0L, 0L) : new T2<>(loadSize, totalSize);
+        return freeSpace;
     }
 
     /** {@inheritDoc} */
@@ -467,7 +465,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
 
     /** {@inheritDoc} */
     @Override public void insertDataRow(T row) throws IgniteCheckedException {
-        int rowSize = ioVersions().latest().getRowSize(row);
+        int rowSize = row.size();
 
         int written = 0;
 
@@ -525,6 +523,20 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         assert updated != null; // Can't fail here.
 
         return updated;
+    }
+
+    /** {@inheritDoc} */
+    @Override public <S, R> R updateDataRow(long link, PageHandler<S, R> pageHnd, S arg) throws IgniteCheckedException {
+        assert link != 0;
+
+        long pageId = PageIdUtils.pageId(link);
+        int itemId = PageIdUtils.itemId(link);
+
+        R updRes = write(pageId, pageHnd, arg, itemId, null);
+
+        assert updRes != null; // Can't fail here.
+
+        return updRes;
     }
 
     /** {@inheritDoc} */
