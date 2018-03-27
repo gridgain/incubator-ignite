@@ -131,6 +131,7 @@ public class IgniteOnePhaseCommitInvokeTest extends GridCommonAbstractTest {
 
         TestRecordingCommunicationSpi.spi(srv0).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
             @Override public boolean apply(ClusterNode node, Message msg) {
+                System.out.println("message is " + msg);
                 return msg instanceof GridDhtPartitionSupplyMessage &&
                     ((GridDhtPartitionSupplyMessage)msg).groupId() == grpId;
             }
