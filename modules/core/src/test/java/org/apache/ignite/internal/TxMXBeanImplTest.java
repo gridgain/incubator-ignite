@@ -32,9 +32,6 @@ public class TxMXBeanImplTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
-
-        U.resolveWorkDirectory(U.defaultWorkDirectory(), "marshaller", true);
-        U.resolveWorkDirectory(U.defaultWorkDirectory(), "binary_meta", true);
     }
 
     /** {@inheritDoc} */
