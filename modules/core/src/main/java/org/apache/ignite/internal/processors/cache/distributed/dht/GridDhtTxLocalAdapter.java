@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
 import java.io.Externalizable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -456,23 +455,6 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
                 }
             }
         }
-    }
-
-    /**
-     * @param nodes Nodes.
-     */
-    public List<UUID> dhtPrimaryNodes(Map<UUID, ClusterNode> nodes) {
-        if (!mapped)
-            return Collections.emptyList();
-
-        List<UUID> primaryNodes = new ArrayList<>(dhtMap.size());
-        for (GridDistributedTxMapping mapping : dhtMap.values()) {
-            final ClusterNode node = nodes.get(mapping.primary().id());
-            if (node != null)
-                primaryNodes.add(node.id());
-        }
-
-        return primaryNodes;
     }
 
     /** {@inheritDoc} */
