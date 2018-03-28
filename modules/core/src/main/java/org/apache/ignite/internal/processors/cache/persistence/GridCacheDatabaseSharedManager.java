@@ -55,6 +55,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -129,6 +130,7 @@ import org.apache.ignite.internal.processors.cache.persistence.wal.crc.PureJavaC
 import org.apache.ignite.internal.processors.port.GridPortRecord;
 import org.apache.ignite.internal.util.GridConcurrentHashSet;
 import org.apache.ignite.internal.util.GridMultiCollectionWrapper;
+import org.apache.ignite.internal.util.GridStripedLock;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.future.CountDownFuture;
@@ -1999,6 +2001,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
      */
     public void applyUpdatesOnRecovery(
         @Nullable WALIterator it,
+        GridStripedLock keyStripedLock,
         IgnitePredicate<IgniteBiTuple<WALPointer, WALRecord>> recPredicate,
         IgnitePredicate<DataEntry> entryPredicate,
         Map<T2<Integer, Integer>, T2<Integer, Long>> partStates
@@ -2023,6 +2026,10 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                                 if (entryPredicate.apply(dataEntry)) {
                                     checkpointReadLock();
 
+                                    Lock keyLock = keyStripedLock.getLock(dataEntry.key().hashCode());
+
+                                    keyLock.lock();
+
                                     try {
                                         int cacheId = dataEntry.cacheId();
 
@@ -2034,6 +2041,8 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                                             log.warning("Cache (cacheId=" + cacheId + ") is not started, can't apply updates.");
                                     }
                                     finally {
+                                        keyLock.unlock();
+
                                         checkpointReadUnlock();
                                     }
                                 }

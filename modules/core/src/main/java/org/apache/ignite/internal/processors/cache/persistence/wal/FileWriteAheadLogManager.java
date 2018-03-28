@@ -336,7 +336,11 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
         flushFreq = dsCfg.getWalFlushFrequency();
         fsyncDelay = dsCfg.getWalFsyncDelayNanos();
         alwaysWriteFullPages = dsCfg.isAlwaysWriteFullPages();
-        ioFactory = new RandomAccessFileIOFactory();
+
+        FileIOFactory userFactory = igCfg.getDataStorageConfiguration().getFileIOFactory();
+        ioFactory = userFactory != null && userFactory instanceof RandomAccessFileIOFactory ?
+            userFactory : new RandomAccessFileIOFactory();
+
         walAutoArchiveAfterInactivity = dsCfg.getWalAutoArchiveAfterInactivity();
         evt = ctx.event();
     }
