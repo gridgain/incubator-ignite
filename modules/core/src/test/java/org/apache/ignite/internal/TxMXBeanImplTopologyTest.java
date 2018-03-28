@@ -116,8 +116,10 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
         int match = 0;
         for (String txInfo : transactions.values()) {
             if (txInfo.contains("PREPARING")
-                    && txInfo.contains("NEAR")
-                    && !txInfo.contains("REMOTE"))
+                && txInfo.contains("NEAR")
+                && txInfo.contains(primaryNode1.localNode().id().toString())
+                && txInfo.contains(primaryNode2.localNode().id().toString())
+                && !txInfo.contains("REMOTE"))
                 match++;
         }
         assertEquals(TRANSACTIONS, match);
@@ -153,6 +155,8 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
         int match = 0;
         for (String txInfo : transactions.values()) {
             if (txInfo.contains("PREPARING")
+                && txInfo.contains(primaryNode1.localNode().id().toString())
+                && txInfo.contains(primaryNode2.localNode().id().toString())
                 && txInfo.contains("REMOTE")
                 && !txInfo.contains("NEAR"))
                 match++;
