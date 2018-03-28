@@ -172,7 +172,6 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
             final TestRecordingCommunicationSpi spi = (TestRecordingCommunicationSpi)ignite.configuration().getCommunicationSpi();
             spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
                 @Override public boolean apply(ClusterNode node, Message msg) {
-//                    System.out.println("message is" + message);
                     if (msg instanceof GridDhtTxPrepareRequest)
                         return true;
                     else if (msg instanceof GridDhtTxPrepareResponse)
