@@ -211,7 +211,6 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
                 ignite.cache(DEFAULT_CACHE_NAME).put(primaryKey1, Thread.currentThread().getName());
                 ignite.cache(DEFAULT_CACHE_NAME).put(primaryKey2, Thread.currentThread().getName());
                 tx.commit();
-                System.out.println("done!");
             }
             catch (Exception e) {
                 e.printStackTrace();
