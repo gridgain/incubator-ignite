@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
@@ -108,7 +109,7 @@ public class TxMXBeanImpl implements TxMXBean {
      * @param nodes Nodes.
      * @param ids Ids.
      */
-    private String composeNodeInfo(final Map<UUID, ClusterNode> nodes, final List<UUID> ids) {
+    private String composeNodeInfo(final Map<UUID, ClusterNode> nodes, final Set<UUID> ids) {
         final GridStringBuilder sb = new GridStringBuilder();
 
         sb.a("[");
@@ -139,14 +140,14 @@ public class TxMXBeanImpl implements TxMXBean {
         String top = txState + ", ";
 
         if (!node.equals(originating))
-            top += "ORIGINATING: " + composeNodeInfo(nodes, tx.originatingNodeId()) + ", ";
+            top += "REMOTE, ORIGINATING: " + composeNodeInfo(nodes, tx.originatingNodeId()) + ", ";
         else
             top += "NEAR, ";
 
         if (tx instanceof GridDhtTxLocalAdapter) {
-            final List<UUID> primaryNodes;
+            final Set<UUID> primaryNodes;
             if (txState == TransactionState.PREPARING) {
-                if (!(primaryNodes = ((GridDhtTxLocalAdapter)tx).dhtPrimaryNodes(nodes)).isEmpty())
+                if (!(primaryNodes = ((GridDhtTxLocalAdapter)tx).transactionNodes().keySet()).isEmpty());
                     top += "PRIMARY: " + composeNodeInfo(nodes, primaryNodes) + ", ";
             }
         }

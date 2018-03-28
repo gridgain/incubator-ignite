@@ -29,8 +29,6 @@ import org.apache.ignite.cache.CacheRebalanceMode;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.configuration.DataRegionConfiguration;
-import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareResponse;
@@ -54,11 +52,14 @@ import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
  *
  */
 public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
-
+    /** */
     private static final TcpDiscoveryIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
-    public static final int TRANSACTIONS = 10;
-    public static final int STARTUP_TIMEOUT_MS = 1000; // fixme
+    /** */
+    private static final int TRANSACTIONS = 10;
+    /** */
+    private static final int TX_STARTUP_TIMEOUT_MS = 500;
 
+    /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String name) throws Exception {
         final IgniteConfiguration cfg = super.getConfiguration(name);
 
@@ -88,22 +89,26 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
     /**
      *
      */
-    public void testNearOnBackup() throws Exception {
-        IgniteEx primaryNode = startGrid(0);
-        IgniteEx backupNode = startGrid(1);
-        TxMXBean txMXBeanBackup = txMXBean(1);
+    public void testOnNear() throws Exception {
+        IgniteEx primaryNode1 = startGrid(0);
+        IgniteEx primaryNode2 = startGrid(1);
+        IgniteEx nearNode = startGrid(2);
+        TxMXBean txMXBeanBackup = txMXBean(2);
 
         awaitPartitionMapExchange();
 
-        final IgniteCache<Integer, String> primaryCache = primaryNode.cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, String> primaryCache1 = primaryNode1.cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, String> primaryCache2 = primaryNode2.cache(DEFAULT_CACHE_NAME);
+
+        final List<Integer> primaryKeys1 = primaryKeys(primaryCache1, TRANSACTIONS);
+        final List<Integer> primaryKeys2 = primaryKeys(primaryCache2, TRANSACTIONS);
 
         block();
 
-        final List<Integer> primaryKeys = primaryKeys(primaryCache, TRANSACTIONS);
-        for (int key : primaryKeys)
-            new Thread(new TxThread(backupNode, key)).start();
+        for (int i = 0; i < primaryKeys1.size(); i++)
+            new Thread(new TxThread(nearNode, primaryKeys1.get(i), primaryKeys2.get(i))).start();
 
-        Thread.sleep(STARTUP_TIMEOUT_MS);
+        Thread.sleep(TX_STARTUP_TIMEOUT_MS);
 
         final Map<String, String> transactions = txMXBeanBackup.getAllLocalTransactions();
         assertEquals(TRANSACTIONS, transactions.size());
@@ -112,8 +117,7 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
         for (String txInfo : transactions.values()) {
             if (txInfo.contains("PREPARING")
                     && txInfo.contains("NEAR")
-                    && txInfo.contains("PRIMARY")
-                    && !txInfo.contains("ORIGINATING"))
+                    && !txInfo.contains("REMOTE"))
                 match++;
         }
         assertEquals(TRANSACTIONS, match);
@@ -123,45 +127,51 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
      *
      */
     public void testRemoteOnPrimary() throws Exception {
-        IgniteEx primaryNode = startGrid(0);
-        IgniteEx backupNode = startGrid(1);
-        TxMXBean txMxBeanPrimary = txMXBean(0);
+        IgniteEx primaryNode1 = startGrid(0);
+        IgniteEx primaryNode2 = startGrid(1);
+        IgniteEx nearNode = startGrid(2);
+        TxMXBean txMxBeanPrimary1 = txMXBean(0);
 
         awaitPartitionMapExchange();
 
-        final IgniteCache<Integer, String> primaryCache = primaryNode.cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, String> primaryCache1 = primaryNode1.cache(DEFAULT_CACHE_NAME);
+        final IgniteCache<Integer, String> primaryCache2 = primaryNode2.cache(DEFAULT_CACHE_NAME);
+
+        final List<Integer> primaryKeys1 = primaryKeys(primaryCache1, TRANSACTIONS);
+        final List<Integer> primaryKeys2 = primaryKeys(primaryCache2, TRANSACTIONS);
 
         block();
 
-        final List<Integer> primaryKeys = primaryKeys(primaryCache, TRANSACTIONS);
-        for (int key : primaryKeys)
-            new Thread(new TxThread(backupNode, key)).start();
+        for (int i = 0; i < primaryKeys1.size(); i++)
+            new Thread(new TxThread(nearNode, primaryKeys1.get(i), primaryKeys2.get(i))).start();
 
-        Thread.sleep(STARTUP_TIMEOUT_MS);
+        Thread.sleep(TX_STARTUP_TIMEOUT_MS);
 
-        final Map<String, String> transactions = txMxBeanPrimary.getAllLocalTransactions();
+        final Map<String, String> transactions = txMxBeanPrimary1.getAllLocalTransactions();
         assertEquals(TRANSACTIONS, transactions.size());
 
         int match = 0;
         for (String txInfo : transactions.values()) {
             if (txInfo.contains("PREPARING")
-                && txInfo.contains("ORIGINATING")
-                && !txInfo.contains("PRIMARY")
+                && txInfo.contains("REMOTE")
                 && !txInfo.contains("NEAR"))
                 match++;
         }
         assertEquals(TRANSACTIONS, match);
     }
 
+    /**
+     *
+     */
     private void block() {
         for (Ignite ignite : G.allGrids()) {
             final TestRecordingCommunicationSpi spi = (TestRecordingCommunicationSpi)ignite.configuration().getCommunicationSpi();
             spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-                @Override public boolean apply(ClusterNode node, Message message) {
+                @Override public boolean apply(ClusterNode node, Message msg) {
 //                    System.out.println("message is" + message);
-                    if (message instanceof GridDhtTxPrepareRequest)
+                    if (msg instanceof GridDhtTxPrepareRequest)
                         return true;
-                    else if (message instanceof GridDhtTxPrepareResponse)
+                    else if (msg instanceof GridDhtTxPrepareResponse)
                         return true;
 
                     return false;
@@ -170,18 +180,33 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
         }
     }
 
+    /**
+     *
+     */
     private static class TxThread implements Runnable {
+        /** */
         private Ignite ignite;
-        private int key;
+        /** */
+        private int primaryKey1;
+        /** */
+        private int primaryKey2;
 
-        public TxThread(final Ignite ignite, final int key) {
+        /**
+         * @param ignite Ignite.
+         * @param primaryKey1 Primary key 1.
+         * @param primaryKey2 Primary key 2.
+         */
+        private TxThread(final Ignite ignite, final int primaryKey1, final int primaryKey2) {
             this.ignite = ignite;
-            this.key = key;
+            this.primaryKey1 = primaryKey1;
+            this.primaryKey2 = primaryKey2;
         }
 
+        /** {@inheritDoc} */
         @Override public void run() {
             try (Transaction tx = ignite.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
-                ignite.cache(DEFAULT_CACHE_NAME).put(key, Thread.currentThread().getName());
+                ignite.cache(DEFAULT_CACHE_NAME).put(primaryKey1, Thread.currentThread().getName());
+                ignite.cache(DEFAULT_CACHE_NAME).put(primaryKey2, Thread.currentThread().getName());
                 tx.commit();
                 System.out.println("done!");
             }
