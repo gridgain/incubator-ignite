@@ -26,13 +26,12 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalP
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteDhtDemandedPartitionsMap;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.RootPage;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
-import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccUpdateResult;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryRowCacheCleaner;
 import org.apache.ignite.internal.util.GridAtomicLong;
@@ -191,6 +190,17 @@ public interface IgniteCacheOffheapManager {
      * @throws IgniteCheckedException If failed.
      */
     public List<IgniteBiTuple<Object, MvccVersion>> mvccAllVersions(GridCacheContext cctx, KeyCacheObject key)
+        throws IgniteCheckedException;
+
+    /**
+     * Returns iterator over the all row versions for the given key.
+     *
+     * @param cctx Cache context.
+     * @param key Key.
+     * @return Iterator over all versions.
+     * @throws IgniteCheckedException If failed.
+     */
+    GridCursor<CacheDataRow> mvccAllVersionsCursor(GridCacheContext cctx, KeyCacheObject key)
         throws IgniteCheckedException;
 
     /**
@@ -696,6 +706,17 @@ public interface IgniteCacheOffheapManager {
          * @throws IgniteCheckedException If failed.
          */
         public CacheDataRow find(GridCacheContext cctx, KeyCacheObject key) throws IgniteCheckedException;
+
+        /**
+         * Returns iterator over the all row versions for the given key.
+         *
+         * @param cctx Cache context.
+         * @param key Key.
+         * @return Iterator over all versions.
+         * @throws IgniteCheckedException If failed.
+         */
+        GridCursor<CacheDataRow> mvccAllVersionsCursor(GridCacheContext cctx, KeyCacheObject key)
+            throws IgniteCheckedException;
 
         /**
          * @param cctx Cache context.

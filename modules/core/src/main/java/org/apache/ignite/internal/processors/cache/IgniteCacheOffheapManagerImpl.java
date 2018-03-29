@@ -101,9 +101,10 @@ import org.jetbrains.annotations.Nullable;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.OWNING;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_START_OP_CNTR;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_START_CNTR;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_START_OP_CNTR;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.isVisible;
+import static org.apache.ignite.internal.processors.cache.persistence.GridCacheOffheapManager.EMPTY_CURSOR;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 
 /**
@@ -547,6 +548,14 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
         return dataStore != null ? dataStore.mvccFindAllVersions(cctx, key) :
             Collections.emptyList();
+    }
+
+    /** {@inheritDoc} */
+    @Override public GridCursor<CacheDataRow> mvccAllVersionsCursor(GridCacheContext cctx,
+        KeyCacheObject key) throws IgniteCheckedException {
+        CacheDataStore dataStore = dataStore(cctx, key);
+
+        return dataStore != null ? dataStore.mvccAllVersionsCursor(cctx, key) : EMPTY_CURSOR;
     }
 
     /**
@@ -1607,13 +1616,6 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 key.valueBytes(coCtx);
                 val.valueBytes(coCtx);
 
-                if (!primary) // TODO IGNITE-7806
-                    mvccSnapshot = new MvccSnapshotWithoutTxs(
-                        mvccSnapshot.coordinatorVersion(),
-                        mvccSnapshot.counter(),
-                        MvccProcessor.MVCC_START_OP_CNTR,
-                        mvccSnapshot.cleanupVersion());
-
                 MvccUpdateDataRow updateRow = new MvccUpdateDataRow(
                     key,
                     val,
@@ -1703,13 +1705,6 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 // Make sure value bytes initialized.
                 key.valueBytes(coCtx);
-
-                if (!primary) // TODO IGNITE-7806
-                    mvccSnapshot = new MvccSnapshotWithoutTxs(
-                        mvccSnapshot.coordinatorVersion(),
-                        mvccSnapshot.counter(),
-                        MvccProcessor.MVCC_START_OP_CNTR,
-                        mvccSnapshot.cleanupVersion());
 
                 MvccUpdateDataRow updateRow = new MvccUpdateDataRow(
                     key,
@@ -2220,6 +2215,14 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             }
 
             return res;
+        }
+
+        /** {@inheritDoc} */
+        @Override public GridCursor<CacheDataRow> mvccAllVersionsCursor(GridCacheContext cctx, KeyCacheObject key)
+            throws IgniteCheckedException {
+            int cacheId = cctx.cacheId();
+
+            return dataTree.find(new MvccMaxSearchRow(cacheId, key), new MvccMinSearchRow(cacheId, key));
         }
 
         /** {@inheritDoc} */

@@ -75,8 +75,8 @@ import org.apache.ignite.internal.processors.cache.persistence.wal.FileWALPointe
 import org.apache.ignite.internal.processors.cache.tree.CacheDataRowStore;
 import org.apache.ignite.internal.processors.cache.tree.CacheDataTree;
 import org.apache.ignite.internal.processors.cache.tree.PendingEntriesTree;
-import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccUpdateResult;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryRowCacheCleaner;
 import org.apache.ignite.internal.util.GridLongList;
@@ -1612,6 +1612,18 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
         }
 
         /** {@inheritDoc} */
+        @Override public GridCursor<CacheDataRow> mvccAllVersionsCursor(GridCacheContext cctx,
+            KeyCacheObject key) throws IgniteCheckedException {
+            CacheDataStore delegate = init0(true);
+
+            if (delegate != null)
+                return delegate.mvccAllVersionsCursor(cctx, key);
+
+            return EMPTY_CURSOR;
+        }
+
+
+        /** {@inheritDoc} */
         @Override public GridCursor<? extends CacheDataRow> cursor() throws IgniteCheckedException {
             CacheDataStore delegate = init0(true);
 
@@ -1722,7 +1734,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
     /**
      *
      */
-    private static final GridCursor<CacheDataRow> EMPTY_CURSOR = new GridCursor<CacheDataRow>() {
+    public static final GridCursor<CacheDataRow> EMPTY_CURSOR = new GridCursor<CacheDataRow>() {
         /** {@inheritDoc} */
         @Override public boolean next() {
             return false;

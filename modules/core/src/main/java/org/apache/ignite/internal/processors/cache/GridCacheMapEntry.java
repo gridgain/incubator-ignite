@@ -74,6 +74,7 @@ import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.IgniteTree;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.lang.GridClosureException;
+import org.apache.ignite.internal.util.lang.GridCursor;
 import org.apache.ignite.internal.util.lang.GridMetadataAwareAdapter;
 import org.apache.ignite.internal.util.lang.GridTuple;
 import org.apache.ignite.internal.util.lang.GridTuple3;
@@ -370,6 +371,54 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         }
 
         return info;
+    }
+
+    /** {@inheritDoc} */
+    @Nullable @Override public List<GridCacheEntryInfo> allVersionsInfo() throws IgniteCheckedException {
+        assert cctx.mvccEnabled();
+
+        lockEntry();
+
+        try {
+            if (obsolete())
+                return Collections.emptyList();
+
+            GridCursor<? extends CacheDataRow> cur =
+                cctx.offheap().dataStore(localPartition()).mvccAllVersionsCursor(cctx, key);
+
+            List<GridCacheEntryInfo> res = new ArrayList<>();
+
+            while (cur.next()) {
+                CacheDataRow row = cur.get();
+
+                GridCacheMvccEntryInfo info = new GridCacheMvccEntryInfo();
+
+                info.key(key);
+                info.cacheId(cctx.cacheId());
+                info.mvccVersion(row.mvccCoordinatorVersion(), row.mvccCounter(), row.mvccOperationCounter());
+                info.newMvccVersion(row.newMvccCoordinatorVersion(), row.newMvccCounter(), row.newMvccOperationCounter());
+
+                long expireTime = expireTimeExtras();
+
+                boolean expired = expireTime != 0 && expireTime <= U.currentTimeMillis();
+
+                info.ttl(ttlExtras());
+                info.expireTime(expireTime);
+                info.version(ver);
+                info.setNew(isStartVersion());
+                info.setDeleted(deletedUnlocked());
+
+                if (!expired)
+                    info.value(row.value());
+
+                res.add(info);
+            }
+
+            return res;
+        }
+        finally {
+            unlockEntry();
+        }
     }
 
     /** {@inheritDoc} */
@@ -1023,7 +1072,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
                 return new GridCacheUpdateTxResult(false, resFut);
             }
-            else if (op == CREATE && res.resultType() == ResultType.PREV_NOT_NULL)
+            else if (op == CREATE && (res.resultType() == ResultType.PREV_NOT_NULL ||
+                res.resultType() == ResultType.VERSION_FOUND))
                 throw new IgniteSQLException("Duplicate key during INSERT [key=" + key + ']', DUPLICATE_KEY);
 
             if (cctx.deferredDelete() && deletedUnlocked() && !detached())
@@ -1070,8 +1120,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             UUID affNodeId,
             AffinityTopologyVersion topVer,
             @Nullable Long updateCntr,
-            MvccSnapshot mvccVer
-    ) throws IgniteCheckedException, GridCacheEntryRemovedException {
+            MvccSnapshot mvccVer) throws IgniteCheckedException, GridCacheEntryRemovedException {
         assert tx != null;
         assert mvccVer != null;
 

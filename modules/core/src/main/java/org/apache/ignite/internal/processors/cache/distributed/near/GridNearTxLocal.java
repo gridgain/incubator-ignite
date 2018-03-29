@@ -34,7 +34,6 @@ import javax.cache.CacheException;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.processor.EntryProcessor;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
@@ -3556,6 +3555,8 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             if (!FINISH_FUT_UPD.compareAndSet(this, null, fut0 = new GridNearTxFastFinishFuture(this, false)))
                 return chainFinishFuture(finishFut, false);
 
+            rollbackFinishFuture(fut0);
+
             fut0.finish(false, onTimeout);
 
             return fut0;
@@ -3565,6 +3566,8 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
         if (!FINISH_FUT_UPD.compareAndSet(this, null, fut0 = new GridNearTxFinishFuture<>(cctx, this, false)))
             return chainFinishFuture(finishFut, false);
+
+        rollbackFinishFuture(fut0);
 
         IgniteInternalFuture<?> prepFut = this.prepFut;
 

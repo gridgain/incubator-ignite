@@ -41,7 +41,6 @@ import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.isVisible;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.mvccVersionIsValid;
 
 /**
  *
@@ -195,8 +194,6 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
             if (MvccUtils.compare(mvccSnapshot, rowCrd, rowCntr) == 0) {
                 res = mvccOpCntr == rowOpCntr ? ResultType.VERSION_FOUND :
                     removed ? ResultType.PREV_NULL : ResultType.PREV_NOT_NULL;
-
-                assert res != ResultType.VERSION_FOUND || !isFlagsSet(PRIMARY); // Can happen on backup node only
 
                 setFlags(LAST_FOUND);
             }
