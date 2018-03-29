@@ -552,10 +552,10 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
     /** {@inheritDoc} */
     @Override public GridCursor<CacheDataRow> mvccAllVersionsCursor(GridCacheContext cctx,
-        KeyCacheObject key) throws IgniteCheckedException {
+        KeyCacheObject key, Object x) throws IgniteCheckedException {
         CacheDataStore dataStore = dataStore(cctx, key);
 
-        return dataStore != null ? dataStore.mvccAllVersionsCursor(cctx, key) : EMPTY_CURSOR;
+        return dataStore != null ? dataStore.mvccAllVersionsCursor(cctx, key, x) : EMPTY_CURSOR;
     }
 
     /**
@@ -2218,11 +2218,11 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         }
 
         /** {@inheritDoc} */
-        @Override public GridCursor<CacheDataRow> mvccAllVersionsCursor(GridCacheContext cctx, KeyCacheObject key)
+        @Override public GridCursor<CacheDataRow> mvccAllVersionsCursor(GridCacheContext cctx, KeyCacheObject key, Object x)
             throws IgniteCheckedException {
             int cacheId = cctx.cacheId();
 
-            return dataTree.find(new MvccMaxSearchRow(cacheId, key), new MvccMinSearchRow(cacheId, key));
+            return dataTree.find(new MvccMaxSearchRow(cacheId, key), new MvccMinSearchRow(cacheId, key), x);
         }
 
         /** {@inheritDoc} */

@@ -37,9 +37,6 @@ public class GridDhtTxQueryEnlistResponse extends GridCacheIdMessage {
     private IgniteUuid futId;
 
     /** */
-    private GridCacheVersion lockVer;
-
-    /** */
     private int batchId;
 
     /** Error. */
@@ -62,11 +59,10 @@ public class GridDhtTxQueryEnlistResponse extends GridCacheIdMessage {
      * @param batchId Batch id.
      * @param err Error.
      */
-    GridDhtTxQueryEnlistResponse(int cacheId, IgniteUuid futId, GridCacheVersion lockVer, int batchId,
+    GridDhtTxQueryEnlistResponse(int cacheId, IgniteUuid futId, int batchId,
         Throwable err) {
         this.cacheId = cacheId;
         this.futId = futId;
-        this.lockVer = lockVer;
         this.batchId = batchId;
         this.err = err;
     }
@@ -76,13 +72,6 @@ public class GridDhtTxQueryEnlistResponse extends GridCacheIdMessage {
      */
     public IgniteUuid futureId() {
         return futId;
-    }
-
-    /**
-     * @return Version.
-     */
-    public GridCacheVersion version() {
-        return lockVer;
     }
 
     /**
@@ -122,12 +111,12 @@ public class GridDhtTxQueryEnlistResponse extends GridCacheIdMessage {
 
     /** {@inheritDoc} */
     @Override public short directType() {
-        return 156;
+        return 157;
     }
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 7;
+        return 6;
     }
 
     /** {@inheritDoc} */
@@ -159,12 +148,6 @@ public class GridDhtTxQueryEnlistResponse extends GridCacheIdMessage {
 
             case 5:
                 if (!writer.writeIgniteUuid("futId", futId))
-                    return false;
-
-                writer.incrementState();
-
-            case 6:
-                if (!writer.writeMessage("lockVer", lockVer))
                     return false;
 
                 writer.incrementState();
@@ -203,14 +186,6 @@ public class GridDhtTxQueryEnlistResponse extends GridCacheIdMessage {
 
             case 5:
                 futId = reader.readIgniteUuid("futId");
-
-                if (!reader.isLastRead())
-                    return false;
-
-                reader.incrementState();
-
-            case 6:
-                lockVer = reader.readMessage("lockVer");
 
                 if (!reader.isLastRead())
                     return false;

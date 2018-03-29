@@ -100,6 +100,7 @@ import static org.apache.ignite.internal.processors.cache.GridCacheOperation.CRE
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.DELETE;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.TRANSFORM;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.UPDATE;
+import static org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter.RowData.NO_KEY;
 import static org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode.CONCURRENT_UPDATE;
 import static org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode.DUPLICATE_KEY;
 import static org.apache.ignite.internal.processors.dr.GridDrType.DR_NONE;
@@ -384,7 +385,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 return Collections.emptyList();
 
             GridCursor<? extends CacheDataRow> cur =
-                cctx.offheap().dataStore(localPartition()).mvccAllVersionsCursor(cctx, key);
+                cctx.offheap().dataStore(localPartition()).mvccAllVersionsCursor(cctx, key, NO_KEY);
 
             List<GridCacheEntryInfo> res = new ArrayList<>();
 
@@ -394,22 +395,25 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 GridCacheMvccEntryInfo info = new GridCacheMvccEntryInfo();
 
                 info.key(key);
+                info.value(row.value());
                 info.cacheId(cctx.cacheId());
                 info.mvccVersion(row.mvccCoordinatorVersion(), row.mvccCounter(), row.mvccOperationCounter());
                 info.newMvccVersion(row.newMvccCoordinatorVersion(), row.newMvccCounter(), row.newMvccOperationCounter());
+                info.version(row.version());
+                info.setNew(false);
+                info.setDeleted(false);
 
-                long expireTime = expireTimeExtras();
+                long expireTime = row.expireTime();
 
-                boolean expired = expireTime != 0 && expireTime <= U.currentTimeMillis();
+                long ttl;
 
-                info.ttl(ttlExtras());
+                ttl = expireTime == CU.EXPIRE_TIME_ETERNAL ? CU.TTL_ETERNAL : expireTime - U.currentTimeMillis();
+
+                if (ttl < 0)
+                    ttl = CU.TTL_MINIMUM;
+
+                info.ttl(ttl);
                 info.expireTime(expireTime);
-                info.version(ver);
-                info.setNew(isStartVersion());
-                info.setDeleted(deletedUnlocked());
-
-                if (!expired)
-                    info.value(row.value());
 
                 res.add(info);
             }

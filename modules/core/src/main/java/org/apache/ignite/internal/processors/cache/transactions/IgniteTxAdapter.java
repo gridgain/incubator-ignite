@@ -1173,6 +1173,8 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
                                     rollbackFinishFuture().listen(new IgniteInClosure<IgniteInternalFuture>() {
                                         @Override public void apply(IgniteInternalFuture fut1) {
                                             try {
+                                                assert txState == TxState.ABORTED;
+
                                                 cctx.coordinators().updateState(snapshot, txState);
                                             }
                                             catch (IgniteCheckedException e) {

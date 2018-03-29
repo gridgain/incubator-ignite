@@ -66,6 +66,9 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQu
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistResponse;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxRemote;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearUnlockRequest;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshotWithoutTxs;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccTxInfo;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
@@ -98,6 +101,7 @@ import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.DELETE;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.NOOP;
 import static org.apache.ignite.internal.processors.cache.GridCacheUtils.isNearEnabled;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_OP_COUNTER_NA;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 import static org.apache.ignite.transactions.TransactionState.COMMITTING;
@@ -223,7 +227,14 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
         ctx.io().addCacheHandler(ctx.cacheId(), GridDhtTxQueryEnlistRequest.class,
             new CI2<UUID, GridDhtTxQueryEnlistRequest>() {
                 @Override public void apply(UUID nodeId, GridDhtTxQueryEnlistRequest msg) {
-                    processDhtTxQueryEnlistRequest(nodeId, msg);
+                    processDhtTxQueryEnlistRequest(nodeId, msg, false);
+                }
+            });
+
+        ctx.io().addCacheHandler(ctx.cacheId(), GridDhtTxQueryFirstEnlistRequest.class,
+            new CI2<UUID, GridDhtTxQueryEnlistRequest>() {
+                @Override public void apply(UUID nodeId, GridDhtTxQueryEnlistRequest msg) {
+                    processDhtTxQueryEnlistRequest(nodeId, msg, true);
                 }
             });
 
@@ -797,7 +808,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
         IgniteInternalFuture<?> f;
 
         if (req.firstClientRequest()) {
-            for (;;) {
+            for (; ; ) {
                 if (waitForExchangeFuture(nearNode, req))
                     return;
 
@@ -2146,8 +2157,9 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
     /**
      * @param primary Primary node.
      * @param req Message.
+     * @param first Flag if this is a first request in current operation.
      */
-    private void processDhtTxQueryEnlistRequest(UUID primary, GridDhtTxQueryEnlistRequest req) {
+    private void processDhtTxQueryEnlistRequest(UUID primary, GridDhtTxQueryEnlistRequest req, boolean first) {
         // Need to ensure that we have all needed keys on the node.
         IgniteInternalFuture<Object> keyFut = F.isEmpty(req.keys()) ? null :
             ctx.group().preloader().request(ctx, req.keys(), req.topologyVersion());
@@ -2167,7 +2179,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 }
             }
 
-            processDhtTxQueryEnlistRequest0(primary, req);
+            processDhtTxQueryEnlistRequest0(primary, req, first);
         }
         else {
             keyFut.listen(new IgniteInClosure<IgniteInternalFuture<Object>>() {
@@ -2184,7 +2196,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                         return;
                     }
 
-                    processDhtTxQueryEnlistRequest0(primary, req);
+                    processDhtTxQueryEnlistRequest0(primary, req, first);
                 }
             });
         }
@@ -2197,8 +2209,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
      */
     private void onError(UUID primary, GridDhtTxQueryEnlistRequest req, Throwable e) {
         GridDhtTxQueryEnlistResponse res = new GridDhtTxQueryEnlistResponse(ctx.cacheId(),
-            req.futureId(),
-            req.version(),
+            req.dhtFutureId(),
             req.batchId(),
             e);
 
@@ -2215,39 +2226,56 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
      * @param primary Primary node.
      * @param req Message.
      */
-    private void processDhtTxQueryEnlistRequest0(UUID primary, GridDhtTxQueryEnlistRequest req) {
+    private void processDhtTxQueryEnlistRequest0(UUID primary, GridDhtTxQueryEnlistRequest req, boolean first) {
         try {
+            assert req.version() != null && req.op() != null;
+
             GridDhtTxRemote tx = ctx.tm().tx(req.version());
 
             if (tx == null) {
+                if (!first)
+                    throw new IgniteCheckedException("Can not find a transaction for version [version="
+                        + req.version() + ']');
+
+                GridDhtTxQueryFirstEnlistRequest req0 = (GridDhtTxQueryFirstEnlistRequest)req;
+
                 tx = new GridDhtTxRemote(ctx.shared(),
-                    req.nearNodeId(),
-                    req.dhtFutureId(),
+                    req0.nearNodeId(),
+                    req0.dhtFutureId(),
                     primary,
-                    req.nearXidVersion(),
-                    req.topologyVersion(),
-                    req.version(),
+                    req0.nearXidVersion(),
+                    req0.topologyVersion(),
+                    req0.version(),
                     null,
                     ctx.systemTx(),
                     ctx.ioPolicy(),
                     PESSIMISTIC,
                     REPEATABLE_READ,
                     false,
-                    req.timeout(),
+                    req0.timeout(),
                     -1,
-                    req.subjectId(),
-                    req.taskNameHash(),
+                    req0.subjectId(),
+                    req0.taskNameHash(),
                     false);
+
+                tx.mvccInfo(new MvccTxInfo(ctx.shared().coordinators().currentCoordinatorId(),
+                    new MvccSnapshotWithoutTxs(req0.coordinatorVersion(), req0.counter(), MVCC_OP_COUNTER_NA,
+                        req0.cleanupVersion())));
 
                 tx = ctx.tm().onCreated(null, tx);
 
                 if (tx == null || !ctx.tm().onStarted(tx)) {
                     throw new IgniteTxRollbackCheckedException("Failed to update backup " +
-                        "(transaction has been completed): " + req.version());
+                        "(transaction has been completed): " + req0.version());
                 }
             }
 
             assert tx != null;
+
+            MvccSnapshot s0 = tx.mvccInfo().snapshot();
+
+            MvccSnapshot snapshot = new MvccSnapshotWithoutTxs(s0.coordinatorVersion(), s0.counter(),
+                req.operationCounter(), s0.cleanupVersion());
 
             ctx.shared().database().checkpointReadLock();
 
@@ -2292,7 +2320,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                         txEntry.markValid();
                         txEntry.queryEnlisted(true);
 
-                        GridDhtCacheEntry entry = entryExx(key, req.topologyVersion());
+                        GridDhtCacheEntry entry = entryExx(key, tx.topologyVersion());
 
                         GridCacheUpdateTxResult updRes;
 
@@ -2304,7 +2332,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                                             ctx.localNodeId(),
                                             tx.topologyVersion(),
                                             null,
-                                            req.mvccSnapshot());
+                                            snapshot);
 
                                         break;
 
@@ -2316,12 +2344,12 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                                             0,
                                             tx.topologyVersion(),
                                             null,
-                                            req.mvccSnapshot(),
+                                            snapshot,
                                             req.op());
 
                                         break;
 
-                                    default: // TODO SELECT FOR UPDATE
+                                    default:
                                         throw new IgniteSQLException("Cannot acquire lock for operation [op= "
                                             + req.op() + "]" + "Operation is unsupported at the moment ",
                                             IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
@@ -2351,8 +2379,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             }
 
             GridDhtTxQueryEnlistResponse res = new GridDhtTxQueryEnlistResponse(req.cacheId(),
-                req.futureId(),
-                req.version(),
+                req.dhtFutureId(),
                 req.batchId(),
                 null);
 
@@ -2375,11 +2402,11 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
      */
     private void processDhtTxQueryEnlistResponse(UUID backup, GridDhtTxQueryEnlistResponse res) {
         GridDhtTxQueryEnlistAbstractFuture fut = (GridDhtTxQueryEnlistAbstractFuture)
-            ctx.mvcc().versionedFuture(res.version(), res.futureId());
+            ctx.mvcc().future(res.futureId());
 
         if (fut == null) {
-            U.warn(log, "Received dht enlist response for unknown future [txId=null" +
-                ", dhtTxId=" + res.version() +
+            U.warn(log, "Received dht enlist response for unknown future [futId=" + res.futureId() +
+                ", batchId=" + res.batchId() +
                 ", node=" + backup + ']');
 
             return;

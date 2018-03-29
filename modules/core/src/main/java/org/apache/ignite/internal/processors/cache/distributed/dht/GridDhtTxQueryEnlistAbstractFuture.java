@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -32,14 +34,11 @@ import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
-import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedException;
 import org.apache.ignite.internal.processors.cache.GridCacheFutureAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheIdMessage;
-import org.apache.ignite.internal.processors.cache.GridCacheMvccCandidate;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.GridCacheUpdateTxResult;
-import org.apache.ignite.internal.processors.cache.GridCacheVersionedFuture;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
@@ -70,8 +69,7 @@ import static org.apache.ignite.internal.processors.cache.GridCacheOperation.UPD
  * Abstract future processing transaction enlisting and locking
  * of entries produced with DML queries.
  */
-public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMessage> extends GridCacheFutureAdapter<T>
-    implements GridCacheVersionedFuture<T> {
+public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMessage> extends GridCacheFutureAdapter<T> {
     /** */
     private static final AtomicInteger batchCntr = new AtomicInteger();
 
@@ -142,6 +140,9 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
     /** Backups updates futures. */
     private final ConcurrentMap<UUID, GridFutureAdapter<Void>> updFuts = new ConcurrentHashMap<>();
 
+    /** Set of backups which already have received first enlist batch. */
+    private final Set<UUID> firstReqSent = new HashSet<>();
+
     /**
      * @param nearNodeId Near node ID.
      * @param nearLockVer Near lock version.
@@ -210,7 +211,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
      *
      */
     public void init() {
-        cctx.mvcc().addFuture(this);
+        cctx.mvcc().addFuture(this, futId);
 
         if (timeout > 0) {
             timeoutObj = new LockTimeoutObject();
@@ -478,19 +479,31 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
 
             GridDhtTxQueryEnlistRequest req = backupUpdReqs.get(backup.id());
 
-            if (req == null){
-                req = new GridDhtTxQueryEnlistRequest(cctx.cacheId(),
-                    futId,
-                    cctx.localNodeId(),
-                    topVer,
-                    lockVer,
-                    mvccSnapshot.withoutActiveTransactions(),
-                    timeout,
-                    tx.taskNameHash(),
-                    nearNodeId,
-                    nearLockVer,
-                    it.operation(),
-                    batchCntr.incrementAndGet());
+            if (req == null) {
+                if (!firstReqSent.contains(backup.id())) {
+                    // If this is a first request to this node, send full info.
+                    req = new GridDhtTxQueryFirstEnlistRequest(cctx.cacheId(),
+                        futId,
+                        cctx.localNodeId(),
+                        topVer,
+                        lockVer,
+                        mvccSnapshot,
+                        timeout,
+                        tx.taskNameHash(),
+                        nearNodeId,
+                        nearLockVer,
+                        it.operation(),
+                        batchCntr.incrementAndGet());
+                }
+                else {
+                    // Send only keys, values, LockVersion and batchId if this is not a first request to this backup.
+                    req = new GridDhtTxQueryEnlistRequest(cctx.cacheId(),
+                        futId,
+                        lockVer,
+                        it.operation(),
+                        batchCntr.incrementAndGet(),
+                        mvccSnapshot.operationCounter());
+                }
 
                 GridDhtTxQueryEnlistRequest prev = backupUpdReqs.putIfAbsent(backup.id(), req);
 
@@ -521,6 +534,8 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                     GridFutureAdapter<Void> f = updFuts.putIfAbsent(backup.id(), miniFut);
 
                     assert f == null;
+
+                    firstReqSent.add(backup.id());
 
                     cctx.io().send(backup.id(), req0, cctx.ioPolicy());
                 }
@@ -570,6 +585,8 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                     GridFutureAdapter<Void> f = updFuts.putIfAbsent(backup, miniFut);
 
                     assert f == null;
+
+                    firstReqSent.add(backup);
 
                     cctx.io().send(backup, req, cctx.ioPolicy());
                 }
@@ -665,7 +682,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
     }
 
     /** {@inheritDoc} */
-    @Override public GridCacheVersion version() {
+    public GridCacheVersion version() {
         return lockVer;
     }
 
@@ -689,15 +706,6 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                 " node left the grid [nodeId=" + nodeId + ']'));
     }
 
-    /**
-     * Callback for whenever entry lock ownership changes.
-     *
-     * @param entry Entry whose lock ownership changed.
-     */
-    @Override public boolean onOwnerChanged(GridCacheEntryEx entry, GridCacheMvccCandidate owner) {
-        return false;
-    }
-
     /** {@inheritDoc} */
     @Override public boolean onDone(@Nullable T res, @Nullable Throwable err) {
         assert res != null ^ err != null;
@@ -712,7 +720,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                 log.debug("Completing future: " + this);
 
             // Clean up.
-            cctx.mvcc().removeVersionedFuture(this);
+            cctx.mvcc().removeFuture(futId);
 
             if (timeoutObj != null)
                 cctx.time().removeTimeoutObject(timeoutObj);

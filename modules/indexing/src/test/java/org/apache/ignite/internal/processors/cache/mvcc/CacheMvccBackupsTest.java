@@ -185,7 +185,7 @@ public class CacheMvccBackupsTest extends CacheMvccAbstractTest {
         ccfg = cacheConfiguration(PARTITIONED, FULL_SYNC, 1, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class);
 
-        final int KEYS_CNT = 5000;
+        final int KEYS_CNT = 10000;
         assert KEYS_CNT % 2 == 0;
 
         startGrids(2);
@@ -228,22 +228,7 @@ public class CacheMvccBackupsTest extends CacheMvccAbstractTest {
             tx.commit();
         }
 
-        StringBuilder del = new StringBuilder("DELETE FROM Integer WHERE _key IN (");
-
-        first = true;
-
-        for (int key = 0; key < KEYS_CNT / 2; key++) {
-            if (!first)
-                del.append(',');
-            else
-                first = false;
-
-            del.append(key);
-        }
-
-        del.append(')');
-
-        qryStr = del.toString();
+        qryStr = "DELETE FROM Integer WHERE _key >= " + KEYS_CNT / 2;
 
         try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             tx.timeout(txLongTimeout);
@@ -304,7 +289,7 @@ public class CacheMvccBackupsTest extends CacheMvccAbstractTest {
      *
      * @throws Exception If failed.
      */
-    public void testBackupsCoherenceWithConcurrentUpdates3Servers2Clients() throws Exception {
+    public void testBackupsCoherenceWithConcurrentUpdates5Servers2Clients() throws Exception {
         checkBackupsCoherenceWithConcurrentUpdates(5, 2);
     }
 
@@ -436,7 +421,7 @@ public class CacheMvccBackupsTest extends CacheMvccAbstractTest {
 
             KeyCacheObject key = cctx.toCacheKeyObject(entry.getKey());
 
-            GridCursor<CacheDataRow> cur = cctx.offheap().mvccAllVersionsCursor(cctx, key);
+            GridCursor<CacheDataRow> cur = cctx.offheap().mvccAllVersionsCursor(cctx, key, null);
 
             List<CacheDataRow> rows = new ArrayList<>();
 
@@ -463,6 +448,9 @@ public class CacheMvccBackupsTest extends CacheMvccAbstractTest {
         Map<KeyCacheObject, List<CacheDataRow>> right) throws IgniteCheckedException {
         assertNotNull(left);
         assertNotNull(right);
+
+        assertTrue(!left.isEmpty());
+        assertTrue(!right.isEmpty());
 
         assertEqualsCollections(left.keySet(), right.keySet());
 

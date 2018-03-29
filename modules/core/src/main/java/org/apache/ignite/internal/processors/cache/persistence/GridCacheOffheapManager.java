@@ -1613,11 +1613,11 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
         /** {@inheritDoc} */
         @Override public GridCursor<CacheDataRow> mvccAllVersionsCursor(GridCacheContext cctx,
-            KeyCacheObject key) throws IgniteCheckedException {
+            KeyCacheObject key, Object x) throws IgniteCheckedException {
             CacheDataStore delegate = init0(true);
 
             if (delegate != null)
-                return delegate.mvccAllVersionsCursor(cctx, key);
+                return delegate.mvccAllVersionsCursor(cctx, key, x);
 
             return EMPTY_CURSOR;
         }

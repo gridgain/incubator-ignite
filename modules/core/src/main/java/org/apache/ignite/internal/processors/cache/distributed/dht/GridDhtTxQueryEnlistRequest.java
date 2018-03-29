@@ -21,10 +21,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.GridDirectTransient;
-import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
@@ -32,7 +30,6 @@ import org.apache.ignite.internal.processors.cache.GridCacheIdMessage;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.T2;
@@ -55,29 +52,14 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
     /** */
     private int batchId;
 
-    /** Tx initiator. Primary node in case of remote DHT tx. */
-    private UUID subjId;
-
-    /** */
-    private AffinityTopologyVersion topVer;
-
     /** DHT tx version. */
     private GridCacheVersion lockVer;
 
     /** */
-    private MvccSnapshot mvccSnapshot;
+    private GridCacheOperation op;
 
     /** */
-    private long timeout;
-
-    /** */
-    private int taskNameHash;
-
-    /** */
-    private UUID nearNodeId;
-
-    /** Near tx version. */
-    private GridCacheVersion nearXidVer;
+    private int mvccOpCnt;
 
     /** */
     @GridDirectTransient
@@ -91,9 +73,6 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
     @GridToStringExclude
     private CacheObject[] vals;
 
-    /** */
-    private GridCacheOperation op;
-
     /**
      *
      */
@@ -103,41 +82,22 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
     /**
      * @param cacheId Cache id.
      * @param dhtFutId DHT future id.
-     * @param subjId Subject id.
-     * @param topVer Topology version.
      * @param lockVer Lock version.
-     * @param snapshot Mvcc snapshot.
-     * @param timeout Timeout.
-     * @param taskNameHash Task name hash.
-     * @param nearNodeId Near node id.
-     * @param nearXidVer Near xid version.
      * @param op Operation.
      * @param batchId Batch id.
      */
     GridDhtTxQueryEnlistRequest(int cacheId,
         IgniteUuid dhtFutId,
-        UUID subjId,
-        AffinityTopologyVersion topVer,
         GridCacheVersion lockVer,
-        MvccSnapshot snapshot,
-        long timeout,
-        int taskNameHash,
-        UUID nearNodeId,
-        GridCacheVersion nearXidVer,
         GridCacheOperation op,
-        int batchId) {
+        int batchId,
+        int mvccOpCnt) {
         this.cacheId = cacheId;
         this.dhtFutId = dhtFutId;
-        this.subjId = subjId;
-        this.topVer = topVer;
         this.lockVer = lockVer;
-        this.mvccSnapshot = snapshot;
-        this.timeout = timeout;
-        this.taskNameHash = taskNameHash;
-        this.nearNodeId = nearNodeId;
-        this.nearXidVer = nearXidVer;
         this.op = op;
         this.batchId = batchId;
+        this.mvccOpCnt = mvccOpCnt;
     }
 
     /**
@@ -169,18 +129,6 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
         return rows == null ? 0 : rows.size();
     }
 
-    /** {@inheritDoc} */
-    @Override public AffinityTopologyVersion topologyVersion() {
-        return topVer;
-    }
-
-    /**
-     * @return Near node id.
-     */
-    public UUID nearNodeId() {
-        return nearNodeId;
-    }
-
     /**
      * @return Dht future id.
      */
@@ -196,31 +144,10 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
     }
 
     /**
-     * @return Near transaction ID.
+     * @return Mvcc operation counter.
      */
-    public GridCacheVersion nearXidVersion() {
-        return nearXidVer;
-    }
-
-    /**
-     * @return Max lock wait time.
-     */
-    public long timeout() {
-        return timeout;
-    }
-
-    /**
-     * @return Subject id.
-     */
-    public UUID subjectId() {
-        return subjId;
-    }
-
-    /**
-     * @return Task name hash.
-     */
-    public int taskNameHash() {
-        return taskNameHash;
+    public int operationCounter() {
+        return mvccOpCnt;
     }
 
     /**
@@ -235,20 +162,6 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
      */
     public GridCacheOperation op() {
         return op;
-    }
-
-    /**
-     * @return MVCC snapshot.
-     */
-    public MvccSnapshot mvccSnapshot() {
-        return mvccSnapshot;
-    }
-
-    /**
-     * @return Future id.
-     */
-    public IgniteUuid futureId() {
-        return dhtFutId;
     }
 
     /**
@@ -373,54 +286,18 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
                 writer.incrementState();
 
             case 7:
-                if (!writer.writeMessage("mvccSnapshot", mvccSnapshot))
+                if (!writer.writeInt("mvccOpCnt", mvccOpCnt))
                     return false;
 
                 writer.incrementState();
 
             case 8:
-                if (!writer.writeUuid("nearNodeId", nearNodeId))
-                    return false;
-
-                writer.incrementState();
-
-            case 9:
-                if (!writer.writeMessage("nearXidVer", nearXidVer))
-                    return false;
-
-                writer.incrementState();
-
-            case 10:
                 if (!writer.writeByte("op", op != null ? (byte)op.ordinal() : -1))
                     return false;
 
                 writer.incrementState();
 
-            case 11:
-                if (!writer.writeUuid("subjId", subjId))
-                    return false;
-
-                writer.incrementState();
-
-            case 12:
-                if (!writer.writeInt("taskNameHash", taskNameHash))
-                    return false;
-
-                writer.incrementState();
-
-            case 13:
-                if (!writer.writeLong("timeout", timeout))
-                    return false;
-
-                writer.incrementState();
-
-            case 14:
-                if (!writer.writeMessage("topVer", topVer))
-                    return false;
-
-                writer.incrementState();
-
-            case 15:
+            case 9:
                 if (!writer.writeObjectArray("vals", vals, MessageCollectionItemType.MSG))
                     return false;
 
@@ -475,7 +352,7 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
                 reader.incrementState();
 
             case 7:
-                mvccSnapshot = reader.readMessage("mvccSnapshot");
+                mvccOpCnt = reader.readInt("mvccOpCnt");
 
                 if (!reader.isLastRead())
                     return false;
@@ -483,22 +360,6 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
                 reader.incrementState();
 
             case 8:
-                nearNodeId = reader.readUuid("nearNodeId");
-
-                if (!reader.isLastRead())
-                    return false;
-
-                reader.incrementState();
-
-            case 9:
-                nearXidVer = reader.readMessage("nearXidVer");
-
-                if (!reader.isLastRead())
-                    return false;
-
-                reader.incrementState();
-
-            case 10:
                 byte opOrd;
 
                 opOrd = reader.readByte("op");
@@ -510,39 +371,7 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
 
                 reader.incrementState();
 
-            case 11:
-                subjId = reader.readUuid("subjId");
-
-                if (!reader.isLastRead())
-                    return false;
-
-                reader.incrementState();
-
-            case 12:
-                taskNameHash = reader.readInt("taskNameHash");
-
-                if (!reader.isLastRead())
-                    return false;
-
-                reader.incrementState();
-
-            case 13:
-                timeout = reader.readLong("timeout");
-
-                if (!reader.isLastRead())
-                    return false;
-
-                reader.incrementState();
-
-            case 14:
-                topVer = reader.readMessage("topVer");
-
-                if (!reader.isLastRead())
-                    return false;
-
-                reader.incrementState();
-
-            case 15:
+            case 9:
                 vals = reader.readObjectArray("vals", MessageCollectionItemType.MSG, CacheObject.class);
 
                 if (!reader.isLastRead())
@@ -557,7 +386,7 @@ public class GridDhtTxQueryEnlistRequest extends GridCacheIdMessage {
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 16;
+        return 10;
     }
 
     /** {@inheritDoc} */
