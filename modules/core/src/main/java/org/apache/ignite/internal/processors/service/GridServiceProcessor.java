@@ -112,7 +112,6 @@ import static org.apache.ignite.IgniteSystemProperties.getString;
 import static org.apache.ignite.configuration.DeploymentMode.ISOLATED;
 import static org.apache.ignite.configuration.DeploymentMode.PRIVATE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_SERVICES_COMPATIBILITY_MODE;
-import static org.apache.ignite.internal.processors.cache.GridCacheUtils.UTILITY_CACHE_NAME;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
@@ -122,9 +121,6 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
  */
 @SuppressWarnings({"SynchronizationOnLocalVariableOrMethodParameter", "ConstantConditions"})
 public class GridServiceProcessor extends GridProcessorAdapter implements IgniteChangeGlobalStateSupport {
-    /** */
-    private final Boolean srvcCompatibilitySysProp;
-
     /** Time to wait before reassignment retries. */
     private static final long RETRY_TIMEOUT = 1000;
 
@@ -152,7 +148,7 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
     private volatile ExecutorService depExe;
 
     /** Busy lock. */
-    private volatile GridSpinBusyLock busyLock = new GridSpinBusyLock();
+    private volatile GridSpinBusyLock busyLock;
 
     /** Thread factory. */
     private ThreadFactory threadFactory = new IgniteThreadFactory(ctx.igniteInstanceName(), "service");
@@ -166,20 +162,17 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
     /** Topology listener. */
     private DiscoveryEventListener topLsnr = new TopologyListener();
 
-    /** */
+    /** Latch for waiting on the  */
     private final CountDownLatch startLatch = new CountDownLatch(1);
+
+    /** Is this processor in an active state. */
+    private volatile boolean isProcessorActivated;
 
     /**
      * @param ctx Kernal context.
      */
     public GridServiceProcessor(GridKernalContext ctx) {
         super(ctx);
-
-        depExe = Executors.newSingleThreadExecutor(new IgniteThreadFactory(ctx.igniteInstanceName(), "srvc-deploy"));
-
-        String servicesCompatibilityMode = getString(IGNITE_SERVICES_COMPATIBILITY_MODE);
-
-        srvcCompatibilitySysProp = servicesCompatibilityMode == null ? null : Boolean.valueOf(servicesCompatibilityMode);
     }
 
     /**
@@ -198,6 +191,10 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
 
     /** {@inheritDoc} */
     @Override public void start() throws IgniteCheckedException {
+        String servicesCompatibilityMode = getString(IGNITE_SERVICES_COMPATIBILITY_MODE);
+
+        Boolean srvcCompatibilitySysProp = servicesCompatibilityMode == null ? null : Boolean.valueOf(servicesCompatibilityMode);
+
         ctx.addNodeAttribute(ATTR_SERVICES_COMPATIBILITY_MODE, srvcCompatibilitySysProp);
 
         if (ctx.isDaemon())
@@ -215,18 +212,87 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     @Override public void onKernalStart(boolean active) throws IgniteCheckedException {
-        if (ctx.isDaemon() || !active)
+        if (ctx.isDaemon())
             return;
 
-        onKernalStart0();
+        if (active)
+            activateServiceProcessor();
     }
 
-    /**
-     * Do kernal start.
-     *
-     * @throws IgniteCheckedException If failed.
-     */
-    private void onKernalStart0() throws IgniteCheckedException {
+    /** {@inheritDoc} */
+    @Override public void onKernalStop(boolean cancel) {
+        if (ctx.isDaemon())
+            return;
+
+        if (isProcessorActivated)
+            deactivateServiceProcessor();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onActivate(GridKernalContext kctx) throws IgniteCheckedException {
+        if (ctx.isDaemon())
+            return;
+
+        activateServiceProcessor();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onDeActivate(GridKernalContext kctx) {
+        if (ctx.isDaemon())
+            return;
+
+        deactivateServiceProcessor();
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteInternalFuture<?> onReconnected(boolean clusterRestarted) {
+        if (ctx.isDaemon())
+            return null;
+
+        IgniteInternalFuture<Boolean> transitionWaitFut = ctx.discovery().localJoin().transitionWaitFuture();
+        if (transitionWaitFut != null) {
+            if (log.isInfoEnabled()) {
+                log.info("Reconnected to cluster while cluster state transition is in progress, " +
+                    "will wait for the transition to complete and try to activate service processor.");
+            }
+
+            new Thread(() -> {
+                try {
+                    boolean active = transitionWaitFut.get();
+
+                    if (active)
+                        activateServiceProcessor();
+                }
+                catch (IgniteCheckedException e) {
+                    U.error(log, "Failed to wait for the state transition and activate service processor.", e);
+                }
+            }).start();
+        }
+
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onDisconnected(IgniteFuture<?> reconnectFut) {
+        if (ctx.isDaemon())
+            return;
+
+        if (isProcessorActivated)
+            deactivateServiceProcessor();
+    }
+
+    private void activateServiceProcessor() throws IgniteCheckedException {
+        assert !ctx.isDaemon();
+        assert !isProcessorActivated;
+
+        if (log.isDebugEnabled())
+            log.debug("Started activation of service processor [nodeId=" + ctx.localNodeId() +
+                ", topVer=" + ctx.discovery().topologyVersionEx() + "]");
+
+        busyLock = new GridSpinBusyLock();
+
+        depExe = Executors.newSingleThreadExecutor(new IgniteThreadFactory(ctx.igniteInstanceName(), "srvc-deploy"));
+
         if (!ctx.clientNode())
             ctx.event().addDiscoveryEventListener(topLsnr, EVTS);
 
@@ -244,8 +310,6 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
                 );
             }
             else {
-                assert !ctx.isDaemon();
-
                 ctx.closure().runLocalSafe(new Runnable() {
                     @Override public void run() {
                         try {
@@ -271,31 +335,20 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
         if (cfgs != null)
             deployAll(Arrays.asList(cfgs), ctx.cluster().get().forServers().predicate()).get();
 
+        isProcessorActivated = true;
+
         if (log.isDebugEnabled())
-            log.debug("Started service processor.");
+            log.debug("Finished activation of service processor [nodeId=" + ctx.localNodeId() +
+                " topVer=" + ctx.discovery().topologyVersionEx() + " ]");
     }
 
-    /**
-     *
-     */
-    public void updateUtilityCache() {
-        serviceCache = ctx.cache().utilityCache();
-    }
+    private void deactivateServiceProcessor() {
+        assert !ctx.isDaemon();
+        assert isProcessorActivated;
 
-    /**
-     * @return Service cache.
-     */
-    private IgniteInternalCache<Object, Object> serviceCache() {
-        if (serviceCache == null)
-            U.awaitQuiet(startLatch);
-
-        return serviceCache;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onKernalStop(boolean cancel) {
-        if (ctx.isDaemon())
-            return;
+        if (log.isDebugEnabled())
+            log.debug("Started deactivation of service processor [nodeId=" + ctx.localNodeId() +
+                ", topVer=" + ctx.discovery().topologyVersionEx() + "]");
 
         GridSpinBusyLock busyLock = this.busyLock;
 
@@ -305,8 +358,6 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
 
             this.busyLock = null;
         }
-
-        startLatch.countDown();
 
         U.shutdownNow(GridServiceProcessor.class, depExe, log);
 
@@ -351,55 +402,49 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
             catch (InterruptedException ignore) {
                 Thread.currentThread().interrupt();
 
-                U.error(log, "Got interrupted while waiting for service to shutdown (will continue stopping node): " +
-                    ctx.name());
+                U.error(log, "Got interrupted while waiting for service to shutdown: " + ctx.name());
             }
         }
 
-        Exception err = new IgniteCheckedException("Operation has been cancelled (node is stopping).");
+        Exception err = new IgniteCheckedException("Operation has been cancelled due to node deactivating or stopping.");
 
         cancelFutures(depFuts, err);
         cancelFutures(undepFuts, err);
 
-        if (log.isDebugEnabled())
-            log.debug("Stopped service processor.");
-    }
+        isProcessorActivated = false;
 
-    /** {@inheritDoc} */
-    @Override public void onActivate(GridKernalContext kctx) throws IgniteCheckedException {
         if (log.isDebugEnabled())
-            log.debug("Activate service processor [nodeId=" + ctx.localNodeId() +
+            log.debug("Finished deactivation of service processor [nodeId=" + ctx.localNodeId() +
                 " topVer=" + ctx.discovery().topologyVersionEx() + " ]");
-
-        busyLock = new GridSpinBusyLock();
-
-        depExe = Executors.newSingleThreadExecutor(new IgniteThreadFactory(ctx.igniteInstanceName(), "srvc-deploy"));
-
-        start();
-
-        onKernalStart0();
     }
 
-    /** {@inheritDoc} */
-    @Override public void onDeActivate(GridKernalContext kctx) {
-        if (log.isDebugEnabled())
-            log.debug("DeActivate service processor [nodeId=" + ctx.localNodeId() +
-                " topVer=" + ctx.discovery().topologyVersionEx() + " ]");
-
-        cancelFutures(depFuts, new IgniteCheckedException("Failed to deploy service, cluster in active."));
-
-        cancelFutures(undepFuts, new IgniteCheckedException("Failed to undeploy service, cluster in active."));
-
-        onKernalStop(true);
+    /**
+     *
+     */
+    public void updateUtilityCache() {
+        serviceCache = ctx.cache().utilityCache();
     }
 
-    /** {@inheritDoc} */
-    @Override public void onDisconnected(IgniteFuture<?> reconnectFut) throws IgniteCheckedException {
-        cancelFutures(depFuts, new IgniteClientDisconnectedCheckedException(ctx.cluster().clientReconnectFuture(),
-            "Failed to deploy service, client node disconnected."));
+    /**
+     * @return Service cache.
+     */
+    private IgniteInternalCache<Object, Object> serviceCache() {
+        if (serviceCache == null) {
+            if (ctx.state().publicApiActiveState(true)) {
+                if (!isProcessorActivated) {
+                    try {
+                        activateServiceProcessor();
+                    }
+                    catch (IgniteCheckedException e) {
+                        e.printStackTrace(); // TODO implement.
+                    }
+                }
+            }
 
-        cancelFutures(undepFuts, new IgniteClientDisconnectedCheckedException(ctx.cluster().clientReconnectFuture(),
-            "Failed to undeploy service, client node disconnected."));
+            U.awaitQuiet(startLatch);
+        }
+
+        return serviceCache;
     }
 
     /**
