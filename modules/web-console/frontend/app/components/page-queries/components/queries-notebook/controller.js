@@ -1484,8 +1484,8 @@ export class NotebookCtrl {
 
                     _showLoading(paragraph, true);
 
-                    return _closeOldQuery(paragraph)
-                        .then(() => {
+                    this.executeQuery$ = fromPromise(_closeOldQuery(paragraph))
+                        .flatMap(() => {
                             const args = paragraph.queryArgs = {
                                 type: 'QUERY',
                                 cacheName: $scope.cacheNameForSql(paragraph),
@@ -1504,19 +1504,58 @@ export class NotebookCtrl {
 
                             return agentMgr.querySql(nid, args.cacheName, qry, nonCollocatedJoins, enforceJoinOrder, false, local, args.pageSize, lazy);
                         })
-                        .then((res) => {
+                        .flatMap((res) => {
                             _processQueryResult(paragraph, true, res);
 
                             _tryStartRefresh(paragraph);
                         })
-                        .catch((err) => {
-                            paragraph.setError(err);
+                        .subscribe(
+                            () => {
+                                paragraph.ace.focus();
+                            },
+                            (err) => {
+                                paragraph.setError(err);
 
-                            _showLoading(paragraph, false);
+                                _showLoading(paragraph, false);
 
-                            $scope.stopRefresh(paragraph);
-                        })
-                        .then(() => paragraph.ace.focus());
+                                $scope.stopRefresh(paragraph);
+                            }
+                        );
+
+
+                    // _closeOldQuery(paragraph)
+                    //     .then(() => {
+                    //         const args = paragraph.queryArgs = {
+                    //             type: 'QUERY',
+                    //             cacheName: $scope.cacheNameForSql(paragraph),
+                    //             query: paragraph.query,
+                    //             pageSize: paragraph.pageSize,
+                    //             maxPages: paragraph.maxPages,
+                    //             nonCollocatedJoins,
+                    //             enforceJoinOrder,
+                    //             localNid: local ? nid : null,
+                    //             lazy
+                    //         };
+                    //
+                    //         const qry = args.maxPages ? addLimit(args.query, args.pageSize * args.maxPages) : paragraph.query;
+                    //
+                    //         ActivitiesData.post({ action: '/queries/execute' });
+                    //
+                    //         return agentMgr.querySql(nid, args.cacheName, qry, nonCollocatedJoins, enforceJoinOrder, false, local, args.pageSize, lazy);
+                    //     })
+                    //     .then((res) => {
+                    //         _processQueryResult(paragraph, true, res);
+                    //
+                    //         _tryStartRefresh(paragraph);
+                    //     })
+                    //     .catch((err) => {
+                    //         paragraph.setError(err);
+                    //
+                    //         _showLoading(paragraph, false);
+                    //
+                    //         $scope.stopRefresh(paragraph);
+                    //     })
+                    //     .then(() => paragraph.ace.focus());
                 });
         };
 
@@ -1944,5 +1983,6 @@ export class NotebookCtrl {
 
     $onDestroy() {
         this.refresh$.unsubscribe();
+        this.executeQuery$.unsubscribe();
     }
 }
