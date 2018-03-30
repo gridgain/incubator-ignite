@@ -23,6 +23,9 @@ import org.apache.ignite.IgniteCheckedException;
  *
  */
 public class TrackingPageIsCorruptedException extends IgniteCheckedException {
+    /** */
+    private static final long serialVersionUID = 0L;
+
     /** Instance. */
     public static final TrackingPageIsCorruptedException INSTANCE = new TrackingPageIsCorruptedException(-1, -1);
 
