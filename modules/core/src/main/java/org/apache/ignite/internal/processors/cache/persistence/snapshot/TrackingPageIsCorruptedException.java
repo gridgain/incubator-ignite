@@ -24,6 +24,34 @@ import org.apache.ignite.IgniteCheckedException;
  */
 public class TrackingPageIsCorruptedException extends IgniteCheckedException {
     /** Instance. */
-    public static final TrackingPageIsCorruptedException INSTANCE =
-        new TrackingPageIsCorruptedException();
+    public static final TrackingPageIsCorruptedException INSTANCE = new TrackingPageIsCorruptedException(-1, -1);
+
+    /** Last tag. */
+    private final long lastTag;
+
+    /** Passed tag. */
+    private final long passedTag;
+
+    /**
+     * @param lastTag Last tag.
+     * @param passedTag Passed tag.
+     */
+    public TrackingPageIsCorruptedException(long lastTag, long passedTag) {
+        this.lastTag = lastTag;
+        this.passedTag = passedTag;
+    }
+
+    /**
+     *
+     */
+    public long lastTag() {
+        return lastTag;
+    }
+
+    /**
+     *
+     */
+    public long passedTag() {
+        return passedTag;
+    }
 }
