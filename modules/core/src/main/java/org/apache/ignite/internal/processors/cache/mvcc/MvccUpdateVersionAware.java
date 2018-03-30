@@ -15,50 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.database.io;
+package org.apache.ignite.internal.processors.cache.mvcc;
 
-/**
- * Row link IO.
- */
-public interface H2RowLinkIO {
+public interface MvccUpdateVersionAware {
     /**
-     * @param pageAddr Page address.
-     * @param idx Index.
-     * @return Row link.
+     * @return New mvcc coordinator version.
      */
-    public long getLink(long pageAddr, int idx);
+    public long newMvccCoordinatorVersion();
 
     /**
-     * @param pageAddr Page address.
-     * @param idx Index.
-     * @return Mvcc coordinator version.
+     * @return New mvcc counter.
      */
-    public default long getMvccCoordinatorVersion(long pageAddr, int idx) {
+    public long newMvccCounter();
+
+    /**
+     * @return New mvcc operation counter.
+     */
+    public int newMvccOperationCounter();
+
+    /**
+     * Copies new MVCC version
+     * @param other Object to copy version from.
+     */
+    public default void newMvccVersion(MvccUpdateVersionAware other) {
         throw new UnsupportedOperationException();
     }
 
     /**
-     * @param pageAddr Page address.
-     * @param idx Index.
-     * @return Mvcc counter.
+     * Sets new MVCC version
+     * @param ver MVCC version.
      */
-    public default long getMvccCounter(long pageAddr, int idx) {
+    public default void newMvccVersion(MvccVersion ver) {
         throw new UnsupportedOperationException();
     }
 
     /**
-     * @param pageAddr Page address.
-     * @param idx Index.
-     * @return Mvcc operation counter.
+     * @return New mvcc version.
      */
-    public default int getMvccOperationCounter(long pageAddr, int idx) {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * @return {@code True} if IO stores mvcc information.
-     */
-    public default boolean storeMvccInfo() {
-        return false;
+    public default MvccVersion newMvccVersion() {
+        return new MvccVersionImpl(newMvccCoordinatorVersion(), newMvccCounter(), newMvccOperationCounter());
     }
 }

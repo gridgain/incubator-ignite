@@ -15,50 +15,47 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.database.io;
+package org.apache.ignite.internal.processors.cache.mvcc;
 
 /**
- * Row link IO.
+ *
  */
-public interface H2RowLinkIO {
+public interface MvccVersionAware {
     /**
-     * @param pageAddr Page address.
-     * @param idx Index.
-     * @return Row link.
-     */
-    public long getLink(long pageAddr, int idx);
-
-    /**
-     * @param pageAddr Page address.
-     * @param idx Index.
      * @return Mvcc coordinator version.
      */
-    public default long getMvccCoordinatorVersion(long pageAddr, int idx) {
-        throw new UnsupportedOperationException();
-    }
+    public long mvccCoordinatorVersion();
 
     /**
-     * @param pageAddr Page address.
-     * @param idx Index.
      * @return Mvcc counter.
      */
-    public default long getMvccCounter(long pageAddr, int idx) {
-        throw new UnsupportedOperationException();
-    }
+    public long mvccCounter();
 
     /**
-     * @param pageAddr Page address.
-     * @param idx Index.
      * @return Mvcc operation counter.
      */
-    public default int getMvccOperationCounter(long pageAddr, int idx) {
+    public int mvccOperationCounter();
+
+    /**
+     * Copies mvcc version from another object.
+     * @param other Info source.
+     */
+    public default void mvccVersion(MvccVersionAware other) {
         throw new UnsupportedOperationException();
     }
 
     /**
-     * @return {@code True} if IO stores mvcc information.
+     * Sets mvcc version.
+     * @param ver Mvcc version.
      */
-    public default boolean storeMvccInfo() {
-        return false;
+    public default void mvccVersion(MvccVersion ver) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @return Mvcc version.
+     */
+    public default MvccVersion mvccVersion() {
+        return new MvccVersionImpl(mvccCoordinatorVersion(), mvccCounter(), mvccOperationCounter());
     }
 }

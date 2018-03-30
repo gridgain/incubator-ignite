@@ -171,7 +171,7 @@ public class VacuumWorker  extends GridWorker {
                         compareNewRowVersion(row, cleanupVer) <= 0 &&
                         ctx.coordinators().state(row.newMvccCoordinatorVersion(), row.newMvccCounter()) == TxState.COMMITTED) {
                         cleanupRow = new MvccLinkAwareSearchRow(row.cacheId(), row.key(), row.mvccCoordinatorVersion(),
-                            row.mvccCounter(), row.link());
+                            row.mvccCounter(), row.mvccOperationCounter(), row.link());
                     }
 
                     metrics.addScannedRowsCount(1);

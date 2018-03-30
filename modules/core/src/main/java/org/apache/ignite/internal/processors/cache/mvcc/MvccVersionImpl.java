@@ -37,6 +37,9 @@ public class MvccVersionImpl implements MvccVersion, Message {
     /** Local counter. */
     private long cntr;
 
+    /** Operation counter. */
+    private int opCntr;
+
     /**
      * Constructor.
      */
@@ -47,10 +50,20 @@ public class MvccVersionImpl implements MvccVersion, Message {
     /**
      * @param crdVer Coordinator version.
      * @param cntr Counter.
+     * @param opCntr Operation counter.
      */
-    public MvccVersionImpl(long crdVer, long cntr) {
+    public MvccVersionImpl(long crdVer, long cntr, int opCntr) {
         this.crdVer = crdVer;
         this.cntr = cntr;
+        this.opCntr = opCntr;
+    }
+
+    /**
+     * @param crdVer Coordinator version.
+     * @param cntr Counter.
+     */
+    public MvccVersionImpl(long crdVer, long cntr) {
+        this(crdVer, cntr, MvccProcessor.MVCC_OP_COUNTER_NA);
     }
 
     /**
@@ -65,6 +78,11 @@ public class MvccVersionImpl implements MvccVersion, Message {
      */
     public long counter() {
         return cntr;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int operationCounter() {
+        return opCntr;
     }
 
     /** {@inheritDoc} */
@@ -113,6 +131,12 @@ public class MvccVersionImpl implements MvccVersion, Message {
 
                 writer.incrementState();
 
+            case 2:
+                if (!writer.writeInt("opCntr", opCntr))
+                    return false;
+
+                writer.incrementState();
+
         }
 
         return true;
@@ -142,6 +166,14 @@ public class MvccVersionImpl implements MvccVersion, Message {
 
                 reader.incrementState();
 
+            case 2:
+                opCntr = reader.readInt("opCntr");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
         }
 
         return reader.afterMessageRead(MvccVersionImpl.class);
@@ -154,7 +186,7 @@ public class MvccVersionImpl implements MvccVersion, Message {
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 2;
+        return 3;
     }
 
     /** {@inheritDoc} */

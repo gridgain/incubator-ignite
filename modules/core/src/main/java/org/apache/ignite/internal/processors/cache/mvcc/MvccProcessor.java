@@ -132,6 +132,15 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     public static final long MVCC_START_CNTR = 1L;
 
     /** */
+    public static final int MVCC_OP_COUNTER_NA = 0;
+
+    /** */
+    public static final int MVCC_START_OP_CNTR = 1;
+
+    /** */
+    public static final int MVCC_READ_OP_CNTR = Integer.MAX_VALUE;
+
+    /** */
     private volatile MvccCoordinator curCrd;
 
     /** */
@@ -841,9 +850,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         if (minQry != -1)
             cleanupVer = Math.min(cleanupVer, minQry);
 
-        cleanupVer--;
-
-        res.init(futId, crdVer, ver, cleanupVer);
+        res.init(futId, crdVer, ver, MVCC_START_OP_CNTR, cleanupVer - 1);
 
         return res;
     }
@@ -1004,7 +1011,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
             if (minQry == null)
                 minQry = trackVer;
 
-            res.init(futId, crdVer, ver, MVCC_COUNTER_NA);
+            res.init(futId, crdVer, ver, MVCC_READ_OP_CNTR, MVCC_COUNTER_NA);
 
             return res;
         }
@@ -1344,7 +1351,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
                 return compoundFut;
             }
 
-            MvccVersion cleanupVer = new MvccVersionImpl(snapshot.coordinatorVersion(), snapshot.cleanupVersion());
+            MvccVersion cleanupVer = new MvccVersionImpl(snapshot.coordinatorVersion(), snapshot.cleanupVersion(), MVCC_OP_COUNTER_NA);
 
             if (log.isDebugEnabled())
                 log.debug("Started vacuum with cleanup version=" + cleanupVer + '.');
