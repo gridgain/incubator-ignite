@@ -56,8 +56,6 @@ public class DataPageIO extends AbstractDataPageIO<CacheDataRow> {
     /** {@inheritDoc} */
     @Override protected void writeRowData(long pageAddr, int dataOff, int payloadSize, CacheDataRow row,
         boolean newRow) throws IgniteCheckedException {
-        assert row.mvccCoordinatorVersion() > 0 == row.mvccCounter() > 0;
-
         long addr = pageAddr + dataOff;
 
         int cacheIdSize = row.cacheId() != 0 ? 4 : 0;
@@ -108,8 +106,6 @@ public class DataPageIO extends AbstractDataPageIO<CacheDataRow> {
     /** {@inheritDoc} */
     @Override protected void writeFragmentData(CacheDataRow row, ByteBuffer buf, int rowOff,
         int payloadSize) throws IgniteCheckedException {
-        assert row.mvccCoordinatorVersion() > 0 == row.mvccCounter() > 0;
-
         final int keySize = row.key().valueBytesLength(null);
 
         final int valSize = row.value().valueBytesLength(null);

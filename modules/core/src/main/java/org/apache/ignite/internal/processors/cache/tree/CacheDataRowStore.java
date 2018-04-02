@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.cache.tree;
 
-import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
@@ -66,11 +65,10 @@ public class CacheDataRowStore extends RowStore {
      * @param rowData Required row data.
      * @param crdVer Mvcc coordinator version.
      * @param mvccCntr Mvcc counter.
+     * @param opCntr Mvcc operation counter.
      * @return Search row.
-     * @throws IgniteCheckedException If failed.
      */
-    MvccDataRow mvccRow(int cacheId, int hash, long link, CacheDataRowAdapter.RowData rowData, long crdVer, long mvccCntr, int opCntr)
-        throws IgniteCheckedException {
+    MvccDataRow mvccRow(int cacheId, int hash, long link, CacheDataRowAdapter.RowData rowData, long crdVer, long mvccCntr, int opCntr) {
         MvccDataRow dataRow = new MvccDataRow(grp,
             hash,
             link,

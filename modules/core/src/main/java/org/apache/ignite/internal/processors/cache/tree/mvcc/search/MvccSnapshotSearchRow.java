@@ -78,6 +78,8 @@ public class MvccSnapshotSearchRow extends MvccSearchRow implements MvccTreeClos
         long rowCntr = rowIo.getMvccCounter(pageAddr, idx);
         int rowOpCntr = rowIo.getMvccOperationCounter(pageAddr, idx);
 
+        assert MvccUtils.mvccVersionIsValid(rowCrdVer, rowCntr, rowOpCntr);
+
         if (MvccUtils.isVisible(cctx, snapshot, rowCrdVer, rowCntr, rowOpCntr)) {
             if (MvccUtils.isNewVisible(cctx, rowIo.getLink(pageAddr, idx), snapshot))
                 res = null;

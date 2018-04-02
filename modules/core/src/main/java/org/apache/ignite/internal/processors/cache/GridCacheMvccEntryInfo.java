@@ -19,9 +19,7 @@ package org.apache.ignite.internal.processors.cache;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccUpdateVersionAware;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionAware;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionImpl;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
@@ -82,31 +80,17 @@ public class GridCacheMvccEntryInfo extends GridCacheEntryInfo implements MvccVe
     }
 
     /** {@inheritDoc} */
-    @Override public void newMvccVersion(MvccUpdateVersionAware other) {
-        newMvccCrdVer = other.newMvccCoordinatorVersion();
-        newMvccCntr = other.newMvccCounter();
-        newMvccOpCntr = other.newMvccOperationCounter();
+    @Override public void newMvccVersion(long crd, long cntr, int opCntr) {
+        newMvccCrdVer = crd;
+        newMvccCntr = cntr;
+        newMvccOpCntr = opCntr;
     }
 
     /** {@inheritDoc} */
-    @Override public void newMvccVersion(MvccVersion ver) {
-        newMvccCrdVer = ver.coordinatorVersion();
-        newMvccCntr = ver.counter();
-        newMvccOpCntr = ver.operationCounter();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void mvccVersion(MvccVersionAware other) {
-        mvccCrdVer = other.mvccCoordinatorVersion();
-        mvccCntr = other.mvccCounter();
-        mvccOpCntr = other.mvccOperationCounter();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void mvccVersion(MvccVersion ver) {
-        mvccCrdVer = ver.coordinatorVersion();
-        mvccCntr = ver.counter();
-        mvccOpCntr = ver.operationCounter();
+    @Override public void mvccVersion(long crd, long cntr, int opCntr) {
+        mvccCrdVer = crd;
+        mvccCntr = cntr;
+        mvccOpCntr = opCntr;
     }
 
     /** {@inheritDoc} */
@@ -229,11 +213,10 @@ public class GridCacheMvccEntryInfo extends GridCacheEntryInfo implements MvccVe
         return reader.afterMessageRead(GridCacheMvccEntryInfo.class);
     }
 
+    /** {@inheritDoc} */
     @Override public byte fieldsCount() {
         return 12;
     }
-
-
 
     /** {@inheritDoc} */
     @Override public short directType() {

@@ -4322,7 +4322,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
     private MvccSnapshotResponse version(long crdVer, long cntr) {
         MvccSnapshotResponse res = new MvccSnapshotResponse();
 
-        res.init(0, crdVer, cntr, MvccProcessor.MVCC_START_OP_CNTR, 0);
+        res.init(0, crdVer, cntr, MvccProcessor.MVCC_START_OP_CNTR, MvccProcessor.MVCC_COUNTER_NA);
 
         return res;
     }

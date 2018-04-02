@@ -22,8 +22,6 @@ import org.apache.ignite.internal.cluster.ClusterTopologyServerNotFoundException
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
-import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
-import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 
@@ -58,6 +56,7 @@ public class MvccUtils {
      * @param mvccCntr Mvcc counter.
      * @param opCntr Operation counter.
      * @return {@code True} if visible.
+     * @throws IgniteCheckedException If failed.
      */
     public static boolean isVisible(GridCacheContext cctx, MvccSnapshot snapshot, long mvccCrd, long mvccCntr,
         int opCntr) throws IgniteCheckedException {
@@ -74,6 +73,7 @@ public class MvccUtils {
      * @param opCntr Operation counter.
      * @param useTxLog {@code True} if TxLog should be used.
      * @return {@code True} if visible.
+     * @throws IgniteCheckedException If failed.
      */
     public static boolean isVisible(GridCacheContext cctx, MvccSnapshot snapshot, long mvccCrd, long mvccCntr,
         int opCntr, boolean useTxLog) throws IgniteCheckedException {
@@ -101,6 +101,7 @@ public class MvccUtils {
      * @param newMvccCntr New mvcc counter.
      * @param newMvccOpCntr New mvcc operation counter.
      * @return {@code True} if visible.
+     * @throws IgniteCheckedException If failed.
      */
     public static boolean isVisible(GridCacheContext cctx, MvccSnapshot snapshot, long mvccCrd, long mvccCntr,
         int mvccOpCntr, long newMvccCrd,
@@ -115,7 +116,7 @@ public class MvccUtils {
      * @param row Row.
      * @return {@code True} if row has a new version.
      */
-    public static boolean hasNewMvccVersionFast(CacheDataRow row) {
+    public static boolean hasNewMvccVersionFast(MvccUpdateVersionAware row) {
         assert row.newMvccCoordinatorVersion() > 0 == row.newMvccCounter() > MVCC_COUNTER_NA;
 
         return row.newMvccCoordinatorVersion() > 0;
@@ -153,8 +154,8 @@ public class MvccUtils {
      *
      * @param mvccCrdLeft First coordinator version.
      * @param mvccCntrLeft First counter version.
-     * @param mvccCrdRight First coordinator version.
-     * @param mvccCntrRight First counter version.
+     * @param mvccCrdRight Second coordinator version.
+     * @param mvccCntrRight Second counter version.
      * @return Comparison result, see {@link Comparable}.
      */
     public static int compare(long mvccCrdLeft, long mvccCntrLeft, long mvccCrdRight, long mvccCntrRight) {
@@ -168,6 +169,8 @@ public class MvccUtils {
      *
      * @param mvccCrdLeft First coordinator version.
      * @param mvccCntrLeft First counter version.
+     * @param mvccOpCntrLeft First operation counter.
+     * @param other The object to compare with.
      * @return Comparison result, see {@link Comparable}.
      */
     public static int compare(long mvccCrdLeft, long mvccCntrLeft, int mvccOpCntrLeft, MvccVersionAware other) {
@@ -180,8 +183,10 @@ public class MvccUtils {
      *
      * @param mvccCrdLeft First coordinator version.
      * @param mvccCntrLeft First counter version.
-     * @param mvccCrdRight First coordinator version.
-     * @param mvccCntrRight First counter version.
+     * @param mvccOpCntrLeft First operation counter.
+     * @param mvccCrdRight Second coordinator version.
+     * @param mvccCntrRight Second counter version.
+     * @param mvccOpCntrRight Second operation counter.
      * @return Comparison result, see {@link Comparable}.
      */
     public static int compare(long mvccCrdLeft, long mvccCntrLeft, int mvccOpCntrLeft, long mvccCrdRight,
@@ -194,24 +199,13 @@ public class MvccUtils {
     /**
      * Compares to pairs of MVCC versions. See {@link Comparable}.
      *
-     * @param ver1 First MVCC version.
-     * @param crd2 Second coordinator version.
-     * @param cntr2 Second counter.
+     * @param mvccVerLeft First MVCC version.
+     * @param mvccCrdRight Second coordinator version.
+     * @param mvccCntrRight Second counter.
      * @return Comparison result, see {@link Comparable}.
      */
-    public static int compare(MvccVersion ver1, long crd2, long cntr2) {
-        return compare(ver1.coordinatorVersion(), ver1.counter(), crd2, cntr2);
-    }
-
-    /**
-     * Compares row version (xid_min) with the given counter and coordinator versions.
-     *
-     * @param row Row.
-     * @param mvccCrd Mvcc coordinator.
-     * @param mvccCntr Mvcc counter.
-     */
-    public static int compareRowVersion(CacheSearchRow row, long mvccCrd, long mvccCntr) {
-        return compare(row.mvccCoordinatorVersion(), row.mvccCounter(), mvccCrd, mvccCntr);
+    public static int compare(MvccVersion mvccVerLeft, long mvccCrdRight, long mvccCntrRight) {
+        return compare(mvccVerLeft.coordinatorVersion(), mvccVerLeft.counter(), mvccCrdRight, mvccCntrRight);
     }
 
     /**
@@ -219,9 +213,11 @@ public class MvccUtils {
      *
      * @param row Row.
      * @param ver Version.
+     * @return Comparison result, see {@link Comparable}.
      */
-    public static int compareRowVersion(CacheSearchRow row, MvccVersion ver) {
-        return compare(row.mvccCoordinatorVersion(), row.mvccCounter(), ver.coordinatorVersion(), ver.counter());
+    public static int compare(MvccVersionAware row, MvccVersion ver) {
+        return compare(row.mvccCoordinatorVersion(), row.mvccCounter(), row.mvccOperationCounter(),
+            ver.coordinatorVersion(), ver.counter(), ver.operationCounter());
     }
 
     /**
@@ -230,8 +226,9 @@ public class MvccUtils {
      * @param row Row.
      * @param mvccCrd Mvcc coordinator.
      * @param mvccCntr Mvcc counter.
+     * @return Comparison result, see {@link Comparable}.
      */
-    public static int compareNewRowVersion(CacheDataRow row, long mvccCrd, long mvccCntr) {
+    public static int compareNewVersion(MvccUpdateVersionAware row, long mvccCrd, long mvccCntr) {
         return compare(row.newMvccCoordinatorVersion(), row.newMvccCounter(), mvccCrd, mvccCntr);
     }
 
@@ -241,8 +238,10 @@ public class MvccUtils {
      * @param row Row.
      * @param mvccCrd Mvcc coordinator.
      * @param mvccCntr Mvcc counter.
+     * @param opCntr Mvcc operation counter.
+     * @return Comparison result, see {@link Comparable}.
      */
-    public static int compareNewRowVersion(CacheDataRow row, long mvccCrd, long mvccCntr, int opCntr) {
+    public static int compareNewVersion(MvccUpdateVersionAware row, long mvccCrd, long mvccCntr, int opCntr) {
         return compare(row.newMvccCoordinatorVersion(), row.newMvccCounter(), row.newMvccOperationCounter(), mvccCrd, mvccCntr, opCntr);
     }
 
@@ -251,9 +250,11 @@ public class MvccUtils {
      *
      * @param row Row.
      * @param ver Version.
+     * @return Comparison result, see {@link Comparable}.
      */
-    public static int compareNewRowVersion(CacheDataRow row, MvccVersion ver) {
-        return compare(row.newMvccCoordinatorVersion(), row.newMvccCounter(), ver.coordinatorVersion(), ver.counter());
+    public static int compareNewVersion(MvccUpdateVersionAware row, MvccVersion ver) {
+        return compare(row.newMvccCoordinatorVersion(), row.newMvccCounter(), row.newMvccOperationCounter(),
+            ver.coordinatorVersion(), ver.counter(), ver.operationCounter());
     }
 
     /**
@@ -353,6 +354,7 @@ public class MvccUtils {
     /**
      * Throw an {@link UnsupportedOperationException} if this cache is transactional and MVCC is enabled with
      * appropriate message about corresponding operation type.
+     * @param cctx Cache context.
      * @param opType operation type to mention in error message.
      */
     public static void verifyMvccOperationSupport(GridCacheContext<?, ?> cctx, String opType) {

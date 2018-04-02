@@ -899,7 +899,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             MvccSnapshot ver = ((MvccCoordinatorChangeAware)nodeObj).onMvccCoordinatorChange(mvccCrd);
 
             if (ver != null ) {
-                MvccVersion cntr = new MvccVersionImpl(ver.coordinatorVersion(), ver.counter());
+                MvccVersion cntr = new MvccVersionImpl(ver.coordinatorVersion(), ver.counter(), ver.operationCounter());
 
                 Integer cnt = activeQrys.get(cntr);
 

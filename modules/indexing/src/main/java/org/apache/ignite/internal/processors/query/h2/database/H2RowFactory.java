@@ -72,7 +72,7 @@ public class H2RowFactory {
      * @param link Link.
      * @param mvccCrdVer Mvcc coordinator version.
      * @param mvccCntr Mvcc counter.
-     * @param mvccOpCntr
+     * @param mvccOpCntr Mvcc operation counter.
      * @return Row.
      * @throws IgniteCheckedException If failed.
      */

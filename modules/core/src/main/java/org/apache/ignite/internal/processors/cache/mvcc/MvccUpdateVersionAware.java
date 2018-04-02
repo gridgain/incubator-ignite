@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.processors.cache.mvcc;
 
+/**
+ * Interface for objects aware theirs mvcc update version.
+ */
 public interface MvccUpdateVersionAware {
     /**
      * @return New mvcc coordinator version.
@@ -38,7 +41,7 @@ public interface MvccUpdateVersionAware {
      * @param other Object to copy version from.
      */
     public default void newMvccVersion(MvccUpdateVersionAware other) {
-        throw new UnsupportedOperationException();
+        newMvccVersion(other.newMvccCoordinatorVersion(), other.newMvccCounter(), other.newMvccOperationCounter());
     }
 
     /**
@@ -46,6 +49,16 @@ public interface MvccUpdateVersionAware {
      * @param ver MVCC version.
      */
     public default void newMvccVersion(MvccVersion ver) {
+        newMvccVersion(ver.coordinatorVersion(), ver.counter(), ver.operationCounter());
+    }
+
+    /**
+     * Sets new mvcc version.
+     * @param crd New mvcc coordinator version.
+     * @param cntr New mvcc counter.
+     * @param opCntr New mvcc operation counter.
+     */
+    public default void newMvccVersion(long crd, long cntr, int opCntr) {
         throw new UnsupportedOperationException();
     }
 

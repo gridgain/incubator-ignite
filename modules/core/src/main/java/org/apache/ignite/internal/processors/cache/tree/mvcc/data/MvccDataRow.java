@@ -105,6 +105,8 @@ public class MvccDataRow extends DataRow {
      * @param part Partition.
      * @param expireTime Expire time.
      * @param cacheId Cache ID.
+     * @param mvccVer Mvcc version.
+     * @param newMvccVer New mvcc version.
      */
     public MvccDataRow(KeyCacheObject key, CacheObject val, GridCacheVersion ver, int part, long expireTime, int cacheId,
         MvccVersion mvccVer, MvccVersion newMvccVer) {
@@ -173,6 +175,20 @@ public class MvccDataRow extends DataRow {
     /** {@inheritDoc} */
     @Override public int newMvccOperationCounter() {
         return newMvccOpCntr;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void newMvccVersion(long crd, long cntr, int opCntr) {
+        newMvccCrd = crd;
+        newMvccCntr = cntr;
+        newMvccOpCntr = opCntr;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void mvccVersion(long crd, long cntr, int opCntr) {
+        mvccCrd = crd;
+        mvccCntr = cntr;
+        mvccOpCntr = opCntr;
     }
 
     /** {@inheritDoc} */

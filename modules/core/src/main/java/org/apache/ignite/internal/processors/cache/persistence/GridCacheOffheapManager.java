@@ -1060,12 +1060,12 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
         /** {@inheritDoc} */
         @Override public long newMvccCoordinatorVersion() {
-            return 0;
+            return 0; // TODO IGNITE-7384
         }
 
         /** {@inheritDoc} */
         @Override public long newMvccCounter() {
-            return 0;
+            return 0; // TODO IGNITE-7384
         }
 
         /** {@inheritDoc} */

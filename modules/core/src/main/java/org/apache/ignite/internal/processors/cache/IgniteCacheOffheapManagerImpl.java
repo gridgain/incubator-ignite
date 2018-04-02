@@ -50,7 +50,6 @@ import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshotWithoutTxs;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionImpl;
 import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
@@ -2218,11 +2217,12 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             while (cur.next()) {
                 CacheDataRow row = cur.get();
 
-                if (MvccUtils.compareNewRowVersion(row, crd, cntr, opCntr) != 0) // deleted row
-                    res.add(F.t(null, new MvccVersionImpl(row.newMvccCoordinatorVersion(), row.newMvccCounter(), row.newMvccOperationCounter())));
+                if (MvccUtils.compareNewVersion(row, crd, cntr, opCntr) != 0) // deleted row
+                    res.add(F.t(null, row.newMvccVersion()));
 
-                res.add(F.t(row.value().value(cctx.cacheObjectContext(), false),
-                    new MvccVersionImpl(crd = row.mvccCoordinatorVersion(), cntr = row.mvccCounter(), opCntr = row.mvccOperationCounter())));
+                res.add(F.t(row.value().value(cctx.cacheObjectContext(), false), row.mvccVersion()));
+
+                crd = row.mvccCoordinatorVersion(); cntr = row.mvccCounter(); opCntr = row.mvccOperationCounter();
             }
 
             return res;

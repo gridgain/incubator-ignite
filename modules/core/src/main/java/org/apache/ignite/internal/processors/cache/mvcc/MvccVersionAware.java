@@ -41,7 +41,7 @@ public interface MvccVersionAware {
      * @param other Info source.
      */
     public default void mvccVersion(MvccVersionAware other) {
-        throw new UnsupportedOperationException();
+        mvccVersion(other.mvccCoordinatorVersion(), other.mvccCounter(), other.mvccOperationCounter());
     }
 
     /**
@@ -49,6 +49,16 @@ public interface MvccVersionAware {
      * @param ver Mvcc version.
      */
     public default void mvccVersion(MvccVersion ver) {
+        mvccVersion(ver.coordinatorVersion(), ver.counter(), ver.operationCounter());
+    }
+
+    /**
+     * Sets mvcc version.
+     * @param crd Mvcc coordinator version.
+     * @param cntr Mvcc counter.
+     * @param opCntr Mvcc operation counter.
+     */
+    public default void mvccVersion(long crd, long cntr, int opCntr) {
         throw new UnsupportedOperationException();
     }
 

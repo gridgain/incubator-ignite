@@ -59,14 +59,6 @@ public class MvccVersionImpl implements MvccVersion, Message {
     }
 
     /**
-     * @param crdVer Coordinator version.
-     * @param cntr Counter.
-     */
-    public MvccVersionImpl(long crdVer, long cntr) {
-        this(crdVer, cntr, MvccProcessor.MVCC_OP_COUNTER_NA);
-    }
-
-    /**
      * @return Coordinator version.
      */
     public long coordinatorVersion() {
