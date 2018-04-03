@@ -275,15 +275,23 @@ public class LocalPendingTransactionsTracker {
                 return;
 
             for (KeyCacheObject key : keys) {
-                Set<GridCacheVersion> keyTxs = writtenKeysToNearXidVer.computeIfAbsent(key, k -> new HashSet<>());
+                writtenKeysToNearXidVer.compute(key, (keyObj, keyTxsSet) -> {
+                    Set<GridCacheVersion> keyTxs = keyTxsSet == null ? new HashSet<>() : keyTxsSet;
 
-                for (GridCacheVersion previousTx : keyTxs) {
-                    Set<GridCacheVersion> dependentTxs = dependentTransactionsGraph.computeIfAbsent(previousTx, k -> new HashSet<>());
+                    for (GridCacheVersion previousTx : keyTxs) {
+                        dependentTransactionsGraph.compute(previousTx, (tx, depTxsSet) -> {
+                            Set<GridCacheVersion> dependentTxs = depTxsSet == null ? new HashSet<>() : depTxsSet;
 
-                    dependentTxs.add(nearXidVer);
-                }
+                            dependentTxs.add(nearXidVer);
 
-                keyTxs.add(nearXidVer);
+                            return dependentTxs;
+                        });
+                    }
+
+                    keyTxs.add(nearXidVer);
+
+                    return keyTxs;
+                });
             }
         }
         finally {
@@ -303,13 +311,19 @@ public class LocalPendingTransactionsTracker {
                 return;
 
             for (KeyCacheObject key : keys) {
-                Set<GridCacheVersion> keyTxs = writtenKeysToNearXidVer.getOrDefault(key, Collections.emptySet());
+                writtenKeysToNearXidVer.computeIfPresent(key, (keyObj, keyTxsSet) -> {
+                    for (GridCacheVersion previousTx : keyTxsSet) {
+                        dependentTransactionsGraph.compute(previousTx, (tx, depTxsSet) -> {
+                            Set<GridCacheVersion> dependentTxs = depTxsSet == null ? new HashSet<>() : depTxsSet;
 
-                for (GridCacheVersion previousTx : keyTxs) {
-                    Set<GridCacheVersion> dependentTxs = dependentTransactionsGraph.computeIfAbsent(previousTx, k -> new HashSet<>());
+                            dependentTxs.add(nearXidVer);
 
-                    dependentTxs.add(nearXidVer);
-                }
+                            return dependentTxs;
+                        });
+                    }
+
+                    return keyTxsSet;
+                });
             }
         }
         finally {
