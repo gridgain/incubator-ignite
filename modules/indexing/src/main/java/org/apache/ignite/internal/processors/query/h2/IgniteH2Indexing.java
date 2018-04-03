@@ -1574,7 +1574,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         final boolean lazy,
         MvccQueryTracker mvccTracker) {
         assert !qry.mvccEnabled() || !F.isEmpty(qry.cacheIds());
-        assert mvccTracker == null || qry.mvccEnabled();
 
         try {
             final MvccQueryTracker tracker = mvccTracker == null && qry.mvccEnabled() ?
@@ -1739,7 +1738,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         try {
             if (cmd instanceof SqlCreateIndexCommand
                 || cmd instanceof SqlDropIndexCommand
-                || cmd instanceof SqlAlterTableCommand)
+                || cmd instanceof SqlAlterTableCommand
+                || cmd instanceof SqlCreateUserCommand
+                || cmd instanceof SqlAlterUserCommand
+                || cmd instanceof SqlDropUserCommand)
                 return Collections.singletonList(ddlProc.runDdlStatement(qry.getSql(), cmd));
             else if (cmd instanceof SqlBulkLoadCommand)
                 return Collections.singletonList(dmlProc.runNativeDmlStatement(qry.getSql(), cmd));
