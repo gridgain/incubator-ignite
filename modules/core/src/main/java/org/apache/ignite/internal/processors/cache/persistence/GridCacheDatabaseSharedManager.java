@@ -2909,7 +2909,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                         tracker.onFsyncStart();
                     }
 
-                    snapshotMgr.afterCheckpointPageWritten();
+                    snapshotMgr.afterCheckpointPageWritten(chp.cpEntry.checkpointMark());
 
                     // Must mark successful checkpoint only if there are no exceptions or interrupts.
                     interrupted = false;
