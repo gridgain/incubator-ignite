@@ -2311,6 +2311,13 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements DiscoverySpi {
         }
 
         /** {@inheritDoc} */
+        @Nullable @Override public String getCoordinatorFormatted() {
+            UUID crdId = impl.getCoordinator();
+
+            return crdId != null ? U.toShortString(impl.getNode(crdId)) : null;
+        }
+
+        /** {@inheritDoc} */
         @Override public void dumpDebugInfo() {
             impl.dumpDebugInfo(log);
         }

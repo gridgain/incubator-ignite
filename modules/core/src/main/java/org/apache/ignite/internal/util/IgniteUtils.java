@@ -6759,7 +6759,7 @@ public abstract class IgniteUtils {
      */
     public static String toShortString(ClusterNode n) {
         return "ClusterNode [id=" + n.id() + ", order=" + n.order() + ", addr=" + n.addresses() +
-            ", daemon=" + n.isDaemon() + ']';
+                ", hosts=" + n.hostNames() + ", daemon=" + n.isDaemon() + ']';
     }
 
     /**
