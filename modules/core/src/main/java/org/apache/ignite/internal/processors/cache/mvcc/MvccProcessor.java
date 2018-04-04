@@ -30,10 +30,12 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -187,7 +189,10 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     private TxLog txLog;
 
     /** */
-    private final ScheduledExecutorService vacuumScheduledExecutor;
+    private ScheduledThreadPoolExecutor vacuumScheduledExecutor;
+
+    /** */
+    private final AtomicBoolean vacuumActive = new AtomicBoolean();
 
     /** */
     private VacuumScheduler vacuumScheduler;
@@ -200,6 +205,9 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
 
     /** */
     private final Semaphore vacuumSemaphore = new Semaphore(1);
+
+    /** */
+    private ScheduledFuture vacuumSchedulerTaskFut;
 
     /** For tests only. */
     private static IgniteClosure<Collection<ClusterNode>, ClusterNode> crdC;
@@ -215,40 +223,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
 
         ctx.internalSubscriptionProcessor().registerDatabaseListener(this);
 
-        vacuumScheduledExecutor = Executors.newSingleThreadScheduledExecutor(
-            new ThreadFactory() {
-                @Override public Thread newThread(Runnable r) {
-                    Thread thread = new Thread(r, "vacuum-scheduler-node-" + ctx.grid().localNode().order());
-
-                    thread.setDaemon(true);
-
-                    return thread;
-                }
-            });
-
         vacuumWorkers = new ArrayList<>(ctx.config().getMvccVacuumThreadCnt());
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onKernalStart(boolean active) throws IgniteCheckedException {
-        super.onKernalStart(active);
-
-        if (!ctx.clientNode()) {
-            startVacuumWorkers();
-
-            startVacuumScheduler();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public void onKernalStop(boolean cancel) {
-        super.onKernalStop(cancel);
-
-        if (!ctx.clientNode()) {
-            stopVacuumScheduler();
-
-            stopVacuumWorkers();
-        }
     }
 
     /** {@inheritDoc} */
@@ -897,6 +872,12 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
             assert txLog == null;
 
             txLog = new TxLog(ctx, mgr);
+
+            if (!ctx.clientNode() && MvccUtils.mvccEnabled(ctx) && vacuumActive.compareAndSet(false, true)) {
+                startVacuumWorkers();
+
+                startVacuumScheduler();
+            }
         }
     }
 
@@ -916,11 +897,23 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         assert txLog == null;
 
         txLog = new TxLog(ctx, mgr);
+
+        if (!ctx.clientNode() && MvccUtils.mvccEnabled(ctx) && vacuumActive.compareAndSet(false, true)) {
+            startVacuumWorkers();
+
+            startVacuumScheduler();
+        }
     }
 
     /** {@inheritDoc} */
     @Override public void beforeStop(IgniteCacheDatabaseSharedManager mgr) {
         txLog = null;
+
+        if (!ctx.clientNode() && MvccUtils.mvccEnabled(ctx) && vacuumActive.compareAndSet(true, false)) {
+            stopVacuumScheduler();
+
+            stopVacuumWorkers();
+        }
     }
 
     /**
@@ -1401,17 +1394,15 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
      * Start vacuum workers.
      */
     private void startVacuumWorkers() {
-        synchronized (vacuumWorkers) {
-            assert !ctx.clientNode();
-            assert vacuumWorkers.isEmpty();
+        assert !ctx.clientNode();
+        assert vacuumWorkers.isEmpty();
 
-            for (int i = 0; i < ctx.config().getMvccVacuumThreadCnt(); i++) {
-                VacuumWorker vacuumWorker = new VacuumWorker(ctx, log, cleanupQueue);
+        for (int i = 0; i < ctx.config().getMvccVacuumThreadCnt(); i++) {
+            VacuumWorker vacuumWorker = new VacuumWorker(ctx, log, cleanupQueue);
 
-                vacuumWorkers.add(vacuumWorker);
+            vacuumWorkers.add(vacuumWorker);
 
-                new IgniteThread(vacuumWorker).start();
-            }
+            new IgniteThread(vacuumWorker).start();
         }
     }
 
@@ -1419,32 +1410,39 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
      * Stop vacuum workers.
      */
     private void stopVacuumWorkers() {
-        synchronized (vacuumWorkers) {
-            assert !ctx.clientNode();
-            assert !vacuumWorkers.isEmpty();
+        assert !ctx.clientNode();
 
-            U.cancel(vacuumWorkers);
+        U.cancel(vacuumWorkers);
 
-            vacuumWorkers.clear();
-        }
+        vacuumWorkers.clear();
     }
 
     /**
      * Start vacuum scheduler.
      */
     private void startVacuumScheduler() {
-        assert !ctx.clientNode();
+        assert vacuumScheduler == null;
+        assert vacuumScheduledExecutor == null;
 
-        synchronized (vacuumScheduledExecutor) {
-            assert vacuumScheduler == null || vacuumScheduler.isCancelled();
-            assert vacuumWorkersRunning();
+        vacuumScheduledExecutor = (ScheduledThreadPoolExecutor)Executors.newScheduledThreadPool(1,
+            new ThreadFactory() {
+                @Override public Thread newThread(Runnable r) {
+                    Thread thread = new Thread(r, "vacuum-scheduler-node-" + ctx.grid().localNode().order());
 
-            vacuumScheduler = new VacuumScheduler(ctx, log);
+                    thread.setDaemon(true);
 
-            int interval = ctx.config().getMvccVacuumTimeInterval();
+                    return thread;
+                }
+            });
 
-            vacuumScheduledExecutor.scheduleWithFixedDelay(vacuumScheduler, interval, interval, TimeUnit.MILLISECONDS);
-        }
+        vacuumScheduler = new VacuumScheduler(ctx, log);
+
+        int interval = ctx.config().getMvccVacuumTimeInterval();
+
+        vacuumScheduledExecutor.setRemoveOnCancelPolicy(true);
+
+        vacuumSchedulerTaskFut = vacuumScheduledExecutor
+            .scheduleWithFixedDelay(vacuumScheduler, interval, interval, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -1453,12 +1451,18 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     private void stopVacuumScheduler() {
         assert !ctx.clientNode();
 
-        synchronized (vacuumScheduledExecutor) {
-            if(vacuumScheduler != null && !vacuumScheduler.isCancelled())
-                U.cancel(vacuumScheduler);
+        if(vacuumScheduler != null && !vacuumScheduler.isCancelled()) {
+            U.cancel(vacuumScheduler);
 
-            U.shutdownNow(MvccProcessor.class, vacuumScheduledExecutor, log);
+            vacuumScheduler = null;
         }
+
+        vacuumSchedulerTaskFut.cancel(true);
+
+        U.shutdownNow(MvccProcessor.class, vacuumScheduledExecutor, log);
+
+        vacuumScheduledExecutor = null;
+        vacuumSchedulerTaskFut = null;
     }
 
     /**
@@ -1469,17 +1473,22 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     private boolean vacuumWorkersRunning() {
         assert !ctx.clientNode();
 
-        synchronized (vacuumWorkers) {
-            if (vacuumWorkers.isEmpty())
+        if (vacuumWorkers.isEmpty())
+            return false;
+
+        for (VacuumWorker w : vacuumWorkers) {
+            if (w.isCancelled() || w.isDone())
                 return false;
-
-            for (VacuumWorker w : vacuumWorkers) {
-                if (w.isCancelled() || w.isDone())
-                    return false;
-            }
-
-            return true;
         }
+
+        return true;
+    }
+
+    /**
+     * @return {@code True} if vacuum is active.
+     */
+    public boolean vacuumIsActive() {
+        return vacuumActive.get();
     }
 
     /**

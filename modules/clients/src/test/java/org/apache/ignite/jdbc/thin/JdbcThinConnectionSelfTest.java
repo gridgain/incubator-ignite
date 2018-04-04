@@ -36,9 +36,7 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.binary.BinaryMarshaller;
 import org.apache.ignite.internal.jdbc.thin.ConnectionProperties;
@@ -102,6 +100,8 @@ public class JdbcThinConnectionSelfTest extends JdbcThinAbstractSelfTest {
         cfg.setMarshaller(new BinaryMarshaller());
 
         cfg.setGridLogger(new GridStringLogger());
+
+        cfg.setMvccEnabled(true);
 
         return cfg;
     }
