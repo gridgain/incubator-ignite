@@ -29,7 +29,7 @@ import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
-import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
+import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
 
 /**
  * Cache lock future.
@@ -121,7 +121,7 @@ public final class GridDhtTxQueryEnlistFuture
     }
 
     /** {@inheritDoc} */
-    @Override protected UpdateSourceIterator<?> createIterator() throws IgniteCheckedException {
+    @Override protected LockingOperationSourceIterator<?> createIterator() throws IgniteCheckedException {
         return cctx.kernalContext().query().prepareDistributedUpdate(cctx, cacheIds, parts, schema, qry,
                 params, flags, pageSize, 0, topVer, mvccSnapshot, new GridQueryCancel());
     }
@@ -135,12 +135,11 @@ public final class GridDhtTxQueryEnlistFuture
     }
 
     /**
-     * @param res {@code True} if at least one entry was enlisted.
      * @return Prepare response.
      */
-    @NotNull @Override public GridNearTxQueryEnlistResponse createResponse(long res, boolean removeMapping) {
+    @NotNull @Override public GridNearTxQueryEnlistResponse createResponse() {
         GridNearTxQueryEnlistResponse rsp = new GridNearTxQueryEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId,
-            nearLockVer, res, null);
+            nearLockVer, cnt, null);
 
         rsp.removeMapping(tx.empty());
 

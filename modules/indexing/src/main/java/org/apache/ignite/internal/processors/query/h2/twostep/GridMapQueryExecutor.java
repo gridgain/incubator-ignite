@@ -58,6 +58,7 @@ import org.apache.ignite.internal.processors.cache.query.CacheQueryType;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
 import org.apache.ignite.internal.processors.cache.query.GridCacheSqlQuery;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
+import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.h2.H2Utils;
 import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
 import org.apache.ignite.internal.processors.query.h2.UpdateResult;
@@ -433,6 +434,7 @@ public class GridMapQueryExecutor {
         final boolean explain = req.isFlagSet(GridH2QueryRequest.FLAG_EXPLAIN);
         final boolean replicated = req.isFlagSet(GridH2QueryRequest.FLAG_REPLICATED);
         final boolean lazy = req.isFlagSet(GridH2QueryRequest.FLAG_LAZY);
+        final boolean forUpdate = req.isFlagSet(GridH2QueryRequest.FOR_UPDATE);
 
         final List<Integer> cacheIds = req.caches();
 
@@ -463,6 +465,7 @@ public class GridMapQueryExecutor {
                     req.timeout(),
                     params,
                     true,
+                    forUpdate,
                     req.mvccSnapshot()); // Lazy = true.
             }
             else {
@@ -486,6 +489,7 @@ public class GridMapQueryExecutor {
                                 req.timeout(),
                                 params,
                                 false,
+                                forUpdate,
                                 req.mvccSnapshot()); // Lazy = false.
 
                             return null;
@@ -511,6 +515,7 @@ public class GridMapQueryExecutor {
             req.timeout(),
             params,
             lazy,
+            forUpdate,
             req.mvccSnapshot());
     }
 
@@ -527,6 +532,7 @@ public class GridMapQueryExecutor {
      * @param pageSize Page size.
      * @param distributedJoinMode Query distributed join mode.
      * @param lazy Streaming flag.
+     * @param forUpdate FOR UPDATE flag.
      * @param mvccSnapshot MVCC snapshot.
      */
     private void onQueryRequest0(
@@ -546,6 +552,7 @@ public class GridMapQueryExecutor {
         final int timeout,
         final Object[] params,
         boolean lazy,
+        boolean forUpdate,
         @Nullable final MvccSnapshot mvccSnapshot
     ) {
         if (lazy && MapQueryLazyWorker.currentWorker() == null) {
@@ -572,9 +579,13 @@ public class GridMapQueryExecutor {
                         timeout,
                         params,
                         true,
+                        forUpdate,
                         mvccSnapshot);
                 }
             });
+
+            if (forUpdate)
+                throw new IgniteSQLException("");
 
             if (lazyWorkerBusyLock.enterBusy()) {
                 try {

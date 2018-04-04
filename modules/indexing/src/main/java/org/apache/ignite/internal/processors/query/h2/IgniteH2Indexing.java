@@ -104,7 +104,7 @@ import org.apache.ignite.internal.processors.query.QueryField;
 import org.apache.ignite.internal.processors.query.QueryIndexDescriptorImpl;
 import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.processors.query.SqlClientContext;
-import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
+import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
 import org.apache.ignite.internal.processors.query.h2.database.H2RowFactory;
 import org.apache.ignite.internal.processors.query.h2.database.H2TreeIndex;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasInnerIO;
@@ -222,7 +222,8 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
 @SuppressWarnings({"UnnecessaryFullyQualifiedName", "NonFinalStaticVariableUsedInClassInitialization"})
 public class IgniteH2Indexing implements GridQueryIndexing {
     public static final Pattern INTERNAL_CMD_RE = Pattern.compile(
-        "^(create|drop)\\s+index|^alter\\s+table|^copy|^set|^begin|^commit|^rollback|^(create|alter|drop)\\s+user", Pattern.CASE_INSENSITIVE);
+        "^(create|drop)\\s+index|^alter\\s+table|^copy|^set|^begin|^commit|^rollback|^(create|alter|drop)\\s+user",
+        Pattern.CASE_INSENSITIVE);
 
     /*
      * Register IO for indexes.
@@ -1558,6 +1559,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      * @param params Query parameters.
      * @param parts Partitions.
      * @param lazy Lazy query execution flag.
+     * @param forUpdate
      * @param mvccTracker Query tracker.
      * @return Iterable result.
      */
@@ -1572,6 +1574,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         final Object[] params,
         final int[] parts,
         final boolean lazy,
+        final boolean forUpdate,
         MvccQueryTracker mvccTracker) {
         assert !qry.mvccEnabled() || !F.isEmpty(qry.cacheIds());
 
@@ -1582,7 +1585,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             return new Iterable<List<?>>() {
                 @Override public Iterator<List<?>> iterator() {
                     return rdcQryExec.query(schemaName, qry, keepCacheObj, enforceJoinOrder, timeoutMillis,
-                        cancel, params, parts, lazy, tracker);
+                        cancel, params, parts, lazy, forUpdate, tracker);
                 }
             };
         }
@@ -2340,11 +2343,11 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     }
 
     /** {@inheritDoc} */
-    @Override public UpdateSourceIterator<?> prepareDistributedUpdate(GridCacheContext<?, ?> cctx, int[] ids,
-        int[] parts,
-        String schema, String qry, Object[] params, int flags,
-        int pageSize, int timeout, AffinityTopologyVersion topVer,
-        MvccSnapshot mvccSnapshot, GridQueryCancel cancel) throws IgniteCheckedException {
+    @Override public LockingOperationSourceIterator<?> prepareDistributedUpdate(GridCacheContext<?, ?> cctx, int[] ids,
+                                                                                int[] parts,
+                                                                                String schema, String qry, Object[] params, int flags,
+                                                                                int pageSize, int timeout, AffinityTopologyVersion topVer,
+                                                                                MvccSnapshot mvccSnapshot, GridQueryCancel cancel) throws IgniteCheckedException {
 
         SqlFieldsQuery fldsQry = new SqlFieldsQuery(qry);
 
@@ -2435,7 +2438,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         QueryCursorImpl<List<?>> cursor = new QueryCursorImpl<>(
             runQueryTwoStep(schemaName, twoStepQry, keepBinary, qry.isEnforceJoinOrder(), startTx, qry.getTimeout(),
-                cancel, qry.getArgs(), partitions, qry.isLazy(), mvccTracker), cancel);
+                cancel, qry.getArgs(), partitions, qry.isLazy(), twoStepQry.forUpdate(), mvccTracker), cancel);
 
         cursor.fieldsMeta(meta);
 

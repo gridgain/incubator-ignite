@@ -21,7 +21,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 
 /** */
-public interface UpdateSourceIterator<T> extends GridCloseableIterator<T> {
+public interface LockingOperationSourceIterator<T> extends GridCloseableIterator<T> {
     /**
      * Callback method which should be called before moving iteration into another thread.
      */

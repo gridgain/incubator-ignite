@@ -515,6 +515,7 @@ public class GridReduceQueryExecutor {
      * @param params Query parameters.
      * @param parts Partitions.
      * @param lazy Lazy execution flag.
+     * @param forUpdate
      * @param mvccTracker Query tracker.
      * @return Rows iterator.
      */
@@ -528,6 +529,7 @@ public class GridReduceQueryExecutor {
         Object[] params,
         final int[] parts,
         boolean lazy,
+        boolean forUpdate,
         MvccQueryTracker mvccTracker) {
         assert !qry.mvccEnabled() || mvccTracker != null;
 
@@ -719,6 +721,9 @@ public class GridReduceQueryExecutor {
 
                 if (lazy && mapQrys.size() == 1)
                     flags |= GridH2QueryRequest.FLAG_LAZY;
+
+                if (forUpdate)
+                    flags |= GridH2QueryRequest.FOR_UPDATE;
 
                 GridH2QueryRequest req = new GridH2QueryRequest()
                     .requestId(qryReqId)

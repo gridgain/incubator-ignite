@@ -41,7 +41,7 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
-import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
+import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
@@ -123,7 +123,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
     protected GridQueryCancel cancel;
 
     /** Query iterator */
-    private UpdateSourceIterator<?> it;
+    private LockingOperationSourceIterator<?> it;
 
     /**
      *
@@ -139,7 +139,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
      * @param timeout Lock acquisition timeout.
      * @param cctx Cache context.
      */
-    GridDhtTxQueryEnlistAbstractFuture(UUID nearNodeId,
+    protected GridDhtTxQueryEnlistAbstractFuture(UUID nearNodeId,
         GridCacheVersion nearLockVer,
         AffinityTopologyVersion topVer,
         MvccSnapshot mvccSnapshot,
@@ -187,7 +187,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
     /**
      * @return iterator.
      */
-    protected abstract UpdateSourceIterator<?> createIterator() throws IgniteCheckedException;
+    protected abstract LockingOperationSourceIterator<?> createIterator() throws IgniteCheckedException;
 
     /**
      *
@@ -204,10 +204,10 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
         try {
             checkPartitions(parts);
 
-            UpdateSourceIterator<?> it = createIterator();
+            LockingOperationSourceIterator<?> it = createIterator();
 
             if (!it.hasNext()) {
-                T res = createResponse(0, tx.empty());
+                T res = createResponse();
 
                 U.close(it, log);
 
@@ -246,7 +246,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                     if (ptr != null && !cctx.tm().logTxRecords())
                         cctx.shared().wal().fsync(ptr);
 
-                    onDone(createResponse(cnt, false));
+                    onDone(createResponse());
 
                     return;
                 }
@@ -511,11 +511,9 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
     public abstract T createResponse(@NotNull Throwable err);
 
     /**
-     * @param cnt update count.
-     * @param removeMapping {@code true} if tx mapping shall be removed.
      * @return Prepared response.
      */
-    public abstract T createResponse(long cnt, boolean removeMapping);
+    public abstract T createResponse();
 
     /**
      * Lock request timeout object.

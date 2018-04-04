@@ -44,7 +44,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshotResponseList
 import org.apache.ignite.internal.processors.cache.mvcc.MvccTxInfo;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
-import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
+import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
@@ -103,7 +103,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
     private GridCacheOperation op;
 
     /** */
-    private final UpdateSourceIterator<IgniteBiTuple> it;
+    private final LockingOperationSourceIterator<IgniteBiTuple> it;
 
     /** */
     private int batchSize;
@@ -142,7 +142,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheCompoundIdentit
         MvccSnapshot mvccSnapshot,
         long timeout,
         GridCacheOperation op,
-        UpdateSourceIterator<IgniteBiTuple> it,
+        LockingOperationSourceIterator<IgniteBiTuple> it,
         int batchSize) {
         super(CU.longReducer());
 

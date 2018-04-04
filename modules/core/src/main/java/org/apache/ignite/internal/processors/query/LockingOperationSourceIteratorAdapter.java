@@ -23,7 +23,7 @@ import org.apache.ignite.internal.util.GridCloseableIteratorAdapterEx;
 import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 
 /** */
-public abstract class UpdateSourceIteratorAdapter<T> extends GridCloseableIteratorAdapterEx<T> implements UpdateSourceIterator<T> {
+public abstract class LockingOperationSourceIteratorAdapter<T> extends GridCloseableIteratorAdapterEx<T> implements LockingOperationSourceIterator<T> {
     /** */
     private static final long serialVersionUID = 7261873149950232220L;
     /** */
@@ -34,7 +34,7 @@ public abstract class UpdateSourceIteratorAdapter<T> extends GridCloseableIterat
     /**
      * @param delegate Source iterator.
      */
-    public UpdateSourceIteratorAdapter(GridCacheOperation op, GridCloseableIterator<T> delegate) {
+    public LockingOperationSourceIteratorAdapter(GridCacheOperation op, GridCloseableIterator<T> delegate) {
         this.op = op;
         this.delegate = delegate;
     }

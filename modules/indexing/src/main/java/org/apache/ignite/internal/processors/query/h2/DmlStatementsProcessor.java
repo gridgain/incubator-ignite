@@ -65,8 +65,8 @@ import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.GridQueryFieldsResult;
 import org.apache.ignite.internal.processors.query.GridQueryFieldsResultAdapter;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
-import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
-import org.apache.ignite.internal.processors.query.UpdateSourceIteratorAdapter;
+import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
+import org.apache.ignite.internal.processors.query.LockingOperationSourceIteratorAdapter;
 import org.apache.ignite.internal.processors.query.h2.dml.DmlBatchSender;
 import org.apache.ignite.internal.processors.query.h2.dml.DmlDistributedPlanInfo;
 import org.apache.ignite.internal.processors.query.h2.dml.DmlUtils;
@@ -536,7 +536,7 @@ public class DmlStatementsProcessor {
                         cctx.shared().coordinators().currentCoordinator(),
                         mvccSnapshot);
 
-                    UpdateSourceIterator<IgniteBiTuple> it;
+                    LockingOperationSourceIterator<IgniteBiTuple> it;
 
                     GridCacheOperation op = cacheOperation(plan.mode());
 
@@ -1129,10 +1129,10 @@ public class DmlStatementsProcessor {
      * @throws IgniteCheckedException If failed.
      */
     @SuppressWarnings("unchecked")
-    public UpdateSourceIterator<?> prepareDistributedUpdate(String schema, Connection conn,
-        PreparedStatement stmt, SqlFieldsQuery qry,
-        IndexingQueryFilter filter, GridQueryCancel cancel, boolean local,
-        AffinityTopologyVersion topVer, MvccSnapshot mvccSnapshot) throws IgniteCheckedException {
+    public LockingOperationSourceIterator<?> prepareDistributedUpdate(String schema, Connection conn,
+                                                                      PreparedStatement stmt, SqlFieldsQuery qry,
+                                                                      IndexingQueryFilter filter, GridQueryCancel cancel, boolean local,
+                                                                      AffinityTopologyVersion topVer, MvccSnapshot mvccSnapshot) throws IgniteCheckedException {
 
         Prepared prepared = GridSqlQueryParser.prepared(stmt);
 
@@ -1447,7 +1447,7 @@ public class DmlStatementsProcessor {
     }
 
     /** */
-    private class UpdateIteratorAdapter<T> extends UpdateSourceIteratorAdapter<T> {
+    private class UpdateIteratorAdapter<T> extends LockingOperationSourceIteratorAdapter<T> {
         /** */
         private static final long serialVersionUID = 6035896197816149820L;
 
@@ -1480,7 +1480,7 @@ public class DmlStatementsProcessor {
 
     /** */
     private static class DmlUpdateResultsIterator
-        implements UpdateSourceIterator<IgniteBiTuple> {
+        implements LockingOperationSourceIterator<IgniteBiTuple> {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -1552,7 +1552,7 @@ public class DmlStatementsProcessor {
     }
 
     /** */
-    private static class DmlUpdateSingleEntryIterator<T> implements UpdateSourceIterator<T> {
+    private static class DmlUpdateSingleEntryIterator<T> implements LockingOperationSourceIterator<T> {
         /** */
         private static final long serialVersionUID = 0L;
 

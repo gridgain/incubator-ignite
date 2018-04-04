@@ -28,7 +28,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryResultsEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
-import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
+import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
@@ -39,7 +39,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class GridDhtTxQueryResultsEnlistFuture
     extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryResultsEnlistResponse>
-    implements UpdateSourceIterator<Object>{
+    implements LockingOperationSourceIterator<Object> {
     /** */
     private GridCacheOperation op;
 
@@ -90,7 +90,7 @@ public class GridDhtTxQueryResultsEnlistFuture
     }
 
     /** {@inheritDoc} */
-    @Override protected UpdateSourceIterator<?> createIterator() throws IgniteCheckedException {
+    @Override protected LockingOperationSourceIterator<?> createIterator() throws IgniteCheckedException {
         return this;
     }
 
@@ -100,8 +100,8 @@ public class GridDhtTxQueryResultsEnlistFuture
     }
 
     /** {@inheritDoc} */
-    @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse(long res, boolean removeMapping) {
-        return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, res, null);
+    @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse() {
+        return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, cnt, null);
     }
 
     /** {@inheritDoc} */
