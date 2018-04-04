@@ -48,20 +48,25 @@ class MapQueryResults {
     /** Lazy worker. */
     private final MapQueryLazyWorker lazyWorker;
 
+    /** Local TX, if it's a result for {@code FOR UPDATE} request. */
+    private final PageFutureSupplier tx;
+
     /** */
     private volatile boolean cancelled;
 
     /**
      * Constructor.
-     *
      * @param qryReqId Query request ID.
      * @param qrys Number of queries.
      * @param cctx Cache context.
      * @param lazyWorker Lazy worker (if any).
+     * @param tx Local TX, if it's a result for {@code FOR UPDATE} request, or {@code null} if not applicable.
      */
     @SuppressWarnings("unchecked")
     MapQueryResults(IgniteH2Indexing h2, long qryReqId, int qrys, @Nullable GridCacheContext<?, ?> cctx,
-        @Nullable MapQueryLazyWorker lazyWorker) {
+        @Nullable MapQueryLazyWorker lazyWorker, @Nullable PageFutureSupplier tx) {
+        assert lazyWorker == null || tx == null;
+
         this.h2 = h2;
         this.qryReqId = qryReqId;
         this.cctx = cctx;
@@ -69,6 +74,7 @@ class MapQueryResults {
 
         results = new AtomicReferenceArray<>(qrys);
         cancels = new GridQueryCancel[qrys];
+        this.tx = tx;
 
         for (int i = 0; i < cancels.length; i++)
             cancels[i] = new GridQueryCancel();
@@ -101,11 +107,11 @@ class MapQueryResults {
 
     /**
      * Add result.
-     *
      * @param qry Query result index.
      * @param q Query object.
      * @param qrySrcNodeId Query source node.
      * @param rs Result set.
+     * @param params Query arguments.
      */
     void addResult(int qry, GridCacheSqlQuery q, UUID qrySrcNodeId, ResultSet rs, Object[] params) {
         MapQueryResult res = new MapQueryResult(h2, rs, cctx, qrySrcNodeId, q, params, lazyWorker);
@@ -171,5 +177,9 @@ class MapQueryResults {
      */
     long queryRequestId() {
         return qryReqId;
+    }
+
+    public PageFutureSupplier tx() {
+        return tx;
     }
 }

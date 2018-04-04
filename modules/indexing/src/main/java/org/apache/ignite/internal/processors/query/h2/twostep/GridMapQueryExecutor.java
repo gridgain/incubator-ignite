@@ -52,7 +52,11 @@ import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionsReservation;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTransactionalCacheAdapter;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridReservable;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryType;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
@@ -127,6 +131,9 @@ public class GridMapQueryExecutor {
     /** Lazy worker stop guard. */
     private final AtomicBoolean lazyWorkerStopGuard = new AtomicBoolean();
 
+    /** Logger. */
+    private IgniteLogger txLockMsgLog;
+
     /**
      * @param busyLock Busy lock.
      */
@@ -179,6 +186,8 @@ public class GridMapQueryExecutor {
                 }
             }
         });
+
+        txLockMsgLog = ctx.cache().context().txLockMessageLogger();
     }
 
     /**
@@ -434,7 +443,6 @@ public class GridMapQueryExecutor {
         final boolean explain = req.isFlagSet(GridH2QueryRequest.FLAG_EXPLAIN);
         final boolean replicated = req.isFlagSet(GridH2QueryRequest.FLAG_REPLICATED);
         final boolean lazy = req.isFlagSet(GridH2QueryRequest.FLAG_LAZY);
-        final boolean forUpdate = req.isFlagSet(GridH2QueryRequest.FOR_UPDATE);
 
         final List<Integer> cacheIds = req.caches();
 
@@ -464,15 +472,14 @@ public class GridMapQueryExecutor {
                     false, // Replicated is always false here (see condition above).
                     req.timeout(),
                     params,
-                    true,
-                    forUpdate,
-                    req.mvccSnapshot()); // Lazy = true.
+                    true, // Lazy = true.
+                    req.mvccSnapshot(),
+                    req.txRequest());
             }
             else {
                 ctx.closure().callLocal(
                     new Callable<Void>() {
-                        @Override
-                        public Void call() throws Exception {
+                        @Override public Void call() throws Exception {
                             onQueryRequest0(node,
                                 req.requestId(),
                                 segment,
@@ -488,9 +495,9 @@ public class GridMapQueryExecutor {
                                 false,
                                 req.timeout(),
                                 params,
-                                false,
-                                forUpdate,
-                                req.mvccSnapshot()); // Lazy = false.
+                                false, // Lazy = false.
+                                req.mvccSnapshot(),
+                                req.txRequest());
 
                             return null;
                         }
@@ -515,8 +522,8 @@ public class GridMapQueryExecutor {
             req.timeout(),
             params,
             lazy,
-            forUpdate,
-            req.mvccSnapshot());
+            req.mvccSnapshot(),
+            req.txRequest());
     }
 
     /**
@@ -532,8 +539,8 @@ public class GridMapQueryExecutor {
      * @param pageSize Page size.
      * @param distributedJoinMode Query distributed join mode.
      * @param lazy Streaming flag.
-     * @param forUpdate FOR UPDATE flag.
      * @param mvccSnapshot MVCC snapshot.
+     * @param txReq TX request, if it's a for {@code FOR UPDATE} request, or {@code null}.
      */
     private void onQueryRequest0(
         final ClusterNode node,
@@ -552,9 +559,8 @@ public class GridMapQueryExecutor {
         final int timeout,
         final Object[] params,
         boolean lazy,
-        boolean forUpdate,
-        @Nullable final MvccSnapshot mvccSnapshot
-    ) {
+        @Nullable final MvccSnapshot mvccSnapshot,
+        @Nullable GridNearTxQueryEnlistRequest txReq) {
         if (lazy && MapQueryLazyWorker.currentWorker() == null) {
             // Lazy queries must be re-submitted to dedicated workers.
             MapQueryLazyWorkerKey key = new MapQueryLazyWorkerKey(node.id(), reqId, segmentId);
@@ -579,13 +585,10 @@ public class GridMapQueryExecutor {
                         timeout,
                         params,
                         true,
-                        forUpdate,
-                        mvccSnapshot);
+                        mvccSnapshot,
+                        txReq);
                 }
             });
-
-            if (forUpdate)
-                throw new IgniteSQLException("");
 
             if (lazyWorkerBusyLock.enterBusy()) {
                 try {
@@ -607,6 +610,9 @@ public class GridMapQueryExecutor {
 
             return;
         }
+
+        if (lazy && txReq != null)
+            throw new IgniteSQLException("");
 
         // Prepare to run queries.
         GridCacheContext<?, ?> mainCctx =
@@ -632,7 +638,31 @@ public class GridMapQueryExecutor {
                 }
             }
 
-            qr = new MapQueryResults(h2, reqId, qrys.size(), mainCctx, MapQueryLazyWorker.currentWorker());
+            final GridDhtTxLocal tx;
+
+            PageFutureSupplier c = null;
+
+            if (txReq != null) {
+                if (mainCctx == null || !mainCctx.transactional() || cacheIds.size() != 1)
+                    throw new IgniteSQLException("");
+
+                GridDhtTransactionalCacheAdapter txCache = (GridDhtTransactionalCacheAdapter)mainCctx.cache();
+
+                tx = txCache.initTxTopologyVersion(node.id(), node, txReq.version(), txReq.futureId(),
+                    txReq.miniId(), txReq.firstClientRequest(), topVer, txReq.threadId(), timeout,
+                    txReq.subjectId(), txReq.taskNameHash());
+
+                 c = new PageFutureSupplier() {
+                    @Override public SelectForUpdateQueryEnlistFuture apply(List<Value[]> rows) {
+                        return new SelectForUpdateQueryEnlistFuture(node.id(), txReq.version(), topVer, mvccSnapshot,
+                            txReq.threadId(), txReq.futureId(), txReq.miniId(), parts, tx, timeout, mainCctx, rows);
+                    }
+                };
+            }
+            else
+                tx = null;
+
+            qr = new MapQueryResults(h2, reqId, qrys.size(), mainCctx, MapQueryLazyWorker.currentWorker(), c);
 
             if (nodeRess.put(reqId, segmentId, qr) != null)
                 throw new IllegalStateException();
@@ -994,6 +1024,31 @@ public class GridMapQueryExecutor {
                 if (MapQueryLazyWorker.currentWorker() != null)
                     releaseReservations();
             }
+        }
+
+        PageFutureSupplier tx = qr.tx();
+
+        if (tx != null) {
+            SelectForUpdateQueryEnlistFuture fut = tx.apply(rows);
+
+            fut.init();
+
+            GridNearTxQueryEnlistResponse lockRes;
+
+            try {
+                lockRes = fut.get();
+
+                if (lockRes != null) {
+                    assert lockRes.error() != null;
+
+                    throw new IgniteSQLException("");
+                }
+            }
+            catch (IgniteCheckedException e) {
+                throw new IgniteSQLException("");
+            }
+
+
         }
 
         try {

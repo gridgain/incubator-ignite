@@ -31,6 +31,7 @@ import org.apache.ignite.internal.GridDirectTransient;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.binary.BinaryMarshaller;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
 import org.apache.ignite.internal.processors.cache.query.GridCacheSqlQuery;
@@ -143,6 +144,9 @@ public class GridH2QueryRequest implements Message, GridCacheQueryMarshallable {
     /** */
     private MvccSnapshot mvccSnapshot;
 
+    /** TX details holder for {@code SELECT FOR UPDATE}, or {@code null} if not applicable. */
+    private GridNearTxQueryEnlistRequest txReq;
+
     /**
      * Required by {@link Externalizable}
      */
@@ -168,6 +172,7 @@ public class GridH2QueryRequest implements Message, GridCacheQueryMarshallable {
         paramsBytes = req.paramsBytes;
         schemaName = req.schemaName;
         mvccSnapshot = req.mvccSnapshot;
+        txReq = req.txReq;
     }
 
     /**
@@ -399,6 +404,20 @@ public class GridH2QueryRequest implements Message, GridCacheQueryMarshallable {
         this.schemaName = schemaName;
 
         return this;
+    }
+
+    /**
+     * @return TX details holder for {@code SELECT FOR UPDATE}, or {@code null} if not applicable.
+     */
+    public GridNearTxQueryEnlistRequest txRequest() {
+        return txReq;
+    }
+
+    /**
+     * @param txReq TX details holder for {@code SELECT FOR UPDATE}, or {@code null} if not applicable.
+     */
+    public void txRequest(GridNearTxQueryEnlistRequest txReq) {
+        this.txReq = txReq;
     }
 
     /** {@inheritDoc} */

@@ -1,9 +1,10 @@
 package org.apache.ignite.internal.processors.query.h2.twostep;
 
+import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
-import org.apache.ignite.internal.processors.cache.GridCacheIdMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxQueryEnlistAbstractFuture;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
@@ -15,13 +16,10 @@ import org.h2.value.Value;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
-import java.util.UUID;
-
 /**
  * Future to process a single page of SELECT FOR UPDATE result.
  */
-public class SelectForUpdateQueryEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<GridCacheIdMessage> {
+public class SelectForUpdateQueryEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryEnlistResponse> {
     /** Rows to process. */
     private final List<Value[]> rows;
 
@@ -46,18 +44,18 @@ public class SelectForUpdateQueryEnlistFuture extends GridDhtTxQueryEnlistAbstra
         this.rows = rows;
     }
 
-    @Override
-    protected LockingOperationSourceIterator<?> createIterator() throws IgniteCheckedException {
-        return new SelectForUpdateResultsIterator(rows);
+    /** {@inheritDoc} */
+    @Override protected LockingOperationSourceIterator<?> createIterator() throws IgniteCheckedException {
+        return new SelectForUpdateResultsIterator(rows.iterator());
     }
 
-    @Override
-    public GridCacheIdMessage createResponse(@NotNull Throwable err) {
+    /** {@inheritDoc} */
+    @Override public GridNearTxQueryEnlistResponse createResponse(@NotNull Throwable err) {
         return new GridNearTxQueryEnlistResponse(cctx.cacheId(), null, 0, null, 0, err);
     }
 
-    @Override
-    public GridCacheIdMessage createResponse() {
+    /** {@inheritDoc} */
+    @Override public GridNearTxQueryEnlistResponse createResponse() {
         return null;
     }
 }

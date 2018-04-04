@@ -55,15 +55,15 @@ import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.CREATE;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.DELETE;
+import static org.apache.ignite.internal.processors.cache.GridCacheOperation.SELECT;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.UPDATE;
 
 /**
  * Abstract future processing transaction enlisting and locking
- * of entries produced with DML queries.
+ * of entries produced with DML and SELECT FOR UPDATE queries.
  */
 public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMessage> extends GridCacheFutureAdapter<T>
     implements GridCacheVersionedFuture<T> {
-
     /** Future ID. */
     protected IgniteUuid futId;
 
@@ -267,7 +267,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
 
                 CacheObject val = null;
 
-                if (op == CREATE || op == UPDATE) {
+                if (op == CREATE || op == UPDATE || op == SELECT) {
                     assert row0 != null;
 
                     val = cctx.toCacheObject(row0[1]);
@@ -296,12 +296,15 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                                 null,
                                 mvccSnapshot,
                                 op);
+                        else if (op == SELECT)
+                            res = null;
                         else
-                            throw new IgniteSQLException("Cannot acquire lock for operation [op= " + op + "]" + // TODO SELECT FOR UPDATE
+                            throw new IgniteSQLException("Cannot acquire lock for operation [op= " + op + "]" +
                                 "Operation is unsupported at the moment ", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
 
                         break;
-                    } catch (GridCacheEntryRemovedException ignored) {
+                    }
+                    catch (GridCacheEntryRemovedException ignored) {
                         entry = cctx.dhtCache().entryExx(entry.key(), topVer);
                     }
                     finally {
@@ -309,12 +312,12 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                     }
                 }
 
-                ptr = res.loggedPointer();
+                if (res != null)
+                    ptr = res.loggedPointer();
 
-                IgniteInternalFuture<GridCacheUpdateTxResult> updateFuture = res.updateFuture();
+                IgniteInternalFuture<GridCacheUpdateTxResult> updateFuture = res != null ? res.updateFuture() : null;
 
                 if (updateFuture != null) {
-                    GridCacheOperation finalOp = op;
                     CacheObject finalVal = val;
                     GridDhtCacheEntry finalEntry = entry;
 
@@ -334,7 +337,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                                         "Operation is unsupported at the moment.", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
                                 }
 
-                                txEntry = tx.addEntry(finalOp,
+                                txEntry = tx.addEntry(op,
                                     finalVal,
                                     null,
                                     null,
