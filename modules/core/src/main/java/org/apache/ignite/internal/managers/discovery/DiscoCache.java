@@ -66,18 +66,18 @@ public class DiscoCache {
     /** Daemon nodes. */
     private final List<ClusterNode> daemonNodes;
 
-    /** Baseline nodes. */
-    private final List<? extends BaselineNode> baselineNodes;
+    /** Persistence baseline nodes. */
+    private final List<? extends BaselineNode> persistenceBaselineNodes;
 
     /** All remote nodes with at least one cache configured. */
     @GridToStringInclude
     private final List<ClusterNode> rmtNodesWithCaches;
 
-    /** Cache nodes by cache name. */
+    /** Cache nodes by cache id. */
     @GridToStringInclude
     private final Map<Integer, List<ClusterNode>> allCacheNodes;
 
-    /** Affinity cache nodes by cache name. */
+    /** Affinity cache nodes by cache id. */
     @GridToStringInclude
     private final Map<Integer, List<ClusterNode>> cacheGrpAffNodes;
 
@@ -117,7 +117,7 @@ public class DiscoCache {
      * @param srvNodes Server nodes.
      * @param daemonNodes Daemon nodes.
      * @param rmtNodesWithCaches Remote nodes with at least one cache configured.
-     * @param baselineNodes Baseline nodes or {@code null} if baseline was not set.
+     * @param persistenceBaselineNodes Baseline nodes or {@code null} if baseline was not set.
      * @param allCacheNodes Cache nodes by cache name.
      * @param cacheGrpAffNodes Affinity nodes by cache group ID.
      * @param nodeMap Node map.
@@ -135,7 +135,7 @@ public class DiscoCache {
         List<ClusterNode> srvNodes,
         List<ClusterNode> daemonNodes,
         List<ClusterNode> rmtNodesWithCaches,
-        @Nullable List<? extends BaselineNode> baselineNodes,
+        @Nullable List<? extends BaselineNode> persistenceBaselineNodes,
         Map<Integer, List<ClusterNode>> allCacheNodes,
         Map<Integer, List<ClusterNode>> cacheGrpAffNodes,
         Map<UUID, ClusterNode> nodeMap,
@@ -153,7 +153,7 @@ public class DiscoCache {
         this.srvNodes = srvNodes;
         this.daemonNodes = daemonNodes;
         this.rmtNodesWithCaches = rmtNodesWithCaches;
-        this.baselineNodes = baselineNodes;
+        this.persistenceBaselineNodes = persistenceBaselineNodes;
         this.allCacheNodes = allCacheNodes;
         this.cacheGrpAffNodes = cacheGrpAffNodes;
         this.nodeMap = nodeMap;
@@ -221,15 +221,15 @@ public class DiscoCache {
      *
      * @return A collection of baseline nodes or {@code null} if baseline topology was not set.
      */
-    @Nullable public List<? extends BaselineNode> baselineNodes() {
-        return baselineNodes;
+    @Nullable public List<? extends BaselineNode> persistentBaselineNodes() {
+        return persistenceBaselineNodes;
     }
 
     /**
      * @param nodeId Node ID to check.
      * @return {@code True} if baseline is not set or the node is in the baseline topology.
      */
-    public boolean baselineNode(UUID nodeId) {
+    public boolean persistenceBaselineNode(UUID nodeId) {
         return nodeIdToConsIdx == null || nodeIdToConsIdx.containsKey(nodeId);
     }
 
@@ -282,8 +282,8 @@ public class DiscoCache {
      * @return A view of baseline nodes that are currently present in the cluster or {@code null} if baseline
      *      topology was not set.
      */
-    @Nullable public Collection<ClusterNode> aliveBaselineNodes() {
-        return baselineNodes == null ? null : F.viewReadOnly(baselineNodes, BASELINE_TO_CLUSTER, aliveBaselineNodePred);
+    @Nullable public Collection<ClusterNode> alivePersistenceBaselineNodes() {
+        return persistenceBaselineNodes == null ? null : F.viewReadOnly(persistenceBaselineNodes, BASELINE_TO_CLUSTER, aliveBaselineNodePred);
 
     }
 
@@ -291,7 +291,7 @@ public class DiscoCache {
      * @param node Node to check.
      * @return {@code True} if the node is in baseline or if baseline is not set.
      */
-    public boolean baselineNode(ClusterNode node) {
+    public boolean persistenceBaselineNode(ClusterNode node) {
         return nodeIdToConsIdx == null || nodeIdToConsIdx.get(node.id()) != null;
     }
 
@@ -430,7 +430,7 @@ public class DiscoCache {
             srvNodes,
             daemonNodes,
             rmtNodesWithCaches,
-            baselineNodes,
+            persistenceBaselineNodes,
             allCacheNodes,
             cacheGrpAffNodes,
             nodeMap,

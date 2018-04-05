@@ -1369,9 +1369,9 @@ public class GridCacheUtils {
     /**
      * @param node Node.
      * @param filter Node filter.
-     * @return {@code True} if node is not client node and pass given filter.
+     * @return {@code True} if it is possible to assign some partition of in memory cache on this node
      */
-    public static boolean affinityNode(ClusterNode node, IgnitePredicate<ClusterNode> filter) {
+    public static boolean affinityNodeForInMemoryCache(ClusterNode node, IgnitePredicate<ClusterNode> filter) {
         return !node.isDaemon() && !clientNode(node) && filter.apply(node);
     }
 
@@ -1380,7 +1380,7 @@ public class GridCacheUtils {
      * @param discoveryDataClusterState Discovery data cluster state.
      * @return {@code True} if node is included in BaselineTopology.
      */
-    public static boolean baselineNode(ClusterNode node, DiscoveryDataClusterState discoveryDataClusterState) {
+    public static boolean persistentBaselineNode(ClusterNode node, DiscoveryDataClusterState discoveryDataClusterState) {
         return discoveryDataClusterState.baselineTopology().consistentIds().contains(node.consistentId());
     }
 

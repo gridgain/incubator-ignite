@@ -59,7 +59,6 @@ import org.apache.ignite.plugin.CachePluginContext;
 import org.apache.ignite.plugin.CachePluginProvider;
 import org.apache.ignite.plugin.PluginProvider;
 import org.apache.ignite.spi.discovery.DiscoveryDataBag;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.cache.CacheMode.LOCAL;
@@ -252,8 +251,8 @@ class ClusterCachesInfo {
 
             ClusterNode rmtNode = ctx.discovery().node(rmt);
 
-            if (CU.affinityNode(ctx.discovery().localNode(), locInfo.cacheData().config().getNodeFilter())
-                && rmtNode != null && CU.affinityNode(rmtNode, rmtData.cacheConfiguration().getNodeFilter())) {
+            if (CU.affinityNodeForInMemoryCache(ctx.discovery().localNode(), locInfo.cacheData().config().getNodeFilter())
+                && rmtNode != null && CU.affinityNodeForInMemoryCache(rmtNode, rmtData.cacheConfiguration().getNodeFilter())) {
                 CU.checkAttributeMismatch(log, rmtAttr.cacheName(), rmt, "storeFactory", "Store factory",
                     locAttr.storeFactoryClassName(), rmtAttr.storeFactoryClassName(), true);
             }
@@ -1157,7 +1156,7 @@ class ClusterCachesInfo {
 
                 if (locCfg != null ||
                     joinDiscoData.startCaches() ||
-                    CU.affinityNode(ctx.discovery().localNode(), desc.groupDescriptor().config().getNodeFilter())) {
+                    CU.affinityNodeForInMemoryCache(ctx.discovery().localNode(), desc.groupDescriptor().config().getNodeFilter())) {
                     if (active)
                         locJoinStartCaches.add(new T2<>(desc, nearCfg));
                     else

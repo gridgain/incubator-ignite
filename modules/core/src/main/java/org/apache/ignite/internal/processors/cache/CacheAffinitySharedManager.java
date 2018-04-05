@@ -70,7 +70,6 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiInClosure;
 import org.apache.ignite.lang.IgniteClosure;
-import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
@@ -781,7 +780,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                     startCache = true;
                 }
                 else {
-                    startCache = CU.affinityNode(cctx.localNode(),
+                    startCache = CU.affinityNodeForInMemoryCache(cctx.localNode(),
                         cacheDesc.groupDescriptor().config().getNodeFilter());
                 }
             }

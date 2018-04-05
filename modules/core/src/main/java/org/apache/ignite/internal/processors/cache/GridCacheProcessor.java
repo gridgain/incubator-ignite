@@ -1798,7 +1798,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         for (DynamicCacheDescriptor desc : started) {
             IgnitePredicate<ClusterNode> filter = desc.groupDescriptor().config().getNodeFilter();
 
-            if (CU.affinityNode(ctx.discovery().localNode(), filter)) {
+            if (CU.affinityNodeForInMemoryCache(ctx.discovery().localNode(), filter)) { //TODO check baseline for persistent caches
                 prepareCacheStart(
                     desc.cacheConfiguration(),
                     desc,
@@ -1840,7 +1840,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
             ccfg.setNearConfiguration(null);
         }
-        else if (CU.affinityNode(ctx.discovery().localNode(), desc.groupDescriptor().config().getNodeFilter()))
+        else if (CU.affinityNodeForInMemoryCache(ctx.discovery().localNode(), desc.groupDescriptor().config().getNodeFilter()))
             affNode = true;
         else {
             affNode = false;
@@ -4164,7 +4164,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
                     // Check if we were asked to start a near cache.
                     if (nearCfg != null) {
-                        if (CU.affinityNode(ctx.discovery().localNode(), descCfg.getNodeFilter())) {
+                        if (CU.affinityNodeForInMemoryCache(ctx.discovery().localNode(), descCfg.getNodeFilter())) {
                             // If we are on a data node and near cache was enabled, return success, else - fail.
                             if (descCfg.getNearConfiguration() != null)
                                 return null;
@@ -4176,7 +4176,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                             // If local node has near cache, return success.
                             req.clientStartOnly(true);
                     }
-                    else if (!CU.affinityNode(ctx.discovery().localNode(), descCfg.getNodeFilter()))
+                    else if (!CU.affinityNodeForInMemoryCache(ctx.discovery().localNode(), descCfg.getNodeFilter()))
                         req.clientStartOnly(true);
 
                     req.deploymentId(desc.deploymentId());

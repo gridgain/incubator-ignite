@@ -359,7 +359,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
      */
     public void addCacheGroup(CacheGroupDescriptor grpDesc, IgnitePredicate<ClusterNode> filter, CacheMode cacheMode) {
         CacheGroupAffinity old = registeredCacheGrps.put(grpDesc.groupId(),
-            new CacheGroupAffinity(grpDesc.cacheOrGroupName(), filter, cacheMode));
+            new CacheGroupAffinity(grpDesc.cacheOrGroupName(), filter, cacheMode, grpDesc.persistenceEnabled()));
 
         assert old == null : old;
     }
@@ -1832,7 +1832,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
      *      given topology version.
      */
     @Nullable public List<? extends BaselineNode> baselineNodes(AffinityTopologyVersion topVer) {
-        return resolveDiscoCache(CU.cacheId(null), topVer).baselineNodes();
+        return resolveDiscoCache(CU.cacheId(null), topVer).persistentBaselineNodes();
     }
 
     /**
@@ -1916,20 +1916,20 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
     public boolean cacheAffinityNode(ClusterNode node, String cacheName) {
         CachePredicate pred = registeredCaches.get(cacheName);
 
-        return pred != null && pred.dataNode(node);
+        return pred != null && CU.affinityNodeForInMemoryCache(node, pred.aff.cacheFilter);
     }
 
     /**
-     * Checks if node is a data node for the given cache group.
+     * Checks if node passes node filter or not.
      *
      * @param node Node to check.
      * @param grpId Cache group ID.
      * @return {@code True} if node is a cache data node.
      */
-    public boolean cacheGroupAffinityNode(ClusterNode node, int grpId) {
+    public boolean passNodeFilter(ClusterNode node, int grpId) {
         CacheGroupAffinity aff = registeredCacheGrps.get(grpId);
 
-        return CU.affinityNode(node, aff.cacheFilter);
+        return CU.affinityNodeForInMemoryCache(node, aff.cacheFilter);
     }
 
     /**
@@ -2292,12 +2292,6 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
         assert !rmtNodes.contains(loc) : "Remote nodes collection shouldn't contain local node" +
             " [rmtNodes=" + rmtNodes + ", loc=" + loc + ']';
 
-        Map<Integer, List<ClusterNode>> allCacheNodes = U.newHashMap(allNodes.size());
-        Map<Integer, List<ClusterNode>> cacheGrpAffNodes = U.newHashMap(allNodes.size());
-        Set<ClusterNode> rmtNodesWithCaches = new TreeSet<>(NodeOrderComparator.getInstance());
-
-        fillAffinityNodeCaches(allNodes, allCacheNodes, cacheGrpAffNodes, rmtNodesWithCaches);
-
         BaselineTopology blt = state.baselineTopology();
 
         if (blt != null) {
@@ -2339,6 +2333,12 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
             baselineNodes = null;
         }
+
+        Map<Integer, List<ClusterNode>> allCacheNodes = U.newHashMap(allNodes.size());
+        Map<Integer, List<ClusterNode>> cacheGrpAffNodes = U.newHashMap(allNodes.size());
+        Set<ClusterNode> rmtNodesWithCaches = new TreeSet<>(NodeOrderComparator.getInstance());
+
+        fillAffinityNodeCaches(allNodes, allCacheNodes, cacheGrpAffNodes, rmtNodesWithCaches, nodeIdToConsIdx);
 
         return new DiscoCache(
             topVer,
@@ -2951,18 +2951,22 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
         /** Cache mode. */
         private final CacheMode cacheMode;
 
+        private final boolean persistent;
+
         /**
          * @param name Name.
          * @param cacheFilter Node filter.
          * @param cacheMode Cache mode.
+         * @param persistent Persistent or in memory.
          */
         CacheGroupAffinity(
-            String name,
-            IgnitePredicate<ClusterNode> cacheFilter,
-            CacheMode cacheMode) {
+                String name,
+                IgnitePredicate<ClusterNode> cacheFilter,
+                CacheMode cacheMode, boolean persistent) {
             this.name = name;
             this.cacheFilter = cacheFilter;
             this.cacheMode = cacheMode;
+            this.persistent = persistent;
         }
 
         /** {@inheritDoc} */
@@ -3033,18 +3037,10 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
         /**
          * @param node Node to check.
-         * @return {@code True} if this node is a data node for given cache.
-         */
-        public boolean dataNode(ClusterNode node) {
-            return CU.affinityNode(node, aff.cacheFilter);
-        }
-
-        /**
-         * @param node Node to check.
          * @return {@code True} if cache is accessible on the given node.
          */
         boolean cacheNode(ClusterNode node) {
-            return !node.isDaemon() && (CU.affinityNode(node, aff.cacheFilter) ||
+            return !node.isDaemon() && (CU.affinityNodeForInMemoryCache(node, aff.cacheFilter) ||
                 cacheClientNode(node) != null);
         }
 
@@ -3053,7 +3049,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          * @return {@code True} if near cache is present on the given nodes.
          */
         boolean nearNode(ClusterNode node) {
-            if (CU.affinityNode(node, aff.cacheFilter))
+            if (CU.affinityNodeForInMemoryCache(node, aff.cacheFilter))
                 return nearEnabled;
 
             Boolean near = cacheClientNode(node);
@@ -3092,14 +3088,15 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
     /**
      * Fills affinity node caches.
-     *
      * @param allNodes All nodes.
      * @param allCacheNodes All cache nodes.
      * @param cacheGrpAffNodes Cache group aff nodes.
      * @param rmtNodesWithCaches Rmt nodes with caches.
+     * @param persistenceBlt persistence baseline
      */
     private void fillAffinityNodeCaches(List<ClusterNode> allNodes, Map<Integer, List<ClusterNode>> allCacheNodes,
-        Map<Integer, List<ClusterNode>> cacheGrpAffNodes, Set<ClusterNode> rmtNodesWithCaches) {
+                                        Map<Integer, List<ClusterNode>> cacheGrpAffNodes, Set<ClusterNode> rmtNodesWithCaches,
+                                        Map<UUID, Short> persistenceBlt) {
         for (ClusterNode node : allNodes) {
             assert node.order() != 0 : "Invalid node order [locNode=" + localNode() + ", node=" + node + ']';
             assert !node.isDaemon();
@@ -3108,7 +3105,10 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 CacheGroupAffinity grpAff = e.getValue();
                 Integer grpId = e.getKey();
 
-                if (CU.affinityNode(node, grpAff.cacheFilter)) {
+                if (CU.affinityNodeForInMemoryCache(node, grpAff.cacheFilter)) {
+                    if (grpAff.persistent && persistenceBlt != null && !persistenceBlt.containsKey(node.id())) //filter out
+                        continue;
+                    
                     List<ClusterNode> nodes = cacheGrpAffNodes.get(grpId);
 
                     if (nodes == null)
@@ -3148,7 +3148,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
         Map<Integer, List<ClusterNode>> cacheGrpAffNodes = U.newHashMap(allNodes.size());
         Set<ClusterNode> rmtNodesWithCaches = new TreeSet<>(NodeOrderComparator.getInstance());
 
-        fillAffinityNodeCaches(allNodes, allCacheNodes, cacheGrpAffNodes, rmtNodesWithCaches);
+        fillAffinityNodeCaches(allNodes, allCacheNodes, cacheGrpAffNodes, rmtNodesWithCaches, discoCache.nodeIdToConsIdx);
 
         return new DiscoCache(
             topVer,
@@ -3159,7 +3159,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
             discoCache.serverNodes(),
             discoCache.daemonNodes(),
             U.sealList(rmtNodesWithCaches),
-            discoCache.baselineNodes(),
+            discoCache.persistentBaselineNodes(),
             allCacheNodes,
             cacheGrpAffNodes,
             discoCache.nodeMap,
