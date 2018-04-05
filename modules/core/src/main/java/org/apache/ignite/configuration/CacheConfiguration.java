@@ -181,13 +181,16 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
     /** Default query parallelism. */
     public static final int DFLT_QUERY_PARALLELISM = 1;
 
+    /** Default SQL on-heap cache size. */
+    public static final int DFLT_SQL_ONHEAP_CACHE_MAX_SIZE = 0;
+
     /** Cache name. */
     private String name;
 
     /** Cache group name. */
     private String grpName;
 
-    /** Name of {@link DataRegionConfiguration} for this cache */
+    /** Name of {@link MemoryPolicyConfiguration} for this cache */
     private String memPlcName;
 
     /** Threshold for concurrent loading of keys from {@link CacheStore}. */
@@ -212,6 +215,9 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
 
     /** Use on-heap cache for rows for SQL queries. */
     private boolean sqlOnheapCache;
+
+    /** SQL on-heap cache max size. */
+    private int sqlOnheapCacheMaxSize = DFLT_SQL_ONHEAP_CACHE_MAX_SIZE;
 
     /** Eviction filter. */
     private EvictionFilter<?, ?> evictFilter;
@@ -453,6 +459,7 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
         storeConcurrentLoadAllThreshold = cc.getStoreConcurrentLoadAllThreshold();
         maxQryIterCnt = cc.getMaxQueryIteratorsCount();
         sqlOnheapCache = cc.isSqlOnheapCacheEnabled();
+        sqlOnheapCacheMaxSize = cc.getSqlOnheapCacheMaxSize();
     }
 
     /**
@@ -637,6 +644,36 @@ public class CacheConfiguration<K, V> extends MutableConfiguration<K, V> {
      */
     public CacheConfiguration<K, V> setSqlOnheapCacheEnabled(boolean sqlOnheapCache) {
         this.sqlOnheapCache = sqlOnheapCache;
+
+        return this;
+    }
+
+    /**
+     * Gets maximum SQL on-heap cache. Measured in number of rows. When maximum size is reached oldest cached rows
+     * will be evicted.
+     * <p>
+     * Zero or negative value stand for unlimited size.
+     * <p>
+     * Defaults to {@link #DFLT_SQL_ONHEAP_CACHE_MAX_SIZE}.
+     *
+     * @return SQL on-heap cache max size.
+     */
+    public int getSqlOnheapCacheMaxSize() {
+        return sqlOnheapCacheMaxSize;
+    }
+
+    /**
+     * Sets maximum SQL on-heap cache. Measured in number of rows. When maximum size is reached oldest cached rows
+     * will be evicted.
+     * <p>
+     * Zero or negative value stand for unlimited size.
+     * <p>
+     * Defaults to {@link #DFLT_SQL_ONHEAP_CACHE_MAX_SIZE}.
+     *
+     * @return {@code this} for chaining.
+     */
+    public CacheConfiguration<K, V> setSqlOnheapCacheMaxSize(int sqlOnheapCacheMaxSize) {
+        this.sqlOnheapCacheMaxSize = sqlOnheapCacheMaxSize;
 
         return this;
     }
