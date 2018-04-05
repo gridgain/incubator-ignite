@@ -24,6 +24,6 @@ import org.h2.value.Value;
 /**
  * Short name for rows-to-future closure.
  */
-interface PageFutureSupplier extends C1<List<Value[]>, SelectForUpdateQueryEnlistFuture> {
+interface QueryPageEnlistFutureSupplier extends C1<List<Value[]>, QueryPageEnlistFuture> {
     // No-op.
 }

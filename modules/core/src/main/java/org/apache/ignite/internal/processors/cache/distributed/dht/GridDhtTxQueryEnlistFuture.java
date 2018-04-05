@@ -26,17 +26,16 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQu
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
+import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
-import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
 
 /**
  * Cache lock future.
  */
 public final class GridDhtTxQueryEnlistFuture
     extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryEnlistResponse> {
-
     /** Involved cache ids. */
     private final int[] cacheIds;
 

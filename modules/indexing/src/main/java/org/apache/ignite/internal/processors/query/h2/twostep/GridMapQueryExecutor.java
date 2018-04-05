@@ -46,6 +46,7 @@ import org.apache.ignite.events.Event;
 import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.GridTopic;
+import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
@@ -638,9 +639,7 @@ public class GridMapQueryExecutor {
                 }
             }
 
-            final GridDhtTxLocal tx;
-
-            PageFutureSupplier c = null;
+            QueryPageEnlistFutureSupplier pageFutSupp = null;
 
             if (txReq != null) {
                 if (mainCctx == null || !mainCctx.transactional() || cacheIds.size() != 1)
@@ -648,21 +647,19 @@ public class GridMapQueryExecutor {
 
                 GridDhtTransactionalCacheAdapter txCache = (GridDhtTransactionalCacheAdapter)mainCctx.cache();
 
-                tx = txCache.initTxTopologyVersion(node.id(), node, txReq.version(), txReq.futureId(),
+                final GridDhtTxLocal tx = txCache.initTxTopologyVersion(node.id(), node, txReq.version(), txReq.futureId(),
                     txReq.miniId(), txReq.firstClientRequest(), topVer, txReq.threadId(), timeout,
                     txReq.subjectId(), txReq.taskNameHash());
 
-                 c = new PageFutureSupplier() {
-                    @Override public SelectForUpdateQueryEnlistFuture apply(List<Value[]> rows) {
-                        return new SelectForUpdateQueryEnlistFuture(node.id(), txReq.version(), topVer, mvccSnapshot,
+                 pageFutSupp = new QueryPageEnlistFutureSupplier() {
+                    @Override public QueryPageEnlistFuture apply(List<Value[]> rows) {
+                        return new QueryPageEnlistFuture(node.id(), txReq.version(), topVer, mvccSnapshot,
                             txReq.threadId(), txReq.futureId(), txReq.miniId(), parts, tx, timeout, mainCctx, rows);
                     }
                 };
             }
-            else
-                tx = null;
 
-            qr = new MapQueryResults(h2, reqId, qrys.size(), mainCctx, MapQueryLazyWorker.currentWorker(), c);
+            qr = new MapQueryResults(h2, reqId, qrys.size(), mainCctx, MapQueryLazyWorker.currentWorker(), pageFutSupp);
 
             if (nodeRess.put(reqId, segmentId, qr) != null)
                 throw new IllegalStateException();
@@ -999,6 +996,7 @@ public class GridMapQueryExecutor {
      * @param segmentId Index segment ID.
      * @param pageSize Page size.
      */
+    @SuppressWarnings("unchecked")
     private void sendNextPage(MapNodeResults nodeRess, ClusterNode node, MapQueryResults qr, int qry, int segmentId,
         int pageSize) {
         MapQueryResult res = qr.result(qry);
@@ -1026,29 +1024,14 @@ public class GridMapQueryExecutor {
             }
         }
 
-        PageFutureSupplier tx = qr.tx();
+        QueryPageEnlistFutureSupplier futSupp = qr.pageFutureSupplier();
 
-        if (tx != null) {
-            SelectForUpdateQueryEnlistFuture fut = tx.apply(rows);
+        if (futSupp != null) {
+            QueryPageEnlistFuture fut = futSupp.apply(rows);
+
+            fut.listen(new PageEnlistFutureListener());
 
             fut.init();
-
-            GridNearTxQueryEnlistResponse lockRes;
-
-            try {
-                lockRes = fut.get();
-
-                if (lockRes != null) {
-                    assert lockRes.error() != null;
-
-                    throw new IgniteSQLException("");
-                }
-            }
-            catch (IgniteCheckedException e) {
-                throw new IgniteSQLException("");
-            }
-
-
         }
 
         try {
@@ -1139,5 +1122,32 @@ public class GridMapQueryExecutor {
      */
     public int registeredLazyWorkers() {
         return lazyWorkers.size();
+    }
+
+    /**
+     *
+     */
+    private final class PageEnlistFutureListener<T extends GridNearTxQueryEnlistResponse>
+        implements CI1<IgniteInternalFuture<T>> {
+        /** {@inheritDoc} */
+        @Override public void apply(IgniteInternalFuture<T> fut) {
+            assert fut instanceof QueryPageEnlistFuture;
+
+            Throwable err;
+
+            if (fut.result() != null) {
+                err = fut.result().error();
+
+                assert err != null;
+            }
+            else
+                err = fut.error();
+
+            if (err != null) {
+                ((QueryPageEnlistFuture)fut).tx().rollbackDhtLocalAsync();
+
+                throw new IgniteSQLException("Failed to lock results page, rolling back the TX.", err);
+            }
+        }
     }
 }
