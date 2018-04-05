@@ -65,26 +65,16 @@ public class IgniteDynamicSqlRestoreTest extends GridCommonAbstractTest implemen
         return cfg;
     }
 
-    /**
-     *
-     */
-    private void cleanIgniteWorkDir() throws IgniteCheckedException {
-        U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), "cp", false));
-        U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), DFLT_STORE_DIR, false));
-        U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), "marshaller", false));
-        U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), "binary_meta", false));
-    }
-
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        cleanIgniteWorkDir();
+        cleanPersistenceDir();
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         stopAllGrids();
 
-        cleanIgniteWorkDir();
+        cleanPersistenceDir();
     }
 
     /**
