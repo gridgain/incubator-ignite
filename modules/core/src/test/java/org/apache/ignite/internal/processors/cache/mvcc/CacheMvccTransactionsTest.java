@@ -74,7 +74,6 @@ import org.apache.ignite.internal.util.lang.GridInClosure3;
 import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
-import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -108,7 +107,6 @@ import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
  * TODO IGNITE-6739: tests reload
  * TODO IGNITE-6739: extend tests to use single/mutiple nodes, all tx types.
  * TODO IGNITE-6739: test with cache groups.
- * TODO IGNITE-6739: add check for cleanup in all test (at the and do update for all keys, check there are 2 versions left).
  */
 @SuppressWarnings("unchecked")
 public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
@@ -2143,7 +2141,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
                                 tx.commit();
                             }
 
-                            if (key > 1_000_000)
+                            if (key > 100_000)
                                 break;
                         }
                         finally {
@@ -2437,6 +2435,8 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
      * @throws Exception If failed.
      */
     public void testRebalanceSimple() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-8031");
+
         Ignite srv0 = startGrid(0);
 
         IgniteCache<Integer, Integer> cache =  (IgniteCache)srv0.createCache(
@@ -2494,12 +2494,30 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
 
         for (int i = 0; i < map.size(); i++)
             assertEquals(i + 2, (Object)resMap.get(i));
+
+        // Run fake transaction
+        try (Transaction tx = srv0.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            Integer val = cache.get(0);
+
+            cache.put(0, val);
+
+            tx.commit();
+        }
+
+        resMap = checkAndGetAll(false, cache, map.keySet(), GET, SCAN);
+
+        assertEquals(map.size(), map.size());
+
+        for (int i = 0; i < map.size(); i++)
+            assertEquals(i + 2, (Object)resMap.get(i));
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testRebalanceWithRemovedValuesSimple() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-8031");
+
         Ignite node = startGrid(0);
 
         IgniteTransactions txs = node.transactions();
@@ -3853,7 +3871,6 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
     }
 
     /**
-     * @param N Number of object to update in single transaction.
      * @param srvs Number of server nodes.
      * @param clients Number of client nodes.
      * @param cacheBackups Number of cache backups.
@@ -4159,7 +4176,7 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
 
             KeyCacheObject key0 = cctx.toCacheKeyObject(key);
 
-            List<T2<Object, MvccVersion>> vers = cctx.offheap().mvccAllVersions(cctx, key0);
+            List<IgniteBiTuple<Object, MvccVersion>> vers = cctx.offheap().mvccAllVersions(cctx, key0);
 
             assertEquals(10, vers.size());
 
@@ -4167,11 +4184,11 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
 
             checkRow(cctx, row, key0, vers.get(0).get1());
 
-            for (T2<Object, MvccVersion> ver : vers) {
+            for (IgniteBiTuple<Object, MvccVersion> ver : vers) {
                 MvccVersion cntr = ver.get2();
 
                 MvccSnapshot readVer =
-                    new MvccSnapshotWithoutTxs(cntr.coordinatorVersion(), cntr.counter(), 0);
+                    new MvccSnapshotWithoutTxs(cntr.coordinatorVersion(), cntr.counter(), Integer.MAX_VALUE, 0);
 
                 row = cctx.offheap().mvccRead(cctx, key0, readVer);
 
@@ -4211,12 +4228,15 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
         cache.remove(key);
 
         cctx.offheap().mvccRemoveAll((GridCacheMapEntry)cctx.cache().entryEx(key));
+
+        crd.ackQueryDone(crd.currentCoordinator(), fut.get());
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testExpiration() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-7956");
         final IgniteEx node = startGrid(0);
 
         IgniteCache cache = node.createCache(cacheConfiguration(PARTITIONED, FULL_SYNC, 1, 64));
@@ -4300,7 +4320,11 @@ public class CacheMvccTransactionsTest extends CacheMvccAbstractTest {
      * @return Version.
      */
     private MvccSnapshotResponse version(long crdVer, long cntr) {
-        return new MvccSnapshotResponse(crdVer, cntr, 0);
+        MvccSnapshotResponse res = new MvccSnapshotResponse();
+
+        res.init(0, crdVer, cntr, MvccProcessor.MVCC_START_OP_CNTR, MvccProcessor.MVCC_COUNTER_NA);
+
+        return res;
     }
 
     /**

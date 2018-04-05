@@ -160,6 +160,15 @@
     <ClCompile Include="..\..\src\ssl\ssl_gateway.cpp">
       <Filter>Code\ssl</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\config\connection_string_parser.cpp">
+      <Filter>Code\config</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\config\config_tools.cpp">
+      <Filter>Code\config</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\nested_tx_mode.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="module.def">
@@ -310,6 +319,21 @@
     </ClInclude>
     <ClInclude Include="..\..\include\ignite\odbc\ssl\ssl_bindings.h">
       <Filter>Code\ssl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\ignite\odbc\config\connection_string_parser.h">
+      <Filter>Code\config</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\ignite\odbc\config\settable_value.h">
+      <Filter>Code\config</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\ignite\odbc\config\config_tools.h">
+      <Filter>Code\config</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\ignite\odbc\end_point.h">
+      <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\ignite\odbc\nested_tx_mode.h">
+      <Filter>Code</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

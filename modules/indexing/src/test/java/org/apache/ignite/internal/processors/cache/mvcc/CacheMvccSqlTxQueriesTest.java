@@ -21,14 +21,12 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.cache.CacheException;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.MutableEntry;
@@ -55,7 +53,6 @@ import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.ReadMode.SQL;
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.ReadMode.SQL_SUM;
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.WriteMode.DML;
-import static org.apache.ignite.testframework.GridTestUtils.assertThrows;
 import static org.apache.ignite.testframework.GridTestUtils.runAsync;
 import static org.apache.ignite.testframework.GridTestUtils.runMultiThreaded;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
@@ -853,8 +850,6 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
      * @throws Exception If failed.
      */
     public void testQueryInsertSubquery() throws Exception {
-        fail("https://issues.apache.org/jira/browse/IGNITE-7300");
-
         ccfg = cacheConfiguration(PARTITIONED, FULL_SYNC, 2, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class, Integer.class, MvccTestSqlIndexValue.class);
 
@@ -874,12 +869,13 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
             2, new MvccTestSqlIndexValue(2),
             3, new MvccTestSqlIndexValue(3)));
 
+        IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
+
         try (Transaction tx = updateNode.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             tx.timeout(TX_TIMEOUT);
 
-            SqlFieldsQuery qry = new SqlFieldsQuery("INSERT INTO Integer (_key, _val) SELECT _key * 10, idxVal1 FROM MvccTestSqlIndexValue");
-
-            IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
+            SqlFieldsQuery qry = new SqlFieldsQuery("INSERT INTO Integer (_key, _val)" +
+                " SELECT _key * 10, idxVal1 FROM MvccTestSqlIndexValue");
 
             try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
                 assertEquals(3L, cur.iterator().next().get(0));
@@ -888,17 +884,15 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
             tx.commit();
         }
 
-        assertEquals(10, cache.get(1));
-        assertEquals(20, cache.get(2));
-        assertEquals(30, cache.get(3));
+        assertEquals(1, cache0.get(10));
+        assertEquals(2, cache0.get(20));
+        assertEquals(3, cache0.get(30));
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testQueryInsertSubqueryImplicit() throws Exception {
-        fail("https://issues.apache.org/jira/browse/IGNITE-7300");
-
         ccfg = cacheConfiguration(PARTITIONED, FULL_SYNC, 2, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class, Integer.class, MvccTestSqlIndexValue.class);
 
@@ -918,7 +912,8 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
             2, new MvccTestSqlIndexValue(2),
             3, new MvccTestSqlIndexValue(3)));
 
-        SqlFieldsQuery qry = new SqlFieldsQuery("INSERT INTO Integer (_key, _val) SELECT _key * 10, idxVal1 FROM MvccTestSqlIndexValue")
+        SqlFieldsQuery qry = new SqlFieldsQuery("INSERT INTO Integer (_key, _val)" +
+            " SELECT _key * 10, idxVal1 FROM MvccTestSqlIndexValue")
             .setTimeout(TX_TIMEOUT, TimeUnit.MILLISECONDS);
 
         IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
@@ -927,17 +922,15 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
             assertEquals(3L, cur.iterator().next().get(0));
         }
 
-        assertEquals(10, cache.get(1));
-        assertEquals(20, cache.get(2));
-        assertEquals(30, cache.get(3));
+        assertEquals(1, cache0.get(10));
+        assertEquals(2, cache0.get(20));
+        assertEquals(3, cache0.get(30));
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testQueryUpdateSubquery() throws Exception {
-        fail("https://issues.apache.org/jira/browse/IGNITE-7300");
-
         ccfg = cacheConfiguration(PARTITIONED, FULL_SYNC, 2, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class, Integer.class, MvccTestSqlIndexValue.class);
 
@@ -960,7 +953,8 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
         try (Transaction tx = updateNode.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             tx.timeout(TX_TIMEOUT);
 
-            SqlFieldsQuery qry = new SqlFieldsQuery("UPDATE MvccTestSqlIndexValue SET (idxVal1) = SELECT t.idxVal1 * 10 FROM MvccTestSqlIndexValue as t");
+            SqlFieldsQuery qry = new SqlFieldsQuery("UPDATE MvccTestSqlIndexValue AS t " +
+                "SET (idxVal1) = (SELECT idxVal1*10 FROM MvccTestSqlIndexValue WHERE t._key = _key)");
 
             IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
 
@@ -980,8 +974,6 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
      * @throws Exception If failed.
      */
     public void testQueryUpdateSubqueryImplicit() throws Exception {
-        fail("https://issues.apache.org/jira/browse/IGNITE-7300");
-
         ccfg = cacheConfiguration(PARTITIONED, FULL_SYNC, 2, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class, Integer.class, MvccTestSqlIndexValue.class);
 
@@ -1001,8 +993,8 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
             2, new MvccTestSqlIndexValue(2),
             3, new MvccTestSqlIndexValue(3)));
 
-
-        SqlFieldsQuery qry = new SqlFieldsQuery("UPDATE MvccTestSqlIndexValue SET (idxVal1) = SELECT t.idxVal1 * 10 FROM MvccTestSqlIndexValue as t")
+        SqlFieldsQuery qry = new SqlFieldsQuery("UPDATE MvccTestSqlIndexValue AS t " +
+            "SET (idxVal1) = (SELECT idxVal1*10 FROM MvccTestSqlIndexValue WHERE t._key = _key)")
             .setTimeout(TX_TIMEOUT, TimeUnit.MILLISECONDS);
 
         IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
@@ -1086,7 +1078,7 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void testQueryInsertUpdateMiltithread() throws Exception {
+    public void testQueryInsertUpdateMultithread() throws Exception {
         ccfg = cacheConfiguration(PARTITIONED, FULL_SYNC, 2, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class);
 
@@ -1294,10 +1286,9 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
 
 
     /**
-     * TODO IGNITE-6938
      * @throws Exception If failed.
      */
-    public void testQueryInsertRollbackOnKeysConflict() throws Exception {
+    public void testQueryInsertUpdateSameKeys() throws Exception {
         ccfg = cacheConfiguration(PARTITIONED, FULL_SYNC, 2, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class);
 
@@ -1310,34 +1301,97 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
 
         IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
 
-        assertThrows(log(), new Callable<Void>() {
-            @Override public Void call() {
-                try (Transaction tx = updateNode.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
-                    tx.timeout(TX_TIMEOUT);
+        try (Transaction tx = updateNode.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            tx.timeout(TX_TIMEOUT);
 
-                    SqlFieldsQuery qry = new SqlFieldsQuery("INSERT INTO Integer (_key, _val) values (1,1),(2,2),(3,3)");
+            SqlFieldsQuery qry = new SqlFieldsQuery("INSERT INTO Integer (_key, _val) values (1,1),(2,2),(3,3)");
 
-                    IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
+            IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
 
-                    try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
-                        assertEquals(3L, cur.iterator().next().get(0));
-                    }
-
-                    qry = new SqlFieldsQuery("INSERT INTO Integer (_key, _val) values (1,1),(2,2),(3,3)");
-
-                    try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
-                        cur.getAll();
-                    }
-
-                    tx.commit();
-                }
-
-                return null;
+            try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
+                assertEquals(3L, cur.iterator().next().get(0));
             }
-        }, CacheException.class, "One row cannot be changed twice in the same transaction. Operation is unsupported at the moment.");
 
-        for (int i = 1; i <= 6; i++)
-            assertNull(cache.get(1));
+            qry = new SqlFieldsQuery("UPDATE Integer SET _val = (_key * 10)");
+
+            try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
+                cur.getAll();
+            }
+
+            tx.commit();
+        }
+
+        assertEquals(10, cache.get(1));
+        assertEquals(20, cache.get(2));
+        assertEquals(30, cache.get(3));
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testQueryPendingUpdates() throws Exception {
+        ccfg = cacheConfiguration(PARTITIONED, FULL_SYNC, 2, DFLT_PARTITION_COUNT)
+            .setIndexedTypes(Integer.class, Integer.class);
+
+        startGridsMultiThreaded(4);
+
+        Random rnd = ThreadLocalRandom.current();
+
+        Ignite checkNode  = grid(rnd.nextInt(4));
+        final Ignite updateNode = grid(rnd.nextInt(4));
+
+        IgniteCache cache = checkNode.cache(DEFAULT_CACHE_NAME);
+
+        try (Transaction tx = updateNode.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            tx.timeout(TX_TIMEOUT);
+
+            SqlFieldsQuery qry = new SqlFieldsQuery("INSERT INTO Integer (_key, _val) values (1,1),(2,2),(3,3)");
+
+            IgniteCache<Object, Object> cache0 = updateNode.cache(DEFAULT_CACHE_NAME);
+
+            try (FieldsQueryCursor<List<?>> cur = cache0.query(qry)) {
+                assertEquals(3L, cur.iterator().next().get(0));
+            }
+
+            try (FieldsQueryCursor<List<?>> cur = cache0.query(qry.setSql("UPDATE Integer SET _val = (_key * 10)"))) {
+                assertEquals(3L, cur.iterator().next().get(0));
+            }
+
+            for (List<?> row : cache0.query(qry.setSql("SELECT _key, _val FROM Integer")).getAll()) {
+                assertEquals((Integer)row.get(0) * 10, row.get(1));
+            }
+
+            try (FieldsQueryCursor<List<?>> cur = cache0.query(qry.setSql("UPDATE Integer SET _val = 15 where _key = 2"))) {
+                assertEquals(1L, cur.iterator().next().get(0));
+            }
+
+            for (List<?> row : cache0.query(qry.setSql("SELECT _key, _val FROM Integer")).getAll()) {
+                if ((Integer)row.get(0) == 2)
+                    assertEquals(15, row.get(1));
+                else
+                    assertEquals((Integer)row.get(0) * 10, row.get(1));
+            }
+
+            GridTestUtils.runAsync(new Runnable() {
+                @Override public void run() {
+                    SqlFieldsQuery qry = new SqlFieldsQuery("SELECT _key, _val FROM Integer");
+
+                    assertTrue(cache.query(qry).getAll().isEmpty());
+                }
+            }).get(TX_TIMEOUT);
+
+            cache0.query(qry.setSql("DELETE FROM Integer")).getAll();
+
+            assertTrue(cache0.query(qry.setSql("SELECT _key, _val FROM Integer")).getAll().isEmpty());
+
+            assertEquals(3L, cache0.query(qry.setSql("INSERT INTO Integer (_key, _val) values (1,1),(2,2),(3,3)")).getAll().iterator().next().get(0));
+
+            tx.commit();
+        }
+
+        assertEquals(1, cache.get(1));
+        assertEquals(2, cache.get(2));
+        assertEquals(3, cache.get(3));
     }
 
     /**
@@ -1430,7 +1484,7 @@ public class CacheMvccSqlTxQueriesTest extends CacheMvccAbstractTest {
      * @param ex Exception holder.
      * @param e Exception.
      */
-    private void onException(AtomicReference<Exception> ex, Exception e) {
+    private <T extends Throwable> void onException(AtomicReference<T> ex, T e) {
         if (!ex.compareAndSet(null, e))
             ex.get().addSuppressed(e);
     }
