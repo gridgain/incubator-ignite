@@ -22,6 +22,7 @@ import javax.cache.CacheException;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteClientDisconnectedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.util.GridSpinReadWriteLock;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
@@ -39,7 +40,8 @@ public class GridCacheGateway<K, V> {
     private final GridCacheContext<K, V> ctx;
 
     /** Stopped flag for dynamic caches. */
-    private final AtomicReference<State> state = new AtomicReference<>(State.STARTED);
+    private final AtomicReference<State> _state = new AtomicReference<>(State.STARTED);
+    private final IgniteLogger log;
 
     /** */
     private IgniteFuture<?> reconnectFut;
@@ -54,6 +56,8 @@ public class GridCacheGateway<K, V> {
         assert ctx != null;
 
         this.ctx = ctx;
+
+        this.log = ctx.logger(this.getClass());
     }
 
     /**
@@ -74,7 +78,7 @@ public class GridCacheGateway<K, V> {
      * @return {@code True} if cache is in started state.
      */
     private boolean checkState(boolean lock, boolean stopErr) {
-        State state = this.state.get();
+        State state = this._state.get();
 
         if (state != State.STARTED) {
             if (lock)
@@ -251,7 +255,7 @@ public class GridCacheGateway<K, V> {
      *
      */
     public void stopped() {
-        state.set(State.STOPPED);
+        _state.set(State.STOPPED);
     }
 
     /**
@@ -260,9 +264,15 @@ public class GridCacheGateway<K, V> {
     public void onDisconnected(IgniteFuture<?> reconnectFut) {
         assert reconnectFut != null;
 
+        U.dumpStack(log, "org.apache.ignite.internal.processors.cache.GridCacheGateway.onDisconnected()");
+
         this.reconnectFut = reconnectFut;
 
-        state.compareAndSet(State.STARTED, State.DISCONNECTED);
+        log.info("try... _state.compareAndSet(State.STARTED, State.DISCONNECTED)");
+        if(!_state.compareAndSet(State.STARTED, State.DISCONNECTED))
+            log.info("!_state.compareAndSet(State.STARTED, State.DISCONNECTED)");
+        else
+            log.info("DONE _state.compareAndSet(State.STARTED, State.DISCONNECTED)");
     }
 
     /**
@@ -285,7 +295,13 @@ public class GridCacheGateway<K, V> {
     public void reconnected(boolean stopped) {
         State newState = stopped ? State.STOPPED : State.STARTED;
 
-        state.compareAndSet(State.DISCONNECTED, newState);
+        U.dumpStack(log, "org.apache.ignite.internal.processors.cache.GridCacheGateway.reconnected()");
+
+        log.info(String.format("try... _state.compareAndSet(State.DISCONNECTED, %s)", newState));
+        if(!_state.compareAndSet(State.DISCONNECTED, newState))
+            log.info(String.format("!_state.compareAndSet(State.DISCONNECTED, %s)", newState));
+        else
+            log.info(String.format("DONE _state.compareAndSet(State.DISCONNECTED, %s)", newState));
     }
 
     /**
@@ -311,7 +327,7 @@ public class GridCacheGateway<K, V> {
             Thread.currentThread().interrupt();
 
         try {
-            state.set(State.STOPPED);
+            _state.set(State.STOPPED);
         }
         finally {
             rwLock.writeUnlock();

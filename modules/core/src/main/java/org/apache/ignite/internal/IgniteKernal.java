@@ -717,7 +717,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     )
         throws IgniteCheckedException
     {
-        gw.compareAndSet(null, new GridKernalGatewayImpl(cfg.getGridName()));
+        gw.compareAndSet(null, new GridKernalGatewayImpl(cfg.getGridName(), ctx));
 
         GridKernalGateway gw = this.gw.get();
 
@@ -2057,7 +2057,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
      * @param cancel Whether or not to cancel running jobs.
      */
     private void stop0(boolean cancel) {
-        gw.compareAndSet(null, new GridKernalGatewayImpl(gridName));
+        gw.compareAndSet(null, new GridKernalGatewayImpl(gridName, ctx));
 
         GridKernalGateway gw = this.gw.get();
 
@@ -3429,6 +3429,8 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
      *
      */
     public void onDisconnected() {
+        U.dumpStack(log, "org.apache.ignite.internal.IgniteKernal.onDisconnected");
+
         Throwable err = null;
 
         reconnectState.waitPreviousReconnect();
@@ -3500,6 +3502,8 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
      */
     @SuppressWarnings("unchecked")
     public void onReconnected(final boolean clusterRestarted) {
+        U.dumpStack(log, "org.apache.ignite.internal.IgniteKernal.onReconnected");
+
         Throwable err = null;
 
         try {
@@ -3757,6 +3761,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
             if (curReconnectFut != null && !curReconnectFut.isDone()) {
                 assert reconnectDone != null;
 
+                log.info("org.apache.ignite.internal.IgniteKernal.ReconnectState.waitPreviousReconnect[curReconnectFut.onDone(STOP_RECONNECT)]");
                 curReconnectFut.onDone(STOP_RECONNECT);
 
                 try {

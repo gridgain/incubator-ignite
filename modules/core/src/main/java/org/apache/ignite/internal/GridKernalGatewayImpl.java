@@ -22,13 +22,17 @@ import java.io.Serializable;
 import java.io.StringWriter;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteClientDisconnectedException;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.util.GridSpinReadWriteLock;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.future.IgniteFutureImpl;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  *
@@ -41,13 +45,14 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
     /** */
     @GridToStringExclude
     private final GridSpinReadWriteLock rwLock = new GridSpinReadWriteLock();
+    private final IgniteLogger log;
 
     /** */
     @GridToStringExclude
     private volatile IgniteFutureImpl<?> reconnectFut;
 
     /** */
-    private final AtomicReference<GridKernalState> state = new AtomicReference<>(GridKernalState.STOPPED);
+    private final AtomicReference<GridKernalState> _state = new AtomicReference<>(GridKernalState.STOPPED);
 
     /** */
     @GridToStringExclude
@@ -63,7 +68,8 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
     /**
      * @param gridName Grid name.
      */
-    public GridKernalGatewayImpl(String gridName) {
+    public GridKernalGatewayImpl(String gridName, GridKernalContext ctx) {
+        log = ctx.log(this.getClass());
         this.gridName = gridName;
     }
 
@@ -75,7 +81,7 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
 
         rwLock.readLock();
 
-        GridKernalState state = this.state.get();
+        GridKernalState state = this._state.get();
 
         if (state != GridKernalState.STARTED) {
             // Unlock just acquired lock.
@@ -84,6 +90,7 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
             if (state == GridKernalState.DISCONNECTED) {
                 assert reconnectFut != null;
 
+                U.dumpStack(log, "org.apache.ignite.internal.GridKernalGatewayImpl.readLock()(state == GridKernalState.DISCONNECTED)");
                 throw new IgniteClientDisconnectedException(reconnectFut, "Client node disconnected: " + gridName);
             }
 
@@ -98,8 +105,10 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
 
         rwLock.readLock();
 
-        if (state.get() == GridKernalState.DISCONNECTED)
+        if (_state.get() == GridKernalState.DISCONNECTED) {
+            U.dumpStack(log, "org.apache.ignite.internal.GridKernalGatewayImpl.readLockAnyway()(_state.get() == GridKernalState.DISCONNECTED)");
             throw new IgniteClientDisconnectedException(reconnectFut, "Client node disconnected: " + gridName);
+        }
     }
 
     /** {@inheritDoc} */
@@ -149,7 +158,10 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
 
     /** {@inheritDoc} */
     @Override public GridFutureAdapter<?> onDisconnected() {
-        if (state.get() == GridKernalState.DISCONNECTED) {
+        U.dumpStack(log, "org.apache.ignite.internal.GridKernalGatewayImpl.onDisconnected");
+        GridKernalState current = _state.get();
+        log.info(String.format("org.apache.ignite.internal.GridKernalGatewayImpl.onDisconnected state = [%s]", current));
+        if (current == GridKernalState.DISCONNECTED) {
             assert reconnectFut != null;
 
             return (GridFutureAdapter<?>)reconnectFut.internalFuture();
@@ -159,19 +171,27 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
 
         reconnectFut = new IgniteFutureImpl<>(fut);
 
-        if (!state.compareAndSet(GridKernalState.STARTED, GridKernalState.DISCONNECTED)) {
+        log.info(String.format("trying... _state.compareAndSet(GridKernalState.STARTED, GridKernalState.DISCONNECTED)"));
+        if (!_state.compareAndSet(GridKernalState.STARTED, GridKernalState.DISCONNECTED)) {
+            log.info(String.format("!_state.compareAndSet(GridKernalState.STARTED, GridKernalState.DISCONNECTED) [Node stopped.]"));
             ((GridFutureAdapter<?>)reconnectFut.internalFuture()).onDone(new IgniteCheckedException("Node stopped."));
 
             return null;
         }
+
+        log.info(String.format("DONE _state.compareAndSet(GridKernalState.STARTED, GridKernalState.DISCONNECTED)"));
 
         return fut;
     }
 
     /** {@inheritDoc} */
     @Override public void onReconnected() {
-        if (state.compareAndSet(GridKernalState.DISCONNECTED, GridKernalState.STARTED))
-            ((GridFutureAdapter<?>)reconnectFut.internalFuture()).onDone();
+        U.dumpStack(log, "org.apache.ignite.internal.GridKernalGatewayImpl.onReconnected");
+        log.info(String.format("trying... _state.compareAndSet(GridKernalState.DISCONNECTED, GridKernalState.STARTED)"));
+        if (_state.compareAndSet(GridKernalState.DISCONNECTED, GridKernalState.STARTED)) {
+            log.info(String.format("DONE _state.compareAndSet(GridKernalState.DISCONNECTED, GridKernalState.STARTED)"));
+            ((GridFutureAdapter<?>) reconnectFut.internalFuture()).onDone();
+        }
     }
 
     /**
@@ -195,7 +215,7 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
     private IllegalStateException illegalState() {
         return new IllegalStateException("Grid is in invalid state to perform this operation. " +
             "It either not started yet or has already being or have stopped [gridName=" + gridName +
-            ", state=" + state + ']');
+            ", state=" + _state + ']');
     }
 
     /** {@inheritDoc} */
@@ -207,16 +227,30 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
     @Override public void setState(GridKernalState state) {
         assert state != null;
 
-        // NOTE: this method should always be called within write lock.
-        this.state.set(state);
+        log.info("org.apache.ignite.internal.GridKernalGatewayImpl.setState " +
+                "rwLock.writeLockedByCurrentThread(): " +
+                rwLock.writeLockedByCurrentThread());
 
-        if (reconnectFut != null)
-            ((GridFutureAdapter<?>)reconnectFut.internalFuture()).onDone(new IgniteCheckedException("Node stopped."));
+        U.dumpStack(log, String.format("org.apache.ignite.internal.GridKernalGatewayImpl.setState " +
+                "old state: [%s] new state: [%s]", _state.get(), state));
+
+        // NOTE: this method should always be called within write lock.
+        this._state.set(state);
+
+        if (reconnectFut != null) {
+            log.info("org.apache.ignite.internal.GridKernalGatewayImpl.setState " +
+                    "reconnectFut != null ");
+            ((GridFutureAdapter<?>) reconnectFut.internalFuture()).onDone(new IgniteCheckedException("Node stopped."));
+        }
     }
 
     /** {@inheritDoc} */
     @Override public GridKernalState getState() {
-        return state.get();
+        GridKernalState gridKernalState = _state.get();
+        U.dumpStack(log, String.format("org.apache.ignite.internal.GridKernalGatewayImpl.getState state = [%s]",
+                gridKernalState));
+
+        return gridKernalState;
     }
 
     /** {@inheritDoc} */

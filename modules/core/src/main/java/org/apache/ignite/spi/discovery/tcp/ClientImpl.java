@@ -1571,7 +1571,7 @@ class ClientImpl extends TcpDiscoveryImpl {
                             if (log.isDebugEnabled())
                                 log.debug("Failed to reconnect, local node segmented " +
                                     "[joinTimeout=" + spi.joinTimeout + ']');
-
+                            log.info(String.format("org.apache.ignite.spi.discovery.tcp.ClientImpl.MessageWorker.body#1 SEGMENTED"));
                             state = SEGMENTED;
 
                             notifyDiscovery(EVT_NODE_SEGMENTED, topVer, locNode, allVisibleNodes());
@@ -1696,7 +1696,7 @@ class ClientImpl extends TcpDiscoveryImpl {
                                     log.debug("Failed to restore closed connection, reconnect disabled, " +
                                         "local node segmented [networkTimeout=" + spi.netTimeout + ']');
                                 }
-
+                                log.info(String.format("org.apache.ignite.spi.discovery.tcp.ClientImpl.MessageWorker.body## SEGMENTED"));
                                 state = SEGMENTED;
 
                                 notifyDiscovery(EVT_NODE_SEGMENTED, topVer, locNode, allVisibleNodes());
@@ -1775,6 +1775,7 @@ class ClientImpl extends TcpDiscoveryImpl {
                                 if (state == DISCONNECTED) {
                                     U.error(log, "Failed to reconnect, segment local node.", err);
 
+                                    log.info(String.format("org.apache.ignite.spi.discovery.tcp.ClientImpl.MessageWorker.body#3 SEGMENTED"));
                                     state = SEGMENTED;
 
                                     notifyDiscovery(EVT_NODE_SEGMENTED, topVer, locNode, allVisibleNodes());
@@ -1811,6 +1812,8 @@ class ClientImpl extends TcpDiscoveryImpl {
          *
          */
         private void onDisconnected() {
+            U.dumpStack(log, "org.apache.ignite.spi.discovery.tcp.ClientImpl.MessageWorker.onDisconnected()");
+            log.info(String.format("current state: [%s] new state: [%s]", state, DISCONNECTED));
             state = DISCONNECTED;
 
             nodeAdded = false;
@@ -1851,6 +1854,7 @@ class ClientImpl extends TcpDiscoveryImpl {
                 if (join)
                     joinError(new IgniteSpiException("Join process timed out."));
                 else {
+                    log.info(String.format("org.apache.ignite.spi.discovery.tcp.ClientImpl.MessageWorker.tryJoin SEGMENTED"));
                     state = SEGMENTED;
 
                     notifyDiscovery(EVT_NODE_SEGMENTED, topVer, locNode, allVisibleNodes());
@@ -2027,7 +2031,9 @@ class ClientImpl extends TcpDiscoveryImpl {
                     notifyDiscovery(EVT_NODE_JOINED, topVer, locNode, nodes);
 
                     boolean disconnected = disconnected();
-
+                    U.dumpStack(log, "org.apache.ignite.spi.discovery.tcp.ClientImpl.MessageWorker.processNodeAddFinishedMessage RECONNECTED");
+                    log.info(String.format("org.apache.ignite.spi.discovery.tcp.ClientImpl.MessageWorker" +
+                            ".processNodeAddFinishedMessage old status: [%s] new status: [%s]", state, CONNECTED);
                     state = CONNECTED;
 
                     if (disconnected) {
