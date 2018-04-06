@@ -68,8 +68,8 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
     /**
      * @param gridName Grid name.
      */
-    public GridKernalGatewayImpl(String gridName, GridKernalContext ctx) {
-        log = ctx.log(this.getClass());
+    public GridKernalGatewayImpl(String gridName, IgniteLogger log) {
+        this.log = log;
         this.gridName = gridName;
     }
 

@@ -717,7 +717,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     )
         throws IgniteCheckedException
     {
-        gw.compareAndSet(null, new GridKernalGatewayImpl(cfg.getGridName(), ctx));
+        gw.compareAndSet(null, new GridKernalGatewayImpl(cfg.getGridName(), cfg.getGridLogger().getLogger(GridKernalGatewayImpl.class)));
 
         GridKernalGateway gw = this.gw.get();
 
@@ -2057,7 +2057,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
      * @param cancel Whether or not to cancel running jobs.
      */
     private void stop0(boolean cancel) {
-        gw.compareAndSet(null, new GridKernalGatewayImpl(gridName, ctx));
+        gw.compareAndSet(null, new GridKernalGatewayImpl(gridName, cfg.getGridLogger().getLogger(GridKernalGatewayImpl.class)));
 
         GridKernalGateway gw = this.gw.get();
 
