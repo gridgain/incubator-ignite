@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
@@ -1065,9 +1066,10 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
                     KeyCacheObject key = cctx.toCacheKeyObject(entry.getKey());
 
-                    List<IgniteBiTuple<Object, MvccVersion>> vers = cctx.offheap().mvccAllVersions(cctx, key);
+                    List<IgniteBiTuple<Object, MvccVersion>> vers = cctx.offheap().mvccAllVersions(cctx, key)
+                        .stream().filter(t -> t.get1() != null).collect(Collectors.toList());
 
-                    assertTrue("[entry="  + entry + "; vers=" + vers + ']', vers.size() <= 1);
+                    assertTrue("[key="  + key.value(null, false) + "; vers=" + vers + ']', vers.size() <= 1);
                 }
             }
         }

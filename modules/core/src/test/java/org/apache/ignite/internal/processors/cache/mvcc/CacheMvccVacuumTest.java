@@ -103,6 +103,8 @@ public class CacheMvccVacuumTest extends CacheMvccAbstractTest {
      * @throws Exception If failed.
      */
     public void testVacuumNotStartedWithoutMvccPersistence() throws Exception {
+        persistence = true;
+
         IgniteConfiguration cfg = getConfiguration("grid1").setMvccEnabled(false);
 
         Ignite node = startGrid(cfg);
