@@ -22,6 +22,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.testframework.GridTestUtils;
 
 /**
@@ -124,30 +125,15 @@ public class CacheMvccVacuumTest extends CacheMvccAbstractTest {
     private void ensureVacuum(Ignite node) {
         MvccProcessor crd = ((IgniteEx)node).context().cache().context().coordinators();
 
-        assertTrue(crd.vacuumIsActive());
-
-        List<VacuumWorker> vacuumWorkers = GridTestUtils.getFieldValue(crd, "vacuumWorkers");
+        List<GridWorker> vacuumWorkers = GridTestUtils.getFieldValue(crd, "vacuumWorkers");
 
         assertNotNull(vacuumWorkers);
         assertFalse(vacuumWorkers.isEmpty());
 
-        for (VacuumWorker w : vacuumWorkers) {
+        for (GridWorker w : vacuumWorkers) {
             assertFalse(w.isCancelled());
             assertFalse(w.isDone());
         }
-
-        VacuumScheduler vacuumScheduler = GridTestUtils.getFieldValue(crd, "vacuumScheduler");
-
-        assertNotNull(vacuumScheduler);
-        assertFalse(vacuumScheduler.isCancelled());
-        assertFalse(vacuumScheduler.isDone());
-
-        ScheduledExecutorService vacuumScheduledExecutor =
-            GridTestUtils.getFieldValue(crd, "vacuumScheduledExecutor");
-
-        assertNotNull(vacuumScheduledExecutor);
-        assertFalse(vacuumScheduledExecutor.isShutdown());
-        assertFalse(vacuumScheduledExecutor.isTerminated());
     }
 
     /**
@@ -158,19 +144,8 @@ public class CacheMvccVacuumTest extends CacheMvccAbstractTest {
     private void ensureNoVacuum(Ignite node) {
         MvccProcessor crd = ((IgniteEx)node).context().cache().context().coordinators();
 
-        assertFalse(crd.vacuumIsActive());
-
         List<VacuumWorker> vacuumWorkers = GridTestUtils.getFieldValue(crd, "vacuumWorkers");
 
         assertNull(vacuumWorkers);
-
-        VacuumScheduler vacuumScheduler = GridTestUtils.getFieldValue(crd, "vacuumScheduler");
-
-        assertNull(vacuumScheduler);
-
-        ScheduledExecutorService vacuumScheduledExecutor =
-            GridTestUtils.getFieldValue(crd, "vacuumScheduledExecutor");
-
-        assertNull(vacuumScheduledExecutor);
     }
 }
