@@ -170,9 +170,6 @@ public class GridSqlSelect extends GridSqlQuery {
 
         getSortLimitSQL(buff);
 
-        if (isForUpdate)
-            buff.append("\nFOR UPDATE");
-
         return buff.toString();
     }
 
@@ -377,7 +374,7 @@ public class GridSqlSelect extends GridSqlQuery {
     }
 
     /**
-     * @return Whether this statement is {@code FOR UPDATE}.
+     * @param forUpdate Whether this statement is {@code FOR UPDATE}.
      */
     public void forUpdate(boolean forUpdate) {
         isForUpdate = forUpdate;

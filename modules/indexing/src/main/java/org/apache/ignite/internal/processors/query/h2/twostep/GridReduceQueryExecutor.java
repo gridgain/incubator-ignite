@@ -59,12 +59,13 @@ import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryType;
 import org.apache.ignite.internal.processors.cache.query.GridCacheSqlQuery;
 import org.apache.ignite.internal.processors.cache.query.GridCacheTwoStepQuery;
-import org.apache.ignite.internal.processors.cache.transactions.IgniteTxAdapter;
 import org.apache.ignite.internal.processors.query.GridQueryCacheObjectsIterator;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.GridRunningQueryInfo;
@@ -91,6 +92,7 @@ import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiClosure;
 import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.transactions.TransactionException;
 import org.h2.command.ddl.CreateTableData;
@@ -515,7 +517,6 @@ public class GridReduceQueryExecutor {
      * @param params Query parameters.
      * @param parts Partitions.
      * @param lazy Lazy execution flag.
-     * @param forUpdate
      * @param mvccTracker Query tracker.
      * @return Rows iterator.
      */
@@ -529,7 +530,6 @@ public class GridReduceQueryExecutor {
         Object[] params,
         final int[] parts,
         boolean lazy,
-        boolean forUpdate,
         MvccQueryTracker mvccTracker) {
         assert !qry.mvccEnabled() || mvccTracker != null;
 
@@ -722,7 +722,7 @@ public class GridReduceQueryExecutor {
                 if (lazy && mapQrys.size() == 1)
                     flags |= GridH2QueryRequest.FLAG_LAZY;
 
-                if (forUpdate)
+                if (qry.forUpdate())
                     flags |= GridH2QueryRequest.FOR_UPDATE;
 
                 GridH2QueryRequest req = new GridH2QueryRequest()
@@ -738,7 +738,37 @@ public class GridReduceQueryExecutor {
                     .timeout(timeoutMillis)
                     .schemaName(schemaName);
 
-                IgniteTxAdapter curTx = h2.activeTx();
+                GridNearTxLocal curTx = h2.activeTx();
+
+                if (qry.forUpdate()) {
+                    // Indexing should have started TX at this point for FOR UPDATE query.
+                    assert curTx != null;
+
+                    GridNearTxQueryEnlistRequest txReq = new GridNearTxQueryEnlistRequest(
+                        qry.cacheIds().get(0),
+                        curTx.threadId(),
+                        IgniteUuid.randomUuid(),
+                        -1,
+                        curTx.subjectId(),
+                        null,/*Topology version: carried by parent request.*/
+                        curTx.xidVersion(),
+                        null,/*MVCC snapshot: carried by parent request.*/
+                        null,/*Cache ids: carried by parent request.*/
+                        null,/*Partitions: carried by parent request.*/
+                        null,/*Schema name: carried by parent request.*/
+                        null,/*Query: carried by parent request.*/
+                        null,/*Query params: carried by parent request.*/
+                        flags,
+                        qry.pageSize(),
+                        timeoutMillis,
+                        curTx.taskNameHash(),
+                        ctx.clientNode() && !curTx.hasRemoteLocks()
+                    );
+
+                    req.txRequest(txReq);
+                }
+
+
 
                 if (curTx != null && curTx.mvccInfo() != null)
                     req.mvccSnapshot(curTx.mvccInfo().snapshot());

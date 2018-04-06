@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.query.h2.twostep;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
@@ -70,6 +71,10 @@ import org.apache.ignite.internal.processors.query.h2.UpdateResult;
 import org.apache.ignite.internal.processors.query.h2.opt.DistributedJoinMode;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RetryException;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlColumn;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSelect;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlStatement;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryCancelRequest;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryFailResponse;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryNextPageRequest;
@@ -702,6 +707,19 @@ public class GridMapQueryExecutor {
                 boolean evt = mainCctx != null && mainCctx.events().isRecordable(EVT_CACHE_QUERY_EXECUTED);
 
                 for (GridCacheSqlQuery qry : qrys) {
+                    if (pageFutSupp != null) {
+                        PreparedStatement ps = h2.prepareNativeStatement(schemaName, qry.query());
+
+                        GridSqlStatement stmt = new GridSqlQueryParser(false)
+                            .parse(GridSqlQueryParser.prepared(ps));
+
+                        assert stmt instanceof GridSqlSelect;
+
+                        GridSqlSelect sel = (GridSqlSelect)stmt;
+
+                        sel.addColumn(new GridSqlColumn(sel.ta, sel.from(), ))
+                    }
+
                     ResultSet rs = null;
 
                     // If we are not the target node for this replicated query, just ignore it.
@@ -1012,6 +1030,16 @@ public class GridMapQueryExecutor {
 
         boolean last = res.fetchNextPage(rows, pageSize);
 
+        QueryPageEnlistFutureSupplier futSupp = qr.pageFutureSupplier();
+
+        if (futSupp != null) {
+            QueryPageEnlistFuture fut = futSupp.apply(rows);
+
+            fut.listen(new PageEnlistFutureListener());
+
+            fut.init();
+        }
+
         if (last) {
             res.close();
 
@@ -1022,16 +1050,6 @@ public class GridMapQueryExecutor {
                 if (MapQueryLazyWorker.currentWorker() != null)
                     releaseReservations();
             }
-        }
-
-        QueryPageEnlistFutureSupplier futSupp = qr.pageFutureSupplier();
-
-        if (futSupp != null) {
-            QueryPageEnlistFuture fut = futSupp.apply(rows);
-
-            fut.listen(new PageEnlistFutureListener());
-
-            fut.init();
         }
 
         try {

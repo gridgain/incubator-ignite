@@ -99,12 +99,12 @@ import org.apache.ignite.internal.processors.query.GridQueryRowCacheCleaner;
 import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
 import org.apache.ignite.internal.processors.query.GridRunningQueryInfo;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
+import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
 import org.apache.ignite.internal.processors.query.NestedTxMode;
 import org.apache.ignite.internal.processors.query.QueryField;
 import org.apache.ignite.internal.processors.query.QueryIndexDescriptorImpl;
 import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.processors.query.SqlClientContext;
-import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
 import org.apache.ignite.internal.processors.query.h2.database.H2RowFactory;
 import org.apache.ignite.internal.processors.query.h2.database.H2TreeIndex;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasInnerIO;
@@ -128,6 +128,7 @@ import org.apache.ignite.internal.processors.query.h2.sql.GridSqlAst;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuery;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuerySplitter;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSelect;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlStatement;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlTable;
 import org.apache.ignite.internal.processors.query.h2.twostep.GridMapQueryExecutor;
@@ -1559,7 +1560,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      * @param params Query parameters.
      * @param parts Partitions.
      * @param lazy Lazy query execution flag.
-     * @param forUpdate
      * @param mvccTracker Query tracker.
      * @return Iterable result.
      */
@@ -1574,7 +1574,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         final Object[] params,
         final int[] parts,
         final boolean lazy,
-        final boolean forUpdate,
         MvccQueryTracker mvccTracker) {
         assert !qry.mvccEnabled() || !F.isEmpty(qry.cacheIds());
 
@@ -1582,10 +1581,17 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             final MvccQueryTracker tracker = mvccTracker == null && qry.mvccEnabled() ?
                 mvccTracker(ctx.cache().context().cacheContext(qry.cacheIds().get(0)), startTx) : mvccTracker;
 
+            if (qry.forUpdate()) {
+                GridNearTxLocal curTx = activeTx();
+
+                if (curTx  == null)
+                    txStart(ctx.cache().context().cacheContext(qry.cacheIds().get(0)), 0);
+            }
+
             return new Iterable<List<?>>() {
                 @Override public Iterator<List<?>> iterator() {
                     return rdcQryExec.query(schemaName, qry, keepCacheObj, enforceJoinOrder, timeoutMillis,
-                        cancel, params, parts, lazy, forUpdate, tracker);
+                        cancel, params, parts, lazy, tracker);
                 }
             };
         }
@@ -2189,8 +2195,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         Object[] args = null;
 
-        boolean forUpdate = false;
-
         if (!DmlUtils.isBatched(qry) && paramsCnt > 0) {
             if (argsOrig == null || argsOrig.length < firstArg + paramsCnt) {
                 throw new IgniteException("Invalid number of query parameters. " +
@@ -2199,6 +2203,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             args = Arrays.copyOfRange(argsOrig, firstArg, firstArg + paramsCnt);
         }
+
+        GridSqlStatement parsedStmt = null;
 
         if (prepared.isQuery()) {
             try {
@@ -2216,7 +2222,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             if (!loc) {
                 parser = new GridSqlQueryParser(false);
 
-                GridSqlStatement parsedStmt = parser.parse(prepared);
+                parsedStmt = parser.parse(prepared);
 
                 // Legit assertion - we have H2 query flag above.
                 assert parsedStmt instanceof GridSqlQuery;
@@ -2228,7 +2234,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 if (parser == null) {
                     parser = new GridSqlQueryParser(false);
 
-                    parser.parse(prepared);
+                    parsedStmt = parser.parse(prepared);
                 }
 
                 GridCacheContext cctx = parser.getFirstPartitionedCache();
@@ -2276,8 +2282,12 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 .distributedJoinMode(distributedJoinMode(qry.isLocal(), qry.isDistributedJoins())));
 
             try {
-                return new ParsingResult(prepared, newQry, remainingSql, split(prepared, newQry),
-                    cachedQryKey, H2Utils.meta(stmt.getMetaData()));
+                GridCacheTwoStepQuery twoStepQry = split(prepared, newQry);
+
+                twoStepQry.forUpdate(parsedStmt instanceof GridSqlSelect && ((GridSqlSelect)parsedStmt).isForUpdate());
+
+                return new ParsingResult(prepared, newQry, remainingSql, twoStepQry, cachedQryKey,
+                    H2Utils.meta(stmt.getMetaData()));
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteSQLException("Failed to bind parameters: [qry=" + newQry.getSql() + ", params=" +
@@ -2438,7 +2448,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         QueryCursorImpl<List<?>> cursor = new QueryCursorImpl<>(
             runQueryTwoStep(schemaName, twoStepQry, keepBinary, qry.isEnforceJoinOrder(), startTx, qry.getTimeout(),
-                cancel, qry.getArgs(), partitions, qry.isLazy(), twoStepQry.forUpdate(), mvccTracker), cancel);
+                cancel, qry.getArgs(), partitions, qry.isLazy(), mvccTracker), cancel);
 
         cursor.fieldsMeta(meta);
 
