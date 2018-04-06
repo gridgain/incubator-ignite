@@ -41,7 +41,7 @@ public abstract class AbstractUploadBenchmark extends AbstractJdbcBenchmark {
     long warmupRowsCnt;
 
     /** Factory that hides all the test data details. */
-    protected volatile QueryFactory queries;
+    protected QueryFactory queries;
 
     /** {@inheritDoc} */
     @Override public final void setUp(BenchmarkConfiguration cfg) throws Exception {
