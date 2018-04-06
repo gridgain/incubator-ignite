@@ -69,7 +69,7 @@ public class VacuumWorker  extends GridWorker {
      * @param cleanupQueue Cleanup tasks queue.
      */
     VacuumWorker(GridKernalContext ctx, IgniteLogger log, BlockingQueue<VacuumTask> cleanupQueue) {
-        super(ctx.igniteInstanceName(), "vacuum-cleaner-cache-id=" + workerCntr++, log);
+        super(ctx.igniteInstanceName(), "vacuum-cleaner-id=" + workerCntr++, log);
 
         this.ctx = ctx;
         this.cleanupQueue = cleanupQueue;

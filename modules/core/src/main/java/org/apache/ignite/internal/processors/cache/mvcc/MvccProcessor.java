@@ -201,7 +201,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     private final BlockingQueue<VacuumTask> cleanupQueue = new LinkedBlockingQueue<>();
 
     /** */
-    private final List<VacuumWorker> vacuumWorkers;
+    private List<VacuumWorker> vacuumWorkers;
 
     /** */
     private final Semaphore vacuumSemaphore = new Semaphore(1);
@@ -222,8 +222,6 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         super(ctx);
 
         ctx.internalSubscriptionProcessor().registerDatabaseListener(this);
-
-        vacuumWorkers = new ArrayList<>(ctx.config().getMvccVacuumThreadCnt());
     }
 
     /** {@inheritDoc} */
@@ -873,11 +871,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
 
             txLog = new TxLog(ctx, mgr);
 
-            if (!ctx.clientNode() && MvccUtils.mvccEnabled(ctx) && vacuumActive.compareAndSet(false, true)) {
-                startVacuumWorkers();
-
-                startVacuumScheduler();
-            }
+            startVacuum();
         }
     }
 
@@ -898,21 +892,98 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
 
         txLog = new TxLog(ctx, mgr);
 
-        if (!ctx.clientNode() && MvccUtils.mvccEnabled(ctx) && vacuumActive.compareAndSet(false, true)) {
-            startVacuumWorkers();
-
-            startVacuumScheduler();
-        }
+        startVacuum();
     }
+
+
 
     /** {@inheritDoc} */
     @Override public void beforeStop(IgniteCacheDatabaseSharedManager mgr) {
         txLog = null;
 
-        if (!ctx.clientNode() && MvccUtils.mvccEnabled(ctx) && vacuumActive.compareAndSet(true, false)) {
-            stopVacuumScheduler();
+        stopVacuum();
+    }
 
-            stopVacuumWorkers();
+    /**
+     * Launches vacuum workers and scheduler.
+     */
+    private void startVacuum() {
+        if (!ctx.clientNode() && MvccUtils.mvccEnabled(ctx)) {
+            boolean wasInactive = vacuumActive.compareAndSet(false, true);
+
+            assert wasInactive;
+            assert vacuumWorkers == null;
+            assert vacuumScheduledExecutor == null;
+            assert vacuumScheduler == null;
+            assert vacuumSchedulerTaskFut == null;
+
+            if (wasInactive) {
+                vacuumWorkers = new ArrayList<>(ctx.config().getMvccVacuumThreadCnt());
+
+                // Start workers.
+                for (int i = 0; i < ctx.config().getMvccVacuumThreadCnt(); i++) {
+                    VacuumWorker vacuumWorker = new VacuumWorker(ctx, log, cleanupQueue);
+
+                    vacuumWorkers.add(vacuumWorker);
+
+                    new IgniteThread(vacuumWorker).start();
+                }
+
+                //Start scheduler.
+                vacuumScheduledExecutor = (ScheduledThreadPoolExecutor)Executors.newScheduledThreadPool(1,
+                    new ThreadFactory() {
+                        @Override public Thread newThread(Runnable r) {
+                            Thread thread = new Thread(r, "vacuum-scheduler-node-" +
+                                ctx.grid().localNode().order());
+
+                            thread.setDaemon(true);
+
+                            return thread;
+                        }
+                    });
+
+                vacuumScheduler = new VacuumScheduler(ctx, log);
+
+                int interval = ctx.config().getMvccVacuumTimeInterval();
+
+                vacuumScheduledExecutor.setRemoveOnCancelPolicy(true);
+
+                vacuumSchedulerTaskFut = vacuumScheduledExecutor.scheduleWithFixedDelay(vacuumScheduler,
+                    interval, interval, TimeUnit.MILLISECONDS);
+            }
+        }
+    }
+
+    /**
+     * Stops vacuum worker and scheduler.
+     */
+    private void stopVacuum() {
+        if (!ctx.clientNode() && MvccUtils.mvccEnabled(ctx)) {
+            if (vacuumActive.compareAndSet(true, false)) {
+                assert vacuumWorkers != null;
+                assert vacuumScheduledExecutor != null;
+                assert vacuumScheduler != null;
+                assert vacuumSchedulerTaskFut != null;
+
+                // Stop vacuum scheduler.
+                U.cancel(vacuumScheduler);
+                U.join(vacuumScheduler, log);
+
+                vacuumSchedulerTaskFut.cancel(true);
+
+                U.shutdownNow(MvccProcessor.class, vacuumScheduledExecutor, log);
+
+                // Stop vacuum workers.
+                U.cancel(vacuumWorkers);
+                U.join(vacuumWorkers, log);
+
+                vacuumWorkers = null;
+                vacuumScheduler = null;
+                vacuumScheduledExecutor = null;
+                vacuumSchedulerTaskFut = null;
+            }
+            else
+                U.warn(log, "Attempting to stop inactive vacuum.");
         }
     }
 
@@ -1388,81 +1459,6 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         compoundFut.markInitialized();
 
         return compoundFut;
-    }
-
-    /**
-     * Start vacuum workers.
-     */
-    private void startVacuumWorkers() {
-        assert !ctx.clientNode();
-        assert vacuumWorkers.isEmpty();
-
-        for (int i = 0; i < ctx.config().getMvccVacuumThreadCnt(); i++) {
-            VacuumWorker vacuumWorker = new VacuumWorker(ctx, log, cleanupQueue);
-
-            vacuumWorkers.add(vacuumWorker);
-
-            new IgniteThread(vacuumWorker).start();
-        }
-    }
-
-    /**
-     * Stop vacuum workers.
-     */
-    private void stopVacuumWorkers() {
-        assert !ctx.clientNode();
-
-        U.cancel(vacuumWorkers);
-
-        vacuumWorkers.clear();
-    }
-
-    /**
-     * Start vacuum scheduler.
-     */
-    private void startVacuumScheduler() {
-        assert vacuumScheduler == null;
-        assert vacuumScheduledExecutor == null;
-
-        vacuumScheduledExecutor = (ScheduledThreadPoolExecutor)Executors.newScheduledThreadPool(1,
-            new ThreadFactory() {
-                @Override public Thread newThread(Runnable r) {
-                    Thread thread = new Thread(r, "vacuum-scheduler-node-" + ctx.grid().localNode().order());
-
-                    thread.setDaemon(true);
-
-                    return thread;
-                }
-            });
-
-        vacuumScheduler = new VacuumScheduler(ctx, log);
-
-        int interval = ctx.config().getMvccVacuumTimeInterval();
-
-        vacuumScheduledExecutor.setRemoveOnCancelPolicy(true);
-
-        vacuumSchedulerTaskFut = vacuumScheduledExecutor
-            .scheduleWithFixedDelay(vacuumScheduler, interval, interval, TimeUnit.MILLISECONDS);
-    }
-
-    /**
-     * Stop vacuum scheduler.
-     */
-    private void stopVacuumScheduler() {
-        assert !ctx.clientNode();
-
-        if(vacuumScheduler != null && !vacuumScheduler.isCancelled()) {
-            U.cancel(vacuumScheduler);
-
-            vacuumScheduler = null;
-        }
-
-        vacuumSchedulerTaskFut.cancel(true);
-
-        U.shutdownNow(MvccProcessor.class, vacuumScheduledExecutor, log);
-
-        vacuumScheduledExecutor = null;
-        vacuumSchedulerTaskFut = null;
     }
 
     /**

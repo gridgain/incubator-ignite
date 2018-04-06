@@ -101,8 +101,6 @@ public class JdbcThinConnectionSelfTest extends JdbcThinAbstractSelfTest {
 
         cfg.setGridLogger(new GridStringLogger());
 
-        cfg.setMvccEnabled(true);
-
         return cfg;
     }
 

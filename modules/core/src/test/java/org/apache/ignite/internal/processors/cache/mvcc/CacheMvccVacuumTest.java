@@ -162,8 +162,7 @@ public class CacheMvccVacuumTest extends CacheMvccAbstractTest {
 
         List<VacuumWorker> vacuumWorkers = GridTestUtils.getFieldValue(crd, "vacuumWorkers");
 
-        assertNotNull(vacuumWorkers);
-        assertTrue(vacuumWorkers.isEmpty());
+        assertNull(vacuumWorkers);
 
         VacuumScheduler vacuumScheduler = GridTestUtils.getFieldValue(crd, "vacuumScheduler");
 
