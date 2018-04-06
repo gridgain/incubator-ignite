@@ -117,8 +117,11 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         cfg.setConsistentId(igniteInstanceName);
 
-        if (disableAutoActivation)
+        if (disableAutoActivation) {
             cfg.setActiveOnStart(false);
+
+            cfg.setAutoActivationEnabled(false);
+        }
 
         cfg.setDataStorageConfiguration(
             new DataStorageConfiguration().setDefaultDataRegionConfiguration(
