@@ -2033,7 +2033,7 @@ class ClientImpl extends TcpDiscoveryImpl {
                     boolean disconnected = disconnected();
                     U.dumpStack(log, "org.apache.ignite.spi.discovery.tcp.ClientImpl.MessageWorker.processNodeAddFinishedMessage RECONNECTED");
                     log.info(String.format("org.apache.ignite.spi.discovery.tcp.ClientImpl.MessageWorker" +
-                            ".processNodeAddFinishedMessage old status: [%s] new status: [%s]", state, CONNECTED);
+                            ".processNodeAddFinishedMessage old status: [%s] new status: [%s]", state, CONNECTED));
                     state = CONNECTED;
 
                     if (disconnected) {
