@@ -349,9 +349,6 @@ public class IgniteProcessProxy implements IgniteEx {
         if (proxy == null)
             return;
 
-        if (proxy == null)
-            return;
-
         try {
             proxy.getProcess().kill();
         }
