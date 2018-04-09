@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -91,7 +92,6 @@ import org.apache.ignite.internal.processors.cacheobject.UserKeyCacheObjectImpl;
 import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.MutableSingletonList;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.lang.GridMapEntry;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
@@ -449,6 +449,9 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
         }
 
         {
+            if (obj.getClass().equals(BinaryUtils.SINGLETON_SET_CLS))
+                return Collections.singleton(marshalToBinary(((Collection)obj).iterator().next(),failIfUnregistered));
+
             Collection<Object> pCol = BinaryUtils.newKnownCollection(obj);
 
             if (pCol != null) {
@@ -457,11 +460,18 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
                 for (Object item : col)
                     pCol.add(marshalToBinary(item, failIfUnregistered));
 
-                return (pCol instanceof MutableSingletonList) ? U.convertToSingletonList(pCol) : pCol;
+                return U.unwrapSingletonList(pCol);
             }
         }
 
         {
+            if (obj.getClass().equals(BinaryUtils.SINGLETON_MAP_CLS)) {
+                Map<Object, Object> m = (Map<Object, Object>)obj;
+                Map.Entry<Object, Object> entry = m.entrySet().iterator().next();
+
+                return Collections.singletonMap(marshalToBinary(entry.getKey(),failIfUnregistered), marshalToBinary(entry.getValue(),failIfUnregistered));
+            }
+
             Map<Object, Object> pMap = BinaryUtils.newKnownMap(obj);
 
             if (pMap != null) {

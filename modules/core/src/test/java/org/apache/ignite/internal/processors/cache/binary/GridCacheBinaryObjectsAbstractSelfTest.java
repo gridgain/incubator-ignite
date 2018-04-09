@@ -473,7 +473,76 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     }
 
     /**
-     * @throws Exception If failed.
+     * Checks deserialization of elements in the singleton map.
+     */
+    @Test
+    public void testSingletonMap() {
+        IgniteCache<Integer, Map<TestObject, TestObject>> c = jcache(0);
+
+        TestObject obj = new TestObject(123);
+
+        c.put(0, Collections.singletonMap(obj, obj));
+        c.put(1, Collections.singletonMap(null, null));
+
+        assertEquals(1, c.get(0).size());
+
+        Map.Entry<TestObject, TestObject> entry = c.get(0).entrySet().iterator().next();
+
+        assertEquals(123, entry.getKey().val);
+        assertEquals(123, entry.getValue().val);
+
+        IgniteCache<Integer, Map<BinaryObject, BinaryObject>> kpc = keepBinaryCache();
+
+        Map<?, ?> cBinary = kpc.get(0);
+
+        assertEquals(Collections.singletonMap(null, null).getClass(), cBinary.getClass());
+
+        Map.Entry<?, ?> binaryEntry = kpc.get(0).entrySet().iterator().next();
+
+        assertTrue(binaryEntry.getKey() instanceof BinaryObject);
+        assertTrue(binaryEntry.getValue() instanceof BinaryObject);
+        assertEquals(Integer.valueOf(123), ((BinaryObject)binaryEntry.getKey()).field("val"));
+        assertEquals(Integer.valueOf(123), ((BinaryObject)binaryEntry.getValue()).field("val"));
+
+        Map.Entry<?, ?> nullEntry = kpc.get(1).entrySet().iterator().next();
+
+        assertNull(nullEntry.getKey());
+        assertNull(nullEntry.getValue());
+    }
+
+    /**
+     * Checks deserialization of elements in the singleton set.
+     */
+    @Test
+    public void testSingletonSet() {
+        IgniteCache<Integer, Collection<TestObject>> c = jcache(0);
+
+        c.put(0, Collections.singleton(new TestObject(123)));
+        c.put(1, Collections.singleton(null));
+
+        assertEquals(1, c.get(0).size());
+        assertEquals(1, c.get(1).size());
+
+        assertEquals(123, c.get(0).iterator().next().val);
+        assertNull(c.get(1).iterator().next());
+
+        IgniteCache<Integer, Collection<BinaryObject>> kpc = keepBinaryCache();
+
+        Collection<?> binarySet = kpc.get(0);
+
+        assertEquals(Collections.singleton(null).getClass(), binarySet.getClass());
+        assertEquals(1, binarySet.size());
+
+        Object obj = binarySet.iterator().next();
+        assertTrue(obj instanceof BinaryObject);
+        assertEquals(Integer.valueOf(123), ((BinaryObject)obj).field("val"));
+
+        assertNull(c.get(1).iterator().next());
+    }
+
+
+    /**
+     * Checks deserialization of elements in the singleton set.
      */
     @Test
     public void testSingletonList() throws Exception {
@@ -481,23 +550,20 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
 
         c.put(0, Collections.singletonList(new TestObject(123)));
 
-        Collection<TestObject> cFromCache = c.get(0);
-
-        assertEquals(1, cFromCache.size());
-        assertEquals(123, cFromCache.iterator().next().val);
+        assertEquals(1, c.get(0).size());
+        assertEquals(123, c.get(0).iterator().next().val);
 
         IgniteCache<Integer, Collection<BinaryObject>> kpc = keepBinaryCache();
 
         Collection<?> cBinary = kpc.get(0);
 
+        assertEquals(Collections.singletonList(null).getClass(), cBinary.getClass());
         assertEquals(1, cBinary.size());
 
-        Object bObj = cBinary.iterator().next();
+        Object obj = cBinary.iterator().next();
 
-        assertTrue(bObj instanceof BinaryObject);
-        assertEquals(Collections.singletonList(null).getClass(), cBinary.getClass());
-
-        assertEquals(Integer.valueOf(123), ((BinaryObject) bObj).field("val"));
+        assertTrue(obj instanceof BinaryObject);
+        assertEquals(Integer.valueOf(123), ((BinaryObject)obj).field("val"));
     }
 
     /**
@@ -530,7 +596,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testBasicArrays() throws Exception {
         IgniteCache<Integer, Object> cache = jcache(0);
 
@@ -747,7 +812,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testGetAll() throws Exception {
         IgniteCache<Integer, TestObject> c = jcache(0);
 
@@ -788,7 +852,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testGetAllAsync() throws Exception {
         IgniteCache<Integer, TestObject> c = jcache(0);
 
@@ -829,7 +892,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testGetAllTx1() throws Exception {
         checkGetAllTx(PESSIMISTIC, REPEATABLE_READ);
     }
@@ -837,7 +899,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testGetAllTx2() throws Exception {
         checkGetAllTx(PESSIMISTIC, READ_COMMITTED);
     }
@@ -903,7 +964,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testGetAllAsyncTx1() throws Exception {
         checkGetAllAsyncTx(PESSIMISTIC, REPEATABLE_READ);
     }
@@ -911,7 +971,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testGetAllAsyncTx2() throws Exception {
         checkGetAllAsyncTx(PESSIMISTIC, READ_COMMITTED);
     }
@@ -977,7 +1036,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
      *
      */
     @SuppressWarnings("unchecked")
-    @Test
     public void testCrossFormatObjectsIdentity() {
         IgniteCache c = binKeysCache();
 
@@ -999,7 +1057,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
      *
      */
     @SuppressWarnings("unchecked")
-    @Test
     public void testPutWithArrayHashing() {
         IgniteCache c = binKeysCache();
 
@@ -1034,7 +1091,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
      *
      */
     @SuppressWarnings("unchecked")
-    @Test
     public void testPutWithFieldsHashing() {
         IgniteCache c = binKeysCache();
 
@@ -1068,7 +1124,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
      *
      */
     @SuppressWarnings("unchecked")
-    @Test
     public void testPutWithCustomHashing() {
         IgniteCache c = binKeysCache();
 
@@ -1099,7 +1154,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception if failed.
      */
-    @Test
     public void testKeepBinaryTxOverwrite() throws Exception {
         if (atomicityMode() != TRANSACTIONAL)
             return;
@@ -1124,7 +1178,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testLoadCache() throws Exception {
         for (int i = 0; i < gridCount(); i++)
             jcache(i).localLoadCache(null);
@@ -1141,7 +1194,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testLoadCacheAsync() throws Exception {
         for (int i = 0; i < gridCount(); i++)
             jcache(i).loadCacheAsync(null).get();
@@ -1158,7 +1210,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testLoadCacheFilteredAsync() throws Exception {
         for (int i = 0; i < gridCount(); i++) {
             IgniteCache<Integer, TestObject> c = jcache(i);
@@ -1183,7 +1234,6 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
     /**
      * @throws Exception If failed.
      */
-    @Test
     public void testTransform() throws Exception {
         IgniteCache<Integer, BinaryObject> c = keepBinaryCache();
 
@@ -1403,7 +1453,7 @@ public abstract class GridCacheBinaryObjectsAbstractSelfTest extends GridCommonA
      * Key to test puts and gets with
      */
     @SuppressWarnings({"ConstantConditions", "unused"})
-    private static final class ComplexBinaryFieldsListHashedKey {
+    private final static class ComplexBinaryFieldsListHashedKey {
         /** */
         private final Integer firstField = 1;
 
