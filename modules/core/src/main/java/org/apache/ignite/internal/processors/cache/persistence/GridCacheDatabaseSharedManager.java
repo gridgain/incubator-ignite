@@ -773,7 +773,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             WALPointer ptr = cctx.wal().log(new MemoryRecoveryRecord(U.currentTimeMillis()));
 
             if (ptr != null) {
-                cctx.wal().flush(ptr, true);
+                cctx.wal().fsync(ptr);
 
                 nodeStart(ptr);
             }
@@ -3185,12 +3185,8 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             if (hasPages) {
                 assert cpPtr != null;
 
-                tracker.onWalCpRecordFsyncStart();
-
                 // Sync log outside the checkpoint write lock.
-                cctx.wal().flush(cpPtr, true);
-
-                tracker.onWalCpRecordFsyncEnd();
+                cctx.wal().fsync(cpPtr);
 
                 long cpTs = System.currentTimeMillis();
 
@@ -3216,12 +3212,11 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                 if (printCheckpointStats)
                     if (log.isInfoEnabled())
                         log.info(String.format("Checkpoint started [checkpointId=%s, startPtr=%s, checkpointLockWait=%dms, " +
-                                "checkpointLockHoldTime=%dms, walCpRecordFsyncDuration=%dms, pages=%d, reason='%s']",
+                                "checkpointLockHoldTime=%dms, pages=%d, reason='%s']",
                             cpRec.checkpointId(),
                             cpPtr,
                             tracker.lockWaitDuration(),
                             tracker.lockHoldDuration(),
-                            tracker.walCpRecordFsyncDuration(),
                             cpPages.size(),
                             curr.reason)
                         );
@@ -3230,7 +3225,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             }
             else {
                 if (curr.nextSnapshot)
-                    cctx.wal().flush(null, true);
+                    cctx.wal().fsync(null);
 
                 if (printCheckpointStats) {
                     if (log.isInfoEnabled())

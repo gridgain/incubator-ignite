@@ -649,7 +649,7 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
     }
 
     /** {@inheritDoc} */
-    @Override public void flush(WALPointer ptr, boolean explicitFsync) throws IgniteCheckedException, StorageException {
+    @Override public void fsync(WALPointer ptr) throws IgniteCheckedException, StorageException {
         if (serializer == null || mode == WALMode.NONE)
             return;
 

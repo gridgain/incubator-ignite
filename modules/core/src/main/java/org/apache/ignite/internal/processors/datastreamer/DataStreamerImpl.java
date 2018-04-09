@@ -2157,7 +2157,7 @@ public class DataStreamerImpl<K, V> implements IgniteDataStreamer<K, V>, Delayed
 
                 try {
                     if (!cctx.isNear() && cctx.shared().wal() != null)
-                        cctx.shared().wal().flush(null, false);
+                        cctx.shared().wal().fsync(null);
                 }
                 catch (IgniteCheckedException e) {
                     U.error(log, "Failed to write preloaded entries into write-ahead log.", e);

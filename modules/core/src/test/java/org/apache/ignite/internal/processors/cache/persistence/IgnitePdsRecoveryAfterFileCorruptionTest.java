@@ -285,7 +285,7 @@ public class IgnitePdsRecoveryAfterFileCorruptionTest extends GridCommonAbstract
 
         WALPointer start = wal.log(cpRec);
 
-        wal.flush(start, false);
+        wal.fsync(start);
 
         for (int i = 0; i < totalPages; i++) {
             FullPageId fullId = pages[i];
@@ -375,7 +375,7 @@ public class IgnitePdsRecoveryAfterFileCorruptionTest extends GridCommonAbstract
             info("Finished checkpoint");
         }
 
-        wal.flush(wal.log(new CheckpointRecord(null)), false);
+        wal.fsync(wal.log(new CheckpointRecord(null)));
 
         for (FullPageId fullId : pages) {
             long page = mem.acquirePage(fullId.groupId(), fullId.pageId());

@@ -1190,7 +1190,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         try {
             if (!cache.isNear() && ctx.shared().wal() != null) {
                 try {
-                    ctx.shared().wal().flush(null, false);
+                    ctx.shared().wal().fsync(null);
                 }
                 catch (IgniteCheckedException e) {
                     U.error(log, "Failed to flush write-ahead log on cache stop " +
