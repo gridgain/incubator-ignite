@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagemem.wal.record;
 
+import java.io.Serializable;
 import org.apache.ignite.configuration.WALMode;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
@@ -25,7 +26,7 @@ import org.apache.ignite.internal.util.typedef.internal.S;
 /**
  * Log entry abstract class.
  */
-public abstract class WALRecord {
+public abstract class WALRecord implements Serializable {
     /**
      * Record type. Ordinal of this record will be written to file. <br>
      * <b>Note:</b> Do not change order of elements <br>
