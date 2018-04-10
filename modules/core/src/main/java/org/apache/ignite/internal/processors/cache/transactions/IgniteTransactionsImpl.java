@@ -209,7 +209,7 @@ public class IgniteTransactionsImpl<K, V> implements IgniteTransactionsEx {
     @Override public Collection<Transaction> localActiveTransactions() {
         return F.viewReadOnly(cctx.tm().activeTransactions(), new IgniteClosure<IgniteInternalTx, Transaction>() {
             @Override public Transaction apply(IgniteInternalTx tx) {
-                return ((GridNearTxLocal)tx).proxy();
+                return ((GridNearTxLocal)tx).rollbackOnlyProxy();
             }
         }, new IgnitePredicate<IgniteInternalTx>() {
             @Override public boolean apply(IgniteInternalTx tx) {
@@ -219,10 +219,10 @@ public class IgniteTransactionsImpl<K, V> implements IgniteTransactionsEx {
     }
 
     /** {@inheritDoc} */
-    @Override public IgniteTransactions withLabel(String label) {
-        A.notNull(label, "label should not be empty.");
+    @Override public IgniteTransactions withLabel(String lb) {
+        A.notNull(lb, "label should not be empty.");
 
-        return new IgniteTransactionsImpl<>(cctx, label);
+        return new IgniteTransactionsImpl<>(cctx, lb);
     }
 
     /**

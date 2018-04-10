@@ -21,15 +21,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
-import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
@@ -56,9 +52,6 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
  */
 public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
     /** */
-    public static final int DURATION = 10_000;
-
-    /** */
     public static final int ROLLBACK_TIMEOUT = 500;
 
     /** */
@@ -77,17 +70,14 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
     private static final int TOTAL_CNT = SRV_CNT + CLNT_CNT;
 
     /** */
-    private static final int RESTART_CNT = 2;
-
-    /** */
-    public static final int THREADS_CNT = 1;
+    public static final int ITERATIONS = 100;
 
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         cfg.setTransactionConfiguration(new TransactionConfiguration().
-            setRollbackOnTopologyChangeTimeout(ROLLBACK_TIMEOUT));
+            setTxTimeoutOnPartitionMapExchange(ROLLBACK_TIMEOUT));
 
         ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(IP_FINDER);
 
@@ -132,18 +122,16 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
 
         log.info("Using seed: " + seed);
 
-        AtomicIntegerArray idx = new AtomicIntegerArray(TOTAL_CNT);
+        AtomicIntegerArray reservedIdx = new AtomicIntegerArray(TOTAL_CNT);
 
-        final int cardinality = Runtime.getRuntime().availableProcessors() * 2;
+        final int keysCnt = SRV_CNT - 1;
 
-        for (int k = 0; k < cardinality; k++)
+        for (int k = 0; k < keysCnt; k++)
             grid(0).cache(CACHE_NAME).put(k, (long)0);
 
-        final CyclicBarrier b = new CyclicBarrier(cardinality);
+        final CyclicBarrier b = new CyclicBarrier(keysCnt);
 
         AtomicInteger idGen = new AtomicInteger();
-
-        LongAdder cntr = new LongAdder();
 
         final IgniteInternalFuture<?> txFut = multithreadedAsync(new Runnable() {
             @Override public void run() {
@@ -151,68 +139,50 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
 
                 List<Integer> keys = new ArrayList<>();
 
-                for (int k = 0; k < cardinality; k++)
+                for (int k = 0; k < keysCnt; k++)
                     keys.add(k);
 
-                outer: while (!stop.get()) {
-                    cntr.increment();
+                int cntr = 0;
 
-                    final int nodeId = r.nextInt(TOTAL_CNT);
+                for (int i = 0; i < ITERATIONS; i++) {
+                    cntr++;
 
-                    if (!idx.compareAndSet(nodeId, 0, 1)) {
-                        yield();
+                    int nodeId;
 
-                        continue;
-                    }
+                    while(!reservedIdx.compareAndSet((nodeId = r.nextInt(TOTAL_CNT)), 0, 1))
+                        doSleep(10);
 
                     U.awaitQuiet(b);
 
                     final IgniteEx grid = grid(nodeId);
 
                     try (final Transaction tx = grid.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 0, 0)) {
-                        idx.set(nodeId, 0);
+                        reservedIdx.set(nodeId, 0);
 
                         // Construct deadlock
                         grid.cache(CACHE_NAME).get(keys.get(key));
 
-                        while(true) {
-                            try {
-                                b.await(5000, TimeUnit.MILLISECONDS);
-
-                                break;
-                            }
-                            catch (InterruptedException | BrokenBarrierException e) {
-                                fail("Not expected");
-                            }
-                            catch (TimeoutException e) {
-                                if (stop.get()) {
-                                    tx.rollback();
-
-                                    break outer;
-                                }
-                            }
-                        }
-
                         // Should block.
-                        grid.cache(CACHE_NAME).get(keys.get((key + 1) % cardinality));
+                        grid.cache(CACHE_NAME).get(keys.get((key + 1) % keysCnt));
 
                         fail("Deadlock expected");
                     }
                     catch (Throwable t) {
-                        // No-op.
+                        // Expected.
                     }
 
-                    log.info("Rolled back: " + cntr.sum());
+                    if (key == 0)
+                        log.info("Rolled back: " + cntr);
                 }
             }
-        }, cardinality, "tx-lock-thread");
+        }, keysCnt, "tx-lock-thread");
 
         final IgniteInternalFuture<?> restartFut = multithreadedAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
                 while(!stop.get()) {
                     final int nodeId = r.nextInt(TOTAL_CNT);
 
-                    if (!idx.compareAndSet(nodeId, 0, 1)) {
+                    if (!reservedIdx.compareAndSet(nodeId, 0, 1)) {
                         yield();
 
                         continue;
@@ -224,18 +194,16 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
 
                     startGrid(nodeId);
 
-                    idx.set(nodeId, 0);
+                    reservedIdx.set(nodeId, 0);
                 }
 
                 return null;
             }
-        }, RESTART_CNT, "tx-restart-thread");
+        }, 1, "tx-restart-thread");
 
-        doSleep(DURATION);
+        txFut.get(); // Wait for iterations to complete.
 
         stop.set(true);
-
-        txFut.get();
 
         restartFut.get();
 

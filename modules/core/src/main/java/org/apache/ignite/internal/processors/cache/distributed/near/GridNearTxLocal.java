@@ -25,11 +25,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import javax.cache.Cache;
 import javax.cache.CacheException;
@@ -68,6 +66,7 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.processors.cache.transactions.TransactionProxy;
 import org.apache.ignite.internal.processors.cache.transactions.TransactionProxyImpl;
+import org.apache.ignite.internal.processors.cache.transactions.TransactionProxyRollbackOnlyImpl;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
 import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException;
@@ -171,8 +170,12 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     @GridToStringExclude
     private TransactionProxyImpl proxy;
 
+    /** */
+    @GridToStringExclude
+    private TransactionProxyImpl rollbackOnlyProxy;
+
     /** Tx label. */
-    private @Nullable String label;
+    private @Nullable String lb;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -194,7 +197,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
      * @param txSize Transaction size.
      * @param subjId Subject ID.
      * @param taskNameHash Task name hash code.
-     * @param label Label.
+     * @param lb Label.
      */
     public GridNearTxLocal(
         GridCacheSharedContext ctx,
@@ -209,7 +212,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         int txSize,
         @Nullable UUID subjId,
         int taskNameHash,
-        @Nullable String label
+        @Nullable String lb
     ) {
         super(
             ctx,
@@ -228,7 +231,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             txSize,
             subjId,
             taskNameHash);
-        this.label = label;
+        this.lb = lb;
 
         mappings = implicitSingle ? new IgniteTxMappingsSingleImpl() : new IgniteTxMappingsImpl();
 
@@ -346,6 +349,24 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     /** {@inheritDoc} */
     @Override public boolean ownsLockUnsafe(GridCacheEntryEx entry) {
         return entry.detached() || super.ownsLockUnsafe(entry);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long timeout(long timeout) {
+        long old = super.timeout(timeout);
+
+        if (old == timeout)
+            return old;
+
+        if (trackTimeout) {
+            if (!cctx.time().removeTimeoutObject(this))
+                return old; // Do nothing, because transaction is started to roll back.
+        }
+
+        if (timeout() > 0) // Method can be called only for explicit transactions.
+            trackTimeout = cctx.time().addTimeoutObject(this);
+
+        return old;
     }
 
     /** {@inheritDoc} */
@@ -856,7 +877,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
         try {
             if (!updateLockFuture(null, enlistFut))
-                return finishFuture(enlistFut, rollbackException(), false);
+                return finishFuture(enlistFut, timedOut() ? timeoutException() : rollbackException(), false);
 
             addActiveCache(cacheCtx, recovery);
 
@@ -985,7 +1006,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         GridFutureAdapter<Void> enlistFut = new GridFutureAdapter<>();
 
         if (!updateLockFuture(null, enlistFut))
-            return finishFuture(enlistFut, rollbackException(), false);
+            return finishFuture(enlistFut, timedOut() ? timeoutException() : rollbackException(), false);
 
         try {
             addActiveCache(cacheCtx, recovery);
@@ -1741,7 +1762,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             GridFutureAdapter<?> enlistFut = new GridFutureAdapter<>();
 
             if (!updateLockFuture(null, enlistFut))
-                return new GridFinishedFuture<>(rollbackException());
+                return new GridFinishedFuture<>(timedOut() ? timeoutException() : rollbackException());
 
             final Map<K, V> retMap = new GridLeanMap<>(keysCnt);
 
@@ -3831,6 +3852,13 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
     /** {@inheritDoc} */
     @Override public void close() throws IgniteCheckedException {
+        close(true);
+    }
+
+    /**
+     * @param clearThreadMap Clear thread map.
+     */
+    public void close(boolean clearThreadMap) throws IgniteCheckedException {
         TransactionState state = state();
 
         try {
@@ -3843,7 +3871,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                 rmv = removeTimeoutHandler();
 
             if (state != COMMITTING && state != ROLLING_BACK && (!trackTimeout || rmv))
-                rollbackNearTxLocalAsync(true, false).get();
+                rollbackNearTxLocalAsync(clearThreadMap, false).get();
 
             synchronized (this) {
                 try {
@@ -3860,7 +3888,8 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             }
         }
         finally {
-            cctx.tm().clearThreadMap(this);
+            if (clearThreadMap)
+                cctx.tm().clearThreadMap(this);
 
             if (accessMap != null) {
                 assert optimistic();
@@ -3932,6 +3961,16 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     }
 
     /**
+     * @return Public API proxy.
+     */
+    public TransactionProxy rollbackOnlyProxy() {
+        if (rollbackOnlyProxy == null)
+            rollbackOnlyProxy = new TransactionProxyRollbackOnlyImpl<>(this, cctx, false);
+
+        return rollbackOnlyProxy;
+    }
+
+    /**
      * @param cacheCtx Cache context.
      * @param topVer Topology version.
      * @param map Return map.
@@ -3986,14 +4025,6 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                 expiryPlc,
                 new GridInClosure3<KeyCacheObject, Object, GridCacheVersion>() {
                     @Override public void apply(KeyCacheObject key, Object val, GridCacheVersion loadVer) {
-                        if (isRollbackOnly()) {
-                            if (log.isDebugEnabled())
-                                log.debug("Ignoring loaded value for read because transaction was rolled back: " +
-                                    GridNearTxLocal.this);
-
-                            return;
-                        }
-
                         CacheObject cacheVal = cacheCtx.toCacheObject(val);
 
                         CacheObject visibleVal = cacheVal;
@@ -4196,19 +4227,10 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     }
 
     /**
-     * Sets tx label.
-     *
-     * @param lb Label.
-     */
-    public void label(String lb) {
-        this.label = lb;
-    }
-
-    /**
      * @return Tx label.
      */
     public String label() {
-        return label;
+        return lb;
     }
 
     /** {@inheritDoc} */

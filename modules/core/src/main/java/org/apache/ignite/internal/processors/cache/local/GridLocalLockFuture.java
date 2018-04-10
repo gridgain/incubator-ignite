@@ -23,7 +23,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.apache.ignite.IgniteCheckedException;
@@ -81,7 +80,16 @@ public final class GridLocalLockFuture<K, V> extends GridCacheFutureAdapter<Bool
     @GridToStringInclude
     private long threadId;
 
-    /** Keys locked so far. */
+    /**
+     * Keys locked so far.
+     *
+     * Thread created this object iterates over entries and tries to lock each of them.
+     * If it finds some entry already locked by another thread it registers callback which will be executed
+     * by the thread owning the lock.
+     *
+     * Thus access to this collection must be synchronized except cases
+     * when this object is yet local to the thread created it.
+     */
     @GridToStringExclude
     private List<GridLocalCacheEntry> entries;
 
@@ -149,8 +157,11 @@ public final class GridLocalLockFuture<K, V> extends GridCacheFutureAdapter<Bool
         if (log == null)
             log = U.logger(cctx.kernalContext(), logRef, GridLocalLockFuture.class);
 
-        if (tx != null && tx instanceof GridNearTxLocal && !((GridNearTxLocal)tx).updateLockFuture(null, this))
-            onError(((GridNearTxLocal)tx).rollbackException());
+        if (tx != null && tx instanceof GridNearTxLocal && !((GridNearTxLocal)tx).updateLockFuture(null, this)) {
+            GridNearTxLocal tx0 = (GridNearTxLocal)tx;
+
+            onError(tx0.timedOut() ? tx0.timeoutException() : tx0.rollbackException());
+        }
     }
 
     /**
@@ -300,7 +311,9 @@ public final class GridLocalLockFuture<K, V> extends GridCacheFutureAdapter<Bool
      * Undoes all locks.
      */
     private void undoLocks() {
-        for (GridLocalCacheEntry e : entries) {
+        Collection<GridLocalCacheEntry> entriesCp = entriesCopy();
+
+        for (GridLocalCacheEntry e : entriesCp) {
             try {
                 e.removeLock(lockVer);
             }
@@ -309,6 +322,15 @@ public final class GridLocalLockFuture<K, V> extends GridCacheFutureAdapter<Bool
                     log.debug("Got removed entry while undoing locks: " + e);
             }
         }
+    }
+
+    /**
+     * Need of synchronization here is explained in the field's {@link GridLocalLockFuture#entries} comment.
+     *
+     * @return Copy of entries collection.
+     */
+    private synchronized Collection<GridLocalCacheEntry> entriesCopy() {
+        return new ArrayList<>(entries());
     }
 
     /**

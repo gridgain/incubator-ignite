@@ -260,7 +260,7 @@ public interface Transaction extends AutoCloseable, IgniteAsyncSupport {
 
     /**
      * Rolls back this transaction.
-     * Note that it's allowed to roll back transaction from any thread at any time.
+     * Note, that it's allowed to roll back transaction from any thread at any time.
      *
      * @throws IgniteException If rollback failed.
      */
@@ -269,7 +269,7 @@ public interface Transaction extends AutoCloseable, IgniteAsyncSupport {
 
     /**
      * Asynchronously rolls back this transaction.
-     * Note that it's allowed to roll back transaction from any thread at any time.
+     * Note, that it's allowed to roll back transaction from any thread at any time.
      *
      * @return a Future representing pending completion of the rollback.
      * @throws IgniteException If rollback failed.
@@ -277,21 +277,23 @@ public interface Transaction extends AutoCloseable, IgniteAsyncSupport {
     public IgniteFuture<Void> rollbackAsync() throws IgniteException;
 
     /**
-     * Resume transaction if it was previously suspended. <strong>Supported only for optimistic transactions.</strong>
+     * Resume a transaction if it was previously suspended. <strong>Supported only for optimistic transactions.</strong>
      *
      * @throws IgniteException If resume failed.
      */
     public void resume() throws IgniteException;
 
     /**
-     * Suspends transaction. It could be resumed later. <strong>Supported only for optimistic transactions.</strong>
+     * Suspends a transaction. It could be resumed later. <strong>Supported only for optimistic transactions.</strong>
      *
      * @throws IgniteException If suspension failed.
      */
     public void suspend() throws IgniteException;
 
     /**
-     * Returns label for the transaction.
+     * Returns transaction's label.
+     * <p>
+     * Use {@link IgniteTransactions#withLabel(java.lang.String)} to assign a label to a newly created transaction.
      *
      * @return Label.
      */

@@ -42,8 +42,8 @@ public class TransactionConfiguration implements Serializable {
     /** Default transaction timeout. */
     public static final long DFLT_TRANSACTION_TIMEOUT = 0;
 
-    /** Default rollback on topology change timeout. */
-    public static final long DFLT_ROLLBACK_ON_TOPOLOGY_CHANGE_TIMEOUT = 0;
+    /** Transaction timeout on partition map synchronization. */
+    public static final long TX_TIMEOUT_ON_PARTITION_MAP_EXCHANGE = 0;
 
     /** Default size of pessimistic transactions log. */
     public static final int DFLT_PESSIMISTIC_TX_LOG_LINGER = 10_000;
@@ -60,8 +60,8 @@ public class TransactionConfiguration implements Serializable {
     /** Default transaction timeout. */
     private long dfltTxTimeout = DFLT_TRANSACTION_TIMEOUT;
 
-    /** Rollback on topology change default timeout. */
-    private long rollbackOnTopChangeTimeout = DFLT_ROLLBACK_ON_TOPOLOGY_CHANGE_TIMEOUT;
+    /** Transaction timeout on partition map exchange. */
+    private long txTimeoutOnPartitionMapExchange = TX_TIMEOUT_ON_PARTITION_MAP_EXCHANGE;
 
     /** Pessimistic tx log size. */
     private int pessimisticTxLogSize;
@@ -95,7 +95,7 @@ public class TransactionConfiguration implements Serializable {
         dfltConcurrency = cfg.getDefaultTxConcurrency();
         dfltIsolation = cfg.getDefaultTxIsolation();
         dfltTxTimeout = cfg.getDefaultTxTimeout();
-        rollbackOnTopChangeTimeout = cfg.getRollbackOnTopologyChangeTimeout();
+        txTimeoutOnPartitionMapExchange = cfg.getTxTimeoutOnPartitionMapExchange();
         pessimisticTxLogLinger = cfg.getPessimisticTxLogLinger();
         pessimisticTxLogSize = cfg.getPessimisticTxLogSize();
         txSerEnabled = cfg.isTxSerializableEnabled();
@@ -199,24 +199,35 @@ public class TransactionConfiguration implements Serializable {
     }
 
     /**
-     * Gets rollback on topology change timeout. Default value is defined by
-     * {@link #DFLT_ROLLBACK_ON_TOPOLOGY_CHANGE_TIMEOUT} which means transactions will never be rolled back.
+     * Some Ignite operations provoke partition map exchange process within Ignite to ensure the partitions distribution
+     * state is synchronized cluster-wide. Topology update events and a start of a new distributed cache are examples
+     * of those operations.
+     * <p>
+     * When the partition map exchange starts, Ignite acquires a global lock at a particular stage. The lock can't be
+     * obtained until pending transactions are running in parallel. If there is a transaction that runs for a while,
+     * then it will prevent the partition map exchange process from the start freezing some operations such as a new
+     * node join process.
+     * <p>
+     * This property allows to rollback such long transactions to let Ignite acquire the lock faster and initiate the
+     * partition map exchange process. The timeout is enforced only at the time of the partition map exchange process.
+     * <p>
+     * If not set, default value is {@link #TX_TIMEOUT_ON_PARTITION_MAP_EXCHANGE} which means transactions will never be
+     * rolled back on partition map exchange.
      *
-     * @return Rollback on topology change timeout.
+     * @return Transaction timeout for partition map synchronization in milliseconds.
      */
-    public long getRollbackOnTopologyChangeTimeout() {
-        return rollbackOnTopChangeTimeout;
+    public long getTxTimeoutOnPartitionMapExchange() {
+        return txTimeoutOnPartitionMapExchange;
     }
 
     /**
-     * Sets rollback on topology change timeout in milliseconds.
-     * If not set, default value is {@link #DFLT_ROLLBACK_ON_TOPOLOGY_CHANGE_TIMEOUT}
+     * Sets the transaction timeout that will be enforced if the partition map exchange process starts.
      *
-     * @param rollbackOnTopChangeTimeout Rollback on topology change timeout.
+     * @param txTimeoutOnPartitionMapExchange Transaction timeout value in milliseconds.
      * @return {@code this} for chaining.
      */
-    public TransactionConfiguration setRollbackOnTopologyChangeTimeout(long rollbackOnTopChangeTimeout) {
-        this.rollbackOnTopChangeTimeout = rollbackOnTopChangeTimeout;
+    public TransactionConfiguration setTxTimeoutOnPartitionMapExchange(long txTimeoutOnPartitionMapExchange) {
+        this.txTimeoutOnPartitionMapExchange = txTimeoutOnPartitionMapExchange;
 
         return this;
     }
