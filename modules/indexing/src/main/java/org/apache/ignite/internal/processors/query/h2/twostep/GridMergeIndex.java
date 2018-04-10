@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import javax.cache.CacheException;
@@ -100,6 +101,9 @@ public abstract class GridMergeIndex extends BaseIndex {
         }
     };
 
+    /** */
+    final boolean forUpdate;
+
     /** Row source nodes. */
     private Set<UUID> sources;
 
@@ -129,25 +133,31 @@ public abstract class GridMergeIndex extends BaseIndex {
      * @param name Index name.
      * @param type Type.
      * @param cols Columns.
+     * @param forUpdate
      */
     public GridMergeIndex(GridKernalContext ctx,
         GridMergeTable tbl,
         String name,
         IndexType type,
-        IndexColumn[] cols
+        IndexColumn[] cols,
+        boolean forUpdate
     ) {
-        this(ctx);
+        this(ctx, forUpdate);
 
         initBaseIndex(tbl, 0, name, cols, type);
+
     }
 
     /**
      * @param ctx Context.
+     * @param forUpdate
      */
-    protected GridMergeIndex(GridKernalContext ctx) {
+    protected GridMergeIndex(GridKernalContext ctx, boolean forUpdate) {
         this.ctx = ctx;
 
         fetched = new BlockList<>(PREFETCH_SIZE);
+
+        this.forUpdate = forUpdate;
     }
 
     /**
@@ -252,7 +262,7 @@ public abstract class GridMergeIndex extends BaseIndex {
         if (!iter.hasNext()) {
             GridResultPage page = takeNextPage(queue);
 
-            if (!page.isLast())
+            if (!forUpdate && !page.isLast())
                 page.fetchNextPage(); // Failed will throw an exception here.
 
             iter = page.rows();
@@ -265,14 +275,6 @@ public abstract class GridMergeIndex extends BaseIndex {
     }
 
     /**
-     * @param e Error.
-     */
-    public void fail(final CacheException e) {
-        for (UUID nodeId : sources)
-            fail(nodeId, e);
-    }
-
-    /**
      * @param nodeId Node ID.
      * @param e Exception.
      */
@@ -280,7 +282,7 @@ public abstract class GridMergeIndex extends BaseIndex {
         if (nodeId == null)
             nodeId = F.first(sources);
 
-        addPage0(new GridResultPage(null, nodeId, null) {
+        GridResultPage p = new GridResultPage(null, nodeId, null) {
             @Override public boolean isFail() {
                 return true;
             }
@@ -291,7 +293,13 @@ public abstract class GridMergeIndex extends BaseIndex {
                 else
                     throw e;
             }
-        });
+        };
+
+        addPage0(p);
+
+        // No one will fetch if we don't.
+        if (forUpdate)
+            p.fetchNextPage();
     }
 
     /**
@@ -360,6 +368,9 @@ public abstract class GridMergeIndex extends BaseIndex {
     public final void addPage(GridResultPage page) {
         markLastPage(page);
         addPage0(page);
+
+        if (forUpdate && !page.isLast())
+            page.fetchNextPage();
     }
 
     /**
@@ -806,5 +817,12 @@ public abstract class GridMergeIndex extends BaseIndex {
             result = 31 * result + segment;
             return result;
         }
+    }
+
+    /**
+     *
+     */
+    static class PollableQueue<X> extends LinkedBlockingQueue<X> implements GridMergeIndex.Pollable<X> {
+        // No-op.
     }
 }

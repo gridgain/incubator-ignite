@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.GridKernalContext;
@@ -59,24 +58,27 @@ public final class GridMergeIndexUnsorted extends GridMergeIndex {
      * @param ctx Context.
      * @param tbl  Table.
      * @param name Index name.
+     * @param forUpdate
      */
-    public GridMergeIndexUnsorted(GridKernalContext ctx, GridMergeTable tbl, String name) {
-        super(ctx, tbl, name, TYPE, IndexColumn.wrap(tbl.getColumns()));
+    public GridMergeIndexUnsorted(GridKernalContext ctx, GridMergeTable tbl, String name, boolean forUpdate) {
+        super(ctx, tbl, name, TYPE, IndexColumn.wrap(tbl.getColumns()), forUpdate);
     }
 
     /**
      * @param ctx Context.
+     * @param forUpdate
      * @return Dummy index instance.
      */
-    public static GridMergeIndexUnsorted createDummy(GridKernalContext ctx) {
-        return new GridMergeIndexUnsorted(ctx);
+    public static GridMergeIndexUnsorted createDummy(GridKernalContext ctx, boolean forUpdate) {
+        return new GridMergeIndexUnsorted(ctx, forUpdate);
     }
 
     /**
      * @param ctx Context.
+     * @param forUpdate
      */
-    private GridMergeIndexUnsorted(GridKernalContext ctx) {
-        super(ctx);
+    private GridMergeIndexUnsorted(GridKernalContext ctx, boolean forUpdate) {
+        super(ctx, forUpdate);
     }
 
     /** {@inheritDoc} */
@@ -146,11 +148,5 @@ public final class GridMergeIndexUnsorted extends GridMergeIndex {
                 throw new UnsupportedOperationException();
             }
         });
-    }
-
-    /**
-     */
-    private static class PollableQueue<X> extends LinkedBlockingQueue<X> implements Pollable<X> {
-        // No-op.
     }
 }

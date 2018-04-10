@@ -327,7 +327,8 @@ public class GridReduceQueryExecutor {
                     try {
                         GridQueryNextPageRequest msg0 = new GridQueryNextPageRequest(qryReqId, qry, seg, pageSize);
 
-                        if (node.isLocal())
+                        // Mapper runs DHT TX in case of FOR UPDATE query, we want to separate flows in this case.
+                        if (node.isLocal() && !r.queryInfo().forUpdate())
                             h2.mapQueryExecutor().onMessage(ctx.localNodeId(), msg0);
                         else
                             ctx.io().sendToGridTopic(node, GridTopic.TOPIC_QUERY, msg0, GridIoPolicy.QUERY_POOL);
@@ -638,7 +639,7 @@ public class GridReduceQueryExecutor {
                     GridMergeTable tbl;
 
                     try {
-                        tbl = createMergeTable(r.connection(), mapQry, qry.explain());
+                        tbl = createMergeTable(r.connection(), mapQry, qry.explain(), qry.forUpdate());
                     }
                     catch (IgniteCheckedException e) {
                         throw new IgniteException(e);
@@ -649,7 +650,7 @@ public class GridReduceQueryExecutor {
                     fakeTable(r.connection(), tblIdx++).innerTable(tbl);
                 }
                 else
-                    idx = GridMergeIndexUnsorted.createDummy(ctx);
+                    idx = GridMergeIndexUnsorted.createDummy(ctx, !qry.explain() && qry.forUpdate());
 
                 // If the query has only replicated tables, we have to run it on a single node only.
                 if (!mapQry.isPartitioned()) {
@@ -1419,7 +1420,7 @@ public class GridReduceQueryExecutor {
         int tblIdx = 0;
 
         for (GridCacheSqlQuery mapQry : qry.mapQueries()) {
-            GridMergeTable tbl = createMergeTable(c, mapQry, false);
+            GridMergeTable tbl = createMergeTable(c, mapQry, false, false);
 
             fakeTable(c, tblIdx++).innerTable(tbl);
         }
@@ -1551,12 +1552,13 @@ public class GridReduceQueryExecutor {
      * @param conn Connection.
      * @param qry Query.
      * @param explain Explain.
+     * @param forUpdate
      * @return Table.
      * @throws IgniteCheckedException If failed.
      */
     @SuppressWarnings("unchecked")
-    private GridMergeTable createMergeTable(JdbcConnection conn, GridCacheSqlQuery qry, boolean explain)
-        throws IgniteCheckedException {
+    private GridMergeTable createMergeTable(JdbcConnection conn, GridCacheSqlQuery qry, boolean explain,
+        boolean forUpdate) throws IgniteCheckedException {
         try {
             Session ses = (Session)conn.getSession();
 
@@ -1597,19 +1599,19 @@ public class GridReduceQueryExecutor {
 
             if (explain) {
                 idxs.add(new GridMergeIndexUnsorted(ctx, tbl,
-                    sortedIndex ? MERGE_INDEX_SORTED : MERGE_INDEX_UNSORTED));
+                    sortedIndex ? MERGE_INDEX_SORTED : MERGE_INDEX_UNSORTED, false));
             }
             else if (sortedIndex) {
                 List<GridSqlSortColumn> sortCols = (List<GridSqlSortColumn>)qry.sortColumns();
 
                 GridMergeIndexSorted sortedMergeIdx = new GridMergeIndexSorted(ctx, tbl, MERGE_INDEX_SORTED,
-                    GridSqlSortColumn.toIndexColumns(tbl, sortCols));
+                    GridSqlSortColumn.toIndexColumns(tbl, sortCols), forUpdate);
 
                 idxs.add(GridMergeTable.createScanIndex(sortedMergeIdx));
                 idxs.add(sortedMergeIdx);
             }
             else
-                idxs.add(new GridMergeIndexUnsorted(ctx, tbl, MERGE_INDEX_UNSORTED));
+                idxs.add(new GridMergeIndexUnsorted(ctx, tbl, MERGE_INDEX_UNSORTED, forUpdate));
 
             tbl.indexes(idxs);
 
