@@ -62,6 +62,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartit
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryType;
 import org.apache.ignite.internal.processors.cache.query.GridCacheSqlQuery;
@@ -738,7 +739,7 @@ public class GridReduceQueryExecutor {
                     .timeout(timeoutMillis)
                     .schemaName(schemaName);
 
-                GridNearTxLocal curTx = h2.activeTx();
+                GridNearTxLocal curTx = MvccUtils.activeTx(ctx);
 
                 if (qry.forUpdate()) {
                     // Indexing should have started TX at this point for FOR UPDATE query.
@@ -767,8 +768,6 @@ public class GridReduceQueryExecutor {
 
                     req.txRequest(txReq);
                 }
-
-
 
                 if (curTx != null && curTx.mvccInfo() != null)
                     req.mvccSnapshot(curTx.mvccInfo().snapshot());

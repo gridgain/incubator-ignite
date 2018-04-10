@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.h2.twostep;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
@@ -38,6 +37,7 @@ import javax.cache.CacheException;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.query.QueryCancelledException;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.cluster.ClusterNode;
@@ -71,10 +71,6 @@ import org.apache.ignite.internal.processors.query.h2.UpdateResult;
 import org.apache.ignite.internal.processors.query.h2.opt.DistributedJoinMode;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RetryException;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlColumn;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSelect;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlStatement;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryCancelRequest;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryFailResponse;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryNextPageRequest;
@@ -95,6 +91,7 @@ import org.h2.jdbc.JdbcResultSet;
 import org.h2.value.Value;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_SQL_FORCE_LAZY_RESULT_SET;
 import static org.apache.ignite.events.EventType.EVT_CACHE_QUERY_EXECUTED;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.QUERY_POOL;
 import static org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion.NONE;
@@ -110,6 +107,9 @@ import static org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2V
  */
 @SuppressWarnings("ForLoopReplaceableByForEach")
 public class GridMapQueryExecutor {
+    /** */
+    public static final boolean FORCE_LAZY = IgniteSystemProperties.getBoolean(IGNITE_SQL_FORCE_LAZY_RESULT_SET);
+
     /** */
     private IgniteLogger log;
 
@@ -206,7 +206,7 @@ public class GridMapQueryExecutor {
         lazyWorkerBusyLock.block();
 
         for (MapQueryLazyWorker worker : lazyWorkers.values())
-            worker.stop();
+            worker.stop(false);
 
         lazyWorkers.clear();
     }
@@ -448,7 +448,7 @@ public class GridMapQueryExecutor {
         final boolean enforceJoinOrder = req.isFlagSet(GridH2QueryRequest.FLAG_ENFORCE_JOIN_ORDER);
         final boolean explain = req.isFlagSet(GridH2QueryRequest.FLAG_EXPLAIN);
         final boolean replicated = req.isFlagSet(GridH2QueryRequest.FLAG_REPLICATED);
-        final boolean lazy = req.isFlagSet(GridH2QueryRequest.FLAG_LAZY);
+        final boolean lazy = (FORCE_LAZY && req.queries().size() == 1) || req.isFlagSet(GridH2QueryRequest.FLAG_LAZY);
 
         final List<Integer> cacheIds = req.caches();
 
@@ -567,10 +567,12 @@ public class GridMapQueryExecutor {
         boolean lazy,
         @Nullable final MvccSnapshot mvccSnapshot,
         @Nullable GridNearTxQueryEnlistRequest txReq) {
-        if (lazy && MapQueryLazyWorker.currentWorker() == null) {
+        MapQueryLazyWorker worker = MapQueryLazyWorker.currentWorker();
+
+        if (lazy && worker == null) {
             // Lazy queries must be re-submitted to dedicated workers.
             MapQueryLazyWorkerKey key = new MapQueryLazyWorkerKey(node.id(), reqId, segmentId);
-            MapQueryLazyWorker worker = new MapQueryLazyWorker(ctx.igniteInstanceName(), key, log, this);
+            worker = new MapQueryLazyWorker(ctx.igniteInstanceName(), key, log, this);
 
             worker.submit(new Runnable() {
                 @Override public void run() {
@@ -601,7 +603,7 @@ public class GridMapQueryExecutor {
                     MapQueryLazyWorker oldWorker = lazyWorkers.put(key, worker);
 
                     if (oldWorker != null)
-                        oldWorker.stop();
+                        oldWorker.stop(false);
 
                     IgniteThread thread = new IgniteThread(worker);
 
@@ -681,7 +683,8 @@ public class GridMapQueryExecutor {
                 .pageSize(pageSize)
                 .topologyVersion(topVer)
                 .reservations(reserved)
-                .mvccSnapshot(mvccSnapshot);
+                .mvccSnapshot(mvccSnapshot)
+                .lazyWorker(worker);
 
             Connection conn = h2.connectionForSchema(schemaName);
 
@@ -707,19 +710,6 @@ public class GridMapQueryExecutor {
                 boolean evt = mainCctx != null && mainCctx.events().isRecordable(EVT_CACHE_QUERY_EXECUTED);
 
                 for (GridCacheSqlQuery qry : qrys) {
-                    if (pageFutSupp != null) {
-                        PreparedStatement ps = h2.prepareNativeStatement(schemaName, qry.query());
-
-                        GridSqlStatement stmt = new GridSqlQueryParser(false)
-                            .parse(GridSqlQueryParser.prepared(ps));
-
-                        assert stmt instanceof GridSqlSelect;
-
-                        GridSqlSelect sel = (GridSqlSelect)stmt;
-
-                        sel.addColumn(new GridSqlColumn(sel.ta, sel.from(), ))
-                    }
-
                     ResultSet rs = null;
 
                     // If we are not the target node for this replicated query, just ignore it.
@@ -1119,7 +1109,7 @@ public class GridMapQueryExecutor {
         MapQueryLazyWorker worker = MapQueryLazyWorker.currentWorker();
 
         if (worker != null) {
-            worker.stop();
+            worker.stop(false);
 
             // Just stop is not enough as worker may be registered, but not started due to exception.
             unregisterLazyWorker(worker);

@@ -186,6 +186,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
 
     /**
      * @return iterator.
+     * @throws IgniteCheckedException If failed.
      */
     protected abstract LockingOperationSourceIterator<?> createIterator() throws IgniteCheckedException;
 
@@ -244,7 +245,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
             while (true) {
                 if (!it.hasNext()) {
                     if (ptr != null && !cctx.tm().logTxRecords())
-                        cctx.shared().wal().fsync(ptr);
+                        cctx.shared().wal().flush(ptr, true);
 
                     onDone(createResponse());
 
