@@ -945,7 +945,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         if (tbl != null && tbl.luceneIndex() != null) {
             GridRunningQueryInfo run = new GridRunningQueryInfo(qryIdGen.incrementAndGet(), qry, TEXT, schemaName,
-                U.currentTimeMillis(), null, true);
+                U.currentTimeMillis(), null, false, true);
 
             try {
                 runs.put(run.id(), run);
@@ -1055,7 +1055,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                     GridH2QueryContext.set(ctx);
 
                     GridRunningQueryInfo run = new GridRunningQueryInfo(qryIdGen.incrementAndGet(), qry, SQL_FIELDS,
-                        schemaName, U.currentTimeMillis(), cancel, true);
+                        schemaName, U.currentTimeMillis(), cancel, false, true);
 
                     runs.putIfAbsent(run.id(), run);
 
@@ -1454,7 +1454,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         GridH2QueryContext.set(qctx);
 
         GridRunningQueryInfo run = new GridRunningQueryInfo(qryIdGen.incrementAndGet(), qry, SQL, schemaName,
-            U.currentTimeMillis(), null, true);
+            U.currentTimeMillis(), null, false, true);
 
         runs.put(run.id(), run);
 

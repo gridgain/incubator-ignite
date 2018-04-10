@@ -1143,11 +1143,8 @@ public class GridMapQueryExecutor {
 
             Throwable err;
 
-            if (fut.result() != null) {
+            if (fut.result() != null)
                 err = fut.result().error();
-
-                assert err != null;
-            }
             else
                 err = fut.error();
 

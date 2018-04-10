@@ -20,6 +20,9 @@ import org.jetbrains.annotations.Nullable;
  * Future to process a single page of SELECT FOR UPDATE result.
  */
 public class QueryPageEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryEnlistResponse> {
+    /** Dummy response. */
+    private final static GridNearTxQueryEnlistResponse RESP = new GridNearTxQueryEnlistResponse();
+
     /** Rows to process. */
     private final List<Value[]> rows;
 
@@ -63,6 +66,6 @@ public class QueryPageEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Gr
 
     /** {@inheritDoc} */
     @Override public GridNearTxQueryEnlistResponse createResponse() {
-        return null;
+        return RESP;
     }
 }

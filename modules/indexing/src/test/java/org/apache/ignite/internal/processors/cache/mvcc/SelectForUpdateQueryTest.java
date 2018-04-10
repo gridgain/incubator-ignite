@@ -19,7 +19,9 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import org.apache.ignite.internal.util.typedef.X;
 
 import static org.apache.ignite.internal.processors.cache.index.AbstractSchemaSelfTest.connect;
 import static org.apache.ignite.internal.processors.cache.index.AbstractSchemaSelfTest.execute;
@@ -67,7 +69,7 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
     public void testSelectForUpdate() throws SQLException {
         try (Connection c = connect(grid(0))) {
             for (int i = 1; i <= 300; i++)
-             execute(c, "insert into person(id, firstName, lastName) values(" + i + ",'" + i + "','"  + i + "')");
+                execute(c, "insert into person(id, firstName, lastName) values(" + i + ",'" + i + "','"  + i + "')");
         }
 
         try (Connection c = connect(grid(0))) {
@@ -76,7 +78,10 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
             try (PreparedStatement ps = c.prepareStatement("select * from person for update")) {
                 ps.setFetchSize(10);
 
-                ps.execute();
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next())
+                        X.println(rs.getObject(1).toString());
+                }
             }
         }
     }

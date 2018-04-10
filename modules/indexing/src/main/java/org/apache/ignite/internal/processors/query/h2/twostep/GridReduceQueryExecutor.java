@@ -556,7 +556,7 @@ public class GridReduceQueryExecutor {
 
             final ReduceQueryRun r = new ReduceQueryRun(qryReqId, qry.originalSql(), schemaName,
                 h2.connectionForSchema(schemaName), qry.mapQueries().size(), qry.pageSize(),
-                U.currentTimeMillis(), cancel);
+                U.currentTimeMillis(), qry.forUpdate(), cancel);
 
             AffinityTopologyVersion topVer = h2.readyTopologyVersion();
 
@@ -699,7 +699,7 @@ public class GridReduceQueryExecutor {
 
                 cancel.set(new Runnable() {
                     @Override public void run() {
-                        send(finalNodes, new GridQueryCancelRequest(qryReqId), null, false);
+                        send(finalNodes, new GridQueryCancelRequest(qryReqId), null, qry.forUpdate());
                     }
                 });
 
@@ -774,7 +774,7 @@ public class GridReduceQueryExecutor {
                 else if (mvccTracker != null)
                     req.mvccSnapshot(mvccTracker.snapshot());
 
-                if (send(nodes, req, parts == null ? null : new ExplicitPartitionsSpecializer(qryMap), false)) {
+                if (send(nodes, req, parts == null ? null : new ExplicitPartitionsSpecializer(qryMap), qry.forUpdate())) {
                     awaitAllReplies(r, nodes, cancel);
 
                     Object state = r.state();
@@ -928,7 +928,7 @@ public class GridReduceQueryExecutor {
         final long reqId = qryIdGen.incrementAndGet();
 
         final GridRunningQueryInfo qryInfo = new GridRunningQueryInfo(reqId, selectQry, GridCacheQueryType.SQL_FIELDS,
-            schemaName, U.currentTimeMillis(), cancel, false);
+            schemaName, U.currentTimeMillis(), cancel, false, false);
 
         Collection<ClusterNode> nodes = nodesParts.nodes();
 
@@ -1085,11 +1085,11 @@ public class GridReduceQueryExecutor {
 
         // For distributedJoins need always send cancel request to cleanup resources.
         if (distributedJoins)
-            send(nodes, new GridQueryCancelRequest(qryReqId), null, false);
+            send(nodes, new GridQueryCancelRequest(qryReqId), null, r.queryInfo().forUpdate());
         else {
             for (GridMergeIndex idx : r.indexes()) {
                 if (!idx.fetchedAll()) {
-                    send(nodes, new GridQueryCancelRequest(qryReqId), null, false);
+                    send(nodes, new GridQueryCancelRequest(qryReqId), null, r.queryInfo().forUpdate());
 
                     break;
                 }
