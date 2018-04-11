@@ -34,7 +34,7 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
-        startGrids(1);
+        startGrids(3);
     }
 
     /** {@inheritDoc} */

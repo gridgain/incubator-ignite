@@ -68,4 +68,6 @@ public class QueryPageEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Gr
     @Override public GridNearTxQueryEnlistResponse createResponse() {
         return RESP;
     }
+
+
 }

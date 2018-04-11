@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxSelectForUpdateFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
@@ -87,7 +89,10 @@ import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryReq
 import org.apache.ignite.internal.util.GridIntIterator;
 import org.apache.ignite.internal.util.GridIntList;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
+import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.typedef.C2;
 import org.apache.ignite.internal.util.typedef.CIX2;
+import org.apache.ignite.internal.util.typedef.CO;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -740,42 +745,101 @@ public class GridReduceQueryExecutor {
                     .timeout(timeoutMillis)
                     .schemaName(schemaName);
 
-                GridNearTxLocal curTx = MvccUtils.activeTx(ctx);
-
-                if (qry.forUpdate()) {
-                    // Indexing should have started TX at this point for FOR UPDATE query.
-                    assert curTx != null;
-
-                    GridNearTxQueryEnlistRequest txReq = new GridNearTxQueryEnlistRequest(
-                        qry.cacheIds().get(0),
-                        curTx.threadId(),
-                        IgniteUuid.randomUuid(),
-                        -1,
-                        curTx.subjectId(),
-                        null,/*Topology version: carried by parent request.*/
-                        curTx.xidVersion(),
-                        null,/*MVCC snapshot: carried by parent request.*/
-                        null,/*Cache ids: carried by parent request.*/
-                        null,/*Partitions: carried by parent request.*/
-                        null,/*Schema name: carried by parent request.*/
-                        null,/*Query: carried by parent request.*/
-                        null,/*Query params: carried by parent request.*/
-                        flags,
-                        qry.pageSize(),
-                        timeoutMillis,
-                        curTx.taskNameHash(),
-                        ctx.clientNode() && !curTx.hasRemoteLocks()
-                    );
-
-                    req.txRequest(txReq);
-                }
+                final GridNearTxLocal curTx = MvccUtils.activeTx(ctx);
 
                 if (curTx != null && curTx.mvccInfo() != null)
                     req.mvccSnapshot(curTx.mvccInfo().snapshot());
                 else if (mvccTracker != null)
                     req.mvccSnapshot(mvccTracker.snapshot());
 
-                if (send(nodes, req, parts == null ? null : new ExplicitPartitionsSpecializer(qryMap), qry.forUpdate())) {
+                final C2<ClusterNode, Message, Message> pspec =
+                    (parts == null ? null : new ExplicitPartitionsSpecializer(qryMap));
+
+                final C2<ClusterNode, Message, Message> spec;
+
+                final GridNearTxSelectForUpdateFuture sfuFut = qry.forUpdate() ? new GridNearTxSelectForUpdateFuture(
+                    cacheContext(qry.cacheIds().get(0)),
+                    curTx,
+                    timeoutMillis
+                ) : null;
+
+                if (qry.forUpdate()) {
+                    // Indexing should have started TX at this point for FOR UPDATE query.
+                    assert curTx != null;
+
+                    final AtomicInteger cnt = new AtomicInteger();
+
+                    final int fflags = flags;
+
+                    spec = new C2<ClusterNode, Message, Message>() {
+                        @Override public Message apply(ClusterNode clusterNode, Message msg) {
+                            assert msg instanceof GridH2QueryRequest;
+
+                            GridH2QueryRequest res = pspec != null ? (GridH2QueryRequest)pspec.apply(clusterNode, msg) :
+                                new GridH2QueryRequest((GridH2QueryRequest)msg);
+
+                            int miniId = cnt.getAndIncrement();
+
+                            GridNearTxQueryEnlistRequest txReq = new GridNearTxQueryEnlistRequest(
+                                qry.cacheIds().get(0),
+                                curTx.threadId(),
+                                IgniteUuid.randomUuid(),
+                                miniId,
+                                curTx.subjectId(),
+                                null,/*Topology version: carried by parent request.*/
+                                curTx.xidVersion(),
+                                null,/*MVCC snapshot: carried by parent request.*/
+                                null,/*Cache ids: carried by parent request.*/
+                                null,/*Partitions: carried by parent request.*/
+                                null,/*Schema name: carried by parent request.*/
+                                null,/*Query: carried by parent request.*/
+                                null,/*Query params: carried by parent request.*/
+                                fflags,
+                                qry.pageSize(),
+                                timeoutMillis,
+                                curTx.taskNameHash(),
+                                miniId == 0 && sfuFut.clientFirst()
+                            );
+
+                            res.txRequest(txReq);
+
+                            return res;
+                        }
+                    };
+                }
+                else
+                    spec = pspec;
+
+                boolean sndOk;
+
+                if (!qry.forUpdate())
+                    sndOk = send(nodes, req, spec, qry.forUpdate());
+                else {
+                    // This init does two things:
+                    // 1. Query requests specialization (via specialize arg of send).
+                    // 2. TX mapping via SFUFut.init call itself.
+                    GridFutureAdapter<Boolean> sfuInitFut = sfuFut.init(new CO<Boolean>() {
+                        @Override public Boolean apply() {
+                            return send(finalNodes, req, spec, qry.forUpdate());
+                        }
+                    });
+
+                    // If init yielded nothing, main SFU future has to be done with error.
+                    if (sfuInitFut == null) {
+                        sfuFut.get();
+
+                        // Error should have been thrown.
+                        assert false;
+                    }
+
+                    Boolean initRes = sfuInitFut.get();
+
+                    assert initRes != null;
+
+                    sndOk = initRes;
+                }
+
+                if (sndOk) {
                     awaitAllReplies(r, nodes, cancel);
 
                     Object state = r.state();
@@ -1720,7 +1784,7 @@ public class GridReduceQueryExecutor {
     }
 
     /** */
-    private static class ExplicitPartitionsSpecializer implements IgniteBiClosure<ClusterNode, Message, Message> {
+    private static class ExplicitPartitionsSpecializer implements C2<ClusterNode, Message, Message> {
         /** Partitions map. */
         private final Map<ClusterNode, IntArray> partsMap;
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.query.h2.twostep;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
@@ -71,6 +72,10 @@ import org.apache.ignite.internal.processors.query.h2.UpdateResult;
 import org.apache.ignite.internal.processors.query.h2.opt.DistributedJoinMode;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RetryException;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlColumn;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSelect;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlStatement;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryCancelRequest;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryFailResponse;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryNextPageRequest;
@@ -710,11 +715,32 @@ public class GridMapQueryExecutor {
                 boolean evt = mainCctx != null && mainCctx.events().isRecordable(EVT_CACHE_QUERY_EXECUTED);
 
                 for (GridCacheSqlQuery qry : qrys) {
+                    String newQry = null;
+
+                    if (pageFutSupp != null) {
+                        PreparedStatement ps = h2.prepareNativeStatement(schemaName, qry.query());
+
+                        GridSqlStatement stmt = new GridSqlQueryParser(false)
+                            .parse(GridSqlQueryParser.prepared(ps));
+
+                        assert stmt instanceof GridSqlSelect;
+
+                        GridSqlSelect sel = (GridSqlSelect)stmt;
+
+                        sel.addColumn(new GridSqlColumn(null, null, "ID"), true);
+
+                        sel.addColumn(new GridSqlColumn(null, null, "_VAL"), true);
+
+                        newQry = sel.getSQL();
+                    }
+
                     ResultSet rs = null;
 
                     // If we are not the target node for this replicated query, just ignore it.
                     if (qry.node() == null || (segmentId == 0 && qry.node().equals(ctx.localNodeId()))) {
-                        rs = h2.executeSqlQueryWithTimer(conn, qry.query(),
+                        String sql = newQry != null ? newQry : qry.query();
+
+                        rs = h2.executeSqlQueryWithTimer(conn, sql,
                             F.asList(qry.parameters(params)), true,
                             timeout,
                             qr.queryCancel(qryIdx));
@@ -727,7 +753,7 @@ public class GridMapQueryExecutor {
                                 CacheQueryType.SQL.name(),
                                 mainCctx.name(),
                                 null,
-                                qry.query(),
+                                sql,
                                 null,
                                 null,
                                 params,
