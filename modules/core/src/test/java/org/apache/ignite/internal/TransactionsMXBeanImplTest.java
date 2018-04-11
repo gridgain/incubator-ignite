@@ -35,7 +35,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrep
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
-import org.apache.ignite.mxbean.TxMXBean;
+import org.apache.ignite.mxbean.TransactionsMXBean;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
@@ -46,20 +46,28 @@ import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
 
 /**
  *
  */
-public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
+public class TransactionsMXBeanImplTest extends GridCommonAbstractTest {
     /** */
     private static final TcpDiscoveryIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
+
     /** */
     private static final int TRANSACTIONS = 10;
+
     /** */
-    private static final int TX_STARTUP_TIMEOUT_MS = 500;
+    private static final int TX_STARTUP_TIMEOUT_MS = 1000;
 
     /** {@inheritDoc} */
+    @Override protected void afterTest() throws Exception {
+        stopAllGrids();
+
+        super.afterTest();
+    }
+
     @Override protected IgniteConfiguration getConfiguration(String name) throws Exception {
         final IgniteConfiguration cfg = super.getConfiguration(name);
 
@@ -80,27 +88,43 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
         return cfg;
     }
 
-    /** {@inheritDoc} */
-    @Override protected void afterTest() throws Exception {
-        stopAllGrids();
-        super.afterTest();
+    /**
+     *
+     */
+    public void testTxStop() throws Exception {
+        IgniteEx ignite = startGrid(0);
+
+        TransactionsMXBean txMXBean = txMXBean(0);
+
+        ignite.transactions().txStart();
+
+        assertEquals(1, txMXBean.getAllLocalTransactions().size());
+
+        txMXBean.stopTransaction(txMXBean.getAllLocalTransactions().keySet().iterator().next());
+
+        assertEquals(0, txMXBean.getAllLocalTransactions().size());
     }
 
     /**
      *
      */
-    public void testOnNear() throws Exception {
+    public void testNearTxInfo() throws Exception {
         IgniteEx primaryNode1 = startGrid(0);
+
         IgniteEx primaryNode2 = startGrid(1);
+
         IgniteEx nearNode = startGrid(2);
-        TxMXBean txMXBeanBackup = txMXBean(2);
+
+        TransactionsMXBean txMXBeanBackup = txMXBean(2);
 
         awaitPartitionMapExchange();
 
         final IgniteCache<Integer, String> primaryCache1 = primaryNode1.cache(DEFAULT_CACHE_NAME);
+
         final IgniteCache<Integer, String> primaryCache2 = primaryNode2.cache(DEFAULT_CACHE_NAME);
 
         final List<Integer> primaryKeys1 = primaryKeys(primaryCache1, TRANSACTIONS);
+
         final List<Integer> primaryKeys2 = primaryKeys(primaryCache2, TRANSACTIONS);
 
         block();
@@ -110,11 +134,17 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
 
         Thread.sleep(TX_STARTUP_TIMEOUT_MS);
 
-        final Map<String, String> transactions = txMXBeanBackup.getAllLocalTransactions();
-        assertEquals(TRANSACTIONS, transactions.size());
+        final Map<String, String> allTxs = txMXBeanBackup.getAllLocalTransactions();
+
+        assertEquals(TRANSACTIONS, allTxs.size());
+
+        final Map<String, String> longRunningTxs = txMXBeanBackup.getLongRunningLocalTransactions(TX_STARTUP_TIMEOUT_MS * 10);
+
+        assertEquals(0, longRunningTxs.size());
 
         int match = 0;
-        for (String txInfo : transactions.values()) {
+
+        for (String txInfo : longRunningTxs.values()) {
             if (txInfo.contains("PREPARING")
                 && txInfo.contains("NEAR")
                 && txInfo.contains(primaryNode1.localNode().id().toString())
@@ -122,46 +152,49 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
                 && !txInfo.contains("REMOTE"))
                 match++;
         }
+
         assertEquals(TRANSACTIONS, match);
     }
 
     /**
      *
      */
-    public void testRemoteOnPrimary() throws Exception {
-        IgniteEx primaryNode1 = startGrid(0);
-        IgniteEx primaryNode2 = startGrid(1);
-        IgniteEx nearNode = startGrid(2);
-        TxMXBean txMxBeanPrimary1 = txMXBean(0);
+    private static class TxThread implements Runnable {
+        /** */
+        private Ignite ignite;
 
-        awaitPartitionMapExchange();
+        /** */
+        private int primaryKey1;
 
-        final IgniteCache<Integer, String> primaryCache1 = primaryNode1.cache(DEFAULT_CACHE_NAME);
-        final IgniteCache<Integer, String> primaryCache2 = primaryNode2.cache(DEFAULT_CACHE_NAME);
+        /** */
+        private int primaryKey2;
 
-        final List<Integer> primaryKeys1 = primaryKeys(primaryCache1, TRANSACTIONS);
-        final List<Integer> primaryKeys2 = primaryKeys(primaryCache2, TRANSACTIONS);
+        /**
+         * @param ignite Ignite.
+         * @param primaryKey1 Primary key 1.
+         * @param primaryKey2 Primary key 2.
+         */
+        private TxThread(final Ignite ignite, final int primaryKey1, final int primaryKey2) {
+            this.ignite = ignite;
 
-        block();
+            this.primaryKey1 = primaryKey1;
 
-        for (int i = 0; i < primaryKeys1.size(); i++)
-            new Thread(new TxThread(nearNode, primaryKeys1.get(i), primaryKeys2.get(i))).start();
-
-        Thread.sleep(TX_STARTUP_TIMEOUT_MS);
-
-        final Map<String, String> transactions = txMxBeanPrimary1.getAllLocalTransactions();
-        assertEquals(TRANSACTIONS, transactions.size());
-
-        int match = 0;
-        for (String txInfo : transactions.values()) {
-            if (txInfo.contains("PREPARING")
-                && txInfo.contains(primaryNode1.localNode().id().toString())
-                && txInfo.contains(primaryNode2.localNode().id().toString())
-                && txInfo.contains("REMOTE")
-                && !txInfo.contains("NEAR"))
-                match++;
+            this.primaryKey2 = primaryKey2;
         }
-        assertEquals(TRANSACTIONS, match);
+
+        /** {@inheritDoc} */
+        @Override public void run() {
+            try (Transaction tx = ignite.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
+                ignite.cache(DEFAULT_CACHE_NAME).put(primaryKey1, Thread.currentThread().getName());
+
+                ignite.cache(DEFAULT_CACHE_NAME).put(primaryKey2, Thread.currentThread().getName());
+
+                tx.commit();
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     /**
@@ -170,6 +203,7 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
     private void block() {
         for (Ignite ignite : G.allGrids()) {
             final TestRecordingCommunicationSpi spi = (TestRecordingCommunicationSpi)ignite.configuration().getCommunicationSpi();
+
             spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
                 @Override public boolean apply(ClusterNode node, Message msg) {
                     if (msg instanceof GridDhtTxPrepareRequest)
@@ -186,46 +220,14 @@ public class TxMXBeanImplTopologyTest extends GridCommonAbstractTest {
     /**
      *
      */
-    private static class TxThread implements Runnable {
-        /** */
-        private Ignite ignite;
-        /** */
-        private int primaryKey1;
-        /** */
-        private int primaryKey2;
+    private TransactionsMXBean txMXBean(int igniteInt) throws Exception {
+        ObjectName mbeanName = U.makeMBeanName(getTestIgniteInstanceName(igniteInt), "Transactions", TransactionsMXBeanImpl.class.getSimpleName());
 
-        /**
-         * @param ignite Ignite.
-         * @param primaryKey1 Primary key 1.
-         * @param primaryKey2 Primary key 2.
-         */
-        private TxThread(final Ignite ignite, final int primaryKey1, final int primaryKey2) {
-            this.ignite = ignite;
-            this.primaryKey1 = primaryKey1;
-            this.primaryKey2 = primaryKey2;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void run() {
-            try (Transaction tx = ignite.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
-                ignite.cache(DEFAULT_CACHE_NAME).put(primaryKey1, Thread.currentThread().getName());
-                ignite.cache(DEFAULT_CACHE_NAME).put(primaryKey2, Thread.currentThread().getName());
-                tx.commit();
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    /**
-     *
-     */
-    private TxMXBean txMXBean(int igniteInt) throws Exception {
-        ObjectName mbeanName = U.makeMBeanName(getTestIgniteInstanceName(igniteInt), "Transactions", TxMXBeanImpl.class.getSimpleName());
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+
         if (!mbeanSrv.isRegistered(mbeanName))
             fail("MBean is not registered: " + mbeanName.getCanonicalName());
-        return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, TxMXBean.class, true);
+
+        return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, TransactionsMXBean.class, true);
     }
 }
