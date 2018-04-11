@@ -1443,8 +1443,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
         assert !nodes.contains(cctx.localNode());
 
-        if (log.isDebugEnabled()) {
-            log.debug("Sending full partition map [nodeIds=" + F.viewReadOnly(nodes, F.node2id()) +
+        // todo gg-13416 rollback to debug
+        if (log.isInfoEnabled()) {
+            log.info("Sending full partition map [nodeIds=" + F.viewReadOnly(nodes, F.node2id()) +
                 ", exchId=" + exchId + ", msg=" + msg + ']');
         }
 
