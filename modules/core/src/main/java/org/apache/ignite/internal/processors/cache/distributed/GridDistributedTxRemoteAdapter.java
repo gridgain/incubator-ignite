@@ -762,7 +762,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                             }
 
                             if (ptr != null && !cctx.tm().logTxRecords())
-                                cctx.wal().fsync(ptr);
+                                cctx.wal().flush(ptr, false);
                         }
                         catch (StorageException e) {
                             throw new IgniteCheckedException("Failed to log transaction record " +
