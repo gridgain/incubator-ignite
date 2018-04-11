@@ -109,4 +109,76 @@ public class CommandHandlerParsingTest extends TestCase {
             }
         }
     }
+
+    /**
+     * test parsing dump transaction arguments
+     */
+    public void testTransactionArguments() {
+        CommandHandler hnd = new CommandHandler();
+        Arguments args;
+
+        args = hnd.parseAndValidate(asList("--tx"));
+
+        try {
+            hnd.parseAndValidate(asList("--tx", "dur"));
+
+            fail("expected exception: expected duration");
+        }
+        catch (IllegalArgumentException ignored) {
+        }
+
+        try {
+            hnd.parseAndValidate(asList("--tx", "dur", "-1"));
+
+            fail("expected exception: invalid value");
+        }
+        catch (IllegalArgumentException ignored) {
+        }
+
+        try {
+            hnd.parseAndValidate(asList("--tx", "size"));
+
+            fail("expected exception: expected size");
+        }
+        catch (IllegalArgumentException ignored) {
+        }
+
+        try {
+            hnd.parseAndValidate(asList("--tx", "size", "-1"));
+
+            fail("expected exception: invalid value");
+        }
+        catch (IllegalArgumentException ignored) {
+        }
+
+        try {
+            hnd.parseAndValidate(asList("--tx", "label"));
+
+            fail("expected exception: expected label");
+        }
+        catch (IllegalArgumentException ignored) {
+        }
+
+        try {
+            hnd.parseAndValidate(asList("--tx", "label", "tx123["));
+
+            fail("expected exception: invalid value");
+        }
+        catch (IllegalArgumentException ignored) {
+        }
+
+        args = hnd.parseAndValidate(asList("--tx", "dur", "120"));
+
+        args = hnd.parseAndValidate(asList("--tx", "size", "0"));
+
+        args = hnd.parseAndValidate(asList("--tx", "label", "Test.*+"));
+
+        args = hnd.parseAndValidate(asList("--tx", "size", "120", "dur", "0"));
+
+        args = hnd.parseAndValidate(asList("--tx", "label", "\\d+", "dur", "0"));
+
+        args = hnd.parseAndValidate(asList("--tx", "label", "\\w*someText\\w*", "size", "5000"));
+
+        args = hnd.parseAndValidate(asList("--tx", "dur", "60", "size", "1000", "label", ".*suffix"));
+    }
 }

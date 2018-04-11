@@ -317,6 +317,9 @@ abstract class GridClientAbstractProjection<T extends GridClientAbstractProjecti
         else
             prjNodes = nodes;
 
+        if (log.isLoggable(Level.FINE))
+            log.fine("prjNodes = " + prjNodes);
+
         return prjNodes;
     }
 
