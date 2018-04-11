@@ -18,24 +18,27 @@
 package org.apache.ignite.mxbean;
 
 import java.util.Map;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.transactions.Transaction;
 
 /**
  * Transactions MXBean interface.
  */
 @MXBeanDescription("MBean that provides access to Ignite transactions.")
-public interface TxMXBean {
+public interface TransactionsMXBean {
     /**
-     * Gets all local active transactions
+     * Returns active transactions initiated by this node.
      *
-     * @return local active transactions.
+     * @return Transactions started on local node.
      */
     @MXBeanDescription("All local active transactions.")
     public Map<String, String> getAllLocalTransactions();
 
     /**
-     * Gets long running local active transactions
+     * Returns long-running active transactions initiated by this node.
      *
-     * @return local active transactions.
+     * @param duration Duration, at least (ms).
+     * @return Long-running transactions started on local node.
      */
     @MXBeanDescription("Long running local active transactions.")
     @MXBeanParametersNames("duration")
@@ -43,10 +46,13 @@ public interface TxMXBean {
     public Map<String, String> getLongRunningLocalTransactions(int duration);
 
     /**
-     * Stop transaction.
+     * Stops a transaction initiated by this node.
+     *
+     * @param txId Transaction id to stop.
+     * @return Status of transaction after calling {@link Transaction#close}.
      */
     @MXBeanDescription("Stop transaction.")
     @MXBeanParametersNames("txId")
     @MXBeanParametersDescriptions("Transaction id to stop.")
-    public String stopTransaction(String txId);
+    public String stopTransaction(String txId) throws IgniteCheckedException;
 }
