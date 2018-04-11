@@ -68,6 +68,7 @@ public class TransactionsMXBeanImplTest extends GridCommonAbstractTest {
         super.afterTest();
     }
 
+    /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String name) throws Exception {
         final IgniteConfiguration cfg = super.getConfiguration(name);
 
@@ -138,18 +139,17 @@ public class TransactionsMXBeanImplTest extends GridCommonAbstractTest {
 
         assertEquals(TRANSACTIONS, allTxs.size());
 
-        final Map<String, String> longRunningTxs = txMXBeanBackup.getLongRunningLocalTransactions(TX_STARTUP_TIMEOUT_MS * 10);
+        final Map<String, String> longRunningTxs = txMXBeanBackup.getLongRunningLocalTransactions(TX_STARTUP_TIMEOUT_MS * 100);
 
         assertEquals(0, longRunningTxs.size());
 
         int match = 0;
 
-        for (String txInfo : longRunningTxs.values()) {
+        for (String txInfo : allTxs.values()) {
             if (txInfo.contains("PREPARING")
                 && txInfo.contains("NEAR")
                 && txInfo.contains(primaryNode1.localNode().id().toString())
-                && txInfo.contains(primaryNode2.localNode().id().toString())
-                && !txInfo.contains("REMOTE"))
+                && txInfo.contains(primaryNode2.localNode().id().toString()))
                 match++;
         }
 

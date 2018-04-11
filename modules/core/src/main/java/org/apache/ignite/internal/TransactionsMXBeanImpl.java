@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -47,21 +48,23 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
 
     /** {@inheritDoc} */
     @Override public Map<String, String> getAllLocalTransactions() {
-        return getLocalTxs(0);
+        return localTxs(0);
     }
 
     /** {@inheritDoc} */
     @Override public Map<String, String> getLongRunningLocalTransactions(final int duration) {
-        return getLocalTxs(duration);
+        return localTxs(duration);
     }
 
     /** {@inheritDoc} */
     @Override public String stopTransaction(String txId) throws IgniteCheckedException {
         final Collection<Transaction> txs = gridKernalCtx.cache().transactions().localActiveTransactions();
+
         if (!F.isEmpty(txId))
             for (Transaction tx : txs)
                 if (tx.xid().toString().equals(txId)) {
                     tx.close();
+
                     return String.format("Transaction %s is %s", tx.xid(), tx.state());
                 }
 
@@ -71,16 +74,21 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
     /**
      * @param duration Duration.
      */
-    private Map<String, String> getLocalTxs(long duration) {
+    private Map<String, String> localTxs(long duration) {
+        final long start = System.currentTimeMillis();
+
         final Collection<Transaction> txs = gridKernalCtx.cache().transactions().localActiveTransactions();
 
-        final long start = System.currentTimeMillis();
+        final Map<UUID, IgniteInternalTx> internalTxs = new HashMap<>();
 
         final HashMap<String, String> res = new HashMap<>();
 
+        for (IgniteInternalTx tx : gridKernalCtx.cache().context().tm().activeTransactions())
+            internalTxs.put(tx.nodeId(), tx);
+
         for (Transaction tx : txs)
             if (start - tx.startTime() >= duration)
-                res.put(tx.xid().toString(), composeTx(tx));
+                res.put(tx.xid().toString(), composeTx(internalTxs, tx));
 
         return res;
     }
@@ -123,17 +131,15 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
     /**
      * @param tx Transaction.
      */
-    private String composeTx(final Transaction tx) {
-        final UUID node = tx.nodeId();
-
-        final UUID originating = tx.originatingNodeId();
-
+    private String composeTx(final Map<UUID, IgniteInternalTx> internal, final Transaction tx) {
         final TransactionState txState = tx.state();
 
         String top = txState + ", NEAR, ";
 
-        if (txState == TransactionState.PREPARING) {
-            final Map<UUID, Collection<UUID>> transactionNodes = tx.transactionNodes();
+        final IgniteInternalTx internalTx;
+
+        if (txState == TransactionState.PREPARING && (internalTx = internal.get(tx.nodeId())) != null) {
+            final Map<UUID, Collection<UUID>> transactionNodes = internalTx.transactionNodes();
 
             if (!F.isEmpty(transactionNodes)) {
                 final Set<UUID> primaryNodes = transactionNodes.keySet();
