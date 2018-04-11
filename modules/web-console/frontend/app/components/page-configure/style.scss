@@ -302,3 +302,18 @@ list-editable .pc-form-group__text-title {
     background: white;
     z-index: 2;
 }
+
+.config-changes-guard__details {
+    summary {
+        list-style: none;
+    }
+    summary::-webkit-details-marker {
+        display: none;
+    }
+    summary:before {
+        content: '▶ ';
+    }
+    &[open] summary:before {
+        content: '▼ ';
+    }
+}
