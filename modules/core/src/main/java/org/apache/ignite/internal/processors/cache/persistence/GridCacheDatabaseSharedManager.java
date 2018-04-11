@@ -469,7 +469,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         threadBuf = new ThreadLocal<ByteBuffer>() {
             /** {@inheritDoc} */
             @Override protected ByteBuffer initialValue() {
-                ByteBuffer tmpWriteBuf = ByteBuffer.allocateDirect(pageSize());
+                ByteBuffer tmpWriteBuf = GridUnsafe.allocateBuffer(pageSize());
 
                 tmpWriteBuf.order(ByteOrder.nativeOrder());
 
