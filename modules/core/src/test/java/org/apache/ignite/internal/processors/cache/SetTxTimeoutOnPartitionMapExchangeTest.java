@@ -148,7 +148,9 @@ public class SetTxTimeoutOnPartitionMapExchangeTest extends GridCommonAbstractTe
      * @param expectedTimeout Expected timeout.
      * @throws IgniteInterruptedCheckedException If failed.
      */
-    private void assertTxTimeoutOnPartitionMapExchange(final long expectedTimeout) throws IgniteInterruptedCheckedException {
+    private void assertTxTimeoutOnPartitionMapExchange(final long expectedTimeout)
+        throws IgniteInterruptedCheckedException {
+
         assertTrue(GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
 
