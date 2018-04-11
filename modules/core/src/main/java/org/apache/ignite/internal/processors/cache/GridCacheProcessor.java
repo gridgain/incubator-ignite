@@ -2542,8 +2542,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         assert msg != null;
 
         if (msg.isInit()) {
-            long timeout = ctx.config().getTransactionConfiguration().getTxTimeoutOnPartitionMapExchange();
-            if (timeout != msg.getTimeout()) {
+            if (ctx.config().getTransactionConfiguration().getTxTimeoutOnPartitionMapExchange() != msg.getTimeout()) {
                 ctx.config().getTransactionConfiguration().setTxTimeoutOnPartitionMapExchange(msg.getTimeout());
             }
         }

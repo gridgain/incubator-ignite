@@ -17,25 +17,39 @@
 
 package org.apache.ignite.mxbean;
 
+import org.apache.ignite.configuration.TransactionConfiguration;
+
 /**
  * MBean that provides access to transaction management.
  */
 @MXBeanDescription("MBean that provides access to transaction management.")
 public interface TransactionMXBean {
     /**
-     * Gets transaction timeout on partition map exchange in milliseconds.
+     * Gets transaction timeout on partition map exchange.
+     * @see TransactionConfiguration#getTxTimeoutOnPartitionMapExchange
      *
      * @return Transaction timeout on partition map exchange in milliseconds.
      */
-    @MXBeanDescription("Transaction timeout on partition map exchange in milliseconds.")
+    @MXBeanDescription(
+        "Transaction timeout on partition map exchange in milliseconds. " +
+        "If not set, default value is TransactionConfiguration#TX_TIMEOUT_ON_PARTITION_MAP_EXCHANGE which means " +
+        "transactions will never be rolled back on partition map exchange."
+    )
     public long getTxTimeoutOnPartitionMapExchange();
 
     /**
-     * Sets transaction timeout on partition map exchange in milliseconds.
+     * Sets transaction timeout on partition map exchange.
+     * If not set, default value is {@link TransactionConfiguration#TX_TIMEOUT_ON_PARTITION_MAP_EXCHANGE} which means transactions will never be
+     * rolled back on partition map exchange.
+     * @see TransactionConfiguration#setTxTimeoutOnPartitionMapExchange
      *
      * @param timeout Transaction timeout on partition map exchange in milliseconds.
      */
-    @MXBeanDescription("Sets transaction timeout on partition map exchange in milliseconds.")
+    @MXBeanDescription(
+        "Sets transaction timeout on partition map exchange in milliseconds. " +
+        "If not set, default value is TransactionConfiguration#TX_TIMEOUT_ON_PARTITION_MAP_EXCHANGE which means " +
+        "transactions will never be rolled back on partition map exchange."
+    )
     @MXBeanParametersNames(
         "timeout"
     )
