@@ -78,6 +78,7 @@ public class GridPartitionStateMap extends AbstractMap<Integer, GridDhtPartition
                         final int ordinal = st - 1;
 
                         idx += (BITS - bitN);
+
                         return new Entry<Integer, GridDhtPartitionState>() {
                             int p = cur;
                             int state = ordinal;
