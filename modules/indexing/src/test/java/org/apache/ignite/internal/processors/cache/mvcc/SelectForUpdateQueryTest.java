@@ -75,7 +75,7 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
         try (Connection c = connect(grid(0))) {
             c.setAutoCommit(false);
 
-            try (PreparedStatement ps = c.prepareStatement("select * from person for update")) {
+            try (PreparedStatement ps = c.prepareStatement("select * from person  order by id for update")) {
                 ps.setFetchSize(10);
 
                 try (ResultSet rs = ps.executeQuery()) {

@@ -1071,10 +1071,14 @@ public class GridMapQueryExecutor {
         try {
             boolean loc = node.isLocal();
 
+            // In case of SELECT FOR UPDATE last two columns are for _KEY and _VAL,
+            // we can't retrieve them for an arbitrary row otherwise.
+            int colsCnt = qr.pageFutureSupplier() == null ? res.columnCount() : res.columnCount() - 2;
+
             GridQueryNextPageResponse msg = new GridQueryNextPageResponse(qr.queryRequestId(), segmentId, qry, page,
                 page == 0 ? res.rowCount() : -1,
-                res.columnCount(),
-                loc ? null : toMessages(rows, new ArrayList<Message>(res.columnCount())),
+                colsCnt,
+                loc ? null : toMessages(rows, new ArrayList<>(res.columnCount()), colsCnt),
                 loc ? rows : null,
                 last);
 

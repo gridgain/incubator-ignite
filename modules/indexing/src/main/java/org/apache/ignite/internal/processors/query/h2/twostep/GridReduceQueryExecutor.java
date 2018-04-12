@@ -72,6 +72,7 @@ import org.apache.ignite.internal.processors.cache.query.GridCacheTwoStepQuery;
 import org.apache.ignite.internal.processors.query.GridQueryCacheObjectsIterator;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.GridRunningQueryInfo;
+import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.h2.H2FieldsIterator;
 import org.apache.ignite.internal.processors.query.h2.H2Utils;
 import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
@@ -574,6 +575,23 @@ public class GridReduceQueryExecutor {
 
             List<Integer> cacheIds = qry.cacheIds();
 
+            final GridNearTxLocal curTx = MvccUtils.activeTx(ctx);
+
+            final GridNearTxSelectForUpdateFuture sfuFut;
+
+            if (qry.forUpdate()) {
+                // Indexing should have started TX at this point for FOR UPDATE query.
+                assert curTx != null;
+
+                sfuFut = qry.forUpdate() ? new GridNearTxSelectForUpdateFuture(
+                    cacheContext(qry.cacheIds().get(0)),
+                    curTx,
+                    timeoutMillis
+                ) : null;
+            }
+            else
+                sfuFut = null;
+
             Collection<ClusterNode> nodes;
 
             // Explicit partition mapping for unstable topology.
@@ -601,14 +619,40 @@ public class GridReduceQueryExecutor {
             if (qry.isLocal())
                 nodes = singletonList(ctx.discovery().localNode());
             else {
-                NodesForPartitionsResult nodesParts = nodesForPartitions(cacheIds, topVer, parts, isReplicatedOnly);
+                NodesForPartitionsResult nodesParts;
+
+                if (sfuFut == null)
+                    nodesParts = nodesForPartitions(cacheIds, topVer, parts, isReplicatedOnly);
+                else {
+                    GridFutureAdapter<NodesForPartitionsResult> mapFut = sfuFut.init(new CO<NodesForPartitionsResult>() {
+                        @Override public NodesForPartitionsResult apply() {
+                            return nodesForPartitions(cacheIds, topVer, parts, isReplicatedOnly);
+                        }
+                    });
+
+                    try {
+                        nodesParts = mapFut.get();
+                    }
+                    catch (IgniteCheckedException e) {
+                        sfuFut.onError(e);
+
+                        throw new IgniteSQLException("Failed to map SELECT FOR UPDATE query on topology.", e);
+                    }
+
+                    if (!sfuFut.isFailed())
+                        sfuFut.markInitialized();
+                }
 
                 nodes = nodesParts.nodes();
                 partsMap = nodesParts.partitionsMap();
                 qryMap = nodesParts.queryPartitionsMap();
 
-                if (nodes == null)
+                if (nodes == null) {
+                    if (sfuFut != null)
+                        sfuFut.onDone(0L, null);
+
                     continue; // Retry.
+                }
 
                 assert !nodes.isEmpty();
 
@@ -745,8 +789,6 @@ public class GridReduceQueryExecutor {
                     .timeout(timeoutMillis)
                     .schemaName(schemaName);
 
-                final GridNearTxLocal curTx = MvccUtils.activeTx(ctx);
-
                 if (curTx != null && curTx.mvccInfo() != null)
                     req.mvccSnapshot(curTx.mvccInfo().snapshot());
                 else if (mvccTracker != null)
@@ -757,19 +799,12 @@ public class GridReduceQueryExecutor {
 
                 final C2<ClusterNode, Message, Message> spec;
 
-                final GridNearTxSelectForUpdateFuture sfuFut = qry.forUpdate() ? new GridNearTxSelectForUpdateFuture(
-                    cacheContext(qry.cacheIds().get(0)),
-                    curTx,
-                    timeoutMillis
-                ) : null;
-
                 if (qry.forUpdate()) {
-                    // Indexing should have started TX at this point for FOR UPDATE query.
-                    assert curTx != null;
-
                     final AtomicInteger cnt = new AtomicInteger();
 
                     final int fflags = flags;
+
+                    final boolean clientFirst = sfuFut.clientFirst();
 
                     spec = new C2<ClusterNode, Message, Message>() {
                         @Override public Message apply(ClusterNode clusterNode, Message msg) {
@@ -798,7 +833,7 @@ public class GridReduceQueryExecutor {
                                 qry.pageSize(),
                                 timeoutMillis,
                                 curTx.taskNameHash(),
-                                miniId == 0 && sfuFut.clientFirst()
+                                clientFirst
                             );
 
                             res.txRequest(txReq);
@@ -810,36 +845,7 @@ public class GridReduceQueryExecutor {
                 else
                     spec = pspec;
 
-                boolean sndOk;
-
-                if (!qry.forUpdate())
-                    sndOk = send(nodes, req, spec, qry.forUpdate());
-                else {
-                    // This init does two things:
-                    // 1. Query requests specialization (via specialize arg of send).
-                    // 2. TX mapping via SFUFut.init call itself.
-                    GridFutureAdapter<Boolean> sfuInitFut = sfuFut.init(new CO<Boolean>() {
-                        @Override public Boolean apply() {
-                            return send(finalNodes, req, spec, qry.forUpdate());
-                        }
-                    });
-
-                    // If init yielded nothing, main SFU future has to be done with error.
-                    if (sfuInitFut == null) {
-                        sfuFut.get();
-
-                        // Error should have been thrown.
-                        assert false;
-                    }
-
-                    Boolean initRes = sfuInitFut.get();
-
-                    assert initRes != null;
-
-                    sndOk = initRes;
-                }
-
-                if (sndOk) {
+                if (send(nodes, req, spec, qry.forUpdate())) {
                     awaitAllReplies(r, nodes, cancel);
 
                     Object state = r.state();
@@ -1527,7 +1533,7 @@ public class GridReduceQueryExecutor {
      * @param runLocParallel Run local handler in parallel thread.
      * @return {@code true} If all messages sent successfully.
      */
-    private boolean send(
+    public boolean send(
         Collection<ClusterNode> nodes,
         Message msg,
         @Nullable IgniteBiClosure<ClusterNode, Message, Message> specialize,

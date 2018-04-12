@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
-import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -119,8 +118,8 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     }
 
     /** */
-    public <T> GridFutureAdapter<T> init(IgniteOutClosure<T> mapFut) throws IgniteCheckedException {
-        InitFuture<T> initFut = new InitFuture<>(mapFut);
+    public<T> GridFutureAdapter<T> init(IgniteOutClosure<T> mapClo) {
+        MapFuture<T> mapFut = new MapFuture<>(mapClo);
 
         if (tx.trackTimeout()) {
             if (!tx.removeTimeoutHandler()) {
@@ -183,14 +182,14 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
             topLocked = true;
 
-            initFut.init();
+            mapFut.init();
 
-            return initFut;
+            return mapFut;
         }
 
-        mapOnTopology(initFut);
+        mapOnTopology(mapFut);
 
-        return initFut;
+        return mapFut;
     }
 
     public boolean clientFirst() {
@@ -199,10 +198,10 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
     /**
      * Acquire topology future and wait for its completion.
-     * Start forming batches on stable topology.
-     * @param initFut
+     * Execute necessary preliminary actions.
+     * @param mapFut
      */
-    private void mapOnTopology(InitFuture<?> initFut) throws IgniteCheckedException {
+    private void mapOnTopology(MapFuture mapFut){
         cctx.topology().readLock();
 
         try {
@@ -231,7 +230,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
                 if (this.topVer == null)
                     this.topVer = topVer;
 
-                initFut.init();
+                mapFut.init();
             }
             else {
                 fut.listen(new CI1<IgniteInternalFuture<AffinityTopologyVersion>>() {
@@ -239,7 +238,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
                         try {
                             fut.get();
 
-                            initFut.init();
+                            mapFut.init();
                         }
                         catch (IgniteCheckedException e) {
                             onDone(e);
@@ -254,16 +253,6 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
         finally {
             cctx.topology().readUnlock();
         }
-    }
-
-    /**
-     * Start iterating the data rows and form batches.
-     */
-    private void map() {
-        for (ClusterNode node : Collections.<ClusterNode>emptyList())
-            map(node);
-
-        markInitialized();
     }
 
     /**
@@ -493,10 +482,10 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
         }
     }
 
-    private final static class InitFuture<T> extends GridFutureAdapter<T> {
+    private final static class MapFuture<T> extends GridFutureAdapter<T> {
         private final IgniteOutClosure<T> clo;
 
-        private InitFuture(IgniteOutClosure<T> clo) {
+        private MapFuture(IgniteOutClosure<T> clo) {
             this.clo = clo;
         }
 
