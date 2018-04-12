@@ -25,6 +25,9 @@ import org.apache.ignite.internal.util.typedef.internal.S;
  * May be used for tracking history of recent allocation for partition <code>[partition, cacheId]</code>
  */
 public class PagesAllocationRange {
+    /** Not existed but owned. */
+    public static PagesAllocationRange NOT_EXISTED_BUT_OWNED = new PagesAllocationRange(0, -1);
+
     /**
      * Previously observed total number of allocated pages. May be stored using PageMetaIO.
      * Used to separate newly allocated pages with previously observed state

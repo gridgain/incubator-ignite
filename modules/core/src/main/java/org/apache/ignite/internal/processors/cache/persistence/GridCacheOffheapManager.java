@@ -81,6 +81,7 @@ import org.jetbrains.annotations.Nullable;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.MOVING;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.OWNING;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.RENTING;
+import static org.apache.ignite.internal.processors.cache.persistence.partstate.PagesAllocationRange.NOT_EXISTED_BUT_OWNED;
 
 /**
  * Used when persistence enabled.
@@ -331,10 +332,10 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
                 }
             }
             else if (needSnapshot)
-                tryAddEmptyPartitionToSnapshot(store, ctx);;
+                tryAddEmptyPartitionToSnapshot(store, ctx, true);;
         }
         else if (needSnapshot)
-            tryAddEmptyPartitionToSnapshot(store, ctx);
+            tryAddEmptyPartitionToSnapshot(store, ctx, false);
 
         return wasSaveToMeta;
     }
@@ -345,11 +346,14 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
      * @param store Store.
      * @param ctx Snapshot context.
      */
-    private void tryAddEmptyPartitionToSnapshot(CacheDataStore store, Context ctx) {
+    private void tryAddEmptyPartitionToSnapshot(CacheDataStore store, Context ctx, boolean storeExist) {
         if (getPartition(store).state() == OWNING) {
             ctx.partitionStatMap().put(
                     new GroupPartitionId(grp.groupId(), store.partId()),
-                    new PagesAllocationRange(0, 0));
+                    storeExist ?
+                        new PagesAllocationRange(0, 0):
+                        NOT_EXISTED_BUT_OWNED
+            );
         }
     }
 
