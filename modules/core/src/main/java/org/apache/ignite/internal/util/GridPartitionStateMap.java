@@ -67,32 +67,33 @@ public class GridPartitionStateMap extends AbstractMap<Integer, GridDhtPartition
                             throw new NoSuchElementException();
 
                         cur = idx / BITS;
+
                         int bitN = idx % BITS;
 
-                        Entry<Integer, GridDhtPartitionState> entry = new Entry<Integer, GridDhtPartitionState>() {
-                            int firstIdx = idx;
+                        int st = 1 << bitN;
+
+                        for (int i = 1; i < BITS - bitN; i++)
+                            st |= (states.get(idx + i) ? 1 : 0) << i + bitN;
+
+                        final int ordinal = st - 1;
+
+                        idx += (BITS - bitN);
+                        return new Entry<Integer, GridDhtPartitionState>() {
+                            int p = cur;
+                            int state = ordinal;
 
                             @Override public Integer getKey() {
-                                return cur;
+                                return p;
                             }
 
                             @Override public GridDhtPartitionState getValue() {
-                                int st = 1 << bitN;
-
-                                for (int i = bitN + 1; i < BITS - bitN; i++)
-                                    st |= ((states.get(firstIdx + i) ? 1 : 0) << i);
-
-                                return GridDhtPartitionState.fromOrdinal(st - 1);
+                                return GridDhtPartitionState.fromOrdinal(state);
                             }
 
                             @Override public GridDhtPartitionState setValue(GridDhtPartitionState val) {
-                                return setState(cur, val);
+                                return setState(p, val);
                             }
                         };
-
-                        idx += (BITS - bitN);
-
-                        return entry;
                     }
 
                     @Override public void remove() {
