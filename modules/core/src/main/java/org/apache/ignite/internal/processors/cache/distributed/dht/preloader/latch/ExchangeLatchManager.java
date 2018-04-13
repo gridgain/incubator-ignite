@@ -259,7 +259,7 @@ public class ExchangeLatchManager {
             else
                 throw new IgniteException("DiscoCache not found for topology "
                     + topVer
-                    + " consider increasing IGNITE_DISCOVERY_HISTORY_SIZE property. Current value is "
+                    + "; consider increasing IGNITE_DISCOVERY_HISTORY_SIZE property. Current value is "
                     + IgniteSystemProperties.getInteger(IgniteSystemProperties.IGNITE_DISCOVERY_HISTORY_SIZE, -1));
         }
 
