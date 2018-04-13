@@ -50,7 +50,7 @@ public class GridNearTxQueryResultsEnlistResponse extends GridNearTxQueryEnlistR
 
     /** {@inheritDoc} */
     @Override public short directType() {
-        return 150;
+        return 154;
     }
 
     /** {@inheritDoc} */

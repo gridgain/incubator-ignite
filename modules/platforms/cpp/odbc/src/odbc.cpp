@@ -24,6 +24,7 @@
 #include "ignite/odbc/utility.h"
 #include "ignite/odbc/system/odbc_constants.h"
 
+#include "ignite/odbc/config/connection_string_parser.h"
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/type_traits.h"
 #include "ignite/odbc/environment.h"
@@ -203,6 +204,8 @@ namespace ignite
         if (!connection)
             return SQL_INVALID_HANDLE;
 
+        connection->Deregister();
+
         delete connection;
 
         return SQL_SUCCESS;
@@ -270,16 +273,7 @@ namespace ignite
 
         std::string connectStr = SqlStringToString(inConnectionString, inConnectionStringLen);
 
-        odbc::config::Configuration config;
-
-        config.FillFromConnectString(connectStr);
-
-        std::string dsn = config.GetDsn();
-
-        if (!dsn.empty())
-            odbc::ReadDsnConfiguration(dsn.c_str(), config);
-
-        connection->Establish(config);
+        connection->Establish(connectStr);
 
         const DiagnosticRecordStorage& diag = connection->GetDiagnosticRecords();
 

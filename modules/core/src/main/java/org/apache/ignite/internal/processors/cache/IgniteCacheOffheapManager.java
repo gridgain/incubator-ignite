@@ -26,10 +26,12 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalP
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteDhtDemandedPartitionsMap;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.RootPage;
 import org.apache.ignite.internal.processors.cache.persistence.RowStore;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccUpdateResult;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryRowCacheCleaner;
@@ -40,7 +42,7 @@ import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.lang.GridCursor;
 import org.apache.ignite.internal.util.lang.GridIterator;
 import org.apache.ignite.internal.util.lang.IgniteInClosure2X;
-import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -188,7 +190,7 @@ public interface IgniteCacheOffheapManager {
      * @return All stored versions for given key.
      * @throws IgniteCheckedException If failed.
      */
-    public List<T2<Object, MvccVersion>> mvccAllVersions(GridCacheContext cctx, KeyCacheObject key)
+    public List<IgniteBiTuple<Object, MvccVersion>> mvccAllVersions(GridCacheContext cctx, KeyCacheObject key)
         throws IgniteCheckedException;
 
     /**
@@ -466,7 +468,7 @@ public interface IgniteCacheOffheapManager {
      * @param part Partition.
      * @return Number of entries.
      */
-    public int totalPartitionEntriesCount(int part);
+    public long totalPartitionEntriesCount(int part);
 
     /**
      *
@@ -503,7 +505,7 @@ public interface IgniteCacheOffheapManager {
          * @param cacheId Cache ID.
          * @return Size.
          */
-        int cacheSize(int cacheId);
+        long cacheSize(int cacheId);
 
         /**
          * @return Cache sizes if store belongs to group containing multiple caches.
@@ -513,7 +515,7 @@ public interface IgniteCacheOffheapManager {
         /**
          * @return Total size.
          */
-        int fullSize();
+        long fullSize();
 
         /**
          * @return Update counter.
@@ -552,6 +554,14 @@ public interface IgniteCacheOffheapManager {
             GridCacheVersion ver,
             long expireTime,
             @Nullable CacheDataRow oldRow) throws IgniteCheckedException;
+
+        /**
+         * @param cctx Cache context.
+         * @param cleanupRows Rows to cleanup.
+         * @throws IgniteCheckedException If failed.
+         */
+        public void cleanup(GridCacheContext cctx, @Nullable List<MvccLinkAwareSearchRow> cleanupRows)
+            throws IgniteCheckedException;
 
         /**
          * @param cctx Cache context.
@@ -704,7 +714,7 @@ public interface IgniteCacheOffheapManager {
          * @return All stored versions for given key.
          * @throws IgniteCheckedException If failed.
          */
-        List<T2<Object, MvccVersion>> mvccFindAllVersions(GridCacheContext cctx, KeyCacheObject key)
+        List<IgniteBiTuple<Object, MvccVersion>> mvccFindAllVersions(GridCacheContext cctx, KeyCacheObject key)
             throws IgniteCheckedException;
 
         /**
@@ -712,6 +722,13 @@ public interface IgniteCacheOffheapManager {
          * @throws IgniteCheckedException If failed.
          */
         public GridCursor<? extends CacheDataRow> cursor() throws IgniteCheckedException;
+
+        /**
+         * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
+         * @return Data cursor.
+         * @throws IgniteCheckedException If failed.
+         */
+        public GridCursor<? extends CacheDataRow> cursor(Object x) throws IgniteCheckedException;
 
         /**
          * @param mvccSnapshot MVCC snapshot.

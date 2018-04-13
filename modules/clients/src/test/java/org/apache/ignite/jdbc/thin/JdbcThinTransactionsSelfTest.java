@@ -20,13 +20,13 @@ package org.apache.ignite.jdbc.thin;
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteInternalFuture;
@@ -402,10 +402,10 @@ public class JdbcThinTransactionsSelfTest extends JdbcThinAbstractSelfTest {
                     s.execute("INSERT INTO INTS(k, v) values(1, 1)");
 
                 // We haven't committed anything yet - this check shows that autoCommit flag is in effect.
-                assertNull(cache.get(1));
+                assertTrue(cache.query(new SqlFieldsQuery("SELECT * from INTS")).getAll().isEmpty());
 
-                // No commit happened upon this query, too.
-                assertFalse(s.executeQuery("SELECT * from INTS").next());
+                // We should see own updates.
+                assertTrue(s.executeQuery("SELECT * from INTS").next());
 
                 c.commit();
 
@@ -420,7 +420,7 @@ public class JdbcThinTransactionsSelfTest extends JdbcThinAbstractSelfTest {
 
     /**
      * Test that exception in one of the statements does not kill connection worker altogether.
-     * @throws SQLException
+     * @throws SQLException if failed.
      */
     @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
     public void testExceptionHandling() throws SQLException {

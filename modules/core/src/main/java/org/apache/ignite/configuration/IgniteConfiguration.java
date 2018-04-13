@@ -42,6 +42,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.ComputeTask;
 import org.apache.ignite.events.Event;
 import org.apache.ignite.events.EventType;
+import org.apache.ignite.failure.FailureHandler;
 import org.apache.ignite.internal.managers.eventstorage.GridEventStorageManager;
 import org.apache.ignite.internal.processors.odbc.ClientListenerProcessor;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -212,6 +213,13 @@ public class IgniteConfiguration {
 
     /** Default timeout after which long query warning will be printed. */
     public static final long DFLT_LONG_QRY_WARN_TIMEOUT = 3000;
+
+    /** Default size of MVCC vacuum thread pool. */
+    public static final int DFLT_MVCC_VACUUM_THREAD_CNT = 2;
+
+    /** Default time interval between vacuum process runs (ms). */
+    public static final int DFLT_MVCC_VACUUM_TIME_INTERVAL = 5000;
+
 
     /** Optional local Ignite instance name. */
     private String igniteInstanceName;
@@ -486,8 +494,23 @@ public class IgniteConfiguration {
     /** Client connector configuration. */
     private ClientConnectorConfiguration cliConnCfg = ClientListenerProcessor.DFLT_CLI_CFG;
 
-    /** */
+    /** Flag whether MVCC is enabled. */
     private boolean mvccEnabled;
+
+    /** Size of MVCC vacuum thread pool. */
+    private int mvccVacuumThreadCnt = DFLT_MVCC_VACUUM_THREAD_CNT;
+
+    /** Time interval between vacuum process runs (ms). */
+    private int mvccVacuumTimeInterval = DFLT_MVCC_VACUUM_TIME_INTERVAL;
+
+    /** User authentication enabled. */
+    private boolean authEnabled;
+
+    /** Failure handler. */
+    private FailureHandler failureHnd;
+
+    /** Communication failure resolver */
+    private CommunicationFailureResolver commFailureRslvr;
 
     /**
      * Creates valid grid configuration with all default values.
@@ -516,6 +539,8 @@ public class IgniteConfiguration {
         loadBalancingSpi = cfg.getLoadBalancingSpi();
         indexingSpi = cfg.getIndexingSpi();
 
+        commFailureRslvr = cfg.getCommunicationFailureResolver();
+
         /*
          * Order alphabetically for maintenance purposes.
          */
@@ -523,6 +548,7 @@ public class IgniteConfiguration {
         addrRslvr = cfg.getAddressResolver();
         allResolversPassReq = cfg.isAllSegmentationResolversPassRequired();
         atomicCfg = cfg.getAtomicConfiguration();
+        authEnabled = cfg.isAuthenticationEnabled();
         autoActivation = cfg.isAutoActivationEnabled();
         binaryCfg = cfg.getBinaryConfiguration();
         dsCfg = cfg.getDataStorageConfiguration();
@@ -547,6 +573,7 @@ public class IgniteConfiguration {
         hadoopCfg = cfg.getHadoopConfiguration();
         igfsCfg = cfg.getFileSystemConfiguration();
         igfsPoolSize = cfg.getIgfsThreadPoolSize();
+        failureHnd = cfg.getFailureHandler();
         igniteHome = cfg.getIgniteHome();
         igniteInstanceName = cfg.getIgniteInstanceName();
         igniteWorkDir = cfg.getWorkDirectory();
@@ -566,6 +593,8 @@ public class IgniteConfiguration {
         metricsUpdateFreq = cfg.getMetricsUpdateFrequency();
         mgmtPoolSize = cfg.getManagementThreadPoolSize();
         mvccEnabled = cfg.isMvccEnabled();
+        mvccVacuumThreadCnt = cfg.mvccVacuumThreadCnt;
+        mvccVacuumTimeInterval = cfg.mvccVacuumTimeInterval;
         netTimeout = cfg.getNetworkTimeout();
         nodeId = cfg.getNodeId();
         odbcCfg = cfg.getOdbcConfiguration();
@@ -599,6 +628,23 @@ public class IgniteConfiguration {
         utilityCachePoolSize = cfg.getUtilityCacheThreadPoolSize();
         waitForSegOnStart = cfg.isWaitForSegmentOnStart();
         warmupClos = cfg.getWarmupClosure();
+    }
+
+    /**
+     * @return Communication failure resovler.
+     */
+    public CommunicationFailureResolver getCommunicationFailureResolver() {
+        return commFailureRslvr;
+    }
+
+    /**
+     * @param commFailureRslvr Communication failure resovler.
+     * @return {@code this} instance.
+     */
+    public IgniteConfiguration setCommunicationFailureResolver(CommunicationFailureResolver commFailureRslvr) {
+        this.commFailureRslvr = commFailureRslvr;
+
+        return this;
     }
 
     /**
@@ -2923,6 +2969,27 @@ public class IgniteConfiguration {
     }
 
     /**
+     * Gets failure handler.
+     *
+     * @return Failure handler.
+     */
+    public FailureHandler getFailureHandler() {
+        return failureHnd;
+    }
+
+    /**
+     * Sets failure handler.
+     *
+     * @param failureHnd Failure handler.
+     * @return {@code This} for chaining.
+     */
+    public IgniteConfiguration setFailureHandler(FailureHandler failureHnd) {
+        this.failureHnd = failureHnd;
+
+        return this;
+    }
+
+    /**
      * Gets client connector configuration.
      *
      * @return Client connector configuration.
@@ -2948,6 +3015,70 @@ public class IgniteConfiguration {
      */
     public IgniteConfiguration setMvccEnabled(boolean mvccEnabled) {
         this.mvccEnabled = mvccEnabled;
+
+        return this;
+    }
+
+    /**
+     * Returns number of MVCC vacuum cleanup threads.
+     *
+     * @return Number of MVCC vacuum cleanup threads.
+     */
+    public int getMvccVacuumThreadCnt() {
+        return mvccVacuumThreadCnt;
+    }
+
+    /**
+     * Sets number of MVCC vacuum cleanup threads.
+     *
+     * @param mvccVacuumThreadCnt Number of MVCC vacuum cleanup threads.
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setMvccVacuumThreadCnt(int mvccVacuumThreadCnt) {
+        this.mvccVacuumThreadCnt = mvccVacuumThreadCnt;
+
+        return this;
+    }
+
+    /**
+     * Returns time interval between vacuum runs.
+     *
+     * @return Time interval between vacuum runs.
+     */
+    public int getMvccVacuumTimeInterval() {
+        return mvccVacuumTimeInterval;
+    }
+
+    /**
+     * Sets time interval between vacuum runs.
+     *
+     * @param mvccVacuumTimeInterval Time interval between vacuum runs.
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setMvccVacuumTimeInterval(int mvccVacuumTimeInterval) {
+        this.mvccVacuumTimeInterval = mvccVacuumTimeInterval;
+
+        return this;
+    }
+
+    /**
+     * Returns {@code true} if user authentication is enabled for cluster. Otherwise returns {@code false}.
+     * Default value is false; authentication is disabled.
+     *
+     * @return {@code true} if user authentication is enabled for cluster. Otherwise returns {@code false}.
+     */
+    public boolean isAuthenticationEnabled() {
+        return authEnabled;
+    }
+
+    /**
+     * Sets flag indicating whether the user authentication is enabled for cluster.
+     *
+     * @param authEnabled User authentication enabled flag. {@code true} enab
+     * @return {@code this} for chaining.
+     */
+    public IgniteConfiguration setAuthenticationEnabled(boolean authEnabled) {
+        this.authEnabled = authEnabled;
 
         return this;
     }

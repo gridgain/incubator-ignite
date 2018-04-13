@@ -186,6 +186,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
 
     /**
      * @return iterator.
+     * @throws IgniteCheckedException If failed.
      */
     protected abstract UpdateSourceIterator<?> createIterator() throws IgniteCheckedException;
 
@@ -244,7 +245,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
             while (true) {
                 if (!it.hasNext()) {
                     if (ptr != null && !cctx.tm().logTxRecords())
-                        cctx.shared().wal().fsync(ptr);
+                        cctx.shared().wal().flush(ptr, true);
 
                     onDone(createResponse(cnt, false));
 
@@ -260,13 +261,6 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                     log.debug("Adding entry: " + entry);
 
                 assert !entry.detached();
-
-                IgniteTxEntry txEntry = tx.entry(entry.txKey());
-
-                if (txEntry != null) {
-                    throw new IgniteSQLException("One row cannot be changed twice in the same transaction. " +
-                        "Operation is unsupported at the moment.", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
-                }
 
                 GridCacheOperation op = it.operation();
 
@@ -321,7 +315,6 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                 IgniteInternalFuture<GridCacheUpdateTxResult> updateFuture = res.updateFuture();
 
                 if (updateFuture != null) {
-                    GridCacheOperation finalOp = op;
                     CacheObject finalVal = val;
                     GridDhtCacheEntry finalEntry = entry;
 
@@ -341,7 +334,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                                         "Operation is unsupported at the moment.", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
                                 }
 
-                                txEntry = tx.addEntry(finalOp,
+                                txEntry = tx.addEntry(op,
                                     finalVal,
                                     null,
                                     null,
@@ -372,7 +365,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                     break;
                 }
 
-                txEntry = tx.addEntry(op,
+                IgniteTxEntry txEntry = tx.addEntry(op,
                     val,
                     null,
                     null,
@@ -387,9 +380,8 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                     true,
                     false);
 
-                txEntry.markValid();
                 txEntry.queryEnlisted(true);
-                txEntry.cached(entry);
+                txEntry.markValid();
 
                 cnt++;
             }

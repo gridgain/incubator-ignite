@@ -34,6 +34,7 @@ import javax.cache.CacheException;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.processor.EntryProcessor;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
@@ -63,8 +64,8 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.colocated.Gri
 import org.apache.ignite.internal.processors.cache.dr.GridCacheDrInfo;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccCoordinator;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccCoordinatorChangeAware;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
@@ -83,7 +84,6 @@ import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.lang.GridClosureException;
 import org.apache.ignite.internal.util.lang.GridInClosure3;
-import org.apache.ignite.internal.util.lang.GridIterator;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.C1;
 import org.apache.ignite.internal.util.typedef.C2;
@@ -121,6 +121,7 @@ import static org.apache.ignite.transactions.TransactionState.MARKED_ROLLBACK;
 import static org.apache.ignite.transactions.TransactionState.PREPARING;
 import static org.apache.ignite.transactions.TransactionState.ROLLED_BACK;
 import static org.apache.ignite.transactions.TransactionState.ROLLING_BACK;
+import static org.apache.ignite.transactions.TransactionState.SUSPENDED;
 import static org.apache.ignite.transactions.TransactionState.UNKNOWN;
 
 /**
@@ -139,6 +140,10 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     /** Prepare future updater. */
     private static final AtomicReferenceFieldUpdater<GridNearTxLocal, NearTxFinishFuture> FINISH_FUT_UPD =
         AtomicReferenceFieldUpdater.newUpdater(GridNearTxLocal.class, NearTxFinishFuture.class, "finishFut");
+
+    /** */
+    private static final String TX_TYPE_MISMATCH_ERR_MSG =
+        "SQL queries and cache operations may not be used in the same transaction.";
 
     /** DHT mappings. */
     private IgniteTxMappings mappings;
@@ -181,6 +186,12 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     /** */
     private MvccQueryTracker mvccTracker;
 
+    /** Whether this transaction is for SQL operations or not.<p>
+     * {@code null} means there haven't been any calls made on this transaction, and first operation will give this
+     * field actual value.
+     */
+    private Boolean sql;
+
     /**
      * Empty constructor required for {@link Externalizable}.
      */
@@ -198,6 +209,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
      * @param isolation Isolation.
      * @param timeout Timeout.
      * @param storeEnabled Store enabled flag.
+     * @param sql Whether this transaction was started via SQL API or not, or {@code null} if unknown.
      * @param txSize Transaction size.
      * @param subjId Subject ID.
      * @param taskNameHash Task name hash code.
@@ -212,6 +224,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         TransactionIsolation isolation,
         long timeout,
         boolean storeEnabled,
+        Boolean sql,
         int txSize,
         @Nullable UUID subjId,
         int taskNameHash
@@ -235,6 +248,8 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             taskNameHash);
 
         mappings = implicitSingle ? new IgniteTxMappingsSingleImpl() : new IgniteTxMappingsImpl();
+
+        this.sql = sql;
 
         initResult();
 
@@ -543,7 +558,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         assert key != null;
 
         try {
-            beforePut(cacheCtx, retval);
+            beforePut(cacheCtx, retval, false);
 
             final GridCacheReturn ret = new GridCacheReturn(localResult(), false);
 
@@ -681,7 +696,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         final boolean retval
     ) {
         try {
-            beforePut(cacheCtx, retval);
+            beforePut(cacheCtx, retval, false);
         }
         catch (IgniteCheckedException e) {
             return new GridFinishedFuture(e);
@@ -1471,6 +1486,9 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
         cacheCtx.checkSecurity(SecurityPermission.CACHE_REMOVE);
 
+        if (!isOperationAllowed(false))
+            return txTypeMismatchFinishFuture();
+
         if (retval)
             needReturnValue(true);
 
@@ -1706,9 +1724,10 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         int[] cacheIds, int[] parts, String schema, String qry, Object[] params,
         int flags, int pageSize, long timeout) {
         try {
-            beforePut(cacheCtx, false);
+            beforePut(cacheCtx, false, true);
 
-            final IgniteInternalFuture<Long> fut = enlistQuery(cacheCtx, cacheIds, parts, schema, qry, params, flags, pageSize, timeout);
+            final IgniteInternalFuture<Long> fut = enlistQuery(cacheCtx, cacheIds, parts, schema, qry, params, flags,
+                pageSize, timeout);
 
             return nonInterruptable(new GridEmbeddedFuture<>(fut.chain(new CX1<IgniteInternalFuture<Long>, Boolean>() {
                 @Override public Boolean applyx(IgniteInternalFuture<Long> fut0) throws IgniteCheckedException {
@@ -1716,7 +1735,15 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                 }
             }), new PLC1<Long>(null) {
                 @Override protected Long postLock(Long val) throws IgniteCheckedException {
-                    return fut.get();
+                    Long res = fut.get();
+
+                    assert mvccInfo != null;
+                    assert res != null;
+
+                    if (res > 0)
+                        mvccInfo.snapshot().incrementOperationCounter();
+
+                    return res;
                 }
             }));
         }
@@ -1742,7 +1769,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     public IgniteInternalFuture<Long> updateAsync(GridCacheContext cacheCtx, MvccSnapshot mvccSnapshot,
         GridCacheOperation op, UpdateSourceIterator<IgniteBiTuple> it, int pageSize, long timeout) {
         try {
-            beforePut(cacheCtx, false);
+            beforePut(cacheCtx, false, true);
 
             final GridNearTxQueryResultsEnlistFuture fut = new GridNearTxQueryResultsEnlistFuture(cacheCtx, this,
                 mvccSnapshot, timeout, op, it, pageSize);
@@ -1755,7 +1782,15 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                 }
             }), new PLC1<Long>(null) {
                 @Override protected Long postLock(Long val) throws IgniteCheckedException {
-                    return fut.get();
+                    Long res = fut.get();
+
+                    assert mvccInfo != null;
+                    assert res != null;
+
+                    if (res > 0)
+                        mvccInfo.snapshot().incrementOperationCounter();
+
+                    return res;
                 }
             }));
         }
@@ -1827,6 +1862,9 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         final boolean needVer) {
         if (F.isEmpty(keys))
             return new GridFinishedFuture<>(Collections.<K, V>emptyMap());
+
+        if (!isOperationAllowed(false))
+            return txTypeMismatchFinishFuture();
 
         init();
 
@@ -2565,6 +2603,13 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     }
 
     /**
+     * @return Finished future with error message about tx type mismatch.
+     */
+    private static IgniteInternalFuture txTypeMismatchFinishFuture() {
+        return new GridFinishedFuture(new IgniteCheckedException(TX_TYPE_MISMATCH_ERR_MSG));
+    }
+
+    /**
      * @param cacheCtx Cache context.
      * @param loadFut Missing keys load future.
      * @param ret Future result.
@@ -3089,6 +3134,16 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
      * @throws IgniteCheckedException If the transaction is in an incorrect state, or timed out.
      */
     public void resume() throws IgniteCheckedException {
+        resume(true);
+    }
+
+    /**
+     * Resumes transaction (possibly in another thread) if it was previously suspended.
+     *
+     * @param checkTimeout Whether timeout should be checked.
+     * @throws IgniteCheckedException If the transaction is in an incorrect state, or timed out.
+     */
+    private void resume(boolean checkTimeout) throws IgniteCheckedException {
         if (log.isDebugEnabled())
             log.debug("Resume near local tx: " + this);
 
@@ -3096,7 +3151,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             throw new UnsupportedOperationException("Resume is not supported for pessimistic transactions.");
 
         synchronized (this) {
-            checkValid();
+            checkValid(checkTimeout);
 
             cctx.tm().resumeTx(this);
         }
@@ -3723,6 +3778,11 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
                 U.error(log, "Failed to prepare transaction: " + this, e);
             }
+            catch (Throwable t) {
+                fut.onDone(t);
+
+                throw t;
+            }
 
             if (err != null)
                 fut.rollbackOnError(err);
@@ -3741,6 +3801,11 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                         err = e;
 
                         U.error(log, "Failed to prepare transaction: " + this, e);
+                    }
+                    catch (Throwable t) {
+                        fut.onDone(t);
+
+                        throw t;
                     }
 
                     if (err != null)
@@ -4056,6 +4121,20 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     }
 
     /**
+     * @return {@code true} if this transaction does not have type flag set or it matches invoking operation,
+     * {@code false} otherwise.
+     */
+    public boolean isOperationAllowed(boolean sqlOp) {
+        if (sql == null) {
+            sql = sqlOp;
+
+            return true;
+        }
+
+        return sql == sqlOp;
+    }
+
+    /**
      * @return Public API proxy.
      */
     public TransactionProxy proxy() {
@@ -4245,12 +4324,19 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
     /**
      * @param cacheCtx Cache context.
      * @param retval Return value flag.
+     * @param sql SQL operation flag.
      * @throws IgniteCheckedException If failed.
      */
-    private void beforePut(GridCacheContext cacheCtx, boolean retval) throws IgniteCheckedException {
+    private void beforePut(GridCacheContext cacheCtx, boolean retval, boolean sql) throws IgniteCheckedException {
         checkUpdatesAllowed(cacheCtx);
 
         cacheCtx.checkSecurity(SecurityPermission.CACHE_PUT);
+
+        if (sql && !isOperationAllowed(sql))
+            throw new IgniteCheckedException(TX_TYPE_MISMATCH_ERR_MSG);
+
+        if (!sql && !isOperationAllowed(sql))
+            throw new IgniteCheckedException(TX_TYPE_MISMATCH_ERR_MSG);
 
         if (retval)
             needReturnValue(true);
@@ -4331,6 +4417,15 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
     /** {@inheritDoc} */
     @Override public void onTimeout() {
+        if (state() == SUSPENDED) {
+            try {
+                resume(false);
+            }
+            catch (IgniteCheckedException e) {
+                log.warning("Error resuming suspended transaction on timeout: " + this, e);
+            }
+        }
+
         if (state(MARKED_ROLLBACK, true) || (state() == MARKED_ROLLBACK)) {
             cctx.kernalContext().closure().runLocalSafe(new Runnable() {
                 @Override public void run() {

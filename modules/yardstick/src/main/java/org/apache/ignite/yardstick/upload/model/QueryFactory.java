@@ -20,6 +20,8 @@ package org.apache.ignite.yardstick.upload.model;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.yardstick.upload.StreamerParams;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,19 +42,27 @@ public class QueryFactory {
     /** Turns on Write Ahead Log. */
     public static final String TURN_ON_WAL = "ALTER TABLE test_upload LOGGING";
 
+    /** Turns off streaming mode. */
+    public static final String TURN_OFF_STREAMING = "SET STREAMING OFF";
+
     /** Number of "values" fields in the test table (any field except primary key). */
     private int valFieldsCnt = 10;
-
-    /** Create table with long primary key and number of long and varchar fields */
-    private String createTable = newCreateTableQuery();
 
     /** Parametrised query to insert new row. */
     private String insert = newInsertQuery();
 
+    /** Atomicity mode of test table's cache. */
+    private CacheAtomicityMode tabAtomicMode;
+
+    /** */
+    public QueryFactory(CacheAtomicityMode tabAtomicMode) {
+        this.tabAtomicMode = tabAtomicMode;
+    }
+
     /**
-     * See {@link #createTable}.
+     * Create table with long primary key and number of long and varchar fields
      */
-    private String newCreateTableQuery() {
+    public String createTable() {
         StringBuilder create = new StringBuilder("CREATE TABLE test_upload (id LONG PRIMARY KEY");
 
         for (int vi = 1; vi <= valFieldsCnt; vi++) {
@@ -65,7 +75,12 @@ public class QueryFactory {
 
         }
 
-        create.append(");");
+        create.append(')');
+
+        if (tabAtomicMode != null)
+            create.append(" WITH \"ATOMICITY=").append(tabAtomicMode.name()).append('\"');
+
+        create.append(';');
 
         return create.toString();
     }
@@ -80,13 +95,6 @@ public class QueryFactory {
 
         insert.append(");");
         return insert.toString();
-    }
-
-    /**
-     * See {@link #createTable}.
-     */
-    public String createTable() {
-        return createTable;
     }
 
     /**
@@ -142,7 +150,7 @@ public class QueryFactory {
 
         for (int vi = 1; vi <= valFieldsCnt; vi++) {
             // vi is value index (among all values), but we also have "id" which is primary key
-            // so index in query is value index shifted by 1
+            // so index in query is value index shifted by 1.
             int qryIdx = vi + 1;
 
             long nextVal = rnd.nextLong();
@@ -177,5 +185,33 @@ public class QueryFactory {
         }
 
         return line.toString();
+    }
+
+    /**
+     * Sql command that turns on streaming with specified parameters.
+     *
+     * @param p - POJO containing parameters for streamer.
+     * @return - sql command to turn on streaming.
+     */
+    @SuppressWarnings("ConstantConditions")
+    public String turnOnStreaming(StreamerParams p) {
+        StringBuilder cmd = new StringBuilder("SET STREAMING ON");
+
+        if (p.streamerLocalBatchSize() != null)
+            cmd.append(" BATCH_SIZE ").append(p.streamerLocalBatchSize());
+
+        if (p.streamerAllowOverwrite() != null) {
+            String val = p.streamerAllowOverwrite() ? "ON" : "OFF";
+
+            cmd.append(" ALLOW_OVERWRITE ").append(val);
+        }
+
+        if (p.streamerPerNodeParallelOperations() != null)
+            cmd.append(" PER_NODE_PARALLEL_OPERATIONS ").append(p.streamerPerNodeParallelOperations());
+
+        if (p.streamerPerNodeBufferSize() != null)
+            cmd.append(" PER_NODE_BUFFER_SIZE ").append(p.streamerPerNodeBufferSize());
+
+        return cmd.append(';').toString();
     }
 }

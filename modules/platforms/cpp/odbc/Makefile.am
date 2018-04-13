@@ -54,8 +54,10 @@ libignite_odbc_la_SOURCES = \
     src/app/parameter.cpp \
     src/app/parameter_set.cpp \
     src/common_types.cpp \
+    src/config/config_tools.cpp \
     src/config/configuration.cpp \
     src/config/connection_info.cpp \
+	src/config/connection_string_parser.cpp \
     src/connection.cpp \
     src/cursor.cpp \
     src/diagnostic/diagnosable_adapter.cpp \
@@ -81,6 +83,7 @@ libignite_odbc_la_SOURCES = \
     src/protocol_version.cpp \
     src/result_page.cpp \
     src/row.cpp \
+    src/nested_tx_mode.cpp \
     src/message.cpp \
     src/column.cpp \
     src/statement.cpp \

@@ -19,16 +19,16 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -43,13 +43,16 @@ import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteDiagnosticPrepareContext;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestQuery;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTx;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccAckRequestTxAndQuery;
@@ -73,14 +76,18 @@ import org.apache.ignite.internal.util.GridAtomicLong;
 import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.GridSpinReadWriteLock;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
+import org.apache.ignite.internal.util.future.GridCompoundIdentityFuture;
+import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.discovery.DiscoveryDataBag;
+import org.apache.ignite.thread.IgniteThread;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.events.EventType.EVT_CLIENT_NODE_DISCONNECTED;
@@ -97,7 +104,10 @@ import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LO
 /**
  * MVCC processor.
  */
-public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifecycleListener {
+@SuppressWarnings("serial") public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifecycleListener {
+    /** */
+    public static final GridCacheVersion DUMMY_VER = new GridCacheVersion(0, 0, 0);
+
     /** */
     private static final BiFunction<List<LockFuture>, List<LockFuture>, List<LockFuture>> CONC =
         new BiFunction<List<LockFuture>, List<LockFuture>, List<LockFuture>>() {
@@ -119,6 +129,15 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     public static final long MVCC_START_CNTR = 1L;
 
     /** */
+    public static final int MVCC_OP_COUNTER_NA = 0;
+
+    /** */
+    public static final int MVCC_START_OP_CNTR = 1;
+
+    /** */
+    public static final int MVCC_READ_OP_CNTR = Integer.MAX_VALUE;
+
+    /** */
     private volatile MvccCoordinator curCrd;
 
     /** */
@@ -128,7 +147,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     private final GridAtomicLong committedCntr = new GridAtomicLong(MVCC_START_CNTR);
 
     /** */
-    private final Set<Long> activeTxs = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Map<Long, Long> activeTxs = new ConcurrentHashMap<>();
 
     /** */
     private final ActiveQueries activeQueries = new ActiveQueries();
@@ -163,11 +182,20 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     /** */
     private MvccDiscoveryData discoData = new MvccDiscoveryData(null);
 
-    /** For tests only. */
-    private static IgniteClosure<Collection<ClusterNode>, ClusterNode> crdC;
-
     /** */
     private TxLog txLog;
+
+    /** */
+    private BlockingQueue<VacuumTask> cleanupQueue;
+
+    /** */
+    private List<GridWorker> vacuumWorkers;
+
+    /** For tests only. */
+    private volatile Throwable vacuumError;
+
+    /** For tests only. */
+    private static IgniteClosure<Collection<ClusterNode>, ClusterNode> crdC;
 
     /**
      * @param ctx Context.
@@ -215,6 +243,8 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     }
 
     /**
+     * @param crdVer Mvcc coordinator version.
+     * @param cntr Mvcc counter.
      * @return State for given mvcc version.
      * @throws IgniteCheckedException If fails.
      */
@@ -237,12 +267,13 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
      * @throws IgniteCheckedException If fails;
      */
     public void updateState(MvccVersion ver, byte state) throws IgniteCheckedException {
+        TxKey key = new TxKey(ver.coordinatorVersion(), ver.counter());
         List<LockFuture> waiting;
 
-        txLog.put(ver.coordinatorVersion(), ver.counter(), state);
+        txLog.put(key, state);
 
         if ((state == TxState.ABORTED || state == TxState.COMMITTED)
-                && (waiting = waitList.remove(new TxKey(ver.coordinatorVersion(), ver.counter()))) != null) {
+                && (waiting = waitList.remove(key)) != null) {
             for (LockFuture fut0 : waiting)
                 complete(fut0);
         }
@@ -251,6 +282,8 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     /**
      * @param cctx Cache context.
      * @param locked Version the entry is locked by.
+     * @return Future, which is completed as soon as the lock will be released.
+     * @throws IgniteCheckedException If failed.
      */
     public IgniteInternalFuture waitFor(GridCacheContext cctx, MvccVersion locked) throws IgniteCheckedException {
         TxKey key = new TxKey(locked.coordinatorVersion(), locked.counter());
@@ -273,6 +306,8 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
 
     /**
      * Checks whether the transaction with given version is active.
+     * @param crdVer Mvcc coordinator version.
+     * @param cntr Mvcc counter.
      * @return {@code True} If active.
      * @throws IgniteCheckedException If fails.
      */
@@ -284,6 +319,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
 
     /**
      * Removes all less or equals to the given one records from Tx log.
+     *
      * @param ver Version.
      * @throws IgniteCheckedException If fails.
      */
@@ -560,8 +596,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
      */
     private MvccAckRequestTx createTxAckMessage(long futId,
         MvccSnapshot updateVer,
-        @Nullable MvccSnapshot readVer)
-    {
+        @Nullable MvccSnapshot readVer) {
         MvccAckRequestTx msg;
 
         if (readVer != null) {
@@ -636,7 +671,6 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     }
 
     /**
-     *
      * @param nodeId Sender node ID.
      * @param msg Message.
      */
@@ -756,16 +790,16 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
 
         lock.writeLock();
 
-        long ver = mvccCntr.incrementAndGet(), cleanupVer = committedCntr.get();
+        long ver = mvccCntr.incrementAndGet(), tracking = ver, cleanup = committedCntr.get() + 1;
 
-        for (Long txVer : activeTxs) {
-            if (txVer < cleanupVer)
-                cleanupVer = txVer;
+        for (Map.Entry<Long, Long> txVer : activeTxs.entrySet()) {
+            cleanup = Math.min(txVer.getValue(), cleanup);
+            tracking = Math.min(txVer.getKey(), tracking);
 
-            res.addTx(txVer);
+            res.addTx(txVer.getKey());
         }
 
-        boolean add = activeTxs.add(ver);
+        boolean add = activeTxs.put(ver, tracking) == null;
 
         lock.writeUnlock();
 
@@ -774,11 +808,9 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         long minQry = activeQueries.minimalQueryCounter();
 
         if (minQry != -1)
-            cleanupVer = Math.min(cleanupVer, minQry);
+            cleanup = Math.min(cleanup, minQry);
 
-        cleanupVer--;
-
-        res.init(futId, crdVer, ver, cleanupVer);
+        res.init(futId, crdVer, ver, MVCC_START_OP_CNTR, cleanup - 1);
 
         return res;
     }
@@ -820,6 +852,8 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
             assert txLog == null;
 
             txLog = new TxLog(ctx, mgr);
+
+            startVacuum();
         }
     }
 
@@ -839,15 +873,73 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         assert txLog == null;
 
         txLog = new TxLog(ctx, mgr);
+
+        startVacuum();
     }
+
+
 
     /** {@inheritDoc} */
     @Override public void beforeStop(IgniteCacheDatabaseSharedManager mgr) {
+        stopVacuum();
+
         txLog = null;
     }
 
     /**
+     * Launches vacuum workers and scheduler.
+     */
+    private void startVacuum() {
+        if (!ctx.clientNode() && MvccUtils.mvccEnabled(ctx)) {
+            assert vacuumWorkers == null;
+            assert cleanupQueue == null;
+
+            cleanupQueue = new LinkedBlockingQueue<>();
+
+            vacuumWorkers = new ArrayList<>(ctx.config().getMvccVacuumThreadCnt() + 1);
+
+            vacuumWorkers.add(new VacuumScheduler(ctx, log));
+
+            for (int i = 0; i < ctx.config().getMvccVacuumThreadCnt(); i++) {
+                vacuumWorkers.add(new VacuumWorker(ctx, log, cleanupQueue));
+            }
+
+            for (GridWorker worker : vacuumWorkers) {
+                new IgniteThread(worker).start();
+            }
+        }
+    }
+
+    /**
+     * Stops vacuum worker and scheduler.
+     */
+    private void stopVacuum() {
+        if (!ctx.clientNode() && MvccUtils.mvccEnabled(ctx)) {
+            if (vacuumWorkers != null) {
+                // Stop vacuum workers.
+                U.cancel(vacuumWorkers);
+                U.join(vacuumWorkers, log);
+
+                vacuumWorkers = null;
+
+                if (!cleanupQueue.isEmpty()) {
+                    NodeStoppingException ex = new NodeStoppingException("Operation has been cancelled (node is stopping).");
+
+                    for (VacuumTask task : cleanupQueue) {
+                        task.onDone(ex);
+                    }
+                }
+
+                cleanupQueue = null;
+            }
+            else
+                U.warn(log, "Attempting to stop inactive vacuum.");
+        }
+    }
+
+    /**
      * TODO IGNITE-7966
+     *
      * @return Data region configuration.
      */
     private DataRegionConfiguration createTxLogRegion(DataStorageConfiguration dscfg) {
@@ -861,11 +953,28 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     }
 
     /**
-     *
      * @return Data storage configuration.
      */
     private DataStorageConfiguration dataStorageConfiguration() {
         return ctx.config().getDataStorageConfiguration();
+    }
+
+    /**
+     * For tests only.
+     *
+     * @return Vacuum error.
+     */
+    public Throwable getVacuumError() {
+        return vacuumError;
+    }
+
+    /**
+     * For tests only.
+     *
+     * @param e Vacuum error.
+     */
+    void setVacuumError(Throwable e) {
+        this.vacuumError = e;
     }
 
     /**
@@ -887,16 +996,14 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
 
             lock.writeLock();
 
-            long ver = committedCntr.get(), trackVer = ver;
+            long ver = committedCntr.get(), tracking = ver;
 
-            for (Long txVer : activeTxs) {
+            for (Long txVer : activeTxs.keySet()) {
                 assert txVer != ver;
 
                 if (txVer < ver) {
+                    tracking = Math.min(txVer, tracking);
                     res.addTx(txVer);
-
-                    if (txVer < trackVer)
-                        trackVer = txVer;
                 }
             }
 
@@ -907,21 +1014,21 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
             if (nodeMap == null) {
                 activeQueries.put(nodeId, nodeMap = new TreeMap<>());
 
-                nodeMap.put(trackVer, new AtomicInteger(1));
+                nodeMap.put(tracking, new AtomicInteger(1));
             }
             else {
-                AtomicInteger cntr = nodeMap.get(trackVer);
+                AtomicInteger cntr = nodeMap.get(tracking);
 
                 if (cntr == null)
-                    nodeMap.put(trackVer, new AtomicInteger(1));
+                    nodeMap.put(tracking, new AtomicInteger(1));
                 else
                     cntr.incrementAndGet();
             }
 
             if (minQry == null)
-                minQry = trackVer;
+                minQry = tracking;
 
-            res.init(futId, crdVer, ver, MVCC_COUNTER_NA);
+            res.init(futId, crdVer, ver, MVCC_READ_OP_CNTR, MVCC_COUNTER_NA);
 
             return res;
         }
@@ -1010,7 +1117,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
                     fut = old;
             }
 
-            if (!activeTxs.contains(txId))
+            if (!activeTxs.containsKey(txId))
                 fut.onDone();
 
             if (!fut.isDone()) {
@@ -1128,8 +1235,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
      */
     public void initCoordinator(AffinityTopologyVersion topVer,
         DiscoCache discoCache,
-        Map<UUID, Map<MvccVersion, Integer>> activeQueries)
-    {
+        Map<UUID, Map<MvccVersion, Integer>> activeQueries) {
         assert ctx.localNodeId().equals(curCrd.nodeId());
 
         MvccCoordinator crd = discoCache.mvccCoordinator();
@@ -1193,6 +1299,106 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
     }
 
     /**
+     * Runs vacuum process.
+     *
+     * @return {@code Future} with {@link VacuumMetrics}.
+     */
+    public IgniteInternalFuture<VacuumMetrics> runVacuum() {
+        assert !ctx.clientNode();
+
+        if (Thread.currentThread().isInterrupted())
+            return new GridFinishedFuture<>(new VacuumMetrics());
+
+        final GridCompoundIdentityFuture<VacuumMetrics> res =
+            new GridCompoundIdentityFuture<>(new VacuumMetricsReducer());
+
+        if (ctx.localNodeId().equals(currentCoordinator().nodeId()))
+            continueRunVacuum(res, requestTxSnapshotOnCoordinator(DUMMY_VER));
+        else
+            requestTxSnapshot(curCrd, null, DUMMY_VER).listen(new IgniteInClosure<IgniteInternalFuture<MvccSnapshot>>() {
+                @Override public void apply(IgniteInternalFuture<MvccSnapshot> future) {
+                    try {
+                        continueRunVacuum(res, future.get());
+                    }
+                    catch (Throwable e) {
+                        completeWithException(res, e);
+                    }
+                }
+            });
+
+        res.listen(new IgniteInClosure<IgniteInternalFuture<VacuumMetrics>>() {
+            @Override public void apply(IgniteInternalFuture<VacuumMetrics> fut) {
+                try {
+                    VacuumMetrics metrics = fut.get();
+
+                    if (log.isDebugEnabled())
+                        log.debug("Vacuum completed. " + metrics);
+                }
+                catch (IgniteCheckedException e) {
+                    U.error(log, "Vacuum error. ", e);
+                }
+            }
+        });
+
+        return res;
+    }
+
+    private void continueRunVacuum(GridCompoundIdentityFuture<VacuumMetrics> res, MvccSnapshot snapshot) {
+        ackTxCommit(currentCoordinator().nodeId(), snapshot, null)
+            .listen(new IgniteInClosure<IgniteInternalFuture>() {
+            @Override public void apply(IgniteInternalFuture future) {
+                if (future.error() != null)
+                    res.onDone(future.error());
+                else if (snapshot.cleanupVersion() <= MVCC_COUNTER_NA)
+                    res.onDone(new VacuumMetrics(), null);
+                else {
+                    try {
+                        MvccVersion cleanupVer = new MvccVersionImpl(snapshot.coordinatorVersion(),
+                            snapshot.cleanupVersion(), Integer.MAX_VALUE);
+
+                        if (log.isDebugEnabled())
+                            log.debug("Started vacuum with cleanup version=" + cleanupVer + '.');
+
+                        for (CacheGroupContext grp : ctx.cache().cacheGroups()) {
+                            if (Thread.currentThread().isInterrupted())
+                                break;
+
+                            if (!grp.userCache() || !grp.mvccEnabled())
+                                continue;
+
+                            List<GridDhtLocalPartition> parts = grp.topology().localPartitions();
+
+                            if (parts.isEmpty())
+                                continue;
+
+                            for (int i = 0; i < parts.size(); i++) {
+                                VacuumTask task = new VacuumTask(cleanupVer, parts.get(i));
+
+                                cleanupQueue.offer(task);
+
+                                res.add(task);
+                            }
+                        }
+
+                        res.markInitialized();
+                    }
+                    catch (Throwable e) {
+                        completeWithException(res, e);
+                    }
+                }
+            }
+        });
+    }
+
+    /** */
+    private void completeWithException(GridFutureAdapter fut, Throwable e) {
+        fut.onDone(e);
+
+        if (e instanceof Error)
+            throw (Error) e;
+    }
+
+    /**
      *
      */
     private class MvccSnapshotFuture extends GridFutureAdapter<MvccSnapshot> implements MvccFuture {
@@ -1246,7 +1452,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
         /**
          * @param nodeId Failed node ID.
          */
-        void onNodeLeft(UUID nodeId ) {
+        void onNodeLeft(UUID nodeId) {
             if (crd.nodeId().equals(nodeId) && snapshotFuts.remove(id) != null) {
                 ClusterTopologyCheckedException err = new ClusterTopologyCheckedException("Failed to request mvcc " +
                     "version, coordinator failed: " + nodeId);
@@ -1343,6 +1549,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
             return "CacheCoordinatorDiscoveryListener[]";
         }
     }
+
     /**
      *
      */
@@ -1378,7 +1585,7 @@ public class MvccProcessor extends GridProcessorAdapter implements DatabaseLifec
             else if (msg instanceof MvccQuerySnapshotRequest)
                 processCoordinatorQuerySnapshotRequest(nodeId, (MvccQuerySnapshotRequest)msg);
             else if (msg instanceof MvccSnapshotResponse)
-                processCoordinatorSnapshotResponse(nodeId, (MvccSnapshotResponse) msg);
+                processCoordinatorSnapshotResponse(nodeId, (MvccSnapshotResponse)msg);
             else if (msg instanceof MvccWaitTxsRequest)
                 processCoordinatorWaitTxsRequest(nodeId, (MvccWaitTxsRequest)msg);
             else if (msg instanceof MvccNewQueryAckRequest)

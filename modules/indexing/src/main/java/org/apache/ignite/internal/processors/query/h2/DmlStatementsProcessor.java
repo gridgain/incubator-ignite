@@ -57,6 +57,7 @@ import org.apache.ignite.internal.processors.cache.QueryCursorImpl;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.cache.query.SqlFieldsQueryEx;
 import org.apache.ignite.internal.processors.odbc.SqlStateCode;
@@ -229,21 +230,16 @@ public class DmlStatementsProcessor {
 
         UpdatePlan plan = getPlanForStatement(schemaName, conn, prepared, fieldsQry, loc, null);
 
-        if (plan.cacheContext().mvccEnabled())
-            throw new IgniteSQLException("Failed to execute batch update with MVCC enabled. " +
-                "Operation is unsupported at the moment.", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+        GridCacheContext<?, ?> cctx = plan.cacheContext();
 
-        if (plan.hasRows() && plan.mode() == UpdateMode.INSERT) {
-            GridCacheContext<?, ?> cctx = plan.cacheContext();
-
+        // For MVCC case, let's enlist batch elements one by one.
+        if (plan.hasRows() && plan.mode() == UpdateMode.INSERT && !cctx.mvccEnabled()) {
             CacheOperationContext opCtx = setKeepBinaryContext(cctx);
 
             try {
                 List<List<List<?>>> cur = plan.createRows(argss);
 
-                List<UpdateResult> res = processDmlSelectResultBatched(plan, cur, fieldsQry.getPageSize());
-
-                return res;
+                return processDmlSelectResultBatched(plan, cur, fieldsQry.getPageSize());
             }
             finally {
                 cctx.operationContextPerCall(opCtx);
@@ -512,7 +508,7 @@ public class DmlStatementsProcessor {
 
             DmlDistributedPlanInfo distributedPlan = plan.distributedPlan();
 
-            GridNearTxLocal tx = idx.activeTx();
+            GridNearTxLocal tx = MvccUtils.activeTx(cctx.kernalContext());
 
             boolean implicit = (tx == null);
 
@@ -520,9 +516,9 @@ public class DmlStatementsProcessor {
                 ((SqlFieldsQueryEx)fieldsQry).isAutoCommit());
 
             if (implicit)
-                tx = idx.txStart(cctx, fieldsQry.getTimeout());
+                tx = MvccUtils.txStart(cctx, fieldsQry.getTimeout());
 
-            MvccSnapshot mvccSnapshot = idx.requestMvccVersion(cctx, tx);
+            MvccSnapshot mvccSnapshot = MvccUtils.requestMvccVersion(cctx, tx);
 
             try (GridNearTxLocal toCommit = commit ? tx : null) {
                 long timeout;
