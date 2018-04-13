@@ -638,7 +638,9 @@ public class GridMapQueryExecutor {
         List<GridReservable> reserved = new ArrayList<>();
 
         try {
-            if (topVer != null) {
+            // We want to reserve only in not SELECT FOR UPDATE case -
+            // otherwise, their state is protected by running transaction.
+            if (topVer != null && txReq == null) {
                 // Reserve primary for topology version or explicit partitions.
                 if (!reservePartitions(cacheIds, topVer, parts, reserved)) {
                     // Unregister lazy worker because re-try may never reach this node again.

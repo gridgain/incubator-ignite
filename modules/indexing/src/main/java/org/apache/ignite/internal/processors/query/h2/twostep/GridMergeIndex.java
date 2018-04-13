@@ -38,6 +38,7 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryNextPageResponse;
+import org.apache.ignite.internal.util.lang.IgnitePair;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.h2.engine.Session;
@@ -125,7 +126,7 @@ public abstract class GridMergeIndex extends BaseIndex {
     private final GridKernalContext ctx;
 
     /** */
-    private volatile ConcurrentMap<SourceKey, Integer> lastPages;
+    private volatile ConcurrentMap<SourceKey, IgnitePair<Integer>> lastPages;
 
     /**
      * @param ctx Context.
@@ -316,7 +317,7 @@ public abstract class GridMergeIndex extends BaseIndex {
         if (allRows < 0 || res.page() != 0)
             return;
 
-        ConcurrentMap<SourceKey,Integer> lp = lastPages;
+        ConcurrentMap<SourceKey, IgnitePair<Integer>> lp = lastPages;
 
         if (lp == null && !lastPagesUpdater.compareAndSet(this, null, lp = new ConcurrentHashMap<>()))
             lp = lastPages;
@@ -327,7 +328,7 @@ public abstract class GridMergeIndex extends BaseIndex {
 
         assert lastPage >= 0: lastPage;
 
-        if (lp.put(new SourceKey(nodeId, res.segmentId()), lastPage) != null)
+        if (lp.put(new SourceKey(nodeId, res.segmentId()), new IgnitePair<>(lastPage, allRows)) != null)
             throw new IllegalStateException();
     }
 
@@ -342,15 +343,17 @@ public abstract class GridMergeIndex extends BaseIndex {
 
             initLastPages(nodeId, res);
 
-            ConcurrentMap<SourceKey,Integer> lp = lastPages;
+            ConcurrentMap<SourceKey, IgnitePair<Integer>> lp = lastPages;
 
             if (lp == null)
                 return; // It was not initialized --> wait for last page flag.
 
-            Integer lastPage = lp.get(new SourceKey(nodeId, res.segmentId()));
+            IgnitePair<Integer> p = lp.get(new SourceKey(nodeId, res.segmentId()));
 
-            if (lastPage == null)
+            if (p == null)
                 return; // This node may use the new protocol --> wait for last page flag.
+
+            int lastPage = p.get1();
 
             if (lastPage != res.page()) {
                 assert lastPage > res.page();
@@ -360,6 +363,25 @@ public abstract class GridMergeIndex extends BaseIndex {
         }
 
         page.setLast(true);
+    }
+
+    /**
+     * @param nodeId
+     * @param segment
+     * @return
+     */
+    @Nullable public Integer totalRows(UUID nodeId, int segment) {
+        ConcurrentMap<SourceKey, IgnitePair<Integer>> lp = lastPages;
+
+        if (lp == null)
+            return null; // It was not initialized --> wait for last page flag.
+
+        IgnitePair<Integer> p = lp.get(new SourceKey(nodeId, segment));
+
+        if (p == null)
+            return null; // This node may use the new protocol --> wait for last page flag.
+
+        return p.get2();
     }
 
     /**

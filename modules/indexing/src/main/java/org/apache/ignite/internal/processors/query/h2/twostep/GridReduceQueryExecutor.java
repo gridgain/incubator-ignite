@@ -93,7 +93,6 @@ import org.apache.ignite.internal.util.GridSpinBusyLock;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.C2;
 import org.apache.ignite.internal.util.typedef.CIX2;
-import org.apache.ignite.internal.util.typedef.CO;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -359,6 +358,18 @@ public class GridReduceQueryExecutor {
             retry(r, msg.retry(), node.id());
         else if (msg.page() == 0) // Do count down on each first page received.
             r.latch().countDown();
+
+        if (page.isLast()) {
+            GridNearTxSelectForUpdateFuture fut = r.selectForUpdateFuture();
+
+            if (r == null)
+                return;
+
+            Integer cnt = idx.totalRows(node.id(), seg);
+
+            fut.onResult(node.id(), seg, cnt != null ? cnt.longValue() : null,
+                cnt != null ? new IllegalStateException("") : null);
+        }
     }
 
     /**
@@ -561,18 +572,6 @@ public class GridReduceQueryExecutor {
 
             final long qryReqId = qryIdGen.incrementAndGet();
 
-            final ReduceQueryRun r = new ReduceQueryRun(qryReqId, qry.originalSql(), schemaName,
-                h2.connectionForSchema(schemaName), qry.mapQueries().size(), qry.pageSize(),
-                U.currentTimeMillis(), qry.forUpdate(), cancel);
-
-            AffinityTopologyVersion topVer = h2.readyTopologyVersion();
-
-            // Check if topology is changed while retrying on locked topology.
-            if (h2.serverTopologyChanged(topVer) && ctx.cache().context().lockedTopologyVersion(null) != null) {
-                throw new CacheException(new TransactionException("Server topology is changed during query " +
-                    "execution inside a transaction. It's recommended to rollback and retry transaction."));
-            }
-
             List<Integer> cacheIds = qry.cacheIds();
 
             final GridNearTxLocal curTx = MvccUtils.activeTx(ctx);
@@ -591,6 +590,18 @@ public class GridReduceQueryExecutor {
             }
             else
                 sfuFut = null;
+
+            final ReduceQueryRun r = new ReduceQueryRun(qryReqId, qry.originalSql(), schemaName,
+                h2.connectionForSchema(schemaName), qry.mapQueries().size(), qry.pageSize(),
+                U.currentTimeMillis(), sfuFut, cancel);
+
+            AffinityTopologyVersion topVer = h2.readyTopologyVersion();
+
+            // Check if topology is changed while retrying on locked topology.
+            if (h2.serverTopologyChanged(topVer) && ctx.cache().context().lockedTopologyVersion(null) != null) {
+                throw new CacheException(new TransactionException("Server topology is changed during query " +
+                    "execution inside a transaction. It's recommended to rollback and retry transaction."));
+            }
 
             Collection<ClusterNode> nodes;
 
@@ -619,29 +630,20 @@ public class GridReduceQueryExecutor {
             if (qry.isLocal())
                 nodes = singletonList(ctx.discovery().localNode());
             else {
-                NodesForPartitionsResult nodesParts;
-
-                if (sfuFut == null)
-                    nodesParts = nodesForPartitions(cacheIds, topVer, parts, isReplicatedOnly);
-                else {
-                    GridFutureAdapter<NodesForPartitionsResult> mapFut = sfuFut.init(new CO<NodesForPartitionsResult>() {
-                        @Override public NodesForPartitionsResult apply() {
-                            return nodesForPartitions(cacheIds, topVer, parts, isReplicatedOnly);
-                        }
-                    });
+                if (sfuFut != null) {
+                    GridFutureAdapter<AffinityTopologyVersion> topFut = sfuFut.initTopologyVersion();
 
                     try {
-                        nodesParts = mapFut.get();
+                        topVer = topFut.get();
                     }
                     catch (IgniteCheckedException e) {
                         sfuFut.onError(e);
 
                         throw new IgniteSQLException("Failed to map SELECT FOR UPDATE query on topology.", e);
                     }
-
-                    if (!sfuFut.isFailed())
-                        sfuFut.markInitialized();
                 }
+
+                NodesForPartitionsResult nodesParts = nodesForPartitions(cacheIds, topVer, parts, isReplicatedOnly);
 
                 nodes = nodesParts.nodes();
                 partsMap = nodesParts.partitionsMap();
@@ -669,6 +671,9 @@ public class GridReduceQueryExecutor {
                     }
                 }
             }
+
+            if (!sfuFut.isFailed())
+                sfuFut.init(nodes);
 
             int tblIdx = 0;
 
@@ -924,8 +929,13 @@ public class GridReduceQueryExecutor {
                     if (Thread.currentThread().isInterrupted())
                         throw new IgniteInterruptedCheckedException("Query was interrupted.");
 
+                    if (sfuFut != null)
+                        sfuFut.onDone(0L);
+
                     continue;
                 }
+
+                sfuFut.get();
 
                 return new GridQueryCacheObjectsIterator(resIter, h2.objectContext(), keepBinary);
             }
@@ -934,11 +944,21 @@ public class GridReduceQueryExecutor {
 
                 U.closeQuiet(r.connection());
 
+                CacheException resEx = null;
+
                 if (e instanceof CacheException) {
                     if (wasCancelled((CacheException)e))
-                        throw new CacheException("Failed to run reduce query locally.", new QueryCancelledException());
+                        resEx = new  CacheException("Failed to run reduce query locally.",
+                            new QueryCancelledException());
+                    else
+                        resEx = (CacheException)e;
+                }
 
-                    throw (CacheException)e;
+                if (resEx != null) {
+                    if (sfuFut != null)
+                        sfuFut.onDone(resEx);
+
+                    throw resEx;
                 }
 
                 Throwable cause = e;
@@ -951,7 +971,12 @@ public class GridReduceQueryExecutor {
                         cause = disconnectedErr;
                 }
 
-                throw new CacheException("Failed to run reduce query locally.", cause);
+                resEx = new CacheException("Failed to run reduce query locally.", cause);
+
+                if (sfuFut != null)
+                    sfuFut.onDone(resEx);
+
+                throw resEx;
             }
             finally {
                 if (release) {
