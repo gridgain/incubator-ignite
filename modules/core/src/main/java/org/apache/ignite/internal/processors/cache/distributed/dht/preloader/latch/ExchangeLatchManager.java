@@ -30,12 +30,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.GridTopic;
 import org.apache.ignite.internal.managers.communication.GridIoManager;
 import org.apache.ignite.internal.managers.communication.GridIoPolicy;
+import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.discovery.GridDiscoveryManager;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.util.GridConcurrentHashSet;
@@ -244,9 +247,21 @@ public class ExchangeLatchManager {
      * @return Oldest alive server node with latch functionality.
      */
     @Nullable private ClusterNode getLatchCoordinator(AffinityTopologyVersion topVer) {
-        Collection<ClusterNode> aliveNodes = topVer == AffinityTopologyVersion.NONE
-                ? discovery.aliveServerNodes()
-                : discovery.discoCache(topVer).aliveServerNodes();
+        Collection<ClusterNode> aliveNodes;
+
+        if (topVer == AffinityTopologyVersion.NONE)
+            aliveNodes = discovery.aliveServerNodes();
+        else {
+            DiscoCache discoCache = discovery.discoCache(topVer);
+
+            if (discoCache != null)
+                aliveNodes = discoCache.aliveServerNodes();
+            else
+                throw new IgniteException("DiscoCache not found for topology "
+                    + topVer
+                    + " consider increasing IGNITE_DISCOVERY_HISTORY_SIZE property. Current value is "
+                    + IgniteSystemProperties.getInteger(IgniteSystemProperties.IGNITE_DISCOVERY_HISTORY_SIZE, -1));
+        }
 
         return aliveNodes
                 .stream()
