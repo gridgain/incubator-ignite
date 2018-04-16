@@ -274,6 +274,9 @@ public class LocalPendingTransactionsTracker {
             if (!trackCommitted.get())
                 return;
 
+            if (!currentlyPreparedTxs.containsKey(nearXidVer))
+                throw new AssertionError("Tx should be in PREPARED state when logging data records: " + nearXidVer);
+
             for (KeyCacheObject key : keys) {
                 writtenKeysToNearXidVer.compute(key, (keyObj, keyTxsSet) -> {
                     Set<GridCacheVersion> keyTxs = keyTxsSet == null ? new HashSet<>() : keyTxsSet;
@@ -309,6 +312,9 @@ public class LocalPendingTransactionsTracker {
         try {
             if (!trackCommitted.get())
                 return;
+
+            if (!currentlyPreparedTxs.containsKey(nearXidVer))
+                throw new AssertionError("Tx should be in PREPARED state when logging data records: " + nearXidVer);
 
             for (KeyCacheObject key : keys) {
                 writtenKeysToNearXidVer.computeIfPresent(key, (keyObj, keyTxsSet) -> {
