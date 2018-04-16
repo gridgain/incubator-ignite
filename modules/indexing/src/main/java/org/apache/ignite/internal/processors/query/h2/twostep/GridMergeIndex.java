@@ -102,7 +102,7 @@ public abstract class GridMergeIndex extends BaseIndex {
         }
     };
 
-    /** */
+    /** {@code FOR UPDATE} flag. */
     final boolean forUpdate;
 
     /** Row source nodes. */
@@ -134,7 +134,7 @@ public abstract class GridMergeIndex extends BaseIndex {
      * @param name Index name.
      * @param type Type.
      * @param cols Columns.
-     * @param forUpdate
+     * @param forUpdate {@code FOR UPDATE} flag.
      */
     public GridMergeIndex(GridKernalContext ctx,
         GridMergeTable tbl,
@@ -151,7 +151,7 @@ public abstract class GridMergeIndex extends BaseIndex {
 
     /**
      * @param ctx Context.
-     * @param forUpdate
+     * @param forUpdate {@code FOR UPDATE} flag.
      */
     protected GridMergeIndex(GridKernalContext ctx, boolean forUpdate) {
         this.ctx = ctx;

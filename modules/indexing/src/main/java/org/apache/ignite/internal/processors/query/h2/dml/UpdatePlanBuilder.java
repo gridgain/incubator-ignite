@@ -561,6 +561,7 @@ public final class UpdatePlanBuilder {
      * @param colIdx Column index if key or value is present in columns list, {@code -1} if it's not.
      * @param hasProps Whether column list affects individual properties of key or value.
      * @param key Whether supplier should be created for key or for value.
+     * @param forUpdate {@code FOR UPDATE} flag.
      * @return Closure returning key or value.
      * @throws IgniteCheckedException If failed.
      */

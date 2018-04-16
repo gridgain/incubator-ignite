@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxQueryEnlistAbstractFuture;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
@@ -50,8 +49,8 @@ public class QueryPageEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Gr
     /**
      * @return Transaction adapter.
      */
-    public GridDhtTxLocal tx() {
-        return (GridDhtTxLocal)tx;
+    public GridDhtTxLocalAdapter tx() {
+        return tx;
     }
 
     /** {@inheritDoc} */

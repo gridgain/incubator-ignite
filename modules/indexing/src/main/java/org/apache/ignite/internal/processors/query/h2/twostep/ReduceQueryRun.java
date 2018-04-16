@@ -73,7 +73,7 @@ class ReduceQueryRun {
     ReduceQueryRun(Long id, String qry, String schemaName, Connection conn, int idxsCnt, int pageSize, long startTime,
         GridNearTxSelectForUpdateFuture selectForUpdateFut, GridQueryCancel cancel) {
         this.qry = new GridRunningQueryInfo(id, qry, SQL_FIELDS, schemaName, startTime, cancel,
-            selectForUpdateFut != null, false);
+            false);
 
         this.conn = (JdbcConnection)conn;
 

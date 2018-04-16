@@ -92,7 +92,7 @@ public final class GridMergeIndexSorted extends GridMergeIndex {
      * @param tbl Table.
      * @param name Index name,
      * @param cols Columns.
-     * @param forUpdate
+     * @param forUpdate {@code FOR UPDATE} flag.
      */
     public GridMergeIndexSorted(
         GridKernalContext ctx,

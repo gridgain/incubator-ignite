@@ -501,17 +501,17 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
                 return false;
 
             if (X.hasCause(err, ClusterTopologyCheckedException.class)
-                || (res != null && res == 0)) {
+                || res == null || res == 0) {
                 GridDistributedTxMapping m = tx.mappings().get(node.id());
 
                 assert m != null && m.empty();
 
                 tx.removeMapping(node.id());
             }
-            else if (res != null && res > 0) {
-                if (node.isLocal())
+            else if (res > 0) {
+                /*if (node.isLocal())
                     tx.colocatedLocallyMapped(true);
-                else
+                else*/
                     tx.hasRemoteLocks(true);
             }
 

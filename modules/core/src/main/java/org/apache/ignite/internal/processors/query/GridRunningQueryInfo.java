@@ -42,9 +42,6 @@ public class GridRunningQueryInfo {
     private final GridQueryCancel cancel;
 
     /** */
-    private final boolean forUpdate;
-
-    /** */
     private final boolean loc;
 
     /**
@@ -54,18 +51,16 @@ public class GridRunningQueryInfo {
      * @param schemaName Schema name.
      * @param startTime Query start time.
      * @param cancel Query cancel.
-     * @param forUpdate
      * @param loc Local query flag.
      */
     public GridRunningQueryInfo(Long id, String qry, GridCacheQueryType qryType, String schemaName, long startTime,
-        GridQueryCancel cancel, boolean forUpdate, boolean loc) {
+        GridQueryCancel cancel, boolean loc) {
         this.id = id;
         this.qry = qry;
         this.qryType = qryType;
         this.schemaName = schemaName;
         this.startTime = startTime;
         this.cancel = cancel;
-        this.forUpdate = forUpdate;
         this.loc = loc;
     }
 
@@ -133,12 +128,5 @@ public class GridRunningQueryInfo {
      */
     public boolean local() {
         return loc;
-    }
-
-    /**
-     * @return {@code true} if query is FOR UPDATE.
-     */
-    public boolean forUpdate() {
-        return forUpdate;
     }
 }

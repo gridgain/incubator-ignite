@@ -68,7 +68,7 @@ public class GridCacheTwoStepQuery {
     /** */
     private boolean mvccEnabled;
 
-    /** */
+    /** {@code FOR UPDATE} flag. */
     private boolean forUpdate;
 
     /**

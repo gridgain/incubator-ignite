@@ -58,7 +58,7 @@ public final class GridMergeIndexUnsorted extends GridMergeIndex {
      * @param ctx Context.
      * @param tbl  Table.
      * @param name Index name.
-     * @param forUpdate
+     * @param forUpdate {@code FOR UPDATE} flag.
      */
     public GridMergeIndexUnsorted(GridKernalContext ctx, GridMergeTable tbl, String name, boolean forUpdate) {
         super(ctx, tbl, name, TYPE, IndexColumn.wrap(tbl.getColumns()), forUpdate);
@@ -66,7 +66,7 @@ public final class GridMergeIndexUnsorted extends GridMergeIndex {
 
     /**
      * @param ctx Context.
-     * @param forUpdate
+     * @param forUpdate {@code FOR UPDATE} flag.
      * @return Dummy index instance.
      */
     public static GridMergeIndexUnsorted createDummy(GridKernalContext ctx, boolean forUpdate) {
@@ -75,7 +75,7 @@ public final class GridMergeIndexUnsorted extends GridMergeIndex {
 
     /**
      * @param ctx Context.
-     * @param forUpdate
+     * @param forUpdate {@code FOR UPDATE} flag.
      */
     private GridMergeIndexUnsorted(GridKernalContext ctx, boolean forUpdate) {
         super(ctx, forUpdate);

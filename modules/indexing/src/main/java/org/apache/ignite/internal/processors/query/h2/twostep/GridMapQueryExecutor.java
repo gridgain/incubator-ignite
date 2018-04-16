@@ -56,11 +56,12 @@ import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionsReservation;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTransactionalCacheAdapter;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocal;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridReservable;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryType;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
 import org.apache.ignite.internal.processors.cache.query.GridCacheSqlQuery;
@@ -661,11 +662,22 @@ public class GridMapQueryExecutor {
 
                 GridDhtTransactionalCacheAdapter txCache = (GridDhtTransactionalCacheAdapter)mainCctx.cache();
 
-                final GridDhtTxLocal tx = txCache.initTxTopologyVersion(node.id(), node, txReq.version(), txReq.futureId(),
-                    txReq.miniId(), txReq.firstClientRequest(), topVer, txReq.threadId(), timeout,
-                    txReq.subjectId(), txReq.taskNameHash());
+                final GridDhtTxLocalAdapter tx;
 
-                 pageFutSupp = new QueryPageEnlistFutureSupplier() {
+                if (!node.isLocal()) {
+                    tx = txCache.initTxTopologyVersion(node.id(), node, txReq.version(), txReq.futureId(),
+                        txReq.miniId(), txReq.firstClientRequest(), topVer, txReq.threadId(), timeout,
+                        txReq.subjectId(), txReq.taskNameHash());
+                }
+                else {
+                    tx = MvccUtils.activeTx(ctx);
+
+                    assert tx != null;
+
+                    tx.init();
+                }
+
+                pageFutSupp = new QueryPageEnlistFutureSupplier() {
                     @Override public QueryPageEnlistFuture apply(List<Value[]> rows) {
                         return new QueryPageEnlistFuture(node.id(), txReq.version(), topVer, mvccSnapshot,
                             txReq.threadId(), txReq.futureId(), txReq.miniId(), parts, tx, timeout, mainCctx, rows);
@@ -1181,7 +1193,7 @@ public class GridMapQueryExecutor {
                 err = fut.error();
 
             if (err != null) {
-                ((QueryPageEnlistFuture)fut).tx().rollbackDhtLocalAsync();
+                ((QueryPageEnlistFuture)fut).tx().rollbackAsync();
 
                 throw new IgniteSQLException("Failed to lock results page, rolling back the TX.", err);
             }

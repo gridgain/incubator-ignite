@@ -332,8 +332,7 @@ public class GridReduceQueryExecutor {
                     try {
                         GridQueryNextPageRequest msg0 = new GridQueryNextPageRequest(qryReqId, qry, seg, pageSize);
 
-                        // Mapper runs DHT TX in case of FOR UPDATE query, we want to separate flows in this case.
-                        if (node.isLocal() && !r.queryInfo().forUpdate())
+                        if (node.isLocal())
                             h2.mapQueryExecutor().onMessage(ctx.localNodeId(), msg0);
                         else
                             ctx.io().sendToGridTopic(node, GridTopic.TOPIC_QUERY, msg0, GridIoPolicy.QUERY_POOL);
@@ -362,13 +361,14 @@ public class GridReduceQueryExecutor {
         if (page.isLast()) {
             GridNearTxSelectForUpdateFuture fut = r.selectForUpdateFuture();
 
-            if (r == null)
+            if (fut == null)
                 return;
 
             Integer cnt = idx.totalRows(node.id(), seg);
 
             fut.onResult(node.id(), seg, cnt != null ? cnt.longValue() : null,
-                cnt != null ? new IllegalStateException("") : null);
+                cnt == null ? new IllegalStateException("Rows counter not found [nodeId=" + node.id() +
+                    ", segment=" + seg + "].") : null);
         }
     }
 
@@ -754,7 +754,7 @@ public class GridReduceQueryExecutor {
 
                 cancel.set(new Runnable() {
                     @Override public void run() {
-                        send(finalNodes, new GridQueryCancelRequest(qryReqId), null, qry.forUpdate());
+                        send(finalNodes, new GridQueryCancelRequest(qryReqId), null, false);
                     }
                 });
 
@@ -818,7 +818,7 @@ public class GridReduceQueryExecutor {
                             GridH2QueryRequest res = pspec != null ? (GridH2QueryRequest)pspec.apply(clusterNode, msg) :
                                 new GridH2QueryRequest((GridH2QueryRequest)msg);
 
-                            int miniId = cnt.getAndIncrement();
+                            int miniId = cnt.incrementAndGet();
 
                             GridNearTxQueryEnlistRequest txReq = new GridNearTxQueryEnlistRequest(
                                 qry.cacheIds().get(0),
@@ -850,7 +850,7 @@ public class GridReduceQueryExecutor {
                 else
                     spec = pspec;
 
-                if (send(nodes, req, spec, qry.forUpdate())) {
+                if (send(nodes, req, spec, false)) {
                     awaitAllReplies(r, nodes, cancel);
 
                     Object state = r.state();
@@ -924,8 +924,7 @@ public class GridReduceQueryExecutor {
                         }
                     }
                 }
-
-                if (retry) {
+                else {
                     if (Thread.currentThread().isInterrupted())
                         throw new IgniteInterruptedCheckedException("Query was interrupted.");
 
@@ -1024,7 +1023,7 @@ public class GridReduceQueryExecutor {
         final long reqId = qryIdGen.incrementAndGet();
 
         final GridRunningQueryInfo qryInfo = new GridRunningQueryInfo(reqId, selectQry, GridCacheQueryType.SQL_FIELDS,
-            schemaName, U.currentTimeMillis(), cancel, false, false);
+            schemaName, U.currentTimeMillis(), cancel, false);
 
         Collection<ClusterNode> nodes = nodesParts.nodes();
 
@@ -1181,11 +1180,11 @@ public class GridReduceQueryExecutor {
 
         // For distributedJoins need always send cancel request to cleanup resources.
         if (distributedJoins)
-            send(nodes, new GridQueryCancelRequest(qryReqId), null, r.queryInfo().forUpdate());
+            send(nodes, new GridQueryCancelRequest(qryReqId), null, false);
         else {
             for (GridMergeIndex idx : r.indexes()) {
                 if (!idx.fetchedAll()) {
-                    send(nodes, new GridQueryCancelRequest(qryReqId), null, r.queryInfo().forUpdate());
+                    send(nodes, new GridQueryCancelRequest(qryReqId), null, false);
 
                     break;
                 }
@@ -1647,7 +1646,7 @@ public class GridReduceQueryExecutor {
      * @param conn Connection.
      * @param qry Query.
      * @param explain Explain.
-     * @param forUpdate
+     * @param forUpdate {@code FOR UPDATE} flag.
      * @return Table.
      * @throws IgniteCheckedException If failed.
      */
