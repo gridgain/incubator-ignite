@@ -165,7 +165,6 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
         GridCacheOperation op,
         UpdateSourceIterator<IgniteBiTuple> it,
         int batchSize) {
-        //super(CU.longReducer());
 
         this.cctx = cctx;
         this.tx = tx;
@@ -637,6 +636,9 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
      */
     public boolean checkResponse(UUID nodeId, boolean local, GridNearTxQueryResultsEnlistResponse res, Throwable err) {
         assert res != null || err != null : this;
+
+        if (err == null && res.error() != null)
+            err = res.error();
 
         if (X.hasCause(err, ClusterTopologyCheckedException.class)
             || (res != null && res.removeMapping())) {

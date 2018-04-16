@@ -543,24 +543,21 @@ public class DmlStatementsProcessor {
 
                     if (plan.fastResult())
                         it = new DmlUpdateSingleEntryIterator<>(op, plan.getFastRow(fieldsQry.getArgs()));
+                    else if (plan.hasRows())
+                        it = new DmlUpdateResultsIterator(op, plan, plan.createRows(fieldsQry.getArgs()));
                     else {
-                        if (plan.hasRows())
-                            it = new DmlUpdateResultsIterator(op, plan, plan.createRows(fieldsQry.getArgs()));
-                        else {
-                            SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(),
-                                fieldsQry.isCollocated())
-                                .setArgs(fieldsQry.getArgs())
-                                .setDistributedJoins(fieldsQry.isDistributedJoins())
-                                .setEnforceJoinOrder(fieldsQry.isEnforceJoinOrder())
-                                .setLocal(fieldsQry.isLocal())
-                                .setPageSize(fieldsQry.getPageSize())
-                                .setTimeout((int)timeout, TimeUnit.MILLISECONDS);
+                        SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(), fieldsQry.isCollocated())
+                            .setArgs(fieldsQry.getArgs())
+                            .setDistributedJoins(fieldsQry.isDistributedJoins())
+                            .setEnforceJoinOrder(fieldsQry.isEnforceJoinOrder())
+                            .setLocal(fieldsQry.isLocal())
+                            .setPageSize(fieldsQry.getPageSize())
+                            .setTimeout((int)timeout, TimeUnit.MILLISECONDS);
 
-                            FieldsQueryCursor cur = idx.querySqlFields(schemaName, newFieldsQry, null, true,
-                                true, mvccQueryTracker, cancel).get(0);
+                        FieldsQueryCursor cur = idx.querySqlFields(schemaName, newFieldsQry, null, true,
+                            true, mvccQueryTracker, cancel).get(0);
 
-                            it = new UpdateIteratorAdapter<>(op, new TxDmlReducerIterator(plan, cur));
-                        }
+                        it = new UpdateIteratorAdapter<>(op, new TxDmlReducerIterator(plan, cur));
                     }
 
                     tx.addActiveCache(cctx, false);
