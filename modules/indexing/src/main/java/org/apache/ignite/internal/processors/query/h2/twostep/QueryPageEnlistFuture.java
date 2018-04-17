@@ -55,7 +55,7 @@ public class QueryPageEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Gr
 
     /** {@inheritDoc} */
     @Override protected LockingOperationSourceIterator<?> createIterator() {
-        return new SelectForUpdateResultsIterator(rows.iterator());
+        return new SelectForUpdatePageIterator(rows.iterator());
     }
 
     /** {@inheritDoc} */

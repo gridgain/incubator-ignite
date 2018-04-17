@@ -68,17 +68,23 @@ public abstract class H2ResultSetIterator<T> extends GridCloseableIteratorAdapte
     private final boolean closeStmt;
 
     /** */
+    private final boolean forUpdate;
+
+    /** */
     private boolean hasRow;
 
     /**
      * @param data Data array.
      * @param closeStmt If {@code true} closes result set statement when iterator is closed.
      * @param needCpy {@code True} if need copy cache object's value.
+     * @param forUpdate
      * @throws IgniteCheckedException If failed.
      */
-    protected H2ResultSetIterator(ResultSet data, boolean closeStmt, boolean needCpy) throws IgniteCheckedException {
+    protected H2ResultSetIterator(ResultSet data, boolean closeStmt, boolean needCpy, boolean forUpdate)
+        throws IgniteCheckedException {
         this.data = data;
         this.closeStmt = closeStmt;
+        this.forUpdate = forUpdate;
 
         try {
             res = needCpy ? (ResultInterface)RESULT_FIELD.get(data) : null;
@@ -106,6 +112,8 @@ public abstract class H2ResultSetIterator<T> extends GridCloseableIteratorAdapte
         if (data == null)
             return false;
 
+        int colsCnt = (!forUpdate ? row.length : row.length - 2);
+
         try {
             if (!data.next())
                 return false;
@@ -113,7 +121,7 @@ public abstract class H2ResultSetIterator<T> extends GridCloseableIteratorAdapte
             if (res != null) {
                 Value[] values = res.currentRow();
 
-                for (int c = 0; c < row.length; c++) {
+                for (int c = 0; c < colsCnt; c++) {
                     Value val = values[c];
 
                     if (val instanceof GridH2ValueCacheObject) {

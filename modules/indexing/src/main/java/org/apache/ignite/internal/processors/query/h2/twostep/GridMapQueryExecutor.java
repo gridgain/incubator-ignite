@@ -73,10 +73,7 @@ import org.apache.ignite.internal.processors.query.h2.UpdateResult;
 import org.apache.ignite.internal.processors.query.h2.opt.DistributedJoinMode;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RetryException;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlColumn;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSelect;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlStatement;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryCancelRequest;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryFailResponse;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryNextPageRequest;
@@ -93,6 +90,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.indexing.IndexingQueryFilter;
 import org.apache.ignite.thread.IgniteThread;
+import org.h2.command.Prepared;
 import org.h2.jdbc.JdbcResultSet;
 import org.h2.value.Value;
 import org.jetbrains.annotations.Nullable;
@@ -734,18 +732,12 @@ public class GridMapQueryExecutor {
                     if (pageFutSupp != null) {
                         PreparedStatement ps = h2.prepareNativeStatement(schemaName, qry.query());
 
-                        GridSqlStatement stmt = new GridSqlQueryParser(false)
-                            .parse(GridSqlQueryParser.prepared(ps));
+                        Prepared p = GridSqlQueryParser.prepared(ps);
 
-                        assert stmt instanceof GridSqlSelect;
+                        newQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(p);
 
-                        GridSqlSelect sel = (GridSqlSelect)stmt;
-
-                        sel.addColumn(new GridSqlColumn(null, null, "ID"), true);
-
-                        sel.addColumn(new GridSqlColumn(null, null, "_VAL"), true);
-
-                        newQry = sel.getSQL();
+                        if (newQry == null)
+                            throw new IgniteSQLException("");
                     }
 
                     ResultSet rs = null;

@@ -997,7 +997,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      * @throws IgniteCheckedException If failed.
      */
     @SuppressWarnings("unchecked")
-    GridQueryFieldsResult queryLocalSqlFields(final String schemaName, final String qry,
+    GridQueryFieldsResult queryLocalSqlFields(final String schemaName, String qry,
         @Nullable final Collection<Object> params, final IndexingQueryFilter filter, boolean enforceJoinOrder,
         boolean startTx, final int timeout, final GridQueryCancel cancel,
         MvccQueryTracker mvccTracker) throws IgniteCheckedException {
@@ -1009,7 +1009,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             H2Utils.setupConnection(conn, false, enforceJoinOrder);
 
-            final PreparedStatement stmt = preparedStatementWithParams(conn, qry, params, true);
+            PreparedStatement stmt = preparedStatementWithParams(conn, qry, params, true);
 
             if (GridSqlQueryParser.checkMultipleStatements(stmt))
                 throw new IgniteSQLException("Multiple statements queries are not supported for local queries");
@@ -1025,16 +1025,35 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 fldsQry.setEnforceJoinOrder(enforceJoinOrder);
                 fldsQry.setTimeout(timeout, TimeUnit.MILLISECONDS);
 
-            return dmlProc.updateSqlFieldsLocal(schemaName, conn, p, fldsQry, filter, cancel);
-        }
-        else if (DdlStatementsProcessor.isDdlStatement(p))
-            throw new IgniteSQLException("DDL statements are supported for the whole cluster only",
-                IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+                return dmlProc.updateSqlFieldsLocal(schemaName, conn, p, fldsQry, filter, cancel);
+            }
+            else if (DdlStatementsProcessor.isDdlStatement(p)) {
+                throw new IgniteSQLException("DDL statements are supported for the whole cluster only.",
+                    IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+            }
+
+            String forUpdateQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(p);
+
+            final boolean forUpdate = (forUpdateQry != null);
+
+            if (forUpdate) {
+                stmt = preparedStatementWithParams(conn, forUpdateQry, params, false);
+
+                getStatementsCacheForCurrentThread().put(new H2CachedStatementKey(schemaName, forUpdateQry), stmt);
+
+                qry = forUpdateQry;
+            }
 
             List<GridQueryFieldMetadata> meta;
 
             try {
                 meta = H2Utils.meta(stmt.getMetaData());
+
+                if (forUpdate) {
+                    assert meta.size() >= 2;
+
+                    meta = meta.subList(0, meta.size() - 2);
+                }
             }
             catch (SQLException e) {
                 throw new IgniteCheckedException("Cannot prepare query metadata", e);
@@ -1048,21 +1067,25 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             if (mvccTracker0 != null)
                 ctx.mvccSnapshot(mvccTracker0.snapshot());
 
+            final PreparedStatement finalStmt = stmt;
+
+            final String finalQry = qry;
+
             return new GridQueryFieldsResultAdapter(meta, null) {
                 @Override public GridCloseableIterator<List<?>> iterator() throws IgniteCheckedException {
                     assert GridH2QueryContext.get() == null;
 
                     GridH2QueryContext.set(ctx);
 
-                    GridRunningQueryInfo run = new GridRunningQueryInfo(qryIdGen.incrementAndGet(), qry, SQL_FIELDS,
-                        schemaName, U.currentTimeMillis(), cancel, true);
+                    GridRunningQueryInfo run = new GridRunningQueryInfo(qryIdGen.incrementAndGet(), finalQry,
+                        SQL_FIELDS, schemaName, U.currentTimeMillis(), cancel, true);
 
                     runs.putIfAbsent(run.id(), run);
 
                     try {
-                        ResultSet rs = executeSqlQueryWithTimer(stmt, conn, qry, params, timeout, cancel);
+                        ResultSet rs = executeSqlQueryWithTimer(finalStmt, conn, finalQry, params, timeout, cancel);
 
-                        return new H2FieldsIterator(rs, mvccTracker0);
+                        return new H2FieldsIterator(rs, mvccTracker0, forUpdate);
                     }
                     catch (IgniteCheckedException | RuntimeException | Error e) {
                         try {
@@ -2079,7 +2102,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         PreparedStatement stmt = prepareStatementAndCaches(c, qry.getSql());
 
         if (loc && GridSqlQueryParser.checkMultipleStatements(stmt))
-            throw new IgniteSQLException("Multiple statements queries are not supported for local queries");
+            throw new IgniteSQLException("Multiple statements queries are not supported for local queries.",
+                IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
 
         GridSqlQueryParser.PreparedWithRemaining prep = GridSqlQueryParser.preparedWithRemaining(stmt);
 

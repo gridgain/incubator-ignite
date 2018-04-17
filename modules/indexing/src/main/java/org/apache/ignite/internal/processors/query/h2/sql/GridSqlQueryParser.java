@@ -156,6 +156,9 @@ public class GridSqlQueryParser {
     private static final Getter<Select, Boolean> SELECT_IS_FOR_UPDATE = getter(Select.class, "isForUpdate");
 
     /** */
+    private static final Getter<SelectUnion, Boolean> UNION_IS_FOR_UPDATE = getter(SelectUnion.class, "isForUpdate");
+
+    /** */
     private static final Getter<Operation, Integer> OPERATION_TYPE = getter(Operation.class, "opType");
 
     /** */
@@ -560,12 +563,68 @@ public class GridSqlQueryParser {
         else {
             Class<?> cmdCls = cmd.getClass();
 
-            if (cmdCls.getName().equals(ORG_H2_COMMAND_COMMAND_LIST)) {
+            if (cmdCls.getName().equals(ORG_H2_COMMAND_COMMAND_LIST))
                 return new PreparedWithRemaining(PREPARED.get(LIST_COMMAND.get(cmd)), REMAINING.get(cmd));
-            }
             else
                 throw new IgniteSQLException("Unexpected statement command");
         }
+    }
+
+    /**
+     * @param p Statement to rewrite, if needed.
+     * @return Query with {@code key} and {@code val} columns appended to the list of columns,
+     *     if it's an {@code FOR UPDATE} query, or {@code null} if nothing has to be done.
+     */
+    @Nullable public static String rewriteQueryForUpdateIfNeeded(Prepared p) {
+        if (!p.isQuery() || !p.getSQL().toUpperCase().contains("FOR UPDATE"))
+            return null;
+
+        boolean union = ((Query)p).isUnion();
+
+        boolean forUpdate = (!union && GridSqlQueryParser.SELECT_IS_FOR_UPDATE.get((Select)p)) ||
+            (union && GridSqlQueryParser.UNION_IS_FOR_UPDATE.get((SelectUnion)p));
+
+        if (!forUpdate)
+            return null;
+
+        if (union)
+            throw new IgniteSQLException("", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+
+        GridSqlStatement gridStmt = new GridSqlQueryParser(false).parse(p);
+
+        // We have checked above that it's not an UNION query, so it's got to be SELECT.
+        assert gridStmt instanceof GridSqlSelect;
+
+        GridSqlSelect gridSel = (GridSqlSelect)gridStmt;
+
+        // How'd we get here otherwise?
+        assert gridSel.isForUpdate();
+
+        GridSqlAst from = gridSel.from();
+
+        if (!(from instanceof GridSqlTable ||
+            (from instanceof GridSqlAlias && from.size() == 1 && from.child() instanceof GridSqlTable)))
+            throw new IgniteSQLException("", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+
+        GridSqlTable gridTbl = from instanceof GridSqlTable ? (GridSqlTable)from :
+            ((GridSqlAlias)from).child();
+
+        GridH2Table tbl = gridTbl.dataTable();
+
+        if (tbl == null)
+            throw new IgniteSQLException("", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+
+        Column keyCol = tbl.getColumn(0);
+
+        Column valCol = tbl.getColumn(1);
+
+        gridSel.addColumn(new GridSqlColumn(keyCol, null, keyCol.getName()), true);
+
+        gridSel.addColumn(new GridSqlColumn(valCol, null, valCol.getName()), true);
+
+        gridSel.forUpdate(false);
+
+        return gridSel.getSQL();
     }
 
     /**
