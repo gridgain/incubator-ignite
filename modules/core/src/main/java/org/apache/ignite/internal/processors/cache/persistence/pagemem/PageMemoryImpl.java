@@ -40,6 +40,8 @@ import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
+import org.apache.ignite.failure.FailureContext;
+import org.apache.ignite.failure.FailureType;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.mem.DirectMemoryRegion;
@@ -548,7 +550,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         catch (IgniteOutOfMemoryException oom) {
             DataRegionConfiguration dataRegionCfg = getDataRegionConfiguration();
 
-            throw (IgniteOutOfMemoryException) new IgniteOutOfMemoryException("Out of memory in data region [" +
+            IgniteOutOfMemoryException e = new IgniteOutOfMemoryException("Out of memory in data region [" +
                 "name=" + dataRegionCfg.getName() +
                 ", initSize=" + U.readableSize(dataRegionCfg.getInitialSize(), false) +
                 ", maxSize=" + U.readableSize(dataRegionCfg.getMaxSize(), false) +
@@ -556,7 +558,13 @@ public class PageMemoryImpl implements PageMemoryEx {
                 "  ^-- Increase maximum off-heap memory size (DataRegionConfiguration.maxSize)" + U.nl() +
                 "  ^-- Enable Ignite persistence (DataRegionConfiguration.persistenceEnabled)" + U.nl() +
                 "  ^-- Enable eviction or expiration policies"
-            ).initCause(oom);
+            );
+
+            e.initCause(oom);
+
+            ctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+
+            throw e;
         }
         finally {
             seg.writeLock().unlock();
@@ -750,6 +758,11 @@ public class PageMemoryImpl implements PageMemoryEx {
             seg.acquirePage(absPtr);
 
             return absPtr;
+        }
+        catch (IgniteOutOfMemoryException oom) {
+            ctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, oom));
+
+            throw oom;
         }
         finally {
             seg.writeLock().unlock();
