@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjectBuilder;
 import org.apache.ignite.cache.query.QueryCursor;
@@ -488,7 +487,9 @@ public final class UpdatePlan {
     /**
      * Create iterator for transaction.
      *
+     * @param idx Indexing.
      * @param cur Cursor.
+     * @param op Cache operation.
      * @return Iterator.
      */
     public UpdateSourceIterator<?> iteratorForTransaction(IgniteH2Indexing idx, QueryCursorImpl<List<?>> cur,
@@ -591,19 +592,19 @@ public final class UpdatePlan {
     private abstract static class AbstractIterator extends GridCloseableIteratorAdapterEx<Object>
         implements UpdateSourceIterator<Object> {
         /** */
-        IgniteH2Indexing idx;
+        private final IgniteH2Indexing idx;
 
         /** */
-        protected final QueryCursor<List<?>> cur;
+        private final QueryCursor<List<?>> cur;
 
         /** */
         protected final UpdatePlan plan;
 
         /** */
-        protected final Iterator<List<?>> it;
+        private final Iterator<List<?>> it;
 
         /** */
-        GridCacheOperation op;
+        private final GridCacheOperation op;
 
         /** */
         private volatile Connection conn;
