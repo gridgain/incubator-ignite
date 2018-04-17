@@ -395,7 +395,8 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
 
                 peek = null;
 
-                batch.add(op == GridCacheOperation.DELETE ? cur.getKey() : new Object[] {cur.getKey(), cur.getValue()});
+                batch.add(op == GridCacheOperation.DELETE ? cur.getKey() :
+                    new IgniteBiTuple<>(cur.getKey(), cur.getValue()));
 
                 cur = it.hasNextX() ? (IgniteBiTuple)it.nextX() : null;
 

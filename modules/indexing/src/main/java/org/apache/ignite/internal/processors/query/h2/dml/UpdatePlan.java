@@ -494,7 +494,7 @@ public final class UpdatePlan {
     public UpdateSourceIterator<?> iteratorForTransaction(IgniteH2Indexing idx, QueryCursorImpl<List<?>> cur,
         GridCacheOperation op) {
         switch (mode) {
-            //case MERGE:
+            case MERGE:
             case INSERT:
                 return new InsertIterator(idx, cur, this, op);
             case UPDATE:
@@ -566,7 +566,7 @@ public final class UpdatePlan {
      * @return Resulting entry.
      * @throws IgniteCheckedException If failed.
      */
-    public IgniteBiTuple processRowForTx(List<?> row) throws IgniteCheckedException {
+    public Object processRowForTx(List<?> row) throws IgniteCheckedException {
         switch (mode()) {
             case INSERT:
             case MERGE:
@@ -578,7 +578,7 @@ public final class UpdatePlan {
                 return new IgniteBiTuple<>(row0.get1(), row0.get3());
             }
             case DELETE:
-                return new IgniteBiTuple<>(row.get(0), null);
+                return row.get(0);
 
             default:
                 throw new UnsupportedOperationException(String.valueOf(mode()));
@@ -609,8 +609,10 @@ public final class UpdatePlan {
         private volatile Connection conn;
 
         /**
+         * @param idx Indexing.
          * @param cur Query cursor.
          * @param plan Update plan.
+         * @param op Cache operation.
          */
         private AbstractIterator(IgniteH2Indexing idx, QueryCursor<List<?>> cur, UpdatePlan plan, GridCacheOperation op) {
             this.idx = idx;
@@ -630,9 +632,8 @@ public final class UpdatePlan {
         @Override public void beforeDetach() {
             Connection conn0 = conn = idx.detach();
 
-            IgniteLogger log = null;
             if (isClosed()) // Double check
-                U.close(conn0, log);
+                U.close(conn0, null);
         }
 
         /** {@inheritDoc} */
@@ -641,9 +642,8 @@ public final class UpdatePlan {
 
             Connection conn0 = conn;
 
-            IgniteLogger log = null;
             if (conn0 != null)
-                U.close(conn0, log);
+                U.close(conn0, null);
         }
 
         /** {@inheritDoc} */
@@ -663,8 +663,10 @@ public final class UpdatePlan {
     /** */
     private final static class UpdateIterator extends AbstractIterator {
         /**
+         * @param idx Indexing.
          * @param cur Query cursor.
          * @param plan Update plan.
+         * @param op Cache operation.
          */
         private UpdateIterator(IgniteH2Indexing idx, QueryCursor<List<?>> cur, UpdatePlan plan, GridCacheOperation op) {
             super(idx, cur, plan, op);
@@ -681,8 +683,10 @@ public final class UpdatePlan {
     /** */
     private final static class DeleteIterator extends AbstractIterator {
         /**
+         * @param idx Indexing.
          * @param cur Query cursor.
          * @param plan Update plan.
+         * @param op Cache operation.
          */
         private DeleteIterator(IgniteH2Indexing idx, QueryCursor<List<?>> cur, UpdatePlan plan, GridCacheOperation op) {
             super(idx, cur, plan, op);
@@ -690,15 +694,17 @@ public final class UpdatePlan {
 
         /** {@inheritDoc} */
         @Override protected Object process(List<?> row) throws IgniteCheckedException {
-            return new IgniteBiTuple<>(row.get(0), null);
+            return row.get(0);
         }
     }
 
     /** */
     private final static class InsertIterator extends AbstractIterator {
         /**
+         * @param idx Indexing.
          * @param cur Query cursor.
          * @param plan Update plan.
+         * @param op Cache operation.
          */
         private InsertIterator(IgniteH2Indexing idx, QueryCursor<List<?>> cur, UpdatePlan plan, GridCacheOperation op) {
             super(idx, cur, plan, op);
