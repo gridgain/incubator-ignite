@@ -25,6 +25,7 @@ import javax.management.MBeanServerInvocationHandler;
 import javax.management.ObjectName;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.CacheRebalanceMode;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
@@ -32,6 +33,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareResponse;
+import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
@@ -40,13 +42,14 @@ import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.*;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
  *
@@ -61,8 +64,13 @@ public class TransactionsMXBeanImplTest extends GridCommonAbstractTest {
     /** */
     private static final int TX_STARTUP_TIMEOUT_MS = 1000;
 
+    /** Client mode. */
+    private boolean client;
+
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
+        client = false;
+
         stopAllGrids();
 
         super.afterTest();
@@ -71,6 +79,8 @@ public class TransactionsMXBeanImplTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String name) throws Exception {
         final IgniteConfiguration cfg = super.getConfiguration(name);
+
+        cfg.setClientMode(client);
 
         ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(IP_FINDER);
 
@@ -159,6 +169,62 @@ public class TransactionsMXBeanImplTest extends GridCommonAbstractTest {
     /**
      *
      */
+    public void testTxInfo() throws Exception {
+        startGrids(2);
+
+        client = true;
+
+        startGrid(2);
+
+        assertFalse(grid(0).configuration().isClientMode());
+        assertFalse(grid(1).configuration().isClientMode());
+        assertTrue(grid(2).configuration().isClientMode());
+
+        TransactionsMXBean txMXBean0 = txMXBean(0);
+        TransactionsMXBean txMXBean1 = txMXBean(1);
+        TransactionsMXBean txMXBean2 = txMXBean(2);
+
+        awaitPartitionMapExchange();
+
+        assertEquals(0, txMXBean1.getLongRunningTransactions(0).size());
+
+        block();
+
+        for (int i = 0; i < 100; i++)
+            new Thread(new TxThread(grid(i % 3), i * 2, i * 2 + 1)).start();
+
+        Thread.sleep(TX_STARTUP_TIMEOUT_MS);
+
+        final Map<String, String> longRunningTxs = txMXBean2.getLongRunningTransactions(10);
+
+        assertEquals(0, longRunningTxs.size());
+
+        Map<String, String> allTxs = txMXBean0.getLongRunningTransactions(0);
+
+        assertEquals(100, allTxs.size());
+
+        allTxs = txMXBean2.getLongRunningTransactions(0);
+
+        assertEquals(100, allTxs.size());
+
+        stopBlock();
+
+        boolean b = GridTestUtils.waitForCondition(new GridAbsPredicate() {
+            @Override public boolean apply() {
+                try {
+                    return txMXBean1.getLongRunningTransactions(0).size() == 0;
+                }
+                catch (IgniteCheckedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }, 60_000);
+
+        assertTrue(b);
+    }
+    /**
+     *
+     */
     private static class TxThread implements Runnable {
         /** */
         private Ignite ignite;
@@ -215,6 +281,11 @@ public class TransactionsMXBeanImplTest extends GridCommonAbstractTest {
                 }
             });
         }
+    }
+
+    private void stopBlock() {
+        for (Ignite node : G.allGrids())
+            TestRecordingCommunicationSpi.spi(node).stopBlock();
     }
 
     /**

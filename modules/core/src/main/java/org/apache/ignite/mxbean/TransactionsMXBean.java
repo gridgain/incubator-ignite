@@ -17,6 +17,7 @@
 
 package org.apache.ignite.mxbean;
 
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.transactions.Transaction;
@@ -44,6 +45,29 @@ public interface TransactionsMXBean {
     @MXBeanParametersNames("duration")
     @MXBeanParametersDescriptions("Duration, at least (ms).")
     public Map<String, String> getLongRunningLocalTransactions(int duration);
+
+    /**
+     * @param duration Duration, at least (seconds).
+     * @return All transaction in the cluster with duration not less than specified.
+     */
+    @MXBeanDescription("Long running active transactions.")
+    @MXBeanParametersNames("duration")
+    @MXBeanParametersDescriptions("Duration, at least (ms).")
+    Map<String, String> getLongRunningTransactions(int duration) throws IgniteCheckedException;
+
+    /**
+     * @param clients run task on Clients nodes
+     * @param consistentIds
+     * @param duration
+     * @param size
+     * @param regexLabel
+     * @return Transactions
+     */
+    @MXBeanDescription("Active transactions.")
+    @MXBeanParametersNames({"clients", "consistentIds", "duration", "size", "regexLabel"})
+    @MXBeanParametersDescriptions({"Client nodes.", "Consistent ids.", "Duration.", "Size.", "Regex label."})
+    Map<String, String> getTransactions(boolean clients, List<String> consistentIds, long duration, int size,
+        String regexLabel) throws IgniteCheckedException;
 
     /**
      * Stops a transaction initiated by this node.

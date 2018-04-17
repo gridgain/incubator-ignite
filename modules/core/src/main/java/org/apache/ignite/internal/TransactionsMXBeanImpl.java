@@ -19,11 +19,16 @@ package org.apache.ignite.internal;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.commandline.tx.TransactionsTask;
+import org.apache.ignite.internal.commandline.tx.TransactionsTaskArguments;
+import org.apache.ignite.internal.commandline.tx.TxDTO;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.typedef.F;
@@ -54,6 +59,26 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
     /** {@inheritDoc} */
     @Override public Map<String, String> getLongRunningLocalTransactions(final int duration) {
         return localTxs(duration);
+    }
+
+    @Override public Map<String, String> getLongRunningTransactions(int duration) throws IgniteCheckedException {
+        return getTransactions(false, null, duration, 0, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override public Map<String, String> getTransactions(boolean clients, List<String> consistentIds, long duration,
+        int size, String regexLabel) throws IgniteCheckedException {
+        Pattern lbPat = regexLabel == null ? null : Pattern.compile(regexLabel, Pattern.CASE_INSENSITIVE);
+
+        ComputeTaskInternalFuture<Collection<TxDTO>> fut = gridKernalCtx.task().execute(TransactionsTask.class,
+            new TransactionsTaskArguments(clients, consistentIds, duration, size, lbPat, null));
+
+        final HashMap<String, String> res = new HashMap<>();
+
+        for (TxDTO tx : fut.get()) {
+            res.put(tx.xid().toString(), tx.toString());
+        }
+        return res;
     }
 
     /** {@inheritDoc} */
