@@ -537,7 +537,7 @@ public class DmlStatementsProcessor {
                         cctx.shared().coordinators().currentCoordinator(),
                         mvccSnapshot);
 
-                    UpdateSourceIterator<IgniteBiTuple> it;
+                    UpdateSourceIterator<?> it;
 
                     GridCacheOperation op = cacheOperation(plan.mode());
 
@@ -554,10 +554,10 @@ public class DmlStatementsProcessor {
                             .setPageSize(fieldsQry.getPageSize())
                             .setTimeout((int)timeout, TimeUnit.MILLISECONDS);
 
-                        FieldsQueryCursor cur = idx.querySqlFields(schemaName, newFieldsQry, null, true,
-                            true, mvccQueryTracker, cancel).get(0);
+                        QueryCursorImpl<List<?>> cur = (QueryCursorImpl<List<?>>)idx.querySqlFields(schemaName,
+                            newFieldsQry, null, true, true, mvccQueryTracker, cancel).get(0);
 
-                        it = new UpdateIteratorAdapter<>(op, new TxDmlReducerIterator(plan, cur));
+                        it = plan.iteratorForTransaction(idx, cur, cacheOperation(plan.mode()));
                     }
 
                     tx.addActiveCache(cctx, false);
@@ -1187,7 +1187,7 @@ public class DmlStatementsProcessor {
             }, cancel);
         }
 
-        return new UpdateIteratorAdapter(cacheOperation(plan.mode()), plan.iteratorForTransaction(cur, topVer));
+        return plan.iteratorForTransaction(idx, cur, cacheOperation(plan.mode()));
     }
 
     /**
@@ -1445,40 +1445,8 @@ public class DmlStatementsProcessor {
     }
 
     /** */
-    private class UpdateIteratorAdapter<T> extends UpdateSourceIteratorAdapter<T> {
-        /** */
-        private static final long serialVersionUID = 6035896197816149820L;
-
-        /** */
-        private volatile Connection conn;
-
-        /** */
-        UpdateIteratorAdapter(GridCacheOperation op, GridCloseableIterator<T> it) {
-            super(op, it);
-        }
-
-        /** {@inheritDoc} */
-        @Override public void beforeDetach() {
-            Connection conn0 = conn = idx.detach();
-
-            if (isClosed()) // Double check
-                U.close(conn0, log);
-        }
-
-        /** {@inheritDoc} */
-        @Override protected void onClose() throws IgniteCheckedException {
-            super.onClose();
-
-            Connection conn0 = conn;
-
-            if (conn0 != null)
-                U.close(conn0, log);
-        }
-    }
-
-    /** */
     private static class DmlUpdateResultsIterator
-        implements UpdateSourceIterator<IgniteBiTuple> {
+        implements UpdateSourceIterator<Object> {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -1544,7 +1512,7 @@ public class DmlStatementsProcessor {
         }
 
         /** {@inheritDoc} */
-        @NotNull @Override public Iterator<IgniteBiTuple> iterator() {
+        @NotNull @Override public Iterator<Object> iterator() {
             throw new UnsupportedOperationException("not implemented");
         }
     }

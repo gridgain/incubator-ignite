@@ -111,7 +111,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
     private GridCacheOperation op;
 
     /** */
-    private final UpdateSourceIterator<IgniteBiTuple> it;
+    private final UpdateSourceIterator<?> it;
 
     /** */
     private int batchSize;
@@ -163,7 +163,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
         MvccSnapshot mvccSnapshot,
         long timeout,
         GridCacheOperation op,
-        UpdateSourceIterator<IgniteBiTuple> it,
+        UpdateSourceIterator<?> it,
         int batchSize) {
 
         this.cctx = cctx;
@@ -369,7 +369,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
             return null;
 
         while (true) {
-            IgniteBiTuple cur = (peek != null) ? peek : (it.hasNextX() ? it.nextX() : null);
+            IgniteBiTuple cur = (peek != null) ? peek : (it.hasNextX() ? (IgniteBiTuple)it.nextX() : null);
 
             while (cur != null) {
                 ClusterNode node = cctx.affinity().primaryByKey(cur.getKey(), topVer);
@@ -397,7 +397,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
 
                 batch.add(op == GridCacheOperation.DELETE ? cur.getKey() : new Object[] {cur.getKey(), cur.getValue()});
 
-                cur = it.hasNextX() ? it.nextX() : null;
+                cur = it.hasNextX() ? (IgniteBiTuple)it.nextX() : null;
 
                 if (batch.size() == batchSize) {
                     batch.ready(true);
