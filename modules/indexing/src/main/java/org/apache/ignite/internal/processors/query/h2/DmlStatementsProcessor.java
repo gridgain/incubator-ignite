@@ -166,13 +166,6 @@ public class DmlStatementsProcessor {
     private UpdateResult updateSqlFields(String schemaName, Connection conn, Prepared prepared,
         SqlFieldsQuery fieldsQry, boolean loc, IndexingQueryFilter filters, GridQueryCancel cancel)
         throws IgniteCheckedException {
-        // TODO IGNITE-7604 SQL TX: Allow DML operations with reducer
-        if (GridSqlQueryParser.dmlTable(prepared).cache().mvccEnabled()) {
-            fieldsQry = fieldsQueryEx(fieldsQry, false);
-
-            ((SqlFieldsQueryEx)fieldsQry).setSkipReducerOnUpdate(true);
-        }
-
         Object[] errKeys = null;
 
         long items = 0;
