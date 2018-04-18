@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.commandline;
 
-import org.apache.ignite.internal.commandline.tx.CollectTxInfoArguments;
+import org.apache.ignite.internal.commandline.tx.TransactionsTaskArguments;
 
 /**
  * Bean with all parsed and validated arguments.
@@ -51,7 +51,7 @@ public class Arguments {
      */
     private String baselineArgs;
 
-    private final CollectTxInfoArguments txArgs;
+    private final TransactionsTaskArguments txArgs;
 
     /**
      * @param cmd Command.
@@ -65,7 +65,7 @@ public class Arguments {
      */
     public Arguments(Command cmd, String host, String port, String user, String pwd,
         String baselineAct, String baselineArgs,
-        boolean force, CollectTxInfoArguments txArgs
+        boolean force, TransactionsTaskArguments txArgs
     ) {
         this.cmd = cmd;
         this.host = host;
@@ -137,7 +137,7 @@ public class Arguments {
     /**
      * @return transaction txArgs in seconds
      */
-    public CollectTxInfoArguments transactionArguments() {
+    public TransactionsTaskArguments transactionArguments() {
         return txArgs;
     }
 }

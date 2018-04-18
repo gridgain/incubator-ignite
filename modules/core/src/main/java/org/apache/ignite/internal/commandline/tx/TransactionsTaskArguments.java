@@ -27,25 +27,34 @@ import org.jetbrains.annotations.Nullable;
 /**
  *
  */
-public class CollectTxInfoArguments implements Serializable {
+public class TransactionsTaskArguments implements Serializable {
 
+    /** Consistent ids. */
     private final Collection<String> consistentIds;
+
     /** transaction size */
     private final long size;
+
     /** Duration to retrieve transaction information. */
     private final long duration;
+
     /** transaction label regex pattern */
     @Nullable private final Pattern lbPat;
-    private boolean clients;
+
+    @Nullable private final String stopXid;
+
+    /** Clients. */
+    @Nullable private boolean clients;
 
     /**
      * @param consistentIds
      * @param duration Duration.
      * @param size Size.
      * @param lbPat Label regex pattern.
+     * @param stopXid
      */
-    public CollectTxInfoArguments(boolean clients, Collection<String> consistentIds, long duration,
-        long size, @Nullable Pattern lbPat) {
+    public TransactionsTaskArguments(boolean clients, Collection<String> consistentIds, long duration,
+        long size, @Nullable Pattern lbPat, String stopXid) {
         this.clients = clients;
 
         this.consistentIds = consistentIds;
@@ -55,6 +64,8 @@ public class CollectTxInfoArguments implements Serializable {
         this.size = size;
 
         this.lbPat = lbPat;
+
+        this.stopXid = stopXid;
     }
 
     public boolean clients() {
@@ -75,5 +86,9 @@ public class CollectTxInfoArguments implements Serializable {
 
     public Collection<String> consistentIds() {
         return consistentIds;
+    }
+
+    @Nullable public String stopXid() {
+        return stopXid;
     }
 }

@@ -41,8 +41,8 @@ import org.apache.ignite.internal.client.GridClientHandshakeException;
 import org.apache.ignite.internal.client.GridClientNode;
 import org.apache.ignite.internal.client.GridServerUnreachableException;
 import org.apache.ignite.internal.client.impl.connection.GridClientConnectionResetException;
-import org.apache.ignite.internal.commandline.tx.CollectTxInfoArguments;
-import org.apache.ignite.internal.commandline.tx.CollectTxInfoTask;
+import org.apache.ignite.internal.commandline.tx.TransactionsTask;
+import org.apache.ignite.internal.commandline.tx.TransactionsTaskArguments;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.visor.VisorTaskArgument;
@@ -150,6 +150,9 @@ public class CommandHandler {
     private static final String TX_NODES = "nodes";
 
     /** */
+    private static final String TX_STOP = "stop";
+
+    /** */
     private Iterator<String> argsIt;
 
     /** */
@@ -243,6 +246,12 @@ public class CommandHandler {
             case BASELINE:
                 if (!BASELINE_COLLECT.equals(args.baselineAction()))
                     str = "Warning: the command will perform changes in baseline.";
+                break;
+
+            case TX:
+                if (args.transactionArguments().stopXid() != null)
+                    str = "Warning: the command will stop transaction.";
+                break;
         }
 
         return str == null ? null : str + "\nPress 'y' to continue...";
@@ -331,13 +340,13 @@ public class CommandHandler {
      * @throws GridClientException If failed to execute task.
      */
     private Collection<Object> executeTransactionsTask(GridClient client,
-        CollectTxInfoArguments arg) throws GridClientException {
+        TransactionsTaskArguments arg) throws GridClientException {
 
         GridClientCompute compute = client.compute();
 
         GridClientNode node = getBalancedNode(compute);
 
-        return compute.projection(node).execute(CollectTxInfoTask.class.getName(), arg);
+        return compute.projection(node).execute(TransactionsTask.class.getName(), arg);
     }
 
     /**
@@ -596,7 +605,7 @@ public class CommandHandler {
      * @param client Client.
      * @param arg Transaction search arguments
      */
-    private void transactions(GridClient client, CollectTxInfoArguments arg) throws GridClientException {
+    private void transactions(GridClient client, TransactionsTaskArguments arg) throws GridClientException {
         try {
             Collection<Object> res = executeTransactionsTask(client, arg);
 
@@ -704,7 +713,7 @@ public class CommandHandler {
 
         initArgIterator(rawArgs);
 
-        CollectTxInfoArguments txArgs = null;
+        TransactionsTaskArguments txArgs = null;
 
         while (hasNextArg()) {
             String str = nextArg("").toLowerCase();
@@ -809,14 +818,22 @@ public class CommandHandler {
     /**
      * @return Transaction arguments.
      */
-    private CollectTxInfoArguments parseTransactionArguments() {
+    private TransactionsTaskArguments parseTransactionArguments() {
         boolean clients = false;
+
         long dur = 0;
+
         long size = 0;
+
         Pattern lbPat = null;
+
         List<String> consistentIds = null;
 
-        for (; ; ) {
+        String stopXid = null;
+
+        boolean end = false;
+
+        do {
             String str = peekNextArg();
 
             if (str == null)
@@ -853,11 +870,18 @@ public class CommandHandler {
                     lbPat = parsePattern("transaction label pattern");
                     break;
 
+                case TX_STOP:
+                    nextArg("");
+
+                    stopXid = nextArg("expected transaction uuid to stop");
+                    break;
+
                 default:
-                    throw new IllegalArgumentException("Unexpected argument: " + str);
+                    end = true;
             }
         }
-        return new CollectTxInfoArguments(clients, consistentIds, dur, size, lbPat);
+        while (!end);
+        return new TransactionsTaskArguments(clients, consistentIds, dur, size, lbPat, stopXid);
     }
 
     /**
@@ -920,6 +944,7 @@ public class CommandHandler {
                 usage("  Set baseline topology:", BASELINE, " set consistentId1[,consistentId2,....,consistentIdN] [--force]");
                 usage("  Set baseline topology based on version:", BASELINE, " version topologyVersion [--force]");
                 usage("  Dump active transactions:", TX, " [dur SECONDS] [size SIZE] [label PATTERN] [clients] [nodes consistentId1[,consistentId2,....,consistentIdN]");
+                usage("  Stop active transactions:", TX, " [stop TX_ID] [dur SECONDS] [size SIZE] [label PATTERN] [clients] [nodes consistentId1[,consistentId2,....,consistentIdN] [--force]");
 
                 log("By default cluster deactivation and changes in baseline topology commands request interactive confirmation. ");
                 log("  --force option can be used to execute commands without prompting for confirmation.");

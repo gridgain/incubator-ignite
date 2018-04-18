@@ -21,7 +21,9 @@ package org.apache.ignite.util;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
@@ -41,6 +43,10 @@ import org.apache.ignite.transactions.TransactionIsolation;
 import static org.apache.ignite.internal.commandline.CommandHandler.EXIT_CODE_CONNECTION_FAILED;
 import static org.apache.ignite.internal.commandline.CommandHandler.EXIT_CODE_OK;
 import static org.apache.ignite.internal.commandline.CommandHandler.EXIT_CODE_UNEXPECTED_ERROR;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
+import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 
 /**
  * Command line handler test for transactions dumping
@@ -119,11 +125,6 @@ public class GridCommandHandlerTxTest extends GridCommonAbstractTest {
         };
     }
 
-    /** {@inheritDoc} */
-    @Override protected long getTestTimeout() {
-        return 100 * 60 * 1000;
-    }
-
     /**
      * @param args Arguments.
      * @return Execution code.
@@ -131,7 +132,10 @@ public class GridCommandHandlerTxTest extends GridCommonAbstractTest {
     private int execute(String... args) {
         resetOutput();
 
-        int res = new CommandHandler().execute(Arrays.asList(args));
+        List<String> argList = new ArrayList<>(Arrays.asList(args));
+        argList.add("--force");
+
+        int res = new CommandHandler().execute(argList);
 
         outStr = out.toString();
 
@@ -148,10 +152,19 @@ public class GridCommandHandlerTxTest extends GridCommonAbstractTest {
     }
 
     /**
+     * @param args Arguments.
+     */
+    private void checkExecute(int exitCode, String... args) {
+        int res = execute(args);
+
+        assertEquals(outStr, exitCode, res);
+    }
+
+    /**
      * test transactions dump
      */
     public void testTx() throws Exception {
-        assertEquals(EXIT_CODE_CONNECTION_FAILED, execute("--tx", "dur", "0"));
+        checkExecute(EXIT_CODE_CONNECTION_FAILED, "--tx", "dur", "0");
 
         int SRVS = 2;
         int CLIENTS = 2;
@@ -194,8 +207,8 @@ public class GridCommandHandlerTxTest extends GridCommonAbstractTest {
 
         assertFalse(outStr, outStr.contains(String.valueOf("tx-label-")));
 
-        try (Transaction tx = startTx(client1, TransactionConcurrency.OPTIMISTIC, TransactionIsolation.SERIALIZABLE, "tx-label-3");
-             Transaction tx2 = startTx(client2, TransactionConcurrency.OPTIMISTIC, TransactionIsolation.SERIALIZABLE, "tx-label-4")) {
+        try (Transaction tx = startTx(client1, OPTIMISTIC, SERIALIZABLE, "tx-label-3");
+             Transaction tx2 = startTx(client2, OPTIMISTIC, SERIALIZABLE, "tx-label-4")) {
             checkExecute("--tx", "dur", "0");
 
             assertFalse(outStr, outStr.contains("No active transactions found"));
@@ -464,9 +477,9 @@ public class GridCommandHandlerTxTest extends GridCommonAbstractTest {
 
         assertTrue(client.configuration().isClientMode());
 
-        TransactionConcurrency concurrency = TransactionConcurrency.OPTIMISTIC;
+        TransactionConcurrency concurrency = OPTIMISTIC;
 
-        TransactionIsolation isolation = TransactionIsolation.SERIALIZABLE;
+        TransactionIsolation isolation = SERIALIZABLE;
 
         try (Transaction tx = startTx(srv, concurrency, isolation, "tx-srv-1");
              Transaction tx2 = startTx(client, concurrency, isolation, "tx-client-2")) {
@@ -524,6 +537,89 @@ public class GridCommandHandlerTxTest extends GridCommonAbstractTest {
             assertEquals(EXIT_CODE_UNEXPECTED_ERROR, execute("--tx", "nodes", "dummyId"));
 
             assertTrue(outStr, outStr.contains("Task map operation produced no mapped jobs"));
+        }
+    }
+
+    public void testTxStop() throws Exception {
+        client = false;
+
+        startGrids(1);
+
+        client = true;
+
+        startGridsMultiThreaded(1, 2);
+
+        client = false;
+
+        IgniteEx srv = grid(0);
+        String srvId = srv.localNode().consistentId().toString();
+
+        IgniteEx client = grid(1);
+        String client1Id = client.localNode().consistentId().toString();
+
+        client = grid(2);
+        String clientId = client.localNode().consistentId().toString();
+
+        assertTrue(client.configuration().isClientMode());
+
+        try (Transaction tx = startTx(srv, OPTIMISTIC, SERIALIZABLE, "tx-srv-1");
+             Transaction tx2 = startTx(client, PESSIMISTIC, READ_COMMITTED, "tx-client-2")) {
+
+            checkExecute("--tx");
+
+            assertFalse(outStr, outStr.contains("No active transactions found"));
+
+            assertTrue(outStr, outStr.contains(String.valueOf(tx.xid())));
+            assertTrue(outStr, outStr.contains(String.valueOf("tx-srv-1")));
+
+            assertTrue(outStr, outStr.contains(String.valueOf(tx2.xid())));
+            assertTrue(outStr, outStr.contains(String.valueOf("tx-client-2")));
+
+            log.info(outStr);
+
+            checkExecute("--tx", "stop", tx.xid().toString(), "nodes", client1Id);
+
+            assertTrue(outStr, outStr.contains("No active transactions found"));
+
+            log.info(outStr);
+
+            checkExecute("--tx", "stop", tx.xid().toString());
+
+            assertTrue(outStr, outStr.contains(String.valueOf(tx.xid())));
+            assertTrue(outStr, outStr.contains(String.valueOf("tx-srv-1")));
+
+            log.info(outStr);
+
+            checkExecute("--tx");
+
+            assertFalse(outStr, outStr.contains("No active transactions found"));
+
+            assertFalse(outStr, outStr.contains(String.valueOf(tx.xid())));
+            assertFalse(outStr, outStr.contains(String.valueOf("tx-srv-1")));
+
+            assertTrue(outStr, outStr.contains(String.valueOf(tx2.xid())));
+            assertTrue(outStr, outStr.contains(String.valueOf("tx-client-2")));
+
+            log.info(outStr);
+
+            checkExecute("--tx", "stop", tx2.xid().toString());
+
+            assertTrue(outStr, outStr.contains(String.valueOf(tx2.xid())));
+            assertTrue(outStr, outStr.contains(String.valueOf("tx-client-2")));
+
+            log.info(outStr);
+
+            checkExecute("--tx");
+
+            assertTrue(outStr, outStr.contains("No active transactions found"));
+
+            assertFalse(outStr, outStr.contains(String.valueOf(tx.xid())));
+            assertFalse(outStr, outStr.contains(String.valueOf("tx-srv-1")));
+
+            assertFalse(outStr, outStr.contains(String.valueOf(tx2.xid())));
+            assertFalse(outStr, outStr.contains(String.valueOf("tx-client-2")));
+
+            log.info(outStr);
         }
     }
 }
