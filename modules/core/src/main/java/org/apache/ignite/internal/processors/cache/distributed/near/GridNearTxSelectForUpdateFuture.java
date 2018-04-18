@@ -122,6 +122,13 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
         log = cctx.logger(GridNearTxSelectForUpdateFuture.class);
     }
 
+    /**
+     * @return Cache context.
+     */
+    public GridCacheContext<?, ?> cache() {
+        return cctx;
+    }
+
     /** */
     public GridFutureAdapter<AffinityTopologyVersion> initTopologyVersion() {
         GridFutureAdapter<AffinityTopologyVersion> res = new GridFutureAdapter<>();
@@ -264,8 +271,9 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
     /**
      * @param node Node.
+     * @param loc Whether it's local node mapping (no parallelism involved).
      */
-    private void map(ClusterNode node) {
+    private void map(ClusterNode node, boolean loc) {
         GridDistributedTxMapping mapping = tx.mappings().get(node.id());
 
         if (mapping == null)
@@ -273,7 +281,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
         mapping.markQueryUpdate();
 
-        for (int i = 0; i < cctx.config().getQueryParallelism(); i++) {
+        for (int i = 0; i < (loc ? 1 : cctx.config().getQueryParallelism()); i++) {
             int futId = futuresCountNoLock();
 
             miniFutIds.put(new MapQueryFutureKey(node.id(), i), futId);
@@ -329,7 +337,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
      * Finds pending batch future by the given ID.
      *
      * @param nodeId Node id.
-     * @param segment
+     * @param segment Segment number.
      * @return Batch future.
      */
     private MapQueryFuture mapFuture(UUID nodeId, int segment) {
@@ -432,7 +440,6 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     }
 
     /**
-     *
      * @param nodes
      */
     public synchronized void init(Collection<ClusterNode> nodes) {
@@ -440,7 +447,19 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
             throw new IllegalStateException("SELECT FOR UPDATE future has been initialized already.");
 
         for (ClusterNode n : nodes)
-            map(n);
+            map(n, false);
+
+        markInitialized();
+    }
+
+    /**
+     *
+     */
+    public synchronized void initLocal() {
+        if (initialized())
+            throw new IllegalStateException("SELECT FOR UPDATE future has been initialized already.");
+
+        map(cctx.localNode(), true);
 
         markInitialized();
     }

@@ -21,6 +21,15 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
+
+import org.apache.ignite.Ignite;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.query.SqlFieldsQuery;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.query.SqlFieldsQueryEx;
 import org.apache.ignite.internal.util.typedef.X;
 
 import static org.apache.ignite.internal.processors.cache.index.AbstractSchemaSelfTest.connect;
@@ -50,7 +59,10 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
 
         try (Connection c = connect(grid(0))) {
             execute(c, "create table person (id int primary key, firstName varchar, lastName varchar) " +
-                "with \"atomicity=transactional\"");
+                "with \"atomicity=transactional,cache_name=Person\"");
+
+            for (int i = 1; i <= 300; i++)
+                execute(c, "insert into person(id, firstName, lastName) values(" + i + ",'" + i + "','"  + i + "')");
         }
     }
 
@@ -63,15 +75,23 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
         super.afterTest();
     }
 
+    /** {@inheritDoc} */
+    @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(gridName);
+
+        cfg.setMvccEnabled(true);
+
+        CacheConfiguration ccfg = new CacheConfiguration("mvcc*");
+
+        ccfg.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+
+        return cfg;
+    }
+
     /**
      *
      */
     public void testSelectForUpdate() throws SQLException {
-        try (Connection c = connect(grid(0))) {
-            for (int i = 1; i <= 300; i++)
-                execute(c, "insert into person(id, firstName, lastName) values(" + i + ",'" + i + "','"  + i + "')");
-        }
-
         try (Connection c = connect(grid(0))) {
             c.setAutoCommit(false);
 
@@ -84,5 +104,21 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
                 }
             }
         }
+    }
+
+    /**
+     *
+     */
+    public void testSelectForUpdateLocal() throws SQLException {
+        Ignite node = ignite(0);
+
+        SqlFieldsQueryEx qry = new SqlFieldsQueryEx("select * from person order by id for update", true).setLocal(true);
+
+        qry.setAutoCommit(false);
+
+        List<List<?>> res = node.cache("Person").query(qry).getAll();
+
+        for (List<?> r : res)
+            X.println(r.get(0).toString());
     }
 }
