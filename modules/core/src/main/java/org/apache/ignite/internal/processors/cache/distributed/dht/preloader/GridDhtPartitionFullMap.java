@@ -249,7 +249,6 @@ public class GridDhtPartitionFullMap extends HashMap<UUID, GridDhtPartitionMap> 
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        //return S.toString(GridDhtPartitionFullMap.class, this, "size", size());  todo gg-13416 remove
-        return toFullString();
+        return S.toString(GridDhtPartitionFullMap.class, this, "size", size());
     }
 }
