@@ -95,9 +95,10 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
                 assert reconnectFut != null;
 
                 dump("readLock()(state == DISCONNECTED)");
+                IgniteInternalFuture igniteInternalFuture = ((IgniteFutureImpl) reconnectFut).internalFuture();
                 logMsg(String.format("readLock() throw DisconnectedException reconnectFut = [%s] internal = [%s]",
                         reconnectFut.hashCode(),
-                        ((IgniteFutureImpl)reconnectFut).internalFuture().hashCode()));
+                        igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()));
 
                 throw new IgniteClientDisconnectedException(proxy(reconnectFut), "Client node disconnected: " + gridName);
             }
@@ -241,9 +242,10 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
 
         if (_state.get() == GridKernalState.DISCONNECTED) {
             dump("readLockAnyway()(_state.get() == DISCONNECTED)");
+            IgniteInternalFuture igniteInternalFuture = ((IgniteFutureImpl) reconnectFut).internalFuture();
             logMsg(String.format("readLockAnyway() throw DisconnectedException reconnectFut = [%s] internal = [%s]",
                     reconnectFut.hashCode(),
-                    ((IgniteFutureImpl)reconnectFut).internalFuture().hashCode()));
+                    igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()));
             throw new IgniteClientDisconnectedException(proxy(reconnectFut), "Client node disconnected: " + gridName);
         }
     }

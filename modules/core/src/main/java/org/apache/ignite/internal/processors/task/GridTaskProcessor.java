@@ -25,9 +25,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.*;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
@@ -41,18 +40,7 @@ import org.apache.ignite.compute.ComputeTaskSessionFullSupport;
 import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.events.Event;
 import org.apache.ignite.events.TaskEvent;
-import org.apache.ignite.internal.ComputeTaskInternalFuture;
-import org.apache.ignite.internal.GridJobExecuteResponse;
-import org.apache.ignite.internal.GridJobSiblingImpl;
-import org.apache.ignite.internal.GridJobSiblingsRequest;
-import org.apache.ignite.internal.GridJobSiblingsResponse;
-import org.apache.ignite.internal.GridKernalContext;
-import org.apache.ignite.internal.GridTaskCancelRequest;
-import org.apache.ignite.internal.GridTaskNameHashKey;
-import org.apache.ignite.internal.GridTaskSessionImpl;
-import org.apache.ignite.internal.GridTaskSessionRequest;
-import org.apache.ignite.internal.IgniteClientDisconnectedCheckedException;
-import org.apache.ignite.internal.IgniteDeploymentCheckedException;
+import org.apache.ignite.internal.*;
 import org.apache.ignite.internal.compute.ComputeTaskCancelledCheckedException;
 import org.apache.ignite.internal.managers.communication.GridIoManager;
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
@@ -63,14 +51,13 @@ import org.apache.ignite.internal.processors.cache.CachePeekModes;
 import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
 import org.apache.ignite.internal.util.GridConcurrentFactory;
 import org.apache.ignite.internal.util.GridSpinReadWriteLock;
+import org.apache.ignite.internal.util.future.IgniteFutureImpl;
 import org.apache.ignite.internal.util.lang.GridPeerDeployAware;
 import org.apache.ignite.internal.util.typedef.C1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.lang.IgniteFuture;
-import org.apache.ignite.lang.IgnitePredicate;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.*;
 import org.apache.ignite.marshaller.Marshaller;
 import org.apache.ignite.plugin.security.SecurityPermission;
 import org.jetbrains.annotations.Nullable;
@@ -175,9 +162,145 @@ public class GridTaskProcessor extends GridProcessorAdapter {
      * @return Client disconnected exception.
      */
     private IgniteClientDisconnectedCheckedException disconnectedError(@Nullable IgniteFuture<?> reconnectFut) {
+        dump("disconnectedError");
+        IgniteInternalFuture igniteInternalFuture = ((IgniteFutureImpl) reconnectFut).internalFuture();
+        logMsg(String.format("disconnectedError create IgniteClientDisconnectedCheckedException reconFut = [%s] internal = [%s]",
+                reconnectFut.hashCode(),
+                igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()));
+
         return new IgniteClientDisconnectedCheckedException(
             reconnectFut != null ? reconnectFut : ctx.cluster().clientReconnectFuture(),
             "Failed to execute task, client node disconnected.");
+    }
+
+    private void logMsg(String msg) {
+        log.info(getLogPrefix() + msg);
+    }
+
+    private void dump(String msg) {
+        U.dumpStack(log, getLogPrefix() + msg);
+    }
+
+    private String getLogPrefix() {
+        return String.format("[TASK_PROC][%s]", Thread.currentThread().getName());
+    }
+
+    private IgniteFuture<?> proxy(final IgniteFuture<?> rf) {
+        return new IgniteFuture() {
+
+            @Override
+            public Object get() throws IgniteException {
+                logMsg(String.format("proxy future get reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                return rf.get();
+            }
+
+            @Override
+            public Object get(long timeout) throws IgniteException {
+                logMsg(String.format("proxy future get(%s) reconFut = [%s] internal = [%s]",
+                        timeout,
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                return rf.get(timeout);
+            }
+
+            @Override
+            public Object get(long timeout, TimeUnit unit) throws IgniteException {
+                logMsg(String.format("proxy future get(%s, %s) reconFut = [%s] internal = [%s]",
+                        timeout, unit,
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                return rf.get(timeout, unit);
+            }
+
+            @Override
+            public boolean cancel() throws IgniteException {
+                logMsg(String.format("proxy future cancel() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.cancel();
+            }
+
+            @Override
+            public boolean isCancelled() {
+                logMsg(String.format("proxy future isCancelled() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.isCancelled();
+            }
+
+            @Override
+            public boolean isDone() {
+                logMsg(String.format("proxy future isDone() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.isDone();
+            }
+
+            @Override
+            public long startTime() {
+                logMsg(String.format("proxy future startTime() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.startTime();
+            }
+
+            @Override
+            public long duration() {
+                logMsg(String.format("proxy future duration() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.duration();
+            }
+
+            @Override
+            public IgniteFuture chainAsync(IgniteClosure doneCb, Executor exec) {
+                logMsg(String.format("proxy future chainAsync() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.chainAsync(doneCb, exec);
+            }
+
+            @Override
+            public IgniteFuture chain(IgniteClosure doneCb) {
+                logMsg(String.format("proxy future chain() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.chain(doneCb);
+            }
+
+            @Override
+            public void listenAsync(IgniteInClosure lsnr, Executor exec) {
+                logMsg(String.format("proxy future listenAsync() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                rf.listenAsync(lsnr, exec);
+            }
+
+            @Override
+            public void listen(IgniteInClosure lsnr) {
+                logMsg(String.format("proxy future listen() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                rf.listen(lsnr);
+
+            }
+
+            @Override
+            public int hashCode() {
+                return rf.hashCode();
+            }
+        };
     }
 
     /** {@inheritDoc} */

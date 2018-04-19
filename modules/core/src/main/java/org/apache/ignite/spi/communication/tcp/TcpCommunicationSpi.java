@@ -4666,9 +4666,10 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
                     dump("ConnectGateway.enter err != null and ClientDisconnected");
                     IgniteClientDisconnectedException cde = (IgniteClientDisconnectedException)err;
 
+                    IgniteInternalFuture igniteInternalFuture = ((IgniteFutureImpl) cde.reconnectFuture()).internalFuture();
                     logMsg(String.format("ConnectGateway.enter throw DisconnectedException reconnectFut = [%s] internal = [%s]",
                             cde.reconnectFuture().hashCode(),
-                            ((IgniteFutureImpl)cde.reconnectFuture()).internalFuture().hashCode()));
+                            igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()));
                 }
                 throw err;
             }
