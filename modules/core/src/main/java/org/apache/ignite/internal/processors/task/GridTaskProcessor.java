@@ -163,13 +163,16 @@ public class GridTaskProcessor extends GridProcessorAdapter {
      */
     private IgniteClientDisconnectedCheckedException disconnectedError(@Nullable IgniteFuture<?> reconnectFut) {
         dump("disconnectedError");
-        IgniteInternalFuture igniteInternalFuture = ((IgniteFutureImpl) reconnectFut).internalFuture();
-        logMsg(String.format("disconnectedError create IgniteClientDisconnectedCheckedException reconFut = [%s] internal = [%s]",
-                reconnectFut.hashCode(),
-                igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()));
-
+        if(reconnectFut !=null) {
+            IgniteInternalFuture igniteInternalFuture = ((IgniteFutureImpl) reconnectFut).internalFuture();
+            logMsg(String.format("disconnectedError create IgniteClientDisconnectedCheckedException reconFut = [%s] internal = [%s]",
+                    reconnectFut.hashCode(),
+                    igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()));
+        } else {
+            logMsg(String.format("disconnectedError create IgniteClientDisconnectedCheckedException reconFut = null"));
+        }
         return new IgniteClientDisconnectedCheckedException(
-            reconnectFut != null ? reconnectFut : ctx.cluster().clientReconnectFuture(),
+            reconnectFut != null ? proxy(reconnectFut) : proxy(ctx.cluster().clientReconnectFuture()),
             "Failed to execute task, client node disconnected.");
     }
 
