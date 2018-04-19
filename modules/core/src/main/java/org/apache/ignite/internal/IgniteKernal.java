@@ -3481,7 +3481,10 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
             try {
                 if (!skipDaemon(comp)) {
-                    logMsg(comp.getClass().getSimpleName() + "#onDisconnected(fur: " + userFut.hashCode() + ")" );
+                    logMsg(String.format("comp: [%s] reconFut = [%s] internal = [%s]",
+                            comp.getClass().getSimpleName(),
+                            userFut.hashCode(),
+                            ((IgniteFutureImpl)userFut).internalFuture().hashCode()));
                     comp.onDisconnected(userFut);
                 }
             }

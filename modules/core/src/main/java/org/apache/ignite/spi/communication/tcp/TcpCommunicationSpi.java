@@ -4540,7 +4540,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public Object get() throws IgniteException {
-                    logMsg(String.format("return future get reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future get reconFut = [%s] internal = [%s]",
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
                     return rf.get();
@@ -4548,7 +4548,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public Object get(long timeout) throws IgniteException {
-                    logMsg(String.format("return future get(%s) reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future get(%s) reconFut = [%s] internal = [%s]",
                             timeout,
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
@@ -4557,7 +4557,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public Object get(long timeout, TimeUnit unit) throws IgniteException {
-                    logMsg(String.format("return future get(%s, %s) reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future get(%s, %s) reconFut = [%s] internal = [%s]",
                             timeout, unit,
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
@@ -4566,7 +4566,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public boolean cancel() throws IgniteException {
-                    logMsg(String.format("return future cancel() reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future cancel() reconFut = [%s] internal = [%s]",
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
 
@@ -4575,7 +4575,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public boolean isCancelled() {
-                    logMsg(String.format("return future isCancelled() reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future isCancelled() reconFut = [%s] internal = [%s]",
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
 
@@ -4584,7 +4584,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public boolean isDone() {
-                    logMsg(String.format("return future isDone() reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future isDone() reconFut = [%s] internal = [%s]",
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
 
@@ -4593,7 +4593,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public long startTime() {
-                    logMsg(String.format("return future startTime() reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future startTime() reconFut = [%s] internal = [%s]",
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
 
@@ -4602,7 +4602,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public long duration() {
-                    logMsg(String.format("return future duration() reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future duration() reconFut = [%s] internal = [%s]",
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
 
@@ -4611,7 +4611,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public IgniteFuture chainAsync(IgniteClosure doneCb, Executor exec) {
-                    logMsg(String.format("return future chainAsync() reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future chainAsync() reconFut = [%s] internal = [%s]",
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
 
@@ -4620,7 +4620,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public IgniteFuture chain(IgniteClosure doneCb) {
-                    logMsg(String.format("return future chain() reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future chain() reconFut = [%s] internal = [%s]",
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
 
@@ -4629,7 +4629,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public void listenAsync(IgniteInClosure lsnr, Executor exec) {
-                    logMsg(String.format("return future listenAsync() reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future listenAsync() reconFut = [%s] internal = [%s]",
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
 
@@ -4638,12 +4638,17 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
 
                 @Override
                 public void listen(IgniteInClosure lsnr) {
-                    logMsg(String.format("return future listen() reconFut = [%s] internal = [%s]",
+                    logMsg(String.format("proxy future listen() reconFut = [%s] internal = [%s]",
                             rf.hashCode(),
                             ((IgniteFutureImpl)rf).internalFuture().hashCode()));
 
                     rf.listen(lsnr);
 
+                }
+
+                @Override
+                public int hashCode() {
+                    return rf.hashCode();
                 }
             };
         }
