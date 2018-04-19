@@ -441,8 +441,11 @@ class ClientImpl extends TcpDiscoveryImpl {
         if (state == SEGMENTED)
             throw new IgniteException("Failed to send custom message: client is segmented.");
 
-        if (state == DISCONNECTED)
+        if (state == DISCONNECTED) {
+            dump("sendCustomEvent | disconnected");
+            logMsg("err: IgniteClientDisconnectedException reconFut: " + null);
             throw new IgniteClientDisconnectedException(null, "Failed to send custom message: client is disconnected.");
+        }
 
         try {
             sockWriter.sendMessage(new TcpDiscoveryCustomEventMessage(getLocalNodeId(), evt,
@@ -451,6 +454,18 @@ class ClientImpl extends TcpDiscoveryImpl {
         catch (IgniteCheckedException e) {
             throw new IgniteSpiException("Failed to marshal custom event: " + evt, e);
         }
+    }
+
+    private void logMsg(String msg) {
+        log.info(getLogPrefix() + msg);
+    }
+
+    private void dump(String msg) {
+        U.dumpStack(log, getLogPrefix() + msg);
+    }
+
+    private String getLogPrefix() {
+        return String.format("[ClientImpl][%s]", Thread.currentThread().getName());
     }
 
     /** {@inheritDoc} */

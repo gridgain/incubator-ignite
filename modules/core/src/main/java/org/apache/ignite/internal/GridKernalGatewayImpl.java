@@ -20,12 +20,13 @@ package org.apache.ignite.internal;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteClientDisconnectedException;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.util.GridSpinReadWriteLock;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
@@ -33,6 +34,9 @@ import org.apache.ignite.internal.util.future.IgniteFutureImpl;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteInClosure;
 
 /**
  *
@@ -90,12 +94,137 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
             if (state == GridKernalState.DISCONNECTED) {
                 assert reconnectFut != null;
 
-                U.dumpStack(log, "org.apache.ignite.internal.GridKernalGatewayImpl.readLock()(state == GridKernalState.DISCONNECTED)");
-                throw new IgniteClientDisconnectedException(reconnectFut, "Client node disconnected: " + gridName);
+                dump("readLock()(state == DISCONNECTED)");
+                logMsg(String.format("readLock() throw DisconnectedException reconnectFut = [%s] internal = [%s]",
+                        reconnectFut.hashCode(),
+                        ((IgniteFutureImpl)reconnectFut).internalFuture().hashCode()));
+
+                throw new IgniteClientDisconnectedException(proxy(reconnectFut), "Client node disconnected: " + gridName);
             }
 
             throw illegalState();
         }
+    }
+
+    private IgniteFuture<?> proxy(IgniteFuture<?> rf) {
+        return new IgniteFuture() {
+
+            @Override
+            public Object get() throws IgniteException {
+                logMsg(String.format("return future get reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                return rf.get();
+            }
+
+            @Override
+            public Object get(long timeout) throws IgniteException {
+                logMsg(String.format("return future get(%s) reconFut = [%s] internal = [%s]",
+                        timeout,
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                return rf.get(timeout);
+            }
+
+            @Override
+            public Object get(long timeout, TimeUnit unit) throws IgniteException {
+                logMsg(String.format("return future get(%s, %s) reconFut = [%s] internal = [%s]",
+                        timeout, unit,
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                return rf.get(timeout, unit);
+            }
+
+            @Override
+            public boolean cancel() throws IgniteException {
+                logMsg(String.format("return future cancel() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.cancel();
+            }
+
+            @Override
+            public boolean isCancelled() {
+                logMsg(String.format("return future isCancelled() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.isCancelled();
+            }
+
+            @Override
+            public boolean isDone() {
+                logMsg(String.format("return future isDone() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.isDone();
+            }
+
+            @Override
+            public long startTime() {
+                logMsg(String.format("return future startTime() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.startTime();
+            }
+
+            @Override
+            public long duration() {
+                logMsg(String.format("return future duration() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.duration();
+            }
+
+            @Override
+            public IgniteFuture chainAsync(IgniteClosure doneCb, Executor exec) {
+                logMsg(String.format("return future chainAsync() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.chainAsync(doneCb, exec);
+            }
+
+            @Override
+            public IgniteFuture chain(IgniteClosure doneCb) {
+                logMsg(String.format("return future chain() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.chain(doneCb);
+            }
+
+            @Override
+            public void listenAsync(IgniteInClosure lsnr, Executor exec) {
+                logMsg(String.format("return future listenAsync() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                rf.listenAsync(lsnr, exec);
+            }
+
+            @Override
+            public void listen(IgniteInClosure lsnr) {
+                logMsg(String.format("return future listen() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                rf.listen(lsnr);
+
+            }
+        };
+    }
+
+    private void dump(String msg) {
+        U.dumpStack(log, "[KG][" + Thread.currentThread().getName() + "]" + msg);
+    }
+
+    private void logMsg(String msg) {
+        log.info("[KG][" + Thread.currentThread().getName() + "]" + msg);
     }
 
     /** {@inheritDoc} */
@@ -106,8 +235,11 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
         rwLock.readLock();
 
         if (_state.get() == GridKernalState.DISCONNECTED) {
-            U.dumpStack(log, "org.apache.ignite.internal.GridKernalGatewayImpl.readLockAnyway()(_state.get() == GridKernalState.DISCONNECTED)");
-            throw new IgniteClientDisconnectedException(reconnectFut, "Client node disconnected: " + gridName);
+            dump("readLockAnyway()(_state.get() == DISCONNECTED)");
+            logMsg(String.format("readLockAnyway() throw DisconnectedException reconnectFut = [%s] internal = [%s]",
+                    reconnectFut.hashCode(),
+                    ((IgniteFutureImpl)reconnectFut).internalFuture().hashCode()));
+            throw new IgniteClientDisconnectedException(proxy(reconnectFut), "Client node disconnected: " + gridName);
         }
     }
 
@@ -158,9 +290,12 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
 
     /** {@inheritDoc} */
     @Override public GridFutureAdapter<?> onDisconnected() {
-        U.dumpStack(log, "org.apache.ignite.internal.GridKernalGatewayImpl.onDisconnected");
+        U.dumpStack(log, "onDisconnected");
+
         GridKernalState current = _state.get();
-        log.info(String.format("org.apache.ignite.internal.GridKernalGatewayImpl.onDisconnected state = [%s]", current));
+
+        logMsg(String.format("onDisconnected state = [%s]", current));
+
         if (current == GridKernalState.DISCONNECTED) {
             assert reconnectFut != null;
 
@@ -171,25 +306,31 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
 
         reconnectFut = new IgniteFutureImpl<>(fut);
 
-        log.info(String.format("trying... _state.compareAndSet(GridKernalState.STARTED, GridKernalState.DISCONNECTED)"));
+        logMsg(String.format("onDisconnected reconnectFut = [%s] internal = [%s]", reconnectFut.hashCode(), fut.hashCode()));
+
+        logMsg("trying... _state.compareAndSet(STARTED, DISCONNECTED)");
         if (!_state.compareAndSet(GridKernalState.STARTED, GridKernalState.DISCONNECTED)) {
-            log.info(String.format("!_state.compareAndSet(GridKernalState.STARTED, GridKernalState.DISCONNECTED) [Node stopped.]"));
-            ((GridFutureAdapter<?>)reconnectFut.internalFuture()).onDone(new IgniteCheckedException("Node stopped."));
+            logMsg("!_state.compareAndSet(STARTED, DISCONNECTED) [Node stopped.]");
+            ((GridFutureAdapter<?>) reconnectFut.internalFuture()).onDone(new IgniteCheckedException("Node stopped."));
 
             return null;
         }
 
-        log.info(String.format("DONE _state.compareAndSet(GridKernalState.STARTED, GridKernalState.DISCONNECTED)"));
+        logMsg("DONE _state.compareAndSet(STARTED, DISCONNECTED)");
 
         return fut;
     }
 
-    /** {@inheritDoc} */
-    @Override public void onReconnected() {
-        U.dumpStack(log, "org.apache.ignite.internal.GridKernalGatewayImpl.onReconnected");
-        log.info(String.format("trying... _state.compareAndSet(GridKernalState.DISCONNECTED, GridKernalState.STARTED)"));
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void onReconnected() {
+        dump("onReconnected");
+        logMsg("trying... _state.compareAndSet(DISCONNECTED, STARTED)");
         if (_state.compareAndSet(GridKernalState.DISCONNECTED, GridKernalState.STARTED)) {
-            log.info(String.format("DONE _state.compareAndSet(GridKernalState.DISCONNECTED, GridKernalState.STARTED)"));
+            logMsg("DONE _state.compareAndSet(DISCONNECTED, STARTED)");
+            logMsg("onDone fo reconnectFut.iFut: " + reconnectFut.internalFuture().hashCode());
             ((GridFutureAdapter<?>) reconnectFut.internalFuture()).onDone();
         }
     }
@@ -227,39 +368,48 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
     @Override public void setState(GridKernalState state) {
         assert state != null;
 
-        log.info("org.apache.ignite.internal.GridKernalGatewayImpl.setState " +
+        logMsg("setState " +
                 "rwLock.writeLockedByCurrentThread(): " +
                 rwLock.writeLockedByCurrentThread());
 
-        U.dumpStack(log, String.format("org.apache.ignite.internal.GridKernalGatewayImpl.setState " +
+        dump(String.format("setState " +
                 "old state: [%s] new state: [%s]", _state.get(), state));
 
         // NOTE: this method should always be called within write lock.
         this._state.set(state);
 
         if (reconnectFut != null) {
-            log.info("org.apache.ignite.internal.GridKernalGatewayImpl.setState " +
+            logMsg("setState " +
                     "reconnectFut != null ");
             ((GridFutureAdapter<?>) reconnectFut.internalFuture()).onDone(new IgniteCheckedException("Node stopped."));
         }
     }
 
-    /** {@inheritDoc} */
-    @Override public GridKernalState getState() {
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public GridKernalState getState() {
         GridKernalState gridKernalState = _state.get();
-        U.dumpStack(log, String.format("org.apache.ignite.internal.GridKernalGatewayImpl.getState state = [%s]",
+        dump(String.format("getState state = [%s]",
                 gridKernalState));
 
         return gridKernalState;
     }
 
-    /** {@inheritDoc} */
-    @Override public String userStackTrace() {
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String userStackTrace() {
         return stackTrace;
     }
 
-    /** {@inheritDoc} */
-    @Override public String toString() {
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString() {
         return S.toString(GridKernalGatewayImpl.class, this);
     }
 }

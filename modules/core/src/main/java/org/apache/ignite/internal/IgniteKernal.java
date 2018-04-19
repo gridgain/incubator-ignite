@@ -3425,11 +3425,23 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
         ctx.gateway().readUnlock();
     }
 
+    private void logMsg(String msg) {
+        log.info(getLogPrefix() + msg);
+    }
+
+    private void dump(String msg) {
+        U.dumpStack(log, getLogPrefix() + msg);
+    }
+
+    private String getLogPrefix() {
+        return String.format("[K][%s][%s][%s]", Thread.currentThread().getName());
+    }
+
     /**
      *
      */
     public void onDisconnected() {
-        U.dumpStack(log, "org.apache.ignite.internal.IgniteKernal.onDisconnected");
+        dump("onDisconnected");
 
         Throwable err = null;
 
@@ -3438,6 +3450,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
         GridFutureAdapter<?> reconnectFut = ctx.gateway().onDisconnected();
 
         if (reconnectFut == null) {
+            logMsg("reconnectFut == null");
             assert ctx.gateway().getState() != STARTED : ctx.gateway().getState();
 
             return;
@@ -3445,12 +3458,15 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
         IgniteFutureImpl<?> curFut = (IgniteFutureImpl<?>)ctx.cluster().get().clientReconnectFuture();
 
+        logMsg("curFut == " + curFut.hashCode());
+
         IgniteFuture<?> userFut;
 
         // In case of previous reconnect did not finish keep reconnect future.
-        if (curFut != null && curFut.internalFuture() == reconnectFut)
+        if (curFut != null && curFut.internalFuture() == reconnectFut) {
+            logMsg("curFut != null && curFut.internalFuture() == reconnectFut");
             userFut = curFut;
-        else {
+        } else {
             userFut = new IgniteFutureImpl<>(reconnectFut);
 
             ctx.cluster().get().clientReconnectFuture(userFut);
@@ -3464,8 +3480,10 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
             GridComponent comp = it.previous();
 
             try {
-                if (!skipDaemon(comp))
+                if (!skipDaemon(comp)) {
+                    logMsg(comp.getClass().getSimpleName() + "#onDisconnected(fur: " + userFut.hashCode() + ")" );
                     comp.onDisconnected(userFut);
+                }
             }
             catch (IgniteCheckedException e) {
                 err = e;
@@ -3502,7 +3520,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
      */
     @SuppressWarnings("unchecked")
     public void onReconnected(final boolean clusterRestarted) {
-        U.dumpStack(log, "org.apache.ignite.internal.IgniteKernal.onReconnected");
+        dump("onReconnected");
 
         Throwable err = null;
 
@@ -3515,6 +3533,8 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
             for (GridComponent comp : ctx.components()) {
                 IgniteInternalFuture<?> fut = comp.onReconnected(clusterRestarted);
+                logMsg(comp.getClass().getSimpleName() + "#onReconnected(retart: " + clusterRestarted + ")" );
+                logMsg(comp.getClass().getSimpleName() + "#onReconnected fut: " + fut.hashCode() );
 
                 if (fut != null)
                     curReconnectFut.add(fut);
@@ -3531,9 +3551,14 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                     try {
                         Object res = fut.get();
 
-                        if (res == STOP_RECONNECT)
-                            return;
+                        logMsg("curReconnectFut.listen fut: " + fut.hashCode());
 
+                        if (res == STOP_RECONNECT) {
+                            logMsg("curReconnectFut.listen res == STOP_RECONNECT fut: " + fut.hashCode());
+                            return;
+                        }
+
+                        logMsg("curReconnectFut.listen onReconnected fut: " + fut.hashCode());
                         ctx.gateway().onReconnected();
 
                         reconnectState.firstReconnectFut.onDone();
@@ -3555,6 +3580,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                         }
                     }
                     finally {
+                        logMsg("curReconnectFut.listen reconnectDone.onDone");
                         reconnectDone.onDone();
                     }
                 }
@@ -3761,7 +3787,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
             if (curReconnectFut != null && !curReconnectFut.isDone()) {
                 assert reconnectDone != null;
 
-                log.info("org.apache.ignite.internal.IgniteKernal.ReconnectState.waitPreviousReconnect[curReconnectFut.onDone(STOP_RECONNECT)]");
+                logMsg("RS.waitPreviousReconnect[curReconnectFut.onDone(STOP_RECONNECT)]");
                 curReconnectFut.onDone(STOP_RECONNECT);
 
                 try {

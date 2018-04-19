@@ -88,6 +88,7 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionState;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jsr166.ConcurrentHashMap8;
 import org.jsr166.ConcurrentLinkedDeque8;
@@ -299,14 +300,29 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
     @Override public void onDisconnected(IgniteFuture reconnectFut) {
         txFinishSync.onDisconnected(reconnectFut);
 
+        dump("onDisconnected");
         for (Map.Entry<Long, IgniteInternalTx> e : threadMap.entrySet())
             rollbackTx(e.getValue());
+
+        logMsg("err: IgniteClientDisconnectedException reconFut: " + reconnectFut.hashCode());
 
         IgniteClientDisconnectedException err =
             new IgniteClientDisconnectedException(reconnectFut, "Client node disconnected.");
 
         for (TxDeadlockFuture fut : deadlockDetectFuts.values())
             fut.onDone(err);
+    }
+
+    private void logMsg(String msg) {
+        log.info(getLogPrefix() + msg);
+    }
+
+    private void dump(String msg) {
+        U.dumpStack(log, getLogPrefix() + msg);
+    }
+
+    private String getLogPrefix() {
+        return String.format("[TXManager][%s]", Thread.currentThread().getName());
     }
 
     /**

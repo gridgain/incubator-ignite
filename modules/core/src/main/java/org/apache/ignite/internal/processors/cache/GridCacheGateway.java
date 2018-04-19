@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.processors.cache;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.cache.CacheException;
 import org.apache.ignite.IgniteCheckedException;
@@ -25,10 +27,14 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.util.GridSpinReadWriteLock;
+import org.apache.ignite.internal.util.future.IgniteFutureImpl;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteInClosure;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -93,12 +99,130 @@ public class GridCacheGateway<K, V> {
             else {
                 assert reconnectFut != null;
 
+                dump("throw IgniteClientDisconnectedException");
+                logMsg(String.format("checkState throw IgniteClientDisconnectedException reconFut = [%s] internal = [%s]",
+                        reconnectFut.hashCode(),
+                        ((IgniteFutureImpl)reconnectFut).internalFuture().hashCode()));
+
                 throw new CacheException(
-                    new IgniteClientDisconnectedException(reconnectFut, "Client node disconnected: " + ctx.gridName()));
+                    new IgniteClientDisconnectedException(proxy(reconnectFut), "Client node disconnected: " + ctx.gridName()));
             }
         }
 
         return true;
+    }
+
+    private IgniteFuture<?> proxy(IgniteFuture<?> rf) {
+        return new IgniteFuture() {
+
+            @Override
+            public Object get() throws IgniteException {
+                logMsg(String.format("return future get reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                return rf.get();
+            }
+
+            @Override
+            public Object get(long timeout) throws IgniteException {
+                logMsg(String.format("return future get(%s) reconFut = [%s] internal = [%s]",
+                        timeout,
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                return rf.get(timeout);
+            }
+
+            @Override
+            public Object get(long timeout, TimeUnit unit) throws IgniteException {
+                logMsg(String.format("return future get(%s, %s) reconFut = [%s] internal = [%s]",
+                        timeout, unit,
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                return rf.get(timeout, unit);
+            }
+
+            @Override
+            public boolean cancel() throws IgniteException {
+                logMsg(String.format("return future cancel() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.cancel();
+            }
+
+            @Override
+            public boolean isCancelled() {
+                logMsg(String.format("return future isCancelled() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.isCancelled();
+            }
+
+            @Override
+            public boolean isDone() {
+                logMsg(String.format("return future isDone() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.isDone();
+            }
+
+            @Override
+            public long startTime() {
+                logMsg(String.format("return future startTime() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.startTime();
+            }
+
+            @Override
+            public long duration() {
+                logMsg(String.format("return future duration() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.duration();
+            }
+
+            @Override
+            public IgniteFuture chainAsync(IgniteClosure doneCb, Executor exec) {
+                logMsg(String.format("return future chainAsync() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.chainAsync(doneCb, exec);
+            }
+
+            @Override
+            public IgniteFuture chain(IgniteClosure doneCb) {
+                logMsg(String.format("return future chain() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                return rf.chain(doneCb);
+            }
+
+            @Override
+            public void listenAsync(IgniteInClosure lsnr, Executor exec) {
+                logMsg(String.format("return future listenAsync() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                rf.listenAsync(lsnr, exec);
+            }
+
+            @Override
+            public void listen(IgniteInClosure lsnr) {
+                logMsg(String.format("return future listen() reconFut = [%s] internal = [%s]",
+                        rf.hashCode(),
+                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                rf.listen(lsnr);
+
+            }
+        };
     }
 
     /**
@@ -264,15 +388,31 @@ public class GridCacheGateway<K, V> {
     public void onDisconnected(IgniteFuture<?> reconnectFut) {
         assert reconnectFut != null;
 
-        U.dumpStack(log, "org.apache.ignite.internal.processors.cache.GridCacheGateway.onDisconnected()");
+        dump("GridCacheGateway.onDisconnected()");
+
+        logMsg(String.format("GridCacheGateway.onDisconnected() reconFut = [%s] internal = [%s]",
+                reconnectFut.hashCode(),
+                ((IgniteFutureImpl)reconnectFut).internalFuture().hashCode()));
 
         this.reconnectFut = reconnectFut;
 
-        log.info("try... _state.compareAndSet(State.STARTED, State.DISCONNECTED)");
+        logMsg("try... _state.compareAndSet(State.STARTED, State.DISCONNECTED)");
         if(!_state.compareAndSet(State.STARTED, State.DISCONNECTED))
-            log.info("!_state.compareAndSet(State.STARTED, State.DISCONNECTED)");
+            logMsg("!_state.compareAndSet(State.STARTED, State.DISCONNECTED)");
         else
-            log.info("DONE _state.compareAndSet(State.STARTED, State.DISCONNECTED)");
+            logMsg("DONE _state.compareAndSet(State.STARTED, State.DISCONNECTED)");
+    }
+
+    private void logMsg(String msg) {
+        log.info(getLogPrefix() + msg);
+    }
+
+    private void dump(String msg) {
+        U.dumpStack(log, getLogPrefix() + msg);
+    }
+
+    private String getLogPrefix() {
+        return String.format("[CG][%s][%s][%s]", Thread.currentThread().getName(), this.ctx.name(), this.hashCode());
     }
 
     /**
@@ -295,14 +435,15 @@ public class GridCacheGateway<K, V> {
     public void reconnected(boolean stopped) {
         State newState = stopped ? State.STOPPED : State.STARTED;
 
-        U.dumpStack(log, "org.apache.ignite.internal.processors.cache.GridCacheGateway.reconnected()");
+        dump("GridCacheGateway.reconnected()");
 
-        log.info(String.format("try... _state.compareAndSet(State.DISCONNECTED, %s)", newState));
+        logMsg(String.format("try... _state.compareAndSet(State.DISCONNECTED, %s)", newState));
         if(!_state.compareAndSet(State.DISCONNECTED, newState))
-            log.info(String.format("!_state.compareAndSet(State.DISCONNECTED, %s)", newState));
+            logMsg(String.format("!_state.compareAndSet(State.DISCONNECTED, %s)", newState));
         else
-            log.info(String.format("DONE _state.compareAndSet(State.DISCONNECTED, %s)", newState));
+            logMsg(String.format("DONE _state.compareAndSet(State.DISCONNECTED, %s)", newState));
     }
+
 
     /**
      *

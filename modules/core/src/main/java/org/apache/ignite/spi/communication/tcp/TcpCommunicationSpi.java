@@ -40,11 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLEngine;
@@ -69,6 +65,7 @@ import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.util.GridConcurrentFactory;
 import org.apache.ignite.internal.util.GridSpinReadWriteLock;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.future.IgniteFutureImpl;
 import org.apache.ignite.internal.util.ipc.IpcEndpoint;
 import org.apache.ignite.internal.util.ipc.IpcToNioAdapter;
 import org.apache.ignite.internal.util.ipc.shmem.IpcOutOfSystemResourcesException;
@@ -103,14 +100,7 @@ import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.util.worker.GridWorker;
-import org.apache.ignite.lang.IgniteBiInClosure;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteFuture;
-import org.apache.ignite.lang.IgniteInClosure;
-import org.apache.ignite.lang.IgnitePredicate;
-import org.apache.ignite.lang.IgniteProductVersion;
-import org.apache.ignite.lang.IgniteRunnable;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.*;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.plugin.extensions.communication.MessageFactory;
 import org.apache.ignite.plugin.extensions.communication.MessageFormatter;
@@ -4545,6 +4535,119 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
         /** */
         private IgniteException err;
 
+        private IgniteFuture<?> proxy(IgniteFuture<?> rf) {
+            return new IgniteFuture() {
+
+                @Override
+                public Object get() throws IgniteException {
+                    logMsg(String.format("return future get reconFut = [%s] internal = [%s]",
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                    return rf.get();
+                }
+
+                @Override
+                public Object get(long timeout) throws IgniteException {
+                    logMsg(String.format("return future get(%s) reconFut = [%s] internal = [%s]",
+                            timeout,
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                    return rf.get(timeout);
+                }
+
+                @Override
+                public Object get(long timeout, TimeUnit unit) throws IgniteException {
+                    logMsg(String.format("return future get(%s, %s) reconFut = [%s] internal = [%s]",
+                            timeout, unit,
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                    return rf.get(timeout, unit);
+                }
+
+                @Override
+                public boolean cancel() throws IgniteException {
+                    logMsg(String.format("return future cancel() reconFut = [%s] internal = [%s]",
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                    return rf.cancel();
+                }
+
+                @Override
+                public boolean isCancelled() {
+                    logMsg(String.format("return future isCancelled() reconFut = [%s] internal = [%s]",
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                    return rf.isCancelled();
+                }
+
+                @Override
+                public boolean isDone() {
+                    logMsg(String.format("return future isDone() reconFut = [%s] internal = [%s]",
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                    return rf.isDone();
+                }
+
+                @Override
+                public long startTime() {
+                    logMsg(String.format("return future startTime() reconFut = [%s] internal = [%s]",
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                    return rf.startTime();
+                }
+
+                @Override
+                public long duration() {
+                    logMsg(String.format("return future duration() reconFut = [%s] internal = [%s]",
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                    return rf.duration();
+                }
+
+                @Override
+                public IgniteFuture chainAsync(IgniteClosure doneCb, Executor exec) {
+                    logMsg(String.format("return future chainAsync() reconFut = [%s] internal = [%s]",
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                    return rf.chainAsync(doneCb, exec);
+                }
+
+                @Override
+                public IgniteFuture chain(IgniteClosure doneCb) {
+                    logMsg(String.format("return future chain() reconFut = [%s] internal = [%s]",
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                    return rf.chain(doneCb);
+                }
+
+                @Override
+                public void listenAsync(IgniteInClosure lsnr, Executor exec) {
+                    logMsg(String.format("return future listenAsync() reconFut = [%s] internal = [%s]",
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                    rf.listenAsync(lsnr, exec);
+                }
+
+                @Override
+                public void listen(IgniteInClosure lsnr) {
+                    logMsg(String.format("return future listen() reconFut = [%s] internal = [%s]",
+                            rf.hashCode(),
+                            ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+
+                    rf.listen(lsnr);
+
+                }
+            };
+        }
+
         /**
          *
          */
@@ -4554,6 +4657,14 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
             if (err != null) {
                 lock.readUnlock();
 
+                if (err instanceof IgniteClientDisconnectedException) {
+                    dump("ConnectGateway.enter err != null and ClientDisconnected");
+                    IgniteClientDisconnectedException cde = (IgniteClientDisconnectedException)err;
+
+                    logMsg(String.format("ConnectGateway.enter throw DisconnectedException reconnectFut = [%s] internal = [%s]",
+                            cde.reconnectFuture().hashCode(),
+                            ((IgniteFutureImpl)cde.reconnectFuture()).internalFuture().hashCode()));
+                }
                 throw err;
             }
         }
@@ -4585,10 +4696,26 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
         void disconnected(IgniteFuture<?> reconnectFut) {
             lock.writeLock();
 
-            err = new IgniteClientDisconnectedException(reconnectFut, "Failed to connect, client node disconnected.");
+            dump("disconnected");
+            logMsg("err: IgniteClientDisconnectedException reconFut: " + reconnectFut.hashCode());
+
+            err = new IgniteClientDisconnectedException(proxy(reconnectFut), "Failed to connect, client node disconnected.");
 
             lock.writeUnlock();
         }
+
+        private void logMsg(String msg) {
+            log.info(getLogPrefix() + msg);
+        }
+
+        private void dump(String msg) {
+            U.dumpStack(log, getLogPrefix() + msg);
+        }
+
+        private String getLogPrefix() {
+            return String.format("[TcpComm][%s][%s]", Thread.currentThread().getName(), this.hashCode());
+        }
+
 
         /**
          *
