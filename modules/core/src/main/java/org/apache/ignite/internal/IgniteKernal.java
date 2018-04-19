@@ -3458,7 +3458,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
         IgniteFutureImpl<?> curFut = (IgniteFutureImpl<?>)ctx.cluster().get().clientReconnectFuture();
 
-        logMsg("curFut == " + curFut.hashCode());
+        logMsg("curFut == " + (curFut == null ? null : curFut.hashCode()));
 
         IgniteFuture<?> userFut;
 
