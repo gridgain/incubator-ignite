@@ -106,7 +106,7 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
         }
     }
 
-    private IgniteFuture<?> proxy(IgniteFuture<?> rf) {
+    private IgniteFuture<?> proxy(final IgniteFuture<?> rf) {
         return new IgniteFuture() {
 
             @Override

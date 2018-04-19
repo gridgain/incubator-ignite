@@ -4535,7 +4535,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
         /** */
         private IgniteException err;
 
-        private IgniteFuture<?> proxy(IgniteFuture<?> rf) {
+        private IgniteFuture<?> proxy(final IgniteFuture<?> rf) {
             return new IgniteFuture() {
 
                 @Override

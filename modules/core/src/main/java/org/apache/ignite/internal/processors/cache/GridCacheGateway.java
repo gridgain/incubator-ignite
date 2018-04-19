@@ -112,7 +112,7 @@ public class GridCacheGateway<K, V> {
         return true;
     }
 
-    private IgniteFuture<?> proxy(IgniteFuture<?> rf) {
+    private IgniteFuture<?> proxy(final IgniteFuture<?> rf) {
         return new IgniteFuture() {
 
             @Override
