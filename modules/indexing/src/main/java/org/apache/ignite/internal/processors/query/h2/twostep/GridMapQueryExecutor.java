@@ -48,7 +48,6 @@ import org.apache.ignite.events.Event;
 import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.GridTopic;
-import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
@@ -59,7 +58,6 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTransa
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridReservable;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryType;
@@ -668,7 +666,7 @@ public class GridMapQueryExecutor {
                         txReq.subjectId(), txReq.taskNameHash());
                 }
                 else {
-                    tx = MvccUtils.activeTx(ctx);
+                    tx = MvccUtils.activeSqlTx(ctx);
 
                     assert tx != null;
 
@@ -1057,9 +1055,28 @@ public class GridMapQueryExecutor {
         if (futSupp != null) {
             QueryPageEnlistFuture fut = futSupp.apply(rows);
 
-            fut.listen(new PageEnlistFutureListener());
-
             fut.init();
+
+            Throwable err = null;
+
+            try {
+                fut.get();
+            }
+            catch (IgniteCheckedException e) {
+                err = fut.error();
+            }
+
+            if (err == null && fut.result() != null)
+                err = fut.result().error();
+
+            if (err != null) {
+                fut.tx().rollbackAsync();
+
+                sendError(node, qr.queryRequestId(),
+                    new IgniteSQLException("Failed to lock results page, rolling back the TX.", err));
+
+                return;
+            }
         }
 
         if (last) {
@@ -1166,29 +1183,5 @@ public class GridMapQueryExecutor {
      */
     public int registeredLazyWorkers() {
         return lazyWorkers.size();
-    }
-
-    /**
-     *
-     */
-    private final class PageEnlistFutureListener<T extends GridNearTxQueryEnlistResponse>
-        implements CI1<IgniteInternalFuture<T>> {
-        /** {@inheritDoc} */
-        @Override public void apply(IgniteInternalFuture<T> fut) {
-            assert fut instanceof QueryPageEnlistFuture;
-
-            Throwable err;
-
-            if (fut.result() != null)
-                err = fut.result().error();
-            else
-                err = fut.error();
-
-            if (err != null) {
-                ((QueryPageEnlistFuture)fut).tx().rollbackAsync();
-
-                throw new IgniteSQLException("Failed to lock results page, rolling back the TX.", err);
-            }
-        }
     }
 }

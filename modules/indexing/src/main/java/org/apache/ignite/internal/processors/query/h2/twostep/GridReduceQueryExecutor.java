@@ -366,9 +366,20 @@ public class GridReduceQueryExecutor {
 
             Integer cnt = idx.totalRows(node.id(), seg);
 
-            fut.onResult(node.id(), seg, cnt != null ? cnt.longValue() : null,
-                cnt == null ? new IllegalStateException("Rows counter not found [nodeId=" + node.id() +
-                    ", segment=" + seg + "].") : null);
+            if (cnt == null) {
+                // Not found counter on last page should happen iff this page is both first and last.
+                if (page.response().page() != 0) {
+                    fut.onResult(node.id(), seg, null,
+                        new IllegalStateException("Rows counter not found [nodeId=" + node.id() +
+                            ", segment=" + seg + "]."));
+
+                    return;
+                }
+
+                cnt = page.rowsInPage();
+            }
+
+            fut.onResult(node.id(), seg, cnt.longValue(), null);
         }
     }
 
@@ -672,7 +683,7 @@ public class GridReduceQueryExecutor {
                 }
             }
 
-            if (!sfuFut.isFailed())
+            if (sfuFut != null && !sfuFut.isFailed())
                 sfuFut.init(nodes);
 
             int tblIdx = 0;

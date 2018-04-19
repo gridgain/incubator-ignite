@@ -298,7 +298,9 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                                 mvccSnapshot,
                                 op);
                         else if (op == SELECT)
-                            res = null;
+                            res = entry.mvccLock(
+                                tx,
+                                mvccSnapshot);
                         else
                             throw new IgniteSQLException("Cannot acquire lock for operation [op= " + op + "]" +
                                 "Operation is unsupported at the moment ", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
@@ -360,7 +362,8 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
                                 cnt++;
 
                                 continueLoop(res.loggedPointer());
-                            } catch (Throwable e) {
+                            }
+                            catch (Throwable e) {
                                 onDone(e);
                             }
                         }

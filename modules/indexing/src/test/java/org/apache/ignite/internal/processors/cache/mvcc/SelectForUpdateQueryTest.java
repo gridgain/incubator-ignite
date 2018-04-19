@@ -18,20 +18,25 @@
 package org.apache.ignite.internal.processors.cache.mvcc;
 
 import java.sql.Connection;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import javax.cache.Cache;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.internal.IgniteEx;
-import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
-import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
 
 import static org.apache.ignite.internal.processors.cache.index.AbstractSchemaSelfTest.connect;
 import static org.apache.ignite.internal.processors.cache.index.AbstractSchemaSelfTest.execute;
@@ -64,10 +69,15 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
         super.afterTest();
     }
 
+    @Override
+    protected long getTestTimeout() {
+        return TimeUnit.MINUTES.toMillis(5);
+    }
+
     /**
      *
      */
-    public void testSelectForUpdate() throws IgniteCheckedException {
+    public void testSelectForUpdate() throws Exception {
         IgniteEx node = grid(0);
 
         IgniteCache<Integer, ?> cache = node.cache("Person");
@@ -81,19 +91,84 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
 
             assertEquals(300, res.size());
 
-            GridNearTxLocal tx = MvccUtils.activeTx(node.context());
+            List<Integer> keys = new ArrayList<>();
 
-            assertNotNull(tx);
+            for (int i = 1; i <= 300; i++)
+                keys.add(i);
 
-            IgniteInternalCache<Integer, ?> cachex = node.cachex("Person").keepBinary();
-
-            for (Cache.Entry e : cachex.localEntries(new CachePeekMode[]{ CachePeekMode.PRIMARY })) {
-                assertNotNull(tx.txState().writeMap()
-                    .get(new IgniteTxKey(cachex.context().toCacheKeyObject(e.getKey()), cachex.context().cacheId())));
-            }
+            checkLocks(keys);
         }
         finally {
             node.cache("Person").query(new SqlFieldsQuery("rollback"));
+        }
+    }
+
+    private void checkLocks(List<Integer> keys) throws Exception {
+        ExecutorService svc = Executors.newFixedThreadPool(4);
+
+        List<KeyCheckCallable> calls = new ArrayList<>();
+
+        Ignite node = ignite(2);
+
+        for (int i : keys)
+            calls.add(new KeyCheckCallable(i, node));
+
+        Iterator<Future<Integer>> res = svc.invokeAll(calls).iterator();
+
+        X.println("**CHKNG");
+
+        try {
+            for (KeyCheckCallable call : calls) {
+                assertTrue(res.hasNext());
+
+                Future<Integer> fut = res.next();
+
+                try {
+                    fut.get();
+
+                    X.println("**FSUCC");
+                }
+                catch (Exception e) {
+                    X.println("**FFAIL");
+
+                    X.println("**EXXX: " + X.getFullStackTrace(e));
+
+                    throw e;
+                }
+
+                fail("Concurrent transaction has managed to get lock for key: " + call.key);
+            }
+        }
+        finally {
+            svc.shutdownNow();
+        }
+    }
+
+    private static class KeyCheckCallable implements Callable<Integer> {
+        private final int key;
+
+        private final Ignite node;
+
+        private final CountDownLatch startLatch = new CountDownLatch(1);
+
+        private KeyCheckCallable(int key, Ignite node) {
+            this.key = key;
+            this.node = node;
+        }
+
+        /** {@inheritDoc} */
+        @Override public Integer call() throws Exception {
+            try (Transaction ignored = node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
+                TransactionIsolation.REPEATABLE_READ)) {
+                List<List<?>> res = node.cache("Person")
+                    .query(
+                        new SqlFieldsQuery("select * from person where id = " + key + " for update")
+                            .setTimeout(2, TimeUnit.SECONDS)
+                    )
+                    .getAll();
+
+                return (Integer) res.get(0).get(0);
+            }
         }
     }
 

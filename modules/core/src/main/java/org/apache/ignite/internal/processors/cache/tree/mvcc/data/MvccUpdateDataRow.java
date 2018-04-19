@@ -41,7 +41,6 @@ import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.isVisible;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.mvccVersionIsValid;
 
 /**
  *
@@ -59,6 +58,8 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
     private static final int PRIMARY = CAN_CLEANUP << 1;
     /** */
     private static final int REMOVE = PRIMARY << 1;
+    /** */
+    private static final int LOCK = REMOVE << 1;
 
     /** */
     @GridToStringExclude
@@ -97,6 +98,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
      * @param newVer Update version.
      * @param part Partition.
      * @param primary Primary node flag.
+     * @param lockOnly Whether no actual update should be done and the only thing to do is to acquire lock.
      * @param cctx Cache context.
      */
     public MvccUpdateDataRow(
@@ -108,6 +110,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
         MvccVersion newVer,
         int part,
         boolean primary,
+        boolean lockOnly,
         GridCacheContext cctx) {
         super(key,
             val,
@@ -121,11 +124,14 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
         this.mvccSnapshot = mvccSnapshot;
         this.cctx = cctx;
 
+        assert !lockOnly || val == null;
+
         if (primary)
             setFlags(FIRST
                 | CHECK_VERSION
                 | PRIMARY
-                | (val == null ? REMOVE : 0)
+                | (val == null && !lockOnly ? REMOVE : 0)
+                | (val == null && lockOnly ? LOCK : 0)
                 | CAN_WRITE);
         else
             setFlags(FIRST);
@@ -172,6 +178,9 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
             if (!isFlagsSet(REMOVE))
                 unsetFlags(CAN_WRITE);
         }
+
+        if (isFlagsSet(LOCK))
+            return unsetFlags(FIRST);
 
         // Check whether the row was updated by current transaction
         if (isFlagsSet(FIRST)) {

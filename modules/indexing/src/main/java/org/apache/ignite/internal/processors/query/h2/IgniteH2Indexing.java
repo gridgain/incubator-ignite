@@ -1106,7 +1106,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 if (cctx.atomic() || !cctx.mvccEnabled())
                     throw new IgniteSQLException("");
 
-                tx = MvccUtils.activeTx(this.ctx);
+                tx = MvccUtils.activeSqlTx(this.ctx);
 
                 if (tx == null)
                     tx = MvccUtils.txStart(cctx, 0L);
@@ -1674,7 +1674,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 MvccUtils.mvccTracker(ctx.cache().context().cacheContext(qry.cacheIds().get(0)), startTx) : mvccTracker;
 
             if (qry.forUpdate()) {
-                GridNearTxLocal curTx = MvccUtils.activeTx(ctx);
+                GridNearTxLocal curTx = MvccUtils.activeSqlTx(ctx);
 
                 if (curTx  == null)
                     MvccUtils.txStart(ctx.cache().context().cacheContext(qry.cacheIds().get(0)), 0);

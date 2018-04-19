@@ -297,10 +297,6 @@ public abstract class GridMergeIndex extends BaseIndex {
         };
 
         addPage0(p);
-
-        // No one will fetch if we don't.
-        if (forUpdate)
-            p.fetchNextPage();
     }
 
     /**
