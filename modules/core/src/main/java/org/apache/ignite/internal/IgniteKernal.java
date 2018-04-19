@@ -3434,7 +3434,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     }
 
     private String getLogPrefix() {
-        return String.format("[K][%s][%s][%s]", Thread.currentThread().getName());
+        return String.format("[K][%s]", Thread.currentThread().getName());
     }
 
     /**
