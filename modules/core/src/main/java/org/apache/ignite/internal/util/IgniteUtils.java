@@ -890,7 +890,7 @@ public abstract class IgniteUtils {
         return String.format("[%s][%s]", Thread.currentThread().getName(), component);
     }
 
-    public static IgniteFuture<?> proxy(final IgniteFuture<?> rf, String component) {
+    public static IgniteFuture<?> proxy(final IgniteFuture<?> rf, final String component) {
         return new IgniteFuture() {
 
             private int internalFutHashCode() {
