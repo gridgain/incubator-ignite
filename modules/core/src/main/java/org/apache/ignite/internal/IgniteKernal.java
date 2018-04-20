@@ -141,6 +141,7 @@ import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.suggestions.GridPerformanceSuggestions;
 import org.apache.ignite.internal.suggestions.JvmConfigurationSuggestions;
 import org.apache.ignite.internal.suggestions.OsConfigurationSuggestions;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.StripedExecutor;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
@@ -763,6 +764,8 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
         log = (GridLoggerProxy)cfg.getGridLogger().getLogger(
             getClass().getName() + (gridName != null ? '%' + gridName : ""));
+
+        IgniteUtils.log = (GridLoggerProxy)cfg.getGridLogger().getLogger(IgniteUtils.class.getSimpleName());
 
         RuntimeMXBean rtBean = ManagementFactory.getRuntimeMXBean();
 
