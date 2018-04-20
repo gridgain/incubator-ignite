@@ -857,11 +857,12 @@ public abstract class IgniteUtils {
                 IgniteInternalFuture igniteInternalFuture = ((IgniteFutureImpl) rf).internalFuture();
                 logMsg(String.format("converter: reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()));
+                        igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()),
+                        null);
 
 
                 return new IgniteClientDisconnectedException(
-                    proxy(rf),
+                    proxy(rf, null),
                     e.getMessage(),
                     e);
             }
@@ -872,46 +873,65 @@ public abstract class IgniteUtils {
 
     public static IgniteLogger log;
 
-    private static void logMsg(String msg) {
+    private static void logMsg(String msg, String component) {
         if (log != null)
-            log.info(getLogPrefix() + msg);
+            log.info(getLogPrefix(component) + msg);
     }
 
     private static void dump(String msg) {
         if (log != null)
-            U.dumpStack(log, getLogPrefix() + msg);
+            U.dumpStack(log, getLogPrefix(null) + msg);
     }
 
-    private static String getLogPrefix() {
-        return String.format("[Util][%s]", Thread.currentThread().getName());
+    private static String getLogPrefix(String component) {
+        if(component == null)
+            component = "Util";
+
+        return String.format("[%s][%s]", Thread.currentThread().getName(), component);
     }
 
-    private static IgniteFuture<?> proxy(final IgniteFuture<?> rf) {
+    public static IgniteFuture<?> proxy(final IgniteFuture<?> rf, String component) {
         return new IgniteFuture() {
+
+            private int internalFutHashCode() {
+                IgniteInternalFuture interFut = ((IgniteFutureImpl) rf).internalFuture();
+                return interFut == null ? null : interFut.hashCode();
+            }
 
             @Override
             public Object get() throws IgniteException {
+                dump("get on reconnect future");
+
                 logMsg(String.format("proxy future get reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()),
+                        component);
+
                 return rf.get();
             }
 
             @Override
             public Object get(long timeout) throws IgniteException {
+                dump("get on reconnect future");
+
                 logMsg(String.format("proxy future get(%s) reconFut = [%s] internal = [%s]",
                         timeout,
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
+
                 return rf.get(timeout);
             }
 
             @Override
             public Object get(long timeout, TimeUnit unit) throws IgniteException {
+                dump("get on reconnect future");
+                
                 logMsg(String.format("proxy future get(%s, %s) reconFut = [%s] internal = [%s]",
-                        timeout, unit,
+                        timeout,
+                        unit,
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
+
                 return rf.get(timeout, unit);
             }
 
@@ -919,7 +939,7 @@ public abstract class IgniteUtils {
             public boolean cancel() throws IgniteException {
                 logMsg(String.format("proxy future cancel() reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
 
                 return rf.cancel();
             }
@@ -928,7 +948,7 @@ public abstract class IgniteUtils {
             public boolean isCancelled() {
                 logMsg(String.format("proxy future isCancelled() reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
 
                 return rf.isCancelled();
             }
@@ -937,7 +957,7 @@ public abstract class IgniteUtils {
             public boolean isDone() {
                 logMsg(String.format("proxy future isDone() reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
 
                 return rf.isDone();
             }
@@ -946,7 +966,7 @@ public abstract class IgniteUtils {
             public long startTime() {
                 logMsg(String.format("proxy future startTime() reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
 
                 return rf.startTime();
             }
@@ -955,7 +975,7 @@ public abstract class IgniteUtils {
             public long duration() {
                 logMsg(String.format("proxy future duration() reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
 
                 return rf.duration();
             }
@@ -964,7 +984,7 @@ public abstract class IgniteUtils {
             public IgniteFuture chainAsync(IgniteClosure doneCb, Executor exec) {
                 logMsg(String.format("proxy future chainAsync() reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
 
                 return rf.chainAsync(doneCb, exec);
             }
@@ -973,7 +993,7 @@ public abstract class IgniteUtils {
             public IgniteFuture chain(IgniteClosure doneCb) {
                 logMsg(String.format("proxy future chain() reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
 
                 return rf.chain(doneCb);
             }
@@ -982,7 +1002,7 @@ public abstract class IgniteUtils {
             public void listenAsync(IgniteInClosure lsnr, Executor exec) {
                 logMsg(String.format("proxy future listenAsync() reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
 
                 rf.listenAsync(lsnr, exec);
             }
@@ -991,7 +1011,7 @@ public abstract class IgniteUtils {
             public void listen(IgniteInClosure lsnr) {
                 logMsg(String.format("proxy future listen() reconFut = [%s] internal = [%s]",
                         rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
+                        internalFutHashCode()), component);
 
                 rf.listen(lsnr);
 

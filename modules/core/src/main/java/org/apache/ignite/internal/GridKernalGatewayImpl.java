@@ -100,129 +100,11 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
                         reconnectFut.hashCode(),
                         igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()));
 
-                throw new IgniteClientDisconnectedException(proxy(reconnectFut), "Client node disconnected: " + gridName);
+                throw new IgniteClientDisconnectedException(U.proxy(reconnectFut, "KG"), "Client node disconnected: " + gridName);
             }
 
             throw illegalState();
         }
-    }
-
-    private IgniteFuture<?> proxy(final IgniteFuture<?> rf) {
-        return new IgniteFuture() {
-
-            @Override
-            public Object get() throws IgniteException {
-                logMsg(String.format("proxy future get reconFut = [%s] internal = [%s]",
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-                return rf.get();
-            }
-
-            @Override
-            public Object get(long timeout) throws IgniteException {
-                logMsg(String.format("proxy future get(%s) reconFut = [%s] internal = [%s]",
-                        timeout,
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-                return rf.get(timeout);
-            }
-
-            @Override
-            public Object get(long timeout, TimeUnit unit) throws IgniteException {
-                logMsg(String.format("proxy future get(%s, %s) reconFut = [%s] internal = [%s]",
-                        timeout, unit,
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-                return rf.get(timeout, unit);
-            }
-
-            @Override
-            public boolean cancel() throws IgniteException {
-                logMsg(String.format("proxy future cancel() reconFut = [%s] internal = [%s]",
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-
-                return rf.cancel();
-            }
-
-            @Override
-            public boolean isCancelled() {
-                logMsg(String.format("proxy future isCancelled() reconFut = [%s] internal = [%s]",
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-
-                return rf.isCancelled();
-            }
-
-            @Override
-            public boolean isDone() {
-                logMsg(String.format("proxy future isDone() reconFut = [%s] internal = [%s]",
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-
-                return rf.isDone();
-            }
-
-            @Override
-            public long startTime() {
-                logMsg(String.format("proxy future startTime() reconFut = [%s] internal = [%s]",
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-
-                return rf.startTime();
-            }
-
-            @Override
-            public long duration() {
-                logMsg(String.format("proxy future duration() reconFut = [%s] internal = [%s]",
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-
-                return rf.duration();
-            }
-
-            @Override
-            public IgniteFuture chainAsync(IgniteClosure doneCb, Executor exec) {
-                logMsg(String.format("proxy future chainAsync() reconFut = [%s] internal = [%s]",
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-
-                return rf.chainAsync(doneCb, exec);
-            }
-
-            @Override
-            public IgniteFuture chain(IgniteClosure doneCb) {
-                logMsg(String.format("proxy future chain() reconFut = [%s] internal = [%s]",
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-
-                return rf.chain(doneCb);
-            }
-
-            @Override
-            public void listenAsync(IgniteInClosure lsnr, Executor exec) {
-                logMsg(String.format("proxy future listenAsync() reconFut = [%s] internal = [%s]",
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-
-                rf.listenAsync(lsnr, exec);
-            }
-
-            @Override
-            public void listen(IgniteInClosure lsnr) {
-                logMsg(String.format("proxy future listen() reconFut = [%s] internal = [%s]",
-                        rf.hashCode(),
-                        ((IgniteFutureImpl)rf).internalFuture().hashCode()));
-
-                rf.listen(lsnr);
-
-            }
-
-            @Override
-            public int hashCode() {
-                return rf.hashCode();
-            }
-        };
     }
 
     private void dump(String msg) {
@@ -246,7 +128,7 @@ public class GridKernalGatewayImpl implements GridKernalGateway, Serializable {
             logMsg(String.format("readLockAnyway() throw DisconnectedException reconnectFut = [%s] internal = [%s]",
                     reconnectFut.hashCode(),
                     igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()));
-            throw new IgniteClientDisconnectedException(proxy(reconnectFut), "Client node disconnected: " + gridName);
+            throw new IgniteClientDisconnectedException(U.proxy(reconnectFut,"KG"), "Client node disconnected: " + gridName);
         }
     }
 
