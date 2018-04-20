@@ -63,6 +63,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartit
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxSelectForUpdateFuture;
+import org.apache.ignite.internal.processors.cache.distributed.near.TopologyLockFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
@@ -90,7 +91,6 @@ import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryReq
 import org.apache.ignite.internal.util.GridIntIterator;
 import org.apache.ignite.internal.util.GridIntList;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
-import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.C2;
 import org.apache.ignite.internal.util.typedef.CIX2;
 import org.apache.ignite.internal.util.typedef.F;
@@ -589,18 +589,21 @@ public class GridReduceQueryExecutor {
 
             final GridNearTxSelectForUpdateFuture sfuFut;
 
+            final TopologyLockFuture topFut;
+
             if (qry.forUpdate()) {
                 // Indexing should have started TX at this point for FOR UPDATE query.
                 assert curTx != null;
 
-                sfuFut = qry.forUpdate() ? new GridNearTxSelectForUpdateFuture(
-                    cacheContext(qry.cacheIds().get(0)),
-                    curTx,
-                    timeoutMillis
-                ) : null;
+                sfuFut = new GridNearTxSelectForUpdateFuture(cacheContext(qry.cacheIds().get(0)), curTx, timeoutMillis);
+
+                topFut = new TopologyLockFuture(curTx, cacheContext(qry.cacheIds().get(0)));
             }
-            else
+            else {
                 sfuFut = null;
+
+                topFut = null;
+            }
 
             final ReduceQueryRun r = new ReduceQueryRun(qryReqId, qry.originalSql(), schemaName,
                 h2.connectionForSchema(schemaName), qry.mapQueries().size(), qry.pageSize(),
@@ -642,9 +645,10 @@ public class GridReduceQueryExecutor {
                 nodes = singletonList(ctx.discovery().localNode());
             else {
                 if (sfuFut != null) {
-                    GridFutureAdapter<AffinityTopologyVersion> topFut = sfuFut.initTopologyVersion();
 
                     try {
+                        topFut.initTopologyVersion();
+
                         topVer = topFut.get();
                     }
                     catch (IgniteCheckedException e) {
@@ -684,7 +688,7 @@ public class GridReduceQueryExecutor {
             }
 
             if (sfuFut != null && !sfuFut.isFailed())
-                sfuFut.init(nodes);
+                sfuFut.init(topVer, nodes);
 
             int tblIdx = 0;
 
@@ -820,7 +824,7 @@ public class GridReduceQueryExecutor {
 
                     final int fflags = flags;
 
-                    final boolean clientFirst = sfuFut.clientFirst();
+                    final boolean clientFirst = topFut.clientFirst();
 
                     spec = new C2<ClusterNode, Message, Message>() {
                         @Override public Message apply(ClusterNode clusterNode, Message msg) {

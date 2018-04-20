@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.cache.distributed.near;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -29,14 +30,12 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
-import org.apache.ignite.internal.processors.cache.CacheStoppedException;
 import org.apache.ignite.internal.processors.cache.GridCacheCompoundIdentityFuture;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
 import org.apache.ignite.internal.processors.cache.GridCacheMvccCandidate;
 import org.apache.ignite.internal.processors.cache.GridCacheVersionedFuture;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxMapping;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTopologyFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshotResponseListener;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccTxInfo;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
-import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -83,10 +81,10 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     private final GridCacheVersion lockVer;
 
     /** */
-    private long timeout;
+    private AffinityTopologyVersion topVer;
 
     /** */
-    private AffinityTopologyVersion topVer;
+    private final long timeout;
 
     /** Logger. */
     @GridToStringExclude
@@ -95,9 +93,6 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     /** Timeout object. */
     @GridToStringExclude
     private LockTimeoutObject timeoutObj;
-
-    /** Topology locked flag. */
-    private boolean topLocked;
 
     /** Ids of mini futures. */
     private final Map<MapQueryFutureKey, Integer> miniFutIds = new HashMap<>();
@@ -127,146 +122,6 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
      */
     public GridCacheContext<?, ?> cache() {
         return cctx;
-    }
-
-    /** */
-    public GridFutureAdapter<AffinityTopologyVersion> initTopologyVersion() {
-        GridFutureAdapter<AffinityTopologyVersion> res = new GridFutureAdapter<>();
-
-        if (tx.trackTimeout()) {
-            if (!tx.removeTimeoutHandler()) {
-                tx.finishFuture().listen(new IgniteInClosure<IgniteInternalFuture<IgniteInternalTx>>() {
-                    @Override public void apply(IgniteInternalFuture<IgniteInternalTx> fut) {
-                        IgniteTxTimeoutCheckedException err = new IgniteTxTimeoutCheckedException("Failed to " +
-                            "acquire lock, transaction was rolled back on timeout [timeout=" + tx.timeout() +
-                            ", tx=" + tx + ']');
-
-                        onDone(err);
-                    }
-                });
-
-                return null;
-            }
-        }
-
-        if (timeout > 0) {
-            timeoutObj = new LockTimeoutObject();
-
-            cctx.time().addTimeoutObject(timeoutObj);
-        }
-
-        boolean added = cctx.mvcc().addFuture(this);
-
-        assert added : this;
-
-        // Obtain the topology version to use.
-        long threadId = Thread.currentThread().getId();
-
-        AffinityTopologyVersion topVer = cctx.mvcc().lastExplicitLockTopologyVersion(threadId);
-
-        // If there is another system transaction in progress, use its topology version to prevent deadlock.
-        if (topVer == null && tx.system())
-            topVer = cctx.tm().lockedTopologyVersion(threadId, tx);
-
-        if (topVer != null)
-            tx.topologyVersion(topVer);
-
-        if (topVer == null)
-            topVer = tx.topologyVersionSnapshot();
-
-        if (topVer != null) {
-            for (GridDhtTopologyFuture fut : cctx.shared().exchange().exchangeFutures()) {
-                if (fut.exchangeDone() && fut.topologyVersion().equals(topVer)) {
-                    Throwable err = fut.validateCache(cctx, false, false, null, null);
-
-                    if (err != null) {
-                        onDone(err);
-
-                        return null;
-                    }
-
-                    break;
-                }
-            }
-
-            if (this.topVer == null)
-                this.topVer = topVer;
-
-            topLocked = true;
-
-            res.onDone(this.topVer);
-
-            return res;
-        }
-
-        mapOnTopology(res);
-
-        return res;
-    }
-
-    public boolean clientFirst() {
-        return cctx.localNode().isClient() && !topLocked && !tx.hasRemoteLocks();
-    }
-
-    /**
-     * Acquire topology future and wait for its completion.
-     * Execute necessary preliminary actions.
-     * @param topFut
-     */
-    private void mapOnTopology(GridFutureAdapter<AffinityTopologyVersion> topFut){
-        cctx.topology().readLock();
-
-        try {
-            if (cctx.topology().stopping()) {
-                onDone(new CacheStoppedException(cctx.name()));
-
-                return;
-            }
-
-            GridDhtTopologyFuture fut = cctx.topologyVersionFuture();
-
-            if (fut.isDone()) {
-                Throwable err = fut.validateCache(cctx, false, false, null, null);
-
-                if (err != null) {
-                    onDone(err);
-
-                    return;
-                }
-
-                AffinityTopologyVersion topVer = fut.topologyVersion();
-
-                if (tx != null)
-                    tx.topologyVersion(topVer);
-
-                if (this.topVer == null)
-                    this.topVer = topVer;
-
-                topFut.onDone(topVer);
-            }
-            else {
-                fut.listen(new CI1<IgniteInternalFuture<AffinityTopologyVersion>>() {
-                    @Override public void apply(IgniteInternalFuture<AffinityTopologyVersion> fut) {
-                        try {
-                            fut.get();
-
-                            mapOnTopology(topFut);
-                        }
-                        catch (IgniteCheckedException e) {
-                            topFut.onDone(e);
-
-                            onDone(e);
-                        }
-                        finally {
-                            cctx.shared().txContextReset();
-                        }
-                    }
-                });
-            }
-        }
-        finally {
-            cctx.topology().readUnlock();
-        }
     }
 
     /**
@@ -361,7 +216,6 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
         return null;
     }
 
-
     /** {@inheritDoc} */
     @Override public GridCacheVersion version() {
         return lockVer;
@@ -442,24 +296,58 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     /**
      * @param nodes
      */
-    public synchronized void init(Collection<ClusterNode> nodes) {
-        if (initialized())
-            throw new IllegalStateException("SELECT FOR UPDATE future has been initialized already.");
-
-        for (ClusterNode n : nodes)
-            map(n, false);
-
-        markInitialized();
+    public synchronized void init(AffinityTopologyVersion topVer, Collection<ClusterNode> nodes) {
+        doInit(topVer, nodes, false);
     }
 
     /**
      *
      */
     public synchronized void initLocal() {
+        doInit(null, Collections.singletonList(cctx.localNode()), true);
+    }
+
+    /**
+     * @param topVer
+     * @param nodes
+     * @param loc
+     */
+    private void doInit(AffinityTopologyVersion topVer, Collection<ClusterNode> nodes, boolean loc) {
+        assert !loc || (topVer == null && nodes.size() == 1 && nodes.iterator().next().isLocal());
+
         if (initialized())
             throw new IllegalStateException("SELECT FOR UPDATE future has been initialized already.");
 
-        map(cctx.localNode(), true);
+        if (tx.trackTimeout()) {
+            if (!tx.removeTimeoutHandler()) {
+                tx.finishFuture().listen(new IgniteInClosure<IgniteInternalFuture<IgniteInternalTx>>() {
+                    @Override public void apply(IgniteInternalFuture<IgniteInternalTx> fut) {
+                        IgniteTxTimeoutCheckedException err = new IgniteTxTimeoutCheckedException("Failed to " +
+                            "acquire lock, transaction was rolled back on timeout [timeout=" + tx.timeout() +
+                            ", tx=" + tx + ']');
+
+                        onDone(err);
+                    }
+                });
+
+                return;
+            }
+        }
+
+        if (timeout > 0) {
+            timeoutObj = new GridNearTxSelectForUpdateFuture.LockTimeoutObject();
+
+            cctx.time().addTimeoutObject(timeoutObj);
+        }
+
+        boolean added = cctx.mvcc().addFuture(this);
+
+        assert added : this;
+
+        this.topVer = topVer;
+
+        for (ClusterNode n : nodes)
+            map(n, loc);
 
         markInitialized();
     }

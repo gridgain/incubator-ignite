@@ -1072,8 +1072,7 @@ public class GridMapQueryExecutor {
             if (err != null) {
                 fut.tx().rollbackAsync();
 
-                sendError(node, qr.queryRequestId(),
-                    new IgniteSQLException("Failed to lock results page, rolling back the TX.", err));
+                sendError(node, qr.queryRequestId(), err);
 
                 return;
             }

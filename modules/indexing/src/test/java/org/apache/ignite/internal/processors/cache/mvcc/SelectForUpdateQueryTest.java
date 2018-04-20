@@ -19,12 +19,15 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 
 import java.sql.Connection;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -55,7 +58,7 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
             execute(c, "create table person (id int primary key, firstName varchar, lastName varchar) " +
                 "with \"atomicity=transactional,cache_name=Person\"");
 
-            for (int i = 1; i <= 300; i++)
+            for (int i = 1; i <= 100; i++)
                 execute(c, "insert into person(id, firstName, lastName) values(" + i + ",'" + i + "','"  + i + "')");
         }
     }
@@ -89,11 +92,11 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
 
             List<List<?>> res = cache.query(qry).getAll();
 
-            assertEquals(300, res.size());
+            assertEquals(100, res.size());
 
             List<Integer> keys = new ArrayList<>();
 
-            for (int i = 1; i <= 300; i++)
+            for (int i = 1; i <= 10; i++)
                 keys.add(i);
 
             checkLocks(keys);
@@ -104,7 +107,7 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
     }
 
     private void checkLocks(List<Integer> keys) throws Exception {
-        ExecutorService svc = Executors.newFixedThreadPool(4);
+        ExecutorService svc = Executors.newSingleThreadExecutor();
 
         List<KeyCheckCallable> calls = new ArrayList<>();
 
@@ -117,30 +120,30 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
 
         X.println("**CHKNG");
 
+        Map<Integer, Exception> errs = new HashMap<>();
+
         try {
-            for (KeyCheckCallable call : calls) {
+            for (int i : keys) {
                 assertTrue(res.hasNext());
 
                 Future<Integer> fut = res.next();
 
                 try {
                     fut.get();
-
-                    X.println("**FSUCC");
                 }
-                catch (Exception e) {
-                    X.println("**FFAIL");
-
-                    X.println("**EXXX: " + X.getFullStackTrace(e));
-
-                    throw e;
+                catch (ExecutionException e) {
+                    errs.put(i, (Exception)e.getCause());
                 }
-
-                fail("Concurrent transaction has managed to get lock for key: " + call.key);
             }
         }
         finally {
             svc.shutdownNow();
+        }
+
+        for (int i : keys) {
+            Exception e = errs.get(i);
+
+            assertNotNull("Concurrent transaction managed to get lock on key " + i, e);
         }
     }
 
@@ -167,7 +170,7 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
                     )
                     .getAll();
 
-                return (Integer) res.get(0).get(0);
+                return (Integer)res.get(0).get(0);
             }
         }
     }
