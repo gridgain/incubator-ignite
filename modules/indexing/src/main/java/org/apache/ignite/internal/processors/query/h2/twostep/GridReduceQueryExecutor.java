@@ -63,7 +63,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartit
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxSelectForUpdateFuture;
-import org.apache.ignite.internal.processors.cache.distributed.near.TopologyLockFuture;
+import org.apache.ignite.internal.processors.cache.distributed.near.TxTopologyVersionFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
@@ -589,7 +589,9 @@ public class GridReduceQueryExecutor {
 
             final GridNearTxSelectForUpdateFuture sfuFut;
 
-            final TopologyLockFuture topFut;
+            final boolean selectForUpdateClientFirst;
+
+            AffinityTopologyVersion topVer;
 
             if (qry.forUpdate()) {
                 // Indexing should have started TX at this point for FOR UPDATE query.
@@ -597,25 +599,40 @@ public class GridReduceQueryExecutor {
 
                 sfuFut = new GridNearTxSelectForUpdateFuture(cacheContext(qry.cacheIds().get(0)), curTx, timeoutMillis);
 
-                topFut = new TopologyLockFuture(curTx, cacheContext(qry.cacheIds().get(0)));
+                TxTopologyVersionFuture topFut = new TxTopologyVersionFuture(curTx, cacheContext(qry.cacheIds().get(0)));
+
+                topFut.initTopologyVersion();
+
+                try {
+                    topFut.initTopologyVersion();
+
+                    topVer = topFut.get();
+
+                    selectForUpdateClientFirst = topFut.clientFirst();
+                }
+                catch (IgniteCheckedException e) {
+                    sfuFut.onError(e);
+
+                    throw new IgniteSQLException("Failed to map SELECT FOR UPDATE query on topology.", e);
+                }
             }
             else {
                 sfuFut = null;
 
-                topFut = null;
+                selectForUpdateClientFirst = false;
+
+                topVer = h2.readyTopologyVersion();
+
+                // Check if topology is changed while retrying on locked topology.
+                if (h2.serverTopologyChanged(topVer) && ctx.cache().context().lockedTopologyVersion(null) != null) {
+                    throw new CacheException(new TransactionException("Server topology is changed during query " +
+                        "execution inside a transaction. It's recommended to rollback and retry transaction."));
+                }
             }
 
             final ReduceQueryRun r = new ReduceQueryRun(qryReqId, qry.originalSql(), schemaName,
                 h2.connectionForSchema(schemaName), qry.mapQueries().size(), qry.pageSize(),
                 U.currentTimeMillis(), sfuFut, cancel);
-
-            AffinityTopologyVersion topVer = h2.readyTopologyVersion();
-
-            // Check if topology is changed while retrying on locked topology.
-            if (h2.serverTopologyChanged(topVer) && ctx.cache().context().lockedTopologyVersion(null) != null) {
-                throw new CacheException(new TransactionException("Server topology is changed during query " +
-                    "execution inside a transaction. It's recommended to rollback and retry transaction."));
-            }
 
             Collection<ClusterNode> nodes;
 
@@ -644,20 +661,6 @@ public class GridReduceQueryExecutor {
             if (qry.isLocal())
                 nodes = singletonList(ctx.discovery().localNode());
             else {
-                if (sfuFut != null) {
-
-                    try {
-                        topFut.initTopologyVersion();
-
-                        topVer = topFut.get();
-                    }
-                    catch (IgniteCheckedException e) {
-                        sfuFut.onError(e);
-
-                        throw new IgniteSQLException("Failed to map SELECT FOR UPDATE query on topology.", e);
-                    }
-                }
-
                 NodesForPartitionsResult nodesParts = nodesForPartitions(cacheIds, topVer, parts, isReplicatedOnly);
 
                 nodes = nodesParts.nodes();
@@ -824,8 +827,6 @@ public class GridReduceQueryExecutor {
 
                     final int fflags = flags;
 
-                    final boolean clientFirst = topFut.clientFirst();
-
                     spec = new C2<ClusterNode, Message, Message>() {
                         @Override public Message apply(ClusterNode clusterNode, Message msg) {
                             assert msg instanceof GridH2QueryRequest;
@@ -853,7 +854,7 @@ public class GridReduceQueryExecutor {
                                 qry.pageSize(),
                                 timeoutMillis,
                                 curTx.taskNameHash(),
-                                clientFirst
+                                selectForUpdateClientFirst
                             );
 
                             res.txRequest(txReq);
@@ -885,6 +886,9 @@ public class GridReduceQueryExecutor {
 
                         if (state instanceof AffinityTopologyVersion) {
                             retry = true;
+
+                            // On-the-fly topology change must not be possible in FOR UPDATE case.
+                            assert sfuFut == null;
 
                             // If remote node asks us to retry then we have outdated full partition map.
                             h2.awaitForReadyTopologyVersion((AffinityTopologyVersion)state);

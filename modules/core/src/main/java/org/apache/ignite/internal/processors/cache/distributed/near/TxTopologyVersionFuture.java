@@ -26,15 +26,24 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTopolo
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.CI1;
 
-public class TopologyLockFuture extends GridFutureAdapter<AffinityTopologyVersion> {
+/**
+ * Future to obtain/lock topology version for SELECT FOR UPDATE.
+ */
+public class TxTopologyVersionFuture extends GridFutureAdapter<AffinityTopologyVersion> {
+    /** Transaction. */
     private final GridNearTxLocal tx;
 
+    /** Target cache context. */
     private final GridCacheContext<?, ?> cctx;
 
     /** Topology locked flag. */
     private boolean topLocked;
 
-    public TopologyLockFuture(GridNearTxLocal tx, GridCacheContext cctx) {
+    /**
+     * @param tx Transaction.
+     * @param cctx Target cache context.
+     */
+    public TxTopologyVersionFuture(GridNearTxLocal tx, GridCacheContext cctx) {
         this.tx = tx;
         this.cctx = cctx;
     }
@@ -78,14 +87,13 @@ public class TopologyLockFuture extends GridFutureAdapter<AffinityTopologyVersio
             return;
         }
 
-        mapOnTopology();
+        acquireTopologyVersion();
     }
 
     /**
      * Acquire topology future and wait for its completion.
-     * Execute necessary preliminary actions.
      */
-    private void mapOnTopology() {
+    private void acquireTopologyVersion() {
         cctx.topology().readLock();
 
         try {
@@ -119,7 +127,7 @@ public class TopologyLockFuture extends GridFutureAdapter<AffinityTopologyVersio
                         try {
                             fut.get();
 
-                            mapOnTopology();
+                            acquireTopologyVersion();
                         }
                         catch (IgniteCheckedException e) {
                             onDone(e);
@@ -136,6 +144,9 @@ public class TopologyLockFuture extends GridFutureAdapter<AffinityTopologyVersio
         }
     }
 
+    /**
+     * @return Client first flag.
+     */
     public boolean clientFirst() {
         return cctx.localNode().isClient() && !topLocked && !tx.hasRemoteLocks();
     }

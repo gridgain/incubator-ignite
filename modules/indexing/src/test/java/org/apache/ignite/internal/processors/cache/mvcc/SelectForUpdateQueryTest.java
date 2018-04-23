@@ -20,23 +20,23 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import javax.cache.CacheException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.internal.IgniteEx;
-import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
@@ -58,8 +58,23 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
             execute(c, "create table person (id int primary key, firstName varchar, lastName varchar) " +
                 "with \"atomicity=transactional,cache_name=Person\"");
 
-            for (int i = 1; i <= 100; i++)
+            for (int i = 1; i <= 15; i++)
                 execute(c, "insert into person(id, firstName, lastName) values(" + i + ",'" + i + "','"  + i + "')");
+        }
+
+        AffinityTopologyVersion curVer = grid(0).context().cache().context().exchange().readyAffinityVersion();
+
+        AffinityTopologyVersion nextVer = curVer.nextMinorVersion();
+
+        // Let's wait for rebalance to complete.
+        for (int i = 0; i < 3; i++) {
+            IgniteEx node = grid(i);
+
+            IgniteInternalFuture<AffinityTopologyVersion> fut =
+                node.context().cache().context().exchange().affinityReadyFuture(nextVer);
+
+            if (fut != null)
+                fut.get();
         }
     }
 
@@ -72,11 +87,6 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
         super.afterTest();
     }
 
-    @Override
-    protected long getTestTimeout() {
-        return TimeUnit.MINUTES.toMillis(5);
-    }
-
     /**
      *
      */
@@ -85,45 +95,83 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
 
         IgniteCache<Integer, ?> cache = node.cache("Person");
 
-        cache.query(new SqlFieldsQuery("begin"));
-
-        try {
-            SqlFieldsQuery qry = new SqlFieldsQuery("select id from person order by id for update").setPageSize(10);
+        try (Transaction ignored = node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
+            TransactionIsolation.REPEATABLE_READ)) {
+            SqlFieldsQuery qry = new SqlFieldsQuery("select id from person order by id for update").setPageSize(2);
 
             List<List<?>> res = cache.query(qry).getAll();
 
-            assertEquals(100, res.size());
+            assertEquals(15, res.size());
 
             List<Integer> keys = new ArrayList<>();
 
-            for (int i = 1; i <= 10; i++)
+            for (int i = 1; i <= 15; i++)
                 keys.add(i);
 
             checkLocks(keys);
         }
-        finally {
-            node.cache("Person").query(new SqlFieldsQuery("rollback"));
+    }
+
+    /**
+     *
+     */
+    public void testSelectForUpdateLocal() throws Exception {
+        Ignite node = grid(0);
+
+        try (Transaction ignored = node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
+            TransactionIsolation.REPEATABLE_READ)) {
+
+            SqlFieldsQuery qry = new SqlFieldsQuery("select id from person order by id for update").setLocal(true);
+
+            List<List<?>> res = node.cache("Person").query(qry).getAll();
+
+            List<Integer> keys = new ArrayList<>();
+
+            for (List<?> r : res)
+                keys.add((Integer) r.get(0));
+
+            checkLocks(keys);
         }
     }
 
+    /**
+     * Check that an attempt to get a lock on any key from given list fails by timeout.
+     * @param keys Keys to check.
+     * @throws Exception if failed.
+     */
+    @SuppressWarnings("ThrowableNotThrown")
     private void checkLocks(List<Integer> keys) throws Exception {
-        ExecutorService svc = Executors.newSingleThreadExecutor();
+        ExecutorService svc = Executors.newFixedThreadPool(4);
 
-        List<KeyCheckCallable> calls = new ArrayList<>();
+        List<Callable<Integer>> calls = new ArrayList<>();
 
         Ignite node = ignite(2);
 
-        for (int i : keys)
-            calls.add(new KeyCheckCallable(i, node));
+        for (int key : keys) {
+            calls.add(new Callable<Integer>() {
+                /** {@inheritDoc} */
+                @Override public Integer call() {
+                    try (Transaction ignored = node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
+                        TransactionIsolation.REPEATABLE_READ)) {
+                        List<List<?>> res = node.cache("Person")
+                            .query(
+                                new SqlFieldsQuery("select * from person where id = " + key + " for update")
+                                    .setTimeout(2, TimeUnit.SECONDS)
+                            )
+                            .getAll();
+
+                        return (Integer) res.get(0).get(0);
+                    }
+                }
+            });
+        }
 
         Iterator<Future<Integer>> res = svc.invokeAll(calls).iterator();
-
-        X.println("**CHKNG");
 
         Map<Integer, Exception> errs = new HashMap<>();
 
         try {
-            for (int i : keys) {
+            for (int key : keys) {
                 assertTrue(res.hasNext());
 
                 Future<Integer> fut = res.next();
@@ -132,7 +180,7 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
                     fut.get();
                 }
                 catch (ExecutionException e) {
-                    errs.put(i, (Exception)e.getCause());
+                    errs.put(key, (Exception)e.getCause());
                 }
             }
         }
@@ -140,58 +188,16 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
             svc.shutdownNow();
         }
 
-        for (int i : keys) {
-            Exception e = errs.get(i);
+        for (int key : keys) {
+            Exception e = errs.get(key);
 
-            assertNotNull("Concurrent transaction managed to get lock on key " + i, e);
+            assertNotNull("Concurrent transaction has managed to get lock on key " + key + '.', e);
+
+            GridTestUtils.assertThrows(null, new Callable<Object>() {
+                @Override public Object call() throws Exception {
+                    throw e;
+                }
+            }, CacheException.class, "IgniteTxTimeoutCheckedException");
         }
-    }
-
-    private static class KeyCheckCallable implements Callable<Integer> {
-        private final int key;
-
-        private final Ignite node;
-
-        private final CountDownLatch startLatch = new CountDownLatch(1);
-
-        private KeyCheckCallable(int key, Ignite node) {
-            this.key = key;
-            this.node = node;
-        }
-
-        /** {@inheritDoc} */
-        @Override public Integer call() throws Exception {
-            try (Transaction ignored = node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
-                TransactionIsolation.REPEATABLE_READ)) {
-                List<List<?>> res = node.cache("Person")
-                    .query(
-                        new SqlFieldsQuery("select * from person where id = " + key + " for update")
-                            .setTimeout(2, TimeUnit.SECONDS)
-                    )
-                    .getAll();
-
-                return (Integer)res.get(0).get(0);
-            }
-        }
-    }
-
-    /**
-     *
-     */
-    public void testSelectForUpdateLocal() {
-        Ignite node = grid(0);
-
-        node.cache("Person").query(new SqlFieldsQuery("begin"));
-
-        SqlFieldsQuery qry = new SqlFieldsQuery("select id from person order by id for update").setLocal(true);
-
-        List<List<?>> res = node.cache("Person").query(qry).getAll();
-
-        Set<Integer> keys = new HashSet<>();
-
-        for (List<?> r : res)
-            X.println(r.get(0).toString());
-
-        node.cache("Person").query(new SqlFieldsQuery("rollback"));
     }
 }

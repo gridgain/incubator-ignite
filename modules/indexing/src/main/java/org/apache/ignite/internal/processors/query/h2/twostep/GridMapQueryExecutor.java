@@ -63,6 +63,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryType;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
 import org.apache.ignite.internal.processors.cache.query.GridCacheSqlQuery;
+import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.h2.H2Utils;
@@ -622,7 +623,7 @@ public class GridMapQueryExecutor {
         }
 
         if (lazy && txReq != null)
-            throw new IgniteSQLException("");
+            throw new IgniteSQLException("Lazy execution of SELECT FOR UPDATE queries is not supported.");
 
         // Prepare to run queries.
         GridCacheContext<?, ?> mainCctx =
@@ -653,8 +654,9 @@ public class GridMapQueryExecutor {
             QueryPageEnlistFutureSupplier pageFutSupp = null;
 
             if (txReq != null) {
-                if (mainCctx == null || !mainCctx.transactional() || cacheIds.size() != 1)
-                    throw new IgniteSQLException("");
+                if (mainCctx == null || mainCctx.atomic() || !mainCctx.mvccEnabled() || cacheIds.size() != 1)
+                    throw new IgniteSQLException("SELECT FOR UPDATE is supported only for queries " +
+                        "that involve single transactional cache.");
 
                 GridDhtTransactionalCacheAdapter txCache = (GridDhtTransactionalCacheAdapter)mainCctx.cache();
 
@@ -735,7 +737,8 @@ public class GridMapQueryExecutor {
                         newQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(p);
 
                         if (newQry == null)
-                            throw new IgniteSQLException("");
+                            throw new IgniteSQLException("Query does not include FOR UPDATE clause.",
+                                IgniteQueryErrorCode.PARSING);
                     }
 
                     ResultSet rs = null;

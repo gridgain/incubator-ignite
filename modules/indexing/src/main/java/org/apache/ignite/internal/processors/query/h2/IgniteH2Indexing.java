@@ -73,7 +73,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.Gri
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxSelectForUpdateFuture;
-import org.apache.ignite.internal.processors.cache.distributed.near.TopologyLockFuture;
+import org.apache.ignite.internal.processors.cache.distributed.near.TxTopologyVersionFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
@@ -1086,12 +1086,13 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             if (forUpdate) {
                 if (mvccTracker0 == null)
-                    throw new IgniteSQLException("");
+                    throw new IgniteSQLException("SELECT FOR UPDATE query requires transactional cache " +
+                        "with MVCC enabled.");
 
                 // Otherwise rewriting would throw.
                 assert p instanceof Select;
 
-                Set<Table> tbls = ((Select) p).getTables();
+                Set<Table> tbls = ((Select)p).getTables();
 
                 // Otherwise rewriting would throw.
                 assert tbls.size() == 1;
@@ -1104,7 +1105,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 GridCacheContext cctx = ((GridH2Table)t).cache();
 
                 if (cctx.atomic() || !cctx.mvccEnabled())
-                    throw new IgniteSQLException("");
+                    throw new IgniteSQLException("SELECT FOR UPDATE query requires transactional cache " +
+                        "with MVCC enabled.");
 
                 tx = MvccUtils.activeSqlTx(this.ctx);
 
@@ -1115,7 +1117,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
                 sfuFut = new GridNearTxSelectForUpdateFuture(cctx, tx, timeout);
 
-                TopologyLockFuture topFut = new TopologyLockFuture(tx, cctx);
+                TxTopologyVersionFuture topFut = new TxTopologyVersionFuture(tx, cctx);
 
                 try {
                     topFut.initTopologyVersion();
@@ -2581,6 +2583,18 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         }
 
         twoStepQry.mvccEnabled(mvccEnabled);
+
+        if (twoStepQry.forUpdate()) {
+            if (cacheIds.size() != 1)
+                throw new IgniteSQLException("SELECT FOR UPDATE is supported only for queries " +
+                    "that involve single transactional cache.");
+
+            GridCacheContext cctx = sharedCtx.cacheContext(cacheIds.get(0));
+
+            if (cctx.atomic() || !cctx.mvccEnabled())
+                throw new IgniteSQLException("SELECT FOR UPDATE query requires transactional cache " +
+                    "with MVCC enabled.");
+        }
     }
 
     /**
