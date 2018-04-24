@@ -9,8 +9,8 @@ import org.h2.value.Value;
 /**
  * Simple iterator over SELECT results page returning key and value located at the end of the row.
  */
-class SelectForUpdatePageIterator extends GridCloseableIteratorAdapterEx<Object[]>
-    implements LockingOperationSourceIterator<Object[]> {
+class SelectForUpdatePageIterator extends GridCloseableIteratorAdapterEx<Object>
+    implements LockingOperationSourceIterator<Object> {
     /** Iterator over page. */
     private final Iterator<Value[]> rowsIt;
 
@@ -22,12 +22,12 @@ class SelectForUpdatePageIterator extends GridCloseableIteratorAdapterEx<Object[
     }
 
     /** {@inheritDoc} */
-    @Override protected Object[] onNext() {
+    @Override protected Object onNext() {
         Value[] row = rowsIt.next();
 
-        int keyIdx = row.length - 2;
+        int keyIdx = row.length - 1;
 
-        return new Object[] { row[keyIdx].getObject(), row[keyIdx + 1].getObject() };
+        return row[keyIdx].getObject();
     }
 
     /** {@inheritDoc} */

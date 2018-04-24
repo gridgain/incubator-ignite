@@ -616,11 +616,7 @@ public class GridSqlQueryParser {
 
         Column keyCol = tbl.getColumn(0);
 
-        Column valCol = tbl.getColumn(1);
-
         gridSel.addColumn(new GridSqlColumn(keyCol, null, keyCol.getName()), true);
-
-        gridSel.addColumn(new GridSqlColumn(valCol, null, valCol.getName()), true);
 
         gridSel.forUpdate(false);
 

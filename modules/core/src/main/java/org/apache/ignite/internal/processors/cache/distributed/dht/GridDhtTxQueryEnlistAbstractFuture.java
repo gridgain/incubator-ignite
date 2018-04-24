@@ -268,7 +268,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
 
                 CacheObject val = null;
 
-                if (op == CREATE || op == UPDATE || op == SELECT) {
+                if (op == CREATE || op == UPDATE) {
                     assert row0 != null;
 
                     val = cctx.toCacheObject(row0[1]);

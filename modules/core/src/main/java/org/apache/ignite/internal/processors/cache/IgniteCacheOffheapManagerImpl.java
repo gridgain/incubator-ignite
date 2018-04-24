@@ -1546,7 +1546,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     newMvccVer,
                     partId,
                     false, // TODO IGNITE-7185
-                    false, cctx);
+                    false,
+                    cctx);
 
                 if (!grp.storeCacheIdInDataPage() && updateRow.cacheId() != CU.UNDEFINED_CACHE_ID) {
                     updateRow.cacheId(CU.UNDEFINED_CACHE_ID);

@@ -112,7 +112,7 @@ public abstract class H2ResultSetIterator<T> extends GridCloseableIteratorAdapte
         if (data == null)
             return false;
 
-        int colsCnt = (!forUpdate ? row.length : row.length - 2);
+        int colsCnt = (!forUpdate ? row.length : row.length - 1);
 
         try {
             if (!data.next())

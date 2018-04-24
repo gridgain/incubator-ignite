@@ -394,19 +394,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     };
 
     /**
-     * @return Non empty dummy result set to return as a result of transactional and DDL operations.
-     */
-    @SuppressWarnings("unchecked")
-    public static FieldsQueryCursor<List<?>> dummyCursor() {
-        QueryCursorImpl<List<?>> resCur = (QueryCursorImpl<List<?>>)new QueryCursorImpl(Collections.singletonList
-            (Collections.singletonList(0L)), null, false);
-
-        resCur.fieldsMeta(UPDATE_RESULT_META);
-
-        return resCur;
-    }
-
-    /**
      * @return Kernal context.
      */
     public GridKernalContext kernalContext() {
@@ -1059,9 +1046,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 meta = H2Utils.meta(stmt.getMetaData());
 
                 if (forUpdate) {
-                    assert meta.size() >= 2;
+                    assert meta.size() >= 1;
 
-                    meta = meta.subList(0, meta.size() - 2);
+                    meta = meta.subList(0, meta.size() - 1);
                 }
             }
             catch (SQLException e) {

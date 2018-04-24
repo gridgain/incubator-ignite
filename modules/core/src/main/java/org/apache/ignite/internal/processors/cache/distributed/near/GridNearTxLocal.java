@@ -34,7 +34,6 @@ import javax.cache.CacheException;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.processor.EntryProcessor;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
@@ -1767,7 +1766,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
      * @return Operation future.
      */
     public IgniteInternalFuture<Long> updateAsync(GridCacheContext cacheCtx, MvccSnapshot mvccSnapshot,
-                                                  GridCacheOperation op, LockingOperationSourceIterator<IgniteBiTuple> it, int pageSize, long timeout) {
+        GridCacheOperation op, LockingOperationSourceIterator<IgniteBiTuple> it, int pageSize, long timeout) {
         try {
             beforePut(cacheCtx, false, true);
 

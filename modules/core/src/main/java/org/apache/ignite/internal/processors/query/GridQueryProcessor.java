@@ -1991,9 +1991,9 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @throws IgniteCheckedException If failed.
      */
     public LockingOperationSourceIterator<?> prepareDistributedUpdate(GridCacheContext<?, ?> cctx, int[] cacheIds,
-                                                                      int[] parts, String schema, String qry, Object[] params, int flags, int pageSize, int timeout,
-                                                                      AffinityTopologyVersion topVer, MvccSnapshot mvccSnapshot,
-                                                                      GridQueryCancel cancel) throws IgniteCheckedException {
+        int[] parts, String schema, String qry, Object[] params, int flags, int pageSize, int timeout,
+        AffinityTopologyVersion topVer, MvccSnapshot mvccSnapshot,
+        GridQueryCancel cancel) throws IgniteCheckedException {
         checkxEnabled();
 
         return idx.prepareDistributedUpdate(cctx, cacheIds, parts, schema, qry, params, flags, pageSize, timeout, topVer, mvccSnapshot, cancel);

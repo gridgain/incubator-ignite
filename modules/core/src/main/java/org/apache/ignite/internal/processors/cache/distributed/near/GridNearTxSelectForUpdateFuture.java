@@ -146,10 +146,11 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     }
 
     /**
-     * @param nodeId
-     * @param segment
-     * @param cnt
-     * @param err
+     * Process result of query execution on given
+     * @param nodeId Node id.
+     * @param segment Segment number.
+     * @param cnt Total rows counter in given segment.
+     * @param err Error.
      */
     public void onResult(UUID nodeId, int segment, @Nullable Long cnt, @Nullable Throwable err) {
         MapQueryFuture segFut = mapFuture(nodeId, segment);
@@ -189,7 +190,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     }
 
     /**
-     * Finds pending batch future by the given ID.
+     * Finds pending segment future by the given ID.
      *
      * @param nodeId Node id.
      * @param segment Segment number.
@@ -233,6 +234,9 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
     /** {@inheritDoc} */
     @Override public boolean onNodeLeft(UUID nodeId) {
+        if (topVer == null)
+            return false; // Local query, do nothing.
+
         for (IgniteInternalFuture<?> fut : futures()) {
             MapQueryFuture f = (MapQueryFuture)fut;
 
@@ -294,25 +298,28 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     }
 
     /**
-     * @param nodes
+     * Initialize this future for distributed execution.
+     * @param topVer Topology version.
+     * @param nodes Nodes to run query on.
      */
     public synchronized void init(AffinityTopologyVersion topVer, Collection<ClusterNode> nodes) {
         doInit(topVer, nodes, false);
     }
 
     /**
-     *
+     * Initialize this future for local execution.
      */
     public synchronized void initLocal() {
         doInit(null, Collections.singletonList(cctx.localNode()), true);
     }
 
     /**
-     * @param topVer
-     * @param nodes
-     * @param loc
+     * Initialize this future for distributed or local execution.
+     * @param topVer Topology version ({@code null} for local case).
+     * @param nodes Nodes to run query on.
+     * @param loc Local query flag.
      */
-    private void doInit(AffinityTopologyVersion topVer, Collection<ClusterNode> nodes, boolean loc) {
+    private void doInit(@Nullable AffinityTopologyVersion topVer, Collection<ClusterNode> nodes, boolean loc) {
         assert !loc || (topVer == null && nodes.size() == 1 && nodes.iterator().next().isLocal());
 
         if (initialized())
@@ -363,9 +370,6 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
         @GridToStringExclude
         private final ClusterNode node;
 
-        /** Readiness flag. Set when batch is full or no new rows are expected. */
-        private boolean ready;
-
         /**
          * @param node Cluster node.
          */
@@ -378,22 +382,6 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
          */
         public ClusterNode node() {
             return node;
-        }
-
-        /**
-         * @return Readiness flag.
-         */
-        public boolean ready() {
-            return ready;
-        }
-
-        /**
-         * Sets readiness flag.
-         *
-         * @param ready Flag value.
-         */
-        public void ready(boolean ready) {
-            this.ready = ready;
         }
 
         /**
@@ -416,9 +404,9 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
                 tx.removeMapping(node.id());
             }
             else if (res > 0) {
-                /*if (node.isLocal())
+                if (node.isLocal())
                     tx.colocatedLocallyMapped(true);
-                else*/
+                else
                     tx.hasRemoteLocks(true);
             }
 

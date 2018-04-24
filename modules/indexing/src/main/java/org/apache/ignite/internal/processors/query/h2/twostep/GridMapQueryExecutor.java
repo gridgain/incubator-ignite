@@ -637,7 +637,7 @@ public class GridMapQueryExecutor {
 
         try {
             // We want to reserve only in not SELECT FOR UPDATE case -
-            // otherwise, their state is protected by running transaction.
+            // otherwise, their state is protected by locked topology.
             if (topVer != null && txReq == null) {
                 // Reserve primary for topology version or explicit partitions.
                 if (!reservePartitions(cacheIds, topVer, parts, reserved)) {
@@ -1096,9 +1096,9 @@ public class GridMapQueryExecutor {
         try {
             boolean loc = node.isLocal();
 
-            // In case of SELECT FOR UPDATE last two columns are for _KEY and _VAL,
+            // In case of SELECT FOR UPDATE the last columns is _KEY,
             // we can't retrieve them for an arbitrary row otherwise.
-            int colsCnt = qr.pageFutureSupplier() == null ? res.columnCount() : res.columnCount() - 2;
+            int colsCnt = qr.pageFutureSupplier() == null ? res.columnCount() : res.columnCount() - 1;
 
             GridQueryNextPageResponse msg = new GridQueryNextPageResponse(qr.queryRequestId(), segmentId, qry, page,
                 page == 0 ? res.rowCount() : -1,

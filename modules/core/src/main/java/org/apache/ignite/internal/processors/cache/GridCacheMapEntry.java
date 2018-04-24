@@ -1139,13 +1139,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 new GridCacheUpdateTxResult(false, logPtr);
     }
 
-    /**
-     * @param tx
-     * @param mvccVer
-     * @return
-     * @throws GridCacheEntryRemovedException
-     * @throws IgniteCheckedException
-     */
+    /** {@inheritDoc} */
     public GridCacheUpdateTxResult mvccLock(GridDhtTxLocalAdapter tx, MvccSnapshot mvccVer)
         throws GridCacheEntryRemovedException, IgniteCheckedException {
         assert tx != null;

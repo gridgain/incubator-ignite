@@ -1,20 +1,17 @@
 package org.apache.ignite.internal.processors.query.h2;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
 import org.apache.ignite.internal.util.GridCloseableIteratorAdapterEx;
-import org.h2.value.Value;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Iterator;
 
 /**
  * Simple iterator over result set returning key and value located at the end of each row.
  */
-class SelectForUpdateResultSetIterator extends GridCloseableIteratorAdapterEx<Object[]>
-    implements LockingOperationSourceIterator<Object[]> {
+class SelectForUpdateResultSetIterator extends GridCloseableIteratorAdapterEx<Object>
+    implements LockingOperationSourceIterator<Object> {
     /** Iterator over page. */
     private final ResultSet rs;
 
@@ -41,15 +38,11 @@ class SelectForUpdateResultSetIterator extends GridCloseableIteratorAdapterEx<Ob
     }
 
     /** {@inheritDoc} */
-    @Override protected Object[] onNext() {
+    @Override protected Object onNext() {
         Object key;
 
-        Object val;
-
         try {
-            key = rs.getObject(colsCnt - 1);
-
-            val = rs.getObject(colsCnt);
+            key = rs.getObject(colsCnt);
 
             hasNext = rs.next();
         }
@@ -57,7 +50,7 @@ class SelectForUpdateResultSetIterator extends GridCloseableIteratorAdapterEx<Ob
             throw new IgniteSQLException(e);
         }
 
-        return new Object[] { key, val };
+        return key;
     }
 
     /** {@inheritDoc} */
