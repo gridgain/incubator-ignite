@@ -106,6 +106,7 @@ import static org.apache.ignite.internal.pagemem.PageIdAllocator.INDEX_PARTITION
 import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.OWNING;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_START_CNTR;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_START_OP_CNTR;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.visibilityStatus;
 import static org.apache.ignite.internal.processors.cache.persistence.GridCacheOffheapManager.EMPTY_CURSOR;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 
@@ -2594,8 +2595,10 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 assert MvccUtils.mvccVersionIsValid(rowCrdVer, rowCntr, rowOpCntr);
 
-                return MvccUtils.isVisible(cctx, snapshot, rowCrdVer, rowCntr, rowOpCntr) &&
-                    !MvccUtils.isNewVisible(cctx, rowIo.getLink(pageAddr, idx), snapshot);
+                byte status = visibilityStatus(cctx, snapshot, rowCrdVer, rowCntr, rowOpCntr,
+                    rowIo.getLink(pageAddr, idx));
+
+                return status == MvccUtils.OLD_ONLY;
             }
         }
     }

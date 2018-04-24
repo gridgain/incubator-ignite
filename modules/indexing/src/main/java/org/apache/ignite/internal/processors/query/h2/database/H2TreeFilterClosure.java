@@ -31,6 +31,7 @@ import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.spi.indexing.IndexingQueryCacheFilter;
 
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.visibilityStatus;
 
 /**
  *
@@ -90,8 +91,9 @@ public class H2TreeFilterClosure implements H2Tree.TreeRowClosure<GridH2SearchRo
         long rowCntr = io.getMvccCounter(pageAddr, idx);
         int rowOpCntr = io.getMvccOperationCounter(pageAddr, idx);
 
-        return MvccUtils.isVisible(cctx, mvccSnapshot, rowCrdVer, rowCntr, rowOpCntr)
-                && !MvccUtils.isNewVisible(cctx, io.getLink(pageAddr, idx), mvccSnapshot);
+        byte status = visibilityStatus(cctx, mvccSnapshot, rowCrdVer, rowCntr, rowOpCntr, io.getLink(pageAddr, idx));
+
+        return status == MvccUtils.OLD_ONLY;
     }
 
     /** {@inheritDoc} */
