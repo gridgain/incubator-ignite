@@ -68,6 +68,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileLock;
 import java.nio.channels.SelectionKey;
@@ -148,6 +149,8 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+
+import org.apache.commons.collections.buffer.CircularFifoBuffer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteClientDisconnectedException;
@@ -10068,4 +10071,21 @@ public abstract class IgniteUtils {
             throw new IgniteCheckedException(e);
         }
     }
+
+    static CircularFifoBuffer logsBuffer = new CircularFifoBuffer(200_000);
+
+    public static synchronized void addMsg(String msg) {
+        logsBuffer.add(msg);
+    }
+
+    public static synchronized void printCycleBuffer() {
+        Iterator it = logsBuffer.iterator();
+
+        while(it.hasNext()) {
+            System.out.println(it.next());
+            it.remove();
+        }
+    }
+
+
 }

@@ -17,17 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.URL;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionFullMap;
@@ -39,6 +28,14 @@ import org.apache.ignite.marshaller.MarshallerContext;
 import org.apache.ignite.plugin.PluginProvider;
 import org.jetbrains.annotations.Nullable;
 import org.jsr166.ConcurrentHashMap8;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.util.*;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Marshaller context adapter.
@@ -186,7 +183,8 @@ public abstract class MarshallerContextAdapter implements MarshallerContext {
     }
 
     public static void log(String msg) {
-        System.out.println("[" + Thread.currentThread().getName() + "][" + System.currentTimeMillis() + "] " + msg);
+        U.addMsg("[" + Thread.currentThread().getName() + "][" + System.currentTimeMillis() + "] " + msg);
+//        System.out.println("[" + Thread.currentThread().getName() + "][" + System.currentTimeMillis() + "] " + msg);
     }
     
     /** {@inheritDoc} */

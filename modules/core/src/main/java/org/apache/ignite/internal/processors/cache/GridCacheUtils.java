@@ -1439,6 +1439,10 @@ public class GridCacheUtils {
         if (e.getCause() instanceof NullPointerException)
             return (NullPointerException)e.getCause();
 
+        if(e.hasCause(ClassNotFoundException.class)){
+            U.printCycleBuffer();
+        }
+
         C1<IgniteCheckedException, IgniteException> converter = U.getExceptionConverter(e.getClass());
 
         return converter != null ? new CacheException(converter.apply(e)) : new CacheException(e);
