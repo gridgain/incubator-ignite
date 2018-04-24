@@ -228,13 +228,32 @@ public class ExchangeLatchManager {
     }
 
     /**
+     * Gets alive server nodes from disco cache for provided AffinityTopologyVersion.
+     *
+     * @param topVer Topology version.
+     */
+    private Collection<ClusterNode> aliveNodesForTopologyVer(AffinityTopologyVersion topVer) {
+        if (topVer == AffinityTopologyVersion.NONE)
+            return discovery.aliveServerNodes();
+        else {
+            DiscoCache discoCache = discovery.discoCache(topVer);
+
+            if (discoCache != null)
+                return discoCache.aliveServerNodes();
+            else
+                throw new IgniteException("DiscoCache not found for topology "
+                    + topVer
+                    + "; consider increasing IGNITE_DISCOVERY_HISTORY_SIZE property. Current value is "
+                    + IgniteSystemProperties.getInteger(IgniteSystemProperties.IGNITE_DISCOVERY_HISTORY_SIZE, -1));
+        }
+    }
+
+    /**
      * @param topVer Latch topology version.
      * @return Collection of alive server nodes with latch functionality.
      */
     private Collection<ClusterNode> getLatchParticipants(AffinityTopologyVersion topVer) {
-        Collection<ClusterNode> aliveNodes = topVer == AffinityTopologyVersion.NONE
-                ? discovery.aliveServerNodes()
-                : discovery.discoCache(topVer).aliveServerNodes();
+        Collection<ClusterNode> aliveNodes = aliveNodesForTopologyVer(topVer);
 
         return aliveNodes
                 .stream()
@@ -247,21 +266,7 @@ public class ExchangeLatchManager {
      * @return Oldest alive server node with latch functionality.
      */
     @Nullable private ClusterNode getLatchCoordinator(AffinityTopologyVersion topVer) {
-        Collection<ClusterNode> aliveNodes;
-
-        if (topVer == AffinityTopologyVersion.NONE)
-            aliveNodes = discovery.aliveServerNodes();
-        else {
-            DiscoCache discoCache = discovery.discoCache(topVer);
-
-            if (discoCache != null)
-                aliveNodes = discoCache.aliveServerNodes();
-            else
-                throw new IgniteException("DiscoCache not found for topology "
-                    + topVer
-                    + "; consider increasing IGNITE_DISCOVERY_HISTORY_SIZE property. Current value is "
-                    + IgniteSystemProperties.getInteger(IgniteSystemProperties.IGNITE_DISCOVERY_HISTORY_SIZE, -1));
-        }
+        Collection<ClusterNode> aliveNodes = aliveNodesForTopologyVer(topVer);
 
         return aliveNodes
                 .stream()
