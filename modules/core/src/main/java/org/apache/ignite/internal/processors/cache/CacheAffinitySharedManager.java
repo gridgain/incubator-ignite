@@ -780,7 +780,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                     startCache = true;
                 }
                 else {
-                    startCache = CU.affinityNodeForInMemoryCache(cctx.localNode(),
+                    startCache = CU.affinityNodeForDAT(cctx.localNode(),
                         cacheDesc.groupDescriptor().config().getNodeFilter());
                 }
             }

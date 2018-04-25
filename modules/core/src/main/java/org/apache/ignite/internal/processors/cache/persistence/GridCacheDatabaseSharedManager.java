@@ -718,7 +718,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         try {
             if (!F.isEmpty(cachesToStart)) {
                 for (DynamicCacheDescriptor desc : cachesToStart) {
-                    if (CU.affinityNodeForInMemoryCache(cctx.localNode(), desc.cacheConfiguration().getNodeFilter()))
+                    if (CU.affinityNodeForDAT(cctx.localNode(), desc.cacheConfiguration().getNodeFilter()))
                         storeMgr.initializeForCache(desc.groupDescriptor(), new StoredCacheData(desc.cacheConfiguration()));
                 }
             }

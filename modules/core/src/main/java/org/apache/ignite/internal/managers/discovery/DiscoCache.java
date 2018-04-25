@@ -67,7 +67,7 @@ public class DiscoCache {
     private final List<ClusterNode> daemonNodes;
 
     /** Persistence baseline nodes. */
-    private final List<? extends BaselineNode> persistenceBaselineNodes;
+    private final List<? extends BaselineNode> baselineNodes;
 
     /** All remote nodes with at least one cache configured. */
     @GridToStringInclude
@@ -117,7 +117,7 @@ public class DiscoCache {
      * @param srvNodes Server nodes.
      * @param daemonNodes Daemon nodes.
      * @param rmtNodesWithCaches Remote nodes with at least one cache configured.
-     * @param persistenceBaselineNodes Baseline nodes or {@code null} if baseline was not set.
+     * @param baselineNodes Baseline nodes or {@code null} if baseline was not set.
      * @param allCacheNodes Cache nodes by cache name.
      * @param cacheGrpAffNodes Affinity nodes by cache group ID.
      * @param nodeMap Node map.
@@ -135,7 +135,7 @@ public class DiscoCache {
         List<ClusterNode> srvNodes,
         List<ClusterNode> daemonNodes,
         List<ClusterNode> rmtNodesWithCaches,
-        @Nullable List<? extends BaselineNode> persistenceBaselineNodes,
+        @Nullable List<? extends BaselineNode> baselineNodes,
         Map<Integer, List<ClusterNode>> allCacheNodes,
         Map<Integer, List<ClusterNode>> cacheGrpAffNodes,
         Map<UUID, ClusterNode> nodeMap,
@@ -153,7 +153,7 @@ public class DiscoCache {
         this.srvNodes = srvNodes;
         this.daemonNodes = daemonNodes;
         this.rmtNodesWithCaches = rmtNodesWithCaches;
-        this.persistenceBaselineNodes = persistenceBaselineNodes;
+        this.baselineNodes = baselineNodes;
         this.allCacheNodes = allCacheNodes;
         this.cacheGrpAffNodes = cacheGrpAffNodes;
         this.nodeMap = nodeMap;
@@ -222,7 +222,7 @@ public class DiscoCache {
      * @return A collection of baseline nodes or {@code null} if baseline topology was not set.
      */
     @Nullable public List<? extends BaselineNode> persistentBaselineNodes() {
-        return persistenceBaselineNodes;
+        return baselineNodes;
     }
 
     /**
@@ -282,8 +282,8 @@ public class DiscoCache {
      * @return A view of baseline nodes that are currently present in the cluster or {@code null} if baseline
      *      topology was not set.
      */
-    @Nullable public Collection<ClusterNode> alivePersistenceBaselineNodes() {
-        return persistenceBaselineNodes == null ? null : F.viewReadOnly(persistenceBaselineNodes, BASELINE_TO_CLUSTER, aliveBaselineNodePred);
+    @Nullable public Collection<ClusterNode> aliveBaselineNodes() {
+        return baselineNodes == null ? null : F.viewReadOnly(baselineNodes, BASELINE_TO_CLUSTER, aliveBaselineNodePred);
 
     }
 
@@ -430,7 +430,7 @@ public class DiscoCache {
             srvNodes,
             daemonNodes,
             rmtNodesWithCaches,
-            persistenceBaselineNodes,
+            baselineNodes,
             allCacheNodes,
             cacheGrpAffNodes,
             nodeMap,

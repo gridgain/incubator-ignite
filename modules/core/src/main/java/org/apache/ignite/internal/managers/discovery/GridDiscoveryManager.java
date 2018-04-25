@@ -1916,7 +1916,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
     public boolean cacheAffinityNode(ClusterNode node, String cacheName) {
         CachePredicate pred = registeredCaches.get(cacheName);
 
-        return pred != null && CU.affinityNodeForInMemoryCache(node, pred.aff.cacheFilter);
+        return pred != null && CU.affinityNodeForDAT(node, pred.aff.cacheFilter);
     }
 
     /**
@@ -1929,7 +1929,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
     public boolean passNodeFilter(ClusterNode node, int grpId) {
         CacheGroupAffinity aff = registeredCacheGrps.get(grpId);
 
-        return CU.affinityNodeForInMemoryCache(node, aff.cacheFilter);
+        return CU.affinityNodeForDAT(node, aff.cacheFilter);
     }
 
     /**
@@ -3040,7 +3040,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          * @return {@code True} if cache is accessible on the given node.
          */
         boolean cacheNode(ClusterNode node) {
-            return !node.isDaemon() && (CU.affinityNodeForInMemoryCache(node, aff.cacheFilter) ||
+            return !node.isDaemon() && (CU.affinityNodeForDAT(node, aff.cacheFilter) ||
                 cacheClientNode(node) != null);
         }
 
@@ -3049,7 +3049,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          * @return {@code True} if near cache is present on the given nodes.
          */
         boolean nearNode(ClusterNode node) {
-            if (CU.affinityNodeForInMemoryCache(node, aff.cacheFilter))
+            if (CU.affinityNodeForDAT(node, aff.cacheFilter))
                 return nearEnabled;
 
             Boolean near = cacheClientNode(node);
@@ -3105,7 +3105,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 CacheGroupAffinity grpAff = e.getValue();
                 Integer grpId = e.getKey();
 
-                if (CU.affinityNodeForInMemoryCache(node, grpAff.cacheFilter)) {
+                if (CU.affinityNodeForDAT(node, grpAff.cacheFilter)) {
                     if (grpAff.persistent && persistenceBlt != null && !persistenceBlt.containsKey(node.id())) //filter out
                         continue;
                     

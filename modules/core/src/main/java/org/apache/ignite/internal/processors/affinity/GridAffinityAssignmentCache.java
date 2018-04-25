@@ -313,7 +313,7 @@ public class GridAffinityAssignmentCache {
             boolean skipCalculation = true;
 
             for (DiscoveryEvent event : events.events()) {
-                boolean affinityNode = CU.affinityNodeForInMemoryCache(event.eventNode(), nodeFilter);
+                boolean affinityNode = CU.affinityNodeForDAT(event.eventNode(), nodeFilter);
 
                 if (affinityNode) {
                     skipCalculation = false;

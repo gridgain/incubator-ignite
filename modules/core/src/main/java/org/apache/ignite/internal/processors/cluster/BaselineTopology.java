@@ -304,7 +304,7 @@ public class BaselineTopology implements Serializable {
         List<ClusterNode> res = new ArrayList<>(nodeMap.size());
 
         for (ClusterNode node : aliveNodes) {
-            if (nodeMap.containsKey(node.consistentId()) && (nodeFilter == null || CU.affinityNodeForInMemoryCache(node, nodeFilter)))
+            if (nodeMap.containsKey(node.consistentId()) && (nodeFilter == null || CU.affinityNodeForDAT(node, nodeFilter)))
                 res.add(node);
         }
 
@@ -316,7 +316,7 @@ public class BaselineTopology implements Serializable {
         Map<Object, ClusterNode> consIdMap = new HashMap<>();
 
         for (ClusterNode node : aliveNodes) {
-            if (nodeMap.containsKey(node.consistentId()) && (nodeFilter == null || CU.affinityNodeForInMemoryCache(node, nodeFilter)))
+            if (nodeMap.containsKey(node.consistentId()) && (nodeFilter == null || CU.affinityNodeForDAT(node, nodeFilter)))
                 consIdMap.put(node.consistentId(), node);
         }
 
@@ -326,7 +326,7 @@ public class BaselineTopology implements Serializable {
             if (!consIdMap.containsKey(consId)) {
                 DetachedClusterNode node = new DetachedClusterNode(consId, e.getValue());
 
-                if (nodeFilter == null || CU.affinityNodeForInMemoryCache(node, nodeFilter))
+                if (nodeFilter == null || CU.affinityNodeForDAT(node, nodeFilter))
                     consIdMap.put(consId, node);
             }
         }
