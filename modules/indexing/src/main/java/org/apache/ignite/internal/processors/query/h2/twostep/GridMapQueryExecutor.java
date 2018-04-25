@@ -460,6 +460,36 @@ public class GridMapQueryExecutor {
 
         final Object[] params = req.parameters();
 
+        final GridDhtTxLocalAdapter tx;
+
+        GridNearTxQueryEnlistRequest txReq = req.txRequest();
+
+        if (req.txRequest() != null) {
+            // Prepare to run queries.
+            GridCacheContext<?, ?> mainCctx = mainCacheContext(cacheIds);
+
+            if (mainCctx == null || mainCctx.atomic() || !mainCctx.mvccEnabled() || cacheIds.size() != 1)
+                throw new IgniteSQLException("SELECT FOR UPDATE is supported only for queries " +
+                    "that involve single transactional cache.");
+
+            GridDhtTransactionalCacheAdapter txCache = (GridDhtTransactionalCacheAdapter)mainCctx.cache();
+
+            if (!node.isLocal()) {
+                tx = txCache.initTxTopologyVersion(node.id(), node, txReq.version(), txReq.futureId(),
+                    txReq.miniId(), txReq.firstClientRequest(), req.topologyVersion(), txReq.threadId(), req.timeout(),
+                    txReq.subjectId(), txReq.taskNameHash());
+            }
+            else {
+                tx = MvccUtils.activeSqlTx(ctx);
+
+                assert tx != null;
+
+                tx.init();
+            }
+        }
+        else
+            tx = null;
+
         for (int i = 1; i < segments; i++) {
             assert !F.isEmpty(cacheIds);
 
@@ -483,6 +513,7 @@ public class GridMapQueryExecutor {
                     params,
                     true, // Lazy = true.
                     req.mvccSnapshot(),
+                    tx,
                     req.txRequest());
             }
             else {
@@ -506,6 +537,7 @@ public class GridMapQueryExecutor {
                                 params,
                                 false, // Lazy = false.
                                 req.mvccSnapshot(),
+                                tx,
                                 req.txRequest());
 
                             return null;
@@ -532,7 +564,7 @@ public class GridMapQueryExecutor {
             params,
             lazy,
             req.mvccSnapshot(),
-            req.txRequest());
+            tx, req.txRequest());
     }
 
     /**
@@ -549,6 +581,7 @@ public class GridMapQueryExecutor {
      * @param distributedJoinMode Query distributed join mode.
      * @param lazy Streaming flag.
      * @param mvccSnapshot MVCC snapshot.
+     * @param tx Transaction.
      * @param txReq TX request, if it's a for {@code FOR UPDATE} request, or {@code null}.
      */
     private void onQueryRequest0(
@@ -569,6 +602,7 @@ public class GridMapQueryExecutor {
         final Object[] params,
         boolean lazy,
         @Nullable final MvccSnapshot mvccSnapshot,
+        GridDhtTxLocalAdapter tx,
         @Nullable GridNearTxQueryEnlistRequest txReq) {
         MapQueryLazyWorker worker = MapQueryLazyWorker.currentWorker();
 
@@ -597,6 +631,7 @@ public class GridMapQueryExecutor {
                         params,
                         true,
                         mvccSnapshot,
+                        tx,
                         txReq);
                 }
             });
@@ -626,8 +661,7 @@ public class GridMapQueryExecutor {
             throw new IgniteSQLException("Lazy execution of SELECT FOR UPDATE queries is not supported.");
 
         // Prepare to run queries.
-        GridCacheContext<?, ?> mainCctx =
-            !F.isEmpty(cacheIds) ? ctx.cache().context().cacheContext(cacheIds.get(0)) : null;
+        GridCacheContext<?, ?> mainCctx = mainCacheContext(cacheIds);
 
         MapNodeResults nodeRess = resultsForNode(node.id());
 
@@ -654,27 +688,6 @@ public class GridMapQueryExecutor {
             QueryPageEnlistFutureSupplier pageFutSupp = null;
 
             if (txReq != null) {
-                if (mainCctx == null || mainCctx.atomic() || !mainCctx.mvccEnabled() || cacheIds.size() != 1)
-                    throw new IgniteSQLException("SELECT FOR UPDATE is supported only for queries " +
-                        "that involve single transactional cache.");
-
-                GridDhtTransactionalCacheAdapter txCache = (GridDhtTransactionalCacheAdapter)mainCctx.cache();
-
-                final GridDhtTxLocalAdapter tx;
-
-                if (!node.isLocal()) {
-                    tx = txCache.initTxTopologyVersion(node.id(), node, txReq.version(), txReq.futureId(),
-                        txReq.miniId(), txReq.firstClientRequest(), topVer, txReq.threadId(), timeout,
-                        txReq.subjectId(), txReq.taskNameHash());
-                }
-                else {
-                    tx = MvccUtils.activeSqlTx(ctx);
-
-                    assert tx != null;
-
-                    tx.init();
-                }
-
                 pageFutSupp = new QueryPageEnlistFutureSupplier() {
                     @Override public QueryPageEnlistFuture apply(List<Value[]> rows) {
                         return new QueryPageEnlistFuture(node.id(), txReq.version(), topVer, mvccSnapshot,
@@ -824,6 +837,14 @@ public class GridMapQueryExecutor {
                     reserved.get(i).release();
             }
         }
+    }
+
+    /**
+     * @param cacheIds Cache ids.
+     * @return Id of the first cache in list, or {@code null} if list is empty.
+     */
+    private GridCacheContext mainCacheContext(List<Integer> cacheIds) {
+        return !F.isEmpty(cacheIds) ? ctx.cache().context().cacheContext(cacheIds.get(0)) : null;
     }
 
     /**

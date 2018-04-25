@@ -126,7 +126,6 @@ import org.apache.ignite.internal.processors.query.h2.sql.GridSqlAst;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuery;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuerySplitter;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSelect;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlStatement;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlTable;
 import org.apache.ignite.internal.processors.query.h2.twostep.GridMapQueryExecutor;
@@ -1031,11 +1030,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             final boolean forUpdate = (forUpdateQry != null);
 
             if (forUpdate) {
-                stmt = preparedStatementWithParams(conn, forUpdateQry, params, false);
+                stmt = preparedStatementWithParams(conn, forUpdateQry, params, true);
 
                 p = GridSqlQueryParser.prepared(stmt);
-
-                getStatementsCacheForCurrentThread().put(new H2CachedStatementKey(schemaName, forUpdateQry), stmt);
 
                 qry = forUpdateQry;
             }
@@ -2307,9 +2304,11 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 .distributedJoinMode(distributedJoinMode(qry.isLocal(), qry.isDistributedJoins())));
 
             try {
+                String forUpdateQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(prepared);
+
                 GridCacheTwoStepQuery twoStepQry = split(prepared, newQry);
 
-                twoStepQry.forUpdate(parsedStmt instanceof GridSqlSelect && ((GridSqlSelect)parsedStmt).isForUpdate());
+                twoStepQry.forUpdate(forUpdateQry != null);
 
                 return new ParsingResult(prepared, newQry, remainingSql, twoStepQry, cachedQryKey,
                     H2Utils.meta(stmt.getMetaData()));

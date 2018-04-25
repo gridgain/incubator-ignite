@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
@@ -97,6 +98,9 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     /** Ids of mini futures. */
     private final Map<MapQueryFutureKey, Integer> miniFutIds = new HashMap<>();
 
+    /** Per node counters of currently used segments. */
+    private final Map<UUID, AtomicInteger> segCntrs = new HashMap<>();
+
     /**
      * @param cctx Cache context.
      * @param tx Transaction.
@@ -131,12 +135,17 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     private void map(ClusterNode node, boolean loc) {
         GridDistributedTxMapping mapping = tx.mappings().get(node.id());
 
-        if (mapping == null)
+        int segCnt = (loc ? 1 : cctx.config().getQueryParallelism());
+
+        if (mapping == null) {
             tx.mappings().put(mapping = new GridDistributedTxMapping(node));
+
+            segCntrs.put(node.id(), new AtomicInteger(segCnt));
+        }
 
         mapping.markQueryUpdate();
 
-        for (int i = 0; i < (loc ? 1 : cctx.config().getQueryParallelism()); i++) {
+        for (int i = 0; i < segCnt; i++) {
             int futId = futuresCountNoLock();
 
             miniFutIds.put(new MapQueryFutureKey(node.id(), i), futId);
@@ -399,9 +408,18 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
                 || res == null || res == 0) {
                 GridDistributedTxMapping m = tx.mappings().get(node.id());
 
-                assert m != null && m.empty();
+                assert m != null;
 
-                tx.removeMapping(node.id());
+                AtomicInteger segCnt = segCntrs.get(node.id());
+
+                assert segCnt != null;
+
+                // Remove mapping if no active segments left - in this case it's got to be empty.
+                if (segCnt.decrementAndGet() == 0) {
+                    assert m.empty();
+
+                    tx.removeMapping(node.id());
+                }
             }
             else if (res > 0) {
                 if (node.isLocal())
