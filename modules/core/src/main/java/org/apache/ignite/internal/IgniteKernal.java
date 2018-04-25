@@ -765,7 +765,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
         log = (GridLoggerProxy)cfg.getGridLogger().getLogger(
             getClass().getName() + (gridName != null ? '%' + gridName : ""));
 
-        IgniteUtils.log = (GridLoggerProxy)cfg.getGridLogger().getLogger(IgniteUtils.class.getSimpleName());
+        IgniteUtils.log = cfg.getGridLogger().getLogger(IgniteUtils.class);
 
         RuntimeMXBean rtBean = ManagementFactory.getRuntimeMXBean();
 

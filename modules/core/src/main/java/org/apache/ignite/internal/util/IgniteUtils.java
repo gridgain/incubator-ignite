@@ -871,16 +871,110 @@ public abstract class IgniteUtils {
         return m;
     }
 
-    public static IgniteLogger log;
+    public static volatile IgniteLogger log;
 
-    private static void logMsg(String msg, String component) {
+    private static void logMsg(final String msg, final String component) {
         if (log != null)
             log.info(getLogPrefix(component) + msg);
+        else
+            System.out.println(getLogPrefix(component) + msg);
     }
 
-    private static void dump(String msg) {
+    private static void dump(final String msg) {
         if (log != null)
             U.dumpStack(log, getLogPrefix(null) + msg);
+        else
+            U.dumpStack(new IgniteLogger() {
+                @Override
+                public IgniteLogger getLogger(Object ctgr) {
+                    return null;
+                }
+
+                @Override
+                public void trace(String msg) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void trace(String marker, String msg) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void debug(String msg) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void debug(String marker, String msg) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void info(String msg) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void info(String marker, String msg) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void warning(String msg) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void warning(String msg, @Nullable Throwable e) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void warning(String marker, String msg, @Nullable Throwable e) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void error(String msg) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void error(String msg, @Nullable Throwable e) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public void error(String marker, String msg, @Nullable Throwable e) {
+                    System.out.println(msg);
+                }
+
+                @Override
+                public boolean isTraceEnabled() {
+                    return true;
+                }
+
+                @Override
+                public boolean isDebugEnabled() {
+                    return true;
+                }
+
+                @Override
+                public boolean isInfoEnabled() {
+                    return true;
+                }
+
+                @Override
+                public boolean isQuiet() {
+                    return true;
+                }
+
+                @Override
+                public String fileName() {
+                    return null;
+                }
+            }, getLogPrefix(null) + msg);
     }
 
     private static String getLogPrefix(String component) {
