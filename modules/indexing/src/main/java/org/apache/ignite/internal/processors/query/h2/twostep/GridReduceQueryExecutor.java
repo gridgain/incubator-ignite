@@ -623,7 +623,7 @@ public class GridReduceQueryExecutor {
 
                 topVer = h2.readyTopologyVersion();
 
-                // Check if topology is changed while retrying on locked topology.
+                // Check if topology has changed while retrying on locked topology.
                 if (h2.serverTopologyChanged(topVer) && ctx.cache().context().lockedTopologyVersion(null) != null) {
                     throw new CacheException(new TransactionException("Server topology is changed during query " +
                         "execution inside a transaction. It's recommended to rollback and retry transaction."));
@@ -953,7 +953,8 @@ public class GridReduceQueryExecutor {
                     continue;
                 }
 
-                sfuFut.get();
+                if (sfuFut != null)
+                    sfuFut.get();
 
                 return new GridQueryCacheObjectsIterator(resIter, h2.objectContext(), keepBinary);
             }

@@ -574,20 +574,32 @@ public class GridSqlQueryParser {
     }
 
     /**
-     * @param p Statement to rewrite, if needed.
-     * @return Query with {@code key} and {@code val} columns appended to the list of columns,
-     *     if it's an {@code FOR UPDATE} query, or {@code null} if nothing has to be done.
+     * @param p Prepared.
+     * @return Whether {@code p} is an {@code SELECT FOR UPDATE} query.
      */
-    @Nullable public static String rewriteQueryForUpdateIfNeeded(Prepared p) {
-        if (!p.isQuery() || !p.getSQL().toUpperCase().contains("UPDATE"))
-            return null;
+    public static boolean isForUpdateQuery(Prepared p) {
+        if (!p.isQuery())
+            return false;
 
         boolean union = ((Query)p).isUnion();
 
         boolean forUpdate = (!union && SELECT_IS_FOR_UPDATE.get((Select)p)) ||
             (union && UNION_IS_FOR_UPDATE.get((SelectUnion)p));
 
-        if (!forUpdate)
+        if (union && forUpdate)
+            throw new IgniteSQLException("SELECT UNION FOR UPDATE is not supported.",
+                IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+
+        return forUpdate;
+    }
+
+    /**
+     * @param p Statement to rewrite, if needed.
+     * @return Query with {@code key} and {@code val} columns appended to the list of columns,
+     *     if it's an {@code FOR UPDATE} query, or {@code null} if nothing has to be done.
+     */
+    @Nullable public static String rewriteQueryForUpdateIfNeeded(Prepared p) {
+        if (!isForUpdateQuery(p))
             return null;
 
         GridSqlStatement gridStmt = new GridSqlQueryParser(false).parse(p);
@@ -595,12 +607,12 @@ public class GridSqlQueryParser {
         // We have checked above that it's not an UNION query, so it's got to be SELECT.
         assert gridStmt instanceof GridSqlSelect;
 
-        GridSqlSelect gridSel = (GridSqlSelect)gridStmt;
+        GridSqlSelect sel = (GridSqlSelect)gridStmt;
 
         // How'd we get here otherwise?
-        assert gridSel.isForUpdate();
+        assert sel.isForUpdate();
 
-        GridSqlAst from = gridSel.from();
+        GridSqlAst from = sel.from();
 
         GridSqlTable gridTbl = from instanceof GridSqlTable ? (GridSqlTable)from :
             ((GridSqlAlias)from).child();
@@ -609,12 +621,12 @@ public class GridSqlQueryParser {
 
         Column keyCol = tbl.getColumn(0);
 
-        gridSel.addColumn(new GridSqlColumn(keyCol, null, keyCol.getName()), true);
+        sel.addColumn(new GridSqlColumn(keyCol, null, keyCol.getName()), true);
 
         // We need to remove this flag for final flag we'll feed to H2.
-        gridSel.forUpdate(false);
+        sel.forUpdate(false);
 
-        return gridSel.getSQL();
+        return sel.getSQL();
     }
 
     /**

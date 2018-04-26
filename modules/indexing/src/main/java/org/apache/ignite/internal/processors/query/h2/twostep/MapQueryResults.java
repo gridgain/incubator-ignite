@@ -180,6 +180,9 @@ class MapQueryResults {
         return qryReqId;
     }
 
+    /**
+     * @return {@code SELECT FOR UPDATE} enlist future, if any.
+     */
     QueryPageEnlistFutureSupplier pageFutureSupplier() {
         return pageFutSupp;
     }

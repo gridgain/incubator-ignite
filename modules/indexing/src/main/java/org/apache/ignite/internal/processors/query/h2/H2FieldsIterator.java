@@ -37,7 +37,7 @@ public class H2FieldsIterator extends H2ResultSetIterator<List<?>> {
     /**
      * @param data Data.
      * @param mvccTracker Mvcc tracker.
-     * @param forUpdate
+     * @param forUpdate {@code SELECT FOR UPDATE} flag.
      * @throws IgniteCheckedException If failed.
      */
     public H2FieldsIterator(ResultSet data,

@@ -7,7 +7,7 @@ import org.apache.ignite.internal.util.GridCloseableIteratorAdapterEx;
 import org.h2.value.Value;
 
 /**
- * Simple iterator over SELECT results page returning key and value located at the end of the row.
+ * Simple iterator over SELECT results page returning key located at the end of the row.
  */
 class SelectForUpdatePageIterator extends GridCloseableIteratorAdapterEx<Object>
     implements LockingOperationSourceIterator<Object> {

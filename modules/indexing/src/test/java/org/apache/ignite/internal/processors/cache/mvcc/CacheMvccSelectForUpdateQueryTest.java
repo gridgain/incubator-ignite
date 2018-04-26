@@ -51,9 +51,9 @@ import static org.apache.ignite.internal.processors.cache.index.AbstractSchemaSe
 /**
  * Test for {@code SELECT FOR UPDATE} queries.
  */
-public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
+public class CacheMvccSelectForUpdateQueryTest extends CacheMvccAbstractTest {
     /** */
-    private static final int CACHE_SIZE = 50;
+    private static final int CACHE_SIZE = 100;
 
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
@@ -75,11 +75,17 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
             execute(c, "create table person_seg (id int primary key, firstName varchar, lastName varchar) " +
                 "with \"atomicity=transactional,cache_name=PersonSeg,template=segmented\"");
 
-            for (int i = 1; i <= CACHE_SIZE; i++) {
-                execute(c, "insert into person(id, firstName, lastName) values(" + i + ",'" + i + "','" + i + "')");
+            try (Transaction tx = grid(0).transactions().txStart(TransactionConcurrency.PESSIMISTIC,
+                TransactionIsolation.REPEATABLE_READ)) {
 
-                execute(c, "insert into person_seg(id, firstName, lastName) " +
-                    "values(" + i + ",'" + i + "','" + i + "')");
+                for (int i = 1; i <= CACHE_SIZE; i++) {
+                    execute(c, "insert into person(id, firstName, lastName) values(" + i + ",'" + i + "','" + i + "')");
+
+                    execute(c, "insert into person_seg(id, firstName, lastName) " +
+                        "values(" + i + ",'" + i + "','" + i + "')");
+                }
+
+                tx.commit();
             }
         }
 
@@ -136,7 +142,7 @@ public class SelectForUpdateQueryTest extends CacheMvccAbstractTest {
         try (Transaction ignored = node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
             TransactionIsolation.REPEATABLE_READ)) {
             SqlFieldsQuery qry = new SqlFieldsQuery("select id from " + tableName(cache) + " order by id for update")
-                .setPageSize(2);
+                .setPageSize(10);
 
             List<List<?>> res = cache.query(qry).getAll();
 

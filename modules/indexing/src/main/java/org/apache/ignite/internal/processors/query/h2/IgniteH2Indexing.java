@@ -2226,9 +2226,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             args = Arrays.copyOfRange(argsOrig, firstArg, firstArg + paramsCnt);
         }
 
-        GridSqlStatement parsedStmt = null;
-
-        if (prepared.isQuery()) {
+       if (prepared.isQuery()) {
             try {
                 bindParameters(stmt, F.asList(args));
             }
@@ -2244,7 +2242,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             if (!loc) {
                 parser = new GridSqlQueryParser(false);
 
-                parsedStmt = parser.parse(prepared);
+                GridSqlStatement parsedStmt = parser.parse(prepared);
 
                 // Legit assertion - we have H2 query flag above.
                 assert parsedStmt instanceof GridSqlQuery;
@@ -2256,7 +2254,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 if (parser == null) {
                     parser = new GridSqlQueryParser(false);
 
-                    parsedStmt = parser.parse(prepared);
+                    parser.parse(prepared);
                 }
 
                 GridCacheContext cctx = parser.getFirstPartitionedCache();
@@ -2304,14 +2302,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 .distributedJoinMode(distributedJoinMode(qry.isLocal(), qry.isDistributedJoins())));
 
             try {
-                String forUpdateQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(prepared);
-
-                GridCacheTwoStepQuery twoStepQry = split(prepared, newQry);
-
-                twoStepQry.forUpdate(forUpdateQry != null);
-
-                return new ParsingResult(prepared, newQry, remainingSql, twoStepQry, cachedQryKey,
-                    H2Utils.meta(stmt.getMetaData()));
+                return new ParsingResult(prepared, newQry, remainingSql, split(prepared, newQry),
+                    cachedQryKey, H2Utils.meta(stmt.getMetaData()));
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteSQLException("Failed to bind parameters: [qry=" + newQry.getSql() + ", params=" +
@@ -2361,6 +2353,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         }
 
         res.pageSize(qry.getPageSize());
+
+        res.forUpdate(GridSqlQueryParser.isForUpdateQuery(prepared));
 
         return res;
     }
@@ -2418,11 +2412,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             topVer, mvccSnapshot);
     }
 
-    /**
-     * @param flags All flags.
-     * @param flag Flag to check.
-     * @return Whether flag is set or not.
-     */
     private boolean isFlagSet(int flags, int flag) {
         return (flags & flag) == flag;
     }

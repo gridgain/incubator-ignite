@@ -77,7 +77,7 @@ public abstract class H2ResultSetIterator<T> extends GridCloseableIteratorAdapte
      * @param data Data array.
      * @param closeStmt If {@code true} closes result set statement when iterator is closed.
      * @param needCpy {@code True} if need copy cache object's value.
-     * @param forUpdate
+     * @param forUpdate Whether is result is one of {@code SELECT FOR UPDATE} query.
      * @throws IgniteCheckedException If failed.
      */
     protected H2ResultSetIterator(ResultSet data, boolean closeStmt, boolean needCpy, boolean forUpdate)

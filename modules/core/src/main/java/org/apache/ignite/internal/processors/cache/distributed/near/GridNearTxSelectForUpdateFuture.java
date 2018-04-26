@@ -407,17 +407,22 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
             if (!completed.compareAndSet(false, true))
                 return false;
 
-            if (X.hasCause(err, ClusterTopologyCheckedException.class)
-                || res == null || res == 0) {
+            boolean topEx = X.hasCause(err, ClusterTopologyCheckedException.class);
+
+            // Instead of relying on removeMapping, we use result counters - because
+            // for each per node mapping we may get few onResult calls (per each segment).
+            if (topEx || res == null || res == 0) {
                 GridDistributedTxMapping m = tx.mappings().get(node.id());
 
-                assert m != null;
+                assert m != null || topEx;
 
-                // Remove mapping if no active segments left - in this case it's got to be empty.
-                if (segCntr.decrementAndGet() == 0) {
-                    assert m.empty();
+                // Remove mapping if topology error occurred or no active segments left -
+                // in this case it's got to be empty.
+                if (topEx || segCntr.decrementAndGet() == 0) {
+                    assert topEx || m.empty();
 
-                    tx.removeMapping(node.id());
+                    if (m != null)
+                        tx.removeMapping(node.id());
                 }
             }
             else if (res > 0) {

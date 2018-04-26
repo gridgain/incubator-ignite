@@ -268,7 +268,7 @@ public abstract class GridMergeIndex extends BaseIndex {
 
             iter = page.rows();
 
-            // The received iterator must be empty in the dummy last page or on failure.
+            // The received iterator must be empty with a dummy last page or on failure.
             assert iter.hasNext() || page.isDummyLast() || page.isFail();
         }
 
@@ -283,7 +283,7 @@ public abstract class GridMergeIndex extends BaseIndex {
         if (nodeId == null)
             nodeId = F.first(sources);
 
-        GridResultPage p = new GridResultPage(null, nodeId, null) {
+        addPage0(new GridResultPage(null, nodeId, null) {
             @Override public boolean isFail() {
                 return true;
             }
@@ -294,9 +294,7 @@ public abstract class GridMergeIndex extends BaseIndex {
                 else
                     throw e;
             }
-        };
-
-        addPage0(p);
+        });
     }
 
     /**

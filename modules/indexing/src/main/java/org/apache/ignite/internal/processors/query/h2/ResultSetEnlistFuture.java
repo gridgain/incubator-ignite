@@ -18,11 +18,8 @@ import org.jetbrains.annotations.Nullable;
  * Future to process whole local result set of SELECT FOR UPDATE query.
  */
 public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryEnlistResponse> {
-    /** Dummy response. */
-    private final static GridNearTxQueryEnlistResponse RESP = new GridNearTxQueryEnlistResponse();
-
-    /** Rows to process. */
-    private final ResultSet rs;
+    /** Iterator to process. */
+    private final SelectForUpdateResultSetIterator it;
 
     /**
      * @param nearNodeId   Near node ID.
@@ -42,7 +39,7 @@ public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Gr
         GridDhtTxLocalAdapter tx, long timeout, GridCacheContext<?, ?> cctx, ResultSet rs) {
         super(nearNodeId, nearLockVer, topVer, mvccSnapshot, threadId, nearFutId, nearMiniId, parts, tx, timeout, cctx);
 
-        this.rs = rs;
+        this.it = new SelectForUpdateResultSetIterator(rs);
     }
 
     /**
@@ -54,18 +51,16 @@ public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Gr
 
     /** {@inheritDoc} */
     @Override protected LockingOperationSourceIterator<?> createIterator() {
-        return new SelectForUpdateResultSetIterator(rs);
+        return it;
     }
 
     /** {@inheritDoc} */
     @Override public GridNearTxQueryEnlistResponse createResponse(@NotNull Throwable err) {
-        // This is a faux 'response' for local queries, and update counter is not needed per se.
-        // Hence result is 0.
         return new GridNearTxQueryEnlistResponse(cctx.cacheId(), null, 0, null, 0, err);
     }
 
     /** {@inheritDoc} */
     @Override public GridNearTxQueryEnlistResponse createResponse() {
-        return RESP;
+        return new GridNearTxQueryEnlistResponse(cctx.cacheId(), null, 0, null, it.rows(), null);
     }
 }

@@ -18,6 +18,9 @@ class SelectForUpdateResultSetIterator extends GridCloseableIteratorAdapterEx<Ob
     /** Columns count in result set. */
     private final int colsCnt;
 
+    /** Number of rows fetched. */
+    private int rowsCnt;
+
     /** */
     private boolean hasNext;
 
@@ -44,6 +47,8 @@ class SelectForUpdateResultSetIterator extends GridCloseableIteratorAdapterEx<Ob
         try {
             key = rs.getObject(colsCnt);
 
+            rowsCnt = rs.getRow();
+
             hasNext = rs.next();
         }
         catch (SQLException e) {
@@ -51,6 +56,13 @@ class SelectForUpdateResultSetIterator extends GridCloseableIteratorAdapterEx<Ob
         }
 
         return key;
+    }
+
+    /**
+     * @return Number of rows fetched.
+     */
+    public int rows() {
+        return rowsCnt;
     }
 
     /** {@inheritDoc} */

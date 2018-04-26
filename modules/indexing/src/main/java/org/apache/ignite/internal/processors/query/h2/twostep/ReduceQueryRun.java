@@ -56,6 +56,7 @@ class ReduceQueryRun {
     /** Can be either CacheException in case of error or AffinityTopologyVersion to retry if needed. */
     private final AtomicReference<Object> state = new AtomicReference<>();
 
+    /** Future controlling {@code SELECT FOR UPDATE} query execution. */
     private final GridNearTxSelectForUpdateFuture selectForUpdateFut;
 
     /**
@@ -67,7 +68,7 @@ class ReduceQueryRun {
      * @param idxsCnt Number of indexes.
      * @param pageSize Page size.
      * @param startTime Start time.
-     * @param selectForUpdateFut
+     * @param selectForUpdateFut Future controlling {@code SELECT FOR UPDATE} query execution.
      * @param cancel Query cancel handler.
      */
     ReduceQueryRun(Long id, String qry, String schemaName, Connection conn, int idxsCnt, int pageSize, long startTime,
@@ -161,7 +162,7 @@ class ReduceQueryRun {
     }
 
     /**
-     * @return SELECT FOR UPDATE future, if any.
+     * @return {@code SELECT FOR UPDATE} future, if any.
      */
     @Nullable public GridNearTxSelectForUpdateFuture selectForUpdateFuture() {
         return selectForUpdateFut;

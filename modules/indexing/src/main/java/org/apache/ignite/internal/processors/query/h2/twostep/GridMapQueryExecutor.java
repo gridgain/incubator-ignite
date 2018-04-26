@@ -564,7 +564,8 @@ public class GridMapQueryExecutor {
             params,
             lazy,
             req.mvccSnapshot(),
-            tx, req.txRequest());
+            tx,
+            req.txRequest());
     }
 
     /**
