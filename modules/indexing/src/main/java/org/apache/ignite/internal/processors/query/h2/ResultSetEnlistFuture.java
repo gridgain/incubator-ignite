@@ -59,6 +59,8 @@ public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Gr
 
     /** {@inheritDoc} */
     @Override public GridNearTxQueryEnlistResponse createResponse(@NotNull Throwable err) {
+        // This is a faux 'response' for local queries, and update counter is not needed per se.
+        // Hence result is 0.
         return new GridNearTxQueryEnlistResponse(cctx.cacheId(), null, 0, null, 0, err);
     }
 

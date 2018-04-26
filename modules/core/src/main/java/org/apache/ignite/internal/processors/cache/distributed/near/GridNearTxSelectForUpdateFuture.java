@@ -98,9 +98,6 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     /** Ids of mini futures. */
     private final Map<MapQueryFutureKey, Integer> miniFutIds = new HashMap<>();
 
-    /** Per node counters of currently used segments. */
-    private final Map<UUID, AtomicInteger> segCntrs = new HashMap<>();
-
     /**
      * @param cctx Cache context.
      * @param tx Transaction.
@@ -137,11 +134,10 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
         int segCnt = (loc ? 1 : cctx.config().getQueryParallelism());
 
-        if (mapping == null) {
-            tx.mappings().put(mapping = new GridDistributedTxMapping(node));
+        AtomicInteger segCntr = new AtomicInteger(segCnt);
 
-            segCntrs.put(node.id(), new AtomicInteger(segCnt));
-        }
+        if (mapping == null)
+            tx.mappings().put(mapping = new GridDistributedTxMapping(node));
 
         mapping.markQueryUpdate();
 
@@ -150,7 +146,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
             miniFutIds.put(new MapQueryFutureKey(node.id(), i), futId);
 
-            add(new MapQueryFuture(node));
+            add(new SegmentFuture(node, segCntr));
         }
     }
 
@@ -162,7 +158,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
      * @param err Error.
      */
     public void onResult(UUID nodeId, int segment, @Nullable Long cnt, @Nullable Throwable err) {
-        MapQueryFuture segFut = mapFuture(nodeId, segment);
+        SegmentFuture segFut = mapFuture(nodeId, segment);
 
         if (segFut != null)
             segFut.onResult(cnt, err);
@@ -205,7 +201,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
      * @param segment Segment number.
      * @return Batch future.
      */
-    private MapQueryFuture mapFuture(UUID nodeId, int segment) {
+    private SegmentFuture mapFuture(UUID nodeId, int segment) {
         synchronized (this) {
             MapQueryFutureKey key = new MapQueryFutureKey(nodeId, segment);
 
@@ -220,7 +216,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
             IgniteInternalFuture<Long> fut = future(idx);
 
             if (!fut.isDone())
-                return (MapQueryFuture)fut;
+                return (SegmentFuture)fut;
         }
 
         return null;
@@ -247,7 +243,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
             return false; // Local query, do nothing.
 
         for (IgniteInternalFuture<?> fut : futures()) {
-            MapQueryFuture f = (MapQueryFuture)fut;
+            SegmentFuture f = (SegmentFuture)fut;
 
             if (f.node.id().equals(nodeId)) {
                 if (log.isDebugEnabled())
@@ -371,7 +367,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     /**
      * A future tracking a single MAP request to be enlisted in transaction and locked on data node.
      */
-    private class MapQueryFuture extends GridFutureAdapter<Long> {
+    private class SegmentFuture extends GridFutureAdapter<Long> {
         /** */
         private final AtomicBoolean completed = new AtomicBoolean();
 
@@ -379,11 +375,18 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
         @GridToStringExclude
         private final ClusterNode node;
 
+        /** Counter for segments currently used by query running on this node.
+         *  Shared between segment futures of the same node. */
+        private final AtomicInteger segCntr;
+
         /**
          * @param node Cluster node.
+         * @param segCntr Counter for segments currently used by query running on this node.
          */
-        private MapQueryFuture(ClusterNode node) {
+        private SegmentFuture(ClusterNode node, AtomicInteger segCntr) {
             this.node = node;
+
+            this.segCntr = segCntr;
         }
 
         /**
@@ -410,12 +413,8 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
                 assert m != null;
 
-                AtomicInteger segCnt = segCntrs.get(node.id());
-
-                assert segCnt != null;
-
                 // Remove mapping if no active segments left - in this case it's got to be empty.
-                if (segCnt.decrementAndGet() == 0) {
+                if (segCntr.decrementAndGet() == 0) {
                     assert m.empty();
 
                     tx.removeMapping(node.id());
