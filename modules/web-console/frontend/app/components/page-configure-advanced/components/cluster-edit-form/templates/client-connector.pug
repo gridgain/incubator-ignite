@@ -33,13 +33,13 @@ panel-collapsible(ng-show='$ctrl.available("2.3.0")' ng-form=form on-open=`ui.lo
                 +text-enabled('Host:', `${connectionModel}.host`, '"ClientConnectorHost"', connectionEnabled, 'false', 'localhost')
             .pc-form-grid-col-20
                 +number('Port:', `${connectionModel}.port`, '"ClientConnectorPort"', connectionEnabled, '10800', '1025')
-            .pc-form-grid-col-20
+            .pc-form-grid-col-30
                 +number('Port range:', `${connectionModel}.portRange`, '"ClientConnectorPortRange"', connectionEnabled, '100', '0')
-            .pc-form-grid-col-20
+            .pc-form-grid-col-30
                 +number('Socket send buffer size:', `${connectionModel}.socketSendBufferSize`, '"ClientConnectorSocketSendBufferSize"', connectionEnabled, '0', '0',
                     'Socket send buffer size<br/>\
                     When set to <b>0</b>, operation system default will be used')
-            .pc-form-grid-col-20
+            .pc-form-grid-col-30
                 +number('Socket receive buffer size:', `${connectionModel}.socketReceiveBufferSize`, '"ClientConnectorSocketReceiveBufferSize"', connectionEnabled, '0', '0',
                     'Socket receive buffer size<br/>\
                     When set to <b>0</b>, operation system default will be used')
