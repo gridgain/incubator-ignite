@@ -247,9 +247,9 @@ public abstract class IgniteCompatibilityAbstractTest extends GridCommonAbstract
     }
 
     /**
-     * Allows to setup JVM arguments for standalone JVM
+     * Allows to setup JVM arguments for standalone JVM.
      *
-     * @return additional JVM arguments
+     * @return additional JVM arguments, provided by sub. classes
      */
     protected Collection<String> getJvmParams() {
         return new ArrayList<>();
