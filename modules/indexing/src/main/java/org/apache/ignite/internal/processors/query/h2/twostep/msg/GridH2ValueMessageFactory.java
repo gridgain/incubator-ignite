@@ -118,6 +118,9 @@ public class GridH2ValueMessageFactory implements MessageFactory {
 
             case -56:
                 return new GridH2DmlResponse();
+
+            case -57:
+                return new GridH2SelectForUpdateTxDetails();
         }
 
         return null;

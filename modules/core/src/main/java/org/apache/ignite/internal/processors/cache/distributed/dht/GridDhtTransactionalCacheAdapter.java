@@ -667,17 +667,41 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
 
         ClusterNode nearNode = ctx.discovery().node(nodeId);
 
-        GridDhtTxLocal tx = initTxTopologyVersion(nodeId,
-            nearNode,
-            req.version(),
-            req.futureId(),
-            req.miniId(),
-            req.firstClientRequest(),
-            req.topologyVersion(),
-            req.threadId(),
-            req.timeout(),
-            req.subjectId(),
-            req.taskNameHash());
+        GridDhtTxLocal tx;
+
+        try {
+            tx = initTxTopologyVersion(nodeId,
+                nearNode,
+                req.version(),
+                req.futureId(),
+                req.miniId(),
+                req.firstClientRequest(),
+                req.topologyVersion(),
+                req.threadId(),
+                req.timeout(),
+                req.subjectId(),
+                req.taskNameHash());
+        }
+        catch (Exception ex) {
+            GridNearTxQueryEnlistResponse res = new GridNearTxQueryEnlistResponse(req.cacheId(),
+                req.futureId(),
+                req.miniId(),
+                req.version(),
+                0,
+                ex);
+
+            try {
+                ctx.io().send(nearNode, res, ctx.ioPolicy());
+            }
+            catch (IgniteCheckedException e) {
+                U.error(log, "Failed to send near enlist response [" +
+                    "txId=" + req.version() +
+                    ", node=" + nodeId +
+                    ", res=" + res + ']', e);
+            }
+
+            return;
+        }
 
         GridDhtTxQueryEnlistFuture fut = new GridDhtTxQueryEnlistFuture(
             nodeId,

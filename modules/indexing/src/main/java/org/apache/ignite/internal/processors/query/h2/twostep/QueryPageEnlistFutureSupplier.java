@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.processors.query.h2.twostep;
 
 import java.util.List;
-import org.apache.ignite.internal.util.typedef.C1;
+import org.apache.ignite.lang.IgniteClosure;
 import org.h2.value.Value;
 
 /**
  * Short name for rows-to-future closure.
  */
-interface QueryPageEnlistFutureSupplier extends C1<List<Value[]>, QueryPageEnlistFuture> {
+interface QueryPageEnlistFutureSupplier extends IgniteClosure<List<Value[]>, QueryPageEnlistFuture> {
     // No-op.
 }

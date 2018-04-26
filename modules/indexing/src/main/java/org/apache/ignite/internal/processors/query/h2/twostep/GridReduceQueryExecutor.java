@@ -61,7 +61,6 @@ import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxSelectForUpdateFuture;
 import org.apache.ignite.internal.processors.cache.distributed.near.TxTopologyVersionFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
@@ -88,6 +87,7 @@ import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQuery
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2DmlRequest;
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2DmlResponse;
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryRequest;
+import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2SelectForUpdateTxDetails;
 import org.apache.ignite.internal.util.GridIntIterator;
 import org.apache.ignite.internal.util.GridIntList;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
@@ -601,8 +601,6 @@ public class GridReduceQueryExecutor {
 
                 TxTopologyVersionFuture topFut = new TxTopologyVersionFuture(curTx, cacheContext(qry.cacheIds().get(0)));
 
-                topFut.initTopologyVersion();
-
                 try {
                     topFut.initTopologyVersion();
 
@@ -836,28 +834,17 @@ public class GridReduceQueryExecutor {
 
                             int miniId = cnt.incrementAndGet();
 
-                            GridNearTxQueryEnlistRequest txReq = new GridNearTxQueryEnlistRequest(
-                                qry.cacheIds().get(0),
+                            GridH2SelectForUpdateTxDetails txReq = new GridH2SelectForUpdateTxDetails(
                                 curTx.threadId(),
                                 IgniteUuid.randomUuid(),
                                 miniId,
                                 curTx.subjectId(),
-                                null,/*Topology version: carried by parent request.*/
                                 curTx.xidVersion(),
-                                null,/*MVCC snapshot: carried by parent request.*/
-                                null,/*Cache ids: carried by parent request.*/
-                                null,/*Partitions: carried by parent request.*/
-                                null,/*Schema name: carried by parent request.*/
-                                null,/*Query: carried by parent request.*/
-                                null,/*Query params: carried by parent request.*/
-                                fflags,
-                                qry.pageSize(),
-                                timeoutMillis,
                                 curTx.taskNameHash(),
                                 selectForUpdateClientFirst
                             );
 
-                            res.txRequest(txReq);
+                            res.txDetails(txReq);
 
                             return res;
                         }

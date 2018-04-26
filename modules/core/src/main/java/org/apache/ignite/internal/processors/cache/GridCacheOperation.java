@@ -35,9 +35,6 @@ public enum GridCacheOperation {
     /** Delete operation. */
     DELETE,
 
-    /** SELECT FOR UPDATE operation. */
-    SELECT,
-
     /** Transform operation. A closure will be applied to the previous entry value. */
     TRANSFORM,
 
@@ -48,7 +45,10 @@ public enum GridCacheOperation {
      * This operation is used when lock has been acquired,
      * but filter validation failed.
      */
-    NOOP;
+    NOOP,
+
+    /** SELECT FOR UPDATE operation. */
+    SELECT;
 
     /** Enum values. */
     private static final GridCacheOperation[] VALS = values();
