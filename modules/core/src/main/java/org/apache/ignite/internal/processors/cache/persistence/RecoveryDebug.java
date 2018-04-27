@@ -72,7 +72,7 @@ public class RecoveryDebug implements AutoCloseable {
      * @param constId Consistent ID.
      * @param log Logger.
      */
-    public RecoveryDebug(Object constId, long time, @Nullable IgniteLogger log) {
+    public RecoveryDebug(Object constId,long time, @Nullable IgniteLogger log) {
         this.log = log;
 
         try {
@@ -85,7 +85,7 @@ public class RecoveryDebug implements AutoCloseable {
                     return;
 
             File f = new File(tmpDir, "recovery-" +
-                sdf.get().format(new Date(time)) + "-" + constId + ".log");
+                sdf.get().format(new Date(time)) + "-" + constId  +".log");
 
             f.createNewFile();
 
@@ -121,7 +121,7 @@ public class RecoveryDebug implements AutoCloseable {
 
         append("Data record\n");
 
-        for (DataEntry dataEntry : rec.writeEntries())
+        for (DataEntry dataEntry :  rec.writeEntries())
             append("\t" + dataEntry.op() + " " + dataEntry.nearXidVersion() +
                 (unwrapKeyValue ? " " + dataEntry.key() + " " + dataEntry.value() : "") + "\n"
             );
@@ -142,7 +142,12 @@ public class RecoveryDebug implements AutoCloseable {
      * @return {@code this} for convenience.
      */
     private RecoveryDebug appendFile(Object st) {
-        log.info("RECOVERY DEBUG " + st);
+        try {
+            fc.write(ByteBuffer.wrap(st.toString().getBytes()));
+        }
+        catch (IOException e) {
+            U.error(null, "Fail write to recovery dump file.", e);
+        }
 
         return this;
     }
