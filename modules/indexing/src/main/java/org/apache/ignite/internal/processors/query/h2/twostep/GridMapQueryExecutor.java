@@ -57,6 +57,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartit
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTransactionalCacheAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridReservable;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryType;
@@ -67,6 +68,7 @@ import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.h2.H2Utils;
 import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
+import org.apache.ignite.internal.processors.query.h2.ResultSetEnlistFuture;
 import org.apache.ignite.internal.processors.query.h2.UpdateResult;
 import org.apache.ignite.internal.processors.query.h2.opt.DistributedJoinMode;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
@@ -86,6 +88,7 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.indexing.IndexingQueryFilter;
 import org.apache.ignite.thread.IgniteThread;
@@ -602,6 +605,11 @@ public class GridMapQueryExecutor {
         @Nullable GridH2SelectForUpdateTxDetails txDetails) {
         MapQueryLazyWorker worker = MapQueryLazyWorker.currentWorker();
 
+        // In presence of TX, we also must always have matching details.
+        assert tx == null || txDetails != null;
+
+        boolean forUpdate = (tx != null);
+
         if (lazy && worker == null) {
             // Lazy queries must be re-submitted to dedicated workers.
             MapQueryLazyWorkerKey key = new MapQueryLazyWorkerKey(node.id(), reqId, segmentId);
@@ -681,18 +689,7 @@ public class GridMapQueryExecutor {
                 }
             }
 
-            QueryPageEnlistFutureSupplier pageFutSupp = null;
-
-            if (txDetails != null) {
-                pageFutSupp = new QueryPageEnlistFutureSupplier() {
-                    @Override public QueryPageEnlistFuture apply(List<Value[]> rows) {
-                        return new QueryPageEnlistFuture(node.id(), txDetails.version(), topVer, mvccSnapshot,
-                            txDetails.threadId(), txDetails.futureId(), txDetails.miniId(), parts, tx, timeout, mainCctx, rows);
-                    }
-                };
-            }
-
-            qr = new MapQueryResults(h2, reqId, qrys.size(), mainCctx, MapQueryLazyWorker.currentWorker(), pageFutSupp);
+            qr = new MapQueryResults(h2, reqId, qrys.size(), mainCctx, MapQueryLazyWorker.currentWorker(), forUpdate);
 
             if (nodeRess.put(reqId, segmentId, qr) != null)
                 throw new IllegalStateException();
@@ -738,7 +735,7 @@ public class GridMapQueryExecutor {
                 for (GridCacheSqlQuery qry : qrys) {
                     String newQry = null;
 
-                    if (pageFutSupp != null) {
+                    if (forUpdate) {
                         PreparedStatement ps = h2.prepareNativeStatement(schemaName, qry.query());
 
                         Prepared p = GridSqlQueryParser.prepared(ps);
@@ -760,6 +757,32 @@ public class GridMapQueryExecutor {
                             F.asList(qry.parameters(params)), true,
                             timeout,
                             qr.queryCancel(qryIdx));
+
+                        if (forUpdate) {
+                            ResultSetEnlistFuture enlistFut = new ResultSetEnlistFuture(
+                                ctx.localNodeId(),
+                                txDetails.version(),
+                                topVer,
+                                mvccSnapshot,
+                                txDetails.threadId(),
+                                IgniteUuid.randomUuid(),
+                                txDetails.miniId(),
+                                parts,
+                                tx,
+                                timeout,
+                                mainCctx,
+                                rs
+                            );
+
+                            enlistFut.init();
+
+                            GridNearTxQueryEnlistResponse r = enlistFut.get();
+
+                            if (r.error() != null)
+                                throw r.error();
+
+                            rs.beforeFirst();
+                        }
 
                         if (evt) {
                             ctx.event().record(new CacheQueryExecutedEvent<>(
@@ -819,6 +842,8 @@ public class GridMapQueryExecutor {
                 sendRetry(node, reqId, segmentId);
             else {
                 U.error(log, "Failed to execute local query.", e);
+
+                tx.rollbackAsync();
 
                 sendError(node, reqId, e);
 
@@ -1070,34 +1095,6 @@ public class GridMapQueryExecutor {
 
         boolean last = res.fetchNextPage(rows, pageSize);
 
-        QueryPageEnlistFutureSupplier futSupp = qr.pageFutureSupplier();
-
-        if (futSupp != null) {
-            QueryPageEnlistFuture fut = futSupp.apply(rows);
-
-            fut.init();
-
-            Throwable err = null;
-
-            try {
-                fut.get();
-            }
-            catch (IgniteCheckedException e) {
-                err = fut.error();
-            }
-
-            if (err == null && fut.result() != null)
-                err = fut.result().error();
-
-            if (err != null) {
-                fut.tx().rollbackAsync();
-
-                sendError(node, qr.queryRequestId(), err);
-
-                return;
-            }
-        }
-
         if (last) {
             res.close();
 
@@ -1115,7 +1112,7 @@ public class GridMapQueryExecutor {
 
             // In case of SELECT FOR UPDATE the last columns is _KEY,
             // we can't retrieve them for an arbitrary row otherwise.
-            int colsCnt = qr.pageFutureSupplier() == null ? res.columnCount() : res.columnCount() - 1;
+            int colsCnt = !qr.isForUpdate() ? res.columnCount() : res.columnCount() - 1;
 
             GridQueryNextPageResponse msg = new GridQueryNextPageResponse(qr.queryRequestId(), segmentId, qry, page,
                 page == 0 ? res.rowCount() : -1,

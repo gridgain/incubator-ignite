@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
@@ -96,7 +95,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     private LockTimeoutObject timeoutObj;
 
     /** Ids of mini futures. */
-    private final Map<MapQueryFutureKey, Integer> miniFutIds = new HashMap<>();
+    private final Map<UUID, Integer> miniFutIds = new HashMap<>();
 
     /**
      * @param cctx Cache context.
@@ -132,36 +131,29 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     private void map(ClusterNode node, boolean loc) {
         GridDistributedTxMapping mapping = tx.mappings().get(node.id());
 
-        int segCnt = (loc ? 1 : cctx.config().getQueryParallelism());
-
-        AtomicInteger segCntr = new AtomicInteger(segCnt);
-
         if (mapping == null)
             tx.mappings().put(mapping = new GridDistributedTxMapping(node));
 
         mapping.markQueryUpdate();
 
-        for (int i = 0; i < segCnt; i++) {
-            int futId = futuresCountNoLock();
+        int futId = futuresCountNoLock();
 
-            miniFutIds.put(new MapQueryFutureKey(node.id(), i), futId);
+        miniFutIds.put(node.id(), futId);
 
-            add(new SegmentFuture(node, segCntr));
-        }
+        add(new NodeFuture(node));
     }
 
     /**
      * Process result of query execution on given
      * @param nodeId Node id.
-     * @param segment Segment number.
-     * @param cnt Total rows counter in given segment.
+     * @param cnt Total rows counter on given node.
      * @param err Error.
      */
-    public void onResult(UUID nodeId, int segment, @Nullable Long cnt, @Nullable Throwable err) {
-        SegmentFuture segFut = mapFuture(nodeId, segment);
+    public void onResult(UUID nodeId, @Nullable Long cnt, @Nullable Throwable err) {
+        NodeFuture nodeFut = mapFuture(nodeId);
 
-        if (segFut != null)
-            segFut.onResult(cnt, err);
+        if (nodeFut != null)
+            nodeFut.onResult(cnt, err);
     }
 
     /** {@inheritDoc} */
@@ -195,28 +187,24 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     }
 
     /**
-     * Finds pending segment future by the given ID.
+     * Finds pending map node future by the given ID.
      *
      * @param nodeId Node id.
-     * @param segment Segment number.
-     * @return Batch future.
+     * @return Map node future.
      */
-    private SegmentFuture mapFuture(UUID nodeId, int segment) {
+    private NodeFuture mapFuture(UUID nodeId) {
         synchronized (this) {
-            MapQueryFutureKey key = new MapQueryFutureKey(nodeId, segment);
-
-            Integer idx = miniFutIds.get(key);
+            Integer idx = miniFutIds.get(nodeId);
 
             if (idx == null)
-                throw new IllegalStateException("SELECT FOR UPDATE segment future not found [nodeId=" + nodeId +
-                    ", segment=" + segment + "].");
+                throw new IllegalStateException("SELECT FOR UPDATE node future not found [nodeId=" + nodeId + "].");
 
             assert idx >= 0 && idx < futuresCountNoLock();
 
             IgniteInternalFuture<Long> fut = future(idx);
 
             if (!fut.isDone())
-                return (SegmentFuture)fut;
+                return (NodeFuture)fut;
         }
 
         return null;
@@ -243,7 +231,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
             return false; // Local query, do nothing.
 
         for (IgniteInternalFuture<?> fut : futures()) {
-            SegmentFuture f = (SegmentFuture)fut;
+            NodeFuture f = (NodeFuture)fut;
 
             if (f.node.id().equals(nodeId)) {
                 if (log.isDebugEnabled())
@@ -367,7 +355,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     /**
      * A future tracking a single MAP request to be enlisted in transaction and locked on data node.
      */
-    private class SegmentFuture extends GridFutureAdapter<Long> {
+    private class NodeFuture extends GridFutureAdapter<Long> {
         /** */
         private final AtomicBoolean completed = new AtomicBoolean();
 
@@ -375,18 +363,12 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
         @GridToStringExclude
         private final ClusterNode node;
 
-        /** Counter for segments currently used by query running on this node.
-         *  Shared between segment futures of the same node. */
-        private final AtomicInteger segCntr;
-
         /**
          * @param node Cluster node.
-         * @param segCntr Counter for segments currently used by query running on this node.
+         *
          */
-        private SegmentFuture(ClusterNode node, AtomicInteger segCntr) {
+        private NodeFuture(ClusterNode node) {
             this.node = node;
-
-            this.segCntr = segCntr;
         }
 
         /**
@@ -409,21 +391,12 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
             boolean topEx = X.hasCause(err, ClusterTopologyCheckedException.class);
 
-            // Instead of relying on removeMapping, we use result counters - because
-            // for each per node mapping we may get few onResult calls (per each segment).
             if (topEx || res == null || res == 0) {
                 GridDistributedTxMapping m = tx.mappings().get(node.id());
 
-                assert m != null || topEx;
+                assert m != null && m.empty();
 
-                // Remove mapping if topology error occurred or no active segments left -
-                // in this case it's got to be empty.
-                if (topEx || segCntr.decrementAndGet() == 0) {
-                    assert topEx || m.empty();
-
-                    if (m != null)
-                        tx.removeMapping(node.id());
-                }
+                tx.removeMapping(node.id());
             }
             else if (res > 0) {
                 if (node.isLocal())
@@ -459,58 +432,6 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
         /** {@inheritDoc} */
         @Override public String toString() {
             return S.toString(LockTimeoutObject.class, this);
-        }
-    }
-
-    /**
-     * Key to track futures per segment and node.
-     */
-    private final static class MapQueryFutureKey {
-        /** */
-        private final UUID nodeId;
-
-        /** */
-        private final int segment;
-
-        /**
-         * @param nodeId Node id.
-         * @param segment Segment number.
-         */
-        private MapQueryFutureKey(UUID nodeId, int segment) {
-            this.nodeId = nodeId;
-            this.segment = segment;
-        }
-
-        /**
-         *
-         */
-        public UUID nodeId() {
-            return nodeId;
-        }
-
-        /**
-         *
-         */
-        public int segment() {
-            return segment;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-
-            MapQueryFutureKey that = (MapQueryFutureKey) o;
-
-            if (segment != that.segment) return false;
-            return nodeId.equals(that.nodeId);
-        }
-
-        /** {@inheritDoc} */
-        @Override public int hashCode() {
-            int result = nodeId.hashCode();
-            result = 31 * result + segment;
-            return result;
         }
     }
 }

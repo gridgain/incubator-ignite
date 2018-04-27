@@ -33,6 +33,7 @@ public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Gr
      * @param tx           Transaction.
      * @param timeout      Lock acquisition timeout.
      * @param cctx         Cache context.
+     * @param rs           Result set to process.
      */
     ResultSetEnlistFuture(UUID nearNodeId, GridCacheVersion nearLockVer, AffinityTopologyVersion topVer,
         MvccSnapshot mvccSnapshot, long threadId, IgniteUuid nearFutId, int nearMiniId, @Nullable int[] parts,

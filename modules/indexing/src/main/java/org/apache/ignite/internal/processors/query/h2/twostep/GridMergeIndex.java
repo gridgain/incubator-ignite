@@ -30,7 +30,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import javax.cache.CacheException;
@@ -38,7 +37,6 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryNextPageResponse;
-import org.apache.ignite.internal.util.lang.IgnitePair;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.h2.engine.Session;
@@ -102,9 +100,6 @@ public abstract class GridMergeIndex extends BaseIndex {
         }
     };
 
-    /** {@code FOR UPDATE} flag. */
-    final boolean forUpdate;
-
     /** Row source nodes. */
     private Set<UUID> sources;
 
@@ -126,7 +121,7 @@ public abstract class GridMergeIndex extends BaseIndex {
     private final GridKernalContext ctx;
 
     /** */
-    private volatile ConcurrentMap<SourceKey, IgnitePair<Integer>> lastPages;
+    private volatile ConcurrentMap<SourceKey, Integer> lastPages;
 
     /**
      * @param ctx Context.
@@ -134,31 +129,25 @@ public abstract class GridMergeIndex extends BaseIndex {
      * @param name Index name.
      * @param type Type.
      * @param cols Columns.
-     * @param forUpdate {@code FOR UPDATE} flag.
      */
     public GridMergeIndex(GridKernalContext ctx,
         GridMergeTable tbl,
         String name,
         IndexType type,
-        IndexColumn[] cols,
-        boolean forUpdate
+        IndexColumn[] cols
     ) {
-        this(ctx, forUpdate);
+        this(ctx);
 
         initBaseIndex(tbl, 0, name, cols, type);
-
     }
 
     /**
      * @param ctx Context.
-     * @param forUpdate {@code FOR UPDATE} flag.
      */
-    protected GridMergeIndex(GridKernalContext ctx, boolean forUpdate) {
+    protected GridMergeIndex(GridKernalContext ctx) {
         this.ctx = ctx;
 
         fetched = new BlockList<>(PREFETCH_SIZE);
-
-        this.forUpdate = forUpdate;
     }
 
     /**
@@ -263,16 +252,24 @@ public abstract class GridMergeIndex extends BaseIndex {
         if (!iter.hasNext()) {
             GridResultPage page = takeNextPage(queue);
 
-            if (!forUpdate && !page.isLast())
+            if (!page.isLast())
                 page.fetchNextPage(); // Failed will throw an exception here.
 
             iter = page.rows();
 
-            // The received iterator must be empty with a dummy last page or on failure.
+            // The received iterator must be empty in the dummy last page or on failure.
             assert iter.hasNext() || page.isDummyLast() || page.isFail();
         }
 
         return iter;
+    }
+
+    /**
+     * @param e Error.
+     */
+    public void fail(final CacheException e) {
+        for (UUID nodeId : sources)
+            fail(nodeId, e);
     }
 
     /**
@@ -311,7 +308,7 @@ public abstract class GridMergeIndex extends BaseIndex {
         if (allRows < 0 || res.page() != 0)
             return;
 
-        ConcurrentMap<SourceKey, IgnitePair<Integer>> lp = lastPages;
+        ConcurrentMap<SourceKey,Integer> lp = lastPages;
 
         if (lp == null && !lastPagesUpdater.compareAndSet(this, null, lp = new ConcurrentHashMap<>()))
             lp = lastPages;
@@ -322,7 +319,7 @@ public abstract class GridMergeIndex extends BaseIndex {
 
         assert lastPage >= 0: lastPage;
 
-        if (lp.put(new SourceKey(nodeId, res.segmentId()), new IgnitePair<>(lastPage, allRows)) != null)
+        if (lp.put(new SourceKey(nodeId, res.segmentId()), lastPage) != null)
             throw new IllegalStateException();
     }
 
@@ -337,17 +334,15 @@ public abstract class GridMergeIndex extends BaseIndex {
 
             initLastPages(nodeId, res);
 
-            ConcurrentMap<SourceKey, IgnitePair<Integer>> lp = lastPages;
+            ConcurrentMap<SourceKey,Integer> lp = lastPages;
 
             if (lp == null)
                 return; // It was not initialized --> wait for last page flag.
 
-            IgnitePair<Integer> p = lp.get(new SourceKey(nodeId, res.segmentId()));
+            Integer lastPage = lp.get(new SourceKey(nodeId, res.segmentId()));
 
-            if (p == null)
+            if (lastPage == null)
                 return; // This node may use the new protocol --> wait for last page flag.
-
-            int lastPage = p.get1();
 
             if (lastPage != res.page()) {
                 assert lastPage > res.page();
@@ -360,33 +355,11 @@ public abstract class GridMergeIndex extends BaseIndex {
     }
 
     /**
-     * @param nodeId
-     * @param segment
-     * @return
-     */
-    @Nullable public Integer totalRows(UUID nodeId, int segment) {
-        ConcurrentMap<SourceKey, IgnitePair<Integer>> lp = lastPages;
-
-        if (lp == null)
-            return null; // It was not initialized --> wait for last page flag.
-
-        IgnitePair<Integer> p = lp.get(new SourceKey(nodeId, segment));
-
-        if (p == null)
-            return null; // This node may use the new protocol --> wait for last page flag.
-
-        return p.get2();
-    }
-
-    /**
      * @param page Page.
      */
     public final void addPage(GridResultPage page) {
         markLastPage(page);
         addPage0(page);
-
-        if (forUpdate && !page.isLast())
-            page.fetchNextPage();
     }
 
     /**
@@ -833,12 +806,5 @@ public abstract class GridMergeIndex extends BaseIndex {
             result = 31 * result + segment;
             return result;
         }
-    }
-
-    /**
-     *
-     */
-    static class PollableQueue<X> extends LinkedBlockingQueue<X> implements GridMergeIndex.Pollable<X> {
-        // No-op.
     }
 }

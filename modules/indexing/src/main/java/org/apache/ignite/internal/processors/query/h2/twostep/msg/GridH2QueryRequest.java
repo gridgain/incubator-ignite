@@ -85,11 +85,6 @@ public class GridH2QueryRequest implements Message, GridCacheQueryMarshallable {
      */
     public static final int FLAG_LAZY = 1 << 5;
 
-    /**
-     * If lazy execution is enabled.
-     */
-    public static final int FOR_UPDATE = 1 << 6;
-
     /** */
     private long reqId;
 

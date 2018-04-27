@@ -92,16 +92,14 @@ public final class GridMergeIndexSorted extends GridMergeIndex {
      * @param tbl Table.
      * @param name Index name,
      * @param cols Columns.
-     * @param forUpdate {@code FOR UPDATE} flag.
      */
     public GridMergeIndexSorted(
         GridKernalContext ctx,
         GridMergeTable tbl,
         String name,
-        IndexColumn[] cols,
-        boolean forUpdate
+        IndexColumn[] cols
     ) {
-        super(ctx, tbl, name, TYPE, cols, forUpdate);
+        super(ctx, tbl, name, TYPE, cols);
     }
 
     /** {@inheritDoc} */
@@ -117,7 +115,7 @@ public final class GridMergeIndexSorted extends GridMergeIndex {
             RowStream[] segments = new RowStream[segmentsCnt];
 
             for (int s = 0; s < segmentsCnt; s++)
-                streams[i++] = segments[s] = forUpdate ? new RowStreamQueue() : new RowStream();
+                streams[i++] = segments[s] = new RowStream();
 
             if (streamsMap.put(node.id(), segments) != null)
                 throw new IllegalStateException();
@@ -295,7 +293,7 @@ public final class GridMergeIndexSorted extends GridMergeIndex {
     /**
      * Row stream.
      */
-    private class RowStream implements Pollable<GridResultPage> {
+    private final class RowStream implements Pollable<GridResultPage> {
         /** */
         Iterator<Value[]> iter = emptyIterator();
 
@@ -308,7 +306,7 @@ public final class GridMergeIndexSorted extends GridMergeIndex {
         /**
          * @param page Page.
          */
-        void addPage(GridResultPage page) {
+        private void addPage(GridResultPage page) {
             assert !page.isFail();
 
             if (page.isLast() && page.rowsInPage() == 0)
@@ -382,51 +380,6 @@ public final class GridMergeIndexSorted extends GridMergeIndex {
             assert cur != null;
 
             return cur;
-        }
-    }
-
-    /**
-     * Row stream backed by queue.
-     */
-    private final class RowStreamQueue extends RowStream {
-        /** */
-        private final PollableQueue<GridResultPage> queue = new PollableQueue<>();
-
-        /**
-         * @param page Page.
-         */
-        @Override void addPage(GridResultPage page) {
-            assert !page.isFail();
-
-            if (page.isLast() && page.rowsInPage() == 0)
-                page = createDummyLastPage(page); // Terminate.
-
-            lock.lock();
-
-            try {
-                queue.add(page);
-
-                // We need dummy empty page to terminate iterator.
-                if (page.isLast() && !page.isDummyLast())
-                    queue.add(createDummyLastPage(page));
-
-                notEmpty.signalAll();
-            }
-            finally {
-                lock.unlock();
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override public GridResultPage poll(long timeout, TimeUnit unit) throws InterruptedException {
-            lock.lock();
-
-            try {
-                return queue.poll(timeout, unit);
-            }
-            finally {
-                lock.unlock();
-            }
         }
     }
 }

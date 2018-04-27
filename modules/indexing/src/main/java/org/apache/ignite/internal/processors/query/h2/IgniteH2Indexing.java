@@ -1158,14 +1158,20 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
                             enlistFut.listen(new IgniteInClosure<IgniteInternalFuture<GridNearTxQueryEnlistResponse>>() {
                                 @Override public void apply(IgniteInternalFuture<GridNearTxQueryEnlistResponse> res) {
+                                    if (res.error() != null) {
+                                        sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), null, res.error());
+
+                                        return;
+                                    }
+
                                     try {
                                         rs.beforeFirst();
 
-                                        sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), 0, res.get().result(),
+                                        sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), res.get().result(),
                                             res.get().error());
                                     }
                                     catch (Exception e) {
-                                        sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), 0, null, e);
+                                        sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), null, e);
                                     }
                                 }
                             });

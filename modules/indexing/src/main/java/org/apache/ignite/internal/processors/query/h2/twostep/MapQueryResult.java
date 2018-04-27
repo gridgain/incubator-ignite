@@ -42,7 +42,7 @@ import static org.apache.ignite.events.EventType.EVT_CACHE_QUERY_OBJECT_READ;
 /**
  * Mapper result for a single part of the query.
  */
-class MapQueryResult {
+public class MapQueryResult {
     /** */
     private static final Field RESULT_FIELD;
 
@@ -120,12 +120,7 @@ class MapQueryResult {
         if (rs != null) {
             this.rs = rs;
 
-            try {
-                res = (ResultInterface)RESULT_FIELD.get(rs);
-            }
-            catch (IllegalAccessException e) {
-                throw new IllegalStateException(e); // Must not happen.
-            }
+            res = resultInterfaceFromResultSet(rs);
 
             rowCnt = (res instanceof LazyResult) ? -1 : res.getRowCount();
             cols = res.getVisibleColumnCount();
@@ -137,6 +132,19 @@ class MapQueryResult {
             this.rowCnt = -1;
 
             closed = true;
+        }
+    }
+
+    /**
+     * @param rs Result set.
+     * @return {@link ResultInterface}.
+     */
+    public static ResultInterface resultInterfaceFromResultSet(ResultSet rs) {
+        try {
+            return (ResultInterface)RESULT_FIELD.get(rs);
+        }
+        catch (IllegalAccessException e) {
+            throw new IllegalStateException(e); // Must not happen.
         }
     }
 

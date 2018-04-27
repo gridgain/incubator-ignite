@@ -48,11 +48,11 @@ class MapQueryResults {
     /** Lazy worker. */
     private final MapQueryLazyWorker lazyWorker;
 
-    /** Local TX, if it's a result for {@code FOR UPDATE} request. */
-    private final QueryPageEnlistFutureSupplier pageFutSupp;
-
     /** */
     private volatile boolean cancelled;
+
+    /** {@code SELECT FOR UPDATE} flag. */
+    private final boolean forUpdate;
 
     /**
      * Constructor.
@@ -60,13 +60,13 @@ class MapQueryResults {
      * @param qrys Number of queries.
      * @param cctx Cache context.
      * @param lazyWorker Lazy worker (if any).
-     * @param pageFutureSupp Supplier for page futures to process in local TX,
-     *     if it's a result for {@code FOR UPDATE} request, or {@code null} if not applicable.
+     * @param forUpdate {@code SELECT FOR UPDATE} flag.
      */
     @SuppressWarnings("unchecked")
     MapQueryResults(IgniteH2Indexing h2, long qryReqId, int qrys, @Nullable GridCacheContext<?, ?> cctx,
-        @Nullable MapQueryLazyWorker lazyWorker, @Nullable QueryPageEnlistFutureSupplier pageFutureSupp) {
-        assert lazyWorker == null || pageFutureSupp == null;
+        @Nullable MapQueryLazyWorker lazyWorker, boolean forUpdate) {
+        this.forUpdate = forUpdate;
+        assert lazyWorker == null;
 
         this.h2 = h2;
         this.qryReqId = qryReqId;
@@ -75,7 +75,6 @@ class MapQueryResults {
 
         results = new AtomicReferenceArray<>(qrys);
         cancels = new GridQueryCancel[qrys];
-        this.pageFutSupp = pageFutureSupp;
 
         for (int i = 0; i < cancels.length; i++)
             cancels[i] = new GridQueryCancel();
@@ -181,9 +180,9 @@ class MapQueryResults {
     }
 
     /**
-     * @return {@code SELECT FOR UPDATE} enlist future, if any.
+     * @return {@code SELECT FOR UPDATE} flag.
      */
-    QueryPageEnlistFutureSupplier pageFutureSupplier() {
-        return pageFutSupp;
+    public boolean isForUpdate() {
+        return forUpdate;
     }
 }
