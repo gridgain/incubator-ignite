@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.query.h2.twostep;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
@@ -63,7 +62,6 @@ import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryType;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
 import org.apache.ignite.internal.processors.cache.query.GridCacheSqlQuery;
-import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.h2.H2Utils;
@@ -73,7 +71,6 @@ import org.apache.ignite.internal.processors.query.h2.UpdateResult;
 import org.apache.ignite.internal.processors.query.h2.opt.DistributedJoinMode;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RetryException;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryCancelRequest;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryFailResponse;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryNextPageRequest;
@@ -92,7 +89,6 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.indexing.IndexingQueryFilter;
 import org.apache.ignite.thread.IgniteThread;
-import org.h2.command.Prepared;
 import org.h2.jdbc.JdbcResultSet;
 import org.h2.value.Value;
 import org.jetbrains.annotations.Nullable;
@@ -733,27 +729,11 @@ public class GridMapQueryExecutor {
                 boolean evt = mainCctx != null && mainCctx.events().isRecordable(EVT_CACHE_QUERY_EXECUTED);
 
                 for (GridCacheSqlQuery qry : qrys) {
-                    String newQry = null;
-
-                    if (forUpdate) {
-                        PreparedStatement ps = h2.prepareNativeStatement(schemaName, qry.query());
-
-                        Prepared p = GridSqlQueryParser.prepared(ps);
-
-                        newQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(p);
-
-                        if (newQry == null)
-                            throw new IgniteSQLException("Query does not include FOR UPDATE clause.",
-                                IgniteQueryErrorCode.PARSING);
-                    }
-
                     ResultSet rs = null;
 
                     // If we are not the target node for this replicated query, just ignore it.
                     if (qry.node() == null || (segmentId == 0 && qry.node().equals(ctx.localNodeId()))) {
-                        String sql = newQry != null ? newQry : qry.query();
-
-                        rs = h2.executeSqlQueryWithTimer(conn, sql,
+                        rs = h2.executeSqlQueryWithTimer(conn, qry.query(),
                             F.asList(qry.parameters(params)), true,
                             timeout,
                             qr.queryCancel(qryIdx));
@@ -792,7 +772,7 @@ public class GridMapQueryExecutor {
                                 CacheQueryType.SQL.name(),
                                 mainCctx.name(),
                                 null,
-                                sql,
+                                qry.query(),
                                 null,
                                 null,
                                 params,

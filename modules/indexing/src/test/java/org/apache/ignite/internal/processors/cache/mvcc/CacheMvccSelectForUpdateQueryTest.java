@@ -53,7 +53,7 @@ import static org.apache.ignite.internal.processors.cache.index.AbstractSchemaSe
  */
 public class CacheMvccSelectForUpdateQueryTest extends CacheMvccAbstractTest {
     /** */
-    private static final int CACHE_SIZE = 100;
+    private static final int CACHE_SIZE = 50;
 
     /** {@inheritDoc} */
     @SuppressWarnings("unchecked")

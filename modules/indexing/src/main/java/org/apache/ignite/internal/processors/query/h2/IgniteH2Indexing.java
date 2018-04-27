@@ -2213,6 +2213,22 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         Prepared prepared = prep.prepared();
 
+        boolean forUpdate = GridSqlQueryParser.isForUpdateQuery(prepared);
+
+        if (forUpdate) {
+            String newQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(prepared);
+
+            assert newQry != null;
+
+            qry = qry.copy().setSql(newQry);
+
+            stmt = prepareStatementAndCaches(c, qry.getSql());
+
+            prep = GridSqlQueryParser.preparedWithRemaining(stmt);
+
+            prepared = prep.prepared();
+        }
+
         checkQueryType(qry, prepared.isQuery());
 
         String remainingSql = prep.remainingSql();
@@ -2308,7 +2324,11 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 .distributedJoinMode(distributedJoinMode(qry.isLocal(), qry.isDistributedJoins())));
 
             try {
-                return new ParsingResult(prepared, newQry, remainingSql, split(prepared, newQry),
+                GridCacheTwoStepQuery twoStepQry = split(prepared, newQry);
+
+                twoStepQry.forUpdate(forUpdate);
+
+                return new ParsingResult(prepared, newQry, remainingSql, twoStepQry,
                     cachedQryKey, H2Utils.meta(stmt.getMetaData()));
             }
             catch (IgniteCheckedException e) {
@@ -2359,8 +2379,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         }
 
         res.pageSize(qry.getPageSize());
-
-        res.forUpdate(GridSqlQueryParser.isForUpdateQuery(prepared));
 
         return res;
     }
