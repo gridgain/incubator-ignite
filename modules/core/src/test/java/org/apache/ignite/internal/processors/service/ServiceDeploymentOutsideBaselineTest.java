@@ -162,7 +162,7 @@ public class ServiceDeploymentOutsideBaselineTest extends GridCommonAbstractTest
         else {
             IgniteCluster cluster = insideNode.cluster();
 
-            cluster.setBaselineTopology(cluster.topologyVersion());
+            cluster.setAffinityTopology(cluster.topologyVersion());
         }
 
         CountDownLatch exeLatch = new CountDownLatch(1);
@@ -190,7 +190,7 @@ public class ServiceDeploymentOutsideBaselineTest extends GridCommonAbstractTest
 
         Ignite outsideNode = startGrid(1);
 
-        cluster.setBaselineTopology(cluster.topologyVersion());
+        cluster.setAffinityTopology(cluster.topologyVersion());
 
         CountDownLatch exeLatch = new CountDownLatch(from ? 1 : 2);
 
@@ -228,7 +228,7 @@ public class ServiceDeploymentOutsideBaselineTest extends GridCommonAbstractTest
 
         stopGrid(1);
 
-        cluster.setBaselineTopology(cluster.topologyVersion());
+        cluster.setAffinityTopology(cluster.topologyVersion());
 
         CountDownLatch exeLatch = new CountDownLatch(from ? 1 : 2);
 

@@ -69,7 +69,7 @@ public class VisorBaselineTask extends VisorOneNodeTask<VisorBaselineTaskArg, Vi
         private VisorBaselineTaskResult collect() {
             IgniteClusterEx cluster = ignite.cluster();
 
-            Collection<? extends BaselineNode> baseline = cluster.currentBaselineTopology();
+            Collection<? extends BaselineNode> baseline = cluster.currentAffinityTopology();
 
             Collection<? extends BaselineNode> srvrs = cluster.forServers().nodes();
 
@@ -84,7 +84,7 @@ public class VisorBaselineTask extends VisorOneNodeTask<VisorBaselineTaskArg, Vi
          * @return Baseline descriptor.
          */
         private VisorBaselineTaskResult set0(Collection<BaselineNode> baselineTop) {
-            ignite.cluster().setBaselineTopology(baselineTop);
+            ignite.cluster().setAffinityTopology(baselineTop);
 
             return collect();
         }
@@ -95,7 +95,7 @@ public class VisorBaselineTask extends VisorOneNodeTask<VisorBaselineTaskArg, Vi
         private Map<String, BaselineNode> currentBaseLine() {
             Map<String, BaselineNode> nodes = new HashMap<>();
 
-            Collection<BaselineNode> baseline = ignite.cluster().currentBaselineTopology();
+            Collection<BaselineNode> baseline = ignite.cluster().currentAffinityTopology();
 
             if (!F.isEmpty(baseline)) {
                 for (BaselineNode node : baseline)
@@ -193,7 +193,7 @@ public class VisorBaselineTask extends VisorOneNodeTask<VisorBaselineTaskArg, Vi
             if (targetVer > cluster.topologyVersion())
                 throw new IllegalArgumentException("Topology version is ahead of time: " + targetVer);
 
-            cluster.setBaselineTopology(targetVer);
+            cluster.setAffinityTopology(targetVer);
 
             return collect();
         }

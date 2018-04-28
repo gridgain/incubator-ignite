@@ -217,7 +217,7 @@ public class LocalWalModeChangeDuringRebalancingSelfTest extends GridCommonAbstr
 
         long newIgniteStartedTimestamp = System.currentTimeMillis();
 
-        ignite.cluster().setBaselineTopology(4);
+        ignite.cluster().setAffinityTopology(4);
 
         CacheGroupContext grpCtx = newIgnite.cachex(DEFAULT_CACHE_NAME).context().group();
 
@@ -274,7 +274,7 @@ public class LocalWalModeChangeDuringRebalancingSelfTest extends GridCommonAbstr
 
         IgniteEx newIgnite = startGrid(3);
 
-        ignite.cluster().setBaselineTopology(ignite.cluster().nodes());
+        ignite.cluster().setAffinityTopology(ignite.cluster().nodes());
 
         CacheGroupContext grpCtx = newIgnite.cachex(DEFAULT_CACHE_NAME).context().group();
 
@@ -329,7 +329,7 @@ public class LocalWalModeChangeDuringRebalancingSelfTest extends GridCommonAbstr
 
         latchRef.set(latch);
 
-        ignite.cluster().setBaselineTopology(ignite.cluster().nodes());
+        ignite.cluster().setAffinityTopology(ignite.cluster().nodes());
 
         for (Ignite g : G.allGrids())
             g.cache(DEFAULT_CACHE_NAME).rebalance();
@@ -368,7 +368,7 @@ public class LocalWalModeChangeDuringRebalancingSelfTest extends GridCommonAbstr
 
         IgniteEx newIgnite = startGrid(1);
 
-        ignite.cluster().setBaselineTopology(2);
+        ignite.cluster().setAffinityTopology(2);
 
         CacheGroupContext grpCtx = newIgnite.cachex(DEFAULT_CACHE_NAME).context().group();
 
@@ -381,7 +381,7 @@ public class LocalWalModeChangeDuringRebalancingSelfTest extends GridCommonAbstr
 
         newIgnite.cluster().active(true);
 
-        newIgnite.cluster().setBaselineTopology(newIgnite.cluster().nodes());
+        newIgnite.cluster().setAffinityTopology(newIgnite.cluster().nodes());
 
         cache = newIgnite.cache(DEFAULT_CACHE_NAME);
 
@@ -410,7 +410,7 @@ public class LocalWalModeChangeDuringRebalancingSelfTest extends GridCommonAbstr
 
         stopGrid(2);
 
-        ignite.cluster().setBaselineTopology(5);
+        ignite.cluster().setAffinityTopology(5);
 
         for (Ignite g : G.allGrids()) {
             CacheGroupContext grpCtx = ((IgniteEx)g).cachex(DEFAULT_CACHE_NAME).context().group();

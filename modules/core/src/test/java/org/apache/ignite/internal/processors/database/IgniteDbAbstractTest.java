@@ -188,12 +188,12 @@ public abstract class IgniteDbAbstractTest extends GridCommonAbstractTest {
         final IgniteClusterEx cluster = grid(0).cluster();
 
         if (log.isInfoEnabled())
-            log.info("BTL before activation: " + cluster.currentBaselineTopology());
+            log.info("BTL before activation: " + cluster.currentAffinityTopology());
 
         cluster.active(true);
 
         if (log.isInfoEnabled())
-            log.info("BTL after activation: " + cluster.currentBaselineTopology());
+            log.info("BTL after activation: " + cluster.currentAffinityTopology());
 
         awaitPartitionMapExchange();
     }

@@ -220,7 +220,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
         assertEquals(EXIT_CODE_OK, execute("--baseline"));
 
-        assertEquals(1, ignite.cluster().currentBaselineTopology().size());
+        assertEquals(1, ignite.cluster().currentAffinityTopology().size());
     }
 
     /**
@@ -259,7 +259,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
         assertEquals(EXIT_CODE_OK, execute("--baseline", "add", consistentIds(other)));
         assertEquals(EXIT_CODE_OK, execute("--baseline", "add", consistentIds(other)));
 
-        assertEquals(2, ignite.cluster().currentBaselineTopology().size());
+        assertEquals(2, ignite.cluster().currentAffinityTopology().size());
     }
 
     /**
@@ -316,7 +316,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
         assertEquals(EXIT_CODE_OK, execute("--baseline"));
         assertEquals(EXIT_CODE_OK, execute("--baseline", "remove", offlineNodeConsId));
 
-        assertEquals(1, ignite.cluster().currentBaselineTopology().size());
+        assertEquals(1, ignite.cluster().currentAffinityTopology().size());
     }
 
     /**
@@ -335,7 +335,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
         assertEquals(EXIT_CODE_OK, execute("--baseline", "set", consistentIds(ignite, other)));
 
-        assertEquals(2, ignite.cluster().currentBaselineTopology().size());
+        assertEquals(2, ignite.cluster().currentAffinityTopology().size());
 
         assertEquals(EXIT_CODE_UNEXPECTED_ERROR, execute("--baseline", "set", "invalidConsistentId"));
     }
@@ -358,7 +358,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
         assertEquals(EXIT_CODE_OK, execute("--baseline", "version", String.valueOf(ignite.cluster().topologyVersion())));
 
-        assertEquals(2, ignite.cluster().currentBaselineTopology().size());
+        assertEquals(2, ignite.cluster().currentAffinityTopology().size());
     }
 
     /**

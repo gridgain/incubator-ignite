@@ -434,7 +434,7 @@ public class PlatformProcessorImpl extends GridProcessorAdapter implements Platf
             }
 
             case OP_SET_BASELINE_TOPOLOGY_VER: {
-                ctx.grid().cluster().setBaselineTopology(val);
+                ctx.grid().cluster().setAffinityTopology(val);
 
                 return 0;
             }
@@ -469,7 +469,7 @@ public class PlatformProcessorImpl extends GridProcessorAdapter implements Platf
                     nodes.add(new DetachedClusterNode(consId, attrs));
                 }
 
-                ctx.grid().cluster().setBaselineTopology(nodes);
+                ctx.grid().cluster().setAffinityTopology(nodes);
 
                 return 0;
             }
@@ -675,7 +675,7 @@ public class PlatformProcessorImpl extends GridProcessorAdapter implements Platf
             }
 
             case OP_GET_BASELINE_TOPOLOGY: {
-                Collection<BaselineNode> blt = ignite().cluster().currentBaselineTopology();
+                Collection<BaselineNode> blt = ignite().cluster().currentAffinityTopology();
                 writer.writeInt(blt.size());
 
                 for (BaselineNode n : blt) {

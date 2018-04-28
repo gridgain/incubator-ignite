@@ -450,29 +450,6 @@ public interface IgniteCluster extends ClusterGroup, IgniteAsyncSupport {
      */
     public void active(boolean active);
 
-    /**
-     * Gets current baseline topology. If baseline topology was not set, will return {@code null}.
-     *
-     * @return Collection of nodes included to the current baseline topology.
-     */
-    @Nullable public Collection<BaselineNode> currentBaselineTopology();
-
-    /**
-     * Sets baseline topology. The cluster must be activated for this method to be called.
-     *
-     * @param baselineTop A collection of nodes to be included to the baseline topology.
-     */
-    public void setBaselineTopology(Collection<? extends BaselineNode> baselineTop);
-
-    /**
-     * Sets baseline topology constructed from the cluster topology of the given version (the method succeeds
-     * only if the cluster topology has not changed). All client and daemon nodes will be filtered out of the
-     * resulting baseline.
-     *
-     * @param topVer Topology version to set.
-     */
-    public void setBaselineTopology(long topVer);
-
     /** {@inheritDoc} */
     @Deprecated
     @Override public IgniteCluster withAsync();
@@ -523,4 +500,53 @@ public interface IgniteCluster extends ClusterGroup, IgniteAsyncSupport {
      * @see #enableWal(String)
      */
     public boolean isWalEnabled(String cacheName);
+
+    /**
+     * Gets current affinity topology. If affinity topology was not set, will return {@code null}.
+     *
+     * @return Collection of nodes included to the current affinity topology.
+     */
+    @Nullable public Collection<BaselineNode> currentAffinityTopology();
+
+    /**
+     * Sets affinity topology. The cluster must be activated for this method to be called.
+     *
+     * @param affinityTop A collection of nodes to be included to the affinity topology.
+     */
+    public void setAffinityTopology(Collection<? extends BaselineNode> affinityTop);
+
+    /**
+     * Sets affinity topology constructed from the cluster topology of the given version (the method succeeds
+     * only if the cluster topology has not changed). All client and daemon nodes will be filtered out of the
+     * resulting baseline.
+     *
+     * @param topVer Topology version to set.
+     */
+    public void setAffinityTopology(long topVer);
+
+    /**
+     * Gets current affinity topology. If affinity topology was not set, will return {@code null}.
+     *
+     * @return Collection of nodes included to the current affinity topology.
+     */
+    @Deprecated
+    @Nullable public Collection<BaselineNode> currentBaselineTopology();
+
+    /**
+     * Sets affinity topology. The cluster must be activated for this method to be called.
+     *
+     * @param baselineTop A collection of nodes to be included to the affinity topology.
+     */
+    @Deprecated
+    public void setBaselineTopology(Collection<? extends BaselineNode> baselineTop);
+
+    /**
+     * Sets baseline affinity constructed from the cluster topology of the given version (the method succeeds
+     * only if the cluster topology has not changed). All client and daemon nodes will be filtered out of the
+     * resulting affinity topology.
+     *
+     * @param topVer Topology version to set.
+     */
+    @Deprecated
+    public void setBaselineTopology(long topVer);
 }

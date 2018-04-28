@@ -306,7 +306,7 @@ public class GridAffinityAssignmentCache {
         boolean changedBaseline = false;
 
         if (discoCache != null) {
-            hasBaseline = discoCache.state().baselineTopology() != null && persistentCache;
+            hasBaseline = discoCache.state().baselineTopology() != null;
 
             changedBaseline = !hasBaseline ? baselineTopology != null :
                 !discoCache.state().baselineTopology().equals(baselineTopology);

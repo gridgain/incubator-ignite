@@ -261,10 +261,10 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
      * @param blt Blt.
      */
     private void writeBaselineTopology(BaselineTopology blt, BaselineTopologyHistoryItem prevBltHistItem) throws IgniteCheckedException {
-        assert metastorage != null;
-
         if (inMemoryMode)
             return;
+
+        assert metastorage != null;
 
         sharedCtx.database().checkpointReadLock();
 
@@ -344,9 +344,6 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
      */
     private void checkLocalNodeInBaseline(BaselineTopology blt) {
         if (blt == null || blt.consistentIds() == null || ctx.clientNode() || ctx.isDaemon())
-            return;
-
-        if (!CU.isPersistenceEnabled(ctx.config()))
             return;
 
         if (!blt.consistentIds().contains(ctx.discovery().localNode().consistentId())) {
@@ -744,9 +741,6 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
         Collection<? extends BaselineNode> baselineNodes,
         boolean forceChangeBaselineTopology
     ) {
-        if (inMemoryMode)
-            return changeGlobalState0(activate, null, false);
-
         BaselineTopology newBlt = (compatibilityMode && !forceChangeBaselineTopology) ? null :
             calculateNewBaselineTopology(activate, baselineNodes, forceChangeBaselineTopology);
 

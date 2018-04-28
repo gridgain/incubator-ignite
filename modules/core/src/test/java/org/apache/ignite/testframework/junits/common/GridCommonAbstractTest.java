@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -41,6 +42,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteCompute;
+import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.IgniteEvents;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteMessaging;
@@ -112,6 +114,7 @@ import static org.apache.ignite.cache.CacheMode.LOCAL;
 import static org.apache.ignite.cache.CacheRebalanceMode.NONE;
 import static org.apache.ignite.internal.processors.cache.GridCacheUtils.isNearEnabled;
 import static org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager.DFLT_STORE_DIR;
+import static org.apache.ignite.testframework.GridTestUtils.runAsync;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
@@ -121,6 +124,61 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
 public abstract class GridCommonAbstractTest extends GridAbstractTest {
     /** Cache peek modes array that consist of only ONHEAP mode. */
     protected static final CachePeekMode[] ONHEAP_PEEK_MODES = new CachePeekMode[] {CachePeekMode.ONHEAP};
+
+    /**
+     * <pre>
+     * Will fill cache with given name by integers:
+     * * keys - from 0 to entriesCnt;
+     * * value - (0...entriesCnt) * multiplier + shift.
+     * </pre>
+     *
+     * @param ig Ignite instance.
+     * @param cacheName Cache name to fill with data.
+     * @param entriesCnt Entries count to fill by.
+     * @param shift Shift (would be added to each value).
+     * @param multiplier Each value would be multiplied to this number.
+     * @return Future which would be completed when cache actually would be filled.
+     */
+    protected static IgniteInternalFuture loadWithIntsAsync(
+            final Ignite ig,
+            final String cacheName,
+            final int entriesCnt,
+            final int shift,
+            final int multiplier
+    ) {
+        return runAsync(new Runnable() {
+            @Override public void run() {
+                try (IgniteDataStreamer<Object, Object> ldr = ig.dataStreamer(cacheName)) {
+                    ldr.allowOverwrite(true);
+
+                    Map<Object, Object> map = new HashMap<>();
+
+                    for (int i = 0; i < entriesCnt; i++)
+                        map.put(i, i * multiplier + shift);
+
+                    ldr.addData(map);
+                }
+            }
+        });
+    }
+
+
+    /**
+     * <pre>
+     * Will fill cache with given name by integers: keys and values - from 0 to entriesCnt;
+     * </pre>
+     *
+     * @param ig Ignite instance.
+     * @param cacheName Cache name to fill with data.
+     * @param entriesCnt Entries count to fill by.
+     */
+    protected static IgniteInternalFuture loadWithIntsAsync(
+            final Ignite ig,
+            final String cacheName,
+            final int entriesCnt
+    ) {
+        return loadWithIntsAsync(ig, cacheName, entriesCnt, 0, 1);
+    }
 
     /**
      * @param startGrid If {@code true}, then grid node will be auto-started.
