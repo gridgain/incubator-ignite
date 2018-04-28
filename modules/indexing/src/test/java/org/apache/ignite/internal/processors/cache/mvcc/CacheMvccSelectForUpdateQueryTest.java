@@ -183,7 +183,7 @@ public class CacheMvccSelectForUpdateQueryTest extends CacheMvccAbstractTest {
         try (Transaction ignored = node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
             TransactionIsolation.REPEATABLE_READ)) {
 
-            SqlFieldsQuery qry = new SqlFieldsQuery("select id from " + tableName(cache) + " order by id for update")
+            SqlFieldsQuery qry = new SqlFieldsQuery("select id, * from " + tableName(cache) + " order by id for update")
                 .setLocal(true);
 
             List<List<?>> res = cache.query(qry).getAll();

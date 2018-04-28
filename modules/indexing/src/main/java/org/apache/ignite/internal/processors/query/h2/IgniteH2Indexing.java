@@ -2213,22 +2213,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         Prepared prepared = prep.prepared();
 
-        boolean forUpdate = GridSqlQueryParser.isForUpdateQuery(prepared);
-
-        if (forUpdate) {
-            String newQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(prepared);
-
-            assert newQry != null;
-
-            qry = qry.copy().setSql(newQry);
-
-            stmt = prepareStatementAndCaches(c, qry.getSql());
-
-            prep = GridSqlQueryParser.preparedWithRemaining(stmt);
-
-            prepared = prep.prepared();
-        }
-
         checkQueryType(qry, prepared.isQuery());
 
         String remainingSql = prep.remainingSql();
@@ -2325,8 +2309,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             try {
                 GridCacheTwoStepQuery twoStepQry = split(prepared, newQry);
-
-                twoStepQry.forUpdate(forUpdate);
 
                 return new ParsingResult(prepared, newQry, remainingSql, twoStepQry,
                     cachedQryKey, H2Utils.meta(stmt.getMetaData()));
