@@ -30,6 +30,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -621,6 +622,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         if (files == null)
             return Collections.emptyMap();
 
+        Arrays.sort(files);
+
         Map<String, StoredCacheData> ccfgs = new HashMap<>();
 
         for (File file : files) {
@@ -631,7 +634,12 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
                     if (conf.exists() && conf.length() > 0) {
                         StoredCacheData cacheData = readCacheData(conf);
 
-                        ccfgs.put(cacheData.config().getName(), cacheData);
+                        String name = cacheData.config().getName();
+
+                        if (ccfgs.containsKey(name))
+                            U.warn(log, "cache with name " + name + "already exists! Skip duplicate cache from file: " + file);
+                        else
+                            ccfgs.put(name, cacheData);
                     }
                 }
                 else if (file.getName().startsWith(CACHE_GRP_DIR_PREFIX))
@@ -657,7 +665,12 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
             if (!file.isDirectory() && file.getName().endsWith(CACHE_DATA_FILENAME) && file.length() > 0) {
                 StoredCacheData cacheData = readCacheData(file);
 
-                ccfgs.put(cacheData.config().getName(), cacheData);
+                String name = cacheData.config().getName();
+
+                if (ccfgs.containsKey(name))
+                    U.warn(log, "cache with name " + name + "already exists! Skip duplicate cache in  group: " + grpDir + ", file: " + file);
+                else
+                    ccfgs.put(name, cacheData);
             }
         }
     }
