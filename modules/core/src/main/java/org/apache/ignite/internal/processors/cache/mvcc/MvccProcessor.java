@@ -19,14 +19,14 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -74,11 +74,11 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.GridAtomicLong;
 import org.apache.ignite.internal.util.GridLongList;
-import org.apache.ignite.internal.util.GridSpinReadWriteLock;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridCompoundIdentityFuture;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
+import org.apache.ignite.internal.util.snaptree.SnapTreeMap;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -88,6 +88,7 @@ import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.discovery.DiscoveryDataBag;
 import org.apache.ignite.thread.IgniteThread;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.events.EventType.EVT_CLIENT_NODE_DISCONNECTED;
@@ -109,17 +110,14 @@ import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LO
     public static final GridCacheVersion DUMMY_VER = new GridCacheVersion(0, 0, 0);
 
     /** */
-    private static final BiFunction<List<LockFuture>, List<LockFuture>, List<LockFuture>> CONC =
-        new BiFunction<List<LockFuture>, List<LockFuture>, List<LockFuture>>() {
-        /** {@inheritDoc} */
-        @Override public List<LockFuture> apply(List<LockFuture> l1, List<LockFuture> l2) {
-            ArrayList<LockFuture> res = new ArrayList<>(l1.size() + l2.size());
+    private static final BiFunction<List<LockFuture>, List<LockFuture>, List<LockFuture>> CONC = (l1, l2) ->
+    {
+        ArrayList<LockFuture> res = new ArrayList<>(l1.size() + l2.size());
 
-            res.addAll(l1);
-            res.addAll(l2);
+        res.addAll(l1);
+        res.addAll(l2);
 
-            return res;
-        }
+        return res;
     };
 
     /** */
@@ -144,10 +142,10 @@ import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LO
     private final AtomicLong mvccCntr = new AtomicLong(MVCC_START_CNTR);
 
     /** */
-    private final GridAtomicLong committedCntr = new GridAtomicLong(MVCC_START_CNTR);
+    private final GridAtomicLong committedCntr = new GridAtomicLong(MVCC_COUNTER_NA);
 
     /** */
-    private final Map<Long, Long> activeTxs = new ConcurrentHashMap<>();
+    private final SnapTreeMap<Long, Long> activeTxs = new SnapTreeMap<>();
 
     /** */
     private final ActiveQueries activeQueries = new ActiveQueries();
@@ -169,9 +167,6 @@ import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LO
 
     /** */
     private final AtomicLong futIdCntr = new AtomicLong(0);
-
-    /** */
-    private final GridSpinReadWriteLock lock = new GridSpinReadWriteLock();
 
     /** */
     private final CountDownLatch crdLatch = new CountDownLatch(1);
@@ -786,33 +781,43 @@ import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LO
     private MvccSnapshotResponse assignTxSnapshot(long futId) {
         assert crdVer != 0;
 
-        MvccSnapshotResponse res = new MvccSnapshotResponse();
+        long ver0 = MVCC_COUNTER_NA;
 
-        lock.writeLock();
+        while(true) {
+            long ver = mvccCntr.get();
 
-        long ver = mvccCntr.incrementAndGet(), tracking = ver, cleanup = committedCntr.get() + 1;
+            if (ver == ver0)
+                continue; // waiting in a spin loop until another thread increments counter
 
-        for (Map.Entry<Long, Long> txVer : activeTxs.entrySet()) {
-            cleanup = Math.min(txVer.getValue(), cleanup);
-            tracking = Math.min(txVer.getKey(), tracking);
+            long cleanup = committedCntr.get() + 1, tracking = ver;
 
-            res.addTx(txVer.getKey());
+            MvccSnapshotResponse res = new MvccSnapshotResponse();
+            Iterator<Map.Entry<Long, Long>> it= activeTxs.entrySet().iterator();
+
+            if (it.hasNext()) {
+                Map.Entry<Long, Long> first = it.next();
+
+                res.addTx(tracking = first.getKey());
+
+                cleanup = Math.min(first.getValue(), cleanup); // first entry has minimal possible cleanup version.
+            }
+
+            if(activeTxs.putIfAbsent(ver, tracking) == null) {
+                mvccCntr.incrementAndGet();
+
+                while (it.hasNext()) {
+                    res.addTx(it.next().getKey());
+                }
+
+                cleanup = Math.min(cleanup, activeQueries.minimalQueryCounter());
+
+                res.init(futId, crdVer, ver, MVCC_START_OP_CNTR, cleanup - 1);
+
+                return res;
+            }
+
+            ver0 = ver;
         }
-
-        boolean add = activeTxs.put(ver, tracking) == null;
-
-        lock.writeUnlock();
-
-        assert add : ver;
-
-        long minQry = activeQueries.minimalQueryCounter();
-
-        if (minQry != -1)
-            cleanup = Math.min(cleanup, minQry);
-
-        res.init(futId, crdVer, ver, MVCC_START_OP_CNTR, cleanup - 1);
-
-        return res;
     }
 
     /**
@@ -821,14 +826,10 @@ import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LO
     private void onTxDone(Long txCntr, boolean committed) {
         GridFutureAdapter fut;
 
-        lock.readLock();
-
         activeTxs.remove(txCntr);
 
         if (committed)
             committedCntr.setIfGreater(txCntr);
-
-        lock.readUnlock();
 
         fut = waitTxFuts.remove(txCntr);
 
@@ -977,104 +978,134 @@ import static org.apache.ignite.internal.processors.cache.mvcc.txlog.TxLog.TX_LO
         this.vacuumError = e;
     }
 
+    /** */
+    private static class QueryKey implements Comparable {
+        /** */
+        final UUID nodeId;
+
+        /** */
+        final long ver;
+
+        /**
+         * @param id Node Id.
+         * @param ver Mvcc counter.
+         */
+        QueryKey(UUID id, long ver) {
+            nodeId = id;
+            this.ver = ver;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
+
+            QueryKey key = (QueryKey)o;
+
+            if (ver != key.ver)
+                return false;
+            return nodeId != null ? nodeId.equals(key.nodeId) : key.nodeId == null;
+        }
+
+        /** {@inheritDoc} */
+        @Override public int hashCode() {
+            int result = nodeId != null ? nodeId.hashCode() : 0;
+            result = 31 * result + (int)(ver ^ (ver >>> 32));
+            return result;
+        }
+
+        /** {@inheritDoc} */
+        @Override public int compareTo(@NotNull Object o) {
+            QueryKey other = (QueryKey)o;
+
+            int cmp = Long.compare(ver, other.ver);
+
+            if (cmp != 0)
+                return cmp;
+
+            return nodeId.compareTo(other.nodeId);
+        }
+    }
+
     /**
      *
      */
-    class ActiveQueries {
+    private class ActiveQueries {
         /** */
-        private final Map<UUID, TreeMap<Long, AtomicInteger>> activeQueries = new HashMap<>();
+        private final ConcurrentSkipListMap<QueryKey, AtomicInteger> activeQueries = new ConcurrentSkipListMap<>();
 
         /** */
-        private Long minQry;
+        long minimalQueryCounter() {
+            Map.Entry<QueryKey, AtomicInteger> first = activeQueries.firstEntry();
 
-        synchronized long minimalQueryCounter() {
-            return minQry == null ? -1 : minQry;
+            return first == null ? Long.MAX_VALUE : first.getKey().ver;
         }
 
-        synchronized MvccSnapshotResponse assignQueryCounter(UUID nodeId, long futId) {
-            MvccSnapshotResponse res = new MvccSnapshotResponse();
+        /** */
+        MvccSnapshotResponse assignQueryCounter(UUID nodeId, long futId) {
+            while (true) {
+                long ver = committedCntr.get(), tracking = ver;
 
-            lock.writeLock();
+                MvccSnapshotResponse res = new MvccSnapshotResponse();
+                Iterator<Long> it = activeTxs.keySet().iterator();
+                Long first = it.hasNext() ? it.next() : null;
 
-            long ver = committedCntr.get(), tracking = ver;
+                if (first != null && first < ver)
+                    res.addTx(tracking = first);
 
-            for (Long txVer : activeTxs.keySet()) {
-                assert txVer != ver;
+                if (addActive(new QueryKey(nodeId, tracking))) {
+                    while (it.hasNext()) {
+                        Long txVer = it.next();
 
-                if (txVer < ver) {
-                    tracking = Math.min(txVer, tracking);
-                    res.addTx(txVer);
+                        assert txVer != ver;
+
+                        if (txVer > ver)
+                            break;
+
+                        res.addTx(txVer);
+                    }
+
+                    res.init(futId, crdVer, ver, MVCC_READ_OP_CNTR, MVCC_COUNTER_NA);
+
+                    return res;
                 }
             }
-
-            lock.writeUnlock();
-
-            TreeMap<Long, AtomicInteger> nodeMap = activeQueries.get(nodeId);
-
-            if (nodeMap == null) {
-                activeQueries.put(nodeId, nodeMap = new TreeMap<>());
-
-                nodeMap.put(tracking, new AtomicInteger(1));
-            }
-            else {
-                AtomicInteger cntr = nodeMap.get(tracking);
-
-                if (cntr == null)
-                    nodeMap.put(tracking, new AtomicInteger(1));
-                else
-                    cntr.incrementAndGet();
-            }
-
-            if (minQry == null)
-                minQry = tracking;
-
-            res.init(futId, crdVer, ver, MVCC_READ_OP_CNTR, MVCC_COUNTER_NA);
-
-            return res;
         }
 
-        synchronized void onQueryDone(UUID nodeId, Long ver) {
-            TreeMap<Long, AtomicInteger> nodeMap = activeQueries.get(nodeId);
+        /** */
+        void onQueryDone(UUID nodeId, Long ver) {
+            QueryKey key = new QueryKey(nodeId, ver);
 
-            if (nodeMap == null)
-                return;
+            AtomicInteger cntr = activeQueries.get(key);
 
-            assert minQry != null;
+            assert cntr == null || cntr.get() > 0;
 
-            AtomicInteger cntr = nodeMap.get(ver);
-
-            assert cntr != null && cntr.get() > 0;
-
-            if (cntr.decrementAndGet() == 0) {
-                nodeMap.remove(ver);
-
-                if (nodeMap.isEmpty())
-                    activeQueries.remove(nodeId);
-
-                if (ver.equals(minQry))
-                    minQry = activeMinimal();
-            }
-
-
+            if (cntr != null && cntr.decrementAndGet() == 0)
+                activeQueries.remove(key);
         }
 
-        synchronized void onNodeFailed(UUID nodeId) {
-            activeQueries.remove(nodeId);
-
-            minQry = activeMinimal();
+        /** */
+        void onNodeFailed(UUID nodeId) {
+            activeQueries.entrySet().removeIf(entry -> entry.getKey().nodeId.equals(nodeId));
         }
 
-        private Long activeMinimal() {
-            Long min = null;
+        /** */
+        private boolean addActive(QueryKey key) {
+            AtomicInteger cntr = activeQueries.putIfAbsent(key, new AtomicInteger(1));
 
-            for (TreeMap<Long,AtomicInteger> s : activeQueries.values()) {
-                Long first = s.firstKey();
+            if (cntr == null)
+                return true;
 
-                if (min == null || first < min)
-                    min = first;
+            while (true){
+                int cntr0 = cntr.get();
+
+                if (cntr0 != 0 && !cntr.compareAndSet(cntr0, cntr0 + 1))
+                    continue;
+
+                return cntr0 != 0;
             }
-
-            return min;
         }
     }
 
