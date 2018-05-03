@@ -3081,6 +3081,8 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             if (end != null && curWalSegmIdx + 1 > end.index())
                 return null; //stop iteration
 
+            log.info("AdvanceSegment - idx " + curWalSegment);
+
             curWalSegmIdx++;
 
             FileDescriptor fd;
@@ -3099,8 +3101,8 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                     curWalSegmIdx);
             }
 
-            if (log.isDebugEnabled())
-                log.debug("Reading next file [absIdx=" + curWalSegmIdx + ", file=" + fd.file.getAbsolutePath() + ']');
+            if (log.isInfoEnabled())
+                log.info("Reading next file [absIdx=" + curWalSegmIdx + ", file=" + fd.file.getAbsolutePath() + ']');
 
             ReadFileHandle nextHandle;
 
