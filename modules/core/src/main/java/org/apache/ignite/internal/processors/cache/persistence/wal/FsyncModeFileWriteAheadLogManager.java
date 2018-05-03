@@ -852,6 +852,14 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
         return ctx != null && !ctx.walEnabled();
     }
 
+    @Override public File work() {
+        return walWorkDir;
+    }
+
+    @Override public File archive() {
+        return walArchiveDir;
+    }
+
     /**
      * Lists files in archive directory and returns the index of last archived file.
      *

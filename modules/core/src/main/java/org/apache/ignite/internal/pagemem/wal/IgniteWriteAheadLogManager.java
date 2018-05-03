@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagemem.wal;
 
+import java.io.File;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
@@ -134,4 +135,8 @@ public interface IgniteWriteAheadLogManager extends GridCacheSharedManager, Igni
      * @param grpId Group id.
      */
     public boolean disabled(int grpId);
+
+    public File work();
+
+    public File archive();
 }
