@@ -209,7 +209,7 @@ public class H2TableDescriptor implements GridH2SystemIndexFactory {
 
         idxs.add(pkIdx);
 
-        if (type().valueClass() == String.class) {
+        if (type().valueClass() == String.class && type.valueTextIndex()) {
             try {
                 luceneIdx = new GridLuceneIndex(idx.kernalContext(), tbl.cacheName(), type);
             }
