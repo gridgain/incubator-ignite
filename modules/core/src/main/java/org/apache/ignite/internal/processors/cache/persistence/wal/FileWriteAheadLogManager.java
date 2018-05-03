@@ -1563,16 +1563,16 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                                 wait();
                         }
 
-                        // Firstly, format working file
-                        if (!stopped)
-                            formatFile(res.getOrigWorkFile());
-
                         synchronized (this) {
                             // Then increase counter to allow rollover on clean working file
                             changeLastArchivedIndexAndNotifyWaiters(toArchive);
 
                             notifyAll();
                         }
+
+                        // Firstly, format working file
+                        if (!stopped)
+                            formatFile(res.getOrigWorkFile());
 
                         if (evt.isRecordable(EventType.EVT_WAL_SEGMENT_ARCHIVED))
                             evt.record(new WalSegmentArchivedEvent(cctx.discovery().localNode(),
@@ -1680,8 +1680,8 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
                 locked.put(absIdx, cur);
 
-                if (log.isDebugEnabled())
-                    log.debug("Reserved work segment [absIdx=" + absIdx + ", pins=" + cur + ']');
+                if (log.isInfoEnabled())
+                    log.info("Reserved work segment [absIdx=" + absIdx + ", pins=" + cur + ']');
 
                 return false;
             }
