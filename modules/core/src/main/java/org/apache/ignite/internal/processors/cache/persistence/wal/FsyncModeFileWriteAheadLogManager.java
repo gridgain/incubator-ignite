@@ -2456,8 +2456,12 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
 
                 rec.position(ptr);
 
-                if (head.compareAndSet(h, rec))
+                if (head.compareAndSet(h, rec)) {
+                    if (rec.type() == WALRecord.RecordType.DATA_RECORD)
+                        log.info("Data record logged - " + rec.position());
+
                     return ptr;
+                }
             }
         }
 
