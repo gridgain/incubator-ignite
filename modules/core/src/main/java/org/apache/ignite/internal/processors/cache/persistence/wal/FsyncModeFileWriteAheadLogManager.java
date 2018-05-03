@@ -3183,6 +3183,8 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
             if (end != null && curWalSegmIdx + 1 > end.index())
                 return null; //stop iteration
 
+            log.info("AdvanceSegment - idx " + curWalSegment);
+
             curWalSegmIdx++;
 
             FileDescriptor fd;
@@ -3199,8 +3201,7 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
                     curWalSegmIdx);
             }
 
-            if (log.isDebugEnabled())
-                log.debug("Reading next file [absIdx=" + curWalSegmIdx + ", file=" + fd.file().getAbsolutePath() + ']');
+            log.info("Reading next file [absIdx=" + curWalSegmIdx + ", file=" + fd.file().getAbsolutePath() + ']');
 
             ReadFileHandle nextHandle;
 
