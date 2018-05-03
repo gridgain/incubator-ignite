@@ -3081,7 +3081,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             if (end != null && curWalSegmIdx + 1 > end.index())
                 return null; //stop iteration
 
-            log.info("AdvanceSegment - idx " + curWalSegment);
+            log.info("AdvanceSegment - idx " + curWalSegmIdx);
 
             curWalSegmIdx++;
 

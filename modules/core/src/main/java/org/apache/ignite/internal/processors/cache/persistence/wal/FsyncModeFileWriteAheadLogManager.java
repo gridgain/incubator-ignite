@@ -3183,7 +3183,7 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
             if (end != null && curWalSegmIdx + 1 > end.index())
                 return null; //stop iteration
 
-            log.info("AdvanceSegment - idx " + curWalSegment);
+            log.info("AdvanceSegment - idx " + curWalSegmIdx);
 
             curWalSegmIdx++;
 
