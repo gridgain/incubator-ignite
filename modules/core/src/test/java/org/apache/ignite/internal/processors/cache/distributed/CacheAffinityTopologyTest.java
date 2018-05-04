@@ -455,7 +455,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
         ignite.createCache(cacheCfg);
 
-        manualCacheRebalancing(ignite, CACHE_NAME);
+        manualCacheRebalancing(ignite, cacheName);
 
         int key = -1;
 
@@ -629,7 +629,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
         IgniteEx primary = null;
         IgniteEx backup = null;
 
-        manualCacheRebalancing(ig, CACHE_NAME);
+        manualCacheRebalancing(ig, cacheName);
 
         for (int i = 0; i < NODE_COUNT; i++) {
             if (grid(i).localNode().equals(affNodes.get(0))) {
@@ -671,7 +671,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
         assertEquals(backup.localNode(), ig.affinity(cacheName).mapKeyToNode(key));
 
-        manualCacheRebalancing(ig, CACHE_NAME);
+        manualCacheRebalancing(ig, cacheName);
 
         awaitPartitionMapExchange();
 
@@ -718,7 +718,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
         IgniteEx primary = null;
         IgniteEx backup = null;
 
-        manualCacheRebalancing(ig, CACHE_NAME);
+        manualCacheRebalancing(ig, cacheName);
 
         for (int i = 0; i < NODE_COUNT; i++) {
             if (grid(i).localNode().equals(affNodes.get(0))) {
@@ -782,7 +782,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
         assertEquals(val2, primary.cache(cacheName).get(key));
         assertEquals(val2, backup.cache(cacheName).get(key));
 
-        manualCacheRebalancing(ig, CACHE_NAME);
+        manualCacheRebalancing(ig, cacheName);
 
         awaitPartitionMapExchange();
 
