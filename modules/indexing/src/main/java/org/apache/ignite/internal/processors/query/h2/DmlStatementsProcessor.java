@@ -67,7 +67,6 @@ import org.apache.ignite.internal.processors.query.GridQueryFieldsResult;
 import org.apache.ignite.internal.processors.query.GridQueryFieldsResultAdapter;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
-import org.apache.ignite.internal.processors.query.UpdateSourceIteratorAdapter;
 import org.apache.ignite.internal.processors.query.h2.dml.DmlBatchSender;
 import org.apache.ignite.internal.processors.query.h2.dml.DmlDistributedPlanInfo;
 import org.apache.ignite.internal.processors.query.h2.dml.DmlUtils;
@@ -80,7 +79,6 @@ import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryReq
 import org.apache.ignite.internal.sql.command.SqlBulkLoadCommand;
 import org.apache.ignite.internal.sql.command.SqlCommand;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashMap;
-import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.lang.IgniteClosureX;
 import org.apache.ignite.internal.util.lang.IgniteSingletonIterator;
 import org.apache.ignite.internal.util.typedef.F;
@@ -166,13 +164,6 @@ public class DmlStatementsProcessor {
     private UpdateResult updateSqlFields(String schemaName, Connection conn, Prepared prepared,
         SqlFieldsQuery fieldsQry, boolean loc, IndexingQueryFilter filters, GridQueryCancel cancel)
         throws IgniteCheckedException {
-        // TODO IGNITE-7604 SQL TX: Allow DML operations with reducer
-        if (GridSqlQueryParser.dmlTable(prepared).cache().mvccEnabled()) {
-            fieldsQry = fieldsQueryEx(fieldsQry, false);
-
-            ((SqlFieldsQueryEx)fieldsQry).setSkipReducerOnUpdate(true);
-        }
-
         Object[] errKeys = null;
 
         long items = 0;
@@ -537,30 +528,27 @@ public class DmlStatementsProcessor {
                         cctx.shared().coordinators().currentCoordinator(),
                         mvccSnapshot);
 
-                    UpdateSourceIterator<IgniteBiTuple> it;
+                    UpdateSourceIterator<?> it;
 
                     GridCacheOperation op = cacheOperation(plan.mode());
 
                     if (plan.fastResult())
                         it = new DmlUpdateSingleEntryIterator<>(op, plan.getFastRow(fieldsQry.getArgs()));
+                    else if (plan.hasRows())
+                        it = new DmlUpdateResultsIterator(op, plan, plan.createRows(fieldsQry.getArgs()));
                     else {
-                        if (plan.hasRows())
-                            it = new DmlUpdateResultsIterator(op, plan, plan.createRows(fieldsQry.getArgs()));
-                        else {
-                            SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(),
-                                fieldsQry.isCollocated())
-                                .setArgs(fieldsQry.getArgs())
-                                .setDistributedJoins(fieldsQry.isDistributedJoins())
-                                .setEnforceJoinOrder(fieldsQry.isEnforceJoinOrder())
-                                .setLocal(fieldsQry.isLocal())
-                                .setPageSize(fieldsQry.getPageSize())
-                                .setTimeout((int)timeout, TimeUnit.MILLISECONDS);
+                        SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(), fieldsQry.isCollocated())
+                            .setArgs(fieldsQry.getArgs())
+                            .setDistributedJoins(fieldsQry.isDistributedJoins())
+                            .setEnforceJoinOrder(fieldsQry.isEnforceJoinOrder())
+                            .setLocal(fieldsQry.isLocal())
+                            .setPageSize(fieldsQry.getPageSize())
+                            .setTimeout((int)timeout, TimeUnit.MILLISECONDS);
 
-                            FieldsQueryCursor cur = idx.querySqlFields(schemaName, newFieldsQry, null, true,
-                                true, mvccQueryTracker, cancel).get(0);
+                        QueryCursorImpl<List<?>> cur = (QueryCursorImpl<List<?>>)idx.querySqlFields(schemaName,
+                            newFieldsQry, null, true, true, mvccQueryTracker, cancel).get(0);
 
-                            it = new UpdateIteratorAdapter<>(op, new TxDmlReducerIterator(plan, cur));
-                        }
+                        it = plan.iteratorForTransaction(idx, cur, cacheOperation(plan.mode()));
                     }
 
                     tx.addActiveCache(cctx, false);
@@ -1190,32 +1178,7 @@ public class DmlStatementsProcessor {
             }, cancel);
         }
 
-        return new UpdateIteratorAdapter(cacheOperation(plan.mode()), plan.iteratorForTransaction(cur, topVer));
-    }
-
-    /**
-     * @param fieldsQuery Fields query.
-     * @param isQuery Is query flag.
-     * @return Extended fields query.
-     */
-    private SqlFieldsQueryEx fieldsQueryEx(SqlFieldsQuery fieldsQuery, boolean isQuery) {
-        if (!(fieldsQuery instanceof SqlFieldsQueryEx)) {
-            SqlFieldsQueryEx tmp = new SqlFieldsQueryEx(fieldsQuery.getSql(), isQuery);
-
-            tmp.setSchema(fieldsQuery.getSchema());
-            tmp.setCollocated(fieldsQuery.isCollocated());
-            tmp.setDistributedJoins(fieldsQuery.isDistributedJoins());
-            tmp.setEnforceJoinOrder(fieldsQuery.isEnforceJoinOrder());
-            tmp.setTimeout(fieldsQuery.getTimeout(), TimeUnit.MILLISECONDS);
-            tmp.setLocal(fieldsQuery.isLocal());
-            tmp.setLazy(fieldsQuery.isLazy());
-            tmp.setPageSize(fieldsQuery.getPageSize());
-            tmp.setArgs(fieldsQuery.getArgs());
-
-            fieldsQuery = tmp;
-        }
-
-        return (SqlFieldsQueryEx) fieldsQuery;
+        return plan.iteratorForTransaction(idx, cur, cacheOperation(plan.mode()));
     }
 
     /**
@@ -1448,40 +1411,8 @@ public class DmlStatementsProcessor {
     }
 
     /** */
-    private class UpdateIteratorAdapter<T> extends UpdateSourceIteratorAdapter<T> {
-        /** */
-        private static final long serialVersionUID = 6035896197816149820L;
-
-        /** */
-        private volatile Connection conn;
-
-        /** */
-        UpdateIteratorAdapter(GridCacheOperation op, GridCloseableIterator<T> it) {
-            super(op, it);
-        }
-
-        /** {@inheritDoc} */
-        @Override public void beforeDetach() {
-            Connection conn0 = conn = idx.detach();
-
-            if (isClosed()) // Double check
-                U.close(conn0, log);
-        }
-
-        /** {@inheritDoc} */
-        @Override protected void onClose() throws IgniteCheckedException {
-            super.onClose();
-
-            Connection conn0 = conn;
-
-            if (conn0 != null)
-                U.close(conn0, log);
-        }
-    }
-
-    /** */
     private static class DmlUpdateResultsIterator
-        implements UpdateSourceIterator<IgniteBiTuple> {
+        implements UpdateSourceIterator<Object> {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -1527,7 +1458,7 @@ public class DmlStatementsProcessor {
         }
 
         /** {@inheritDoc} */
-        public IgniteBiTuple nextX() throws IgniteCheckedException {
+        public Object nextX() throws IgniteCheckedException {
             return plan.processRowForTx(it.next());
         }
 
@@ -1547,7 +1478,7 @@ public class DmlStatementsProcessor {
         }
 
         /** {@inheritDoc} */
-        @NotNull @Override public Iterator<IgniteBiTuple> iterator() {
+        @NotNull @Override public Iterator<Object> iterator() {
             throw new UnsupportedOperationException("not implemented");
         }
     }
