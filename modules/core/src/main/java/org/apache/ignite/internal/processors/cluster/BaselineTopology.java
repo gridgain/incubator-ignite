@@ -273,7 +273,7 @@ public class BaselineTopology implements Serializable {
     /**
      *
      */
-    public List<BaselineNode> currentBaseline() {
+    public List<BaselineNode> currentAffinityTopology() {
         List<BaselineNode> res = new ArrayList<>();
 
         for (Map.Entry<Object, Map<String, Object>> consIdAttrsEntry : nodeMap.entrySet())
@@ -286,7 +286,7 @@ public class BaselineTopology implements Serializable {
      * @param consId Consistent ID.
      * @return Baseline node, if present in the baseline, or {@code null} if absent.
      */
-    public ClusterNode baselineNode(Object consId) {
+    public ClusterNode affinityNode(Object consId) {
         Map<String, Object> attrs = nodeMap.get(consId);
 
         return attrs != null ? new DetachedClusterNode(consId, attrs) : null;
@@ -295,28 +295,30 @@ public class BaselineTopology implements Serializable {
     /**
      * @param aliveNodes Sorted list of currently alive nodes.
      * @param nodeFilter Node filter.
-     * @return Sorted list of baseline topology nodes.
+     * @return Sorted list of affinity topology nodes.
      */
-    public List<ClusterNode> createBaselineView(
+    public List<ClusterNode> createAffinityTopologyView(
         List<ClusterNode> aliveNodes,
-        @Nullable IgnitePredicate<ClusterNode> nodeFilter)
-    {
-        List<ClusterNode> res = new ArrayList<>(nodeMap.size());
+        @Nullable IgnitePredicate<ClusterNode> nodeFilter
+    ) {
+        if (aliveNodes.size() >= nodeMap.size()) {
+            List<ClusterNode> res = new ArrayList<>(nodeMap.size());
 
-        for (ClusterNode node : aliveNodes) {
-            if (nodeMap.containsKey(node.consistentId()) && (nodeFilter == null || CU.affinityNode(node, nodeFilter)))
-                res.add(node);
+            for (ClusterNode node : aliveNodes) {
+                if (nodeMap.containsKey(node.consistentId()) && (nodeFilter == null || CU.cacheApplicableNode(node, nodeFilter)))
+                    res.add(node);
+            }
+
+            assert res.size() <= nodeMap.size();
+
+            if (res.size() == nodeMap.size())
+                return res;
         }
-
-        assert res.size() <= nodeMap.size();
-
-        if (res.size() == nodeMap.size())
-            return res;
 
         Map<Object, ClusterNode> consIdMap = new HashMap<>();
 
         for (ClusterNode node : aliveNodes) {
-            if (nodeMap.containsKey(node.consistentId()) && (nodeFilter == null || CU.affinityNode(node, nodeFilter)))
+            if (nodeMap.containsKey(node.consistentId()) && (nodeFilter == null || CU.cacheApplicableNode(node, nodeFilter)))
                 consIdMap.put(node.consistentId(), node);
         }
 
@@ -326,12 +328,12 @@ public class BaselineTopology implements Serializable {
             if (!consIdMap.containsKey(consId)) {
                 DetachedClusterNode node = new DetachedClusterNode(consId, e.getValue());
 
-                if (nodeFilter == null || CU.affinityNode(node, nodeFilter))
+                if (nodeFilter == null || CU.cacheApplicableNode(node, nodeFilter))
                     consIdMap.put(consId, node);
             }
         }
 
-        res = new ArrayList<>();
+        List<ClusterNode> res = new ArrayList<>();
 
         res.addAll(consIdMap.values());
 
@@ -479,6 +481,6 @@ public class BaselineTopology implements Serializable {
         return "BaselineTopology [id=" + id
             + ", branchingHash=" + branchingPntHash
             + ", branchingType='" + lastBranchingPointType + '\''
-            + ", baselineNodes=" + nodeMap.keySet() + ']';
+            + ", affinityNodes=" + nodeMap.keySet() + ']';
     }
 }

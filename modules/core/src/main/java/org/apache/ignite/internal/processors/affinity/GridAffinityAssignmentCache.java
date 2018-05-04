@@ -96,7 +96,7 @@ public class GridAffinityAssignmentCache {
     private List<List<ClusterNode>> idealAssignment;
 
     /** */
-    private BaselineTopology baselineTopology;
+    private BaselineTopology affinityTopology;
 
     /** */
     private List<List<ClusterNode>> baselineAssignment;
@@ -312,14 +312,14 @@ public class GridAffinityAssignmentCache {
         else
             sorted = Collections.singletonList(ctx.discovery().localNode());
 
-        boolean hasBaseline = false;
+        boolean hasAffinityTopology = false;
         boolean changedBaseline = false;
 
         if (discoCache != null) {
-            hasBaseline = discoCache.state().baselineTopology() != null;
+            hasAffinityTopology = discoCache.state().affinityTopology() != null;
 
-            changedBaseline = !hasBaseline ? baselineTopology != null :
-                !discoCache.state().baselineTopology().equals(baselineTopology);
+            changedBaseline = !hasAffinityTopology? affinityTopology != null :
+                !discoCache.state().affinityTopology().equals(affinityTopology);
         }
 
         List<List<ClusterNode>> assignment;
@@ -330,7 +330,7 @@ public class GridAffinityAssignmentCache {
             boolean skipCalculation = true;
 
             for (DiscoveryEvent event : events.events()) {
-                boolean affinityNode = CU.affinityNode(event.eventNode(), nodeFilter);
+                boolean affinityNode = CU.cacheAffinityNode(event.eventNode(), discoCache, nodeFilter);
 
                 if (affinityNode || event.type() == EVT_DISCOVERY_CUSTOM_EVT) {
                     skipCalculation = false;
@@ -341,17 +341,17 @@ public class GridAffinityAssignmentCache {
 
             if (skipCalculation)
                 assignment = prevAssignment;
-            else if (hasBaseline && !changedBaseline) {
+            else if (hasAffinityTopology && !changedBaseline) {
                 if (baselineAssignment == null)
                     baselineAssignment = aff.assignPartitions(new GridAffinityFunctionContextImpl(
-                        discoCache.state().baselineTopology().createBaselineView(sorted, nodeFilter),
+                        discoCache.state().affinityTopology().createAffinityTopologyView(sorted, nodeFilter),
                         prevAssignment, events.lastEvent(), topVer, backups));
 
                 assignment = currentBaselineAssignment(topVer);
             }
-            else if (hasBaseline && changedBaseline) {
+            else if (hasAffinityTopology && changedBaseline) {
                 baselineAssignment = aff.assignPartitions(new GridAffinityFunctionContextImpl(
-                    discoCache.state().baselineTopology().createBaselineView(sorted, nodeFilter),
+                    discoCache.state().affinityTopology().createAffinityTopologyView(sorted, nodeFilter),
                     prevAssignment, events.lastEvent(), topVer, backups));
 
                 assignment = currentBaselineAssignment(topVer);
@@ -367,9 +367,9 @@ public class GridAffinityAssignmentCache {
             if (events != null)
                 event = events.lastEvent();
 
-            if (hasBaseline) {
+            if (hasAffinityTopology) {
                 baselineAssignment = aff.assignPartitions(new GridAffinityFunctionContextImpl(
-                    discoCache.state().baselineTopology().createBaselineView(sorted, nodeFilter),
+                    discoCache.state().affinityTopology().createAffinityTopologyView(sorted, nodeFilter),
                     prevAssignment, event, topVer, backups));
 
                 assignment = currentBaselineAssignment(topVer);
@@ -387,12 +387,12 @@ public class GridAffinityAssignmentCache {
         if (ctx.cache().cacheMode(cacheOrGrpName) == PARTITIONED && !ctx.clientNode())
             printDistributionIfThresholdExceeded(assignment, sorted.size());
 
-        if (hasBaseline) {
-            baselineTopology = discoCache.state().baselineTopology();
+        if (hasAffinityTopology) {
+            affinityTopology = discoCache.state().affinityTopology();
             assert baselineAssignment != null;
         }
         else {
-            baselineTopology = null;
+            affinityTopology = null;
             baselineAssignment = null;
         }
 

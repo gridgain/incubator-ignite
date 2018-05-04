@@ -480,9 +480,8 @@ public class WalStateManager extends GridCacheSharedManagerAdapter {
 
                 assert grpDesc != null;
 
-                IgnitePredicate<ClusterNode> nodeFilter = grpDesc.config().getNodeFilter();
-
-                boolean affNode = srv && (nodeFilter == null || nodeFilter.apply(cctx.localNode()));
+                boolean affNode = GridCacheUtils.cacheAffinityNode(cctx.localNode(),
+                    cctx.discovery().discoCache(), grpDesc.config().getNodeFilter());
 
                 msg.affinityNode(affNode);
 

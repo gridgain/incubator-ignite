@@ -236,7 +236,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
             return;
         }
 
-        writeBaselineTopology(globalState.baselineTopology(), null);
+        writeBaselineTopology(globalState.affinityTopology(), null);
 
         bltHist.flushHistoryItems(metastorage);
     }
@@ -248,9 +248,9 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
      */
     public void resetBranchingHistory(long newBranchingHash) throws IgniteCheckedException {
         if (!compatibilityMode()) {
-            globalState.baselineTopology().resetBranchingHistory(newBranchingHash);
+            globalState.affinityTopology().resetBranchingHistory(newBranchingHash);
 
-            writeBaselineTopology(globalState.baselineTopology(), null);
+            writeBaselineTopology(globalState.affinityTopology(), null);
 
             U.log(log,
                 String.format("Branching history of current BaselineTopology is reset to the value %d", newBranchingHash));
@@ -322,7 +322,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
         final DiscoveryDataClusterState state = globalState;
 
         if (state.active())
-            checkLocalNodeInBaseline(state.baselineTopology());
+            checkLocalNodeInBaseline(state.affinityTopology());
 
         if (state.transition()) {
             joinFut = new TransitionOnJoinWaitFuture(state, discoCache);
@@ -333,8 +333,8 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
                 && !ctx.isDaemon()
                 && ctx.config().isAutoActivationEnabled()
                 && !state.active()
-                && isBaselineSatisfied(state.baselineTopology(), discoCache.serverNodes()))
-                changeGlobalState0(true, state.baselineTopology(), false);
+                && isBaselineSatisfied(state.affinityTopology(), discoCache.serverNodes()))
+                changeGlobalState0(true, state.affinityTopology(), false);
 
         return null;
     }
@@ -503,14 +503,14 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
                     log.info("Started state transition: " + msg.activate());
 
                 BaselineTopologyHistoryItem bltHistItem = BaselineTopologyHistoryItem.fromBaseline(
-                    globalState.baselineTopology());
+                    globalState.affinityTopology());
 
                 transitionFuts.put(msg.requestId(), new GridFutureAdapter<Void>());
 
                 globalState = DiscoveryDataClusterState.createTransitionState(
                     globalState,
                     msg.activate(),
-                    msg.activate() ? msg.baselineTopology() : globalState.baselineTopology(),
+                    msg.activate() ? msg.baselineTopology() : globalState.affinityTopology(),
                     msg.requestId(),
                     topVer,
                     nodeIds);
@@ -555,7 +555,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
      * @return {@code True} if states are equivalent.
      */
     protected static boolean isEquivalent(ChangeGlobalStateMessage msg, DiscoveryDataClusterState state) {
-        return (msg.activate() == state.active() && BaselineTopology.equals(msg.baselineTopology(), state.baselineTopology()));
+        return (msg.activate() == state.active() && BaselineTopology.equals(msg.baselineTopology(), state.affinityTopology()));
     }
 
     /** {@inheritDoc} */
@@ -690,8 +690,8 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
         BaselineTopologyHistory historyToSend = null;
 
         if (!bltHist.isEmpty()) {
-            if (joiningNodeState != null && joiningNodeState.baselineTopology() != null) {
-                int lastId = joiningNodeState.baselineTopology().id();
+            if (joiningNodeState != null && joiningNodeState.affinityTopology() != null) {
+                int lastId = joiningNodeState.affinityTopology().id();
 
                 historyToSend = bltHist.tailFrom(lastId);
             }
@@ -705,7 +705,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
     /** {@inheritDoc} */
     @Override public void onGridDataReceived(DiscoveryDataBag.GridDiscoveryData data) {
         if (data.commonData() instanceof DiscoveryDataClusterState) {
-            if (globalState != null && globalState.baselineTopology() != null)
+            if (globalState != null && globalState.affinityTopology() != null)
                 //node with BaselineTopology is not allowed to join mixed cluster
                 // (where some nodes don't support BaselineTopology)
                 throw new IgniteException("Node with BaselineTopology cannot join" +
@@ -755,7 +755,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
         boolean forceChangeBaselineTopology) {
         BaselineTopology newBlt;
 
-        BaselineTopology currentBlt = globalState.baselineTopology();
+        BaselineTopology currentBlt = globalState.affinityTopology();
 
         int newBltId = 0;
 
@@ -829,7 +829,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
 
         DiscoveryDataClusterState curState = globalState;
 
-        if (!curState.transition() && curState.active() == activate && BaselineTopology.equals(curState.baselineTopology(), blt))
+        if (!curState.transition() && curState.active() == activate && BaselineTopology.equals(curState.affinityTopology(), blt))
             return new GridFinishedFuture<>();
 
         GridChangeGlobalStateFuture startedFut = null;
@@ -908,7 +908,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
             return null;
 
         if (discoData.joiningNodeData() == null) {
-            if (globalState.baselineTopology() != null) {
+            if (globalState.affinityTopology() != null) {
                 String msg = "Node not supporting BaselineTopology" +
                     " is not allowed to join the cluster with BaselineTopology";
 
@@ -930,19 +930,19 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
             return new IgniteNodeValidationResult(node.id(), msg , msg);
         }
 
-        if (joiningNodeState == null || joiningNodeState.baselineTopology() == null)
+        if (joiningNodeState == null || joiningNodeState.affinityTopology() == null)
             return null;
 
-        if (globalState == null || globalState.baselineTopology() == null) {
-            if (joiningNodeState != null && joiningNodeState.baselineTopology() != null) {
+        if (globalState == null || globalState.affinityTopology() == null) {
+            if (joiningNodeState != null && joiningNodeState.affinityTopology() != null) {
                 String msg = "Node with set up BaselineTopology is not allowed to join cluster without one: " + node.consistentId();
 
                 return new IgniteNodeValidationResult(node.id(), msg, msg);
             }
         }
 
-        BaselineTopology joiningNodeBlt = joiningNodeState.baselineTopology();
-        BaselineTopology clusterBlt = globalState.baselineTopology();
+        BaselineTopology joiningNodeBlt = joiningNodeState.affinityTopology();
+        BaselineTopology clusterBlt = globalState.affinityTopology();
 
         String recommendation = " Consider cleaning persistent storage of the node and adding it to the cluster again.";
 
@@ -1115,7 +1115,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
     private void onFinalActivate(final StateChangeRequest req) {
         ctx.dataStructures().onBeforeActivate();
 
-        checkLocalNodeInBaseline(globalState.baselineTopology());
+        checkLocalNodeInBaseline(globalState.affinityTopology());
 
         ctx.closure().runLocalSafe(new Runnable() {
             @Override public void run() {
@@ -1250,7 +1250,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
     private void onStateRestored(BaselineTopology blt) {
         DiscoveryDataClusterState state = globalState;
 
-        if (!state.active() && !state.transition() && state.baselineTopology() == null) {
+        if (!state.active() && !state.transition() && state.affinityTopology() == null) {
             DiscoveryDataClusterState newState = DiscoveryDataClusterState.createState(false, blt);
 
             globalState = newState;
@@ -1465,7 +1465,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
             try {
                 ig.context().state().changeGlobalState(
                     activate,
-                    baselineTopology != null ? baselineTopology.currentBaseline() : null,
+                    baselineTopology != null ? baselineTopology.currentAffinityTopology() : null,
                     forceChangeBaselineTopology
                 ).get();
             }

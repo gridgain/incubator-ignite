@@ -42,9 +42,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DiscoCache {
     /** */
-    private static final C1<BaselineNode, ClusterNode> BASELINE_TO_CLUSTER = new C1<BaselineNode, ClusterNode>() {
-        @Override public ClusterNode apply(BaselineNode baselineNode) {
-            return (ClusterNode)baselineNode;
+    private static final C1<BaselineNode, ClusterNode> AFFINITY_TO_CLUSTER = new C1<BaselineNode, ClusterNode>() {
+        @Override public ClusterNode apply(BaselineNode affinityNode) {
+            return (ClusterNode)affinityNode;
         }
     };
 
@@ -66,8 +66,8 @@ public class DiscoCache {
     /** Daemon nodes. */
     private final List<ClusterNode> daemonNodes;
 
-    /** Baseline nodes. */
-    private final List<? extends BaselineNode> baselineNodes;
+    /** Affinity topology nodes. */
+    private final List<? extends BaselineNode> affinityNodes;
 
     /** All remote nodes with at least one cache configured. */
     @GridToStringInclude
@@ -103,7 +103,7 @@ public class DiscoCache {
     final Map<Short, UUID> consIdxToNodeId;
 
     /** */
-    private final P1<BaselineNode> aliveBaselineNodePred;
+    private final P1<BaselineNode> aliveAffinityNodePred;
 
     /** */
     private final P1<ClusterNode> aliveNodePred;
@@ -117,7 +117,7 @@ public class DiscoCache {
      * @param srvNodes Server nodes.
      * @param daemonNodes Daemon nodes.
      * @param rmtNodesWithCaches Remote nodes with at least one cache configured.
-     * @param baselineNodes Baseline nodes or {@code null} if baseline was not set.
+     * @param affinityNodes Affinity topology nodes or {@code null} if affinity topology was not set.
      * @param allCacheNodes Cache nodes by cache name.
      * @param cacheGrpAffNodes Affinity nodes by cache group ID.
      * @param nodeMap Node map.
@@ -135,7 +135,7 @@ public class DiscoCache {
         List<ClusterNode> srvNodes,
         List<ClusterNode> daemonNodes,
         List<ClusterNode> rmtNodesWithCaches,
-        @Nullable List<? extends BaselineNode> baselineNodes,
+        @Nullable List<? extends BaselineNode> affinityNodes,
         Map<Integer, List<ClusterNode>> allCacheNodes,
         Map<Integer, List<ClusterNode>> cacheGrpAffNodes,
         Map<UUID, ClusterNode> nodeMap,
@@ -153,7 +153,7 @@ public class DiscoCache {
         this.srvNodes = srvNodes;
         this.daemonNodes = daemonNodes;
         this.rmtNodesWithCaches = rmtNodesWithCaches;
-        this.baselineNodes = baselineNodes;
+        this.affinityNodes = affinityNodes;
         this.allCacheNodes = allCacheNodes;
         this.cacheGrpAffNodes = cacheGrpAffNodes;
         this.nodeMap = nodeMap;
@@ -163,7 +163,7 @@ public class DiscoCache {
         this.nodeIdToConsIdx = nodeIdToConsIdx;
         this.consIdxToNodeId = consIdxToNodeId;
 
-        aliveBaselineNodePred = new P1<BaselineNode>() {
+        aliveAffinityNodePred = new P1<BaselineNode>() {
             @Override
             public boolean apply(BaselineNode node) {
                 return node instanceof ClusterNode && alives.contains(((ClusterNode)node).id());
@@ -217,19 +217,19 @@ public class DiscoCache {
     }
 
     /**
-     * Returns a collection of baseline nodes.
+     * Returns a collection of affinity nodes.
      *
-     * @return A collection of baseline nodes or {@code null} if baseline topology was not set.
+     * @return A collection of affinity nodes or {@code null} if affinity topology was not set.
      */
-    @Nullable public List<? extends BaselineNode> baselineNodes() {
-        return baselineNodes;
+    @Nullable public List<? extends BaselineNode> affinityNodes() {
+        return affinityNodes;
     }
 
     /**
      * @param nodeId Node ID to check.
-     * @return {@code True} if baseline is not set or the node is in the baseline topology.
+     * @return {@code True} if affinity topology is not set or the node is in the topology topology.
      */
-    public boolean baselineNode(UUID nodeId) {
+    public boolean affinityNode(UUID nodeId) {
         return nodeIdToConsIdx == null || nodeIdToConsIdx.containsKey(nodeId);
     }
 
@@ -277,21 +277,21 @@ public class DiscoCache {
     }
 
     /**
-     * Returns a collection of live baseline nodes.
+     * Returns a collection of live topology nodes.
      *
-     * @return A view of baseline nodes that are currently present in the cluster or {@code null} if baseline
+     * @return A view of topology nodes that are currently present in the cluster or {@code null} if topology
      *      topology was not set.
      */
-    @Nullable public Collection<ClusterNode> aliveBaselineNodes() {
-        return baselineNodes == null ? null : F.viewReadOnly(baselineNodes, BASELINE_TO_CLUSTER, aliveBaselineNodePred);
+    @Nullable public Collection<ClusterNode> aliveAffinityNodes() {
+        return affinityNodes == null ? null : F.viewReadOnly(affinityNodes, AFFINITY_TO_CLUSTER, aliveAffinityNodePred);
 
     }
 
     /**
      * @param node Node to check.
-     * @return {@code True} if the node is in baseline or if baseline is not set.
+     * @return {@code True} if the node is in affinity topology or if affinity topology is not set.
      */
-    public boolean baselineNode(ClusterNode node) {
+    public boolean affinityNode(ClusterNode node) {
         return nodeIdToConsIdx == null || nodeIdToConsIdx.get(node.id()) != null;
     }
 
@@ -438,7 +438,7 @@ public class DiscoCache {
             srvNodes,
             daemonNodes,
             rmtNodesWithCaches,
-            baselineNodes,
+            affinityNodes,
             allCacheNodes,
             cacheGrpAffNodes,
             nodeMap,

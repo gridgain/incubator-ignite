@@ -116,7 +116,7 @@ public class IgniteWalHistoryReservationsTest extends GridCommonAbstractTest {
 
         stopGrid(initGridCnt);
 
-        Assert.assertEquals(5, ig0.context().state().clusterState().baselineTopology().consistentIds().size());
+        Assert.assertEquals(5, ig0.context().state().clusterState().affinityTopology().consistentIds().size());
 
         long start = U.currentTimeMillis();
 

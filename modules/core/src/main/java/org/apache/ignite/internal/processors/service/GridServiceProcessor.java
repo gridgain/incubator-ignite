@@ -248,8 +248,8 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
             if (!ctx.clientNode()) {
                 DiscoveryDataClusterState clusterState = ctx.state().clusterState();
 
-                boolean isLocLsnr = !clusterState.hasBaselineTopology() ||
-                    CU.baselineNode(ctx.cluster().get().localNode(), clusterState);
+                boolean isLocLsnr = !clusterState.hasAffinityTopology() ||
+                    CU.affinityNode(ctx.cluster().get().localNode(), clusterState);
 
                 // Register query listener and run it for local entries, if data is available locally.
                 // It is also invoked on rebalancing.

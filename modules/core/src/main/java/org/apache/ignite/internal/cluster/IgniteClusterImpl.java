@@ -336,9 +336,9 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
         guard();
 
         try {
-            BaselineTopology blt = ctx.state().clusterState().baselineTopology();
+            BaselineTopology blt = ctx.state().clusterState().affinityTopology();
 
-            return blt != null ? blt.currentBaseline() : null;
+            return blt != null ? blt.currentAffinityTopology() : null;
         }
         finally {
             unguard();
@@ -451,7 +451,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
 
     /** */
     @Nullable private Collection<Object> onlineBaselineNodesRequestedForRemoval(Collection<? extends BaselineNode> newBlt) {
-        BaselineTopology blt = ctx.state().clusterState().baselineTopology();
+        BaselineTopology blt = ctx.state().clusterState().affinityTopology();
         Set<Object> bltConsIds;
 
         if (blt == null)

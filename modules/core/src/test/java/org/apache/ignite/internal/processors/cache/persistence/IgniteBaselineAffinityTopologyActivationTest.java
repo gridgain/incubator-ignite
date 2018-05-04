@@ -922,7 +922,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
                 (Object) U.field(ig, "ctx"),
                 "stateProc"),
             "globalState"))
-            .baselineTopology();
+            .affinityTopology();
     }
 
     /** */
