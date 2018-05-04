@@ -3214,7 +3214,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          * @param node Node to check.
          * @return {@code True} if this node is a data node for given cache.
          */
-        public boolean dataNode(ClusterNode node) { //TODO
+        public boolean dataNode(ClusterNode node) {
             return CU.cacheAffinityNode(node, discoCache(), aff.cacheFilter);
         }
 
@@ -3222,7 +3222,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          * @param node Node to check.
          * @return {@code True} if cache is accessible on the given node.
          */
-        boolean cacheNode(ClusterNode node) { //TODO
+        boolean cacheNode(ClusterNode node) {
             return !node.isDaemon() && (CU.cacheAffinityNode(node, discoCache(), aff.cacheFilter) ||
                 cacheClientNode(node) != null);
         }
@@ -3231,7 +3231,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          * @param node Node to check.
          * @return {@code True} if near cache is present on the given nodes.
          */
-        boolean nearNode(ClusterNode node) { //TODO
+        boolean nearNode(ClusterNode node) {
             if (CU.cacheAffinityNode(node, discoCache(), aff.cacheFilter))
                 return nearEnabled;
 
