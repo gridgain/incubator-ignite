@@ -455,8 +455,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
         ignite.createCache(cacheCfg);
 
-        for (int i = 0; i < NODE_COUNT; i++)
-            grid(i).cache(cacheName).rebalance().get();
+        manualCacheRebalancing(ignite, CACHE_NAME);
 
         int key = -1;
 
@@ -630,9 +629,9 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
         IgniteEx primary = null;
         IgniteEx backup = null;
 
-        for (int i = 0; i < NODE_COUNT; i++) {
-            grid(i).cache(cacheName).rebalance().get();
+        manualCacheRebalancing(ig, CACHE_NAME);
 
+        for (int i = 0; i < NODE_COUNT; i++) {
             if (grid(i).localNode().equals(affNodes.get(0))) {
                 primaryIdx = i;
                 primary = grid(i);
@@ -672,7 +671,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
         assertEquals(backup.localNode(), ig.affinity(cacheName).mapKeyToNode(key));
 
-        primary.cache(cacheName).rebalance().get();
+        manualCacheRebalancing(ig, CACHE_NAME);
 
         awaitPartitionMapExchange();
 
@@ -719,9 +718,9 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
         IgniteEx primary = null;
         IgniteEx backup = null;
 
-        for (int i = 0; i < NODE_COUNT; i++) {
-            grid(i).cache(cacheName).rebalance().get();
+        manualCacheRebalancing(ig, CACHE_NAME);
 
+        for (int i = 0; i < NODE_COUNT; i++) {
             if (grid(i).localNode().equals(affNodes.get(0))) {
                 primaryIdx = i;
                 primary = grid(i);
@@ -783,8 +782,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
         assertEquals(val2, primary.cache(cacheName).get(key));
         assertEquals(val2, backup.cache(cacheName).get(key));
 
-        for (int i = 0; i < NODE_COUNT; i++)
-            grid(i).cache(cacheName).rebalance().get();
+        manualCacheRebalancing(ig, CACHE_NAME);
 
         awaitPartitionMapExchange();
 
