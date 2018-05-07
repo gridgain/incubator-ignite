@@ -47,27 +47,19 @@ public class Ignite6252Reproducer {
         try (Ignite ignite = Ignition.start("org/apache/ignite/tests/persistence/pojo/ignite-config.xml")) {
             final IgniteCache<Long, Person> personCache = ignite.getOrCreateCache(new CacheConfiguration<>("cache1"));
 
-            IntStream.rangeClosed(1, 64).forEach(t -> new Thread(() -> {
-                while (true) {
-                    Map<Long, Person> persons = IntStream.rangeClosed(1, 10000/t).boxed()
-                        .map(i -> new SimpleEntry<>((long)i, new Person(
-                            (long)t*i,
-                            "John",
-                            "Smith",
-                            (short)30,
-                            true,
-                            200,
-                            100,
-                            new Date(),
-                            Collections.singletonList("1234-56-78")
-                        )))
-                        .collect(Collectors.toMap(SimpleEntry::getKey, SimpleEntry::getValue));
-
-                    personCache.putAll(persons);
-                }
-            }).start());
-
-            Thread.sleep(600000);
+            while (true) {
+                personCache.put(1L, new Person(
+                    1L,
+                    "John",
+                    "Smith",
+                    (short)30,
+                    true,
+                    200,
+                    100,
+                    new Date(),
+                    Collections.singletonList("1234-56-78")
+                ));
+            }
         }
         finally {
             try {
