@@ -269,7 +269,8 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                     resCntr = rowCntr;
                 }
                 else
-                    throw new IllegalStateException("Unexpected state: " + txState);
+                    throw new IllegalStateException("Unexpected state: " + txState + ", key=" + key.value(null, false) +
+                    ", rowMvcc=" + rowCntr + ", txMvcc=" + mvccSnapshot.counter() + ":" + mvccSnapshot.operationCounter());
             }
         }
 

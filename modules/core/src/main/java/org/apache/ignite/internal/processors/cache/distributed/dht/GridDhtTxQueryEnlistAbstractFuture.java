@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
@@ -49,14 +51,11 @@ import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
-import org.apache.ignite.internal.util.future.GridCompoundIdentityFuture;
-import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
@@ -72,7 +71,21 @@ import static org.apache.ignite.internal.processors.cache.GridCacheOperation.UPD
  */
 public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMessage> extends GridCacheFutureAdapter<T> {
     /** */
-    private static final AtomicInteger batchCntr = new AtomicInteger();
+    private static final AtomicInteger batchIdCntr = new AtomicInteger();
+
+    /** Res field updater. */
+    private static final AtomicLongFieldUpdater<GridDhtTxQueryEnlistAbstractFuture> RES_UPD =
+        AtomicLongFieldUpdater.newUpdater(GridDhtTxQueryEnlistAbstractFuture.class, "res");
+
+    /** SkipCntr field updater. */
+    private static final AtomicIntegerFieldUpdater<GridDhtTxQueryEnlistAbstractFuture> SKIP_UPD =
+        AtomicIntegerFieldUpdater.newUpdater(GridDhtTxQueryEnlistAbstractFuture.class, "skipCntr");
+
+    /** In-flight batches per node limit. */
+    private static final int DFLT_IN_FLIGHT_BATCHES_PER_NODE_LIMIT = 5;
+
+    /** */
+    private static final int DFLT_BATCH_SIZE = 1024;
 
     /** Future ID. */
     protected IgniteUuid futId;
@@ -109,14 +122,14 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
     /** */
     protected final MvccSnapshot mvccSnapshot;
 
-    /** Processed entries count. */
-    protected long cnt;
-
     /** Near node ID. */
     protected UUID nearNodeId;
 
     /** Near lock version. */
     GridCacheVersion nearLockVer;
+
+    /** Row extracted from iterator but not yet used. */
+    private volatile Object peek;
 
     /** Timeout object. */
     @GridToStringExclude
@@ -135,14 +148,30 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
     /** Query iterator */
     private UpdateSourceIterator<?> it;
 
-    /** Backups updates requests. */
-    private final ConcurrentMap<UUID, GridDhtTxQueryEnlistRequest> backupUpdReqs = new ConcurrentHashMap<>();
+    /** */
+    @SuppressWarnings("unused")
+    @GridToStringExclude
+    private volatile int skipCntr;
 
-    /** Backups updates futures. */
-    private final ConcurrentMap<UUID, GridFutureAdapter<Void>> updFuts = new ConcurrentHashMap<>();
+    /** */
+    @SuppressWarnings("unused")
+    @GridToStringExclude
+    private volatile long res;
 
-    /** Set of backups which already have received first enlist batch. */
-    private final Set<UUID> firstReqSent = new HashSet<>();
+    /** */
+    private volatile WALPointer walPtr;
+
+    /** */
+    private GridCacheOperation op;
+
+    /** Batches for sending to remote nodes. */
+    private final ConcurrentMap<UUID, Batch> batches = new ConcurrentHashMap<>();
+
+    /** Batches already sent to remotes, but their acks are not received yet. */
+    private final ConcurrentMap<UUID, ConcurrentMap<Integer, Batch>> batchesInFlight = new ConcurrentHashMap<>();
+
+    /** Finish flag.  */
+    private final AtomicBoolean finish = new AtomicBoolean();
 
     /**
      * @param nearNodeId Near node ID.
@@ -238,6 +267,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
             tx.addActiveCache(cctx, false);
 
             this.it = it;
+            this.op = it.operation();
         }
         catch (Throwable e) {
             onDone(e);
@@ -248,387 +278,373 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
             return;
         }
 
-        continueLoop(null);
+        sendNextBatches(false);
     }
 
-    /** */
-    @SuppressWarnings("unchecked")
-    private void continueLoop(WALPointer ptr) {
+    /**
+     * Iterates over iterator, applies changes locally and sends it on backups.
+     *
+     * @param ignoreCntr {@code True} if need to ignore skip counter.
+     */
+    private void sendNextBatches(boolean ignoreCntr) {
         if (isDone())
             return;
 
-        GridDhtCacheAdapter cache = cctx.dhtCache();
+        if (!ignoreCntr && (SKIP_UPD.getAndIncrement(this) != 0))
+            return;
+
+        cctx.shared().database().checkpointReadLock();
 
         try {
             while (true) {
-                if (!it.hasNext()) {
-                    if (ptr != null && !cctx.tm().logTxRecords())
-                        cctx.shared().wal().flush(ptr, true);
-
-                    IgniteInternalFuture fut = sendAll();
-
-                    if (fut != null) {
-                        fut.listen(new IgniteInClosure<IgniteInternalFuture>() {
-                            @Override public void apply(IgniteInternalFuture f) {
-                                try {
-                                    f.get();
-                                }
-                                catch (IgniteCheckedException e) {
-                                    onDone(new IgniteCheckedException("Error during remotes update.", e));
-
-                                    return;
-                                }
-
-                                onDone(createResponse(cnt, false));
-                            }
-                        });
-
-                        return;
-                    }
-
-                    onDone(createResponse(cnt, false));
-
-                    return;
-                }
-
-                Object row = it.next();
-                KeyCacheObject key = key(row);
-
-                GridDhtCacheEntry entry = cache.entryExx(key);
-
-                if (log.isDebugEnabled())
-                    log.debug("Adding entry: " + entry);
-
-                assert !entry.detached();
-
-                GridCacheOperation op = it.operation();
-
-                IgniteBiTuple row0 = (row instanceof IgniteBiTuple) ? (IgniteBiTuple)row : null;
-
-                CacheObject val = null;
-
-                if (op == CREATE || op == UPDATE) {
-                    assert row0 != null;
-
-                    val = cctx.toCacheObject(row0.getValue());
-                }
-
-                GridCacheUpdateTxResult res;
-
-                while (true) {
-                    cctx.shared().database().checkpointReadLock();
-
-                    try {
-                        if (op == DELETE)
-                            res = entry.mvccRemove(
-                                tx,
-                                cctx.localNodeId(),
-                                topVer,
-                                null,
-                                mvccSnapshot);
-                        else if (op == CREATE || op == UPDATE)
-                            res = entry.mvccSet(
-                                tx,
-                                cctx.localNodeId(),
-                                val,
-                                0,
-                                topVer,
-                                null,
-                                mvccSnapshot,
-                                op);
-                        else
-                            throw new IgniteSQLException("Cannot acquire lock for operation [op= " + op + "]" + // TODO SELECT FOR UPDATE
-                                "Operation is unsupported at the moment ", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
-
-                        break;
-                    }
-                    catch (GridCacheEntryRemovedException ignored) {
-                        entry = cctx.dhtCache().entryExx(entry.key(), topVer);
-                    }
-                    finally {
-                        cctx.shared().database().checkpointReadUnlock();
-                    }
-                }
-
-                ptr = res.loggedPointer();
-
-                IgniteInternalFuture<GridCacheUpdateTxResult> updateFut = res.updateFuture();
-
-                if (updateFut != null) {
-                    GridCacheOperation finalOp = op;
-                    CacheObject finalVal = val;
-                    GridDhtCacheEntry finalEntry = entry;
-
-                    it.beforeDetach();
-
-                    updateFut.listen(new CI1<IgniteInternalFuture<GridCacheUpdateTxResult>>() {
-                        @Override public void apply(IgniteInternalFuture<GridCacheUpdateTxResult> fut) {
+                if (!it.hasNext() && peek == null) {
+                    if (finish.compareAndSet(false, true)) {
+                        if (walPtr != null && !cctx.tm().logTxRecords()) {
                             try {
-                                GridCacheUpdateTxResult res = fut.get();
-
-                                assert res.updateFuture() == null;
-
-                                IgniteTxEntry txEntry = tx.addEntry(op,
-                                    finalVal,
-                                    null,
-                                    null,
-                                    finalEntry,
-                                    null,
-                                    CU.empty0(),
-                                    false,
-                                    -1L,
-                                    -1L,
-                                    null,
-                                    true,
-                                    true,
-                                    false);
-
-                                txEntry.markValid();
-                                txEntry.queryEnlisted(true);
-                                txEntry.cached(finalEntry);
-
-                                cnt++;
-
-                                IgniteInternalFuture updFut = addToBatch(key, finalVal);
-
-                                if (updFut == null)
-                                    continueLoop(res.loggedPointer());
-                                else
-                                    updFut.listen(new IgniteInClosure<IgniteInternalFuture>() {
-                                        @Override public void apply(IgniteInternalFuture f) {
-                                            continueLoop(res.loggedPointer());
-                                        }
-                                    });
+                                cctx.shared().wal().flush(walPtr, true);
                             }
-                            catch (Throwable e) {
+                            catch (IgniteCheckedException e) {
                                 onDone(e);
                             }
                         }
-                    });
 
-                    break;
+                        // No data left - flush incomplete batches.
+                        for (Batch batch : batches.values()) {
+                            batch.ready(true);
+
+                            sendBatch(batch);
+                        }
+                    }
+
+                    if (finish.get() && batches.isEmpty() && inFlightIsEmpty())
+                        onDone(createResponse(RES_UPD.get(this), false));
+
+                    if (SKIP_UPD.decrementAndGet(this) == 0) {
+                        it.beforeDetach();
+
+                        break;
+                    }
                 }
 
-                IgniteTxEntry txEntry = tx.addEntry(op,
-                    val,
-                    null,
-                    null,
-                    entry,
-                    null,
-                    CU.empty0(),
-                    false,
-                    -1L,
-                    -1L,
-                    null,
-                    true,
-                    true,
-                    false);
+                while (it.hasNext() || peek != null) {
+                    Object cur = (peek != null) ? peek : (it.hasNextX() ? it.nextX() : null);
 
-                txEntry.queryEnlisted(true);
-                txEntry.markValid();
+                    peek = null;
 
-                cnt++;
+                    KeyCacheObject key;
+                    CacheObject val = null;
 
-                IgniteInternalFuture remoteUpdFut = addToBatch(key, val);
+                    if (op == GridCacheOperation.DELETE)
+                        key = cctx.toCacheKeyObject(cur);
+                    else {
+                        key = cctx.toCacheKeyObject(((IgniteBiTuple)cur).getKey());
+                        val = cctx.toCacheObject(((IgniteBiTuple)cur).getValue());
+                    }
 
-                if (remoteUpdFut != null) {
-                    WALPointer finalPtr = ptr;
+                    if (!ensureFreeSlot(key)) {
+                        // Can't advance further at the moment.
+                        peek = cur;
 
-                    it.beforeDetach();
+                        break;
+                    }
 
-                    remoteUpdFut.listen(new IgniteInClosure<IgniteInternalFuture>() {
-                        @Override public void apply(IgniteInternalFuture f) {
-                            continueLoop(finalPtr);
+                    GridDhtCacheEntry entry = cctx.dhtCache().entryExx(key);
+
+                    if (log.isDebugEnabled())
+                        log.debug("Adding entry: " + entry);
+
+                    assert !entry.detached();
+
+                    GridCacheUpdateTxResult res;
+
+                    while (true) {
+                        try {
+                            if (op == DELETE)
+                                res = entry.mvccRemove(
+                                    tx,
+                                    cctx.localNodeId(),
+                                    topVer,
+                                    null,
+                                    mvccSnapshot);
+                            else if (op == CREATE || op == UPDATE)
+                                res = entry.mvccSet(
+                                    tx,
+                                    cctx.localNodeId(),
+                                    val,
+                                    0,
+                                    topVer,
+                                    null,
+                                    mvccSnapshot,
+                                    op);
+                            else
+                                throw new IgniteSQLException("Cannot acquire lock for operation [op= " + op + "]" + // TODO SELECT FOR UPDATE
+                                    "Operation is unsupported at the moment ", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+
+                            break;
                         }
-                    });
+                        catch (GridCacheEntryRemovedException ignored) {
+                            entry = cctx.dhtCache().entryExx(entry.key(), topVer);
+                        }
+                    }
 
-                    break;
+                    walPtr = res.loggedPointer();
+
+                    IgniteInternalFuture<GridCacheUpdateTxResult> updateFut = res.updateFuture();
+
+                    if (updateFut != null) {
+                        if (updateFut.isDone()) {
+                            try {
+                                updateFut.get();
+                            }
+                            catch (Exception e) {
+                                onDone(e);
+
+                                return;
+                            }
+                        }
+                        else {
+                            CacheObject finalVal = val;
+                            GridDhtCacheEntry finalEntry = entry;
+
+                            it.beforeDetach();
+
+                            updateFut.listen(new CI1<IgniteInternalFuture<GridCacheUpdateTxResult>>() {
+                                @Override public void apply(IgniteInternalFuture<GridCacheUpdateTxResult> fut) {
+                                    try {
+                                        GridCacheUpdateTxResult res = fut.get();
+
+                                        assert res.updateFuture() == null;
+
+                                        IgniteTxEntry txEntry = tx.addEntry(op,
+                                            finalVal,
+                                            null,
+                                            null,
+                                            finalEntry,
+                                            null,
+                                            CU.empty0(),
+                                            false,
+                                            -1L,
+                                            -1L,
+                                            null,
+                                            true,
+                                            true,
+                                            false);
+
+                                        txEntry.markValid();
+                                        txEntry.queryEnlisted(true);
+                                        txEntry.cached(finalEntry);
+
+                                        RES_UPD.incrementAndGet(GridDhtTxQueryEnlistAbstractFuture.this);
+
+                                        addToBatch(key, finalVal);
+
+                                        sendNextBatches(true);
+                                    }
+                                    catch (Throwable e) {
+                                        onDone(e);
+                                    }
+                                }
+                            });
+
+                            // Can't move further. Exit loop without decrementing the counter.
+                            return;
+                        }
+                    }
+
+                    IgniteTxEntry txEntry = tx.addEntry(op,
+                        val,
+                        null,
+                        null,
+                        entry,
+                        null,
+                        CU.empty0(),
+                        false,
+                        -1L,
+                        -1L,
+                        null,
+                        true,
+                        true,
+                        false);
+
+                    txEntry.queryEnlisted(true);
+                    txEntry.markValid();
+
+                    RES_UPD.incrementAndGet(this);
+
+                    addToBatch(key, val);
                 }
             }
         }
         catch (Throwable e) {
             onDone(e);
-
-            if (e instanceof Error)
-                throw (Error)e;
+        }
+        finally {
+            cctx.shared().database().checkpointReadUnlock();
         }
     }
 
     /**
-     * Adds row to batch and sends it if necessary.
+     * @return {@code True} if in-flight batches map is empty.
+     */
+    private boolean inFlightIsEmpty() {
+        for (ConcurrentMap<Integer, Batch> e : batchesInFlight.values()) {
+            if (!e.isEmpty())
+                return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Adds row to batch.
+     * <b>IMPORTANT:</b> This method should be called from the critical section in {@link this.sendNextBatches()}
      *
      * @param key Key.
      * @param val Value.
      */
-    @Nullable private IgniteInternalFuture addToBatch(KeyCacheObject key, CacheObject val) {
-        if (cctx.config().getBackups() == 0)
-            return null;
+    private void addToBatch(KeyCacheObject key, CacheObject val) {
+        List<ClusterNode> dhtNodes = backupNodes(key);
 
+        for (int i = 0; i < dhtNodes.size(); i++) {
+            ClusterNode node = dhtNodes.get(i);
+
+            assert !node.isLocal();
+
+            Batch batch = batches.get(node.id());
+
+            if (batch == null) {
+                batch = new Batch(node);
+
+                batches.put(node.id(), batch);
+            }
+
+            assert op != DELETE || val == null;
+
+            batch.add(key, val);
+
+            if (batch.size() == DFLT_BATCH_SIZE) {
+                batch.ready(true);
+
+                sendBatch(batch);
+            }
+        }
+    }
+
+    /**
+     * Checks if there free space in batches or free slot in in-flight batches is available for the given key.
+     *
+     * @param key Key.
+     * @return {@code True} if there is possible to add this key to batch or send ready batch.
+     */
+    @SuppressWarnings("ForLoopReplaceableByForEach")
+    private boolean ensureFreeSlot(KeyCacheObject key) {
+        List<ClusterNode> backupNodes = backupNodes(key);
+
+        // Check possibility of adding to batch and sending.
+        for (int i = 0; i < backupNodes.size(); i++) {
+            ClusterNode node = backupNodes.get(i);
+
+            Batch batch = batches.get(node.id());
+
+            // We can add key if batch is not full.
+            if (batch == null || batch.size() < DFLT_BATCH_SIZE)
+                continue;
+
+            ConcurrentMap<Integer, Batch> flyingBatches = batchesInFlight.get(node.id());
+
+            assert flyingBatches.size() <= DFLT_IN_FLIGHT_BATCHES_PER_NODE_LIMIT;
+
+            if (flyingBatches != null && flyingBatches.size() == DFLT_IN_FLIGHT_BATCHES_PER_NODE_LIMIT)
+                return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Send batch request to remote data node.
+     *
+     * <b>IMPORTANT:</b> This method should be called from the critical section in {@link this.sendNextBatches()}
+     *
+     * @param batch Batch.
+     */
+    private void sendBatch(Batch batch) {
+        assert batch != null && batch.ready();
+
+        ClusterNode node = batch.node();
+
+        assert !node.isLocal();
+
+        int batchId = batchIdCntr.incrementAndGet();
+
+        ConcurrentMap<Integer, Batch> flyingBatches = batchesInFlight.get(node.id());
+
+        if (flyingBatches == null) {
+            flyingBatches = new ConcurrentHashMap<>();
+
+            batchesInFlight.put(node.id(), flyingBatches);
+        }
+
+        GridDhtTxQueryEnlistRequest req;
+
+        if (tx.remoteTransactionNodes() == null || !tx.remoteTransactionNodes().contains(node)) {
+            tx.addLockTransactionNode(node);
+            // If this is a first request to this node, send full info.
+            req = new GridDhtTxQueryFirstEnlistRequest(cctx.cacheId(),
+                futId,
+                cctx.localNodeId(),
+                topVer,
+                lockVer,
+                mvccSnapshot,
+                timeout,
+                tx.taskNameHash(),
+                nearNodeId,
+                nearLockVer,
+                it.operation(),
+                batchId,
+                batch.keys(),
+                batch.values());
+        }
+        else {
+            // Send only keys, values, LockVersion and batchId if this is not a first request to this backup.
+            req = new GridDhtTxQueryEnlistRequest(cctx.cacheId(),
+                futId,
+                lockVer,
+                it.operation(),
+                batchId,
+                mvccSnapshot.operationCounter(),
+                batch.keys(),
+                batch.values());
+        }
+
+        try {
+            Batch prev = flyingBatches.put(batchId, batch);
+
+            assert prev == null;
+
+            batches.remove(node.id());
+
+            cctx.io().send(node, req, cctx.ioPolicy());
+        }
+        catch (IgniteCheckedException ex) {
+            onDone(ex);
+        }
+    }
+
+    /**
+     * @param key Key.
+     * @return Backup nodes for the given key.
+     */
+    @NotNull private List<ClusterNode> backupNodes(KeyCacheObject key) {
         List<ClusterNode> dhtNodes = cctx.affinity().nodesByKey(key, tx.topologyVersion());
 
         assert !dhtNodes.isEmpty() && dhtNodes.get(0).id().equals(cctx.localNodeId()) :
             "localNode = " + cctx.localNodeId() + ", dhtNodes = " + dhtNodes;
 
-        GridCompoundIdentityFuture<Void> fut = null;
+        if (dhtNodes.size() <= 1)
+            return Collections.emptyList();
 
-        for (int i = 1; i < dhtNodes.size(); i++) {
-            ClusterNode backup = dhtNodes.get(i);
-
-            tx.addLockTransactionNode(backup);
-
-            assert !backup.isLocal();
-
-            GridDhtTxQueryEnlistRequest req = backupUpdReqs.get(backup.id());
-
-            if (req == null) {
-                if (!firstReqSent.contains(backup.id())) {
-                    // If this is a first request to this node, send full info.
-                    req = new GridDhtTxQueryFirstEnlistRequest(cctx.cacheId(),
-                        futId,
-                        cctx.localNodeId(),
-                        topVer,
-                        lockVer,
-                        mvccSnapshot,
-                        timeout,
-                        tx.taskNameHash(),
-                        nearNodeId,
-                        nearLockVer,
-                        it.operation(),
-                        batchCntr.incrementAndGet());
-                }
-                else {
-                    // Send only keys, values, LockVersion and batchId if this is not a first request to this backup.
-                    req = new GridDhtTxQueryEnlistRequest(cctx.cacheId(),
-                        futId,
-                        lockVer,
-                        it.operation(),
-                        batchCntr.incrementAndGet(),
-                        mvccSnapshot.operationCounter());
-                }
-
-                GridDhtTxQueryEnlistRequest prev = backupUpdReqs.putIfAbsent(backup.id(), req);
-
-                assert prev == null;
-            }
-            else
-                assert !req.ready();
-
-            req.addRow(key, val);
-
-            // Send batch if ready.
-            if (req.ready()) {
-                try {
-                    GridDhtTxQueryEnlistRequest req0 = backupUpdReqs.remove(backup.id());
-
-                    assert req == req0;
-
-                    if (fut == null) {
-                        assert i == 1;
-
-                        fut = new GridCompoundIdentityFuture<>();
-                    }
-
-                    GridFutureAdapter<Void> miniFut = new GridFutureAdapter<>();
-
-                    fut.add(miniFut);
-
-                    GridFutureAdapter<Void> f = updFuts.putIfAbsent(backup.id(), miniFut);
-
-                    assert f == null;
-
-                    firstReqSent.add(backup.id());
-
-                    cctx.io().send(backup.id(), req0, cctx.ioPolicy());
-                }
-                catch (IgniteCheckedException ex) {
-                    onDone(new IgniteCheckedException("Failed to send update message to" +
-                        " backup node [id=" + backup.id() + ']', ex));
-                }
-            }
-        }
-
-        if (fut != null)
-            fut.markInitialized();
-
-        return fut;
-    }
-
-    /**
-     * Sends all batches to backups even if they are not full.
-     *
-     * @return Results future.
-     */
-    private IgniteInternalFuture sendAll() {
-        assert updFuts.isEmpty();
-
-        GridCompoundIdentityFuture<Void> fut = null;
-
-        for (Map.Entry<UUID, GridDhtTxQueryEnlistRequest> e : backupUpdReqs.entrySet()) {
-            GridDhtTxQueryEnlistRequest req = e.getValue();
-
-            UUID backup = e.getKey();
-
-            assert backup != null;
-
-            if (req != null && req.rows() != null && !req.rows().isEmpty()) {
-                try {
-                    GridDhtTxQueryEnlistRequest req0 = backupUpdReqs.remove(backup);
-
-                    assert req == req0;
-
-                    if (fut == null)
-                        fut = new GridCompoundIdentityFuture<>();
-
-                    GridFutureAdapter<Void> miniFut = new GridFutureAdapter<>();
-
-                    fut.add(miniFut);
-
-                    GridFutureAdapter<Void> f = updFuts.putIfAbsent(backup, miniFut);
-
-                    assert f == null;
-
-                    firstReqSent.add(backup);
-
-                    cctx.io().send(backup, req, cctx.ioPolicy());
-                }
-                catch (IgniteCheckedException ex) {
-                    onDone(new IgniteCheckedException("Failed to send update message to" +
-                        " backup node [id=" + backup + ']', ex));
-                }
-            }
-        }
-
-        if (fut != null)
-            fut.markInitialized();
-
-        return fut;
-    }
-
-    /**
-     * Callback on backup response.
-     *
-     * @param backup Backup node.
-     * @param res Response.
-     */
-    public void onResult(UUID backup, GridDhtTxQueryEnlistResponse res) {
-        GridFutureAdapter<Void> miniFut = updFuts.remove(backup);
-
-        if (miniFut == null) {
-            onDone(null, new IgniteCheckedException("Unexpected response received from backup node [node=" + backup +
-                ", res=" + res + ']'));
-
-            return;
-        }
-
-        miniFut.onDone();
-    }
-
-    /**
-     * @param row Query result row.
-     * @return Extracted key.
-     */
-    private KeyCacheObject key(Object row) {
-        return cctx.toCacheKeyObject(row instanceof IgniteBiTuple ? ((IgniteBiTuple)row).getKey() : row);
+        return dhtNodes.subList(1, dhtNodes.size());
     }
 
     /**
@@ -638,7 +654,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
      * @throws ClusterTopologyCheckedException If failed.
      */
     @SuppressWarnings("ForLoopReplaceableByForEach")
-    void checkPartitions(@Nullable int[] parts) throws ClusterTopologyCheckedException {
+    private void checkPartitions(@Nullable int[] parts) throws ClusterTopologyCheckedException {
         if (cctx.isLocal() || !cctx.rebalanceEnabled())
             return;
 
@@ -663,6 +679,37 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
         finally {
             top.readUnlock();
         }
+    }
+
+    /**
+     * Callback on backup response.
+     *
+     * @param nodeId Backup node.
+     * @param res Response.
+     */
+    public void onResult(UUID nodeId, GridDhtTxQueryEnlistResponse res) {
+        int batchId = res.batchId();
+
+        ConcurrentMap<Integer, Batch> inFlight = batchesInFlight.get(nodeId);
+
+        Batch rmv = inFlight.remove(batchId);
+
+        if (rmv == null) {
+            onDone(new IgniteCheckedException("Unexpected response received from backup node [node=" + nodeId +
+                ", res=" + res + ']'));
+
+            return;
+        }
+
+        if (res.error() != null) {
+            onDone(new IgniteCheckedException("Failed to update backup node=" + nodeId + '.', res.error()));
+
+            return;
+        }
+
+        tx.addRemoteTransactionNode(cctx.node(nodeId));
+
+        sendNextBatches(false);
     }
 
     /** {@inheritDoc} */
@@ -694,7 +741,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
     @Override public boolean onNodeLeft(UUID nodeId) {
         boolean backupLeft = false;
 
-        for (ClusterNode node :  tx.lockTransactionNodes()) {
+        for (ClusterNode node : tx.lockTransactionNodes()) {
             if (node.id().equals(nodeId)) {
                 backupLeft = true;
 
@@ -746,6 +793,95 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T extends GridCacheIdMe
      * @return Prepared response.
      */
     public abstract T createResponse(long cnt, boolean removeMapping);
+
+    /**
+     * A batch of rows
+     */
+    private static class Batch {
+        /** Node ID. */
+        @GridToStringExclude
+        private final ClusterNode node;
+
+        /** */
+        private List<KeyCacheObject> keys;
+
+        /** */
+        private List<CacheObject> vals;
+
+        /** Readiness flag. Set when batch is full or no new rows are expected. */
+        private boolean ready;
+
+        /**
+         * @param node Cluster node.
+         */
+        private Batch(ClusterNode node) {
+            this.node = node;
+        }
+
+        /**
+         * @return Node.
+         */
+        public ClusterNode node() {
+            return node;
+        }
+
+        /**
+         * Adds a row to batch.
+         *
+         * @param key Key.
+         * @param val Value.
+         */
+        public void add(KeyCacheObject key, CacheObject val) {
+            if (keys == null)
+                keys = new ArrayList<>();
+
+            keys.add(key);
+
+            if (val != null) {
+                if (vals == null)
+                    vals = new ArrayList<>();
+
+                vals.add(val);
+            }
+        }
+
+        /**
+         * @return number of rows.
+         */
+        public int size() {
+            return keys == null ? 0 : keys.size();
+        }
+
+        /**
+         * @return Collection of rows.
+         */
+        public List<KeyCacheObject> keys() {
+            return keys;
+        }
+
+        /**
+         * @return Collection of rows.
+         */
+        public List<CacheObject> values() {
+            return vals;
+        }
+
+        /**
+         * @return Readiness flag.
+         */
+        public boolean ready() {
+            return ready;
+        }
+
+        /**
+         * Sets readiness flag.
+         *
+         * @param ready Flag value.
+         */
+        public void ready(boolean ready) {
+            this.ready = ready;
+        }
+    }
 
     /**
      * Lock request timeout object.

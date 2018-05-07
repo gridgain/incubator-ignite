@@ -87,7 +87,6 @@ import org.apache.ignite.internal.util.typedef.C2;
 import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.CI2;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -2282,10 +2281,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             try {
                 WALPointer ptr = null;
 
-                for (int i = 0; i < req.rows().size(); i++) {
-                    T2<KeyCacheObject, CacheObject> row = req.rows().get(i);
-
-                    KeyCacheObject key = row.get1();
+                for (int i = 0; i < req.keys().size(); i++) {
+                    KeyCacheObject key = req.keys().get(i);
 
                     assert key != null;
 
@@ -2301,7 +2298,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                         CacheObject val = null;
 
                         if (req.op() != DELETE)
-                            val = row.get2();
+                            val = req.values().get(i);
 
                         IgniteTxKey txKey = ctx.txKey(key);
 

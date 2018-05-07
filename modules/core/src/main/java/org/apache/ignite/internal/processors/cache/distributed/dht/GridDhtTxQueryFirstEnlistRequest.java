@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.processors.cache.distributed.dht;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshotWithoutTxs;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
@@ -91,8 +94,10 @@ public class GridDhtTxQueryFirstEnlistRequest extends GridDhtTxQueryEnlistReques
         UUID nearNodeId,
         GridCacheVersion nearXidVer,
         GridCacheOperation op,
-        int batchId) {
-        super(cacheId, dhtFutId, lockVer, op, batchId, snapshot.operationCounter());
+        int batchId,
+        List<KeyCacheObject> keys,
+        List<CacheObject> vals) {
+        super(cacheId, dhtFutId, lockVer, op, batchId, snapshot.operationCounter(), keys, vals);
         this.cacheId = cacheId;
         this.subjId = subjId;
         this.topVer = topVer;

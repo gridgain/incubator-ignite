@@ -1534,7 +1534,7 @@ public class DmlStatementsProcessor {
 
             first = false;
 
-            return res;
+            return op == GridCacheOperation.DELETE ? (T)((IgniteBiTuple)res).getKey() : res;
         }
 
         /** {@inheritDoc} */

@@ -1060,6 +1060,13 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             assert res != null;
 
+            // VERSION_FOUND is possible only on primary node when inserting the same key, or on backup when
+            // updating the key which just has been rebalanced.
+            assert res.resultType() != ResultType.VERSION_FOUND || op == CREATE && tx.local() || !tx.local();
+
+            // PREV_NOT_NULL on CREATE is possible only on primary.
+            assert res.resultType() != ResultType.PREV_NOT_NULL || op != CREATE || tx.local();
+
             if (res.resultType() == ResultType.VERSION_MISMATCH)
                 throw new IgniteSQLException("Mvcc version mismatch.", CONCURRENT_UPDATE);
             else if (res.resultType() == ResultType.LOCKED) {
@@ -1076,7 +1083,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
                 return new GridCacheUpdateTxResult(false, resFut);
             }
-            else if (op == CREATE && (res.resultType() == ResultType.PREV_NOT_NULL ||
+            else if (op == CREATE && tx.local() && (res.resultType() == ResultType.PREV_NOT_NULL ||
                 res.resultType() == ResultType.VERSION_FOUND))
                 throw new IgniteSQLException("Duplicate key during INSERT [key=" + key + ']', DUPLICATE_KEY);
 
@@ -4900,7 +4907,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
                     return;
                 }
-                else if (op == CREATE && res.resultType() == ResultType.PREV_NOT_NULL) {
+                else if (op == CREATE && tx.local() && (res.resultType() == ResultType.PREV_NOT_NULL ||
+                    res.resultType() == ResultType.VERSION_FOUND)) {
                     resFut.onDone(new IgniteSQLException("Duplicate key during INSERT [key=" + entry.key() + ']',
                         DUPLICATE_KEY));
 

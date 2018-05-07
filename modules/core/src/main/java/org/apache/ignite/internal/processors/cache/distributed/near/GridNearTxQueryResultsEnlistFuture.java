@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
@@ -58,6 +59,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
+
 
 /**
  * A future tracking requests for remote nodes transaction enlisting and locking
@@ -144,10 +146,13 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
     private LockTimeoutObject timeoutObj;
 
     /** Row extracted from iterator but not yet used. */
-    private IgniteBiTuple peek;
+    private Object peek;
 
     /** Topology locked flag. */
     private boolean topLocked;
+
+    /** Finish flag.  */
+    private final AtomicBoolean finish = new AtomicBoolean();
 
     /**
      * @param cctx Cache context.
@@ -368,15 +373,55 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
         if (SKIP_UPD.getAndIncrement(this) != 0)
             return null;
 
-        while (true) {
-            IgniteBiTuple cur = (peek != null) ? peek : (it.hasNextX() ? (IgniteBiTuple)it.nextX() : null);
+        boolean stop = false;
 
-            while (cur != null) {
-                ClusterNode node = cctx.affinity().primaryByKey(cur.getKey(), topVer);
+        while (true) {
+            if (!it.hasNext() && peek == null) {
+                if (finish.compareAndSet(false, true)) {
+                    // No data left - flush incomplete batches.
+                    for (Batch batch : batches.values()) {
+                        if (!batch.ready()) {
+                            if (res == null)
+                                res = new ArrayList<>();
+
+                            batch.ready(true);
+
+                            res.add(batch);
+                        }
+                    }
+                }
+
+                if (finish.get() && batches.isEmpty())
+                    onDone(RES_UPD.get(this));
+
+                stop = true;
+            }
+
+            if (stop) {
+                if (SKIP_UPD.decrementAndGet(this) == 0) {
+                    it.beforeDetach();
+
+                    break;
+                }
+            }
+
+            while (it.hasNext() || peek != null) {
+                Object cur = (peek != null) ? peek : (it.hasNextX() ? it.nextX() : null);
+
+                peek = null;
+
+                Object key;
+
+                if (op == GridCacheOperation.DELETE)
+                    key = cctx.toCacheKeyObject(cur);
+                else
+                    key = cctx.toCacheKeyObject(((IgniteBiTuple)cur).getKey());
+
+                ClusterNode node = cctx.affinity().primaryByKey(key, topVer);
 
                 if (node == null)
                     throw new ClusterTopologyCheckedException("Failed to get primary node " +
-                        "[topVer=" + topVer + ", key=" + cur.getKey() + ']');
+                        "[topVer=" + topVer + ", key=" + key + ']');
 
                 Batch batch = batches.get(node.id());
 
@@ -390,49 +435,23 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
                     // Can't advance further at the moment.
                     peek = cur;
 
+                    stop = true;
+
                     break;
                 }
 
-                peek = null;
-
-                batch.add(op == GridCacheOperation.DELETE ? cur.getKey() :
-                    new IgniteBiTuple<>(cur.getKey(), cur.getValue()));
-
-                cur = it.hasNextX() ? (IgniteBiTuple)it.nextX() : null;
+                batch.add(op == GridCacheOperation.DELETE ? key : cur);
 
                 if (batch.size() == batchSize) {
                     batch.ready(true);
 
                     if (res == null)
-                        res = new ArrayList<>(batchSize);
+                        res = new ArrayList<>();
 
                     res.add(batch);
                 }
             }
-
-            if (SKIP_UPD.decrementAndGet(this) == 0)
-                break;
         }
-
-        it.beforeDetach();
-
-        if (it.hasNext() || peek != null)
-            return res;
-
-        // No data left - flush incomplete batches.
-        for (Batch batch : batches.values()) {
-            if (!batch.ready()) {
-                if (res == null)
-                    res = new ArrayList<>(batchSize);
-
-                batch.ready(true);
-
-                res.add(batch);
-            }
-        }
-
-        if (batches.isEmpty())
-            onDone(RES_UPD.get(this));
 
         return res;
     }

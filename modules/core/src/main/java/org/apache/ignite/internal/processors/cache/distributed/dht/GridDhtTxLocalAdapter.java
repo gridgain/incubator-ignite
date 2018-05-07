@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.F0;
+import org.apache.ignite.internal.util.GridConcurrentHashSet;
 import org.apache.ignite.internal.util.GridLeanMap;
 import org.apache.ignite.internal.util.GridLeanSet;
 import org.apache.ignite.internal.util.future.GridEmbeddedFuture;
@@ -56,10 +58,8 @@ import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionState;
 import org.jetbrains.annotations.Nullable;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.NOOP;
-import static org.apache.ignite.internal.processors.cache.GridCacheOperation.READ;
 import static org.apache.ignite.transactions.TransactionState.COMMITTED;
 import static org.apache.ignite.transactions.TransactionState.COMMITTING;
 import static org.apache.ignite.transactions.TransactionState.PREPARED;
@@ -95,6 +95,9 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
 
     /** Nodes where transactions were started on lock step. */
     private Set<ClusterNode> lockTxNodes;
+
+    /** Nodes where remote transactions were started. */
+    private Set<ClusterNode> remoteTxNodes;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -171,6 +174,19 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
     }
 
     /**
+     * @param node Node.
+     */
+    void addRemoteTransactionNode(ClusterNode node) {
+        assert node != null;
+        assert !node.isLocal();
+
+        if (remoteTxNodes == null)
+            remoteTxNodes = new GridConcurrentHashSet<>();
+
+        remoteTxNodes.add(node);
+    }
+
+    /**
      * Sets flag that indicates that originating node has a near cache that participates in this transaction.
      *
      * @param hasNear Has near cache flag.
@@ -207,6 +223,13 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
      */
     @Nullable Set<ClusterNode> lockTransactionNodes() {
         return lockTxNodes;
+    }
+
+    /**
+     * @return Nodes where remote transactions start were acknowledged.
+     */
+    @Nullable Set<ClusterNode> remoteTransactionNodes() {
+        return remoteTxNodes;
     }
 
     /**
