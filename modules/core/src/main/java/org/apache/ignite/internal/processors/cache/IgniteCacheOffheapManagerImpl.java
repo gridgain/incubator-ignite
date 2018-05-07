@@ -2507,9 +2507,6 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             /** */
             private final MvccSnapshot snapshot;
 
-            /** */
-            private KeyCacheObject key;
-
             /**
              *
              * @param cctx Cache context.
@@ -2531,20 +2528,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 assert MvccUtils.mvccVersionIsValid(rowCrdVer, rowCntr, rowOpCntr);
 
-                if (MvccUtils.isVisible(cctx, snapshot, rowCrdVer, rowCntr, rowOpCntr)) {
-                    if (!MvccUtils.isNewVisible(cctx, rowIo.getLink(pageAddr, idx), snapshot)) {
-                        CacheDataRow row = tree.getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.KEY_ONLY);
-
-                        if (key == null || !key.equals(row.key())) {
-                            key = row.key();
-
-                            return true;
-                        }
-                    }
-                }
-
-                // Skip this row.
-                return false;
+                return MvccUtils.isVisible(cctx, snapshot, rowCrdVer, rowCntr, rowOpCntr) &&
+                    !MvccUtils.isNewVisible(cctx, rowIo.getLink(pageAddr, idx), snapshot);
             }
         }
     }
