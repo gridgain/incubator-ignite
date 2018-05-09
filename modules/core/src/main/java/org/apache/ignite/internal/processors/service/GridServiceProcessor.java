@@ -175,6 +175,9 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
     /** */
     private final CountDownLatch startLatch = new CountDownLatch(1);
 
+    /** Flag indicates that query listener for service cache is registered.*/
+    private volatile boolean lsnrRegistered = false;
+
     /**
      * @param ctx Kernal context.
      */
@@ -200,6 +203,8 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
             ctx.continuous().registerStaticRoutine(
                 CU.UTILITY_CACHE_NAME, new ServiceEntriesListener(), null, null
             );
+
+            lsnrRegistered = true;
         }
     }
 
@@ -257,6 +262,8 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
                 serviceCache.context().continuousQueries().executeInternalQuery(
                     new ServiceEntriesListener(), null, isLocLsnr, true, false
                 );
+
+                lsnrRegistered = true;
             }
             else { // Listener for client nodes is registered in onContinuousProcessorStarted method.
                 assert !ctx.isDaemon();
@@ -264,10 +271,20 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
                 ctx.closure().runLocalSafe(new Runnable() {
                     @Override public void run() {
                         try {
-                            Iterable<CacheEntryEvent<?, ?>> entries =
-                                serviceCache.context().continuousQueries().existingEntries(false, null);
+                            if (lsnrRegistered) {
+                                Iterable<CacheEntryEvent<?, ?>> entries =
+                                    serviceCache.context().continuousQueries().existingEntries(false, null);
 
-                            onSystemCacheUpdated(entries);
+                                onSystemCacheUpdated(entries);
+                            }
+                            else {
+                                // notifyExisting doesn't work here
+                                serviceCache.context().continuousQueries().executeInternalQuery(
+                                    new ServiceEntriesListener(), null, false, true, false
+                                );
+
+                                lsnrRegistered = true;
+                            }
                         }
                         catch (IgniteCheckedException e) {
                             U.error(log, "Failed to load service entries: " + e, e);
@@ -377,6 +394,8 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
 
         cancelFutures(depFuts, err);
         cancelFutures(undepFuts, err);
+
+        lsnrRegistered = false;
 
         if (log.isDebugEnabled())
             log.debug("Stopped service processor.");

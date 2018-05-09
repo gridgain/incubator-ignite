@@ -164,9 +164,7 @@ public class ServiceDeploymentOnActivationTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void _testClientsStaticConfigWithoutPersistence() throws Exception {
-        fail("https://issues.apache.org/jira/browse/IGNITE-8279");
-
+    public void testClientsStaticConfigWithoutPersistence() throws Exception {
         persistence = false;
 
         checkRedeployment(2, 2, CLIENT_FILTER, 2, true, true);
