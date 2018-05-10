@@ -47,6 +47,7 @@ import org.apache.ignite.events.Event;
 import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.GridTopic;
+import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryType;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryMarshallable;
 import org.apache.ignite.internal.processors.cache.query.GridCacheSqlQuery;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.h2.H2Utils;
@@ -81,6 +83,7 @@ import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryReq
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2SelectForUpdateTxDetails;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
 import org.apache.ignite.internal.util.typedef.CI1;
+import org.apache.ignite.internal.util.typedef.CIX1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
@@ -731,6 +734,8 @@ public class GridMapQueryExecutor {
                 for (GridCacheSqlQuery qry : qrys) {
                     ResultSet rs = null;
 
+                    boolean removeMapping = false;
+
                     // If we are not the target node for this replicated query, just ignore it.
                     if (qry.node() == null || (segmentId == 0 && qry.node().equals(ctx.localNodeId()))) {
                         rs = h2.executeSqlQueryWithTimer(conn, qry.query(),
@@ -756,10 +761,12 @@ public class GridMapQueryExecutor {
 
                             enlistFut.init();
 
-                            GridNearTxQueryEnlistResponse r = enlistFut.get();
+                            ResultSetEnlistFuture.ResultSetEnlistFutureResult r = enlistFut.get();
 
                             if (r.error() != null)
                                 throw r.error();
+
+                            removeMapping = r.removeMapping();
 
                             rs.beforeFirst();
                         }
@@ -791,8 +798,11 @@ public class GridMapQueryExecutor {
                         throw new QueryCancelledException();
                     }
 
+                    if (removeMapping && tx.dht())
+                        tx.rollbackAsync().get();
+
                     // Send the first page.
-                    sendNextPage(nodeRess, node, qr, qryIdx, segmentId, pageSize);
+                    sendNextPage(nodeRess, node, qr, qryIdx, segmentId, pageSize, removeMapping);
 
                     qryIdx++;
                 }
@@ -822,8 +832,6 @@ public class GridMapQueryExecutor {
                 sendRetry(node, reqId, segmentId);
             else {
                 U.error(log, "Failed to execute local query.", e);
-
-                tx.rollbackAsync();
 
                 sendError(node, reqId, e);
 
@@ -1042,12 +1050,12 @@ public class GridMapQueryExecutor {
             if (lazyWorker != null) {
                 lazyWorker.submit(new Runnable() {
                     @Override public void run() {
-                        sendNextPage(nodeRess, node, qr, req.query(), req.segmentId(), req.pageSize());
+                        sendNextPage(nodeRess, node, qr, req.query(), req.segmentId(), req.pageSize(), false);
                     }
                 });
             }
             else
-                sendNextPage(nodeRess, node, qr, req.query(), req.segmentId(), req.pageSize());
+                sendNextPage(nodeRess, node, qr, req.query(), req.segmentId(), req.pageSize(), false);
         }
     }
 
@@ -1058,10 +1066,11 @@ public class GridMapQueryExecutor {
      * @param qry Query.
      * @param segmentId Index segment ID.
      * @param pageSize Page size.
+     * @param removeMapping Remove mapping flag.
      */
     @SuppressWarnings("unchecked")
     private void sendNextPage(MapNodeResults nodeRess, ClusterNode node, MapQueryResults qr, int qry, int segmentId,
-        int pageSize) {
+        int pageSize, boolean removeMapping) {
         MapQueryResult res = qr.result(qry);
 
         assert res != null;
@@ -1100,6 +1109,8 @@ public class GridMapQueryExecutor {
                 loc ? null : toMessages(rows, new ArrayList<>(res.columnCount()), colsCnt),
                 loc ? rows : null,
                 last);
+
+            msg.removeMapping(removeMapping);
 
             if (loc)
                 h2.reduceQueryExecutor().onMessage(ctx.localNodeId(), msg);

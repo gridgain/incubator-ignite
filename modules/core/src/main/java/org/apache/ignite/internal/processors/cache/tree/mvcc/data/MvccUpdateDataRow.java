@@ -59,7 +59,9 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
     /** */
     private static final int REMOVE = PRIMARY << 1;
     /** */
-    private static final int LOCK = REMOVE << 1;
+    private static final int BACKUP_FLAGS_SET = FIRST;
+    /** */
+    private static final int PRIMARY_FLAGS_SET = FIRST | CHECK_VERSION | PRIMARY | CAN_WRITE;
 
     /** */
     @GridToStringExclude
@@ -126,15 +128,10 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
 
         assert !lockOnly || val == null;
 
-        if (primary)
-            setFlags(FIRST
-                | CHECK_VERSION
-                | PRIMARY
-                | (val == null && !lockOnly ? REMOVE : 0)
-                | (val == null && lockOnly ? LOCK : 0)
-                | CAN_WRITE);
-        else
-            setFlags(FIRST);
+        setFlags(primary ? PRIMARY_FLAGS_SET : BACKUP_FLAGS_SET);
+
+        if (primary && val == null && !lockOnly)
+            setFlags(REMOVE);
     }
 
     /** {@inheritDoc} */
@@ -178,9 +175,6 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
             if (!isFlagsSet(REMOVE))
                 unsetFlags(CAN_WRITE);
         }
-
-        if (isFlagsSet(LOCK))
-            return unsetFlags(FIRST);
 
         // Check whether the row was updated by current transaction
         if (isFlagsSet(FIRST)) {

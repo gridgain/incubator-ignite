@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.GridKernalContext;
@@ -39,6 +40,7 @@ import org.apache.ignite.transactions.TransactionState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
@@ -493,7 +495,7 @@ public class MvccUtils {
                 timeout = tcfg.getDefaultTxTimeout();
         }
 
-        return ctx.cache().context().tm().newTx(
+        GridNearTxLocal tx = ctx.cache().context().tm().newTx(
             false,
             false,
             cctx != null && cctx.systemTx() ? cctx : null,
@@ -504,6 +506,10 @@ public class MvccUtils {
             true,
             0
         );
+
+        tx.syncMode(FULL_SYNC);
+
+        return tx;
     }
 
     /**

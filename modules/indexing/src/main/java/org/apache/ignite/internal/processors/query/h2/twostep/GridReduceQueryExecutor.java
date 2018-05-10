@@ -362,7 +362,7 @@ public class GridReduceQueryExecutor {
             GridNearTxSelectForUpdateFuture sfuFut = r.selectForUpdateFuture();
 
             if (sfuFut != null)
-                sfuFut.onResult(node.id(), (long)msg.allRows(), null);
+                sfuFut.onResult(node.id(), (long)msg.allRows(), msg.removeMapping(), null);
         }
     }
 

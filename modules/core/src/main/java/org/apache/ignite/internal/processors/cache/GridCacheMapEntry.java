@@ -1165,10 +1165,16 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             assert res != null;
 
-            IgniteInternalFuture lockFut = onUpdateResult(res);
+            if (res.resultType() == ResultType.VERSION_MISMATCH)
+                throw new IgniteSQLException("Mvcc version mismatch.", CONCURRENT_UPDATE);
+            else if (res.resultType() == ResultType.LOCKED) {
+                unlockEntry();
 
-            if (lockFut != null) {
+                MvccVersion lockVer = res.resultVersion();
+
                 GridFutureAdapter<GridCacheUpdateTxResult> resFut = new GridFutureAdapter<>();
+
+                IgniteInternalFuture lockFut = cctx.kernalContext().coordinators().waitFor(cctx, lockVer);
 
                 lockFut.listen(new MvccAcquireLockListener(tx, this, mvccVer, resFut));
 
@@ -1186,25 +1192,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         onUpdateFinished(0L);
 
         return new GridCacheUpdateTxResult(valid, logPtr);
-    }
-
-    /**
-     * @param res Update result.
-     * @return Lock future to wait on if locking failed, or {@code null} if locking code may proceed.
-     * @throws IgniteCheckedException if failed.
-     */
-    private IgniteInternalFuture<?> onUpdateResult(MvccUpdateResult res) throws IgniteCheckedException {
-        assert lockedByCurrentThread();
-
-        if (res.resultType() == ResultType.VERSION_MISMATCH)
-            throw new IgniteSQLException("Mvcc version mismatch.", CONCURRENT_UPDATE);
-        else if (res.resultType() == ResultType.LOCKED) {
-            unlockEntry();
-
-            return cctx.kernalContext().coordinators().waitFor(cctx, res.resultVersion());
-        }
-        else
-            return null;
     }
 
     /** {@inheritDoc} */
@@ -4860,12 +4847,20 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
                 assert res != null;
 
-                IgniteInternalFuture newLockFut = entry.onUpdateResult(res);
+                if (res.resultType() == ResultType.VERSION_MISMATCH) {
+                    resFut.onDone(new IgniteSQLException("Mvcc version mismatch.", CONCURRENT_UPDATE));
 
-                if (newLockFut != null)
-                    newLockFut.listen(this);
+                    return;
+                }
+                else if (res.resultType() == ResultType.LOCKED) {
+                    entry.unlockEntry();
+
+                    cctx.kernalContext().coordinators().waitFor(cctx, res.resultVersion()).listen(this);
+
+                    return;
+                }
             }
-            catch (IgniteSQLException | IgniteCheckedException e) {
+            catch (IgniteCheckedException e) {
                 resFut.onDone(e);
 
                 return;

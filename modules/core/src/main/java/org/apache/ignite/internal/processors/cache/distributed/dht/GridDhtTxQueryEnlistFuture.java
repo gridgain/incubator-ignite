@@ -26,7 +26,7 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQu
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
-import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
+import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
@@ -120,7 +120,7 @@ public final class GridDhtTxQueryEnlistFuture
     }
 
     /** {@inheritDoc} */
-    @Override protected LockingOperationSourceIterator<?> createIterator() throws IgniteCheckedException {
+    @Override protected UpdateSourceIterator<?> createIterator() throws IgniteCheckedException {
         return cctx.kernalContext().query().prepareDistributedUpdate(cctx, cacheIds, parts, schema, qry,
                 params, flags, pageSize, 0, topVer, mvccSnapshot, new GridQueryCancel());
     }
@@ -130,19 +130,15 @@ public final class GridDhtTxQueryEnlistFuture
      * @return Prepare response.
      */
     @NotNull @Override public GridNearTxQueryEnlistResponse createResponse(@NotNull Throwable err) {
-        return new GridNearTxQueryEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, 0, err);
+        return new GridNearTxQueryEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, err);
     }
 
     /**
      * @return Prepare response.
      */
     @NotNull @Override public GridNearTxQueryEnlistResponse createResponse() {
-        GridNearTxQueryEnlistResponse rsp = new GridNearTxQueryEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId,
-            nearLockVer, cnt, null);
-
-        rsp.removeMapping(tx.empty());
-
-        return rsp;
+        return new GridNearTxQueryEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId,
+            nearLockVer, cnt, tx.empty());
     }
 
     /** {@inheritDoc} */

@@ -97,7 +97,7 @@ import org.apache.ignite.internal.processors.query.GridQueryRowCacheCleaner;
 import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
 import org.apache.ignite.internal.processors.query.GridRunningQueryInfo;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
-import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
+import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
 import org.apache.ignite.internal.processors.query.NestedTxMode;
 import org.apache.ignite.internal.processors.query.QueryField;
 import org.apache.ignite.internal.processors.query.QueryIndexDescriptorImpl;
@@ -1156,22 +1156,17 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                                 rs
                             );
 
-                            enlistFut.listen(new IgniteInClosure<IgniteInternalFuture<GridNearTxQueryEnlistResponse>>() {
-                                @Override public void apply(IgniteInternalFuture<GridNearTxQueryEnlistResponse> res) {
-                                    if (res.error() != null) {
-                                        sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), null, res.error());
+                            enlistFut.listen(new IgniteInClosure<IgniteInternalFuture<ResultSetEnlistFuture.ResultSetEnlistFutureResult>>() {
+                                @Override public void apply(IgniteInternalFuture<ResultSetEnlistFuture.ResultSetEnlistFutureResult> fut) {
+                                    if (fut.error() != null)
+                                        sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), 0L, false, fut.error());
+                                    else  {
+                                        ResultSetEnlistFuture.ResultSetEnlistFutureResult res = fut.result();
 
-                                        return;
-                                    }
+                                        assert res != null;
 
-                                    try {
-                                        rs.beforeFirst();
-
-                                        sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), res.get().result(),
-                                            res.get().error());
-                                    }
-                                    catch (Exception e) {
-                                        sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), null, e);
+                                        sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), res.enlistedRows(),
+                                            res.removeMapping(), res.error());
                                     }
                                 }
                             });
@@ -1180,6 +1175,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
                             try {
                                 sfuFut.get();
+
+                                rs.beforeFirst();
                             }
                             catch (Exception e) {
                                 U.closeQuiet(rs);
@@ -2377,7 +2374,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     }
 
     /** {@inheritDoc} */
-    @Override public LockingOperationSourceIterator<?> prepareDistributedUpdate(GridCacheContext<?, ?> cctx, int[] ids,
+    @Override public UpdateSourceIterator<?> prepareDistributedUpdate(GridCacheContext<?, ?> cctx, int[] ids,
         int[] parts, String schema, String qry, Object[] params, int flags,
         int pageSize, int timeout, AffinityTopologyVersion topVer,
         MvccSnapshot mvccSnapshot, GridQueryCancel cancel) throws IgniteCheckedException {

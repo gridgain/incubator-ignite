@@ -1,15 +1,18 @@
 package org.apache.ignite.internal.processors.query.h2;
 
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
+import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxQueryEnlistAbstractFuture;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
-import org.apache.ignite.internal.processors.query.LockingOperationSourceIterator;
+import org.apache.ignite.internal.processors.query.IgniteSQLException;
+import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -17,9 +20,18 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Future to process whole local result set of SELECT FOR UPDATE query.
  */
-public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<GridNearTxQueryEnlistResponse> {
-    /** Iterator to process. */
-    private final SelectForUpdateResultSetIterator it;
+public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<ResultSetEnlistFuture.ResultSetEnlistFutureResult>
+    implements UpdateSourceIterator<Object> {
+    /** */
+    private static final long serialVersionUID = -8995895504338661551L;
+    /** */
+    private final ResultSet rs;
+
+    /** */
+    private final int keyColIdx;
+
+    /** */
+    private Boolean hasNext;
 
     /**
      * @param nearNodeId   Near node ID.
@@ -40,7 +52,14 @@ public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Gr
         GridDhtTxLocalAdapter tx, long timeout, GridCacheContext<?, ?> cctx, ResultSet rs) {
         super(nearNodeId, nearLockVer, topVer, mvccSnapshot, threadId, nearFutId, nearMiniId, parts, tx, timeout, cctx);
 
-        this.it = new SelectForUpdateResultSetIterator(rs);
+        this.rs = rs;
+
+        try {
+            keyColIdx = rs.getMetaData().getColumnCount();
+        }
+        catch (SQLException e) {
+            throw new IgniteSQLException(e);
+        }
     }
 
     /**
@@ -51,17 +70,95 @@ public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Gr
     }
 
     /** {@inheritDoc} */
-    @Override protected LockingOperationSourceIterator<?> createIterator() {
-        return it;
+    @Override protected UpdateSourceIterator<?> createIterator() {
+        return this;
     }
 
     /** {@inheritDoc} */
-    @Override public GridNearTxQueryEnlistResponse createResponse(@NotNull Throwable err) {
-        return new GridNearTxQueryEnlistResponse(cctx.cacheId(), null, 0, null, 0, err);
+    @Override public ResultSetEnlistFutureResult createResponse(@NotNull Throwable err) {
+        return new ResultSetEnlistFutureResult(0, false, err);
     }
 
     /** {@inheritDoc} */
-    @Override public GridNearTxQueryEnlistResponse createResponse() {
-        return new GridNearTxQueryEnlistResponse(cctx.cacheId(), null, 0, null, it.rows(), null);
+    @Override public ResultSetEnlistFutureResult createResponse() {
+        return new ResultSetEnlistFutureResult(cnt, tx.empty(), null);
+    }
+
+    @Override public GridCacheOperation operation() {
+        return GridCacheOperation.READ;
+    }
+
+    @Override public boolean hasNextX() {
+        try {
+            if (hasNext == null)
+                hasNext = rs.next();
+
+            return hasNext;
+        }
+        catch (SQLException e) {
+            throw new IgniteSQLException(e);
+        }
+    }
+
+    @Override public Object nextX() {
+        if (!hasNextX())
+            throw new NoSuchElementException();
+
+        try {
+            return rs.getObject(keyColIdx);
+        }
+        catch (SQLException e) {
+            throw new IgniteSQLException(e);
+        }
+        finally {
+            hasNext = null;
+        }
+    }
+
+    /**
+     *
+     */
+    public static class ResultSetEnlistFutureResult {
+        /** */
+        private long cnt;
+
+        /** */
+        private boolean removeMapping;
+
+        /** */
+        private Throwable err;
+
+
+        /**
+         * @param cnt Total rows counter on given node.
+         * @param removeMapping Whether transaction mapping should be removed for node.
+         * @param err Exception.
+         */
+        public ResultSetEnlistFutureResult(long cnt, boolean removeMapping, Throwable err) {
+            this.err = err;
+            this.cnt = cnt;
+            this.removeMapping = removeMapping;
+        }
+
+        /**
+         * @return Total rows counter on given node.
+         */
+        public long enlistedRows() {
+            return cnt;
+        }
+
+        /**
+         * @return {@code True} if transaction mapping should be removed for node.
+         */
+        public boolean removeMapping() {
+            return removeMapping;
+        }
+
+        /**
+         * @return Exception.
+         */
+        public Throwable error() {
+            return err;
+        }
     }
 }

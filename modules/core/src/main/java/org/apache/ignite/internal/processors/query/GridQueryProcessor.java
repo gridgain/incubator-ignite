@@ -1990,7 +1990,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @return Cursor over entries which are going to be changed.
      * @throws IgniteCheckedException If failed.
      */
-    public LockingOperationSourceIterator<?> prepareDistributedUpdate(GridCacheContext<?, ?> cctx, int[] cacheIds,
+    public UpdateSourceIterator<?> prepareDistributedUpdate(GridCacheContext<?, ?> cctx, int[] cacheIds,
         int[] parts, String schema, String qry, Object[] params, int flags, int pageSize, int timeout,
         AffinityTopologyVersion topVer, MvccSnapshot mvccSnapshot,
         GridQueryCancel cancel) throws IgniteCheckedException {

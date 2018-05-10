@@ -1638,7 +1638,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     null,
                     partId,
                     primary,
-                    false, cctx);
+                    false,
+                    cctx);
 
                 dataTree.visit(new MvccMaxSearchRow(cacheId, key), new MvccMinSearchRow(cacheId, key), updateRow);
 
@@ -1735,7 +1736,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     null,
                     partId,
                     primary,
-                    false, cctx);
+                    false,
+                    cctx);
 
                 dataTree.visit(new MvccMaxSearchRow(cacheId, key), new MvccMinSearchRow(cacheId, key), updateRow);
 
@@ -1772,8 +1774,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         /** {@inheritDoc} */
         @Override public MvccUpdateResult mvccLock(GridCacheContext cctx, boolean primary, KeyCacheObject key,
             MvccSnapshot mvccSnapshot) throws IgniteCheckedException {
-            assert mvccSnapshot != null;
-            assert primary || mvccSnapshot.activeTransactions().size() == 0 : mvccSnapshot;
+            assert primary && mvccSnapshot != null;
 
             if (!busyLock.enterBusy())
                 throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
@@ -1786,13 +1787,6 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 // Make sure value bytes initialized.
                 key.valueBytes(coCtx);
 
-                if (!primary) // TODO IGNITE-7806
-                    mvccSnapshot = new MvccSnapshotWithoutTxs(
-                        mvccSnapshot.coordinatorVersion(),
-                        mvccSnapshot.counter(),
-                        MvccProcessor.MVCC_START_OP_CNTR,
-                        mvccSnapshot.cleanupVersion());
-
                 MvccUpdateDataRow updateRow = new MvccUpdateDataRow(
                     key,
                     null,
@@ -1801,7 +1795,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     mvccSnapshot,
                     null,
                     partId,
-                    primary,
+                    true,
                     true,
                     cctx);
 

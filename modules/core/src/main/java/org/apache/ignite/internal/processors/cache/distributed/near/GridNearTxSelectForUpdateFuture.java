@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
@@ -58,6 +57,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFuture<Long>
     implements GridCacheVersionedFuture<Long>, MvccSnapshotResponseListener {
+    /** */
+    private static final long serialVersionUID = 6931664882548658420L;
+
     /** Done field updater. */
     private static final AtomicIntegerFieldUpdater<GridNearTxSelectForUpdateFuture> DONE_UPD =
         AtomicIntegerFieldUpdater.newUpdater(GridNearTxSelectForUpdateFuture.class, "done");
@@ -126,9 +128,8 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
     /**
      * @param node Node.
-     * @param loc Whether it's local node mapping (no parallelism involved).
      */
-    private void map(ClusterNode node, boolean loc) {
+    private void map(ClusterNode node) {
         GridDistributedTxMapping mapping = tx.mappings().get(node.id());
 
         if (mapping == null)
@@ -147,13 +148,14 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
      * Process result of query execution on given
      * @param nodeId Node id.
      * @param cnt Total rows counter on given node.
+     * @param removeMapping Whether transaction mapping should be removed for node.
      * @param err Error.
      */
-    public void onResult(UUID nodeId, @Nullable Long cnt, @Nullable Throwable err) {
+    public void onResult(UUID nodeId, Long cnt, boolean removeMapping, @Nullable Throwable err) {
         NodeFuture nodeFut = mapFuture(nodeId);
 
         if (nodeFut != null)
-            nodeFut.onResult(cnt, err);
+            nodeFut.onResult(cnt, removeMapping, err);
     }
 
     /** {@inheritDoc} */
@@ -243,7 +245,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
 
                 topEx.retryReadyFuture(cctx.shared().nextAffinityReadyFuture(topVer));
 
-                return f.onResult(null, topEx);
+                return f.onResult(0, false, topEx);
             }
         }
 
@@ -347,7 +349,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
         this.topVer = topVer;
 
         for (ClusterNode n : nodes)
-            map(n, loc);
+            map(n);
 
         markInitialized();
     }
@@ -357,7 +359,7 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
      */
     private class NodeFuture extends GridFutureAdapter<Long> {
         /** */
-        private final AtomicBoolean completed = new AtomicBoolean();
+        private boolean completed;
 
         /** Node ID. */
         @GridToStringExclude
@@ -379,33 +381,32 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
         }
 
         /**
-         * @param res Response.
+         * @param cnt Total rows counter on given node.
+         * @param removeMapping Whether transaction mapping should be removed for node.
          * @param err Exception.
          * @return {@code True} if future was completed by this call.
          */
-        public boolean onResult(Long res, Throwable err) {
-            assert res != null || err != null : this;
+        public boolean onResult(long cnt, boolean removeMapping, Throwable err) {
+            synchronized (this) {
+                if (completed)
+                    return false;
 
-            if (!completed.compareAndSet(false, true))
-                return false;
+                completed = true;
+            }
 
-            boolean topEx = X.hasCause(err, ClusterTopologyCheckedException.class);
-
-            if (topEx || res == null || res == 0) {
-                GridDistributedTxMapping m = tx.mappings().get(node.id());
-
-                assert m != null && m.empty();
+            if (X.hasCause(err, ClusterTopologyCheckedException.class) || removeMapping) {
+                assert tx.mappings().get(node.id()).empty();
 
                 tx.removeMapping(node.id());
             }
-            else if (res > 0) {
+            else if (err == null && cnt > 0) {
                 if (node.isLocal())
                     tx.colocatedLocallyMapped(true);
                 else
                     tx.hasRemoteLocks(true);
             }
 
-            return err != null ? onDone(err) : onDone(res);
+            return onDone(cnt, err);
         }
     }
 

@@ -71,16 +71,31 @@ public class GridNearTxQueryEnlistResponse extends GridCacheIdMessage {
      * @param futId Future id.
      * @param miniId Mini future id.
      * @param lockVer Lock version.
-     * @param res Result.
      * @param err Error.
      */
-    public GridNearTxQueryEnlistResponse(int cacheId, IgniteUuid futId, int miniId, GridCacheVersion lockVer, long res,Throwable err) {
+    public GridNearTxQueryEnlistResponse(int cacheId, IgniteUuid futId, int miniId, GridCacheVersion lockVer, Throwable err) {
+        this.cacheId = cacheId;
+        this.futId = futId;
+        this.miniId = miniId;
+        this.lockVer = lockVer;
+        this.err = err;
+    }
+
+    /**
+     * @param cacheId Cache id.
+     * @param futId Future id.
+     * @param miniId Mini future id.
+     * @param lockVer Lock version.
+     * @param res Result.
+     * @param removeMapping Remove mapping flag.
+     */
+    public GridNearTxQueryEnlistResponse(int cacheId, IgniteUuid futId, int miniId, GridCacheVersion lockVer, long res, boolean removeMapping) {
         this.cacheId = cacheId;
         this.futId = futId;
         this.miniId = miniId;
         this.lockVer = lockVer;
         this.res = res;
-        this.err = err;
+        this.removeMapping = removeMapping;
     }
 
     /**
@@ -109,13 +124,6 @@ public class GridNearTxQueryEnlistResponse extends GridCacheIdMessage {
      */
     public long result() {
         return res;
-    }
-
-    /**
-     * @param removeMapping Remove mapping flag.
-     */
-    public void removeMapping(boolean removeMapping) {
-        this.removeMapping = removeMapping;
     }
 
     /**
