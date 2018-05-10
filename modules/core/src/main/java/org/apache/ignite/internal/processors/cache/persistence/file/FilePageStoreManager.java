@@ -405,7 +405,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
     private static final ConcurrentHashMap<Integer, LongAdder> TRACK_READS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Integer, LongAdder> TRACK_WRITES = new ConcurrentHashMap<>();
 
-    private static final long TRACK_TIMEOUT = Long.parseLong(System.getProperty("ignite.page.track.timeout", "5000"));
+    private static final long TRACK_TIMEOUT = Long.parseLong(System.getProperty("ignite.page.track.timeout", "60000"));
 
     static {
         Thread t = new Thread(new Runnable() {
@@ -416,7 +416,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
 
                         TreeMap<Integer, IgniteBiTuple<Long, Long>> map = trackPrepareMap();
 
-                        StringBuilder out = new StringBuilder();
+                        StringBuilder out = new StringBuilder().append(System.currentTimeMillis()).append(": ");
 
                         for (Map.Entry<Integer, IgniteBiTuple<Long, Long>> entry : map.entrySet()) {
                             int type = entry.getKey();
