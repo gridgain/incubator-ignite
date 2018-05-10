@@ -34,7 +34,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.LongAdder;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -56,9 +59,11 @@ import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetrics
 import org.apache.ignite.internal.processors.cache.persistence.filename.PdsFolderSettings;
 import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage;
 import org.apache.ignite.internal.processors.cache.persistence.snapshot.IgniteCacheSnapshotManager;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.marshaller.Marshaller;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.jetbrains.annotations.NotNull;
@@ -326,6 +331,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
 
         try {
             store.read(pageId, pageBuf, keepCrc);
+
+            trackRead(pageBuf);
         }
         catch (PersistentStorageIOException e) {
             cctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
@@ -382,6 +389,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         PageStore store = getStore(cacheId, partId);
 
         try {
+            trackWrite(pageBuf);
+
             store.write(pageId, pageBuf, tag, calculateCrc);
         }
         catch (PersistentStorageIOException e) {
@@ -391,6 +400,107 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         }
 
         return store;
+    }
+
+    private static final ConcurrentHashMap<Integer, LongAdder> TRACK_READS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Integer, LongAdder> TRACK_WRITES = new ConcurrentHashMap<>();
+
+    private static final long TRACK_TIMEOUT = Long.parseLong(System.getProperty("ignite.page.track.timeout", "5000"));
+
+    static {
+        Thread t = new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    while (true) {
+                        Thread.sleep(TRACK_TIMEOUT);
+
+                        TreeMap<Integer, IgniteBiTuple<Long, Long>> map = trackPrepareMap();
+
+                        StringBuilder out = new StringBuilder();
+
+                        for (Map.Entry<Integer, IgniteBiTuple<Long, Long>> entry : map.entrySet()) {
+                            int type = entry.getKey();
+                            long readCnt = entry.getValue().get1();
+                            long writeCnt = entry.getValue().get2();
+
+                            String line = String.format("%6d -> %16d    %16d\n", type, readCnt, writeCnt);
+
+                            out.append(line);
+                        }
+
+                        System.out.println(out);
+                    }
+                }
+                catch (Exception e) {
+                    // No-op.
+                }
+            }
+        });
+
+        t.setName("page-tracker");
+        t.setDaemon(true);
+
+        t.start();
+    }
+
+    private static TreeMap<Integer, IgniteBiTuple<Long, Long>> trackPrepareMap() {
+        TreeMap<Integer, IgniteBiTuple<Long, Long>> res = new TreeMap<>();
+
+        for (Map.Entry<Integer, LongAdder> entry : TRACK_READS.entrySet())
+            res.put(entry.getKey(), new IgniteBiTuple<>(entry.getValue().longValue(), 0L));
+
+        for (Map.Entry<Integer, LongAdder> entry : TRACK_WRITES.entrySet()) {
+            int type = entry.getKey();
+            long val = entry.getValue().longValue();
+
+            IgniteBiTuple<Long, Long> t = res.get(type);
+
+            if (t == null) {
+                t = new IgniteBiTuple<>(0L, val);
+
+                res.put(type, t);
+            }
+            else
+                t.set2(val);
+        }
+
+        return res;
+    }
+
+    private void trackRead(ByteBuffer pageBuf) {
+        int type = PageIO.getType(pageBuf);
+
+        if (type != 0) {
+            LongAdder ctr = TRACK_READS.get(type);
+
+            if (ctr == null) {
+                ctr = new LongAdder();
+
+                LongAdder oldCtr = TRACK_READS.putIfAbsent(type, ctr);
+
+                if (oldCtr != null)
+                    ctr = oldCtr;
+            }
+
+            ctr.increment();
+        }
+    }
+
+    private void trackWrite(ByteBuffer pageBuf) {
+        int type = PageIO.getType(pageBuf);
+
+        LongAdder ctr = TRACK_WRITES.get(type);
+
+        if (ctr == null) {
+            ctr = new LongAdder();
+
+            LongAdder oldCtr = TRACK_WRITES.putIfAbsent(type, ctr);
+
+            if (oldCtr != null)
+                ctr = oldCtr;
+        }
+
+        ctr.increment();
     }
 
     /**
