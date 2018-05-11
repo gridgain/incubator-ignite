@@ -317,6 +317,8 @@ public class GridNearTxSelectForUpdateFuture extends GridCacheCompoundIdentityFu
     private void doInit(@Nullable AffinityTopologyVersion topVer, Collection<ClusterNode> nodes, boolean loc) {
         assert !loc || (topVer == null && nodes.size() == 1 && nodes.iterator().next().isLocal());
 
+        tx.init();
+
         if (initialized())
             throw new IllegalStateException("SELECT FOR UPDATE future has been initialized already.");
 

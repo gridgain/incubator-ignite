@@ -20,26 +20,23 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import javax.cache.CacheException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.QueryEntity;
+import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
+import org.apache.ignite.internal.util.typedef.X;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
@@ -120,80 +117,109 @@ public class CacheMvccSelectForUpdateQueryTest extends CacheMvccAbstractTest {
      *
      */
     public void testSelectForUpdateDistributed() throws Exception {
-        doTestSelectForUpdateDistributed("Person");
+        doTestSelectForUpdateDistributed("Person", false);
     }
 
     /**
      *
      */
     public void testSelectForUpdateDistributedSegmented() throws Exception {
-        doTestSelectForUpdateDistributed("PersonSeg");
-    }
-
-    /**
-     * @param cacheName Cache name.
-     * @throws Exception If failed.
-     */
-    private void doTestSelectForUpdateDistributed(String cacheName) throws Exception {
-        IgniteEx node = grid(0);
-
-        IgniteCache<Integer, ?> cache = node.cache(cacheName);
-
-        try (Transaction ignored = node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
-            TransactionIsolation.REPEATABLE_READ)) {
-            SqlFieldsQuery qry = new SqlFieldsQuery("select id from " + tableName(cache) + " order by id for update")
-                .setPageSize(10);
-
-            List<List<?>> res = cache.query(qry).getAll();
-
-            assertEquals(CACHE_SIZE, res.size());
-
-            List<Integer> keys = new ArrayList<>();
-
-            for (int i = 1; i <= CACHE_SIZE; i++)
-                keys.add(i);
-
-            checkLocks(cacheName, keys);
-        }
+        doTestSelectForUpdateDistributed("PersonSeg", false);
     }
 
     /**
      *
      */
     public void testSelectForUpdateLocal() throws Exception {
-        doTestSelectForUpdateLocal("Person");
+        doTestSelectForUpdateLocal("Person", false);
     }
 
     /**
      *
      */
     public void testSelectForUpdateLocalSegmented() throws Exception {
-        doTestSelectForUpdateLocal("PersonSeg");
+        doTestSelectForUpdateLocal("PersonSeg", false);
+    }
+
+    /**
+     *
+     * @throws Exception If failed.
+     */
+    public void testSelectForUpdateOutsideTx() throws Exception {
+        doTestSelectForUpdateDistributed("Person", true);
+    }
+
+    /**
+     *
+     * @throws Exception If failed.
+     */
+    public void testSelectForUpdateOutsideTxLocal() throws Exception {
+        doTestSelectForUpdateLocal("Person", true);
     }
 
     /**
      * @param cacheName Cache name.
+     * @param outsideTx Whether select is executed outside transaction
      * @throws Exception If failed.
      */
-    private void doTestSelectForUpdateLocal(String cacheName) throws Exception {
+    private void doTestSelectForUpdateLocal(String cacheName, boolean outsideTx) throws Exception {
         Ignite node = grid(0);
 
         IgniteCache<Integer, ?> cache = node.cache(cacheName);
 
-        try (Transaction ignored = node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
-            TransactionIsolation.REPEATABLE_READ)) {
+        Transaction ignored = outsideTx ? null : node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
+            TransactionIsolation.REPEATABLE_READ);
 
+        try {
             SqlFieldsQuery qry = new SqlFieldsQuery("select id, * from " + tableName(cache) + " order by id for update")
                 .setLocal(true);
 
-            List<List<?>> res = cache.query(qry).getAll();
+            FieldsQueryCursor<List<?>> query = cache.query(qry);
+
+            List<List<?>> res = query.getAll();
 
             List<Integer> keys = new ArrayList<>();
 
             for (List<?> r : res)
-                keys.add((Integer) r.get(0));
+                keys.add((Integer)r.get(0));
 
-            checkLocks(cacheName, keys);
+            checkLocks(cacheName, keys, !outsideTx);
+        }
+        finally {
+            U.close(ignored, log);
+        }
+    }
+
+    /**
+     * @param cacheName Cache name.
+     * @param outsideTx Whether select is executed outside transaction
+     * @throws Exception If failed.
+     */
+    private void doTestSelectForUpdateDistributed(String cacheName, boolean outsideTx) throws Exception {
+        Ignite node = grid(0);
+
+        IgniteCache<Integer, ?> cache = node.cache(cacheName);
+
+        Transaction ignored = outsideTx ? null : node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
+            TransactionIsolation.REPEATABLE_READ);
+
+        try {
+            SqlFieldsQuery qry = new SqlFieldsQuery("select id, * from " + tableName(cache) + " order by id for update")
+                .setPageSize(10);
+
+            FieldsQueryCursor<List<?>> query = cache.query(qry);
+
+            List<List<?>> res = query.getAll();
+
+            List<Integer> keys = new ArrayList<>();
+
+            for (List<?> r : res)
+                keys.add((Integer)r.get(0));
+
+            checkLocks(cacheName, keys, !outsideTx);
+        }
+        finally {
+            U.close(ignored, log);
         }
     }
 
@@ -237,20 +263,18 @@ public class CacheMvccSelectForUpdateQueryTest extends CacheMvccAbstractTest {
      *
      * @param cacheName Cache name to check.
      * @param keys Keys to check.
+     * @param locked Whether the key is locked
      * @throws Exception if failed.
      */
     @SuppressWarnings({"ThrowableNotThrown", "unchecked"})
-    private void checkLocks(String cacheName, List<Integer> keys) throws Exception {
-        ExecutorService svc = Executors.newFixedThreadPool(4);
-
-        List<Callable<Integer>> calls = new ArrayList<>();
-
+    private void checkLocks(String cacheName, List<Integer> keys, boolean locked) throws Exception {
         Ignite node = ignite(2);
-
         IgniteCache cache = node.cache(cacheName);
 
+        List<IgniteInternalFuture<Integer>> calls = new ArrayList<>();
+
         for (int key : keys) {
-            calls.add(new Callable<Integer>() {
+            calls.add(GridTestUtils.runAsync(new Callable<Integer>() {
                 /** {@inheritDoc} */
                 @Override public Integer call() {
                     try (Transaction ignored = node.transactions().txStart(TransactionConcurrency.PESSIMISTIC,
@@ -258,48 +282,34 @@ public class CacheMvccSelectForUpdateQueryTest extends CacheMvccAbstractTest {
                         List<List<?>> res = cache
                             .query(
                                 new SqlFieldsQuery("select * from " + tableName(cache) +
-                                    " where id = " + key + " for update").setTimeout(2, TimeUnit.SECONDS)
+                                    " where id = " + key + " for update").setTimeout(1, TimeUnit.SECONDS)
                             )
                             .getAll();
 
-                        return (Integer) res.get(0).get(0);
+                        return (Integer)res.get(0).get(0);
                     }
                 }
-            });
+            }));
         }
 
-        Iterator<Future<Integer>> res = svc.invokeAll(calls).iterator();
+        for (IgniteInternalFuture fut : calls) {
+            if (!locked)
+                fut.get(TX_TIMEOUT);
+            else {
+                GridTestUtils.assertThrows(null, new Callable<Object>() {
+                    @Override public Object call() throws Exception {
+                        try {
+                            return fut.get(TX_TIMEOUT);
+                        }
+                        catch (IgniteCheckedException e) {
+                            if (X.hasCause(e, CacheException.class))
+                                throw X.cause(e, CacheException.class);
 
-        Map<Integer, Exception> errs = new HashMap<>();
-
-        try {
-            for (int key : keys) {
-                assertTrue(res.hasNext());
-
-                Future<Integer> fut = res.next();
-
-                try {
-                    fut.get();
-                }
-                catch (ExecutionException e) {
-                    errs.put(key, (Exception)e.getCause());
-                }
+                            throw e;
+                        }
+                    }
+                }, CacheException.class, "IgniteTxTimeoutCheckedException");
             }
-        }
-        finally {
-            svc.shutdownNow();
-        }
-
-        for (int key : keys) {
-            Exception e = errs.get(key);
-
-            assertNotNull("Concurrent transaction has managed to get lock on key " + key + '.', e);
-
-            GridTestUtils.assertThrows(null, new Callable<Object>() {
-                @Override public Object call() throws Exception {
-                    throw e;
-                }
-            }, CacheException.class, "IgniteTxTimeoutCheckedException");
         }
     }
 

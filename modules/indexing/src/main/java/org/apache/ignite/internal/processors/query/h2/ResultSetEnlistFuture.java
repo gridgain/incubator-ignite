@@ -5,8 +5,10 @@ import java.sql.SQLException;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheOperation;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheEntry;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxQueryEnlistAbstractFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
@@ -76,12 +78,19 @@ public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Re
 
     /** {@inheritDoc} */
     @Override public ResultSetEnlistFutureResult createResponse(@NotNull Throwable err) {
-        return new ResultSetEnlistFutureResult(0, false, err);
+        return new ResultSetEnlistFutureResult(0, err);
     }
 
     /** {@inheritDoc} */
     @Override public ResultSetEnlistFutureResult createResponse() {
-        return new ResultSetEnlistFutureResult(cnt, tx.empty(), null);
+        return new ResultSetEnlistFutureResult(cnt, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void processEntry(GridDhtCacheEntry entry, GridCacheOperation op, CacheObject val) {
+        synchronized (tx) {
+            super.processEntry(entry, op, val);
+        }
     }
 
     @Override public GridCacheOperation operation() {
@@ -123,21 +132,16 @@ public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Re
         private long cnt;
 
         /** */
-        private boolean removeMapping;
-
-        /** */
         private Throwable err;
 
 
         /**
          * @param cnt Total rows counter on given node.
-         * @param removeMapping Whether transaction mapping should be removed for node.
          * @param err Exception.
          */
-        public ResultSetEnlistFutureResult(long cnt, boolean removeMapping, Throwable err) {
+        public ResultSetEnlistFutureResult(long cnt, Throwable err) {
             this.err = err;
             this.cnt = cnt;
-            this.removeMapping = removeMapping;
         }
 
         /**
@@ -145,13 +149,6 @@ public class ResultSetEnlistFuture extends GridDhtTxQueryEnlistAbstractFuture<Re
          */
         public long enlistedRows() {
             return cnt;
-        }
-
-        /**
-         * @return {@code True} if transaction mapping should be removed for node.
-         */
-        public boolean removeMapping() {
-            return removeMapping;
         }
 
         /**

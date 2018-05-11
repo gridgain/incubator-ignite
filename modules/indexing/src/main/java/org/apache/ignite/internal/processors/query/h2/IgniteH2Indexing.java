@@ -71,7 +71,6 @@ import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.QueryCursorImpl;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxQueryEnlistResponse;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxSelectForUpdateFuture;
 import org.apache.ignite.internal.processors.cache.distributed.near.TxTopologyVersionFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccQueryTracker;
@@ -992,7 +991,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     @SuppressWarnings("unchecked")
     GridQueryFieldsResult queryLocalSqlFields(final String schemaName, String qry,
         @Nullable final Collection<Object> params, final IndexingQueryFilter filter, boolean enforceJoinOrder,
-        boolean startTx, final int timeout, final GridQueryCancel cancel,
+        boolean startTx, int timeout, final GridQueryCancel cancel,
         MvccQueryTracker mvccTracker) throws IgniteCheckedException {
 
         GridNearTxLocal tx = null;
@@ -1025,16 +1024,18 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                     IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
             }
 
-            String forUpdateQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(p);
-
-            final boolean forUpdate = (forUpdateQry != null);
+            boolean forUpdate = GridSqlQueryParser.isForUpdateQuery(p);
 
             if (forUpdate) {
-                stmt = preparedStatementWithParams(conn, forUpdateQry, params, true);
+                String newQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(p);
+
+                assert newQry != null;
+
+                stmt = preparedStatementWithParams(conn, newQry, params, true);
 
                 p = GridSqlQueryParser.prepared(stmt);
 
-                qry = forUpdateQry;
+                qry = newQry;
             }
 
             List<GridQueryFieldMetadata> meta;
@@ -1057,18 +1058,24 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             final MvccQueryTracker mvccTracker0 = mvccTracker != null ? mvccTracker : mvccTracker(stmt, startTx);
 
+            tx = MvccUtils.activeSqlTx(this.ctx);
+
+            assert !startTx || tx != null;
+
+            if (tx != null) {
+                int tm1 = (int)tx.remainingTime(), tm2 = timeout;
+
+                timeout = tm1 > 0 && tm2 > 0 ? Math.min(tm1, tm2) : Math.max(tm1, tm2);
+            }
+
             if (mvccTracker0 != null)
                 ctx.mvccSnapshot(mvccTracker0.snapshot());
-
-            final PreparedStatement finalStmt = stmt;
-
-            final String finalQry = qry;
 
             final GridNearTxSelectForUpdateFuture sfuFut;
 
             final AffinityTopologyVersion topVer;
 
-            if (forUpdate) {
+            if (forUpdate && tx != null) {
                 if (mvccTracker0 == null)
                     throw new IgniteSQLException("SELECT FOR UPDATE query requires transactional cache " +
                         "with MVCC enabled.");
@@ -1088,16 +1095,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
                 GridCacheContext cctx = ((GridH2Table)t).cache();
 
-                if (cctx.atomic() || !cctx.mvccEnabled())
+                if (!cctx.mvccEnabled())
                     throw new IgniteSQLException("SELECT FOR UPDATE query requires transactional cache " +
                         "with MVCC enabled.");
-
-                tx = MvccUtils.activeSqlTx(this.ctx);
-
-                if (tx == null)
-                    tx = MvccUtils.txStart(cctx, 0L);
-
-                tx.init();
 
                 sfuFut = new GridNearTxSelectForUpdateFuture(cctx, tx, timeout);
 
@@ -1122,7 +1122,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 topVer = null;
             }
 
-            GridNearTxLocal finalTx = tx;
+            GridNearTxLocal tx0 = tx;
+            PreparedStatement stmt0 = stmt;
+            String qry0 = qry;
+            int timeout0 = timeout;
 
             return new GridQueryFieldsResultAdapter(meta, null) {
                 @Override public GridCloseableIterator<List<?>> iterator() throws IgniteCheckedException {
@@ -1130,28 +1133,28 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
                     GridH2QueryContext.set(ctx);
 
-                    GridRunningQueryInfo run = new GridRunningQueryInfo(qryIdGen.incrementAndGet(), finalQry,
+                    GridRunningQueryInfo run = new GridRunningQueryInfo(qryIdGen.incrementAndGet(), qry0,
                         SQL_FIELDS, schemaName, U.currentTimeMillis(), cancel, true);
 
                     runs.putIfAbsent(run.id(), run);
 
                     try {
-                        ResultSet rs = executeSqlQueryWithTimer(finalStmt, conn, finalQry, params, timeout, cancel);
+                        ResultSet rs = executeSqlQueryWithTimer(stmt0, conn, qry0, params, timeout0, cancel);
 
                         if (sfuFut != null) {
-                            assert topVer != null && finalTx.mvccInfo() != null;
+                            assert topVer != null && tx0 != null && tx0.mvccInfo() != null;
 
                             ResultSetEnlistFuture enlistFut = new ResultSetEnlistFuture(
                                 IgniteH2Indexing.this.ctx.localNodeId(),
-                                finalTx.nearXidVersion(),
+                                tx0.nearXidVersion(),
                                 topVer,
-                                finalTx.mvccInfo().snapshot(),
-                                finalTx.threadId(),
+                                tx0.mvccInfo().snapshot(),
+                                tx0.threadId(),
                                 IgniteUuid.randomUuid(),
                                 -1,
                                 null,
-                                finalTx,
-                                timeout,
+                                tx0,
+                                tx0.remainingTime(),
                                 sfuFut.cache(),
                                 rs
                             );
@@ -1166,7 +1169,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                                         assert res != null;
 
                                         sfuFut.onResult(IgniteH2Indexing.this.ctx.localNodeId(), res.enlistedRows(),
-                                            res.removeMapping(), res.error());
+                                            false, res.error());
                                     }
                                 }
                             });
@@ -1664,12 +1667,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             final MvccQueryTracker tracker = mvccTracker == null && qry.mvccEnabled() ?
                 MvccUtils.mvccTracker(ctx.cache().context().cacheContext(qry.cacheIds().get(0)), startTx) : mvccTracker;
 
-            if (qry.forUpdate()) {
-                GridNearTxLocal curTx = MvccUtils.activeSqlTx(ctx);
-
-                if (curTx  == null)
-                    MvccUtils.txStart(ctx.cache().context().cacheContext(qry.cacheIds().get(0)), 0);
-            }
+            if (qry.forUpdate())
+                qry.forUpdate(MvccUtils.activeSqlTx(ctx) != null);
 
             return new Iterable<List<?>>() {
                 @Override public Iterator<List<?>> iterator() {
@@ -2366,7 +2365,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      * @param qry Sql fields query.autoStartTx(qry)
      * @return {@code True} if need to start transaction.
      */
-    private boolean autoStartTx(SqlFieldsQuery qry) {
+    public boolean autoStartTx(SqlFieldsQuery qry) {
         // Let's do this call before anything else so that we always check tx type properly.
         GridNearTxLocal tx = MvccUtils.activeSqlTx(ctx);
 

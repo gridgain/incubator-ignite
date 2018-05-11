@@ -19,7 +19,6 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.GridKernalContext;
@@ -32,6 +31,8 @@ import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxManager;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.internal.CU;
@@ -415,7 +416,18 @@ public class MvccUtils {
      * @return Currently started user transaction, or {@code null} if none started.
      */
     @Nullable public static GridNearTxLocal tx(GridKernalContext ctx) {
-        IgniteInternalTx tx0 = ctx.cache().context().tm().tx();
+        return tx(ctx, null);
+    }
+
+    /**
+     * @param ctx Grid kernal context.
+     * @param txId Transaction ID.
+     * @return Currently started user transaction, or {@code null} if none started.
+     */
+    @Nullable private static GridNearTxLocal tx(GridKernalContext ctx, @Nullable GridCacheVersion txId) {
+        IgniteTxManager tm = ctx.cache().context().tm();
+
+        IgniteInternalTx tx0 = txId == null ? tm.tx() : tm.tx(txId);
 
         GridNearTxLocal tx = tx0 != null && tx0.user() ? (GridNearTxLocal)tx0 : null;
 
@@ -426,18 +438,11 @@ public class MvccUtils {
 
     /**
      * @param ctx Grid kernal context.
-     * @return Whether MVCC is enabled or not on {@link IgniteConfiguration}.
-     */
-    public static boolean mvccEnabled(GridKernalContext ctx) {
-        return ctx.config().isMvccEnabled();
-    }
-
-    /**
-     * @param ctx Grid kernal context.
+     * @param txId Transaction ID.
      * @return Currently started active user transaction, or {@code null} if none started.
      */
-    @Nullable private static GridNearTxLocal activeTx(GridKernalContext ctx) {
-        GridNearTxLocal tx = tx(ctx);
+    @Nullable private static GridNearTxLocal activeTx(GridKernalContext ctx, @Nullable GridCacheVersion txId) {
+        GridNearTxLocal tx = tx(ctx, txId);
 
         if (tx != null) {
             assert tx.state() == TransactionState.ACTIVE;
@@ -453,7 +458,16 @@ public class MvccUtils {
      * @return Currently started active user transaction, or {@code null} if none started.
      */
     @Nullable public static GridNearTxLocal activeSqlTx(GridKernalContext ctx) {
-        GridNearTxLocal tx = activeTx(ctx);
+        return activeSqlTx(ctx, null);
+    }
+
+    /**
+     * @param ctx Grid kernal context.
+     * @param txId Transaction ID.
+     * @return Currently started active user transaction, or {@code null} if none started.
+     */
+    @Nullable public static GridNearTxLocal activeSqlTx(GridKernalContext ctx, GridCacheVersion txId) {
+        GridNearTxLocal tx = activeTx(ctx, txId);
 
         if (tx != null && !tx.isOperationAllowed(true))
             throw new IgniteSQLException("SQL queries and cache operations " +
@@ -513,6 +527,14 @@ public class MvccUtils {
     }
 
     /**
+     * @param ctx Grid kernal context.
+     * @return Whether MVCC is enabled or not on {@link IgniteConfiguration}.
+     */
+    public static boolean mvccEnabled(GridKernalContext ctx) {
+        return ctx.config().isMvccEnabled();
+    }
+
+    /**
      * Initialises MVCC filter and returns MVCC query tracker if needed.
      * @param cctx Cache context.
      * @return MVCC query tracker.
@@ -532,7 +554,7 @@ public class MvccUtils {
     @NotNull public static MvccQueryTracker mvccTracker(GridCacheContext cctx, boolean startTx) throws IgniteCheckedException {
         assert cctx != null && cctx.mvccEnabled();
 
-        GridNearTxLocal tx = activeTx(cctx.kernalContext());
+        GridNearTxLocal tx = activeTx(cctx.kernalContext(), null);
 
         if (tx == null && startTx)
             tx = txStart(cctx, 0);

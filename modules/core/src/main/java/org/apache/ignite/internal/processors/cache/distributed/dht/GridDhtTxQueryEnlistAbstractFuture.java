@@ -63,36 +63,36 @@ import static org.apache.ignite.internal.processors.cache.GridCacheOperation.UPD
 public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFutureAdapter<T>
     implements GridCacheVersionedFuture<T> {
     /** Future ID. */
-    protected IgniteUuid futId;
+    protected final IgniteUuid futId;
 
     /** Cache registry. */
     @GridToStringExclude
-    protected GridCacheContext<?, ?> cctx;
+    protected final GridCacheContext<?, ?> cctx;
 
     /** Logger. */
     @GridToStringExclude
-    protected IgniteLogger log;
+    protected final IgniteLogger log;
 
     /** Thread. */
-    protected long threadId;
+    protected final long threadId;
 
     /** Future ID. */
-    IgniteUuid nearFutId;
+    protected final IgniteUuid nearFutId;
 
     /** Future ID. */
-    int nearMiniId;
+    protected final int nearMiniId;
 
     /** Partitions. */
     protected final int[] parts;
 
     /** Transaction. */
-    protected GridDhtTxLocalAdapter tx;
+    protected final GridDhtTxLocalAdapter tx;
 
     /** Lock version. */
-    protected GridCacheVersion lockVer;
+    protected final GridCacheVersion lockVer;
 
     /** Topology version. */
-    protected AffinityTopologyVersion topVer;
+    protected final AffinityTopologyVersion topVer;
 
     /** */
     protected final MvccSnapshot mvccSnapshot;
@@ -101,10 +101,10 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
     protected long cnt;
 
     /** Near node ID. */
-    protected UUID nearNodeId;
+    protected final UUID nearNodeId;
 
     /** Near lock version. */
-    GridCacheVersion nearLockVer;
+    protected final GridCacheVersion nearLockVer;
 
     /** Timeout object. */
     @GridToStringExclude
@@ -115,10 +115,6 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
 
     /** Trackable flag. */
     protected boolean trackable = true;
-
-    /** Query cancel object. */
-    @GridToStringExclude
-    protected GridQueryCancel cancel;
 
     /** Query iterator */
     private UpdateSourceIterator<?> it;
@@ -172,14 +168,6 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
         futId = IgniteUuid.randomUuid();
 
         log = cctx.logger(GridDhtTxQueryEnlistAbstractFuture.class);
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean cancel() {
-        if (onCancelled())
-            cancel.cancel();
-
-        return isCancelled();
     }
 
     /**
@@ -341,25 +329,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
 
                                 assert res.updateFuture() == null;
 
-                                IgniteTxEntry txEntry = tx.addEntry(op,
-                                    val0,
-                                    null,
-                                    null,
-                                    entry0,
-                                    null,
-                                    CU.empty0(),
-                                    false,
-                                    -1L,
-                                    -1L,
-                                    null,
-                                    true,
-                                    true,
-                                    false);
-
-                                txEntry.queryEnlisted(true);
-                                txEntry.markValid();
-
-                                cnt++;
+                                processEntry(entry0, op, val0);
 
                                 continueLoop(res.loggedPointer());
                             }
@@ -375,25 +345,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
                     break;
                 }
 
-                IgniteTxEntry txEntry = tx.addEntry(op,
-                    val,
-                    null,
-                    null,
-                    entry,
-                    null,
-                    CU.empty0(),
-                    false,
-                    -1L,
-                    -1L,
-                    null,
-                    true,
-                    true,
-                    false);
-
-                txEntry.queryEnlisted(true);
-                txEntry.markValid();
-
-                cnt++;
+                processEntry(entry, op, val);
             }
         }
         catch (Throwable e) {
@@ -402,6 +354,33 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
             if (e instanceof Error)
                 throw (Error)e;
         }
+    }
+
+    /**
+     * @param entry Cache entry.
+     * @param op Operation.
+     * @param val New value.
+     */
+    protected void processEntry(GridDhtCacheEntry entry, GridCacheOperation op, CacheObject val) {
+        IgniteTxEntry txEntry = tx.addEntry(op,
+            val,
+            null,
+            null,
+            entry,
+            null,
+            CU.empty0(),
+            false,
+            -1L,
+            -1L,
+            null,
+            true,
+            true,
+            false);
+
+        txEntry.queryEnlisted(true);
+        txEntry.markValid();
+
+        cnt++;
     }
 
     /**

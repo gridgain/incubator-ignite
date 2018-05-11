@@ -133,42 +133,12 @@ public class GridDhtTxQueryResultsEnlistFuture
     }
 
     /** {@inheritDoc} */
-    @Override public boolean isClosed() {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void close() throws IgniteCheckedException {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    public boolean hasNextX() throws IgniteCheckedException {
-        return hasNext();
-    }
-
-    /** {@inheritDoc} */
-    public Object nextX() throws IgniteCheckedException {
-        return next();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void removeX() throws IgniteCheckedException {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean hasNext() {
+    public boolean hasNextX() {
         return it.hasNext();
     }
 
     /** {@inheritDoc} */
-    @Override public Object next() {
+    public Object nextX() {
         return it.next();
-    }
-
-    /** {@inheritDoc} */
-    @NotNull @Override public Iterator<Object> iterator() {
-        throw new UnsupportedOperationException("not implemented");
     }
 }

@@ -2076,12 +2076,6 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
 
                 tx = ctx.tm().onCreated(null, tx);
 
-                if (tx == null) {
-                    // check whether the transaction was created by another thread
-
-
-                }
-
                 if (tx == null || !tx.init()) {
                     String msg = "Failed to acquire lock (transaction has been completed): " +
                         nearLockVer;

@@ -68,9 +68,6 @@ public abstract class H2ResultSetIterator<T> extends GridCloseableIteratorAdapte
     private final boolean closeStmt;
 
     /** */
-    private final boolean forUpdate;
-
-    /** */
     private boolean hasRow;
 
     /**
@@ -84,7 +81,6 @@ public abstract class H2ResultSetIterator<T> extends GridCloseableIteratorAdapte
         throws IgniteCheckedException {
         this.data = data;
         this.closeStmt = closeStmt;
-        this.forUpdate = forUpdate;
 
         try {
             res = needCpy ? (ResultInterface)RESULT_FIELD.get(data) : null;
@@ -95,7 +91,9 @@ public abstract class H2ResultSetIterator<T> extends GridCloseableIteratorAdapte
 
         if (data != null) {
             try {
-                row = new Object[data.getMetaData().getColumnCount()];
+                int colsCnt = data.getMetaData().getColumnCount();
+
+                row = new Object[forUpdate ? colsCnt - 1 : colsCnt];
             }
             catch (SQLException e) {
                 throw new IgniteCheckedException(e);
@@ -112,8 +110,6 @@ public abstract class H2ResultSetIterator<T> extends GridCloseableIteratorAdapte
         if (data == null)
             return false;
 
-        int colsCnt = (!forUpdate ? row.length : row.length - 1);
-
         try {
             if (!data.next())
                 return false;
@@ -121,7 +117,7 @@ public abstract class H2ResultSetIterator<T> extends GridCloseableIteratorAdapte
             if (res != null) {
                 Value[] values = res.currentRow();
 
-                for (int c = 0; c < colsCnt; c++) {
+                for (int c = 0; c < row.length; c++) {
                     Value val = values[c];
 
                     if (val instanceof GridH2ValueCacheObject) {
