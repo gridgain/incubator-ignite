@@ -1900,16 +1900,25 @@ class ClientImpl extends TcpDiscoveryImpl {
 
             sockWriter.setSocket(joinRes.get1().socket(), joinRes.get2());
 
-            if (spi.joinTimeout > 0) {
-                final int joinCnt0 = joinCnt;
+            final long waitForJoin = spi.joinTimeout > 0
+                    ? spi.joinTimeout
+                    :  spi.failureDetectionTimeout() == 0
+                        ? 60_000
+                        : spi.failureDetectionTimeout();
 
-                timer.schedule(new TimerTask() {
-                    @Override public void run() {
-                        if (joinCnt == joinCnt0 && joining())
-                            queue.add(JOIN_TIMEOUT);
+            final long joinTimeout0 = spi.joinTimeout;
+
+            final int joinCnt0 = joinCnt;
+
+            timer.schedule(new TimerTask() {
+                @Override public void run() {
+                    if (joinCnt == joinCnt0 && joining()) {
+                        System.out.println("SEND " + (joinTimeout0 > 0 ? JOIN_TIMEOUT : SPI_RECONNECT_FAILED));
+
+                        queue.add(joinTimeout0 > 0 ? JOIN_TIMEOUT : SPI_RECONNECT_FAILED);
                     }
-                }, spi.joinTimeout);
-            }
+                }
+            }, waitForJoin);
 
             sockReader.setSocket(joinRes.get1(), locNode.clientRouterNodeId());
 

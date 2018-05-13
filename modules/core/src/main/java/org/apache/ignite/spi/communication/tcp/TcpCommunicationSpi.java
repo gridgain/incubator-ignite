@@ -4548,9 +4548,12 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
                     dump("ConnectGateway.enter err != null and ClientDisconnected");
                     IgniteClientDisconnectedException cde = (IgniteClientDisconnectedException)err;
 
-                    IgniteInternalFuture igniteInternalFuture = ((IgniteFutureImpl) cde.reconnectFuture()).internalFuture();
+                    IgniteFuture<?> recFut = cde.reconnectFuture();
+                    IgniteInternalFuture igniteInternalFuture = recFut == null
+                            ? null
+                            : ((IgniteFutureImpl) recFut).internalFuture();
                     logMsg(String.format("ConnectGateway.enter throw DisconnectedException reconnectFut = [%s] internal = [%s]",
-                            cde.reconnectFuture().hashCode(),
+                            recFut == null ? null :recFut.hashCode(),
                             igniteInternalFuture == null ? null : igniteInternalFuture.hashCode()));
                 }
                 throw err;
@@ -4585,7 +4588,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter
             lock.writeLock();
 
             dump("disconnected");
-            logMsg("err: IgniteClientDisconnectedException reconFut: " + reconnectFut.hashCode());
+            logMsg("err: IgniteClientDisconnectedException reconFut: " + (reconnectFut == null ? null : reconnectFut.hashCode()));
 
             err = new IgniteClientDisconnectedException(U.proxy(reconnectFut, "TcpComm"), "Failed to connect, client node disconnected.");
 

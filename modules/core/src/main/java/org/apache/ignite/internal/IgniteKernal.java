@@ -3540,7 +3540,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
             for (GridComponent comp : ctx.components()) {
                 IgniteInternalFuture<?> fut = comp.onReconnected(clusterRestarted);
                 logMsg(comp.getClass().getSimpleName() + "#onReconnected(retart: " + clusterRestarted + ")" );
-                logMsg(comp.getClass().getSimpleName() + "#onReconnected fut: " + fut.hashCode() );
+                logMsg(comp.getClass().getSimpleName() + "#onReconnected fut: " + (fut != null ? fut.hashCode() : null));
 
                 if (fut != null)
                     curReconnectFut.add(fut);
