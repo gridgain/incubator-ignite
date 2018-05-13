@@ -1912,11 +1912,8 @@ class ClientImpl extends TcpDiscoveryImpl {
 
             timer.schedule(new TimerTask() {
                 @Override public void run() {
-                    if (joinCnt == joinCnt0 && joining()) {
-                        System.out.println("SEND " + (joinTimeout0 > 0 ? JOIN_TIMEOUT : SPI_RECONNECT_FAILED));
-
+                    if (joinCnt == joinCnt0 && joining())
                         queue.add(joinTimeout0 > 0 ? JOIN_TIMEOUT : SPI_RECONNECT_FAILED);
-                    }
                 }
             }, waitForJoin);
 
