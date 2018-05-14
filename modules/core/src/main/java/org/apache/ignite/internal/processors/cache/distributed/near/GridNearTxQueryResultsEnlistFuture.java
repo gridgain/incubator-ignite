@@ -59,7 +59,6 @@ import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
 
-
 /**
  * A future tracking requests for remote nodes transaction enlisting and locking
  * of entries produced with complex DML queries requiring reduce step.
@@ -149,7 +148,6 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
 
     /** Topology locked flag. */
     private boolean topLocked;
-
 
     /**
      * @param cctx Cache context.

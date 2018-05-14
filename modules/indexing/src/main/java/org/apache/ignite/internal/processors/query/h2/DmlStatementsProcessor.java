@@ -531,8 +531,11 @@ public class DmlStatementsProcessor {
 
                     GridCacheOperation op = cacheOperation(plan.mode());
 
-                    if (plan.fastResult())
-                        it = new DmlUpdateSingleEntryIterator<>(op, plan.getFastRow(fieldsQry.getArgs()));
+                    if (plan.fastResult()) {
+                        IgniteBiTuple row = plan.getFastRow(fieldsQry.getArgs());
+
+                        it = new DmlUpdateSingleEntryIterator<>(op, op == GridCacheOperation.DELETE ? row.getKey() : row);
+                    }
                     else if (plan.hasRows())
                         it = new DmlUpdateResultsIterator(op, plan, plan.createRows(fieldsQry.getArgs()));
                     else {
@@ -1483,7 +1486,7 @@ public class DmlStatementsProcessor {
 
             first = false;
 
-            return op == GridCacheOperation.DELETE ? (T)((IgniteBiTuple)res).getKey() : res;
+            return res;
         }
     }
 }

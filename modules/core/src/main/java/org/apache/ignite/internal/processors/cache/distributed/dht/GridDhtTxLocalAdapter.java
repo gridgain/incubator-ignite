@@ -43,7 +43,6 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.F0;
-import org.apache.ignite.internal.util.GridConcurrentHashSet;
 import org.apache.ignite.internal.util.GridLeanMap;
 import org.apache.ignite.internal.util.GridLeanSet;
 import org.apache.ignite.internal.util.future.GridEmbeddedFuture;
@@ -95,9 +94,6 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
 
     /** Nodes where transactions were started on lock step. */
     private Set<ClusterNode> lockTxNodes;
-
-    /** Nodes where remote transactions were started. */
-    private Set<ClusterNode> remoteTxNodes;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -174,19 +170,6 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
     }
 
     /**
-     * @param node Node.
-     */
-    void addRemoteTransactionNode(ClusterNode node) {
-        assert node != null;
-        assert !node.isLocal();
-
-        if (remoteTxNodes == null)
-            remoteTxNodes = new GridConcurrentHashSet<>();
-
-        remoteTxNodes.add(node);
-    }
-
-    /**
      * Sets flag that indicates that originating node has a near cache that participates in this transaction.
      *
      * @param hasNear Has near cache flag.
@@ -223,13 +206,6 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
      */
     @Nullable Set<ClusterNode> lockTransactionNodes() {
         return lockTxNodes;
-    }
-
-    /**
-     * @return Nodes where remote transactions start were acknowledged.
-     */
-    @Nullable Set<ClusterNode> remoteTransactionNodes() {
-        return remoteTxNodes;
     }
 
     /**

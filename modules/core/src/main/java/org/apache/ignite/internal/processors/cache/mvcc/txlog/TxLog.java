@@ -393,9 +393,6 @@ public class TxLog implements DbCheckpointListener {
         private final boolean primary;
 
         /** */
-        private TxRow newRow;
-
-        /** */
         private IgniteTree.OperationType treeOp;
 
         /**
@@ -414,7 +411,7 @@ public class TxLog implements DbCheckpointListener {
         }
 
         /** {@inheritDoc} */
-        @Override public void call(@Nullable TxRow row) throws IgniteCheckedException {
+        @Override public void call(@Nullable TxRow row) {
             if (row == null) {
                 valid();
 
@@ -451,7 +448,7 @@ public class TxLog implements DbCheckpointListener {
 
         /** {@inheritDoc} */
         @Override public TxRow newRow() {
-            return newRow;
+            return treeOp == IgniteTree.OperationType.PUT ? new TxRow(major, minor, newState) : null;
         }
 
         /** {@inheritDoc} */
@@ -559,18 +556,16 @@ public class TxLog implements DbCheckpointListener {
          * Action for valid tx status update.
          */
         private void valid() {
-            assert treeOp == null && newRow == null;
+            assert treeOp == null;
 
             treeOp = IgniteTree.OperationType.PUT;
-
-            newRow = new TxRow(major, minor, newState);
         }
 
         /**
          * Action for invalid tx status update.
          */
         private void invalid(byte currState) {
-            assert treeOp == null && newRow == null;
+            assert treeOp == null;
 
             throw new IllegalStateException("Unexpected new transaction state. [currState=" +
                 currState +  ", newState=" + newState +  ", cntr=" + minor +']');
@@ -580,7 +575,7 @@ public class TxLog implements DbCheckpointListener {
          * Action for ignoring tx status update.
          */
         private void ignore() {
-            assert treeOp == null && newRow == null;
+            assert treeOp == null;
 
             treeOp = IgniteTree.OperationType.NOOP;
         }

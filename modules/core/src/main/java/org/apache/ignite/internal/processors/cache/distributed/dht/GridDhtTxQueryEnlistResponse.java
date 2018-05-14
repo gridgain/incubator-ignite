@@ -22,7 +22,6 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.GridDirectTransient;
 import org.apache.ignite.internal.processors.cache.GridCacheIdMessage;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
-import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteUuid;
@@ -55,7 +54,6 @@ public class GridDhtTxQueryEnlistResponse extends GridCacheIdMessage {
     /**
      * @param cacheId Cache id.
      * @param futId Future id.
-     * @param lockVer Lock version.
      * @param batchId Batch id.
      * @param err Error.
      */

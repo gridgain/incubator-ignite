@@ -20,9 +20,10 @@ package org.apache.ignite.internal.processors.cache.distributed.dht;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -59,23 +60,28 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.internal.processors.cache.GridCacheOperation.CREATE;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.DELETE;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.READ;
+import static org.apache.ignite.internal.processors.cache.GridCacheOperation.UPDATE;
 
 /**
  * Abstract future processing transaction enlisting and locking
  * of entries produced with DML and SELECT FOR UPDATE queries.
  */
 public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFutureAdapter<T> {
+    /** Marker object. */
+    private static final Object FINISHED = new Object();
+
     /** SkipCntr field updater. */
     private static final AtomicIntegerFieldUpdater<GridDhtTxQueryEnlistAbstractFuture> SKIP_UPD =
         AtomicIntegerFieldUpdater.newUpdater(GridDhtTxQueryEnlistAbstractFuture.class, "skipCntr");
 
-    /** In-flight batches per node limit. */
-    private static final int DFLT_IN_FLIGHT_BATCHES_PER_NODE_LIMIT = 5;
-
     /** */
-    private static final int DFLT_BATCH_SIZE = 1024;
+    private static final int BATCH_SIZE = 1024;
+
+    /** In-flight batches per node limit. */
+    private static final int BATCHES_PER_NODE = 5;
 
     /** Future ID. */
     protected final IgniteUuid futId;
@@ -112,14 +118,14 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
     /** */
     protected final MvccSnapshot mvccSnapshot;
 
+    /** Processed entries count. */
+    protected long cnt;
+
     /** Near node ID. */
     protected final UUID nearNodeId;
 
     /** Near lock version. */
     protected final GridCacheVersion nearLockVer;
-
-    /** Row extracted from iterator but not yet used. */
-    private Object peek;
 
     /** Timeout object. */
     @GridToStringExclude
@@ -131,33 +137,32 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
     /** Trackable flag. */
     protected boolean trackable = true;
 
-    /** Processed entries count. */
-    protected long cnt;
-
-    /** */
-    private int batchIdCntr;
-
     /** Query iterator */
     private UpdateSourceIterator<?> it;
 
+    /** Row extracted from iterator but not yet used. */
+    private Object peek;
+
     /** */
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"FieldCanBeLocal"})
     @GridToStringExclude
     private volatile int skipCntr;
 
     /** */
-    private WALPointer walPtr;
-
-    /** */
-    private GridCacheOperation op;
+    @GridToStringExclude
+    private int batchIdCntr;
 
     /** Batches for sending to remote nodes. */
     private final Map<UUID, Batch> batches = new HashMap<>();
 
     /** Batches already sent to remotes, but their acks are not received yet. */
-    private final ConcurrentMap<UUID, ConcurrentMap<Integer, Batch>> batchesInFlight = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, ConcurrentMap<Integer, Batch>> pending = new ConcurrentHashMap<>();
+
+    /** */
+    private WALPointer walPtr;
 
     /**
+     *
      * @param nearNodeId Near node ID.
      * @param nearLockVer Near lock version.
      * @param topVer Topology version.
@@ -243,7 +248,6 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
             tx.addActiveCache(cctx, false);
 
             this.it = it;
-            this.op = it.operation();
         }
         catch (Throwable e) {
             onDone(e);
@@ -263,88 +267,49 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
      * @param ignoreCntr {@code True} if need to ignore skip counter.
      */
     private void continueLoop(boolean ignoreCntr) {
-        if (isDone())
-            return;
-
         if (!ignoreCntr && (SKIP_UPD.getAndIncrement(this) != 0))
             return;
 
-        cctx.shared().database().checkpointReadLock();
+        GridDhtCacheAdapter cache = cctx.dhtCache();
+        GridCacheOperation op = it.operation();
 
         try {
             while (true) {
-                if (!it.hasNext() && peek == null) {
-                    if (walPtr != null && !cctx.tm().logTxRecords()) {
-                        try {
-                            cctx.shared().wal().flush(walPtr, true);
+                while (hasNext0()) {
+                    if (isDone())
+                        return; // Cancelled.
 
-                            walPtr = null; // Avoid additional flushing.
-                        }
-                        catch (IgniteCheckedException e) {
-                            onDone(e);
-                        }
-                    }
+                    Object cur = next0();
 
-                    if (!batches.isEmpty()) {
-                        // No data left - flush incomplete batches.
-                        Iterator<Map.Entry<UUID, Batch>> it = batches.entrySet().iterator();
-
-                        while (it.hasNext()) {
-                            Batch batch = it.next().getValue();
-
-                            it.remove();
-
-                            assert !batch.ready();
-
-                            batch.ready(true);
-
-                            sendBatch(batch);
-                        }
-                    }
-
-                    if (batches.isEmpty() && inFlightIsEmpty())
-                        onDone(createResponse());
-
-                    if (SKIP_UPD.decrementAndGet(this) == 0) {
-                        it.beforeDetach();
-
-                        break;
-                    }
-                }
-
-                while (it.hasNext() || peek != null) {
-                    Object cur = (peek != null) ? peek : (it.hasNextX() ? it.nextX() : null);
-
-                    peek = null;
-
-                    KeyCacheObject key;
-                    CacheObject val = null;
-
-                    if (op == DELETE || op == READ)
-                        key = cctx.toCacheKeyObject(cur);
-                    else {
-                        key = cctx.toCacheKeyObject(((IgniteBiTuple)cur).getKey());
-                        val = cctx.toCacheObject(((IgniteBiTuple)cur).getValue());
-                    }
+                    KeyCacheObject key = cctx.toCacheKeyObject(op == DELETE || op == READ ? cur : ((IgniteBiTuple)cur).getKey());
 
                     if (!ensureFreeSlot(key)) {
                         // Can't advance further at the moment.
                         peek = cur;
 
+                        it.beforeDetach();
+
                         break;
                     }
 
-                    GridDhtCacheEntry entry = cctx.dhtCache().entryExx(key);
+                    GridDhtCacheEntry entry = cache.entryExx(key);
 
                     if (log.isDebugEnabled())
                         log.debug("Adding entry: " + entry);
 
                     assert !entry.detached();
 
+                    CacheObject val = null;
+
+                    if (op == CREATE || op == UPDATE)
+                        val = cctx.toCacheObject(((IgniteBiTuple)cur).getValue());
+
                     GridCacheUpdateTxResult res;
 
                     while (true) {
                         try {
+                            cctx.shared().database().checkpointReadLock();
+
                             switch (op) {
                                 case DELETE:
                                     res = entry.mvccRemove(
@@ -387,23 +352,16 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
                         catch (GridCacheEntryRemovedException ignored) {
                             entry = cctx.dhtCache().entryExx(entry.key(), topVer);
                         }
+                        finally {
+                            cctx.shared().database().checkpointReadUnlock();
+                        }
                     }
-
-                    walPtr = res.loggedPointer();
 
                     IgniteInternalFuture<GridCacheUpdateTxResult> updateFut = res.updateFuture();
 
                     if (updateFut != null) {
-                        if (updateFut.isDone()) {
-                            try {
-                                updateFut.get();
-                            }
-                            catch (Exception e) {
-                                onDone(e);
-
-                                return;
-                            }
-                        }
+                        if (updateFut.isDone())
+                            res = updateFut.get();
                         else {
                             CacheObject finalVal = val;
                             GridDhtCacheEntry finalEntry = entry;
@@ -413,9 +371,17 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
                             updateFut.listen(new CI1<IgniteInternalFuture<GridCacheUpdateTxResult>>() {
                                 @Override public void apply(IgniteInternalFuture<GridCacheUpdateTxResult> fut) {
                                     try {
+                                        if (isDone())
+                                            return; // Cancelled.
+
                                         GridCacheUpdateTxResult res = fut.get();
 
                                         assert res.updateFuture() == null;
+
+                                        WALPointer ptr0 = res.loggedPointer();
+
+                                        if (ptr0 != null)
+                                            walPtr = ptr0;
 
                                         processEntry(finalEntry, op, finalVal);
 
@@ -432,23 +398,82 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
                         }
                     }
 
+                    assert res.updateFuture() == null;
+
+                    WALPointer ptr0 = res.loggedPointer();
+
+                    if (ptr0 != null)
+                        walPtr = ptr0;
+
                     processEntry(entry, op, val);
                 }
+
+                if (!hasNext0()) {
+                    if (walPtr != null && !cctx.tm().logTxRecords()) {
+                        cctx.shared().wal().flush(walPtr, true);
+
+                        walPtr = null; // Avoid additional flushing.
+                    }
+
+                    if (!batches.isEmpty()) {
+                        // Flush incomplete batches.
+                        for (Batch batch : batches.values()) {
+                            sendBatch(batch);
+                        }
+
+                        batches.clear();
+                    }
+
+                    if (noPendingRequests())
+                        onDone(createResponse());
+                }
+
+                if (SKIP_UPD.decrementAndGet(this) == 0)
+                    break;
+
+                skipCntr = 1;
             }
         }
         catch (Throwable e) {
             onDone(e);
+
+            if (e instanceof Error)
+                throw (Error)e;
         }
-        finally {
-            cctx.shared().database().checkpointReadUnlock();
+    }
+
+    /** */
+    private Object next0() {
+        if (!hasNext0())
+            throw new NoSuchElementException();
+
+        Object cur;
+
+        if ((cur = peek) != null)
+            peek = null;
+        else {
+            cur = it.next();
+
+            if (!it.hasNext())
+                peek = FINISHED;
         }
+
+        return cur;
+    }
+
+    /** */
+    private boolean hasNext0() {
+        if (peek == null && !it.hasNext())
+            peek = FINISHED;
+
+        return peek != FINISHED;
     }
 
     /**
      * @return {@code True} if in-flight batches map is empty.
      */
-    private boolean inFlightIsEmpty() {
-        for (ConcurrentMap<Integer, Batch> e : batchesInFlight.values()) {
+    private boolean noPendingRequests() {
+        for (ConcurrentMap<Integer, Batch> e : pending.values()) {
             if (!e.isEmpty())
                 return false;
         }
@@ -460,8 +485,9 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
      * @param entry Cache entry.
      * @param op Operation.
      * @param val New value.
+     * @throws IgniteCheckedException If failed.
      */
-    protected void processEntry(GridDhtCacheEntry entry, GridCacheOperation op, CacheObject val) {
+    protected void processEntry(GridDhtCacheEntry entry, GridCacheOperation op, CacheObject val) throws IgniteCheckedException {
         IgniteTxEntry txEntry = tx.addEntry(op,
             val,
             null,
@@ -492,34 +518,30 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
      * @param key Key.
      * @param val Value.
      */
-    private void addToBatch(KeyCacheObject key, CacheObject val) {
-        List<ClusterNode> dhtNodes = backupNodes(key);
-
-        for (int i = 0; i < dhtNodes.size(); i++) {
-            ClusterNode node = dhtNodes.get(i);
-
+    private void addToBatch(KeyCacheObject key, CacheObject val) throws IgniteCheckedException {
+        for (ClusterNode node : backupNodes(key)) {
             assert !node.isLocal();
 
             Batch batch = batches.get(node.id());
 
-            if (batch == null) {
-                batch = new Batch(node);
-
-                batches.put(node.id(), batch);
-            }
-
-            assert op != DELETE || val == null;
+            if (batch == null)
+                batches.put(node.id(), batch = txStarted(node) ? new Batch(node) : new FirstBatch(node));
 
             batch.add(key, val);
 
-            if (batch.size() == DFLT_BATCH_SIZE) {
-                batch.ready(true);
-
+            if (batch.size() == BATCH_SIZE) {
                 batches.remove(node.id());
 
                 sendBatch(batch);
             }
         }
+    }
+
+    /** */
+    private boolean txStarted(ClusterNode node) {
+        Set<ClusterNode> nodes = tx.lockTransactionNodes();
+
+        return nodes!= null && nodes.contains(node);
     }
 
     /**
@@ -530,23 +552,19 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
      */
     @SuppressWarnings("ForLoopReplaceableByForEach")
     private boolean ensureFreeSlot(KeyCacheObject key) {
-        List<ClusterNode> backupNodes = backupNodes(key);
-
         // Check possibility of adding to batch and sending.
-        for (int i = 0; i < backupNodes.size(); i++) {
-            ClusterNode node = backupNodes.get(i);
-
+        for (ClusterNode node : backupNodes(key)) {
             Batch batch = batches.get(node.id());
 
             // We can add key if batch is not full.
-            if (batch == null || batch.size() < DFLT_BATCH_SIZE - 1)
+            if (batch == null || batch.size() < BATCH_SIZE - 1)
                 continue;
 
-            ConcurrentMap<Integer, Batch> flyingBatches = batchesInFlight.get(node.id());
+            ConcurrentMap<Integer, Batch> pending0 = pending.get(node.id());
 
-            assert flyingBatches == null || flyingBatches.size() <= DFLT_IN_FLIGHT_BATCHES_PER_NODE_LIMIT;
+            assert pending0 == null || pending0.size() <= BATCHES_PER_NODE;
 
-            if (flyingBatches != null && flyingBatches.size() == DFLT_IN_FLIGHT_BATCHES_PER_NODE_LIMIT)
+            if (pending0 != null && (pending0.containsKey(0) || pending0.size() == BATCHES_PER_NODE))
                 return false;
         }
 
@@ -560,27 +578,19 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
      *
      * @param batch Batch.
      */
-    private void sendBatch(Batch batch) {
-        assert batch != null && batch.ready();
+    private void sendBatch(Batch batch) throws IgniteCheckedException {
+        assert batch != null;
+
+        boolean first = batch.getClass() == FirstBatch.class;
+        int batchId = first ? 0 : ++batchIdCntr;
 
         ClusterNode node = batch.node();
 
         assert !node.isLocal();
 
-        int batchId = batchIdCntr++;
-
-        ConcurrentMap<Integer, Batch> flyingBatches = batchesInFlight.get(node.id());
-
-        if (flyingBatches == null) {
-            flyingBatches = new ConcurrentHashMap<>();
-
-            batchesInFlight.put(node.id(), flyingBatches);
-        }
-
         GridDhtTxQueryEnlistRequest req;
 
-        if (tx.remoteTransactionNodes() == null || !tx.remoteTransactionNodes().contains(node)) {
-            tx.addLockTransactionNode(node);
+        if (first) {
             // If this is a first request to this node, send full info.
             req = new GridDhtTxQueryFirstEnlistRequest(cctx.cacheId(),
                 futId,
@@ -596,6 +606,10 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
                 batchId,
                 batch.keys(),
                 batch.values());
+
+            assert !txStarted(node);
+
+            tx.addLockTransactionNode(node);
         }
         else {
             // Send only keys, values, LockVersion and batchId if this is not a first request to this backup.
@@ -609,16 +623,16 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
                 batch.values());
         }
 
-        try {
-            Batch prev = flyingBatches.put(batchId, batch);
+        ConcurrentMap<Integer, Batch> pending0 = pending.get(node.id());
 
-            assert prev == null;
+        if (pending0 == null)
+            pending.put(node.id(), pending0 = new ConcurrentHashMap<>());
 
-            cctx.io().send(node, req, cctx.ioPolicy());
-        }
-        catch (IgniteCheckedException ex) {
-            onDone(ex);
-        }
+        Batch prev = pending0.put(batchId, batch);
+
+        assert prev == null;
+
+        cctx.io().send(node, req, cctx.ioPolicy());
     }
 
     /**
@@ -678,26 +692,19 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
      * @param res Response.
      */
     public void onResult(UUID nodeId, GridDhtTxQueryEnlistResponse res) {
-        int batchId = res.batchId();
-
-        ConcurrentMap<Integer, Batch> inFlight = batchesInFlight.get(nodeId);
-
-        Batch rmv = inFlight.remove(batchId);
-
-        if (rmv == null) {
-            onDone(new IgniteCheckedException("Unexpected response received from backup node [node=" + nodeId +
-                ", res=" + res + ']'));
-
-            return;
-        }
-
         if (res.error() != null) {
             onDone(new IgniteCheckedException("Failed to update backup node=" + nodeId + '.', res.error()));
 
             return;
         }
 
-        tx.addRemoteTransactionNode(cctx.node(nodeId));
+        ConcurrentMap<Integer, Batch> inFlight = pending.get(nodeId);
+
+        assert inFlight != null;
+
+        Batch rmv = inFlight.remove(res.batchId());
+
+        assert rmv != null;
 
         continueLoop(false);
     }
@@ -731,11 +738,15 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
     @Override public boolean onNodeLeft(UUID nodeId) {
         boolean backupLeft = false;
 
-        for (ClusterNode node : tx.lockTransactionNodes()) {
-            if (node.id().equals(nodeId)) {
-                backupLeft = true;
+        Set<ClusterNode> nodes = tx.lockTransactionNodes();
 
-                break;
+        if (nodes != null) {
+            for (ClusterNode node : nodes) {
+                if (node.id().equals(nodeId)) {
+                    backupLeft = true;
+
+                    break;
+                }
             }
         }
 
@@ -782,6 +793,16 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
      */
     public abstract T createResponse();
 
+    /** Marker class. */
+    private static class FirstBatch extends Batch {
+        /**
+         * @param node Cluster node.
+         */
+        private FirstBatch(ClusterNode node) {
+            super(node);
+        }
+    }
+
     /**
      * A batch of rows
      */
@@ -795,9 +816,6 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
 
         /** */
         private List<CacheObject> vals;
-
-        /** Readiness flag. Set when batch is full or no new rows are expected. */
-        private boolean ready;
 
         /**
          * @param node Cluster node.
@@ -852,22 +870,6 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
          */
         public List<CacheObject> values() {
             return vals;
-        }
-
-        /**
-         * @return Readiness flag.
-         */
-        public boolean ready() {
-            return ready;
-        }
-
-        /**
-         * Sets readiness flag.
-         *
-         * @param ready Flag value.
-         */
-        public void ready(boolean ready) {
-            this.ready = ready;
         }
     }
 

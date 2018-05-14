@@ -806,7 +806,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
         IgniteInternalFuture<?> f;
 
         if (req.firstClientRequest()) {
-            for (; ; ) {
+            for (;;) {
                 if (waitForExchangeFuture(nearNode, req))
                     return;
 
@@ -1415,7 +1415,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
 
                 int i = 0;
 
-                for (ListIterator<GridCacheEntryEx> it = entries.listIterator(); it.hasNext(); ) {
+                for (ListIterator<GridCacheEntryEx> it = entries.listIterator(); it.hasNext();) {
                     GridCacheEntryEx e = it.next();
 
                     assert e != null;
