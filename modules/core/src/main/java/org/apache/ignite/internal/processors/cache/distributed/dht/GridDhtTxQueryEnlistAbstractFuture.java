@@ -19,14 +19,14 @@ package org.apache.ignite.internal.processors.cache.distributed.dht;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
@@ -67,13 +67,6 @@ import static org.apache.ignite.internal.processors.cache.GridCacheOperation.REA
  * of entries produced with DML and SELECT FOR UPDATE queries.
  */
 public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFutureAdapter<T> {
-    /** */
-    private static final AtomicInteger batchIdCntr = new AtomicInteger();
-
-    /** Res field updater. */
-    private static final AtomicLongFieldUpdater<GridDhtTxQueryEnlistAbstractFuture> RES_UPD =
-        AtomicLongFieldUpdater.newUpdater(GridDhtTxQueryEnlistAbstractFuture.class, "res");
-
     /** SkipCntr field updater. */
     private static final AtomicIntegerFieldUpdater<GridDhtTxQueryEnlistAbstractFuture> SKIP_UPD =
         AtomicIntegerFieldUpdater.newUpdater(GridDhtTxQueryEnlistAbstractFuture.class, "skipCntr");
@@ -126,7 +119,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
     protected final GridCacheVersion nearLockVer;
 
     /** Row extracted from iterator but not yet used. */
-    private volatile Object peek;
+    private Object peek;
 
     /** Timeout object. */
     @GridToStringExclude
@@ -141,6 +134,9 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
     /** Processed entries count. */
     protected long cnt;
 
+    /** */
+    private int batchIdCntr;
+
     /** Query iterator */
     private UpdateSourceIterator<?> it;
 
@@ -150,24 +146,16 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
     private volatile int skipCntr;
 
     /** */
-    @SuppressWarnings("unused")
-    @GridToStringExclude
-    private volatile long res;
-
-    /** */
-    private volatile WALPointer walPtr;
+    private WALPointer walPtr;
 
     /** */
     private GridCacheOperation op;
 
     /** Batches for sending to remote nodes. */
-    private final ConcurrentMap<UUID, Batch> batches = new ConcurrentHashMap<>();
+    private final Map<UUID, Batch> batches = new HashMap<>();
 
     /** Batches already sent to remotes, but their acks are not received yet. */
     private final ConcurrentMap<UUID, ConcurrentMap<Integer, Batch>> batchesInFlight = new ConcurrentHashMap<>();
-
-    /** Finish flag.  */
-    private final AtomicBoolean finish = new AtomicBoolean();
 
     /**
      * @param nearNodeId Near node ID.
@@ -266,7 +254,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
             return;
         }
 
-        sendNextBatches(false);
+        continueLoop(false);
     }
 
     /**
@@ -274,7 +262,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
      *
      * @param ignoreCntr {@code True} if need to ignore skip counter.
      */
-    private void sendNextBatches(boolean ignoreCntr) {
+    private void continueLoop(boolean ignoreCntr) {
         if (isDone())
             return;
 
@@ -286,25 +274,35 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
         try {
             while (true) {
                 if (!it.hasNext() && peek == null) {
-                    if (finish.compareAndSet(false, true)) {
-                        if (walPtr != null && !cctx.tm().logTxRecords()) {
-                            try {
-                                cctx.shared().wal().flush(walPtr, true);
-                            }
-                            catch (IgniteCheckedException e) {
-                                onDone(e);
-                            }
-                        }
+                    if (walPtr != null && !cctx.tm().logTxRecords()) {
+                        try {
+                            cctx.shared().wal().flush(walPtr, true);
 
+                            walPtr = null; // Avoid additional flushing.
+                        }
+                        catch (IgniteCheckedException e) {
+                            onDone(e);
+                        }
+                    }
+
+                    if (!batches.isEmpty()) {
                         // No data left - flush incomplete batches.
-                        for (Batch batch : batches.values()) {
+                        Iterator<Map.Entry<UUID, Batch>> it = batches.entrySet().iterator();
+
+                        while (it.hasNext()) {
+                            Batch batch = it.next().getValue();
+
+                            it.remove();
+
+                            assert !batch.ready();
+
                             batch.ready(true);
 
                             sendBatch(batch);
                         }
                     }
 
-                    if (finish.get() && batches.isEmpty() && inFlightIsEmpty())
+                    if (batches.isEmpty() && inFlightIsEmpty())
                         onDone(createResponse());
 
                     if (SKIP_UPD.decrementAndGet(this) == 0) {
@@ -357,6 +355,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
                                         mvccSnapshot);
 
                                     break;
+
                                 case CREATE:
                                 case UPDATE:
                                     res = entry.mvccSet(
@@ -370,12 +369,14 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
                                         op);
 
                                     break;
+
                                 case READ:
                                     res = entry.mvccLock(
                                         tx,
                                         mvccSnapshot);
 
                                     break;
+
                                 default:
                                     throw new IgniteSQLException("Cannot acquire lock for operation [op= " + op + "]" +
                                         "Operation is unsupported at the moment ", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
@@ -418,7 +419,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
 
                                         processEntry(finalEntry, op, finalVal);
 
-                                        sendNextBatches(true);
+                                        continueLoop(true);
                                     }
                                     catch (Throwable e) {
                                         onDone(e);
@@ -514,6 +515,8 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
             if (batch.size() == DFLT_BATCH_SIZE) {
                 batch.ready(true);
 
+                batches.remove(node.id());
+
                 sendBatch(batch);
             }
         }
@@ -536,12 +539,12 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
             Batch batch = batches.get(node.id());
 
             // We can add key if batch is not full.
-            if (batch == null || batch.size() < DFLT_BATCH_SIZE)
+            if (batch == null || batch.size() < DFLT_BATCH_SIZE - 1)
                 continue;
 
             ConcurrentMap<Integer, Batch> flyingBatches = batchesInFlight.get(node.id());
 
-            assert flyingBatches.size() <= DFLT_IN_FLIGHT_BATCHES_PER_NODE_LIMIT;
+            assert flyingBatches == null || flyingBatches.size() <= DFLT_IN_FLIGHT_BATCHES_PER_NODE_LIMIT;
 
             if (flyingBatches != null && flyingBatches.size() == DFLT_IN_FLIGHT_BATCHES_PER_NODE_LIMIT)
                 return false;
@@ -564,7 +567,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
 
         assert !node.isLocal();
 
-        int batchId = batchIdCntr.incrementAndGet();
+        int batchId = batchIdCntr++;
 
         ConcurrentMap<Integer, Batch> flyingBatches = batchesInFlight.get(node.id());
 
@@ -610,8 +613,6 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
             Batch prev = flyingBatches.put(batchId, batch);
 
             assert prev == null;
-
-            batches.remove(node.id());
 
             cctx.io().send(node, req, cctx.ioPolicy());
         }
@@ -698,7 +699,7 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
 
         tx.addRemoteTransactionNode(cctx.node(nodeId));
 
-        sendNextBatches(false);
+        continueLoop(false);
     }
 
     /** {@inheritDoc} */

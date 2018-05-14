@@ -418,7 +418,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
                     batch.ready(true);
 
                     if (res == null)
-                        res = new ArrayList<>(batchSize);
+                        res = new ArrayList<>();
 
                     res.add(batch);
                 }
@@ -437,7 +437,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
         for (Batch batch : batches.values()) {
             if (!batch.ready()) {
                 if (res == null)
-                    res = new ArrayList<>(batchSize);
+                    res = new ArrayList<>();
 
                 batch.ready(true);
 

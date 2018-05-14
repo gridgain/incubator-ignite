@@ -34,6 +34,7 @@ import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxQueryEnlistResponse;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtForceKeysRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtForceKeysResponse;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionSupplyMessage;
@@ -185,7 +186,7 @@ public class CacheMvccBackupsTest extends CacheMvccAbstractTest {
         ccfg = cacheConfiguration(PARTITIONED, FULL_SYNC, 1, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class);
 
-        final int KEYS_CNT = 10000;
+        final int KEYS_CNT = 50_000;
         assert KEYS_CNT % 2 == 0;
 
         startGrids(2);
@@ -229,6 +230,109 @@ public class CacheMvccBackupsTest extends CacheMvccAbstractTest {
         }
 
         qryStr = "DELETE FROM Integer WHERE _key >= " + KEYS_CNT / 2;
+
+        try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            tx.timeout(txLongTimeout);
+
+            SqlFieldsQuery qry = new SqlFieldsQuery(qryStr);
+
+            clientCache.query(qry).getAll();
+
+            tx.commit();
+        }
+
+        Map<KeyCacheObject, List<CacheDataRow>> cache1Vers = allVersions(cache1);
+
+        List res1 = getAll(cache1, "Integer");
+
+        stopGrid(0);
+
+        awaitPartitionMapExchange();
+
+        Map<KeyCacheObject, List<CacheDataRow>> cache2Vers = allVersions(cache2);
+
+        assertVersionsEquals(cache1Vers, cache2Vers);
+
+        List res2 = getAll(cache2, "Integer");
+
+        assertEqualsCollections(res1, res2);
+    }
+
+    /**
+     * Checks cache backups consistency with in-flight batches overflow.
+     *
+     * @throws Exception If failed.
+     */
+    public void testBackupsCoherenceWithInFlightBatchesOverflow() throws Exception {
+        testSpi = true;
+
+        disableScheduledVacuum = true;
+
+        ccfg = cacheConfiguration(PARTITIONED, FULL_SYNC, 1, DFLT_PARTITION_COUNT)
+            .setIndexedTypes(Integer.class, Integer.class);
+
+        final int KEYS_CNT = 30_000;
+        assert KEYS_CNT % 2 == 0;
+
+        startGrids(2);
+
+        Ignite node1 = grid(0);
+        Ignite node2 = grid(1);
+
+        client = true;
+
+        Ignite client = startGrid();
+
+        awaitPartitionMapExchange();
+
+        IgniteCache clientCache = client.cache(DEFAULT_CACHE_NAME);
+        IgniteCache cache1 = node1.cache(DEFAULT_CACHE_NAME);
+        IgniteCache cache2 = node2.cache(DEFAULT_CACHE_NAME);
+
+        StringBuilder insert = new StringBuilder("INSERT INTO Integer (_key, _val) values ");
+
+        boolean first = true;
+
+        for (int key = 0; key < KEYS_CNT; key++) {
+            if (!first)
+                insert.append(',');
+            else
+                first = false;
+
+            insert.append('(').append(key).append(',').append(key * 10).append(')');
+        }
+
+        String qryStr = insert.toString();
+
+        try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            tx.timeout(txLongTimeout);
+
+            SqlFieldsQuery qry = new SqlFieldsQuery(qryStr);
+
+            clientCache.query(qry).getAll();
+
+            tx.commit();
+        }
+
+        // Add a delay to simulate batches overflow.
+        TestRecordingCommunicationSpi spi1 = TestRecordingCommunicationSpi.spi(node1);
+        TestRecordingCommunicationSpi spi2 = TestRecordingCommunicationSpi.spi(node2);
+
+        spi1.closure(new IgniteBiInClosure<ClusterNode, Message>() {
+            @Override public void apply(ClusterNode node, Message msg) {
+                if (msg instanceof GridDhtTxQueryEnlistResponse)
+                    doSleep(100);
+            }
+        });
+
+        spi2.closure(new IgniteBiInClosure<ClusterNode, Message>() {
+            @Override public void apply(ClusterNode node, Message msg) {
+                if (msg instanceof GridDhtTxQueryEnlistResponse)
+                    doSleep(100);
+            }
+        });
+
+        qryStr = "DELETE FROM Integer WHERE _key >= " + 10;
 
         try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
             tx.timeout(txLongTimeout);
