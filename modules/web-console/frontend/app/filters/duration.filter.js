@@ -19,9 +19,12 @@ export default [() => {
     /**
      * @param {Number} t Time in ms.
      */
-    return (t) => {
+    return (t, dflt = '') => {
         if (t === 9223372036854775807)
             return 'Infinite';
+
+        if (t < 0)
+            return dflt;
 
         const a = (i, suffix) => i && i !== '00' ? i + suffix + ' ' : '';
 
