@@ -1807,8 +1807,6 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         final int flags, int pageSize, final long timeout) {
         assert qry != null;
 
-        init();
-
         try {
             if (timeout == -1)
                 return new GridFinishedFuture<>(timeoutException());

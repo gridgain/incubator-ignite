@@ -27,6 +27,7 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.cluster.ClusterTopologyException;
 import org.apache.ignite.internal.IgniteInternalFuture;
@@ -714,12 +715,11 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 req.subjectId(),
                 req.taskNameHash());
         }
-        catch (IgniteCheckedException ex) {
+        catch (IgniteCheckedException | IgniteException ex) {
             GridNearTxQueryEnlistResponse res = new GridNearTxQueryEnlistResponse(req.cacheId(),
                 req.futureId(),
                 req.miniId(),
                 req.version(),
-                0,
                 ex);
 
             try {
@@ -766,9 +766,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
     private void processNearEnlistResponse(UUID nodeId, final GridNearTxQueryEnlistResponse res) {
         GridNearTxQueryEnlistFuture fut = (GridNearTxQueryEnlistFuture)ctx.mvcc().versionedFuture(res.version(), res.futureId());
 
-        if (fut != null) {
+        if (fut != null)
             fut.onResult(nodeId, res);
-        }
     }
 
     /**
@@ -1972,12 +1971,11 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 req.subjectId(),
                 req.taskNameHash());
         }
-        catch (IgniteCheckedException ex) {
+        catch (IgniteCheckedException | IgniteException ex) {
             GridNearTxQueryResultsEnlistResponse res = new GridNearTxQueryResultsEnlistResponse(req.cacheId(),
                 req.futureId(),
                 req.miniId(),
                 req.version(),
-                0,
                 ex);
 
             try {
@@ -2025,9 +2023,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
      * @param txSubjectId Transaction subject id.
      * @param txTaskNameHash Transaction task name hash.
      * @return Transaction.
-     * @throws IgniteCheckedException If failed.
      */
-    private GridDhtTxLocal initTxTopologyVersion(UUID nodeId,
+    public GridDhtTxLocal initTxTopologyVersion(UUID nodeId,
         ClusterNode nearNode,
         GridCacheVersion nearLockVer,
         IgniteUuid nearFutId,
@@ -2037,8 +2034,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
         long nearThreadId,
         long timeout,
         UUID txSubjectId,
-        int txTaskNameHash)
-        throws IgniteCheckedException {
+        int txTaskNameHash) throws IgniteException, IgniteCheckedException {
 
         assert ctx.affinityNode();
 
@@ -2125,7 +2121,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                         U.error(log, "Failed to rollback the transaction: " + tx, ex);
                     }
 
-                    return null;
+                    throw new IgniteCheckedException(msg);
                 }
 
                 tx.topologyVersion(topVer);

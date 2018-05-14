@@ -497,6 +497,20 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
     }
 
     /** {@inheritDoc} */
+    @Nullable @Override public MvccUpdateResult mvccLock(boolean primary, GridCacheMapEntry entry,
+        MvccSnapshot mvccSnapshot) throws IgniteCheckedException {
+        if (entry.detached() || entry.isNear())
+            return null;
+
+        assert entry.lockedByCurrentThread();
+
+        return dataStore(entry.localPartition()).mvccLock(entry.context(),
+            primary,
+            entry.key(),
+            mvccSnapshot);
+    }
+
+    /** {@inheritDoc} */
     @Override public void remove(
         GridCacheContext cctx,
         KeyCacheObject key,
@@ -1543,6 +1557,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     newMvccVer,
                     partId,
                     false, // TODO IGNITE-7185
+                    false,
                     cctx);
 
                 if (!grp.storeCacheIdInDataPage() && updateRow.cacheId() != CU.UNDEFINED_CACHE_ID) {
@@ -1627,6 +1642,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     null,
                     partId,
                     primary,
+                    false,
                     cctx);
 
                 dataTree.visit(new MvccMaxSearchRow(cacheId, key), new MvccMinSearchRow(cacheId, key), updateRow);
@@ -1717,6 +1733,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     null,
                     partId,
                     primary,
+                    false,
                     cctx);
 
                 dataTree.visit(new MvccMaxSearchRow(cacheId, key), new MvccMinSearchRow(cacheId, key), updateRow);
@@ -1742,6 +1759,52 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     clearPendingEntries(cctx, oldRow);
                 }
 
+                cleanup(cctx, updateRow.cleanupRows());
+
+                return updateRow;
+            }
+            finally {
+                busyLock.leaveBusy();
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override public MvccUpdateResult mvccLock(GridCacheContext cctx, boolean primary, KeyCacheObject key,
+            MvccSnapshot mvccSnapshot) throws IgniteCheckedException {
+            assert primary && mvccSnapshot != null;
+
+            if (!busyLock.enterBusy())
+                throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
+
+            try {
+                int cacheId = grp.sharedGroup() ? cctx.cacheId() : CU.UNDEFINED_CACHE_ID;
+
+                CacheObjectContext coCtx = cctx.cacheObjectContext();
+
+                // Make sure value bytes initialized.
+                key.valueBytes(coCtx);
+
+                MvccUpdateDataRow updateRow = new MvccUpdateDataRow(
+                    key,
+                    null,
+                    null,
+                    0,
+                    mvccSnapshot,
+                    null,
+                    partId,
+                    true,
+                    true,
+                    cctx);
+
+                dataTree.visit(new MvccMaxSearchRow(cacheId, key), new MvccMinSearchRow(cacheId, key), updateRow);
+
+                ResultType res = updateRow.resultType();
+
+                // cannot update locked, cannot update on write conflict
+                if (res == ResultType.LOCKED || res == ResultType.VERSION_MISMATCH)
+                    return updateRow;
+
+                // Do nothing, except cleaning up not needed versions
                 cleanup(cctx, updateRow.cleanupRows());
 
                 return updateRow;
@@ -2211,7 +2274,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 if (MvccUtils.compareNewVersion(row, crd, cntr, opCntr) != 0) // deleted row
                     res.add(F.t(null, row.newMvccVersion()));
 
-                res.add(F.t(row.value().value(cctx.cacheObjectContext(), false), row.mvccVersion()));
+                res.add(F.t(row.value(), row.mvccVersion()));
 
                 crd = row.mvccCoordinatorVersion(); cntr = row.mvccCounter(); opCntr = row.mvccOperationCounter();
             }

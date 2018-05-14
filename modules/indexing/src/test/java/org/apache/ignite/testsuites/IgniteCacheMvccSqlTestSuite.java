@@ -22,6 +22,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccBackupsTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccIteratorWithConcurrentJdbcTransactionTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccLocalEntriesWithConcurrentJdbcTransactionTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccScanQueryWithConcurrentJdbcTransactionTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSelectForUpdateQueryTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSizeWithConcurrentJdbcTransactionTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSqlQueriesTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSqlTxQueriesTest;
@@ -45,6 +46,7 @@ public class IgniteCacheMvccSqlTestSuite extends TestSuite {
         suite.addTestSuite(CacheMvccSqlTxQueriesTest.class);
         suite.addTestSuite(CacheMvccBackupsTest.class);
         suite.addTestSuite(CacheMvccSqlTxQueriesWithReducerTest.class);
+        suite.addTestSuite(CacheMvccSelectForUpdateQueryTest.class);
 
         return suite;
     }

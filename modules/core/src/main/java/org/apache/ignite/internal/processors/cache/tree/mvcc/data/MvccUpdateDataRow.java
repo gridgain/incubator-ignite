@@ -58,6 +58,10 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
     private static final int PRIMARY = CAN_CLEANUP << 1;
     /** */
     private static final int REMOVE = PRIMARY << 1;
+    /** */
+    private static final int BACKUP_FLAGS_SET = FIRST;
+    /** */
+    private static final int PRIMARY_FLAGS_SET = FIRST | CHECK_VERSION | PRIMARY | CAN_WRITE;
 
     /** */
     @GridToStringExclude
@@ -96,6 +100,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
      * @param newVer Update version.
      * @param part Partition.
      * @param primary Primary node flag.
+     * @param lockOnly Whether no actual update should be done and the only thing to do is to acquire lock.
      * @param cctx Cache context.
      */
     public MvccUpdateDataRow(
@@ -107,6 +112,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
         MvccVersion newVer,
         int part,
         boolean primary,
+        boolean lockOnly,
         GridCacheContext cctx) {
         super(key,
             val,
@@ -120,14 +126,12 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
         this.mvccSnapshot = mvccSnapshot;
         this.cctx = cctx;
 
-        if (primary)
-            setFlags(FIRST
-                | CHECK_VERSION
-                | PRIMARY
-                | (val == null ? REMOVE : 0)
-                | CAN_WRITE);
-        else
-            setFlags(FIRST);
+        assert !lockOnly || val == null;
+
+        setFlags(primary ? PRIMARY_FLAGS_SET : BACKUP_FLAGS_SET);
+
+        if (primary && val == null && !lockOnly)
+            setFlags(REMOVE);
     }
 
     /** {@inheritDoc} */
