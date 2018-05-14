@@ -229,6 +229,19 @@ public class CacheMvccBackupsTest extends CacheMvccAbstractTest {
             tx.commit();
         }
 
+        qryStr = "SELECT * FROM Integer WHERE _key >= " + KEYS_CNT / 2 + " FOR UPDATE";
+
+        try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            tx.timeout(txLongTimeout);
+
+            SqlFieldsQuery qry = new SqlFieldsQuery(qryStr);
+
+            clientCache.query(qry).getAll();
+
+            tx.commit();
+        }
+
+
         qryStr = "DELETE FROM Integer WHERE _key >= " + KEYS_CNT / 2;
 
         try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
