@@ -573,7 +573,7 @@ public class BinaryUtils {
         if (type != null)
             return type;
 
-        if (cls.isEnum())
+        if (isEnum(cls))
             return GridBinaryMarshaller.ENUM;
 
         if (cls.isArray())
@@ -1083,7 +1083,7 @@ public class BinaryUtils {
             return BinaryWriteMode.COL;
         else if (isSpecialMap(cls))
             return BinaryWriteMode.MAP;
-        else if (cls.isEnum())
+        else if (isEnum(cls))
             return BinaryWriteMode.ENUM;
         else if (cls == Class.class)
             return BinaryWriteMode.CLASS;
@@ -1112,6 +1112,21 @@ public class BinaryUtils {
      */
     public static boolean isSpecialMap(Class cls) {
         return HashMap.class.equals(cls) || LinkedHashMap.class.equals(cls);
+    }
+
+    /**
+     * Check if class represents a Enum.
+     *
+     * @param cls Class.
+     * @return {@code True} if this is a Enum class.
+     */
+    public static boolean isEnum(Class cls) {
+        if (cls.isEnum())
+            return true;
+
+        Class sCls = cls.getSuperclass();
+
+        return sCls != null && sCls.isEnum();
     }
 
     /**
