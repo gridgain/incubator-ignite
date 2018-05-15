@@ -517,8 +517,8 @@ public class DmlStatementsProcessor {
                     timeout = tm1 > 0 && tm2 > 0 ? Math.min(tm1, tm2) : Math.max(tm1, tm2);
                 }
 
-                if (distributedPlan == null || ((plan.mode() == UpdateMode.INSERT || plan.mode() == UpdateMode.MERGE) &&
-                    !plan.isLocalSubquery())) {
+                if (cctx.isReplicated() || distributedPlan == null || ((plan.mode() == UpdateMode.INSERT
+                    || plan.mode() == UpdateMode.MERGE) && !plan.isLocalSubquery())) {
                     MvccQueryTracker mvccQueryTracker = new MvccQueryTracker(cctx,
                         cctx.shared().coordinators().currentCoordinator(),
                         mvccSnapshot);

@@ -361,8 +361,7 @@ public class IgniteClientCacheInitializationFailTest extends GridCommonAbstractT
         }
 
         /** {@inheritDoc} */
-        @Override public IndexingQueryFilter backupFilter(AffinityTopologyVersion topVer, int[] parts,
-            boolean skipReplicated) {
+        @Override public IndexingQueryFilter backupFilter(AffinityTopologyVersion topVer, int[] parts) {
             return null;
         }
 

@@ -702,7 +702,7 @@ public class GridMapQueryExecutor {
                 reqId,
                 segmentId,
                 replicated ? REPLICATED : MAP)
-                .filter(h2.backupFilter(topVer, parts, false))
+                .filter(h2.backupFilter(topVer, parts))
                 .partitionsMap(partsMap)
                 .distributedJoinMode(distributedJoinMode)
                 .pageSize(pageSize)
@@ -902,7 +902,7 @@ public class GridMapQueryExecutor {
         MapNodeResults nodeResults = resultsForNode(node.id());
 
         try {
-            IndexingQueryFilter filter = h2.backupFilter(topVer, parts, false);
+            IndexingQueryFilter filter = h2.backupFilter(topVer, parts);
 
             GridQueryCancel cancel = nodeResults.putUpdate(reqId);
 

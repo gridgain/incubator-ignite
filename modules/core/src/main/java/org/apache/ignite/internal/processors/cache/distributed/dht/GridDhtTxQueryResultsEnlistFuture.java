@@ -87,6 +87,8 @@ public class GridDhtTxQueryResultsEnlistFuture
         this.op = op;
 
         it = rows.iterator();
+
+        skipNearNodeUpdates = true;
     }
 
     /** {@inheritDoc} */
@@ -101,7 +103,10 @@ public class GridDhtTxQueryResultsEnlistFuture
 
     /** {@inheritDoc} */
     @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse() {
-        return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, cnt);
+        GridCacheVersion dhtVer = cctx.tm().mappedVersion(nearLockVer);
+
+        return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, cnt,
+            dhtVer, futId);
     }
 
     /** {@inheritDoc} */

@@ -1949,7 +1949,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
         if (qry.includeBackups())
             return null;
 
-        return new IndexingQueryFilterImpl(cctx.kernalContext(), AffinityTopologyVersion.NONE, null, false);
+        return new IndexingQueryFilterImpl(cctx.kernalContext(), AffinityTopologyVersion.NONE, null);
     }
 
     /**

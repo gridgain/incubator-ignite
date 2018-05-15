@@ -165,6 +165,9 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
     /** */
     private WALPointer walPtr;
 
+    /** Do not send DHT requests to near node. */
+    protected boolean skipNearNodeUpdates = false;
+
     /**
      *
      * @param nearNodeId Near node ID.
@@ -523,6 +526,9 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
         for (ClusterNode node : backupNodes(key)) {
             assert !node.isLocal();
 
+            if (skipNearNodeUpdates && node.id().equals(nearNodeId))
+                continue;
+
             Batch batch = null;
 
             if (batches == null)
@@ -565,6 +571,9 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
 
         // Check possibility of adding to batch and sending.
         for (ClusterNode node : backupNodes(key)) {
+            if (skipNearNodeUpdates && node.id().equals(nearNodeId))
+                continue;
+
             Batch batch = batches.get(node.id());
 
             // We can add key if batch is not full.

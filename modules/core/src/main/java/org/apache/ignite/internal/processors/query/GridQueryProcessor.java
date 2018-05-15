@@ -2245,7 +2245,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                         }
                         else
                             return idx.queryLocalSql(schemaName, cctx.name(), qry, idx.backupFilter(requestTopVer.get(),
-                                qry.getPartitions(), false), keepBinary);
+                                qry.getPartitions()), keepBinary);
                     }
                 }, true);
         }
