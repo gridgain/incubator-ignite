@@ -508,7 +508,8 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
 
         cnt++;
 
-        addToBatch(entry.key(), val);
+        if (op != READ)
+            addToBatch(entry.key(), val);
     }
 
     /**
