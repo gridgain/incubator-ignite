@@ -2339,6 +2339,15 @@ public class GridSqlQuerySplitter {
 
         IndexColumn affKeyCol = tbl.getAffinityKeyColumn();
 
+        //TODO: add a way to force custom aff column.
+        if ("OPERATION".equalsIgnoreCase(tbl.getName())) {
+            String columnName = "receiverInn".toUpperCase();
+
+            affKeyCol = new IndexColumn();
+            affKeyCol.column = tbl.getColumn(columnName);
+            affKeyCol.columnName = columnName;
+        }
+
         int colId = column.column().getColumnId();
 
         if ((affKeyCol == null || colId != affKeyCol.column.getColumnId()) && !desc.isKeyColumn(colId))
