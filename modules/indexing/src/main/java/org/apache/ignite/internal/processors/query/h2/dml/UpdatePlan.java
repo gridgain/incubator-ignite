@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.query.h2.dml;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.IgniteCheckedException;
@@ -46,8 +47,6 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.h2.table.Column;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.Iterator;
 
 import static org.apache.ignite.internal.processors.query.h2.dml.UpdateMode.BULK_LOAD;
 import static org.apache.ignite.internal.processors.query.h2.opt.GridH2KeyValueRowOnheap.DEFAULT_COLUMNS_COUNT;
@@ -663,6 +662,9 @@ public final class UpdatePlan {
 
     /** */
     private final static class UpdateIterator extends AbstractIterator {
+        /** */
+        private static final long serialVersionUID = -4949035950470324961L;
+
         /**
          * @param idx Indexing.
          * @param cur Query cursor.
@@ -683,6 +685,9 @@ public final class UpdatePlan {
 
     /** */
     private final static class DeleteIterator extends AbstractIterator {
+        /** */
+        private static final long serialVersionUID = -4949035950470324961L;
+
         /**
          * @param idx Indexing.
          * @param cur Query cursor.
@@ -701,6 +706,9 @@ public final class UpdatePlan {
 
     /** */
     private final static class InsertIterator extends AbstractIterator {
+        /** */
+        private static final long serialVersionUID = -4949035950470324961L;
+
         /**
          * @param idx Indexing.
          * @param cur Query cursor.

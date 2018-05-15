@@ -93,7 +93,6 @@ import org.h2.command.dml.Delete;
 import org.h2.command.dml.Insert;
 import org.h2.command.dml.Merge;
 import org.h2.command.dml.Update;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode.DUPLICATE_KEY;
@@ -532,8 +531,11 @@ public class DmlStatementsProcessor {
 
                     GridCacheOperation op = cacheOperation(plan.mode());
 
-                    if (plan.fastResult())
-                        it = new DmlUpdateSingleEntryIterator<>(op, plan.getFastRow(fieldsQry.getArgs()));
+                    if (plan.fastResult()) {
+                        IgniteBiTuple row = plan.getFastRow(fieldsQry.getArgs());
+
+                        it = new DmlUpdateSingleEntryIterator<>(op, op == GridCacheOperation.DELETE ? row.getKey() : row);
+                    }
                     else if (plan.hasRows())
                         it = new DmlUpdateResultsIterator(op, plan, plan.createRows(fieldsQry.getArgs()));
                     else {
@@ -1433,53 +1435,18 @@ public class DmlStatementsProcessor {
         }
 
         /** {@inheritDoc} */
-        @Override public void beforeDetach() {
-            //No-op
-        }
-
-        /** {@inheritDoc} */
         @Override public GridCacheOperation operation() {
             return op;
         }
 
         /** {@inheritDoc} */
-        @Override public boolean isClosed() {
-            return false;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void close() throws IgniteCheckedException {
-            // No-op.
-        }
-
-        /** {@inheritDoc} */
-        public boolean hasNextX() throws IgniteCheckedException {
+        public boolean hasNextX() {
             return it.hasNext();
         }
 
         /** {@inheritDoc} */
         public Object nextX() throws IgniteCheckedException {
             return plan.processRowForTx(it.next());
-        }
-
-        /** {@inheritDoc} */
-        @Override public void removeX() throws IgniteCheckedException {
-            // No-op.
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean hasNext() {
-            return it.hasNext();
-        }
-
-        /** {@inheritDoc} */
-        @Override public IgniteBiTuple next() {
-            throw new UnsupportedOperationException("not implemented");
-        }
-
-        /** {@inheritDoc} */
-        @NotNull @Override public Iterator<Object> iterator() {
-            throw new UnsupportedOperationException("not implemented");
         }
     }
 
@@ -1504,57 +1471,22 @@ public class DmlStatementsProcessor {
         }
 
         /** {@inheritDoc} */
-        @Override public void beforeDetach() {
-            //No-op
-        }
-
-        /** {@inheritDoc} */
         @Override public GridCacheOperation operation() {
             return op;
         }
 
         /** {@inheritDoc} */
-        @Override public boolean isClosed() {
-            return false;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void close() throws IgniteCheckedException {
-            // No-op.
-        }
-
-        /** {@inheritDoc} */
-        public boolean hasNextX() throws IgniteCheckedException {
+        public boolean hasNextX() {
             return first;
         }
 
         /** {@inheritDoc} */
-        public T nextX() throws IgniteCheckedException {
+        public T nextX() {
             T res = first ? entry : null;
 
             first = false;
 
             return res;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void removeX() throws IgniteCheckedException {
-            // No-op.
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean hasNext() {
-            return first;
-        }
-
-        /** {@inheritDoc} */
-        @Override public T next() {
-            throw new UnsupportedOperationException("not implemented");
-        }
-
-        /** {@inheritDoc} */
-        @NotNull @Override public Iterator<T> iterator() {
-            throw new UnsupportedOperationException("not implemented");
         }
     }
 }

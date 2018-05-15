@@ -34,7 +34,6 @@ import javax.cache.CacheException;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.processor.EntryProcessor;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
@@ -96,7 +95,6 @@ import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiClosure;
 import org.apache.ignite.lang.IgniteBiInClosure;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteUuid;
@@ -1808,8 +1806,6 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         final int[] cacheIds, final int[] parts, final String schema, final String qry, final Object[] params,
         final int flags, int pageSize, final long timeout) {
         assert qry != null;
-
-        init();
 
         try {
             if (timeout == -1)
@@ -3556,6 +3552,8 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             if (!FINISH_FUT_UPD.compareAndSet(this, null, fut0 = new GridNearTxFastFinishFuture(this, false)))
                 return chainFinishFuture(finishFut, false);
 
+            rollbackFuture(fut0);
+
             fut0.finish(false, onTimeout);
 
             return fut0;
@@ -3565,6 +3563,8 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
         if (!FINISH_FUT_UPD.compareAndSet(this, null, fut0 = new GridNearTxFinishFuture<>(cctx, this, false)))
             return chainFinishFuture(finishFut, false);
+
+        rollbackFuture(fut0);
 
         IgniteInternalFuture<?> prepFut = this.prepFut;
 
@@ -3667,7 +3667,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         return writeMap().isEmpty()
             && ((optimistic() && !serializable()) || readMap().isEmpty())
             && (!mappings.single() && F.view(mappings.mappings(), CU.FILTER_QUERY_MAPPING).isEmpty())
-            && mvccInfo == null; // TODO fast finish with mapped mvcc version
+            && mvccInfo == null; // TODO IGNITE-8445
     }
 
     /**

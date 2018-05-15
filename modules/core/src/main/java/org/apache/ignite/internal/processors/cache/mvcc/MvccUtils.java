@@ -31,6 +31,8 @@ import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxManager;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.internal.CU;
@@ -39,6 +41,7 @@ import org.apache.ignite.transactions.TransactionState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
@@ -128,30 +131,10 @@ public class MvccUtils {
 
         byte state = cctx.shared().coordinators().state(mvccCrd, mvccCntr);
 
-        assert state == TxState.COMMITTED || state == TxState.ABORTED : state;
+        assert state == TxState.COMMITTED || state == TxState.ABORTED : "Unexpected state: " + state +
+            ", rowMvcc=" + mvccCntr + ", txMvcc=" + snapshot.counter() + ":" + snapshot.operationCounter();
 
         return state == TxState.COMMITTED;
-    }
-
-    /**
-     * Checks if version is visible from the given snapshot.
-     *
-     * @param cctx Cache context.
-     * @param snapshot Snapshot.
-     * @param mvccCrd Mvcc coordinator.
-     * @param mvccCntr Mvcc counter.
-     * @param mvccOpCntr Mvcc operation cunter.
-     * @param newMvccCrd New mvcc coordinator.
-     * @param newMvccCntr New mvcc counter.
-     * @param newMvccOpCntr New mvcc operation counter.
-     * @return {@code True} if visible.
-     * @throws IgniteCheckedException If failed.
-     */
-    public static boolean isVisible(GridCacheContext cctx, MvccSnapshot snapshot, long mvccCrd, long mvccCntr,
-        int mvccOpCntr, long newMvccCrd,
-        long newMvccCntr, int newMvccOpCntr) throws IgniteCheckedException {
-        return isVisible(cctx, snapshot, mvccCrd, mvccCntr, mvccOpCntr)
-            && !isVisible(cctx, snapshot, newMvccCrd, newMvccCntr, newMvccOpCntr);
     }
 
     /**
@@ -413,7 +396,18 @@ public class MvccUtils {
      * @return Currently started user transaction, or {@code null} if none started.
      */
     @Nullable public static GridNearTxLocal tx(GridKernalContext ctx) {
-        IgniteInternalTx tx0 = ctx.cache().context().tm().tx();
+        return tx(ctx, null);
+    }
+
+    /**
+     * @param ctx Grid kernal context.
+     * @param txId Transaction ID.
+     * @return Currently started user transaction, or {@code null} if none started.
+     */
+    @Nullable private static GridNearTxLocal tx(GridKernalContext ctx, @Nullable GridCacheVersion txId) {
+        IgniteTxManager tm = ctx.cache().context().tm();
+
+        IgniteInternalTx tx0 = txId == null ? tm.tx() : tm.tx(txId);
 
         GridNearTxLocal tx = tx0 != null && tx0.user() ? (GridNearTxLocal)tx0 : null;
 
@@ -424,18 +418,11 @@ public class MvccUtils {
 
     /**
      * @param ctx Grid kernal context.
-     * @return Whether MVCC is enabled or not on {@link IgniteConfiguration}.
-     */
-    public static boolean mvccEnabled(GridKernalContext ctx) {
-        return ctx.config().isMvccEnabled();
-    }
-
-    /**
-     * @param ctx Grid kernal context.
+     * @param txId Transaction ID.
      * @return Currently started active user transaction, or {@code null} if none started.
      */
-    @Nullable private static GridNearTxLocal activeTx(GridKernalContext ctx) {
-        GridNearTxLocal tx = tx(ctx);
+    @Nullable private static GridNearTxLocal activeTx(GridKernalContext ctx, @Nullable GridCacheVersion txId) {
+        GridNearTxLocal tx = tx(ctx, txId);
 
         if (tx != null) {
             assert tx.state() == TransactionState.ACTIVE;
@@ -451,7 +438,16 @@ public class MvccUtils {
      * @return Currently started active user transaction, or {@code null} if none started.
      */
     @Nullable public static GridNearTxLocal activeSqlTx(GridKernalContext ctx) {
-        GridNearTxLocal tx = activeTx(ctx);
+        return activeSqlTx(ctx, null);
+    }
+
+    /**
+     * @param ctx Grid kernal context.
+     * @param txId Transaction ID.
+     * @return Currently started active user transaction, or {@code null} if none started.
+     */
+    @Nullable public static GridNearTxLocal activeSqlTx(GridKernalContext ctx, GridCacheVersion txId) {
+        GridNearTxLocal tx = activeTx(ctx, txId);
 
         if (tx != null && !tx.isOperationAllowed(true))
             throw new IgniteSQLException("SQL queries and cache operations " +
@@ -493,7 +489,7 @@ public class MvccUtils {
                 timeout = tcfg.getDefaultTxTimeout();
         }
 
-        return ctx.cache().context().tm().newTx(
+        GridNearTxLocal tx = ctx.cache().context().tm().newTx(
             false,
             false,
             cctx != null && cctx.systemTx() ? cctx : null,
@@ -504,6 +500,18 @@ public class MvccUtils {
             true,
             0
         );
+
+        tx.syncMode(FULL_SYNC);
+
+        return tx;
+    }
+
+    /**
+     * @param ctx Grid kernal context.
+     * @return Whether MVCC is enabled or not on {@link IgniteConfiguration}.
+     */
+    public static boolean mvccEnabled(GridKernalContext ctx) {
+        return ctx.config().isMvccEnabled();
     }
 
     /**
@@ -526,7 +534,7 @@ public class MvccUtils {
     @NotNull public static MvccQueryTracker mvccTracker(GridCacheContext cctx, boolean startTx) throws IgniteCheckedException {
         assert cctx != null && cctx.mvccEnabled();
 
-        GridNearTxLocal tx = activeTx(cctx.kernalContext());
+        GridNearTxLocal tx = activeTx(cctx.kernalContext(), null);
 
         if (tx == null && startTx)
             tx = txStart(cctx, 0);

@@ -144,7 +144,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
     private LockTimeoutObject timeoutObj;
 
     /** Row extracted from iterator but not yet used. */
-    private IgniteBiTuple peek;
+    private Object peek;
 
     /** Topology locked flag. */
     private boolean topLocked;
@@ -368,15 +368,24 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
         if (SKIP_UPD.getAndIncrement(this) != 0)
             return null;
 
+        boolean flush = false;
+
         while (true) {
-            IgniteBiTuple cur = (peek != null) ? peek : (it.hasNextX() ? (IgniteBiTuple)it.nextX() : null);
+            Object cur = (peek != null) ? peek : (it.hasNextX() ? it.nextX() : null);
 
             while (cur != null) {
-                ClusterNode node = cctx.affinity().primaryByKey(cur.getKey(), topVer);
+                Object key;
+
+                if (op == GridCacheOperation.DELETE || op == GridCacheOperation.READ)
+                    key = cctx.toCacheKeyObject(cur);
+                else
+                    key = cctx.toCacheKeyObject(((IgniteBiTuple)cur).getKey());
+
+                ClusterNode node = cctx.affinity().primaryByKey(key, topVer);
 
                 if (node == null)
                     throw new ClusterTopologyCheckedException("Failed to get primary node " +
-                        "[topVer=" + topVer + ", key=" + cur.getKey() + ']');
+                        "[topVer=" + topVer + ", key=" + key + ']');
 
                 Batch batch = batches.get(node.id());
 
@@ -390,21 +399,24 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
                     // Can't advance further at the moment.
                     peek = cur;
 
+                    it.beforeDetach();
+
+                    flush = true;
+
                     break;
                 }
 
                 peek = null;
 
-                batch.add(op == GridCacheOperation.DELETE ? cur.getKey() :
-                    new IgniteBiTuple<>(cur.getKey(), cur.getValue()));
+                batch.add(op == GridCacheOperation.DELETE ? key : cur);
 
-                cur = it.hasNextX() ? (IgniteBiTuple)it.nextX() : null;
+                cur = it.hasNextX() ? it.nextX() : null;
 
                 if (batch.size() == batchSize) {
                     batch.ready(true);
 
                     if (res == null)
-                        res = new ArrayList<>(batchSize);
+                        res = new ArrayList<>();
 
                     res.add(batch);
                 }
@@ -412,18 +424,18 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
 
             if (SKIP_UPD.decrementAndGet(this) == 0)
                 break;
+
+            skipCntr = 1;
         }
 
-        it.beforeDetach();
-
-        if (it.hasNext() || peek != null)
+        if (flush)
             return res;
 
         // No data left - flush incomplete batches.
         for (Batch batch : batches.values()) {
             if (!batch.ready()) {
                 if (res == null)
-                    res = new ArrayList<>(batchSize);
+                    res = new ArrayList<>();
 
                 batch.ready(true);
 
@@ -432,7 +444,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
         }
 
         if (batches.isEmpty())
-            onDone(RES_UPD.get(this));
+            onDone(this.res);
 
         return res;
     }
@@ -470,8 +482,6 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
      * @param timeout Timeout.
      */
     private void enlistLocal(int batchId, UUID nodeId, Batch batch, long timeout) {
-        tx.init();
-
         Collection<Object> rows = batch.rows();
 
         GridNearTxQueryResultsEnlistRequest req = new GridNearTxQueryResultsEnlistRequest(cctx.cacheId(),
@@ -631,6 +641,8 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
     }
 
     /**
+     * @param nodeId Originating node ID.
+     * @param local {@code True} if originating node is local.
      * @param res Response.
      * @param err Exception.
      * @return {@code True} if future was completed by this call.
@@ -647,7 +659,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
 
             tx.removeMapping(nodeId);
         }
-        else if (res != null && res.result() > 0) {
+        else if (err == null && res.result() > 0) {
             if (local)
                 tx.colocatedLocallyMapped(true);
             else
