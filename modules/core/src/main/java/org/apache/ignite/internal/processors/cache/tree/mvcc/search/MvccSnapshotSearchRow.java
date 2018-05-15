@@ -31,8 +31,6 @@ import org.apache.ignite.internal.processors.cache.tree.RowLinkIO;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.visibilityStatus;
-
 /**
  * Search row which returns the first row visible for the given snapshot. Usage:
  * - set this row as the upper bound
@@ -82,20 +80,19 @@ public class MvccSnapshotSearchRow extends MvccSearchRow implements MvccTreeClos
 
         assert MvccUtils.mvccVersionIsValid(rowCrdVer, rowCntr, rowOpCntr);
 
-        byte status = visibilityStatus(cctx, snapshot, rowCrdVer, rowCntr, rowOpCntr, rowIo.getLink(pageAddr, idx));
+        if (MvccUtils.isVisible(cctx, snapshot, rowCrdVer, rowCntr, rowOpCntr)) {
+            if (MvccUtils.isNewVisible(cctx, rowIo.getLink(pageAddr, idx), snapshot))
+                res = null;
+            else {
+                res = tree.getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
 
-        if (status == MvccUtils.NONE)
-            return true;
+                res.key(key());
+            }
 
-       if (status == MvccUtils.OLD_ONLY) {
-            res = tree.getRow(io, pageAddr, idx, CacheDataRowAdapter.RowData.NO_KEY);
-
-            res.key(key());
+            return false; // Stop search.
         }
 
-        assert status == MvccUtils.OLD_AND_NEW || status == MvccUtils.OLD_ONLY;
-
-        return false; // Stop search.
+        return true;
     }
 
     /** {@inheritDoc} */

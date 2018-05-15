@@ -54,15 +54,6 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
  * Utils for MVCC.
  */
 public class MvccUtils {
-    /** Neither old (xid_min) nor new (xid_max) versions are visible */
-    public static final byte NONE = 0x0;
-
-    /** Only old version (xid_min) is visible for the given snapshot. */
-    public static final byte OLD_ONLY = 0x1;
-
-    /** Both old (xid_min) and new (xid_max) versions are visible. */
-    public static final byte OLD_AND_NEW =  0x2;
-
     /** */
     private static final MvccClosure<Boolean> isNewVisible = new IsNewVisible();
 
@@ -158,75 +149,26 @@ public class MvccUtils {
      * @return Visibility status.
      * @throws IgniteCheckedException If failed.
      */
-    public static byte visibilityStatus(GridCacheContext cctx, MvccSnapshot snapshot, long crd, long cntr,
+    public static boolean isVisible(GridCacheContext cctx, MvccSnapshot snapshot, long crd, long cntr,
         int opCntr, long link) throws IgniteCheckedException {
-        // Old version is null.
-        if (crd == 0) {
-            assert cntr == MvccProcessor.MVCC_COUNTER_NA && opCntr == MvccProcessor.MVCC_OP_COUNTER_NA
-                : "rowVer=" + mvccVersion(crd, cntr, opCntr)  + ", snapshot=" + snapshot;
+        boolean oldVisible = isVisible(cctx, snapshot, crd, cntr, opCntr, true);
 
-            return NONE; // Unassigned version is always invisible
-        }
-
-        assert crd > 0 && cntr > MvccProcessor.MVCC_COUNTER_NA && opCntr > MvccProcessor.MVCC_OP_COUNTER_NA :
-             "rowVer=" + mvccVersion(crd, cntr, opCntr)  + ", snapshot=" + snapshot;
-
-        // Check old version visibility without txLog first.
-        boolean oldVisible = isVisible(cctx, snapshot, crd, cntr, opCntr, false);
-
-        // If old version invisible without txLog it is also should be invisible with txLog.
         if (!oldVisible)
-            return NONE;
-
-        // If old row is visible without txLog, we need to ensure it's visibility with txLog.
-        byte oldState = cctx.shared().coordinators().state(crd, cntr);
-
-        if (oldState == TxState.ABORTED)
-            return NONE;
-
-        // Suppose further old version is committed or changes were made by the current tx.
-        assert (oldState == TxState.COMMITTED || (snapshot.coordinatorVersion() == crd && snapshot.counter() == cntr))
-            && oldVisible : "oldState=" + oldState + ", oldVisible=" + oldVisible;
+            return false;
 
         MvccVersion newVer = getNewVersion(cctx, link);
 
         if (newVer == null)
-            return OLD_ONLY;
+            return true;
 
         long newCrd = newVer.coordinatorVersion();
         long newCntr = newVer.counter();
         int newOpCntr = newVer.operationCounter();
 
-        if (newCrd == 0) {
-            assert newCntr == MvccProcessor.MVCC_COUNTER_NA &&  newOpCntr == MvccProcessor.MVCC_OP_COUNTER_NA
-                : "newRowVer=" + mvccVersion(newCrd, newCntr, newOpCntr) + ", snapshot=" + snapshot;
-
-            return OLD_ONLY;
-        }
-
-        // Check new version visibility without txLog first.
-        boolean newVisible = isVisible(cctx, snapshot, newCrd, newCntr, newOpCntr, false);
-
-        // If new version is not visible even without txLog, it is not visible with txLog lookup.
-        if (!newVisible)
-            return OLD_ONLY;
-
-        byte newState;
-
-        // Need to ensure new version visibility with txLog lookup.
         if (crd == newCrd && cntr == newCntr)
-            newState = oldState; // Do not lookup in txLog if old and new versions are the same.
-        else
-            newState  = cctx.shared().coordinators().state(newCrd, newCntr);
+            return false;
 
-        if (newState == TxState.ABORTED)
-            return OLD_ONLY;
-
-        // Suppose further new tx is committed or changes was made by this tx.
-        assert newState == TxState.COMMITTED ||
-            (snapshot.coordinatorVersion() == newCrd && snapshot.counter() == newCntr) : newState;
-
-        return newVisible ? OLD_AND_NEW : OLD_ONLY;
+        return !isVisible(cctx, snapshot, newCrd, newCntr, newOpCntr, true);
     }
 
     /**
