@@ -314,9 +314,10 @@ public interface GridQueryIndexing {
      *
      * @param topVer Topology version.
      * @param parts Partitions.
+     * @param skipReplicated Skip backup partitions for replicated caches also.
      * @return Backup filter.
      */
-    public IndexingQueryFilter backupFilter(AffinityTopologyVersion topVer, int[] parts);
+    public IndexingQueryFilter backupFilter(AffinityTopologyVersion topVer, int[] parts, boolean skipReplicated);
 
     /**
      * Client disconnected callback.

@@ -2101,7 +2101,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
         boolean loc = qry.isLocal();
 
-        IndexingQueryFilter filter = (loc ? backupFilter(null, qry.getPartitions()) : null);
+        IndexingQueryFilter filter = (loc ? backupFilter(null, qry.getPartitions(), false) : null);
 
         if (!prepared.isQuery()) {
             if (DmlStatementsProcessor.isDmlStatement(prepared)) {
@@ -2410,7 +2410,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         PreparedStatement stmt = preparedStatementWithParams(conn, fldsQry.getSql(),
             F.asList(fldsQry.getArgs()), true);
 
-        return dmlProc.prepareDistributedUpdate(schema, conn, stmt, fldsQry, backupFilter(topVer, parts), cancel, loc,
+        return dmlProc.prepareDistributedUpdate(schema, conn, stmt, fldsQry, backupFilter(topVer, parts, true), cancel, loc,
             topVer, mvccSnapshot);
     }
 
@@ -3376,8 +3376,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
     /** {@inheritDoc} */
     @Override public IndexingQueryFilter backupFilter(@Nullable final AffinityTopologyVersion topVer,
-        @Nullable final int[] parts) {
-        return new IndexingQueryFilterImpl(ctx, topVer, parts);
+        @Nullable final int[] parts, boolean skipReplicated) {
+        return new IndexingQueryFilterImpl(ctx, topVer, parts, skipReplicated);
     }
 
     /**

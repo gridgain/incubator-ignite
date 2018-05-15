@@ -38,6 +38,9 @@ public class IndexingQueryFilterImpl implements IndexingQueryFilter {
     /** Partitions. */
     private final HashSet<Integer> parts;
 
+    /** Skip replicated backups. */
+    private final boolean skipReplicated;
+
     /**
      * Constructor.
      *
@@ -46,7 +49,7 @@ public class IndexingQueryFilterImpl implements IndexingQueryFilter {
      * @param partsArr Partitions array.
      */
     public IndexingQueryFilterImpl(GridKernalContext ctx, @Nullable AffinityTopologyVersion topVer,
-        @Nullable int[] partsArr) {
+        @Nullable int[] partsArr, boolean skipReplicated) {
         this.ctx = ctx;
 
         this.topVer = topVer != null ? topVer : AffinityTopologyVersion.NONE;
@@ -59,11 +62,17 @@ public class IndexingQueryFilterImpl implements IndexingQueryFilter {
             for (int part : partsArr)
                 parts.add(part);
         }
+
+        this.skipReplicated = skipReplicated;
     }
 
     /** {@inheritDoc} */
     @Nullable @Override public IndexingQueryCacheFilter forCache(String cacheName) {
         final GridCacheAdapter<Object, Object> cache = ctx.cache().internalCache(cacheName);
+
+        if (skipReplicated && cache.context().isReplicated() && cache.context().mvccEnabled())
+            return new IndexingQueryCacheFilter(cache.context().affinity(), null, topVer,
+                ctx.discovery().localNode());
 
         // REPLICATED -> nothing to filter (explicit partitions are not supported).
         if (cache.context().isReplicated())

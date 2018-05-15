@@ -492,10 +492,6 @@ public class DmlStatementsProcessor {
         if (cctx != null && cctx.mvccEnabled()) {
             assert cctx.transactional();
 
-            if(cctx.isReplicated())
-                throw new IgniteSQLException("Only partitioned caches are supported at the moment",
-                    IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
-
             DmlDistributedPlanInfo distributedPlan = plan.distributedPlan();
 
             GridNearTxLocal tx = MvccUtils.activeSqlTx(cctx.kernalContext());
