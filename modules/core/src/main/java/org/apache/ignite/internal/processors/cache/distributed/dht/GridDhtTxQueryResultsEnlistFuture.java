@@ -103,10 +103,9 @@ public class GridDhtTxQueryResultsEnlistFuture
 
     /** {@inheritDoc} */
     @NotNull @Override public GridNearTxQueryResultsEnlistResponse createResponse() {
-        GridCacheVersion dhtVer = cctx.tm().mappedVersion(nearLockVer);
-
         return new GridNearTxQueryResultsEnlistResponse(cctx.cacheId(), nearFutId, nearMiniId, nearLockVer, cnt,
-            dhtVer, futId);
+            hasNearNodeUpdates ? cctx.tm().mappedVersion(nearLockVer) : null,
+            hasNearNodeUpdates ? futId : null);
     }
 
     /** {@inheritDoc} */

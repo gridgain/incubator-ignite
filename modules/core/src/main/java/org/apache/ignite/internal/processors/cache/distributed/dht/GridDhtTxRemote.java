@@ -390,106 +390,103 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
     public void mvccEnlistBatch(GridCacheContext ctx, GridCacheOperation op, List<KeyCacheObject> keys,
         List<CacheObject> vals, MvccSnapshot snapshot) throws IgniteCheckedException {
 
-        ctx.shared().database().checkpointReadLock();
+        WALPointer ptr = null;
 
-        try {
-            WALPointer ptr = null;
+        GridDhtCacheAdapter dht = ctx.dht();
 
-            GridDhtCacheAdapter dht = ctx.dht();
+        for (int i = 0; i < keys.size(); i++) {
+            KeyCacheObject key = keys.get(i);
 
-            for (int i = 0; i < keys.size(); i++) {
-                KeyCacheObject key = keys.get(i);
+            assert key != null;
 
-                assert key != null;
+            int part = ctx.affinity().partition(key);
 
-                int part = ctx.affinity().partition(key);
+            GridDhtLocalPartition locPart = ctx.topology().localPartition(part, topologyVersion(), false);
 
-                GridDhtLocalPartition locPart = ctx.topology().localPartition(part, topologyVersion(),
+            if (locPart == null || !locPart.reserve())
+                throw new ClusterTopologyException("Can not reserve partition. Please retry on stable topology.");
+
+            try {
+                CacheObject val = null;
+
+                if (op != DELETE)
+                    val = vals.get(i);
+
+                IgniteTxKey txKey = ctx.txKey(key);
+
+                addWrite(
+                    ctx,
+                    op,
+                    txKey,
+                    null,
+                    null,
+                    GridCacheUtils.TTL_ETERNAL,
+                    false,
                     false);
 
-                if (locPart == null || !locPart.reserve())
-                    throw new ClusterTopologyException("Can not reserve partition. Please retry on stable topology.");
+                IgniteTxEntry txEntry = entry(txKey);
 
-                try {
-                    CacheObject val = null;
+                txEntry.markValid();
+                txEntry.queryEnlisted(true);
 
-                    if (op != DELETE)
-                        val = vals.get(i);
+                GridDhtCacheEntry entry = dht.entryExx(key, topologyVersion());
 
-                    IgniteTxKey txKey = ctx.txKey(key);
+                GridCacheUpdateTxResult updRes;
 
-                    addWrite(
-                        ctx,
-                        op,
-                        txKey,
-                        null,
-                        null,
-                        GridCacheUtils.TTL_ETERNAL,
-                        false,
-                        false);
+                while (true) {
+                    ctx.shared().database().checkpointReadLock();
 
-                    IgniteTxEntry txEntry = entry(txKey);
+                    try {
+                        switch (op) {
+                            case DELETE:
+                                updRes = entry.mvccRemove(this,
+                                    ctx.localNodeId(),
+                                    topologyVersion(),
+                                    null,
+                                    snapshot);
 
-                    txEntry.markValid();
-                    txEntry.queryEnlisted(true);
+                                break;
 
-                    GridDhtCacheEntry entry = dht.entryExx(key, topologyVersion());
+                            case CREATE:
+                            case UPDATE:
+                                updRes = entry.mvccSet(this,
+                                    ctx.localNodeId(),
+                                    val,
+                                    0,
+                                    topologyVersion(),
+                                    null,
+                                    snapshot,
+                                    op);
 
-                    GridCacheUpdateTxResult updRes;
+                                break;
 
-                    while (true) {
-                        try {
-                            switch (op) {
-                                case DELETE:
-                                    updRes = entry.mvccRemove(this,
-                                        ctx.localNodeId(),
-                                        topologyVersion(),
-                                        null,
-                                        snapshot);
-
-                                    break;
-
-                                case CREATE:
-                                case UPDATE:
-                                    updRes = entry.mvccSet(this,
-                                        ctx.localNodeId(),
-                                        val,
-                                        0,
-                                        topologyVersion(),
-                                        null,
-                                        snapshot,
-                                        op);
-
-                                    break;
-
-                                default:
-                                    throw new IgniteSQLException("Cannot acquire lock for operation [op= "
-                                        + op + "]" + "Operation is unsupported at the moment ",
-                                        IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+                            default:
+                                throw new IgniteSQLException("Cannot acquire lock for operation [op= "
+                                    + op + "]" + "Operation is unsupported at the moment ",
+                                    IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
                             }
 
-                            break;
-                        }
-                        catch (GridCacheEntryRemovedException ignore) {
-                            entry = dht.entryExx(key);
-                        }
+                        break;
                     }
-
-                    assert updRes.updateFuture() == null : "Entry should not be locked on the backup";
-
-                    ptr = updRes.loggedPointer();
+                    catch (GridCacheEntryRemovedException ignore) {
+                        entry = dht.entryExx(key);
+                    }
+                    finally {
+                        ctx.shared().database().checkpointReadUnlock();
+                    }
                 }
-                finally {
-                    locPart.release();
-                }
+
+                assert updRes.updateFuture() == null : "Entry should not be locked on the backup";
+
+                ptr = updRes.loggedPointer();
             }
+            finally {
+                locPart.release();
+            }
+        }
 
-            if (ptr != null && !ctx.tm().logTxRecords())
-                ctx.shared().wal().flush(ptr, true);
-        }
-        finally {
-            ctx.shared().database().checkpointReadUnlock();
-        }
+        if (ptr != null && !ctx.tm().logTxRecords())
+            ctx.shared().wal().flush(ptr, true);
     }
 
     /** {@inheritDoc} */

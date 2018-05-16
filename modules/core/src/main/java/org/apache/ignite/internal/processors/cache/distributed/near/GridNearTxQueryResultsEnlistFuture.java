@@ -393,11 +393,11 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
                 else
                     key = cctx.toCacheKeyObject(((IgniteBiTuple)cur).getKey());
 
-                int part = cctx.affinity().partition(key);
+                List<ClusterNode> nodes = cctx.affinity().nodesByKey(key, topVer);
 
-                ClusterNode node = cctx.affinity().primaryByPartition(part, topVer);
+                ClusterNode node;
 
-                if (node == null)
+                if (F.isEmpty(nodes) || ((node = nodes.get(0)) == null))
                     throw new ClusterTopologyCheckedException("Failed to get primary node " +
                         "[topVer=" + topVer + ", key=" + key + ']');
 
@@ -422,10 +422,8 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
 
                 peek = null;
 
-                batch.hasLocalBackupKeys(cctx.affinityNode() && cctx.isReplicated() ||
-                    cctx.affinity().backupByPartition(cctx.localNode(), part, topVer));
-
-                batch.add(op == GridCacheOperation.DELETE ? key : cur);
+                batch.add(op == GridCacheOperation.DELETE ? key : cur,
+                    cctx.affinityNode() && cctx.isReplicated() || nodes.indexOf(cctx.localNode()) > 0);
 
                 cur = it.hasNextX() ? it.nextX() : null;
 
@@ -475,8 +473,12 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
      */
     private void processBatchLocalBackupKeys(UUID primaryId, Collection<Object> rows, GridCacheVersion dhtVer,
         IgniteUuid dhtFutId) {
-        ArrayList<KeyCacheObject> keys = null;
-        ArrayList<CacheObject> vals = null;
+        assert dhtVer != null;
+        assert dhtFutId != null;
+
+        final ArrayList<KeyCacheObject> keys = new ArrayList<>(rows.size());
+        final ArrayList<CacheObject> vals = (op == GridCacheOperation.DELETE || op == GridCacheOperation.READ) ? null :
+            new ArrayList<>(rows.size());
 
         for (Object row : rows) {
             KeyCacheObject key;
@@ -486,27 +488,10 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
             else
                 key = cctx.toCacheKeyObject(((IgniteBiTuple)row).getKey());
 
-            int part = cctx.affinity().partition(key);
+            keys.add(key);
 
-            if (cctx.affinity().backupByPartition(cctx.localNode(), part, topVer)) {
-                if (keys == null) {
-                    keys = new ArrayList<>(rows.size());
-
-                    vals = (op == GridCacheOperation.DELETE || op == GridCacheOperation.READ) ? null :
-                        new ArrayList<>(rows.size());
-                }
-
-                keys.add(key);
-
-                if (vals != null)
-                    vals.add(cctx.toCacheObject(((IgniteBiTuple)row).getValue()));
-            }
-        }
-
-        if (keys == null) {
-            sendNextBatches(primaryId);
-
-            return;
+            if (vals != null)
+                vals.add(cctx.toCacheObject(((IgniteBiTuple)row).getValue()));
         }
 
         IgniteInternalFuture<Object> keyFut = F.isEmpty(keys) ? null :
@@ -530,9 +515,6 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
             processBatchLocalBackupKeys0(primaryId, keys, vals, dhtVer, dhtFutId);
         }
         else {
-            final ArrayList<KeyCacheObject> finalKeys = keys;
-            final ArrayList<CacheObject> finalVals = vals;
-
             keyFut.listen(new IgniteInClosure<IgniteInternalFuture<Object>>() {
                 @Override public void apply(IgniteInternalFuture<Object> fut) {
                     try {
@@ -547,7 +529,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
                         return;
                     }
 
-                    processBatchLocalBackupKeys0(primaryId, finalKeys, finalVals, dhtVer, dhtFutId);
+                    processBatchLocalBackupKeys0(primaryId, keys, vals, dhtVer, dhtFutId);
                 }
             });
         }
@@ -564,10 +546,10 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
     private void processBatchLocalBackupKeys0(UUID primaryId, List<KeyCacheObject> keys, List<CacheObject> vals,
         GridCacheVersion dhtVer, IgniteUuid dhtFutId) {
         try {
-            GridDhtTxRemote tx = cctx.tm().tx(dhtVer);
+            GridDhtTxRemote dhtTx = cctx.tm().tx(dhtVer);
 
-            if (tx == null) {
-                tx = new GridDhtTxRemote(cctx.shared(),
+            if (dhtTx == null) {
+                dhtTx = new GridDhtTxRemote(cctx.shared(),
                     cctx.localNodeId(),
                     dhtFutId,
                     primaryId,
@@ -586,19 +568,19 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
                     this.tx.taskNameHash(),
                     false);
 
-                tx.mvccInfo(new MvccTxInfo(cctx.shared().coordinators().currentCoordinatorId(),
+                dhtTx.mvccInfo(new MvccTxInfo(cctx.shared().coordinators().currentCoordinatorId(),
                     new MvccSnapshotWithoutTxs(mvccSnapshot.coordinatorVersion(), mvccSnapshot.counter(),
                         MVCC_OP_COUNTER_NA, mvccSnapshot.cleanupVersion())));
 
-                tx = cctx.tm().onCreated(null, tx);
+                dhtTx = cctx.tm().onCreated(null, dhtTx);
 
-                if (tx == null || !cctx.tm().onStarted(tx)) {
+                if (dhtTx == null || !cctx.tm().onStarted(dhtTx)) {
                     throw new IgniteTxRollbackCheckedException("Failed to update backup " +
                         "(transaction has been completed): " + dhtVer);
                 }
             }
 
-            tx.mvccEnlistBatch(cctx, op, keys, vals, mvccSnapshot.withoutActiveTransactions());
+            dhtTx.mvccEnlistBatch(cctx, op, keys, vals, mvccSnapshot.withoutActiveTransactions());
         }
         catch (IgniteCheckedException e) {
             onDone(e);
@@ -731,8 +713,8 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
 
             Batch batch = batches.get(nodeId);
 
-            if (batch != null && batch.hasLocalBackupKeys())
-                processBatchLocalBackupKeys(nodeId, batch.rows(), res.dhtVersion(), res.dhtFutureId());
+            if (batch != null && !F.isEmpty(batch.localBackupRows()))
+                processBatchLocalBackupKeys(nodeId, batch.localBackupRows(), res.dhtVersion(), res.dhtFutureId());
             else
                 sendNextBatches(nodeId);
         }
@@ -883,11 +865,11 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
         /** Rows. */
         private ArrayList<Object> rows = new ArrayList<>();
 
+        /** Local backup rows. */
+        private ArrayList<Object> locBkpRows;
+
         /** Readiness flag. Set when batch is full or no new rows are expected. */
         private boolean ready;
-
-        /** Whether rows contain any local backup keys. */
-        private boolean hasLocBkpKeys;
 
         /**
          * @param node Cluster node.
@@ -907,9 +889,17 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
          * Adds a row.
          *
          * @param row Row.
+         * @param localBackup {@code true}, when the row key has local backup.
          */
-        public void add(Object row) {
+        public void add(Object row, boolean localBackup) {
             rows.add(row);
+
+            if (localBackup) {
+                if (locBkpRows == null)
+                    locBkpRows = new ArrayList<>();
+
+                locBkpRows.add(row);
+            }
         }
 
         /**
@@ -927,6 +917,13 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
         }
 
         /**
+         * @return Collection of local backup rows.
+         */
+        public Collection<Object> localBackupRows() {
+            return locBkpRows;
+        }
+
+        /**
          * @return Readiness flag.
          */
         public boolean ready() {
@@ -940,22 +937,6 @@ public class GridNearTxQueryResultsEnlistFuture extends GridCacheFutureAdapter<L
          */
         public void ready(boolean ready) {
             this.ready = ready;
-        }
-
-        /**
-         * @param hasLocalBackupKeys Flag telling whether rows contain any local backup keys.
-         */
-        public void hasLocalBackupKeys(boolean hasLocalBackupKeys) {
-            if (!this.hasLocBkpKeys && hasLocalBackupKeys)
-                this.hasLocBkpKeys = true;
-        }
-
-        /**
-         *
-         * @return {@code true} in case rows contain any local backup keys.
-         */
-        public boolean hasLocalBackupKeys() {
-            return hasLocBkpKeys;
         }
     }
 

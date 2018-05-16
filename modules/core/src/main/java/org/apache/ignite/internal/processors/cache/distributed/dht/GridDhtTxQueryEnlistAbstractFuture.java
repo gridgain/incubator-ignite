@@ -166,7 +166,10 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
     private WALPointer walPtr;
 
     /** Do not send DHT requests to near node. */
-    protected boolean skipNearNodeUpdates = false;
+    protected boolean skipNearNodeUpdates;
+
+    /** There are keys belonging to backup partitions on near node. */
+    protected boolean hasNearNodeUpdates;
 
     /**
      *
@@ -526,8 +529,14 @@ public abstract class GridDhtTxQueryEnlistAbstractFuture<T> extends GridCacheFut
         for (ClusterNode node : backupNodes(key)) {
             assert !node.isLocal();
 
-            if (skipNearNodeUpdates && node.id().equals(nearNodeId))
+            if (skipNearNodeUpdates && node.id().equals(nearNodeId)) {
+                if (!txStarted(node))
+                    tx.addLockTransactionNode(node);
+
+                hasNearNodeUpdates = true;
+
                 continue;
+            }
 
             Batch batch = null;
 
