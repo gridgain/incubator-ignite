@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-import path from 'path';
-import webpack from 'webpack';
+const path = require('path');
+const webpack = require('webpack');
 
-import transformRuntime from 'babel-plugin-transform-runtime';
-import presetEs2015 from 'babel-preset-es2015';
-import presetStage1 from 'babel-preset-stage-1';
+const transformRuntime = require('babel-plugin-transform-runtime');
+const presetEs2015 = require('babel-preset-es2015');
+const presetStage1 = require('babel-preset-stage-1');
 
-import CopyWebpackPlugin from 'copy-webpack-plugin';
-import ExtractTextPlugin from 'extract-text-webpack-plugin';
-import HtmlWebpackPlugin from 'html-webpack-plugin';
-import ProgressBarPlugin from 'progress-bar-webpack-plugin';
+const CopyWebpackPlugin = require('copy-webpack-plugin');
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 
-import eslintFormatter from 'eslint-friendly-formatter';
+const eslintFormatter = require('eslint-friendly-formatter');
 
 const basedir = path.resolve('./');
 const contentBase = path.resolve('public');
@@ -36,7 +36,7 @@ const node_modules = path.resolve('node_modules');
 const app = path.resolve('app');
 const IgniteModules = process.env.IGNITE_MODULES ? path.join(process.env.IGNITE_MODULES, 'frontend') : path.resolve('ignite_modules');
 
-export default {
+module.exports = {
     node: {
         fs: 'empty'
     },

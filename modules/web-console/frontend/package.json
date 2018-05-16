@@ -4,9 +4,9 @@
   "description": "Interactive Web console for configuration, executing SQL queries and monitoring of Apache Ignite Cluster",
   "private": true,
   "scripts": {
-    "start": "webpack-dev-server --config ./webpack/webpack.dev.babel.js",
+    "start": "webpack-dev-server --config ./webpack/webpack.dev.js",
     "dev": "npm start",
-    "build": "webpack --config ./webpack/webpack.prod.babel.js",
+    "build": "webpack --config ./webpack/webpack.prod.js",
     "test": "karma start ./test/karma.conf.js",
     "test-watch": "npm test -- --no-single-run",
     "eslint": "eslint --format node_modules/eslint-friendly-formatter app/ controllers/ ignite_modules/ -- --eff-by-issue"
@@ -92,7 +92,7 @@
     "jszip": "3.1.5",
     "lodash": "4.17.5",
     "natural-compare-lite": "^1.4.0",
-    "node-sass": "4.8.3",
+    "node-sass": "^4.9.0",
     "nvd3": "1.8.6",
     "outdent": "^0.5.0",
     "pako": "1.0.6",
@@ -108,9 +108,9 @@
     "svg-sprite-loader": "3.0.7",
     "tf-metatags": "2.0.0",
     "uglifyjs-webpack-plugin": "1.2.4",
-    "webpack": "4.5.0",
+    "webpack": "^4.8.3",
     "webpack-cli": "2.0.14",
-    "webpack-dev-server": "3.1.1",
+    "webpack-dev-server": "^3.1.4",
     "webpack-merge": "4.1.2",
     "worker-loader": "^1.1.1"
   },

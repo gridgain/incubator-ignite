@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-import merge from 'webpack-merge';
+const merge = require('webpack-merge');
 
-import ExtractTextPlugin from 'extract-text-webpack-plugin';
-import UglifyJSPlugin from 'uglifyjs-webpack-plugin';
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const UglifyJSPlugin = require('uglifyjs-webpack-plugin');
 
-import commonCfg from './webpack.common';
+const commonCfg = require('./webpack.common');
 
-export default merge(commonCfg, {
+module.exports = merge(commonCfg, {
     bail: true, // Cancel build on error.
     mode: 'production',
     module: {

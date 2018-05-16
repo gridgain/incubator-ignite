@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-import webpack from 'webpack';
-import merge from 'webpack-merge';
+const webpack = require('webpack');
+const merge = require('webpack-merge');
 
-import path from 'path';
+const path = require('path');
 
-import commonCfg from './webpack.common';
+const commonCfg = require('./webpack.common');
 
-import ExtractTextPlugin from 'extract-text-webpack-plugin';
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
 
 const backendPort = process.env.BACKEND_PORT || 3000;
 const devServerPort = process.env.PORT || 9000;
 const devServerHost = process.env.HOST || '0.0.0.0';
 
-export default merge(commonCfg, {
+module.exports = merge(commonCfg, {
     mode: 'development',
     devtool: 'source-map',
     watch: true,
