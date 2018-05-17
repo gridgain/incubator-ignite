@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 import javax.net.ssl.HostnameVerifier;
+import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.marshaller.optimized.OptimizedMarshaller;
@@ -622,6 +623,12 @@ public final class IgniteSystemProperties {
      * (such as coding mistakes in code using Ignite) will not be logged.
      */
     public static final String IGNITE_DEV_ONLY_LOGGING_DISABLED = "IGNITE_DEV_ONLY_LOGGING_DISABLED";
+
+    /**
+     * This property allows to set timeout for JVM to be forcefully closed if {@link IgniteKernal#close()} fails to stop gracefully.
+     * Default value is {@code -1ms}, property has to be set explicitly.
+     */
+    public static final String IGNITE_FORCE_JVM_SHUTDOWN_TIMEOUT = "IGNITE_FORCE_JVM_SHUTDOWN_TIMEOUT";
 
     /**
      * Enforces singleton.
