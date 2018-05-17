@@ -3298,6 +3298,12 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             sharedCtx.pageStore().storeCacheData(desc.toStoredData(), true);
     }
 
+    public void cleanupCaches() throws IgniteCheckedException {
+        for (DynamicCacheDescriptor cacheDescriptor : cacheDescriptors().values()) {
+            ((FilePageStoreManager)sharedCtx.pageStore()).cleanupPersistenceFiles(cacheDescriptor.cacheConfiguration());
+        }
+    }
+
     /**
      * @param reqs Requests.
      * @return Collection of futures.

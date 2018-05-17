@@ -735,6 +735,10 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
         // No-op.
     }
 
+    public void cleanupCheckpointDirectory() throws IgniteCheckedException {
+
+    }
+
     /**
      *
      */
