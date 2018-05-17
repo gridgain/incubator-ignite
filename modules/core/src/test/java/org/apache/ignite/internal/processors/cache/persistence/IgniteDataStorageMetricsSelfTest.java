@@ -157,6 +157,8 @@ public class IgniteDataStorageMetricsSelfTest extends GridCommonAbstractTest {
             for (int i = 0; i < 10; i++)
                 cacheNp.put(i, new Person("first-" + i, "last-" + i));
 
+            Thread.sleep(10 * 60 * 1000);
+
             DataRegionMetrics memMetrics = ig.dataRegionMetrics("dflt-plc");
 
             assertNotNull(memMetrics);
