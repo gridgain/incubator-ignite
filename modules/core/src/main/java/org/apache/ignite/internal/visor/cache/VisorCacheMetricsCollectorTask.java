@@ -112,7 +112,7 @@ public class VisorCacheMetricsCollectorTask extends VisorMultiNodeTask<VisorCach
             for (IgniteCacheProxy ca : caches) {
                 GridCacheContext ctx = ca.context();
 
-                if (ctx.started() && (ctx.affinityNode() || ctx.isNear())) {
+                if (ctx.started() && (ctx.cacheApplicableNode() || ctx.isNear())) {
                     String cacheName = ca.getName();
 
                     VisorCacheMetrics cm = new VisorCacheMetrics(ignite, cacheName);

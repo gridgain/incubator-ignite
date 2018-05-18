@@ -895,7 +895,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             @Override public void applyx(GridCacheContext cctx) {
                 CacheConfiguration cfg = cctx.config();
 
-                if (cctx.affinityNode() &&
+                if (cctx.cacheApplicableNode() &&
                     cfg.getRebalanceMode() == SYNC &&
                     startTopVer.equals(cctx.startTopologyVersion())) {
                     CacheMode cacheMode = cfg.getCacheMode();
@@ -1554,14 +1554,14 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                 else {
                     switch (cfg.getAtomicityMode()) {
                         case TRANSACTIONAL: {
-                            cache = cacheCtx.affinityNode() ?
+                            cache = cacheCtx.cacheApplicableNode() ?
                                 new GridDhtColocatedCache(cacheCtx) :
                                 new GridDhtColocatedCache(cacheCtx, new GridNoStorageCacheMap());
 
                             break;
                         }
                         case ATOMIC: {
-                            cache = cacheCtx.affinityNode() ?
+                            cache = cacheCtx.cacheApplicableNode() ?
                                 new GridDhtAtomicCache(cacheCtx) :
                                 new GridDhtAtomicCache(cacheCtx, new GridNoStorageCacheMap());
 
@@ -1648,7 +1648,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
                     GridNearTransactionalCache near = (GridNearTransactionalCache)cache;
 
-                    GridDhtCache dhtCache = cacheCtx.affinityNode() ?
+                    GridDhtCache dhtCache = cacheCtx.cacheApplicableNode() ?
                         new GridDhtCache(cacheCtx) :
                         new GridDhtCache(cacheCtx, new GridNoStorageCacheMap());
 
@@ -1665,7 +1665,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
                     GridNearAtomicCache near = (GridNearAtomicCache)cache;
 
-                    GridDhtAtomicCache dhtCache = cacheCtx.affinityNode() ?
+                    GridDhtAtomicCache dhtCache = cacheCtx.cacheApplicableNode() ?
                         new GridDhtAtomicCache(cacheCtx) :
                         new GridDhtAtomicCache(cacheCtx, new GridNoStorageCacheMap());
 
@@ -1860,7 +1860,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         for (DynamicCacheDescriptor desc : started) {
             IgnitePredicate<ClusterNode> filter = desc.groupDescriptor().config().getNodeFilter();
 
-            if (CU.cacheApplicableNode(ctx.discovery().localNode(), filter)) { //TODO IGNITE-8414
+            if (CU.cacheApplicableNode(ctx.discovery().localNode(), filter)) {
                 prepareCacheStart(
                     desc.cacheConfiguration(),
                     desc,
@@ -1895,22 +1895,22 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
         CacheObjectContext cacheObjCtx = ctx.cacheObjects().contextForCache(ccfg);
 
-        boolean affNode;
+        boolean cacheApplicableNode;
 
         if (ccfg.getCacheMode() == LOCAL) {
-            affNode = true;
+            cacheApplicableNode = true;
 
             ccfg.setNearConfiguration(null);
         }
-        else if (CU.cacheApplicableNode(ctx.discovery().localNode(), desc.groupDescriptor().config().getNodeFilter())) //TODO IGNITE-8414
-            affNode = true;
+        else if (CU.cacheApplicableNode(ctx.discovery().localNode(), desc.groupDescriptor().config().getNodeFilter()))
+            cacheApplicableNode = true;
         else {
-            affNode = false;
+            cacheApplicableNode = false;
 
             ccfg.setNearConfiguration(reqNearCfg);
         }
 
-        if (sharedCtx.pageStore() != null && affNode)
+        if (sharedCtx.pageStore() != null && cacheApplicableNode)
             sharedCtx.pageStore().initializeForCache(desc.groupDescriptor(), desc.toStoredData());
 
         String grpName = startCfg.getGroupName();
@@ -1929,7 +1929,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             if (grp == null) {
                 grp = startCacheGroup(desc.groupDescriptor(),
                     desc.cacheType(),
-                    affNode,
+                    cacheApplicableNode,
                     cacheObjCtx,
                     exchTopVer);
             }
@@ -1937,7 +1937,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         else {
             grp = startCacheGroup(desc.groupDescriptor(),
                 desc.cacheType(),
-                affNode,
+                cacheApplicableNode,
                 cacheObjCtx,
                 exchTopVer);
         }
@@ -1948,7 +1948,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             desc,
             exchTopVer,
             cacheObjCtx,
-            affNode,
+            cacheApplicableNode,
             true,
             disabledAfterStart
         );
@@ -2005,7 +2005,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
     /**
      * @param desc Group descriptor.
      * @param cacheType Cache type.
-     * @param affNode Affinity node flag.
+     * @param cacheApplicableNode Cache applicable node (i.e. it could be or could start being affinity node at any moment).
      * @param cacheObjCtx Cache object context.
      * @param exchTopVer Current topology version.
      * @return Started cache group.
@@ -2014,7 +2014,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
     private CacheGroupContext startCacheGroup(
         CacheGroupDescriptor desc,
         CacheType cacheType,
-        boolean affNode,
+        boolean cacheApplicableNode,
         CacheObjectContext cacheObjCtx,
         AffinityTopologyVersion exchTopVer)
         throws IgniteCheckedException {
@@ -2031,7 +2031,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             desc.receivedFrom(),
             cacheType,
             cfg,
-            affNode,
+            cacheApplicableNode,
             memPlc,
             cacheObjCtx,
             freeList,
@@ -2189,21 +2189,21 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                 if (ctx == null)
                     continue;
 
-                if (retClientCaches && !ctx.affinityNode()) {
+                if (retClientCaches && !ctx.cacheApplicableNode()) {
                     if (ids == null)
                         ids = U.newHashSet(cachesToClose.size());
 
                     ids.add(ctx.cacheId());
                 }
 
-                if (!ctx.affinityNode() && !locked) {
+                if (!ctx.cacheApplicableNode() && !locked) {
                     // Do not close client cache while requests processing is in progress.
                     sharedCtx.io().writeLock();
 
                     locked = true;
                 }
 
-                if (!ctx.affinityNode() && ctx.transactional())
+                if (!ctx.cacheApplicableNode() && ctx.transactional())
                     sharedCtx.tm().rollbackTransactionsForCache(ctx.cacheId());
 
                 closeCache(ctx, false);
@@ -2222,7 +2222,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
      * @param destroy Destroy flag.
      */
     private void closeCache(GridCacheContext cctx, boolean destroy) {
-        if (cctx.affinityNode()) {
+        if (cctx.cacheApplicableNode()) {
             GridCacheAdapter<?, ?> cache = caches.get(cctx.name());
 
             assert cache != null : cctx.name();
@@ -4359,7 +4359,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
                     // Check if we were asked to start a near cache.
                     if (nearCfg != null) {
-                        if (CU.cacheApplicableNode(ctx.discovery().localNode(), descCfg.getNodeFilter())) { //TODO IGNITE-8414
+                        if (CU.cacheApplicableNode(ctx.discovery().localNode(), descCfg.getNodeFilter())) {
                             // If we are on a data node and near cache was enabled, return success, else - fail.
                             if (descCfg.getNearConfiguration() != null)
                                 return null;
@@ -4656,7 +4656,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                 @Override public void run() {
                     try {
                         for (CacheGroupContext grp : sharedCtx.cache().cacheGroups()) {
-                            if (!grp.isLocal() && grp.affinityNode()) {
+                            if (!grp.isLocal() && grp.cacheApplicableNode()) {
                                 GridDhtPartitionTopology top = null;
 
                                 try {

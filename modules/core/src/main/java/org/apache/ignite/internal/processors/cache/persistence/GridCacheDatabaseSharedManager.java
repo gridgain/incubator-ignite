@@ -764,7 +764,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         try {
             if (!F.isEmpty(cachesToStart)) {
                 for (DynamicCacheDescriptor desc : cachesToStart) {
-                    if (CU.cacheApplicableNode(cctx.localNode(), desc.cacheConfiguration().getNodeFilter())) //TODO IGNITE-8414
+                    if (CU.cacheApplicableNode(cctx.localNode(), desc.cacheConfiguration().getNodeFilter()))
                         storeMgr.initializeForCache(desc.groupDescriptor(), new StoredCacheData(desc.cacheConfiguration()));
                 }
             }
@@ -1260,7 +1260,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     final int cacheId = cacheCtx.cacheId();
                     final GridFutureAdapter<Void> usrFut = idxRebuildFuts.get(cacheId);
 
-                    if (!cctx.pageStore().hasIndexStore(cacheCtx.groupId()) && cacheCtx.affinityNode()) {
+                    if (!cctx.pageStore().hasIndexStore(cacheCtx.groupId()) && cacheCtx.cacheApplicableNode()) {
                         IgniteInternalFuture<?> rebuildFut = cctx.kernalContext().query()
                             .rebuildIndexesFromHash(Collections.singletonList(cacheCtx.cacheId()));
 
@@ -1348,7 +1348,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             for (IgniteBiTuple<CacheGroupContext, Boolean> tup : stoppedGrps) {
                 CacheGroupContext grp = tup.get1();
 
-                if (grp.affinityNode()) {
+                if (grp.cacheApplicableNode()) {
                     try {
                         cctx.pageStore().shutdownForCacheGroup(grp, tup.get2());
                     }
@@ -2357,7 +2357,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
     private void restorePartitionStates(Map<T2<Integer, Integer>, T2<Integer, Long>> partStates,
                                        @Nullable Set<Integer> onlyForGroups) throws IgniteCheckedException {
         for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
-            if (grp.isLocal() || !grp.affinityNode()) {
+            if (grp.isLocal() || !grp.cacheApplicableNode()) {
                 // Local cache has no partitions and its states.
                 continue;
             }

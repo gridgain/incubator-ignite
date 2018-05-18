@@ -445,7 +445,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                 CacheGroupContext grp = cctx.cache().cacheGroup(desc.groupId());
 
                 assert grp != null : desc.groupId();
-                assert !grp.affinityNode() || grp.isLocal() : grp.cacheOrGroupName();
+                assert !grp.cacheApplicableNode() || grp.isLocal() : grp.cacheOrGroupName();
 
                 if (!grp.isLocal() && grp.affinity().lastVersion().equals(AffinityTopologyVersion.NONE)) {
                     assert grp.localStartVersion().equals(topVer) : grp.localStartVersion();
@@ -780,7 +780,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                     startCache = true;
                 }
                 else {
-                    startCache = CU.cacheApplicableNode(cctx.localNode(), //TODO IGNITE-8414
+                    startCache = CU.cacheApplicableNode(cctx.localNode(),
                         cacheDesc.groupDescriptor().config().getNodeFilter());
                 }
             }

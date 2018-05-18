@@ -124,7 +124,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
     /** {@inheritDoc} */
     @Override public void onCacheStarted(GridCacheContext cctx) throws IgniteCheckedException {
-        if (cctx.affinityNode() && cctx.ttl().eagerTtlEnabled() && pendingEntries == null) {
+        if (cctx.cacheApplicableNode() && cctx.ttl().eagerTtlEnabled() && pendingEntries == null) {
             ctx.database().checkpointReadLock();
 
             try {
@@ -685,7 +685,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
     /** {@inheritDoc} */
     @Override public void stop() {
-        if (grp.affinityNode())
+        if (grp.cacheApplicableNode())
             ((GridCacheDatabaseSharedManager)ctx.database()).removeCheckpointListener(this);
     }
 

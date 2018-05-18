@@ -210,7 +210,7 @@ public final class DataStructuresProcessor extends GridProcessorAdapter implemen
                         cctx.continuousQueries().executeInternalQuery(
                             new DataStructuresEntryListener(),
                             new DataStructuresEntryFilter(),
-                            cctx.isReplicated() && cctx.affinityNode(),
+                            cctx.isReplicated() && cctx.cacheApplicableNode(),
                             false,
                             false
                         ));

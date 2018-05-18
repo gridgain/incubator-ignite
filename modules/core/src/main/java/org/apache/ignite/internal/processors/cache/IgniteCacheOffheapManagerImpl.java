@@ -131,7 +131,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
         updateValSizeThreshold = ctx.database().pageSize() / 2;
 
-        if (grp.affinityNode()) {
+        if (grp.cacheApplicableNode()) {
             ctx.database().checkpointReadLock();
 
             try {
@@ -148,7 +148,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
     /** {@inheritDoc} */
     public void onCacheStarted(GridCacheContext cctx) throws IgniteCheckedException {
-        if (cctx.affinityNode() && cctx.ttl().eagerTtlEnabled() && pendingEntries == null) {
+        if (cctx.cacheApplicableNode() && cctx.ttl().eagerTtlEnabled() && pendingEntries == null) {
             String name = "PendingEntries";
 
                 long rootPage = allocateForTree();
@@ -172,7 +172,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
     /** {@inheritDoc} */
     @Override public void stopCache(int cacheId, final boolean destroy) {
-        if (destroy && grp.affinityNode())
+        if (destroy && grp.cacheApplicableNode())
             removeCacheData(cacheId);
     }
 
@@ -199,7 +199,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
      * @param cacheId Cache ID.
      */
     private void removeCacheData(int cacheId) {
-        assert grp.affinityNode();
+        assert grp.cacheApplicableNode();
 
         try {
             if (grp.sharedGroup()) {

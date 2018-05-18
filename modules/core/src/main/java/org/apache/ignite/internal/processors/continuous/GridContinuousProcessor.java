@@ -2467,7 +2467,7 @@ public class GridContinuousProcessor extends GridProcessorAdapter {
 
                         GridCacheContext cctx = interCache != null ? interCache.context() : null;
 
-                        if (cctx != null && cntrsPerNode != null && !cctx.isLocal() && cctx.affinityNode())
+                        if (cctx != null && cntrsPerNode != null && !cctx.isLocal() && cctx.cacheApplicableNode())
                             cntrsPerNode.put(ctx.localNodeId(),
                                 toCountersMap(cctx.topology().localUpdateCounters(false)));
 

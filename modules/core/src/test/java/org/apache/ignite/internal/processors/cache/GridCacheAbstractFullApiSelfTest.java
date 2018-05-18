@@ -3642,7 +3642,7 @@ public abstract class GridCacheAbstractFullApiSelfTest extends GridCacheAbstract
     public void testRemoveAfterClear() throws Exception {
         IgniteEx ignite = grid(0);
 
-        boolean affNode = ignite.context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinityNode();
+        boolean affNode = ignite.context().cache().internalCache(DEFAULT_CACHE_NAME).context().cacheApplicableNode();
 
         if (!affNode) {
             if (gridCount() < 2)

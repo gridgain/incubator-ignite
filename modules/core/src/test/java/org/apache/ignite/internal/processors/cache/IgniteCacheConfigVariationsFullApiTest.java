@@ -3644,7 +3644,7 @@ public class IgniteCacheConfigVariationsFullApiTest extends IgniteCacheConfigVar
     public void testRemoveAfterClear() throws Exception {
         IgniteEx ignite = grid(0);
 
-        boolean affNode = ignite.context().cache().internalCache(cacheName()).context().affinityNode();
+        boolean affNode = ignite.context().cache().internalCache(cacheName()).context().cacheApplicableNode();
 
         if (!affNode) {
             if (gridCount() < 2)
