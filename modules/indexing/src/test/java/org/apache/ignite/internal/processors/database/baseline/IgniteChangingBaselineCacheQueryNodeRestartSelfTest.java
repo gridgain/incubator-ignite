@@ -97,7 +97,7 @@ public class IgniteChangingBaselineCacheQueryNodeRestartSelfTest extends IgniteC
                         lastOpChangeUp = true;
                     }
 
-                    grid(0).cluster().setAffinityTopology(baselineNodes(grid(0).cluster().forServers().nodes()));
+                    grid(0).cluster().setBaselineTopology(baselineNodes(grid(0).cluster().forServers().nodes()));
 
                     Thread.sleep(baselineTopChangeInterval);
 

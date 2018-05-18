@@ -1784,7 +1784,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                     else if (evt.type() == EVT_NODE_LEFT || evt.type() == EVT_NODE_FAILED)
                         type = ExchangeRecord.Type.LEFT;
 
-                    BaselineTopology blt = cctx.kernalContext().state().clusterState().affinityTopology();
+                    BaselineTopology blt = cctx.kernalContext().state().clusterState().baselineTopology();
 
                     if (type != null && blt != null) {
                         Short constId = blt.consistentIdMapping().get(evt.eventNode().consistentId());

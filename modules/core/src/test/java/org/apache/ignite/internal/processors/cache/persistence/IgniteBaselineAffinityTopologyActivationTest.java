@@ -108,8 +108,8 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
         {
             IgniteEx nodeA = grid("A");
 
-            assertNotNull(nodeA.cluster().currentAffinityTopology());
-            assertEquals(3, nodeA.cluster().currentAffinityTopology().size());
+            assertNotNull(nodeA.cluster().currentBaselineTopology());
+            assertEquals(3, nodeA.cluster().currentBaselineTopology().size());
 
             assertTrue(nodeA.cluster().active());
         }
@@ -122,8 +122,8 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
         {
             IgniteEx nodeA = grid("A");
 
-            assertNotNull(nodeA.cluster().currentAffinityTopology());
-            assertEquals(3, nodeA.cluster().currentAffinityTopology().size());
+            assertNotNull(nodeA.cluster().currentBaselineTopology());
+            assertEquals(3, nodeA.cluster().currentBaselineTopology().size());
 
             assertFalse(nodeA.cluster().active());
         }
@@ -155,12 +155,12 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         startGridWithConsistentId("OnlineConsID");
 
-        ignite.cluster().setAffinityTopology(baselineNodes(ignite.cluster().forServers().nodes()));
+        ignite.cluster().setBaselineTopology(baselineNodes(ignite.cluster().forServers().nodes()));
 
         boolean expectedExceptionThrown = false;
 
         try {
-            ignite.cluster().setAffinityTopology(singleNodeTopVer);
+            ignite.cluster().setBaselineTopology(singleNodeTopVer);
         }
         catch (IgniteException e) {
             String errMsg = e.getMessage();
@@ -186,7 +186,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
         boolean expectedExceptionIsThrown = false;
 
         try {
-            nodeC.cluster().setAffinityTopology(Arrays.asList((BaselineNode) nodeA.cluster().localNode(),
+            nodeC.cluster().setBaselineTopology(Arrays.asList((BaselineNode) nodeA.cluster().localNode(),
                 nodeB.cluster().localNode()));
         } catch (IgniteException e) {
             String errMsg = e.getMessage();
@@ -214,7 +214,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
         Ignite nodeA = startGridWithConsistentId("A");
         startGridWithConsistentId("B").active(true);
 
-        nodeA.cluster().setAffinityTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
+        nodeA.cluster().setBaselineTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
 
         stopAllGrids(false);
 
@@ -407,7 +407,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         stopGrid("B", false);
 
-        nodeA.cluster().setAffinityTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
+        nodeA.cluster().setBaselineTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
 
         boolean activated = GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
@@ -461,7 +461,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         IgniteEx nodeD = (IgniteEx) startGridWithConsistentId("D");
 
-        nodeD.cluster().setAffinityTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
+        nodeD.cluster().setBaselineTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
 
         verifyBaselineTopologyOnNodes(verifier, new Ignite[]{nodeA, nodeB, nodeC, nodeD});
     }
@@ -482,7 +482,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         nodeA.active(true);
 
-        nodeA.cluster().setAffinityTopology(null);
+        nodeA.cluster().setBaselineTopology(null);
 
         verifyBaselineTopologyOnNodes(verifier, new Ignite[] {nodeA, nodeB, nodeC});
     }
@@ -559,7 +559,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         ig.active(true);
 
-        ig.cluster().setAffinityTopology(Arrays.asList(new BaselineNode[] {
+        ig.cluster().setBaselineTopology(Arrays.asList(new BaselineNode[] {
             createBaselineNodeWithConsId("A"), createBaselineNodeWithConsId("B"), createBaselineNodeWithConsId("C")}));
 
         stopAllGrids();
@@ -708,7 +708,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         stopGrid("C", false);
 
-        nodeA.cluster().setAffinityTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
+        nodeA.cluster().setBaselineTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
 
         startGridWithConsistentId("D");
 
@@ -759,11 +759,11 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         stopGrid("C", false);
 
-        nodeA.cluster().setAffinityTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
+        nodeA.cluster().setBaselineTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
 
         stopGrid("B", false);
 
-        nodeA.cluster().setAffinityTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
+        nodeA.cluster().setBaselineTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
 
         startGridWithConsistentId("B");
 
@@ -785,7 +785,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         nodeA.active(true);
 
-        assertNotNull(nodeA.cluster().currentAffinityTopology());
+        assertNotNull(nodeA.cluster().currentBaselineTopology());
 
         nodeA.active(false);
 
@@ -805,7 +805,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
             },
             10_000);
 
-        assertNotNull(nodeA.cluster().currentAffinityTopology());
+        assertNotNull(nodeA.cluster().currentBaselineTopology());
 
         assertTrue(clusterActive);
     }
@@ -878,7 +878,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         nodeA.active(true);
 
-        nodeA.cluster().setAffinityTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
+        nodeA.cluster().setBaselineTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
 
         stopAllGrids(false);
 
@@ -886,7 +886,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         nodeA.active(true);
 
-        nodeA.cluster().setAffinityTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
+        nodeA.cluster().setBaselineTopology(baselineNodes(nodeA.cluster().forServers().nodes()));
 
         stopAllGrids(false);
 
@@ -900,7 +900,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
 
         assertTrue(activated);
 
-        node.cluster().setAffinityTopology(null);
+        node.cluster().setBaselineTopology(null);
 
         verifyBaselineTopologyHistoryOnNodes(verifier, new Ignite[] {node});
 
@@ -922,7 +922,7 @@ public class IgniteBaselineAffinityTopologyActivationTest extends GridCommonAbst
                 (Object) U.field(ig, "ctx"),
                 "stateProc"),
             "globalState"))
-            .affinityTopology();
+            .baselineTopology();
     }
 
     /** */

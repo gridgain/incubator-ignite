@@ -1592,30 +1592,30 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
         clo.apply("  ^-- Node [id=" + discoCache.localNode().id().toString().toUpperCase() + ", clusterState="
             + (state.active() ? "ACTIVE" : "INACTIVE") + ']');
 
-        BaselineTopology blt = state.affinityTopology();
+        BaselineTopology blt = state.baselineTopology();
 
-        if (blt != null && discoCache.affinityNodes() != null) {
-            int bltSize = discoCache.affinityNodes().size();
-            int bltOnline = discoCache.aliveAffinityNodes().size();
+        if (blt != null && discoCache.baselineNodes() != null) {
+            int bltSize = discoCache.baselineNodes().size();
+            int bltOnline = discoCache.aliveBaselineNodes().size();
             int bltOffline = bltSize - bltOnline;
 
-            clo.apply("  ^-- AffTopology [id=" + blt.id() + ", size=" + bltSize + ", online=" + bltOnline
+            clo.apply("  ^-- Baseline [id=" + blt.id() + ", size=" + bltSize + ", online=" + bltOnline
                 + ", offline=" + bltOffline + ']');
 
             if (!state.active() && ctx.config().isAutoActivationEnabled()) {
                 String offlineConsistentIds = "";
 
                 if (bltOffline > 0 && bltOffline <= 5) {
-                    Collection<BaselineNode> offlineNodes = new HashSet<>(discoCache.affinityNodes());
+                    Collection<BaselineNode> offlineNodes = new HashSet<>(discoCache.baselineNodes());
 
-                    offlineNodes.removeAll(discoCache.aliveAffinityNodes());
+                    offlineNodes.removeAll(discoCache.aliveBaselineNodes());
 
                     offlineConsistentIds = ' ' + F.nodeConsistentIds(offlineNodes).toString();
                 }
 
                 if (bltOffline == 0) {
-                    if (evtType == EVT_NODE_JOINED && discoCache.affinityNode(evtNode))
-                        clo.apply("  ^-- All affinity topology nodes are online, will start auto-activation");
+                    if (evtType == EVT_NODE_JOINED && discoCache.baselineNode(evtNode))
+                        clo.apply("  ^-- All baseline nodes are online, will start auto-activation");
                 }
                 else
                     clo.apply("  ^-- " + bltOffline + " nodes left for auto-activation" + offlineConsistentIds);
@@ -1893,11 +1893,11 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
     /**
      * @param topVer Topology version.
-     * @return All affinity topology nodes for given topology version or {@code null}
-     * if affinity topology was not set for the given topology version.
+     * @return All baseline nodes for given topology version or {@code null} if baseline was not set for the
+     *      given topology version.
      */
-    @Nullable public List<? extends BaselineNode> affinityNodes(AffinityTopologyVersion topVer) {
-        return resolveDiscoCache(CU.cacheId(null), topVer).affinityNodes();
+    @Nullable public List<? extends BaselineNode> baselineNodes(AffinityTopologyVersion topVer) {
+        return resolveDiscoCache(CU.cacheId(null), topVer).baselineNodes();
     }
 
     /**
@@ -2349,7 +2349,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
         Map<UUID, Short> nodeIdToConsIdx;
         Map<Short, UUID> consIdxToNodeId;
-        List<? extends BaselineNode> affinityNodes;
+        List<? extends BaselineNode> baselineNodes;
 
         IgniteProductVersion minVer = null;
         IgniteProductVersion minSrvVer = null;
@@ -2387,13 +2387,13 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
         assert !rmtNodes.contains(loc) : "Remote nodes collection shouldn't contain local node" +
             " [rmtNodes=" + rmtNodes + ", loc=" + loc + ']';
 
-        BaselineTopology at = state.affinityTopology();
+        BaselineTopology blt = state.baselineTopology();
 
-        if (at != null) {
+        if (blt != null) {
             nodeIdToConsIdx = U.newHashMap(srvNodes.size());
             consIdxToNodeId = U.newHashMap(srvNodes.size());
 
-            Map<Object, Short> m = at.consistentIdMapping();
+            Map<Object, Short> m = blt.consistentIdMapping();
 
             Map<Object, ClusterNode> aliveNodesByConsId = U.newHashMap(srvNodes.size());
 
@@ -2409,24 +2409,24 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 aliveNodesByConsId.put(node.consistentId(), node);
             }
 
-            List<BaselineNode> affinityNodes0 = new ArrayList<>(at.size());
+            List<BaselineNode >baselineNodes0 = new ArrayList<>(blt.size());
 
-            for (Object consId : at.consistentIds()) {
+            for (Object consId : blt.consistentIds()) {
                 ClusterNode srvNode = aliveNodesByConsId.get(consId);
 
                 if (srvNode != null)
-                    affinityNodes0.add(srvNode);
+                    baselineNodes0.add(srvNode);
                 else
-                    affinityNodes0.add(at.affinityNode(consId));
+                    baselineNodes0.add(blt.baselineNode(consId));
             }
 
-            affinityNodes = affinityNodes0;
+            baselineNodes = baselineNodes0;
         }
         else {
             nodeIdToConsIdx = null;
             consIdxToNodeId = null;
 
-            affinityNodes = null;
+            baselineNodes = null;
         }
 
         Map<Integer, List<ClusterNode>> allCacheNodes = U.newHashMap(allNodes.size());
@@ -2445,7 +2445,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
             Collections.unmodifiableList(srvNodes),
             Collections.unmodifiableList(daemonNodes),
             U.sealList(rmtNodesWithCaches),
-            affinityNodes == null ? null : Collections.unmodifiableList(affinityNodes),
+            baselineNodes == null ? null : Collections.unmodifiableList(baselineNodes),
             Collections.unmodifiableMap(allCacheNodes),
             Collections.unmodifiableMap(cacheGrpAffNodes),
             Collections.unmodifiableMap(nodeMap),
@@ -3275,14 +3275,14 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
      * @param allCacheNodes All cache nodes.
      * @param cacheGrpAffNodes Cache group aff nodes.
      * @param rmtNodesWithCaches Rmt nodes with caches.
-     * @param affinityNodes Affinity topology node ids.
+     * @param bltNodes Baseline node ids.
      */
     private void fillAffinityNodeCaches(
         List<ClusterNode> allNodes,
         Map<Integer, List<ClusterNode>> allCacheNodes,
         Map<Integer, List<ClusterNode>> cacheGrpAffNodes,
         Set<ClusterNode> rmtNodesWithCaches,
-        Set<UUID> affinityNodes
+        Set<UUID> bltNodes
     ) {
         for (ClusterNode node : allNodes) {
             assert node.order() != 0 : "Invalid node order [locNode=" + localNode() + ", node=" + node + ']';
@@ -3292,7 +3292,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 CacheGroupAffinity grpAff = e.getValue();
                 Integer grpId = e.getKey();
 
-                if (CU.cacheAffinityNode(node, affinityNodes, grpAff.cacheFilter)) {
+                if (CU.cacheAffinityNode(node, bltNodes, grpAff.cacheFilter)) {
                     List<ClusterNode> nodes = cacheGrpAffNodes.get(grpId);
 
                     if (nodes == null)
@@ -3346,7 +3346,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
             discoCache.serverNodes(),
             discoCache.daemonNodes(),
             U.sealList(rmtNodesWithCaches),
-            discoCache.affinityNodes(),
+            discoCache.baselineNodes(),
             allCacheNodes,
             cacheGrpAffNodes,
             discoCache.nodeMap,

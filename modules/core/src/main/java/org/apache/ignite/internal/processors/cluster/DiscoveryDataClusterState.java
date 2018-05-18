@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * A pojo-object representing current cluster global state. The state includes cluster active flag and cluster
- * affinity topology.
+ * baseline topology.
  * <p>
  * This object also captures a transitional cluster state, when one or more fields are changing. In this case,
  * a {@code transitionReqId} field is set to a non-null value and {@code prevState} captures previous cluster state.
@@ -45,8 +45,8 @@ public class DiscoveryDataClusterState implements Serializable {
     /** Flag indicating if the cluster in in active state. */
     private final boolean active;
 
-    /** Current cluster affinity topology. */
-    @Nullable private final BaselineTopology affinityTopology;
+    /** Current cluster baseline topology. */
+    @Nullable private final BaselineTopology baselineTopology;
 
     /**
      * Transition request ID. Set to a non-null value if the cluster is changing it's state.
@@ -83,8 +83,8 @@ public class DiscoveryDataClusterState implements Serializable {
      * @param active Current status.
      * @return State instance.
      */
-    static DiscoveryDataClusterState createState(boolean active, @Nullable BaselineTopology affinityTopology) {
-        return new DiscoveryDataClusterState(null, active, affinityTopology, null, null, null);
+    static DiscoveryDataClusterState createState(boolean active, @Nullable BaselineTopology baselineTopology) {
+        return new DiscoveryDataClusterState(null, active, baselineTopology, null, null, null);
     }
 
     /**
@@ -97,7 +97,7 @@ public class DiscoveryDataClusterState implements Serializable {
     static DiscoveryDataClusterState createTransitionState(
         DiscoveryDataClusterState prevState,
         boolean active,
-        @Nullable BaselineTopology affinityTopology,
+        @Nullable BaselineTopology baselineTopology,
         UUID transitionReqId,
         AffinityTopologyVersion transitionTopVer,
         Set<UUID> transitionNodes
@@ -110,7 +110,7 @@ public class DiscoveryDataClusterState implements Serializable {
         return new DiscoveryDataClusterState(
             prevState,
             active,
-            affinityTopology,
+            baselineTopology,
             transitionReqId,
             transitionTopVer,
             transitionNodes);
@@ -126,14 +126,14 @@ public class DiscoveryDataClusterState implements Serializable {
     private DiscoveryDataClusterState(
         DiscoveryDataClusterState prevState,
         boolean active,
-        @Nullable BaselineTopology affinityTopology,
+        @Nullable BaselineTopology baselineTopology,
         @Nullable UUID transitionReqId,
         @Nullable AffinityTopologyVersion transitionTopVer,
         @Nullable Set<UUID> transitionNodes
     ) {
         this.prevState = prevState;
         this.active = active;
-        this.affinityTopology = affinityTopology;
+        this.baselineTopology = baselineTopology;
         this.transitionReqId = transitionReqId;
         this.transitionTopVer = transitionTopVer;
         this.transitionNodes = transitionNodes;
@@ -194,17 +194,17 @@ public class DiscoveryDataClusterState implements Serializable {
     }
 
     /**
-     * @return Affinity topology.
+     * @return Baseline topology.
      */
-    @Nullable public BaselineTopology affinityTopology() {
-        return affinityTopology;
+    @Nullable public BaselineTopology baselineTopology() {
+        return baselineTopology;
     }
 
     /**
-     * @return {@code True} if affinity topology is set in the cluster. {@code False} otherwise.
+     * @return {@code True} if baseline topology is set in the cluster. {@code False} otherwise.
      */
-    public boolean hasAffinityTopology() {
-        return affinityTopology != null;
+    public boolean hasBaselineTopology() {
+        return baselineTopology != null;
     }
 
     /**
@@ -240,7 +240,7 @@ public class DiscoveryDataClusterState implements Serializable {
             new DiscoveryDataClusterState(
                 null,
                 active,
-                affinityTopology,
+                baselineTopology,
                 null,
                 null,
                 null

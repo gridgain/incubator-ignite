@@ -10360,7 +10360,7 @@ public abstract class IgniteUtils {
      * @return instance of current baseline topology if it exists
      */
     public static BaselineTopology getBaselineTopology(@NotNull GridKernalContext ctx) {
-        return ctx.state().clusterState().affinityTopology();
+        return ctx.state().clusterState().baselineTopology();
     }
 
 

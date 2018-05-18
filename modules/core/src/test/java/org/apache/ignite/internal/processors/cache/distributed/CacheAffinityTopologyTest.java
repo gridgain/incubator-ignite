@@ -207,7 +207,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
             startGrid(3);
 
-            ignite.cluster().setAffinityTopology(ignite.cluster().topologyVersion());
+            ignite.cluster().setBaselineTopology(ignite.cluster().topologyVersion());
 
             awaitPartitionMapExchange();
 
@@ -299,7 +299,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
         assertEquals("Initial mapping is " +initialMapping, 2, initialMapping.size());
 
-        ignite.cluster().setAffinityTopology(baselineNodes(nodes.keySet()));
+        ignite.cluster().setBaselineTopology(baselineNodes(nodes.keySet()));
 
         awaitPartitionMapExchange();
 
@@ -472,7 +472,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
         assert initialMapping.size() == 2 : initialMapping;
 
-        ignite.cluster().setAffinityTopology(baselineNodes(nodes.keySet()));
+        ignite.cluster().setBaselineTopology(baselineNodes(nodes.keySet()));
 
         Set<String> stoppedNodeNames = new HashSet<>();
 
@@ -493,7 +493,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
         Set<ClusterNode> blt2 = new HashSet<>(ignite.cluster().nodes());
 
-        ignite.cluster().setAffinityTopology(baselineNodes(blt2));
+        ignite.cluster().setBaselineTopology(baselineNodes(blt2));
 
         awaitPartitionMapExchange();
 
@@ -514,7 +514,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
         Set<ClusterNode> blt3 = new HashSet<>(ignite.cluster().nodes());
 
-        ignite.cluster().setAffinityTopology(baselineNodes(blt3));
+        ignite.cluster().setBaselineTopology(baselineNodes(blt3));
 
         awaitPartitionMapExchange();
 
@@ -535,7 +535,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
         assert ignite.affinity(cacheName).primaryPartitions(newIgnite.cluster().localNode()).length == 0;
 
-        ignite.cluster().setAffinityTopology(null);
+        ignite.cluster().setBaselineTopology(null);
 
         awaitPartitionMapExchange();
 
@@ -563,7 +563,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
             catch (IgniteInterruptedCheckedException e) {
                 e.printStackTrace();
             }
-            ig.cluster().setAffinityTopology(NODE_COUNT + 1);
+            ig.cluster().setBaselineTopology(NODE_COUNT + 1);
         });
 
         while (!fut.isDone()) {
@@ -575,7 +575,7 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
 
         assertNull(String.valueOf(fut.error()), fut.error());
 
-        assertEquals(NODE_COUNT + 1, ig.cluster().currentAffinityTopology().size());
+        assertEquals(NODE_COUNT + 1, ig.cluster().currentBaselineTopology().size());
     }
 
     /**

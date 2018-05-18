@@ -174,7 +174,7 @@ public abstract class IgniteWalFlushMultiNodeFailoverAbstractSelfTest extends Gr
 
                     wal0.setFileIOFactory(new FailingFileIOFactory(canFail));
 
-                    grid.cluster().setAffinityTopology(grid.cluster().topologyVersion());
+                    grid.cluster().setBaselineTopology(grid.cluster().topologyVersion());
 
                     waitForRebalancing();
                 } catch (Exception expected) {

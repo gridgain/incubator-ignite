@@ -1390,7 +1390,7 @@ public class GridCacheUtils {
      */
     public static boolean cacheAffinityNode(ClusterNode node, DiscoCache discoCache, IgnitePredicate<ClusterNode> cacheNodeFilter) {
         return !node.isDaemon() && !clientNode(node) && cacheNodeFilter.apply(node) &&
-            (discoCache == null || discoCache.affinityNode(node));
+            (discoCache == null || discoCache.baselineNode(node));
     }
 
 
@@ -1399,9 +1399,9 @@ public class GridCacheUtils {
      * @param cacheNodeFilter Node filter for cache to apply.
      * @return {@code True} if node is server node, participate in affinity topology and passes node filter.
      */
-    public static boolean cacheAffinityNode(ClusterNode node, Set<UUID> affinityNodes, IgnitePredicate<ClusterNode> cacheNodeFilter) {
+    public static boolean cacheAffinityNode(ClusterNode node, Set<UUID> baselineNodes, IgnitePredicate<ClusterNode> cacheNodeFilter) {
         return !node.isDaemon() && !clientNode(node) && cacheNodeFilter.apply(node) &&
-            (affinityNodes == null || affinityNodes.contains(node.id()));
+            (baselineNodes == null || baselineNodes.contains(node.id()));
     }
 
     /**
@@ -1409,8 +1409,8 @@ public class GridCacheUtils {
      * @param discoveryDataClusterState Discovery data cluster state.
      * @return {@code True} if node is included in BaselineTopology.
      */
-    public static boolean affinityNode(ClusterNode node, DiscoveryDataClusterState discoveryDataClusterState) {
-        return discoveryDataClusterState.affinityTopology().consistentIds().contains(node.consistentId());
+    public static boolean baselineNode(ClusterNode node, DiscoveryDataClusterState discoveryDataClusterState) {
+        return discoveryDataClusterState.baselineTopology().consistentIds().contains(node.consistentId());
     }
 
     /**

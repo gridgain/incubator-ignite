@@ -273,7 +273,7 @@ public class BaselineTopology implements Serializable {
     /**
      *
      */
-    public List<BaselineNode> currentAffinityTopology() {
+    public List<BaselineNode> currentBaseline() {
         List<BaselineNode> res = new ArrayList<>();
 
         for (Map.Entry<Object, Map<String, Object>> consIdAttrsEntry : nodeMap.entrySet())
@@ -286,7 +286,7 @@ public class BaselineTopology implements Serializable {
      * @param consId Consistent ID.
      * @return Baseline node, if present in the baseline, or {@code null} if absent.
      */
-    public ClusterNode affinityNode(Object consId) {
+    public ClusterNode baselineNode(Object consId) {
         Map<String, Object> attrs = nodeMap.get(consId);
 
         return attrs != null ? new DetachedClusterNode(consId, attrs) : null;
@@ -295,9 +295,9 @@ public class BaselineTopology implements Serializable {
     /**
      * @param aliveNodes Sorted list of currently alive nodes.
      * @param nodeFilter Node filter.
-     * @return Sorted list of affinity topology nodes.
+     * @return Sorted list of baseline topology nodes.
      */
-    public List<ClusterNode> createAffinityTopologyView(
+    public List<ClusterNode> createBaselineView(
         List<ClusterNode> aliveNodes,
         @Nullable IgnitePredicate<ClusterNode> nodeFilter
     ) {
@@ -481,6 +481,6 @@ public class BaselineTopology implements Serializable {
         return "BaselineTopology [id=" + id
             + ", branchingHash=" + branchingPntHash
             + ", branchingType='" + lastBranchingPointType + '\''
-            + ", affinityNodes=" + nodeMap.keySet() + ']';
+            + ", baselineNodes=" + nodeMap.keySet() + ']';
     }
 }

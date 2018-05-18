@@ -106,7 +106,7 @@ public class IgniteChangingAffinityTopologyDownPersistentCachePutAllFailoverTest
 
                 IgniteEx ig0 = grid(0);
 
-                ig0.cluster().setAffinityTopology(baselineNodes(ig0.cluster().forServers().nodes()));
+                ig0.cluster().setBaselineTopology(baselineNodes(ig0.cluster().forServers().nodes()));
 
                 U.sleep(3_000);
 

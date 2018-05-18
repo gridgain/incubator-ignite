@@ -346,21 +346,6 @@ public class IgniteClusterProcessProxy implements IgniteClusterEx {
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public Collection<BaselineNode> currentAffinityTopology() {
-        throw new UnsupportedOperationException("Operation is not supported yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setAffinityTopology(Collection<? extends BaselineNode> affinityTop) {
-        throw new UnsupportedOperationException("Operation is not supported yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setAffinityTopology(long topVer) {
-        throw new UnsupportedOperationException("Operation is not supported yet.");
-    }
-
-    /** {@inheritDoc} */
     @Nullable @Override public Collection<BaselineNode> currentBaselineTopology() {
         throw new UnsupportedOperationException("Operation is not supported yet.");
     }

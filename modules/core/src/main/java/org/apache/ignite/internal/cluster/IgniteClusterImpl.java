@@ -90,7 +90,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     /** Client reconnect future. */
     private IgniteFuture<?> reconnecFut;
 
-    /** Minimal IgniteProductVersion supporting AffinityTopology */
+    /** Minimal IgniteProductVersion supporting BaselineTopology */
     private static final IgniteProductVersion MIN_BLT_SUPPORTING_VER = IgniteProductVersion.fromString("2.4.0");
 
     /**
@@ -332,82 +332,43 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public Collection<BaselineNode> currentAffinityTopology() {
-        guard();
-
-        try {
-            BaselineTopology blt = ctx.state().clusterState().affinityTopology();
-
-            return blt != null ? blt.currentAffinityTopology() : null;
-        }
-        finally {
-            unguard();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setAffinityTopology(Collection<? extends BaselineNode> affinityTop) {
-        guard();
-
-        try {
-            validateBeforeBaselineChange(affinityTop);
-
-            ctx.state().changeGlobalState(true, affinityTop, true).get();
-        }
-        catch (IgniteCheckedException e) {
-            throw U.convertException(e);
-        }
-        finally {
-            unguard();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setAffinityTopology(long topVer) {
-        guard();
-
-        try {
-            Collection<ClusterNode> top = topology(topVer);
-
-            if (top == null)
-                throw new IgniteException("Topology version does not exist: " + topVer);
-
-            Collection<BaselineNode> target = new ArrayList<>(top.size());
-
-            for (ClusterNode node : top) {
-                if (!node.isClient())
-                    target.add(node);
-            }
-
-            validateBeforeBaselineChange(target);
-
-            ctx.state().changeGlobalState(true, target, true).get();
-        }
-        catch (IgniteCheckedException e) {
-            throw U.convertException(e);
-        }
-        finally {
-            unguard();
-        }
-    }
-
-    /** {@inheritDoc} */
     @Nullable @Override public Collection<BaselineNode> currentBaselineTopology() {
-        return currentAffinityTopology();
+        guard();
+
+        try {
+            BaselineTopology blt = ctx.state().clusterState().baselineTopology();
+
+            return blt != null ? blt.currentBaseline() : null;
+        }
+        finally {
+            unguard();
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public void setBaselineTopology(Collection<? extends BaselineNode> affinityTop) {
-        setAffinityTopology(affinityTop);
+    @Override public void setBaselineTopology(Collection<? extends BaselineNode> baselineTop) {
+        guard();
+
+        try {
+            validateBeforeBaselineChange(baselineTop);
+
+            ctx.state().changeGlobalState(true, baselineTop, true).get();
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
     }
 
     /**
-     * Verifies all nodes in current cluster topology support AffinityTopology feature
+     * Verifies all nodes in current cluster topology support BaselineTopology feature
      * so compatibilityMode flag is enabled to reset.
      *
      * @param discoCache
      */
-    private void verifyAffinityTopologySupport(DiscoCache discoCache) { //TODO between 2.4 and 2.5 in-memory cache shouldn't support AT
+    private void verifyBaselineTopologySupport(DiscoCache discoCache) {
         if (discoCache.minimumServerNodeVersion().compareTo(MIN_BLT_SUPPORTING_VER) < 0) {
             SB sb = new SB("Cluster contains nodes that don't support BaselineTopology: [");
 
@@ -431,7 +392,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      * Executes validation checks of cluster state and BaselineTopology before changing BaselineTopology to new one.
      */
     private void validateBeforeBaselineChange(Collection<? extends BaselineNode> baselineTop) {
-        verifyAffinityTopologySupport(ctx.discovery().discoCache());
+        verifyBaselineTopologySupport(ctx.discovery().discoCache());
 
         if (!ctx.state().clusterState().active())
             throw new IgniteException("Changing BaselineTopology on inactive cluster is not allowed.");
@@ -451,7 +412,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
 
     /** */
     @Nullable private Collection<Object> onlineBaselineNodesRequestedForRemoval(Collection<? extends BaselineNode> newBlt) {
-        BaselineTopology blt = ctx.state().clusterState().affinityTopology();
+        BaselineTopology blt = ctx.state().clusterState().baselineTopology();
         Set<Object> bltConsIds;
 
         if (blt == null)
@@ -487,7 +448,31 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
 
     /** {@inheritDoc} */
     @Override public void setBaselineTopology(long topVer) {
-        setAffinityTopology(topVer);
+        guard();
+
+        try {
+            Collection<ClusterNode> top = topology(topVer);
+
+            if (top == null)
+                throw new IgniteException("Topology version does not exist: " + topVer);
+
+            Collection<BaselineNode> target = new ArrayList<>(top.size());
+
+            for (ClusterNode node : top) {
+                if (!node.isClient())
+                    target.add(node);
+            }
+
+            validateBeforeBaselineChange(target);
+
+            ctx.state().changeGlobalState(true, target, true).get();
+        }
+        catch (IgniteCheckedException e) {
+            throw U.convertException(e);
+        }
+        finally {
+            unguard();
+        }
     }
 
     /** {@inheritDoc} */
@@ -589,9 +574,9 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      * @see IgniteCluster#startNodes(java.io.File, boolean, int, int)
      */
     IgniteInternalFuture<Collection<ClusterStartNodeResult>> startNodesAsync0(File file,
-      boolean restart,
-      int timeout,
-      int maxConn)
+        boolean restart,
+        int timeout,
+        int maxConn)
     {
         A.notNull(file, "file");
         A.ensure(file.exists(), "file doesn't exist.");
@@ -698,7 +683,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
                     Collections.<ClusterStartNodeResult>emptyList());
 
             // Exceeding max line width for readability.
-            GridCompoundFuture<ClusterStartNodeResult, Collection<ClusterStartNodeResult>> fut = 
+            GridCompoundFuture<ClusterStartNodeResult, Collection<ClusterStartNodeResult>> fut =
                 new GridCompoundFuture<>(CU.<ClusterStartNodeResult>objectsReducer());
 
             AtomicInteger cnt = new AtomicInteger(nodeCallCnt);
@@ -755,7 +740,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      */
     private boolean runNextNodeCallable(final ConcurrentLinkedQueue<StartNodeCallable> queue,
         final GridCompoundFuture<ClusterStartNodeResult, Collection<ClusterStartNodeResult>>
-        comp,
+            comp,
         final AtomicInteger cnt)
     {
         StartNodeCallable call = queue.poll();
