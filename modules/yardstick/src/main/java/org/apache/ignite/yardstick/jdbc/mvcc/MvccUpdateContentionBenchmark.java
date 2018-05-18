@@ -67,7 +67,12 @@ public class MvccUpdateContentionBenchmark extends IgniteAbstractBenchmark {
             throw new RuntimeException("Fill Data failed.", th);
         }
 
-
+        // workaround for Table not found
+        ((IgniteEx)ignite())
+            .context()
+            .query()
+            .querySqlFields(new SqlFieldsQuery("SELECT COUNT(*) FROM test_long"), false)
+            .getAll();
     }
 
     /** {@inheritDoc} */
@@ -78,6 +83,7 @@ public class MvccUpdateContentionBenchmark extends IgniteAbstractBenchmark {
 
         long end = start + (args.sqlRange() - 1);
 
+        // todo : catch exception on write fail.
         ((IgniteEx)ignite())
             .context()
             .query()

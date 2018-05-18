@@ -48,7 +48,6 @@ public class MvccProcessorBenchmark extends IgniteAbstractBenchmark {
         IgniteCountDownLatch dataIsReady = ignite().countDownLatch("fillDataLatch", driversNodesCnt, true, true);
 
         try {
-
             if (memberId == 0)
                 fillData(cfg, (IgniteEx)ignite(), args.range(), args.atomicMode());
             else
@@ -56,12 +55,12 @@ public class MvccProcessorBenchmark extends IgniteAbstractBenchmark {
 
             dataIsReady.countDown();
             dataIsReady.await(); // todo: timeout;
-        } catch (Throwable th) {
+        }
+        catch (Throwable th) {
             dataIsReady.countDownAll();
 
             throw new RuntimeException("Fill Data failed.", th);
         }
-
 
         assert memberId < driversNodesCnt
             : "Incorrect memberId : [memberId= " + memberId + ", driversNodeCnt=" + driversNodesCnt + "]";
@@ -71,6 +70,13 @@ public class MvccProcessorBenchmark extends IgniteAbstractBenchmark {
         locIdGen = new DisjointRangeGenerator(cfg.threads(), locIdRangeWidth, args.sqlRange());
 
         idOffset = locIdRangeWidth * memberId;
+
+        // workaround for Table not found
+        ((IgniteEx)ignite())
+            .context()
+            .query()
+            .querySqlFields(new SqlFieldsQuery("SELECT COUNT(*) FROM test_long"), false)
+            .getAll();
     }
 
     /** {@inheritDoc} */
