@@ -17,18 +17,24 @@
 
 package org.apache.ignite.tests;
 
+import com.datastax.driver.core.policies.RoundRobinPolicy;
+import com.datastax.driver.core.policies.TokenAwarePolicy;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
-import java.util.Date;
-import java.util.Map;
-import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import javax.cache.Cache;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.store.cassandra.CassandraCacheStoreFactory;
+import org.apache.ignite.cache.store.cassandra.datasource.DataSource;
+import org.apache.ignite.cache.store.cassandra.persistence.KeyValuePersistenceSettings;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.tests.pojos.Person;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.tests.utils.CassandraAdminCredentials;
 import org.apache.ignite.tests.utils.CassandraHelper;
 import org.apache.log4j.Logger;
 import org.junit.Test;
@@ -38,28 +44,42 @@ public class Ignite6252Reproducer {
     /** Logger. */
     private static final Logger logger = Logger.getLogger(Ignite6252Reproducer.class.getName());
 
+    /** Cache name. */
+    private static final String CACHE_NAME = "cache1";
+
     /** */
     @Test
-    public void test() throws InterruptedException {
+    public void test() {
         CassandraHelper.startEmbeddedCassandra(logger);
         CassandraHelper.dropTestKeyspaces();
 
-        try (Ignite ignite = Ignition.start("org/apache/ignite/tests/persistence/pojo/ignite-config.xml")) {
-            final IgniteCache<Long, Person> personCache = ignite.getOrCreateCache(new CacheConfiguration<>("cache1"));
+        try (final Ignite ignite = Ignition.start(createIgniteConfig())) {
+            Cache<Long, String> cache = ignite.cache(CACHE_NAME);
 
-            while (true) {
-                personCache.put(1L, new Person(
-                    1L,
-                    "John",
-                    "Smith",
-                    (short)30,
-                    true,
-                    200,
-                    100,
-                    new Date(),
-                    Collections.singletonList("1234-56-78")
-                ));
-            }
+            final int BATCH_SIZE = 100;
+            final String smallVal = "foo";
+            final String largeVal =
+                String.join(" ", IntStream.range(0, 10_000).boxed().map(unused -> "foo").toArray(String[]::new));
+
+            IntStream.range(0, 20 /* threads */).parallel().forEach(t ->
+                LongStream.range(t, t + 1_000_000).forEach(b ->
+                    cache.putAll(
+                        LongStream.range(0, BATCH_SIZE).boxed().map(i -> {
+                            long key = b * BATCH_SIZE + i;
+                            String val = key % 2 == 0 ? smallVal : largeVal;
+
+                            return new SimpleEntry<>(key, val);
+                        }).collect(
+                            Collectors.toMap(SimpleEntry<Long, String>::getKey, SimpleEntry<Long, String>::getValue)
+                        )
+                    )
+                )
+            );
+
+            Thread.sleep(30_000);
+        }
+        catch (InterruptedException e) {
+            e.printStackTrace();
         }
         finally {
             try {
@@ -78,28 +98,33 @@ public class Ignite6252Reproducer {
         }
     }
 
-//    /** */
-//    private static class Person {
-//        /** Id. */
-//        private final String id;
-//
-//        /** Name. */
-//        private final String name;
-//
-//        /** */
-//        Person(String id, String name) {
-//            this.id = id;
-//            this.name = name;
-//        }
-//
-//        /** */
-//        public String getId() {
-//            return id;
-//        }
-//
-//        /** */
-//        public String getName() {
-//            return name;
-//        }
-//    }
+    /** */
+    private IgniteConfiguration createIgniteConfig() {
+        DataSource dataSrc = new DataSource();
+        dataSrc.setCredentials(new CassandraAdminCredentials());
+        dataSrc.setContactPoints(CassandraHelper.getContactPointsArray());
+        dataSrc.setReadConsistency("ONE");
+        dataSrc.setWriteConsistency("ONE");
+        dataSrc.setLoadBalancingPolicy(new TokenAwarePolicy(new RoundRobinPolicy()));
+
+        String persistenceSettings = "<persistence keyspace=\"test1\" table=\"test1\">" +
+            "<keyPersistence class=\"java.lang.Long\" strategy=\"PRIMITIVE\"/>" +
+            "<valuePersistence class=\"java.lang.String\" strategy=\"BLOB\"/>" +
+            "</persistence>";
+
+        return new IgniteConfiguration()
+            .setDiscoverySpi(new TcpDiscoverySpi().setIpFinder(
+                new TcpDiscoveryVmIpFinder().setAddresses(Collections.singletonList("127.0.0.1:47500"))
+            ))
+            .setCacheConfiguration(
+                new CacheConfiguration<Long, String>(CACHE_NAME)
+                    .setReadThrough(true)
+                    .setWriteThrough(true)
+                    .setCacheStoreFactory(
+                        new CassandraCacheStoreFactory<>()
+                            .setDataSource(dataSrc)
+                            .setPersistenceSettings(new KeyValuePersistenceSettings(persistenceSettings))
+                    )
+            );
+    }
 }
