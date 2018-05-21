@@ -19,11 +19,13 @@ package org.apache.ignite.yardstick.jdbc.mvcc;
 
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicLongArray;
 import org.apache.ignite.IgniteCountDownLatch;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
-import org.apache.ignite.yardstick.jdbc.DisjointRangeGenerator;
 import org.yardstickframework.BenchmarkConfiguration;
 
 import static org.apache.ignite.yardstick.jdbc.JdbcUtils.fillData;
@@ -35,7 +37,15 @@ import static org.yardstickframework.BenchmarkUtils.println;
  */
 public class MvccUpdateContentionBenchmark extends IgniteAbstractBenchmark {
     private int memberId;
+
     private static final String UPDATE_QRY = "UPDATE test_long SET val = (val + 1) WHERE id BETWEEN ? AND ?";
+
+    private static final String MVCC_EXC_MSG = "Mvcc version mismatch.";
+
+    private static final String NO_MVCC_EXC_MSG_PREFIX = "Failed to UPDATE some keys because they had been modified concurrently";
+
+    private final AtomicLong contentions = new AtomicLong();
+
     // todo: count write misses.
 
     @Override public void setUp(BenchmarkConfiguration cfg) throws Exception {
@@ -61,7 +71,8 @@ public class MvccUpdateContentionBenchmark extends IgniteAbstractBenchmark {
             dataIsReady.countDown();
 
             dataIsReady.await(); // todo: timeout;
-        } catch (Throwable th) {
+        }
+        catch (Throwable th) {
             dataIsReady.countDownAll();
 
             throw new RuntimeException("Fill Data failed.", th);
@@ -83,14 +94,35 @@ public class MvccUpdateContentionBenchmark extends IgniteAbstractBenchmark {
 
         long end = start + (args.sqlRange() - 1);
 
-        // todo : catch exception on write fail.
-        ((IgniteEx)ignite())
-            .context()
-            .query()
-            .querySqlFields(new SqlFieldsQuery(UPDATE_QRY)
-                .setArgs(start, end), false)
-            .getAll();
+        // todo : count write misses.
+        try {
+            ((IgniteEx)ignite())
+                .context()
+                .query()
+                .querySqlFields(new SqlFieldsQuery(UPDATE_QRY)
+                    .setArgs(start, end), false)
+                .getAll();
+        }
+        catch (IgniteSQLException exc) {
+            if ((args.mvccEnabled() && !exc.getMessage().equals(MVCC_EXC_MSG)) ||
+                (!args.mvccEnabled() && !exc.getMessage().startsWith(NO_MVCC_EXC_MSG_PREFIX)))
+                throw new RuntimeException("Exception with unexpected message is thrown.", exc);
+
+            contentions.incrementAndGet();
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Could not perform update.", e);
+        }
 
         return true;
+    }
+
+    @Override public void tearDown() throws Exception {
+        try {
+            super.tearDown();
+        }
+        finally {
+            println("Update contention count : " + contentions.get());
+        }
     }
 }

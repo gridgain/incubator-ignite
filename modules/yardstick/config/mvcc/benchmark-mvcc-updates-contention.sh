@@ -53,7 +53,7 @@ RESTART_SERVERS=true
 # BENCHMARK_WRITER=
 
 # The benchmark is designed to run with 1 client node (driver itself) and many (4 for instance) server nodes
-SERVER_HOSTS=localhost
+SERVER_HOSTS=localhost,localhost
 DRIVER_HOSTS=localhost,localhost,localhost,localhost
 
 # Remote username.
