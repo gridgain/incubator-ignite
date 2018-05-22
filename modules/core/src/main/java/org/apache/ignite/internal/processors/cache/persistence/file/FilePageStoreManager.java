@@ -414,21 +414,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
                     while (true) {
                         Thread.sleep(TRACK_TIMEOUT);
 
-                        TreeMap<Integer, IgniteBiTuple<Long, Long>> map = trackPrepareMap();
-
-                        StringBuilder out = new StringBuilder().append(System.currentTimeMillis()).append(": ");
-
-                        for (Map.Entry<Integer, IgniteBiTuple<Long, Long>> entry : map.entrySet()) {
-                            int type = entry.getKey();
-                            long readCnt = entry.getValue().get1();
-                            long writeCnt = entry.getValue().get2();
-
-                            String line = String.format("%6d -> %16d    %16d\n", type, readCnt, writeCnt);
-
-                            out.append(line);
-                        }
-
-                        System.out.println(out);
+                        printTrackMap();
                     }
                 }
                 catch (Exception e) {
@@ -441,6 +427,24 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         t.setDaemon(true);
 
         t.start();
+    }
+
+    public static void printTrackMap() {
+        TreeMap<Integer, IgniteBiTuple<Long, Long>> map = trackPrepareMap();
+
+        StringBuilder out = new StringBuilder().append(System.currentTimeMillis()).append(": ");
+
+        for (Map.Entry<Integer, IgniteBiTuple<Long, Long>> entry : map.entrySet()) {
+            int type = entry.getKey();
+            long readCnt = entry.getValue().get1();
+            long writeCnt = entry.getValue().get2();
+
+            String line = String.format("%6d -> %16d    %16d\n", type, readCnt, writeCnt);
+
+            out.append(line);
+        }
+
+        System.out.println(out);
     }
 
     private static TreeMap<Integer, IgniteBiTuple<Long, Long>> trackPrepareMap() {
