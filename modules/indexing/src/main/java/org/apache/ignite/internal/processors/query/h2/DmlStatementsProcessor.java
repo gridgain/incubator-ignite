@@ -492,10 +492,6 @@ public class DmlStatementsProcessor {
         if (cctx != null && cctx.mvccEnabled()) {
             assert cctx.transactional();
 
-            if(cctx.isReplicated())
-                throw new IgniteSQLException("Only partitioned caches are supported at the moment",
-                    IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
-
             DmlDistributedPlanInfo distributedPlan = plan.distributedPlan();
 
             GridNearTxLocal tx = MvccUtils.activeSqlTx(cctx.kernalContext());
@@ -521,8 +517,8 @@ public class DmlStatementsProcessor {
                     timeout = tm1 > 0 && tm2 > 0 ? Math.min(tm1, tm2) : Math.max(tm1, tm2);
                 }
 
-                if (distributedPlan == null || ((plan.mode() == UpdateMode.INSERT || plan.mode() == UpdateMode.MERGE) &&
-                    !plan.isLocalSubquery())) {
+                if (cctx.isReplicated() || distributedPlan == null || ((plan.mode() == UpdateMode.INSERT
+                    || plan.mode() == UpdateMode.MERGE) && !plan.isLocalSubquery())) {
                     MvccQueryTracker mvccQueryTracker = new MvccQueryTracker(cctx,
                         cctx.shared().coordinators().currentCoordinator(),
                         mvccSnapshot);
@@ -555,7 +551,7 @@ public class DmlStatementsProcessor {
 
                     tx.addActiveCache(cctx, false);
 
-                    IgniteInternalFuture<Long> fut = tx.updateAsync(cctx, mvccSnapshot, op, it,
+                    IgniteInternalFuture<Long> fut = tx.updateAsync(cctx, op, it,
                         fieldsQry.getPageSize(), timeout);
 
                     UpdateResult res = new UpdateResult(fut.get(), X.EMPTY_OBJECT_ARRAY);

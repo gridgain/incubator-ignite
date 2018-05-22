@@ -137,6 +137,7 @@ import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheVisito
 import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.sql.SqlParseException;
 import org.apache.ignite.internal.sql.SqlParser;
+import org.apache.ignite.internal.sql.SqlStrictParseException;
 import org.apache.ignite.internal.sql.command.SqlAlterTableCommand;
 import org.apache.ignite.internal.sql.command.SqlAlterUserCommand;
 import org.apache.ignite.internal.sql.command.SqlBeginTransactionCommand;
@@ -1109,7 +1110,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                     topVer = topFut.get();
                 }
                 catch (Exception e) {
-                    sfuFut.onError(U.cast(e));
+                    sfuFut.onDone(U.cast(e));
 
                     throw new IgniteSQLException("Failed to lock topology for SELECT FOR UPDATE query.", e);
                 }
@@ -1154,7 +1155,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                                 -1,
                                 null,
                                 tx0,
-                                tx0.remainingTime(),
+                                timeout0,
                                 sfuFut.cache(),
                                 rs
                             );
@@ -1808,6 +1809,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 || cmd instanceof SqlDropUserCommand))
                 return null;
         }
+        catch (SqlStrictParseException e) {
+            throw new IgniteSQLException(e.getMessage(), IgniteQueryErrorCode.PARSING, e);
+        }
         catch (Exception e) {
             // Cannot parse, return.
             if (log.isDebugEnabled())
@@ -1844,7 +1848,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
                 if (setCmd.isTurnOn())
                     cliCtx.enableStreaming(setCmd.allowOverwrite(), setCmd.flushFrequency(),
-                        setCmd.perNodeBufferSize(), setCmd.perNodeParallelOperations());
+                        setCmd.perNodeBufferSize(), setCmd.perNodeParallelOperations(), setCmd.isOrdered());
                 else
                     cliCtx.disableStreaming();
             }

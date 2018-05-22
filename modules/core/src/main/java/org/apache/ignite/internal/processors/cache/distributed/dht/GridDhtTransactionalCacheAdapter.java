@@ -33,7 +33,6 @@ import org.apache.ignite.cluster.ClusterTopologyException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
-import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheEntryPredicate;
 import org.apache.ignite.internal.processors.cache.CacheObject;
@@ -46,8 +45,6 @@ import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedExceptio
 import org.apache.ignite.internal.processors.cache.GridCacheLockTimeoutException;
 import org.apache.ignite.internal.processors.cache.GridCacheMvccCandidate;
 import org.apache.ignite.internal.processors.cache.GridCacheReturn;
-import org.apache.ignite.internal.processors.cache.GridCacheUpdateTxResult;
-import org.apache.ignite.internal.processors.cache.GridCacheUtils;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedCacheEntry;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
@@ -70,14 +67,13 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearUnlo
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshotWithoutTxs;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccTxInfo;
-import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxLocalEx;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
-import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
+import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.F0;
 import org.apache.ignite.internal.util.GridLeanSet;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
@@ -98,7 +94,6 @@ import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
-import static org.apache.ignite.internal.processors.cache.GridCacheOperation.DELETE;
 import static org.apache.ignite.internal.processors.cache.GridCacheOperation.NOOP;
 import static org.apache.ignite.internal.processors.cache.GridCacheUtils.isNearEnabled;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_OP_COUNTER_NA;
@@ -711,7 +706,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 req.firstClientRequest(),
                 req.topologyVersion(),
                 req.threadId(),
-                req.timeout(),
+                req.txTimeout(),
                 req.subjectId(),
                 req.taskNameHash());
         }
@@ -820,11 +815,16 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             f = lockAllAsync(ctx, nearNode, req, null);
 
         // Register listener just so we print out errors.
-        // Exclude lock timeout exception since it's not a fatal exception.
+        // Exclude lock timeout and rollback exceptions since it's not a fatal exception.
         f.listen(CU.errorLogger(log, GridCacheLockTimeoutException.class,
-            GridDistributedLockCancelledException.class));
+            GridDistributedLockCancelledException.class, IgniteTxTimeoutCheckedException.class,
+            IgniteTxRollbackCheckedException.class));
     }
 
+    /**
+     * @param node Node.
+     * @param req Request.
+     */
     private boolean waitForExchangeFuture(final ClusterNode node, final GridNearLockRequest req) {
         assert req.firstClientRequest() : req;
 
@@ -973,6 +973,9 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             skipStore,
             keepBinary);
 
+        if (fut.isDone()) // Possible in case of cancellation or timeout or rollback.
+            return fut;
+
         for (KeyCacheObject key : keys) {
             try {
                 while (true) {
@@ -981,7 +984,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                     try {
                         fut.addEntry(entry);
 
-                        // Possible in case of cancellation or time out.
+                        // Possible in case of cancellation or time out or rollback.
                         if (fut.isDone())
                             return fut;
 
@@ -1008,9 +1011,11 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             }
         }
 
-        ctx.mvcc().addFuture(fut);
+        if (!fut.isDone()) {
+            ctx.mvcc().addFuture(fut);
 
-        fut.map();
+            fut.map();
+        }
 
         return fut;
     }
@@ -1111,10 +1116,10 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 }
             }
 
-            boolean timedout = false;
+            boolean timedOut = false;
 
             for (KeyCacheObject key : keys) {
-                if (timedout)
+                if (timedOut)
                     break;
 
                 while (true) {
@@ -1129,7 +1134,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                             fut.addEntry(key == null ? null : entry);
 
                             if (fut.isDone()) {
-                                timedout = true;
+                                timedOut = true;
 
                                 break;
                             }
@@ -1228,7 +1233,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                             if (tx != null)
                                 tx.rollbackDhtLocal();
 
-                            return new GridDhtFinishedFuture<>(new IgniteCheckedException(msg));
+                            return new GridDhtFinishedFuture<>(new IgniteTxRollbackCheckedException(msg));
                         }
 
                         tx.topologyVersion(req.topologyVersion());
@@ -1266,7 +1271,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                             if (e != null)
                                 e = U.unwrap(e);
 
-                            assert !t.empty();
+                            // Transaction can be emptied by asynchronous rollback.
+                            assert e != null || !t.empty();
 
                             // Create response while holding locks.
                             final GridNearLockResponse resp = createLockReply(nearNode,
@@ -1447,13 +1453,11 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                                         null); // TODO IGNITE-7371
                                 }
 
-                                assert e.lockedBy(mappedVer) ||
-                                    (ctx.mvcc().isRemoved(e.context(), mappedVer) && req.timeout() > 0) :
+                                assert e.lockedBy(mappedVer) || ctx.mvcc().isRemoved(e.context(), mappedVer) :
                                     "Entry does not own lock for tx [locNodeId=" + ctx.localNodeId() +
                                         ", entry=" + e +
                                         ", mappedVer=" + mappedVer + ", ver=" + ver +
-                                        ", tx=" + tx + ", req=" + req +
-                                        ", err=" + err + ']';
+                                        ", tx=" + tx + ", req=" + req + ']';
 
                                 boolean filterPassed = false;
 
@@ -1535,12 +1539,15 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
         Throwable err = res.error();
 
         // Log error before sending reply.
-        if (err != null && !(err instanceof GridCacheLockTimeoutException) && !ctx.kernalContext().isStopping())
+        if (err != null && !(err instanceof GridCacheLockTimeoutException) &&
+            !(err instanceof IgniteTxRollbackCheckedException) && !ctx.kernalContext().isStopping())
             U.error(log, "Failed to acquire lock for request: " + req, err);
 
         try {
-            // Don't send reply message to this node or if lock was cancelled.
-            if (!nearNode.id().equals(ctx.nodeId()) && !X.hasCause(err, GridDistributedLockCancelledException.class)) {
+            // TODO Async rollback
+            // Don't send reply message to this node or if lock was cancelled or tx was rolled back asynchronously.
+            if (!nearNode.id().equals(ctx.nodeId()) && !X.hasCause(err, GridDistributedLockCancelledException.class) &&
+                !X.hasCause(err, IgniteTxRollbackCheckedException.class)) {
                 ctx.io().send(nearNode, res, ctx.ioPolicy());
 
                 if (txLockMsgLog.isDebugEnabled()) {
@@ -1967,7 +1974,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 req.firstClientRequest(),
                 req.topologyVersion(),
                 req.threadId(),
-                req.timeout(),
+                req.txTimeout(),
                 req.subjectId(),
                 req.taskNameHash());
         }
@@ -2272,104 +2279,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             MvccSnapshot snapshot = new MvccSnapshotWithoutTxs(s0.coordinatorVersion(), s0.counter(),
                 req.operationCounter(), s0.cleanupVersion());
 
-            ctx.shared().database().checkpointReadLock();
-
-            try {
-                WALPointer ptr = null;
-
-                for (int i = 0; i < req.keys().size(); i++) {
-                    KeyCacheObject key = req.keys().get(i);
-
-                    assert key != null;
-
-                    int part = ctx.affinity().partition(key);
-
-                    GridDhtLocalPartition locPart = ctx.topology().localPartition(part, req.topologyVersion(),
-                        false);
-
-                    if (locPart == null || !locPart.reserve())
-                        throw new ClusterTopologyException("Can not reserve partition. Please retry on stable topology.");
-
-                    try {
-                        CacheObject val = null;
-
-                        if (req.op() != DELETE)
-                            val = req.values().get(i);
-
-                        IgniteTxKey txKey = ctx.txKey(key);
-
-                        tx.addWrite(
-                            ctx,
-                            req.op(),
-                            txKey,
-                            null,
-                            null,
-                            GridCacheUtils.TTL_ETERNAL,
-                            false,
-                            false);
-
-                        IgniteTxEntry txEntry = tx.entry(txKey);
-
-                        txEntry.markValid();
-                        txEntry.queryEnlisted(true);
-
-                        GridDhtCacheEntry entry = entryExx(key, tx.topologyVersion());
-
-                        GridCacheUpdateTxResult updRes;
-
-                        while (true) {
-                            try {
-                                switch (req.op()) {
-                                    case DELETE:
-                                        updRes = entry.mvccRemove(tx,
-                                            ctx.localNodeId(),
-                                            tx.topologyVersion(),
-                                            null,
-                                            snapshot);
-
-                                        break;
-
-                                    case CREATE:
-                                    case UPDATE:
-                                        updRes = entry.mvccSet(tx,
-                                            ctx.localNodeId(),
-                                            val,
-                                            0,
-                                            tx.topologyVersion(),
-                                            null,
-                                            snapshot,
-                                            req.op());
-
-                                        break;
-
-                                    default:
-                                        throw new IgniteSQLException("Cannot acquire lock for operation [op= "
-                                            + req.op() + "]" + "Operation is unsupported at the moment ",
-                                            IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
-                                }
-
-                                break;
-                            }
-                            catch (GridCacheEntryRemovedException ignore) {
-                                entry = entryExx(key);
-                            }
-                        }
-
-                        assert updRes.updateFuture() == null : "Entry should not be locked on the backup";
-
-                        ptr = updRes.loggedPointer();
-                    }
-                    finally {
-                        locPart.release();
-                    }
-                }
-
-                if (ptr != null && !ctx.tm().logTxRecords())
-                    ctx.shared().wal().flush(ptr, true);
-            }
-            finally {
-                ctx.shared().database().checkpointReadUnlock();
-            }
+            tx.mvccEnlistBatch(ctx, req.op(), req.keys(), req.values(), snapshot);
 
             GridDhtTxQueryEnlistResponse res = new GridDhtTxQueryEnlistResponse(req.cacheId(),
                 req.dhtFutureId(),
