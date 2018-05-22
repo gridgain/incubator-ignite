@@ -16,9 +16,9 @@
 #
 
 #
-# Configuration to measure mvcc impact on jdbc operations.
+# Configuration to measure performance of concurrent sql updates with contention.
+# Update keys are shared among the threads/hosts.
 #
-
 now0=`date +'%H%M%S'`
 
 # JVM options.
@@ -52,7 +52,7 @@ RESTART_SERVERS=true
 # Probe point writer class name.
 # BENCHMARK_WRITER=
 
-# The benchmark is designed to run with 1 client node (driver itself) and many (4 for instance) server nodes
+# The benchmark is designed to run with 4 client node (drivers) and several (2 for instance) server nodes
 SERVER_HOSTS=localhost,localhost
 DRIVER_HOSTS=localhost,localhost,localhost,localhost
 

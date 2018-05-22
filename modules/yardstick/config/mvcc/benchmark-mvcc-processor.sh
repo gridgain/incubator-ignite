@@ -16,7 +16,7 @@
 #
 
 #
-# Configuration to measure mvcc impact on jdbc operations.
+# Configuration to compare mvcc on/off. This benchmark creates load on mvcc processor.
 #
 
 now0=`date +'%H%M%S'`
@@ -52,7 +52,7 @@ RESTART_SERVERS=true
 # Probe point writer class name.
 # BENCHMARK_WRITER=
 
-# The benchmark is designed to run with 1 client node (driver itself) and many (4 for instance) server nodes
+# The benchmark is designed to run with 4 client nodes (drivers) and 1 server node.
 SERVER_HOSTS=localhost
 DRIVER_HOSTS=localhost,localhost,localhost,localhost
 
