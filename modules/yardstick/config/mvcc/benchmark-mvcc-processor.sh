@@ -77,7 +77,7 @@ sm=FULL_SYNC
 # Parameters that should be the same across all the benchmarks launches.
 commonParams="-cfg ${SCRIPT_DIR}/../config/ignite-localhost-config.xml -nn ${nodesNum} -w ${w} -d ${d} \
   -jdbc jdbc:ignite:thin://auto.find/ -t ${t} -sm ${sm} \
-  --clientNodesAfterId 0 \
+  --clientNodesAfterId 100 \
   -sn IgniteNode -cl --range 1000000 \
   --atomic-mode TRANSACTIONAL"
 
