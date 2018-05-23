@@ -1,0 +1,83 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.yardstick.jdbc.mvcc;
+
+import org.apache.ignite.IgniteCountDownLatch;
+import org.apache.ignite.cache.query.SqlFieldsQuery;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
+import org.apache.ignite.yardstick.jdbc.DisjointRangeGenerator;
+import org.yardstickframework.BenchmarkConfiguration;
+
+import static org.apache.ignite.yardstick.jdbc.JdbcUtils.fillData;
+import static org.yardstickframework.BenchmarkUtils.println;
+
+/**
+ * Base for mvcc benchmarks that are running on multiply hosts.
+ */
+public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBenchmark {
+    /** Member id of the host driver is running */
+    protected int memberId;
+
+    /** Sql query to create load. */
+    public static final String UPDATE_QRY = "UPDATE test_long SET val = (val + 1) WHERE id BETWEEN ? AND ?";
+
+    /**
+     * Number of nodes handled by driver.
+     */
+    protected int driversNodesCnt;
+
+    /** {@inheritDoc} */
+    @Override public void setUp(BenchmarkConfiguration cfg) throws Exception {
+        super.setUp(cfg);
+
+        memberId = cfg.memberId();
+
+        if (memberId < 0)
+            throw new IllegalStateException("Member id should be initialized with non-negative value");
+
+        // We assume there is no client nodes in the cluster except clients that are yardstick drivers.
+        driversNodesCnt = ignite().cluster().forClients().nodes().size();
+
+        // todo: simplify just to use 1 value and count down only for memberId = 0;
+        IgniteCountDownLatch dataIsReady = ignite().countDownLatch("fillDataLatch", driversNodesCnt, true, true);
+
+        try {
+            if (memberId == 0)
+                fillData(cfg, (IgniteEx)ignite(), args.range(), args.atomicMode());
+            else
+                println(cfg, "No need to upload data (memberId = " + memberId + ").");
+
+            dataIsReady.countDown();
+
+            dataIsReady.await(); // todo: timeout;
+        }
+        catch (Throwable th) {
+            dataIsReady.countDownAll();
+
+            throw new RuntimeException("Fill Data failed.", th);
+        }
+
+        // workaround for Table not found
+        ((IgniteEx)ignite())
+            .context()
+            .query()
+            .querySqlFields(new SqlFieldsQuery("SELECT COUNT(*) FROM test_long"), false)
+            .getAll();
+    }
+}

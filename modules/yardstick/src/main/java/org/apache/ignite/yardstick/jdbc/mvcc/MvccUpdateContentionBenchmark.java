@@ -20,71 +20,26 @@ package org.apache.ignite.yardstick.jdbc.mvcc;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicLongArray;
-import org.apache.ignite.IgniteCountDownLatch;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
-import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
-import org.yardstickframework.BenchmarkConfiguration;
 
-import static org.apache.ignite.yardstick.jdbc.JdbcUtils.fillData;
 import static org.yardstickframework.BenchmarkUtils.println;
 
 /**
- * Benchmark used to eliminate update contention in mvcc mode.
- * Designed to be ran in many threads
+ * Benchmark app that eliminates update contention in mvcc mode.
+ * Designed to be ran in many threads on many hosts.
  */
-public class MvccUpdateContentionBenchmark extends IgniteAbstractBenchmark {
-    private int memberId;
-
-    private static final String UPDATE_QRY = "UPDATE test_long SET val = (val + 1) WHERE id BETWEEN ? AND ?";
-
+public class MvccUpdateContentionBenchmark extends AbstractDistributedMvccBenchmark {
+    /** Expected expception message in mvcc on mode on update fail. */
     private static final String MVCC_EXC_MSG = "Mvcc version mismatch.";
 
-    private static final String NO_MVCC_EXC_MSG_PREFIX = "Failed to UPDATE some keys because they had been modified concurrently";
+    /** Expected exception message in mvcc off mode on update fail. */
+    private static final String NO_MVCC_EXC_MSG_PREFIX =
+        "Failed to UPDATE some keys because they had been modified concurrently";
 
-    private final AtomicLong contentions = new AtomicLong();
-
-    // todo: count write misses.
-
-    @Override public void setUp(BenchmarkConfiguration cfg) throws Exception {
-        super.setUp(cfg);
-
-        memberId = cfg.memberId();
-
-        if (memberId < 0)
-            throw new IllegalStateException("Member id should be initialized with non-negative value");
-
-        // assume there is no client nodes in the cluster except clients that are yardstick drivers.
-        int driversNodesCnt = ignite().cluster().forClients().nodes().size();
-
-        // todo: simplify just to use 1 value and count down only for memberId = 0;
-        IgniteCountDownLatch dataIsReady = ignite().countDownLatch("fillDataLatch", driversNodesCnt, true, true);
-
-        try {
-            if (memberId == 0)
-                fillData(cfg, (IgniteEx)ignite(), args.range(), args.atomicMode());
-            else
-                println(cfg, "No need to upload data (memberId = " + memberId + ").");
-
-            dataIsReady.countDown();
-
-            dataIsReady.await(); // todo: timeout;
-        }
-        catch (Throwable th) {
-            dataIsReady.countDownAll();
-
-            throw new RuntimeException("Fill Data failed.", th);
-        }
-
-        // workaround for Table not found
-        ((IgniteEx)ignite())
-            .context()
-            .query()
-            .querySqlFields(new SqlFieldsQuery("SELECT COUNT(*) FROM test_long"), false)
-            .getAll();
-    }
+    /** Counter of failed updates. */
+    private final AtomicLong failsCnt = new AtomicLong();
 
     /** {@inheritDoc} */
     @Override public boolean test(Map<Object, Object> ctx) throws Exception {
@@ -94,7 +49,6 @@ public class MvccUpdateContentionBenchmark extends IgniteAbstractBenchmark {
 
         long end = start + (args.sqlRange() - 1);
 
-        // todo : count write misses.
         try {
             ((IgniteEx)ignite())
                 .context()
@@ -108,7 +62,7 @@ public class MvccUpdateContentionBenchmark extends IgniteAbstractBenchmark {
                 (!args.mvccEnabled() && !exc.getMessage().startsWith(NO_MVCC_EXC_MSG_PREFIX)))
                 throw new RuntimeException("Exception with unexpected message is thrown.", exc);
 
-            contentions.incrementAndGet();
+            failsCnt.incrementAndGet();
         }
         catch (Exception e) {
             throw new RuntimeException("Could not perform update.", e);
@@ -117,12 +71,13 @@ public class MvccUpdateContentionBenchmark extends IgniteAbstractBenchmark {
         return true;
     }
 
+    /** {@inheritDoc} */
     @Override public void tearDown() throws Exception {
         try {
             super.tearDown();
         }
         finally {
-            println("Update contention count : " + contentions.get());
+            println("Update contention count : " + failsCnt.get());
         }
     }
 }
