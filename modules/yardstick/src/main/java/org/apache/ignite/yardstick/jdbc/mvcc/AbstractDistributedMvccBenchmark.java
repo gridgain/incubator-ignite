@@ -17,6 +17,7 @@
 
 package org.apache.ignite.yardstick.jdbc.mvcc;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.IgniteCountDownLatch;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.internal.IgniteEx;
@@ -31,12 +32,14 @@ import static org.yardstickframework.BenchmarkUtils.println;
  * Base for mvcc benchmarks that are running on multiply hosts.
  */
 public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBenchmark {
-    /** Member id of the host driver is running */
-    protected int memberId;
-
     /** Sql query to create load. */
     public static final String UPDATE_QRY = "UPDATE test_long SET val = (val + 1) WHERE id BETWEEN ? AND ?";
 
+    /** Timeout in minutest for test data to be loaded. */
+    public static final long DATA_WAIT_TIMEOUT_MIN = 20;
+
+    /** Member id of the host driver is running */
+    protected int memberId;
     /**
      * Number of nodes handled by driver.
      */
@@ -54,18 +57,22 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
         // We assume there is no client nodes in the cluster except clients that are yardstick drivers.
         driversNodesCnt = ignite().cluster().forClients().nodes().size();
 
-        // todo: simplify just to use 1 value and count down only for memberId = 0;
-        IgniteCountDownLatch dataIsReady = ignite().countDownLatch("fillDataLatch", driversNodesCnt, true, true);
+        IgniteCountDownLatch dataIsReady = ignite().countDownLatch("fillDataLatch", 1, true, true);
 
         try {
-            if (memberId == 0)
+            if (memberId == 0) {
                 fillData(cfg, (IgniteEx)ignite(), args.range(), args.atomicMode());
-            else
-                println(cfg, "No need to upload data (memberId = " + memberId + ").");
 
-            dataIsReady.countDown();
+                dataIsReady.countDown();
+            }
+            else {
+                println(cfg, "No need to upload data for memberId=" + memberId + ". Just waiting");
 
-            dataIsReady.await(); // todo: timeout;
+                dataIsReady.await(DATA_WAIT_TIMEOUT_MIN, TimeUnit.MINUTES);
+
+                println(cfg, "Data is ready.");
+            }
+
         }
         catch (Throwable th) {
             dataIsReady.countDownAll();
@@ -73,7 +80,7 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
             throw new RuntimeException("Fill Data failed.", th);
         }
 
-        // workaround for Table not found
+        // Workaround for "Table TEST_LONG not found" on sql update.
         ((IgniteEx)ignite())
             .context()
             .query()
