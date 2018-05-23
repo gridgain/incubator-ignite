@@ -100,6 +100,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
     /** Marshaller. */
     private static final Marshaller marshaller = new JdkMarshaller();
 
+    public static final boolean trackPageReads = Boolean.getBoolean("TRACK_PAGE_READS");
+
     /** */
     private final Map<Integer, CacheStoreHolder> idxCacheStores = new ConcurrentHashMap<>();
 
@@ -332,7 +334,10 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         try {
             store.read(pageId, pageBuf, keepCrc);
 
-            trackRead(pageBuf);
+            trackRead(cacheId, pageId, pageBuf);
+
+            if (trackPageReads)
+                System.out.println("Page read: cacheId=" + cacheId + ", pageId=" + pageId);
         }
         catch (PersistentStorageIOException e) {
             cctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
@@ -383,7 +388,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
      * @return PageStore to which the page has been written.
      * @throws IgniteCheckedException If IO error occurred.
      */
-    public PageStore writeInternal(int cacheId, long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteCheckedException {
+    public PageStore writeInternal(int cacheId, long pageId, ByteBuffer pageBuf, int tag,
+        boolean calculateCrc) throws IgniteCheckedException {
         int partId = PageIdUtils.partId(pageId);
 
         PageStore store = getStore(cacheId, partId);
@@ -403,6 +409,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
     }
 
     private static final ConcurrentHashMap<Integer, LongAdder> TRACK_READS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Integer, LongAdder> TRACK_PART_READS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Integer, LongAdder> TRACK_WRITES = new ConcurrentHashMap<>();
 
     private static final long TRACK_TIMEOUT = Long.parseLong(System.getProperty("ignite.page.track.timeout", "60000"));
@@ -432,7 +439,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
     public static void printTrackMap() {
         TreeMap<Integer, IgniteBiTuple<Long, Long>> map = trackPrepareMap();
 
-        StringBuilder out = new StringBuilder().append(System.currentTimeMillis()).append(": ");
+        StringBuilder out = new StringBuilder().append(System.currentTimeMillis()).append(" reads\\writes by type: \n");
 
         for (Map.Entry<Integer, IgniteBiTuple<Long, Long>> entry : map.entrySet()) {
             int type = entry.getKey();
@@ -440,6 +447,17 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
             long writeCnt = entry.getValue().get2();
 
             String line = String.format("%6d -> %16d    %16d\n", type, readCnt, writeCnt);
+
+            out.append(line);
+        }
+
+        out.append("reads by partitions: \n");
+
+        for (Map.Entry<Integer, LongAdder> entry : TRACK_PART_READS.entrySet()) {
+            int part = entry.getKey();
+            LongAdder readCnt = entry.getValue();
+
+            String line = String.format("%6d -> %16d\n", part, readCnt.longValue());
 
             out.append(line);
         }
@@ -477,22 +495,41 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         return res;
     }
 
-    private void trackRead(ByteBuffer pageBuf) {
+    private void trackRead(int cacheId, long pageId, ByteBuffer pageBuf) {
         int type = PageIO.getType(pageBuf);
 
         if (type != 0) {
-            LongAdder ctr = TRACK_READS.get(type);
+            {
+                LongAdder ctr = TRACK_READS.get(type);
 
-            if (ctr == null) {
-                ctr = new LongAdder();
+                if (ctr == null) {
+                    ctr = new LongAdder();
 
-                LongAdder oldCtr = TRACK_READS.putIfAbsent(type, ctr);
+                    LongAdder oldCtr = TRACK_READS.putIfAbsent(type, ctr);
 
-                if (oldCtr != null)
-                    ctr = oldCtr;
+                    if (oldCtr != null)
+                        ctr = oldCtr;
+                }
+
+                ctr.increment();
             }
 
-            ctr.increment();
+            if (type == PageIO.T_DATA && cacheId == -1372305054) {
+                int partId = PageIdUtils.partId(pageId);
+
+                LongAdder ctr = TRACK_PART_READS.get(partId);
+
+                if (ctr == null) {
+                    ctr = new LongAdder();
+
+                    LongAdder oldCtr = TRACK_PART_READS.putIfAbsent(partId, ctr);
+
+                    if (oldCtr != null)
+                        ctr = oldCtr;
+                }
+
+                ctr.increment();
+            }
         }
     }
 
@@ -571,10 +608,10 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
                 pageStoreFileIoFactory, pageStoreV1FileIoFactory, igniteCfg.getDataStorageConfiguration());
 
             FilePageStore idxStore =
-            pageStoreFactory.createPageStore(
-                PageMemory.FLAG_IDX,
-                idxFile,
-                allocatedTracker);
+                pageStoreFactory.createPageStore(
+                    PageMemory.FLAG_IDX,
+                    idxFile,
+                    allocatedTracker);
 
             FilePageStore[] partStores = new FilePageStore[partitions];
 
@@ -585,8 +622,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
                         getPartitionFile(cacheWorkDir, partId),
                         allocatedTracker);
 
-                    partStores[partId] = partStore;
-                }
+                partStores[partId] = partStore;
+            }
 
             return new CacheStoreHolder(idxStore, partStores);
         }
@@ -631,7 +668,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
             Path tmp = cacheWorkDirPath.getParent().resolve(cacheWorkDir.getName() + ".tmp");
 
             if (Files.exists(tmp) && Files.isDirectory(tmp) &&
-                    Files.exists(tmp.resolve(IgniteCacheSnapshotManager.TEMP_FILES_COMPLETENESS_MARKER))) {
+                Files.exists(tmp.resolve(IgniteCacheSnapshotManager.TEMP_FILES_COMPLETENESS_MARKER))) {
 
                 U.warn(log, "Ignite node crashed during the snapshot restore process " +
                     "(there is a snapshot restore lock file left for cache). But old version of cache was saved. " +
