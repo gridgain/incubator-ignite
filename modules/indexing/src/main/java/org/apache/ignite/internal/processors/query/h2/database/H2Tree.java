@@ -19,6 +19,8 @@ package org.apache.ignite.internal.processors.query.h2.database;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
@@ -133,6 +135,9 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
      * @throws IgniteCheckedException if failed.
      */
     public GridH2Row createRowFromLink(long link) throws IgniteCheckedException {
+        if (print)
+            System.out.println("MATERIALIZING ROW: " + link);
+
         if (rowCache != null) {
             GridH2Row row = rowCache.get(link);
 
@@ -148,6 +153,8 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
         else
             return rowStore.getRow(link);
     }
+
+    public static volatile boolean print = false;
 
     /** {@inheritDoc} */
     @Override protected GridH2Row getRow(BPlusIO<SearchRow> io, long pageAddr, int idx, Object filter)
@@ -165,6 +172,42 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
         }
 
         return (GridH2Row)io.getLookupRow(this, pageAddr, idx);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected int getRows(BPlusIO<SearchRow> io, long pageAddr, int startIdx, int cnt, Object filter,
+        Object[] out) throws IgniteCheckedException {
+        int foundCnt = 0;
+
+        IndexingQueryCacheFilter filter0 = (IndexingQueryCacheFilter)filter;
+
+        // Pre-sort links.
+        TreeMap<Long, Integer> sortedLinks = new TreeMap<>();
+
+        for (int i = 0; i < cnt; i++) {
+            int idx = startIdx + i;
+
+            long link = ((H2RowLinkIO)io).getLink(pageAddr, idx);
+
+            int part = PageIdUtils.partId(PageIdUtils.pageId(link));
+
+            if (filter0 != null && !filter0.applyPartition(part))
+                continue;
+
+            sortedLinks.put(link, foundCnt++);
+        }
+
+        // Initialize rows from sorted links.
+        for (Map.Entry<Long, Integer> entry : sortedLinks.entrySet()) {
+            long link = entry.getKey();
+            int idx = entry.getValue();
+
+            GridH2Row row = createRowFromLink(link);
+
+            out[idx] = row;
+        }
+
+        return foundCnt;
     }
 
     /**

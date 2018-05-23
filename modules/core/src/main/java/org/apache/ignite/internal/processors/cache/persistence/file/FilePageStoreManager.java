@@ -432,7 +432,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
     public static void printTrackMap() {
         TreeMap<Integer, IgniteBiTuple<Long, Long>> map = trackPrepareMap();
 
-        StringBuilder out = new StringBuilder().append(System.currentTimeMillis()).append(": ");
+        StringBuilder out = new StringBuilder().append(System.currentTimeMillis()).append(": \n");
 
         for (Map.Entry<Integer, IgniteBiTuple<Long, Long>> entry : map.entrySet()) {
             int type = entry.getKey();
