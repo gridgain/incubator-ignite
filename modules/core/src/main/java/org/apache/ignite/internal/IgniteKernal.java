@@ -106,6 +106,7 @@ import org.apache.ignite.internal.binary.BinaryUtils;
 import org.apache.ignite.internal.cluster.ClusterGroupAdapter;
 import org.apache.ignite.internal.cluster.IgniteClusterEx;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager;
 import org.apache.ignite.internal.processors.failure.FailureProcessor;
 import org.apache.ignite.internal.managers.GridManager;
 import org.apache.ignite.internal.managers.checkpoint.GridCheckpointManager;
@@ -4354,6 +4355,33 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     ) {
         ctx.io().runIoTest(warmup, duration, threads, maxLatency, rangesCnt, payLoadSize, procFromNioThread,
             new ArrayList(ctx.cluster().get().forServers().forRemotes().nodes()));
+    }
+
+    /** {@inheritDoc} */
+    @Override public void clearDataPages() {
+        try {
+            ctx.cache().clearAllPages();
+        }
+        catch (Exception e) {
+            U.error(log, "Failed to clear pages.", e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override public long getDataPageReads() {
+        return FilePageStoreManager.trackDataPages();
+    }
+
+    public static volatile boolean showMaterialized;
+
+    /** {@inheritDoc} */
+    @Override public boolean getShowMaterializedRows() {
+        return showMaterialized;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setShowMaterializedRows(boolean val) {
+        showMaterialized = val;
     }
 
     /** {@inheritDoc} */

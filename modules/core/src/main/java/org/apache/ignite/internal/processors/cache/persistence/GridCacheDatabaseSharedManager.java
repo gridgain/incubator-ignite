@@ -124,6 +124,7 @@ import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStor
 import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage;
 import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetastorageLifecycleListener;
 import org.apache.ignite.internal.processors.cache.persistence.pagemem.CheckpointMetricsTracker;
+import org.apache.ignite.internal.processors.cache.persistence.pagemem.LoadedPagesMap;
 import org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryEx;
 import org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl;
 import org.apache.ignite.internal.processors.cache.persistence.partstate.PartitionAllocationMap;
@@ -1321,6 +1322,30 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     }
                 }
             }
+        }
+    }
+
+    public void clearAllPages() throws Exception {
+        checkpointReadLock();
+
+        try {
+            for (DataRegion dataRegion : dataRegions()) {
+                String name = dataRegion.config().getName();
+
+                if (F.eq(name, "sysMemPlc") || F.eq(name, "metastoreMemPlc"))
+                    continue;;
+
+                PageMemoryEx pageMem = (PageMemoryEx)dataRegion.pageMemory();
+
+                pageMem.clearAsync(new LoadedPagesMap.KeyPredicate() {
+                    @Override public boolean test(int grpId, long pageId) {
+                        return true;
+                    }
+                }, false).get();
+            }
+        }
+        finally {
+            checkpointReadUnlock();
         }
     }
 

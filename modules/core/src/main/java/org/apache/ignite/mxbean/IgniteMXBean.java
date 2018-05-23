@@ -472,6 +472,7 @@ public interface IgniteMXBean {
             "Process requests in NIO-threads flag."
         }
     )
+
     void runIoTest(
         long warmup,
         long duration,
@@ -481,4 +482,16 @@ public interface IgniteMXBean {
         int payLoadSize,
         boolean procFromNioThread
     );
+
+    @MXBeanDescription("Clear all data pages.")
+    public void clearDataPages();
+
+    @MXBeanDescription("Get data page reads.")
+    public long getDataPageReads();
+
+    @MXBeanDescription("Get whether to show materialized rows.")
+    public boolean getShowMaterializedRows();
+
+    @MXBeanDescription("Set whether to show materialized rows.")
+    public void setShowMaterializedRows(boolean val);
 }

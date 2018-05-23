@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
@@ -133,8 +134,10 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
      * @throws IgniteCheckedException if failed.
      */
     public GridH2Row createRowFromLink(long link) throws IgniteCheckedException {
+        GridH2Row row;
+
         if (rowCache != null) {
-            GridH2Row row = rowCache.get(link);
+            row = rowCache.get(link);
 
             if (row == null) {
                 row = rowStore.getRow(link);
@@ -143,10 +146,15 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
                     rowCache.put((GridH2KeyValueRowOnheap)row);
             }
 
-            return row;
+
         }
         else
-            return rowStore.getRow(link);
+            row = rowStore.getRow(link);
+
+        if (IgniteKernal.showMaterialized)
+            System.out.println("MATERIALIZED ROW: " + row);
+
+        return row;
     }
 
     /** {@inheritDoc} */

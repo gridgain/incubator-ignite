@@ -2399,6 +2399,14 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             fut.onDone(false, err);
     }
 
+    public void clearAllPages() throws Exception {
+        GridCacheDatabaseSharedManager dbMgr = ((GridCacheDatabaseSharedManager)sharedCtx.database());
+
+        dbMgr.forceCheckpoint("clearAllPages").finishFuture().get();
+
+        dbMgr.clearAllPages();
+    }
+
     /**
      * Creates shared context.
      *
