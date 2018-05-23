@@ -180,8 +180,11 @@ public abstract class WALRecord {
         /** Exchange record. */
         EXCHANGE,
 
-        /** Reserved for future record. */
-        RESERVED;
+        /** Baseline topology record. */
+        BASELINE_TOP_RECORD,
+
+        /** Rotated id part record. */
+        ROTATED_ID_PART_RECORD;
 
         /** */
         private static final RecordType[] VALS = RecordType.values();
