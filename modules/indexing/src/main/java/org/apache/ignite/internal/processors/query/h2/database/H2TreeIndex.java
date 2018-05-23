@@ -25,6 +25,7 @@ import java.util.NoSuchElementException;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
@@ -190,7 +191,8 @@ public class H2TreeIndex extends GridH2IndexBase {
 
     /** {@inheritDoc} */
     @Override public Cursor find(Session ses, SearchRow lower, SearchRow upper) {
-        System.out.println("FIND TREE [idx=" + this + ", lower=" + lower + ", upper=" + upper + "]");
+        if (IgniteKernal.showMaterialized)
+            System.out.println("FIND TREE [idx=" + this + ", lower=" + lower + ", upper=" + upper + "]");
 
         try {
             IndexingQueryCacheFilter filter = partitionFilter(threadLocalFilter());

@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.IgniteCacheOffheapManager;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
@@ -84,7 +85,8 @@ public class H2PkHashIndex extends GridH2IndexBase {
 
     /** {@inheritDoc} */
     @Override public Cursor find(Session ses, final SearchRow lower, final SearchRow upper) {
-        System.out.println("FIND HASH [idx=" + this + ", lower=" + lower + ", upper=" + upper + "]");
+        if (IgniteKernal.showMaterialized)
+            System.out.println("FIND HASH [idx=" + this + ", lower=" + lower + ", upper=" + upper + "]");
 
         IndexingQueryFilter f = threadLocalFilter();
         IndexingQueryCacheFilter p = null;
