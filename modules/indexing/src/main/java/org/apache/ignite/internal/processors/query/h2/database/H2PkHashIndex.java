@@ -84,6 +84,8 @@ public class H2PkHashIndex extends GridH2IndexBase {
 
     /** {@inheritDoc} */
     @Override public Cursor find(Session ses, final SearchRow lower, final SearchRow upper) {
+        System.out.println("FIND HASH [idx=" + this + ", lower=" + lower + ", upper=" + upper + "]");
+
         IndexingQueryFilter f = threadLocalFilter();
         IndexingQueryCacheFilter p = null;
 

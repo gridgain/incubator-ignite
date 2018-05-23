@@ -447,6 +447,12 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         System.out.println(out);
     }
 
+    public static long trackDataPages() {
+        IgniteBiTuple<Long, Long> res = trackPrepareMap().get((int)PageIO.T_DATA);
+
+        return res != null ? res.get1() : 0L;
+    }
+
     private static TreeMap<Integer, IgniteBiTuple<Long, Long>> trackPrepareMap() {
         TreeMap<Integer, IgniteBiTuple<Long, Long>> res = new TreeMap<>();
 
