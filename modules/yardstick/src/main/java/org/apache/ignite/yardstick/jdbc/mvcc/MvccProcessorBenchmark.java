@@ -19,7 +19,6 @@ package org.apache.ignite.yardstick.jdbc.mvcc;
 
 import java.util.Map;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
-import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.yardstick.jdbc.DisjointRangeGenerator;
 import org.yardstickframework.BenchmarkConfiguration;
 
@@ -55,12 +54,7 @@ public class MvccProcessorBenchmark extends AbstractDistributedMvccBenchmark {
 
         long end = idOffset + locIdGen.endRangeId(locStart);
 
-        ((IgniteEx)ignite())
-            .context()
-            .query()
-            .querySqlFields(new SqlFieldsQuery(UPDATE_QRY)
-                .setArgs(start, end), false)
-            .getAll();
+        execute(new SqlFieldsQuery(UPDATE_QRY).setArgs(start, end));
 
         return true;
     }

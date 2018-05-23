@@ -17,12 +17,13 @@
 
 package org.apache.ignite.yardstick.jdbc.mvcc;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.IgniteCountDownLatch;
+import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
-import org.apache.ignite.yardstick.jdbc.DisjointRangeGenerator;
 import org.yardstickframework.BenchmarkConfiguration;
 
 import static org.apache.ignite.yardstick.jdbc.JdbcUtils.fillData;
@@ -81,10 +82,20 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
         }
 
         // Workaround for "Table TEST_LONG not found" on sql update.
-        ((IgniteEx)ignite())
+        execute(new SqlFieldsQuery("SELECT COUNT(*) FROM test_long"));
+    }
+
+    /**
+     * Execute specified query using started driver node.
+     * Returns result using {@link QueryCursor#getAll()}.
+     *
+     * @param qry sql query to execute.
+     */
+    protected List<List<?>> execute(SqlFieldsQuery qry) {
+        return ((IgniteEx)ignite())
             .context()
             .query()
-            .querySqlFields(new SqlFieldsQuery("SELECT COUNT(*) FROM test_long"), false)
+            .querySqlFields(qry, false)
             .getAll();
     }
 }

@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
-import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.query.IgniteSQLException;
 
 import static org.yardstickframework.BenchmarkUtils.println;
@@ -50,12 +49,7 @@ public class MvccUpdateContentionBenchmark extends AbstractDistributedMvccBenchm
         long end = start + (args.sqlRange() - 1);
 
         try {
-            ((IgniteEx)ignite())
-                .context()
-                .query()
-                .querySqlFields(new SqlFieldsQuery(UPDATE_QRY)
-                    .setArgs(start, end), false)
-                .getAll();
+            execute(new SqlFieldsQuery(UPDATE_QRY).setArgs(start, end));
         }
         catch (IgniteSQLException exc) {
             if ((args.mvccEnabled() && !exc.getMessage().equals(MVCC_EXC_MSG)) ||
