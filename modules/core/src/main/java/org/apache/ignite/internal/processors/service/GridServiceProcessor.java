@@ -1206,21 +1206,24 @@ public class GridServiceProcessor extends GridProcessorAdapter {
 
         GridServiceAssignments assigns = new GridServiceAssignments(cfg, dep.nodeId(), topVer.topologyVersion());
 
-        Map<UUID, Integer> cnts = calculateAssignment(dep, topVer, oldAssigns, assigns.nodeFilter());
 
-        if (oldAssigns != null && oldAssigns.assigns().equals(cnts)) {
-            if (log.isInfoEnabled())
-                log.info("No changes are required for service deployment assignment [" +
-                    "svc=" + dep.configuration().getName() + ", topVer=" + topVer + ']');
 
-            return;
+        if (oldAssigns != null && cfg.getAffinityKey() == null) {
+            Map<UUID, Integer> cnts = calculateAssignment(dep, topVer, oldAssigns, assigns.nodeFilter());
+            if(oldAssigns.assigns().equals(cnts)) {
+                if (log.isInfoEnabled())
+                    log.info("No changes are required for service deployment assignment [" +
+                        "svc=" + dep.configuration().getName() + ", topVer=" + topVer + ']');
+
+                return;
+            }
         }
 
         while (true) {
             try (IgniteInternalTx tx = cache.txStartEx(PESSIMISTIC, REPEATABLE_READ)) {
                 oldAssigns = (GridServiceAssignments)cache.get(key);
 
-                cnts = calculateAssignment(dep, topVer, oldAssigns, assigns.nodeFilter());
+                Map<UUID, Integer> cnts = calculateAssignment(dep, topVer, oldAssigns, assigns.nodeFilter());
 
                 assigns.assigns(cnts);
 
@@ -1380,7 +1383,7 @@ public class GridServiceProcessor extends GridProcessorAdapter {
             }
         }
 
-        HashMap<UUID, Integer> noZeroAssingment = new HashMap<>(cnts);
+        HashMap<UUID, Integer> noZeroAssingment = new HashMap<>();
 
         for (Map.Entry<UUID, Integer> entry : cnts.entrySet())
             if(entry.getValue() != 0) noZeroAssingment.put(entry.getKey(), entry.getValue());
