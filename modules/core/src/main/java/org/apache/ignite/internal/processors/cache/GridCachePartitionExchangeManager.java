@@ -2147,9 +2147,12 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         /** {@inheritDoc} */
         @Override public void run() {
             ExecutorService exec = Executors.newSingleThreadExecutor();
+
+            final Ignite ignite0 = ign;
+
             exec.submit(new Runnable() {
                 @Override public void run() {
-                    ign.close();
+                    ignite0.close();
                 }
             });
 
