@@ -142,7 +142,6 @@ public class IgniteServiceDynamicCachesSelfTest extends GridCommonAbstractTest {
         try {
             boolean res = GridTestUtils.waitForCondition(new PA() {
                 @Override public boolean apply() {
-                    System.out.println("CHECK");
                     return svcs.service(svcName) != null;
                 }
             }, 60 * 1000);

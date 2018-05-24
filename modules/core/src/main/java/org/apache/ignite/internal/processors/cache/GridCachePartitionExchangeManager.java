@@ -2139,6 +2139,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
     /** Poison task to stop node */
     private static class PoisonTask implements IgniteRunnable {
+        /** */
+        private static final long serialVersionUID = 0L;
 
         /** */
         @IgniteInstanceResource
