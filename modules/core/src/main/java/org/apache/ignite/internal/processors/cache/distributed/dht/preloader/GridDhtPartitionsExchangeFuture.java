@@ -1915,7 +1915,9 @@ public class GridDhtPartitionsExchangeFuture extends GridFutureAdapter<AffinityT
     }
 
     public Set<UUID> getRemaining() {
-        return remaining;
+        synchronized (mux) {
+            return new HashSet<>(remaining);
+        }
     }
 
     /**
