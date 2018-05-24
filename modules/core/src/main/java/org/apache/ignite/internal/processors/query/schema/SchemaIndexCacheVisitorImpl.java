@@ -37,6 +37,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.thread.IgniteThread;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.EVICTED;
@@ -155,8 +156,15 @@ public class SchemaIndexCacheVisitorImpl implements SchemaIndexCacheVisitor {
      * @throws IgniteCheckedException If failed.
      */
     private void processPartitions(List<GridDhtLocalPartition> parts, SchemaIndexCacheVisitorClosure clo,
-        int remainder)
-        throws IgniteCheckedException {
+        int remainder) throws IgniteCheckedException {
+        List<Integer> partIds = new ArrayList<>(parts.size());
+
+        for (GridDhtLocalPartition part : parts)
+            partIds.add(part.id());
+
+        System.out.println("CREATE INDEX START [thread=" + Thread.currentThread().getName() +
+            ", partCnt=" + partIds.size() + ", parts=" + partIds + ']');
+
         for (int i = 0, size = parts.size(); i < size; i++) {
             if (stop)
                 break;
@@ -184,6 +192,12 @@ public class SchemaIndexCacheVisitorImpl implements SchemaIndexCacheVisitor {
 
         if (!reserved)
             return;
+
+        long partSize = part.fullSize();
+        long partStartTime = System.currentTimeMillis();
+
+        System.out.println("CREATE INDEX PART START [thread=" + Thread.currentThread().getName() +
+            ", part=" + part.id() + ", size=" + partSize + ']');
 
         try {
             GridCursor<? extends CacheDataRow> cursor = part.dataStore().cursor(cctx.cacheId(), null, null,
@@ -221,6 +235,11 @@ public class SchemaIndexCacheVisitorImpl implements SchemaIndexCacheVisitor {
             }
         }
         finally {
+            long partDur = System.currentTimeMillis() - partStartTime;
+
+            System.out.println("CREATE INDEX PART END [thread=" + Thread.currentThread().getName() +
+                ", part=" + part.id() + ", size=" + partSize + ", dur=" + partDur + ']');
+
             part.release();
         }
     }
