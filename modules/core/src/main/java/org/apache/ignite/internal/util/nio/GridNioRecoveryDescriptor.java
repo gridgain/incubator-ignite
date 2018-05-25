@@ -20,6 +20,7 @@ package org.apache.ignite.internal.util.nio;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
@@ -82,6 +83,9 @@ public class GridNioRecoveryDescriptor {
 
     /** */
     public GridSelectorNioSessionImpl ses;
+
+    /** */
+    private ConcurrentLinkedQueue<StackTraceElement[]> debugQ = new ConcurrentLinkedQueue<>();
 
     /**
      * @param pairedConnections {@code True} if in/out connections pair is used for communication with node.
@@ -232,6 +236,8 @@ public class GridNioRecoveryDescriptor {
      * @return {@code False} if descriptor is reserved.
      */
     public boolean onNodeLeft() {
+        debugQ.add(new Exception().getStackTrace());
+
         SessionWriteRequest[] reqs = null;
 
         synchronized (this) {
@@ -273,6 +279,8 @@ public class GridNioRecoveryDescriptor {
      * @return {@code True} if reserved.
      */
     public boolean reserve() throws InterruptedException {
+        debugQ.add(new Exception().getStackTrace());
+
         synchronized (this) {
             while (!connected && reserved) {
                 long t1 = System.nanoTime();
@@ -283,7 +291,7 @@ public class GridNioRecoveryDescriptor {
 
                 if ((t2 - t1)/1000/1000 >= 9_000) {
                     // Dumping a descriptor.
-                    log.info("Hanging on reservation: desc=" + toString() + ", ses=" + this.ses);
+                    printDebugInfo();
                 }
             }
 
@@ -301,6 +309,8 @@ public class GridNioRecoveryDescriptor {
      * @param rcvCnt Number of messages received by remote node.
      */
     public void onHandshake(long rcvCnt) {
+        debugQ.add(new Exception().getStackTrace());
+
         synchronized (this) {
             if (!nodeLeft)
                 ackReceived(rcvCnt);
@@ -313,6 +323,8 @@ public class GridNioRecoveryDescriptor {
      *
      */
     public void onConnected() {
+        debugQ.add(new Exception().getStackTrace());
+
         synchronized (this) {
             assert reserved : this;
             assert !connected : this;
@@ -364,6 +376,8 @@ public class GridNioRecoveryDescriptor {
      *
      */
     public void release() {
+        debugQ.add(new Exception().getStackTrace());
+
         SessionWriteRequest[] futs = null;
 
         synchronized (this) {
@@ -401,6 +415,8 @@ public class GridNioRecoveryDescriptor {
      * @return {@code True} if reserved.
      */
     public boolean tryReserve(long id, IgniteInClosure<Boolean> c) {
+        debugQ.add(new Exception().getStackTrace());
+
         synchronized (this) {
             if (connected) {
                 c.apply(false);
@@ -463,6 +479,19 @@ public class GridNioRecoveryDescriptor {
 
             if (req.ackClosure() != null)
                 req.ackClosure().apply(new IgniteException(e));
+        }
+    }
+
+    /** */
+    private void printDebugInfo() {
+        log.info("Hanging on reservation: desc=" + toString() + ", ses=" + this.ses);
+
+        for (StackTraceElement[] elements : debugQ) {
+            for (int i = 0; i < elements.length; i++) {
+                StackTraceElement element = elements[i];
+
+                log.info(element.toString());
+            }
         }
     }
 

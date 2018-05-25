@@ -376,6 +376,8 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
         assert recoveryDesc != null;
 
         outRecovery = recoveryDesc;
+
+        outRecovery.ses = this;
     }
 
     /** {@inheritDoc} */
@@ -388,6 +390,8 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
         assert recoveryDesc != null;
 
         inRecovery = recoveryDesc;
+
+        inRecovery.ses = this;
     }
 
     /** {@inheritDoc} */
