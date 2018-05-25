@@ -4361,6 +4361,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     @Override public void clearDataPages() {
         try {
             ctx.cache().clearAllPages();
+            FilePageStoreManager.clearTrackMaps();
         }
         catch (Exception e) {
             U.error(log, "Failed to clear pages.", e);

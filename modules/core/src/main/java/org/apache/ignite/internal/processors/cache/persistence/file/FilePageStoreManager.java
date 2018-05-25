@@ -471,6 +471,12 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         return res != null ? res.get1() : 0L;
     }
 
+    public static void clearTrackMaps() {
+        TRACK_PART_READS.clear();
+        TRACK_READS.clear();
+        TRACK_WRITES.clear();
+    }
+
     private static TreeMap<Integer, IgniteBiTuple<Long, Long>> trackPrepareMap() {
         TreeMap<Integer, IgniteBiTuple<Long, Long>> res = new TreeMap<>();
 
