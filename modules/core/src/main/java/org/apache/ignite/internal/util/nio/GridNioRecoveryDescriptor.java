@@ -80,6 +80,9 @@ public class GridNioRecoveryDescriptor {
     /** */
     private final boolean pairedConnections;
 
+    /** */
+    public GridSelectorNioSessionImpl ses;
+
     /**
      * @param pairedConnections {@code True} if in/out connections pair is used for communication with node.
      * @param queueLimit Maximum size of unacknowledged messages queue.
@@ -271,8 +274,18 @@ public class GridNioRecoveryDescriptor {
      */
     public boolean reserve() throws InterruptedException {
         synchronized (this) {
-            while (!connected && reserved)
-                wait();
+            while (!connected && reserved) {
+                long t1 = System.nanoTime();
+
+                wait(10_000);
+
+                long t2 = System.nanoTime();
+
+                if ((t2 - t1)/1000/1000 >= 9_000) {
+                    // Dumping a descriptor.
+                    log.info("Hanging on reservation: desc=" + toString() + ", ses=" + this.ses);
+                }
+            }
 
             if (!connected) {
                 reserved = true;
