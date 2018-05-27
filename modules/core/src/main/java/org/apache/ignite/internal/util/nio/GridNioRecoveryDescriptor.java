@@ -25,6 +25,7 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.jetbrains.annotations.Nullable;
@@ -85,7 +86,7 @@ public class GridNioRecoveryDescriptor {
     public GridSelectorNioSessionImpl ses;
 
     /** */
-    private ConcurrentLinkedQueue<StackTraceElement[]> debugQ = new ConcurrentLinkedQueue<>();
+    private ConcurrentLinkedQueue<StackTraceInfo> debugQ = new ConcurrentLinkedQueue<>();
 
     /**
      * @param pairedConnections {@code True} if in/out connections pair is used for communication with node.
@@ -236,7 +237,7 @@ public class GridNioRecoveryDescriptor {
      * @return {@code False} if descriptor is reserved.
      */
     public boolean onNodeLeft() {
-        debugQ.add(new Exception().getStackTrace());
+        logStack();
 
         SessionWriteRequest[] reqs = null;
 
@@ -277,9 +278,10 @@ public class GridNioRecoveryDescriptor {
     /**
      * @throws InterruptedException If interrupted.
      * @return {@code True} if reserved.
+     * @param b
      */
-    public boolean reserve() throws InterruptedException {
-        debugQ.add(new Exception().getStackTrace());
+    public boolean reserve(StringBuilder b) throws InterruptedException {
+        logStack();
 
         synchronized (this) {
             while (!connected && reserved) {
@@ -291,7 +293,7 @@ public class GridNioRecoveryDescriptor {
 
                 if ((t2 - t1)/1000/1000 >= 9_000) {
                     // Dumping a descriptor.
-                    printDebugInfo();
+                    printDebugInfo(b);
                 }
             }
 
@@ -309,7 +311,7 @@ public class GridNioRecoveryDescriptor {
      * @param rcvCnt Number of messages received by remote node.
      */
     public void onHandshake(long rcvCnt) {
-        debugQ.add(new Exception().getStackTrace());
+        logStack();
 
         synchronized (this) {
             if (!nodeLeft)
@@ -323,7 +325,7 @@ public class GridNioRecoveryDescriptor {
      *
      */
     public void onConnected() {
-        debugQ.add(new Exception().getStackTrace());
+        logStack();
 
         synchronized (this) {
             assert reserved : this;
@@ -376,7 +378,7 @@ public class GridNioRecoveryDescriptor {
      *
      */
     public void release() {
-        debugQ.add(new Exception().getStackTrace());
+        logStack();
 
         SessionWriteRequest[] futs = null;
 
@@ -415,7 +417,7 @@ public class GridNioRecoveryDescriptor {
      * @return {@code True} if reserved.
      */
     public boolean tryReserve(long id, IgniteInClosure<Boolean> c) {
-        debugQ.add(new Exception().getStackTrace());
+        logStack();
 
         synchronized (this) {
             if (connected) {
@@ -482,17 +484,47 @@ public class GridNioRecoveryDescriptor {
         }
     }
 
-    /** */
-    private void printDebugInfo() {
-        log.info("Hanging on reservation: desc=" + toString() + ", ses=" + this.ses);
+    /**
+     * @param b Builder.
+     */
+    private void printDebugInfo(StringBuilder b) {
+        log.info("DEBUG: Hanging on reservation: desc=" + toString() + ", ses=" + this.ses);
 
-        for (StackTraceElement[] elements : debugQ) {
-            for (int i = 0; i < elements.length; i++) {
-                StackTraceElement element = elements[i];
+        if (b != null)
+            log.info(b.toString());
 
-                log.info(element.toString());
+        for (StackTraceInfo info : debugQ) {
+            log.info("DEBUG: Logged stack: ts=" + info.getTs());
+
+            for (int i = 0; i < info.getElements().length; i++) {
+                StackTraceElement element = info.getElements()[i];
+
+                log.info("DEBUG: " + element.toString());
             }
         }
+    }
+
+    /** */
+    private static final class StackTraceInfo {
+        private final long ts;
+        private final StackTraceElement[] elements;
+
+        public StackTraceInfo(long ts, StackTraceElement[] elements) {
+            this.ts = ts;
+            this.elements = elements;
+        }
+
+        public long getTs() {
+            return ts;
+        }
+
+        public StackTraceElement[] getElements() {
+            return elements;
+        }
+    }
+
+    private final void logStack() {
+        debugQ.add(new StackTraceInfo(U.currentTimeMillis(),  new Exception().getStackTrace()));
     }
 
     /** {@inheritDoc} */

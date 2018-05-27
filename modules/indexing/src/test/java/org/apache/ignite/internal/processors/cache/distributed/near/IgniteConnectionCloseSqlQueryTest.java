@@ -19,12 +19,15 @@ package org.apache.ignite.internal.processors.cache.distributed.near;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
@@ -35,9 +38,17 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.util.lang.gridfunc.NoOpClosure;
+import org.apache.ignite.internal.util.nio.GridCommunicationClient;
+import org.apache.ignite.internal.util.nio.GridNioSession;
+import org.apache.ignite.internal.util.nio.GridTcpNioCommunicationClient;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.resources.LoggerResource;
+import org.apache.ignite.spi.communication.CommunicationSpi;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.spi.communication.tcp.messages.HandshakeMessage2;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
@@ -71,8 +82,8 @@ public class IgniteConnectionCloseSqlQueryTest extends GridCommonAbstractTest {
 
         c.setDiscoverySpi(disco);
 
-        TcpCommunicationSpi spi = new TcpCommunicationSpi();
-        spi.setIdleConnectionTimeout(1000);
+        TestRecordingCommunicationSpi spi = new TestRecordingCommunicationSpi();
+        spi.setIdleConnectionTimeout(1000L);
 
         c.setCommunicationSpi(spi);
 
@@ -92,6 +103,19 @@ public class IgniteConnectionCloseSqlQueryTest extends GridCommonAbstractTest {
         return c;
     }
 
+    private static final class TestClosure implements IgniteRunnable {
+        /** Serial version uid. */
+        private static final long serialVersionUid = 0L;
+
+        @LoggerResource
+        private IgniteLogger log;
+
+        @Override public void run() {
+            log.info("INVOKE");
+        }
+    }
+
+
     public void test() throws Exception {
         IgniteEx svr = startGrid(0);
 
@@ -103,13 +127,35 @@ public class IgniteConnectionCloseSqlQueryTest extends GridCommonAbstractTest {
 
         assertTrue(c2.configuration().isClientMode());
 
+        TestRecordingCommunicationSpi spi2 = (TestRecordingCommunicationSpi)c1.configuration().getCommunicationSpi();
+
+        spi2.blockMessages(HandshakeMessage2.class, c1.name());
+
         AtomicBoolean stop = new AtomicBoolean();
 
-        c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new NoOpClosure());
+        c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new TestClosure());
+
+        TcpCommunicationSpi spi1 = (TcpCommunicationSpi)c1.configuration().getCommunicationSpi();
+
+        ConcurrentMap<UUID, GridCommunicationClient[]> clientsMap = U.field(spi1, "clients");
+
+        GridCommunicationClient[] arr = clientsMap.get(c2.cluster().localNode().id());
+
+        for (GridCommunicationClient c : arr) {
+            GridTcpNioCommunicationClient client = (GridTcpNioCommunicationClient)c;
+
+            if(client != null) {
+                assertTrue(client.session().outRecoveryDescriptor().reserved());
+
+                assertFalse(client.session().outRecoveryDescriptor().connected());
+            }
+        }
 
         doSleep(3000);
 
-        c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new NoOpClosure());
+        c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new TestClosure());
+//
+//        System.out.println();
 
 //        IgniteInternalFuture<?> fut = multithreadedAsync(new Runnable() {
 //            @Override public void run() {
