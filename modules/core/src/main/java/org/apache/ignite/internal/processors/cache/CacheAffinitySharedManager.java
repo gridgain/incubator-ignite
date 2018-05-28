@@ -2170,6 +2170,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                     List<ClusterNode> newNodes = newAssignment.get(p);
                     List<ClusterNode> curNodes = curAssignment.get(p);
 
+//TODO                    if (!aliveNodes.containsAll(newNodes))
                     assert aliveNodes.containsAll(newNodes) : "Invalid new assignment [grp=" + grpHolder.aff.cacheOrGroupName() +
                         ", nodes=" + newNodes +
                         ", topVer=" + fut.context().events().discoveryCache().version() +
@@ -2488,8 +2489,8 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                 affFunc,
                 ccfg.getNodeFilter(),
                 ccfg.getBackups(),
-                ccfg.getCacheMode() == LOCAL,
-                grpDesc.persistenceEnabled());
+                ccfg.getCacheMode() == LOCAL
+            );
 
             return new CacheGroupHolder2(ccfg.getRebalanceMode() != NONE, cctx, aff, initAff);
         }

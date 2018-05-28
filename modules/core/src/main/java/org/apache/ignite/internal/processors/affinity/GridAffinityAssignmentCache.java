@@ -116,9 +116,6 @@ public class GridAffinityAssignmentCache {
     /** */
     private final boolean locCache;
 
-    /** */
-    private final boolean persistentCache;
-
     /** Node stop flag. */
     private volatile IgniteCheckedException stopErr;
 
@@ -146,9 +143,8 @@ public class GridAffinityAssignmentCache {
         AffinityFunction aff,
         IgnitePredicate<ClusterNode> nodeFilter,
         int backups,
-        boolean locCache,
-        boolean persistentCache)
-    {
+        boolean locCache
+    ) {
         assert ctx != null;
         assert aff != null;
         assert nodeFilter != null;
@@ -161,7 +157,6 @@ public class GridAffinityAssignmentCache {
         this.grpId = grpId;
         this.backups = backups;
         this.locCache = locCache;
-        this.persistentCache = persistentCache;
 
         log = ctx.log(GridAffinityAssignmentCache.class);
 

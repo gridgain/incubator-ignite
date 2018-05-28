@@ -322,34 +322,16 @@ public class IgniteClusterAsyncImpl extends AsyncSupportAdapter<IgniteCluster>
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public Collection<BaselineNode> currentAffinityTopology() {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setAffinityTopology(Collection<? extends BaselineNode> affinityTop) {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setAffinityTopology(long topVer) {
-
-    }
-
-    /** {@inheritDoc} */
-    @Deprecated
     @Nullable @Override public Collection<BaselineNode> currentBaselineTopology() {
         return null;
     }
 
     /** {@inheritDoc} */
-    @Deprecated
     @Override public void setBaselineTopology(Collection<? extends BaselineNode> baselineTop) {
 
     }
 
     /** {@inheritDoc} */
-    @Deprecated
     @Override public void setBaselineTopology(long topVer) {
 
     }

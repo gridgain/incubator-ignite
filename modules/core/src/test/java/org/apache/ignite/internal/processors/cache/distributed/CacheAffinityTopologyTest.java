@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CachePeekMode;
@@ -58,6 +59,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.cache.PartitionLossPolicy.READ_ONLY_SAFE;
 
@@ -242,20 +244,20 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testTopologyChangesWithFixedBaselinePersistentCache() throws Exception {
-        topologyChangesWIthFixedTopology(CACHE_NAME_PERSISTENT);
+        topologyChangesWithFixedTopology(CACHE_NAME_PERSISTENT);
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testTopologyChangesWithFixedBaselineInMemoryCache() throws Exception {
-        topologyChangesWIthFixedTopology(CACHE_NAME_IN_MEMORY);
+        topologyChangesWithFixedTopology(CACHE_NAME_IN_MEMORY);
     }
 
     /**
      * @param cacheName Cache name.
      */
-    private void topologyChangesWIthFixedTopology(String cacheName) throws Exception {
+    private void topologyChangesWithFixedTopology(String cacheName) throws Exception {
         startGrids(NODE_COUNT);
 
         IgniteEx ignite = grid(0);
@@ -540,6 +542,93 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
         awaitPartitionMapExchange();
 
         assert ignite.affinity(cacheName).primaryPartitions(newIgnite.cluster().localNode()).length > 0;
+    }
+
+    /**
+     * @throws Exception if failed.
+     */
+    public void testThatNodesNotInBaselineDontAssignAnyData() throws Exception {
+        IgniteEx ig = (IgniteEx) startGrids(3);
+
+        ig.cluster().active(true);
+
+        IgniteEx igNotInBaseline = startGrid(3);
+
+        final String cacheName = "testThatNodesNotInBaselineDontAssignAnyData";
+
+        ig.getOrCreateCache(
+                new CacheConfiguration<>(cacheName)
+//                        .setCacheMode(REPLICATED)
+                        .setCacheMode(PARTITIONED)
+                        .setBackups(3)
+                        .setAffinity(new RendezvousAffinityFunction(false, 32))
+        );
+
+        final String persistentCacheName = cacheName + "_persistent";
+
+        ig.getOrCreateCache(
+                new CacheConfiguration<>(persistentCacheName)
+//                        .setCacheMode(REPLICATED)
+                        .setCacheMode(PARTITIONED)
+                        .setBackups(3)
+                        .setAffinity(new RendezvousAffinityFunction(false, 32))
+                        .setDataRegionName(PERSISTENT_REGION_NAME)
+        );
+
+        IgniteInternalFuture load1Fut = GridTestUtils.runAsync(new Runnable() {
+            @Override
+            public void run() {
+                try (IgniteDataStreamer dataStreamer = ig.dataStreamer(cacheName)) {
+                    for (int i = 0; i < 320; i++) {
+                        dataStreamer.addData(i, i);
+                    }
+                }
+            }
+        });
+
+        IgniteInternalFuture load2Fut = GridTestUtils.runAsync(new Runnable() {
+            @Override
+            public void run() {
+                try (IgniteDataStreamer dataStreamer = ig.dataStreamer(persistentCacheName)) {
+                    for (int i = 0; i < 320; i++) {
+                        dataStreamer.addData(i, i);
+                    }
+                }
+            }
+        });
+
+        load1Fut.get();
+        load2Fut.get();
+
+        {
+            IgniteCache<Object, Object> inMemoryCache = igNotInBaseline.cache(cacheName);
+            IgniteCache<Object, Object> persistentCache = igNotInBaseline.cache(persistentCacheName);
+
+            for (int i = 0; i < 320; i++) {
+                assertEquals(i, inMemoryCache.get(i));
+                assertNull(inMemoryCache.localPeek(i));
+
+                assertEquals(i, persistentCache.get(i));
+                assertNull(persistentCache.localPeek(i));
+            }
+        }
+
+        stopGrid(0);
+        stopGrid(1);
+        stopGrid(2);
+
+        {
+            IgniteCache<Object, Object> inMemoryCache = igNotInBaseline.cache(cacheName);
+            IgniteCache<Object, Object> persistentCache = igNotInBaseline.cache(persistentCacheName);
+
+            for (int i = 0; i < 320; i++) {
+                assertNull(inMemoryCache.get(i));
+
+                assertNull(persistentCache.get(i));
+            }
+        }
+
+
     }
 
     /**
