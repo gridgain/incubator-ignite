@@ -3128,8 +3128,6 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
         /** Cache mode. */
         private final CacheMode cacheMode;
 
-        /** Persistent cache group or not. */
-        private final boolean persistentCacheGrp;
 
         /**
          * @param name Name.
@@ -3145,7 +3143,6 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
             this.name = name;
             this.cacheFilter = cacheFilter;
             this.cacheMode = cacheMode;
-            this.persistentCacheGrp = persistentCacheGrp;
         }
 
         /** {@inheritDoc} */
@@ -3297,7 +3294,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 Integer grpId = e.getKey();
 
                 if (CU.affinityNode(node, grpAff.cacheFilter)) {
-                    if (grpAff.persistentCacheGrp && bltNodes != null && !bltNodes.contains(node.id())) // Filter out.
+                    if (bltNodes != null && !bltNodes.contains(node.id())) // Filter out.
                         continue;
                     
                     List<ClusterNode> nodes = cacheGrpAffNodes.get(grpId);

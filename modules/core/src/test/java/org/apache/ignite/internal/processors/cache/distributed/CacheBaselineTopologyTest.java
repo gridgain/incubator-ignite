@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CachePeekMode;
@@ -66,7 +67,21 @@ import static org.apache.ignite.cache.PartitionLossPolicy.READ_ONLY_SAFE;
  */
 public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     /** */
-    private static final String CACHE_NAME = "cache";
+    private static class DataNodeFilter implements IgnitePredicate<ClusterNode> {
+        /** {@inheritDoc} */
+        @Override public boolean apply(ClusterNode clusterNode) {
+            return clusterNode.attribute(DATA_NODE);
+        }
+    }
+
+    /** */
+    private static final String CACHE_NAME_PERSISTENT = "cache";
+
+    /** */
+    private static final String CACHE_NAME_IN_MEMORY = "cache-in-memory";
+
+    /** */
+    public static final String PERSISTENT_REGION_NAME = "persistent";
 
     /** */
     private boolean client;
@@ -121,20 +136,22 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
             cfg.setAutoActivationEnabled(false);
 
         cfg.setDataStorageConfiguration(
-            new DataStorageConfiguration().setDefaultDataRegionConfiguration(
-                new DataRegionConfiguration()
-                    .setPersistenceEnabled(true)
-                    .setMaxSize(100L * 1024 * 1024)
-                    .setInitialSize(100L * 1024 * 1024)
-            )
-            .setDataRegionConfigurations(
-                new DataRegionConfiguration()
-                .setName("memory")
-                .setPersistenceEnabled(false)
-                .setMaxSize(100L * 1024 * 1024)
-                .setInitialSize(100L * 1024 * 1024)
-            )
-            .setWalMode(WALMode.LOG_ONLY)
+
+                new DataStorageConfiguration().setDefaultDataRegionConfiguration(
+                        new DataRegionConfiguration()
+                                .setPersistenceEnabled(false)
+                                .setMaxSize(100L * 1024 * 1024)
+                                .setInitialSize(100L * 1024 * 1024)
+
+                )
+                        .setDataRegionConfigurations(
+                                new DataRegionConfiguration()
+                                        .setName(PERSISTENT_REGION_NAME)
+                                        .setPersistenceEnabled(true)
+                                        .setMaxSize(100L * 1024 * 1024)
+                                        .setInitialSize(100L * 1024 * 1024)
+                        )
+                        .setWalMode(WALMode.LOG_ONLY)
         );
 
         if (userAttrs != null)
@@ -146,93 +163,42 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         return cfg;
     }
 
-    /**
-     * Verifies that rebalance on cache with Node Filter happens when BaselineTopology changes.
-     *
-     * @throws Exception If failed.
-     */
-    public void testRebalanceForCacheWithNodeFilter() throws Exception {
-        try {
-            final int EMPTY_NODE_IDX = 2;
-
-            userAttrs = U.newHashMap(1);
-            userAttrs.put(DATA_NODE, true);
-
-            startGrids(2);
-
-            userAttrs.put(DATA_NODE, false);
-
-            IgniteEx ignite = startGrid(2);
-
-            ignite.cluster().active(true);
-
-            awaitPartitionMapExchange();
-
-            IgniteCache<Integer, Integer> cache =
-                ignite.createCache(
-                    new CacheConfiguration<Integer, Integer>()
-                        .setName(CACHE_NAME)
-                        .setCacheMode(PARTITIONED)
-                        .setBackups(1)
-                        .setPartitionLossPolicy(READ_ONLY_SAFE)
-                        .setAffinity(new RendezvousAffinityFunction(32, null))
-                        .setNodeFilter(new DataNodeFilter())
-                );
-
-            for (int k = 0; k < 10_000; k++)
-                cache.put(k, k);
-
-            Thread.sleep(500);
-
-            printSizesDataNodes(NODE_COUNT - 1, EMPTY_NODE_IDX);
-
-            userAttrs.put(DATA_NODE, true);
-
-            startGrid(3);
-
-            ignite.cluster().setBaselineTopology(ignite.cluster().topologyVersion());
-
-            awaitPartitionMapExchange();
-
-            Thread.sleep(500);
-
-            printSizesDataNodes(NODE_COUNT, EMPTY_NODE_IDX);
-        }
-        finally {
-            userAttrs = null;
-        }
-    }
-
     /** */
     private void printSizesDataNodes(int nodesCnt, int emptyNodeIdx) {
         for (int i = 0; i < nodesCnt; i++) {
             IgniteEx ig = grid(i);
 
-            int locSize = ig.cache(CACHE_NAME).localSize(CachePeekMode.PRIMARY);
+            int locSize = ig.cache(CACHE_NAME_PERSISTENT).localSize(CachePeekMode.PRIMARY);
 
             if (i == emptyNodeIdx)
                 assertEquals("Cache local size on "
-                    + i
-                    + " node is expected to be zero", 0, locSize);
+                        + i
+                        + " node is expected to be zero", 0, locSize);
             else
                 assertTrue("Cache local size on "
-                    + i
-                    + " node is expected to be non zero", locSize > 0);
-        }
-    }
-
-    /** */
-    private static class DataNodeFilter implements IgnitePredicate<ClusterNode> {
-
-        @Override public boolean apply(ClusterNode clusterNode) {
-            return clusterNode.attribute(DATA_NODE);
+                        + i
+                        + " node is expected to be non zero", locSize > 0);
         }
     }
 
     /**
      * @throws Exception If failed.
      */
-    public void testTopologyChangesWithFixedBaseline() throws Exception {
+    public void testTopologyChangesWithFixedBaselinePersistentCache() throws Exception {
+        topologyChangesWithFixedTopology(CACHE_NAME_PERSISTENT);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testTopologyChangesWithFixedBaselineInMemoryCache() throws Exception {
+        topologyChangesWithFixedTopology(CACHE_NAME_IN_MEMORY);
+    }
+
+    /**
+     * @param cacheName Cache name.
+     */
+    private void topologyChangesWithFixedTopology(String cacheName) throws Exception {
         startGrids(NODE_COUNT);
 
         IgniteEx ignite = grid(0);
@@ -249,31 +215,32 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
             nodes.put(ig.cluster().localNode(), ig);
         }
 
-        IgniteCache<Integer, Integer> cache =
-            ignite.createCache(
-                new CacheConfiguration<Integer, Integer>()
-                    .setName(CACHE_NAME)
-                    .setCacheMode(PARTITIONED)
-                    .setBackups(1)
-                    .setPartitionLossPolicy(READ_ONLY_SAFE)
-            );
+        CacheConfiguration<Integer, Integer> cacheCfg = new CacheConfiguration<Integer, Integer>(cacheName)
+                .setCacheMode(PARTITIONED)
+                .setBackups(1)
+                .setPartitionLossPolicy(READ_ONLY_SAFE);
+
+        if (cacheName.equals(CACHE_NAME_PERSISTENT))
+            cacheCfg.setDataRegionName(PERSISTENT_REGION_NAME);
+
+        IgniteCache<Integer, Integer> cache = ignite.createCache(cacheCfg);
 
         int key = -1;
 
         for (int k = 0; k < 100_000; k++) {
-            if (!ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(k).contains(ignite.localNode())) {
+            if (!ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(k).contains(ignite.localNode())) {
                 key = k;
                 break;
             }
         }
 
-        assert key >= 0;
+        assertTrue("key=" + key,  key >= 0);
 
-        int part = ignite.affinity(CACHE_NAME).partition(key);
+        int part = ignite.affinity(cacheName).partition(key);
 
-        Collection<ClusterNode> initialMapping = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        Collection<ClusterNode> initialMapping = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
 
-        assert initialMapping.size() == 2 : initialMapping;
+        assertEquals("Initial mapping is " +initialMapping, 2, initialMapping.size());
 
         ignite.cluster().setBaselineTopology(baselineNodes(nodes.keySet()));
 
@@ -281,24 +248,24 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         cache.put(key, 1);
 
-        Collection<ClusterNode> mapping = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        Collection<ClusterNode> mapping = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
 
-        assert initialMapping.size() == mapping.size() : mapping;
-        assert initialMapping.containsAll(mapping) : mapping;
+        assertEquals("mapping=" + mapping, mapping.size(), initialMapping.size());
+        assertTrue("mapping=" + mapping, initialMapping.containsAll(mapping));
 
         IgniteEx newIgnite = startGrid(4);
 
         awaitPartitionMapExchange();
 
-        mapping = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        mapping = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
 
-        assert initialMapping.size() == mapping.size() : mapping;
-        assert initialMapping.containsAll(mapping) : mapping;
+        assertEquals("mapping=" + mapping, mapping.size(), initialMapping.size());
+        assertTrue("mapping=" + mapping, initialMapping.containsAll(mapping));
 
-        mapping = newIgnite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        mapping = newIgnite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
 
-        assert initialMapping.size() == mapping.size() : mapping;
-        assert initialMapping.containsAll(mapping) : mapping;
+        assertEquals("mapping=" + mapping, mapping.size(), initialMapping.size());
+        assertTrue("mapping=" + mapping, initialMapping.containsAll(mapping));
 
         Set<String> stoppedNodeNames = new HashSet<>();
 
@@ -312,10 +279,10 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         awaitPartitionMapExchange(true, true, null);
 
-        mapping = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        mapping = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
 
-        assert mapping.size() == 1 : mapping;
-        assert initialMapping.containsAll(mapping);
+        assertEquals("mapping=" + mapping, 1, mapping.size());
+        assertTrue("mapping=" + mapping, initialMapping.containsAll(mapping));
 
         node = mapping.iterator().next();
 
@@ -327,23 +294,21 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         awaitPartitionMapExchange();
 
-        mapping = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        mapping = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
 
-        assert mapping.isEmpty() : mapping;
+        assertTrue("mapping=" + mapping, mapping.isEmpty());
 
-        GridDhtPartitionTopology topology = ignite.cachex(CACHE_NAME).context().topology();
+        GridDhtPartitionTopology top = ignite.cachex(cacheName).context().topology();
 
-        assert topology.lostPartitions().contains(part);
+        assertTrue(top.lostPartitions().contains(part));
 
-        for (String nodeName : stoppedNodeNames) {
-            startGrid(nodeName);
-        }
+        for (String nodeName : stoppedNodeNames) startGrid(nodeName);
 
-        assert ignite.cluster().nodes().size() == NODE_COUNT + 1;
+        assertEquals(NODE_COUNT + 1, ignite.cluster().nodes().size());
 
-        mapping = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        mapping = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
 
-        assert initialMapping.size() == mapping.size() : mapping;
+        assertEquals("mapping=" + mapping, initialMapping.size(), mapping.size());
 
         for (ClusterNode n1 : initialMapping) {
             boolean found = false;
@@ -356,10 +321,10 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
                 }
             }
 
-            assert found;
+            assertTrue(found);
         }
 
-        ignite.resetLostPartitions(Collections.singleton(CACHE_NAME));
+        ignite.resetLostPartitions(Collections.singleton(cacheName));
 
         cache.put(key, 2);
     }
@@ -367,15 +332,244 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    public void testBaselineTopologyChangesFromServer() throws Exception {
-        testBaselineTopologyChanges(false);
+    public void testBaselineTopologyChangesFromServerInMemoryCache() throws Exception {
+        testBaselineTopologyChanges(false, CACHE_NAME_IN_MEMORY);
     }
 
     /**
      * @throws Exception If failed.
      */
-    public void testBaselineTopologyChangesFromClient() throws Exception {
-        testBaselineTopologyChanges(true);
+    public void testBaselineTopologyChangesFromServerPersistentCache() throws Exception {
+        testBaselineTopologyChanges(false, CACHE_NAME_PERSISTENT);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testBaselineTopologyChangesFromClientInMemoryCache() throws Exception {
+        testBaselineTopologyChanges(true, CACHE_NAME_IN_MEMORY);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testBaselineTopologyChangesFromClientPersistentCache() throws Exception {
+        testBaselineTopologyChanges(true, CACHE_NAME_PERSISTENT);
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    private void testBaselineTopologyChanges(boolean fromClient, String cacheName) throws Exception {
+        startGrids(NODE_COUNT);
+
+        IgniteEx ignite;
+
+        if (fromClient) {
+            client = true;
+
+            ignite = startGrid(NODE_COUNT + 10);
+
+            client = false;
+        }
+        else
+            ignite = grid(0);
+
+        ignite.cluster().active(true);
+
+        awaitPartitionMapExchange();
+
+        Map<ClusterNode, Ignite> nodes = new HashMap<>();
+
+        for (int i = 0; i < NODE_COUNT; i++) {
+            Ignite ig = grid(i);
+
+            nodes.put(ig.cluster().localNode(), ig);
+        }
+
+        CacheConfiguration<Integer, Integer> cacheCfg = new CacheConfiguration<Integer, Integer>()
+                .setName(cacheName)
+                .setCacheMode(PARTITIONED)
+                .setBackups(1)
+                .setPartitionLossPolicy(READ_ONLY_SAFE);
+
+        if (CACHE_NAME_PERSISTENT.equals(cacheName))
+            cacheCfg.setDataRegionName(PERSISTENT_REGION_NAME);
+
+        ignite.createCache(cacheCfg);
+
+        manualCacheRebalancing(ignite, cacheName);
+
+        int key = -1;
+
+        for (int k = 0; k < 100_000; k++) {
+            if (!ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(k).contains(ignite.localNode())) {
+                key = k;
+                break;
+            }
+        }
+
+        assert key >= 0;
+
+        Collection<ClusterNode> initialMapping = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
+
+        assert initialMapping.size() == 2 : initialMapping;
+
+        ignite.cluster().setBaselineTopology(baselineNodes(nodes.keySet()));
+
+        Set<String> stoppedNodeNames = new HashSet<>();
+
+        ClusterNode node = initialMapping.iterator().next();
+
+        stoppedNodeNames.add(nodes.get(node).name());
+
+        nodes.get(node).close();
+
+        nodes.remove(node);
+
+        awaitPartitionMapExchange();
+
+        Collection<ClusterNode> mapping = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
+
+        assert mapping.size() == 1 : mapping;
+        assert initialMapping.containsAll(mapping);
+
+        Set<ClusterNode> blt2 = new HashSet<>(ignite.cluster().nodes());
+
+        ignite.cluster().setBaselineTopology(baselineNodes(blt2));
+
+        awaitPartitionMapExchange();
+
+        Collection<ClusterNode> initialMapping2 = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
+
+        assert initialMapping2.size() == 2 : initialMapping2;
+
+        Ignite newIgnite = startGrid(NODE_COUNT);
+
+        awaitPartitionMapExchange();
+
+        mapping = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
+
+        assert mapping.size() == initialMapping2.size() : mapping;
+        assert mapping.containsAll(initialMapping2);
+
+        assert ignite.affinity(cacheName).primaryPartitions(newIgnite.cluster().localNode()).length == 0;
+
+        Set<ClusterNode> blt3 = new HashSet<>(ignite.cluster().nodes());
+
+        ignite.cluster().setBaselineTopology(baselineNodes(blt3));
+
+        awaitPartitionMapExchange();
+
+        Collection<ClusterNode> initialMapping3 = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
+
+        assert initialMapping3.size() == 2;
+
+        assert ignite.affinity(cacheName).primaryPartitions(newIgnite.cluster().localNode()).length > 0;
+
+        newIgnite = startGrid(NODE_COUNT + 1);
+
+        awaitPartitionMapExchange();
+
+        mapping = ignite.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
+
+        assert mapping.size() == initialMapping3.size() : mapping;
+        assert mapping.containsAll(initialMapping3);
+
+        assert ignite.affinity(cacheName).primaryPartitions(newIgnite.cluster().localNode()).length == 0;
+
+        ignite.cluster().setBaselineTopology(null);
+
+        awaitPartitionMapExchange();
+
+        assert ignite.affinity(cacheName).primaryPartitions(newIgnite.cluster().localNode()).length > 0;
+    }
+
+    /**
+     * @throws Exception if failed.
+     */
+    public void testThatNodesNotInBaselineDontAssignAnyData() throws Exception {
+        IgniteEx ig = (IgniteEx) startGrids(3);
+
+        ig.cluster().active(true);
+
+        IgniteEx igNotInBaseline = startGrid(3);
+
+        final String cacheName = "testThatNodesNotInBaselineDontAssignAnyData";
+
+        ig.getOrCreateCache(
+                new CacheConfiguration<>(cacheName)
+//                        .setCacheMode(REPLICATED)
+                        .setCacheMode(PARTITIONED)
+                        .setBackups(3)
+                        .setAffinity(new RendezvousAffinityFunction(false, 32))
+        );
+
+        final String persistentCacheName = cacheName + "_persistent";
+
+        ig.getOrCreateCache(
+                new CacheConfiguration<>(persistentCacheName)
+//                        .setCacheMode(REPLICATED)
+                        .setCacheMode(PARTITIONED)
+                        .setBackups(3)
+                        .setAffinity(new RendezvousAffinityFunction(false, 32))
+                        .setDataRegionName(PERSISTENT_REGION_NAME)
+        );
+
+        IgniteInternalFuture load1Fut = GridTestUtils.runAsync(new Runnable() {
+            @Override
+            public void run() {
+                try (IgniteDataStreamer dataStreamer = ig.dataStreamer(cacheName)) {
+                    for (int i = 0; i < 320; i++) {
+                        dataStreamer.addData(i, i);
+                    }
+                }
+            }
+        });
+
+        IgniteInternalFuture load2Fut = GridTestUtils.runAsync(new Runnable() {
+            @Override
+            public void run() {
+                try (IgniteDataStreamer dataStreamer = ig.dataStreamer(persistentCacheName)) {
+                    for (int i = 0; i < 320; i++) {
+                        dataStreamer.addData(i, i);
+                    }
+                }
+            }
+        });
+
+        load1Fut.get();
+        load2Fut.get();
+
+        {
+            IgniteCache<Object, Object> inMemoryCache = igNotInBaseline.cache(cacheName);
+            IgniteCache<Object, Object> persistentCache = igNotInBaseline.cache(persistentCacheName);
+
+            for (int i = 0; i < 320; i++) {
+                assertEquals(i, inMemoryCache.get(i));
+//                assertNull(inMemoryCache.localPeek(i));
+
+                assertEquals(i, persistentCache.get(i));
+                assertNull(persistentCache.localPeek(i));
+            }
+        }
+
+        stopGrid(0);
+        stopGrid(1);
+        stopGrid(2);
+
+        {
+            IgniteCache<Object, Object> inMemoryCache = igNotInBaseline.cache(cacheName);
+            IgniteCache<Object, Object> persistentCache = igNotInBaseline.cache(persistentCacheName);
+
+            for (int i = 0; i < 320; i++) {
+//                assertNull(inMemoryCache.get(i));
+
+//                assertNull(persistentCache.get(i));
+            }
+        }
+
+
     }
 
     /**
@@ -417,132 +611,21 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
-    private void testBaselineTopologyChanges(boolean fromClient) throws Exception {
-        startGrids(NODE_COUNT);
-
-        IgniteEx ignite;
-
-        if (fromClient) {
-            client = true;
-
-            ignite = startGrid(NODE_COUNT + 10);
-
-            client = false;
-        }
-        else
-            ignite = grid(0);
-
-        ignite.cluster().active(true);
-
-        awaitPartitionMapExchange();
-
-        Map<ClusterNode, Ignite> nodes = new HashMap<>();
-
-        for (int i = 0; i < NODE_COUNT; i++) {
-            Ignite ig = grid(i);
-
-            nodes.put(ig.cluster().localNode(), ig);
-        }
-
-        ignite.createCache(
-            new CacheConfiguration<Integer, Integer>()
-                .setName(CACHE_NAME)
-                .setCacheMode(PARTITIONED)
-                .setBackups(1)
-                .setPartitionLossPolicy(READ_ONLY_SAFE)
-        );
-
-        manualCacheRebalancing(ignite, CACHE_NAME);
-
-        int key = -1;
-
-        for (int k = 0; k < 100_000; k++) {
-            if (!ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(k).contains(ignite.localNode())) {
-                key = k;
-                break;
-            }
-        }
-
-        assert key >= 0;
-
-        Collection<ClusterNode> initialMapping = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
-
-        assert initialMapping.size() == 2 : initialMapping;
-
-        ignite.cluster().setBaselineTopology(baselineNodes(nodes.keySet()));
-
-        Set<String> stoppedNodeNames = new HashSet<>();
-
-        ClusterNode node = initialMapping.iterator().next();
-
-        stoppedNodeNames.add(nodes.get(node).name());
-
-        nodes.get(node).close();
-
-        nodes.remove(node);
-
-        awaitPartitionMapExchange();
-
-        Collection<ClusterNode> mapping = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
-
-        assert mapping.size() == 1 : mapping;
-        assert initialMapping.containsAll(mapping);
-
-        Set<ClusterNode> blt2 = new HashSet<>(ignite.cluster().nodes());
-
-        ignite.cluster().setBaselineTopology(baselineNodes(blt2));
-
-        awaitPartitionMapExchange();
-
-        Collection<ClusterNode> initialMapping2 = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
-
-        assert initialMapping2.size() == 2 : initialMapping2;
-
-        Ignite newIgnite = startGrid(NODE_COUNT);
-
-        awaitPartitionMapExchange();
-
-        mapping = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
-
-        assert mapping.size() == initialMapping2.size() : mapping;
-        assert mapping.containsAll(initialMapping2);
-
-        assert ignite.affinity(CACHE_NAME).primaryPartitions(newIgnite.cluster().localNode()).length == 0;
-
-        Set<ClusterNode> blt3 = new HashSet<>(ignite.cluster().nodes());
-
-        ignite.cluster().setBaselineTopology(baselineNodes(blt3));
-
-        awaitPartitionMapExchange();
-
-        Collection<ClusterNode> initialMapping3 = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
-
-        assert initialMapping3.size() == 2;
-
-        assert ignite.affinity(CACHE_NAME).primaryPartitions(newIgnite.cluster().localNode()).length > 0;
-
-        newIgnite = startGrid(NODE_COUNT + 1);
-
-        awaitPartitionMapExchange();
-
-        mapping = ignite.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
-
-        assert mapping.size() == initialMapping3.size() : mapping;
-        assert mapping.containsAll(initialMapping3);
-
-        assert ignite.affinity(CACHE_NAME).primaryPartitions(newIgnite.cluster().localNode()).length == 0;
-
-        ignite.cluster().setBaselineTopology(null);
-
-        awaitPartitionMapExchange();
-
-        assert ignite.affinity(CACHE_NAME).primaryPartitions(newIgnite.cluster().localNode()).length > 0;
+    public void testPrimaryLeftPersistentCache() throws Exception {
+        testPrimaryLeft(CACHE_NAME_PERSISTENT);
     }
 
     /**
      * @throws Exception If failed.
      */
-    public void testPrimaryLeft() throws Exception {
+    public void testPrimaryLeftInMemoryCache() throws Exception {
+        testPrimaryLeft(CACHE_NAME_IN_MEMORY);
+    }
+
+    /**
+     * @param cacheName Cache name.
+     */
+    private void testPrimaryLeft(String cacheName) throws Exception {
         startGrids(NODE_COUNT);
 
         IgniteEx ig = grid(0);
@@ -551,21 +634,23 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         awaitPartitionMapExchange();
 
-        IgniteCache<Integer, Integer> cache =
-            ig.createCache(
-                new CacheConfiguration<Integer, Integer>()
-                    .setName(CACHE_NAME)
-                    .setCacheMode(PARTITIONED)
-                    .setBackups(1)
-                    .setPartitionLossPolicy(READ_ONLY_SAFE)
-                    .setReadFromBackup(true)
-                    .setWriteSynchronizationMode(FULL_SYNC)
-                    .setRebalanceDelay(-1)
-            );
+        CacheConfiguration<Integer, Integer> cacheCfg = new CacheConfiguration<Integer, Integer>()
+                .setName(cacheName)
+                .setCacheMode(PARTITIONED)
+                .setBackups(1)
+                .setPartitionLossPolicy(READ_ONLY_SAFE)
+                .setReadFromBackup(true)
+                .setWriteSynchronizationMode(FULL_SYNC)
+                .setRebalanceDelay(-1);
+
+        if (CACHE_NAME_PERSISTENT.equals(cacheName))
+            cacheCfg.setDataRegionName(PERSISTENT_REGION_NAME);
+
+        IgniteCache<Integer, Integer> cache = ig.createCache(cacheCfg);
 
         int key = 1;
 
-        List<ClusterNode> affNodes = (List<ClusterNode>) ig.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        List<ClusterNode> affNodes = (List<ClusterNode>) ig.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
 
         assert affNodes.size() == 2;
 
@@ -574,7 +659,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         IgniteEx primary = null;
         IgniteEx backup = null;
 
-        manualCacheRebalancing(ig, CACHE_NAME);
+        manualCacheRebalancing(ig, cacheName);
 
         for (int i = 0; i < NODE_COUNT; i++) {
             if (grid(i).localNode().equals(affNodes.get(0))) {
@@ -593,43 +678,45 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         cache.put(key, val1);
 
-        assertEquals(val1, primary.cache(CACHE_NAME).get(key));
-        assertEquals(val1, backup.cache(CACHE_NAME).get(key));
+        assertEquals(val1, primary.cache(cacheName).get(key));
+        assertEquals(val1, backup.cache(cacheName).get(key));
 
         if (ig == primary) {
             ig = backup;
 
-            cache = ig.cache(CACHE_NAME);
+            cache = ig.cache(cacheName);
         }
 
         primary.close();
 
         backup.context().cache().context().exchange().affinityReadyFuture(new AffinityTopologyVersion(5, 0)).get();
 
-        assertEquals(backup.localNode(), ig.affinity(CACHE_NAME).mapKeyToNode(key));
+        assertEquals(backup.localNode(), ig.affinity(cacheName).mapKeyToNode(key));
 
         cache.put(key, val2);
 
-        assertEquals(val2, backup.cache(CACHE_NAME).get(key));
+        assertEquals(val2, backup.cache(cacheName).get(key));
 
         primary = startGrid(primaryIdx);
 
-        assertEquals(backup.localNode(), ig.affinity(CACHE_NAME).mapKeyToNode(key));
+        assertEquals(backup.localNode(), ig.affinity(cacheName).mapKeyToNode(key));
 
-        manualCacheRebalancing(ig, CACHE_NAME);
+        manualCacheRebalancing(ig, cacheName);
 
         awaitPartitionMapExchange();
 
-        assertEquals(primary.localNode(), ig.affinity(CACHE_NAME).mapKeyToNode(key));
+        assertEquals(primary.localNode(), ig.affinity(cacheName).mapKeyToNode(key));
 
-        assertEquals(val2, primary.cache(CACHE_NAME).get(key));
-        assertEquals(val2, backup.cache(CACHE_NAME).get(key));
+        assertEquals(val2, primary.cache(cacheName).get(key));
+        assertEquals(val2, backup.cache(cacheName).get(key));
     }
 
     /**
      * @throws Exception If failed.
      */
     public void testPrimaryLeftAndClusterRestart() throws Exception {
+        String cacheName = CACHE_NAME_PERSISTENT;
+
         startGrids(NODE_COUNT);
 
         IgniteEx ig = grid(0);
@@ -637,20 +724,21 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         ig.cluster().active(true);
 
         IgniteCache<Integer, Integer> cache =
-            ig.createCache(
-                new CacheConfiguration<Integer, Integer>()
-                    .setName(CACHE_NAME)
-                    .setWriteSynchronizationMode(FULL_SYNC)
-                    .setCacheMode(PARTITIONED)
-                    .setBackups(1)
-                    .setPartitionLossPolicy(READ_ONLY_SAFE)
-                    .setReadFromBackup(true)
-                    .setRebalanceDelay(-1)
-            );
+                ig.createCache(
+                        new CacheConfiguration<Integer, Integer>()
+                                .setName(cacheName)
+                                .setWriteSynchronizationMode(FULL_SYNC)
+                                .setCacheMode(PARTITIONED)
+                                .setBackups(1)
+                                .setPartitionLossPolicy(READ_ONLY_SAFE)
+                                .setReadFromBackup(true)
+                                .setRebalanceDelay(-1)
+                                .setDataRegionName(PERSISTENT_REGION_NAME)
+                );
 
         int key = 1;
 
-        List<ClusterNode> affNodes = (List<ClusterNode>) ig.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        List<ClusterNode> affNodes = (List<ClusterNode>) ig.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
 
         assert affNodes.size() == 2;
 
@@ -660,7 +748,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         IgniteEx primary = null;
         IgniteEx backup = null;
 
-        manualCacheRebalancing(ig, CACHE_NAME);
+        manualCacheRebalancing(ig, cacheName);
 
         for (int i = 0; i < NODE_COUNT; i++) {
             if (grid(i).localNode().equals(affNodes.get(0))) {
@@ -681,24 +769,24 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         cache.put(key, val1);
 
-        assertEquals(val1, primary.cache(CACHE_NAME).get(key));
-        assertEquals(val1, backup.cache(CACHE_NAME).get(key));
+        assertEquals(val1, primary.cache(cacheName).get(key));
+        assertEquals(val1, backup.cache(cacheName).get(key));
 
         if (ig == primary) {
             ig = backup;
 
-            cache = ig.cache(CACHE_NAME);
+            cache = ig.cache(cacheName);
         }
 
         stopGrid(primaryIdx, false);
 
         backup.context().cache().context().exchange().affinityReadyFuture(new AffinityTopologyVersion(5, 0)).get();
 
-        assertEquals(backup.localNode(), ig.affinity(CACHE_NAME).mapKeyToNode(key));
+        assertEquals(backup.localNode(), ig.affinity(cacheName).mapKeyToNode(key));
 
         cache.put(key, val2);
 
-        assertEquals(val2, backup.cache(CACHE_NAME).get(key));
+        assertEquals(val2, backup.cache(cacheName).get(key));
 
         stopAllGrids(false);
 
@@ -719,22 +807,22 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         assert activated;
 
-//        assertEquals(backup.localNode(), ig.affinity(CACHE_NAME).mapKeyToNode(key));
+//        assertEquals(backup.localNode(), ig.affinity(CACHE_NAME_PERSISTENT).mapKeyToNode(key));
 
-        assertEquals(val2, primary.cache(CACHE_NAME).get(key));
-        assertEquals(val2, backup.cache(CACHE_NAME).get(key));
+        assertEquals(val2, primary.cache(cacheName).get(key));
+        assertEquals(val2, backup.cache(cacheName).get(key));
 
-        manualCacheRebalancing(ig, CACHE_NAME);
+        manualCacheRebalancing(ig, cacheName);
 
         awaitPartitionMapExchange();
 
-        affNodes = (List<ClusterNode>) ig.affinity(CACHE_NAME).mapKeyToPrimaryAndBackups(key);
+        affNodes = (List<ClusterNode>) ig.affinity(cacheName).mapKeyToPrimaryAndBackups(key);
 
         assertEquals(primary.localNode(), affNodes.get(0));
         assertEquals(backup.localNode(), affNodes.get(1));
 
-        assertEquals(val2, primary.cache(CACHE_NAME).get(key));
-        assertEquals(val2, backup.cache(CACHE_NAME).get(key));
+        assertEquals(val2, primary.cache(cacheName).get(key));
+        assertEquals(val2, backup.cache(cacheName).get(key));
     }
 
     /**
@@ -748,8 +836,9 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         ignite3.cluster().active(true);
 
         CacheConfiguration<Object, Object> repCacheCfg = new CacheConfiguration<>("replicated")
-            .setCacheMode(CacheMode.REPLICATED)
-            .setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+                .setCacheMode(CacheMode.REPLICATED)
+                .setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL)
+                .setDataRegionName(PERSISTENT_REGION_NAME);
 
         IgniteCache<Object, Object> cache = ignite3.getOrCreateCache(repCacheCfg);
 
@@ -776,62 +865,6 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
     /**
      * @throws Exception if failed.
      */
-    public void testClusterRestoredOnRestart() throws Exception {
-        startGrids(5);
-
-        Ignite ignite3 = grid(3);
-
-        ignite3.cluster().active(true);
-
-        stopGrid(0);
-
-        CacheConfiguration<Object, Object> cacheConfiguration = new CacheConfiguration<>("unknown_cache");
-
-        cacheConfiguration.setBackups(3);
-
-        IgniteCache<Object, Object> cache0 = ignite3.getOrCreateCache(cacheConfiguration);
-
-        for (int i = 0; i < 2048; i++)
-            cache0.put(i, 0);
-
-        awaitPartitionMapExchange();
-
-        stopAllGrids();
-
-        startGrids(5);
-
-        GridTestUtils.waitForCondition(() -> grid(0).cluster().active(), getTestTimeout());
-
-        for (int g = 0; g < 5; g++) {
-            for (int i = 0; i < 2048; i++)
-                assertEquals("For key: " + i, 0, grid(g).cache("unknown_cache").get(i));
-        }
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    public void testNonPersistentCachesIgnoreBaselineTopology() throws Exception {
-        Ignite ig = startGrids(4);
-
-        ig.cluster().active(true);
-
-        IgniteCache persistentCache = ig.createCache(CACHE_NAME);
-
-        IgniteCache inMemoryCache = ig.createCache(
-            new CacheConfiguration<>().setName(CACHE_NAME + 2).setDataRegionName("memory"));
-
-        Ignite newNode = startGrid(4);
-
-        awaitPartitionMapExchange();
-
-        assertEquals(0, ig.affinity(persistentCache.getName()).allPartitions(newNode.cluster().localNode()).length);
-        assertTrue(ig.affinity(inMemoryCache.getName()).allPartitions(newNode.cluster().localNode()).length > 0);
-    }
-
-    /**
-     * @throws Exception if failed.
-     */
     public void testAffinityAssignmentChangedAfterRestart() throws Exception {
         int parts = 32;
 
@@ -844,7 +877,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         TestAffinityFunction.partsAffMapping = partMapping;
 
-        String cacheName = CACHE_NAME + 2;
+        String cacheName = CACHE_NAME_PERSISTENT + 2;
 
         startGrids(4);
 
@@ -853,15 +886,17 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         ig.cluster().active(true);
 
         IgniteCache<Integer, Integer> cache = ig.createCache(
-            new CacheConfiguration<Integer, Integer>()
-                .setName(cacheName)
-                .setCacheMode(PARTITIONED)
-                .setBackups(1)
-                .setPartitionLossPolicy(READ_ONLY_SAFE)
-                .setReadFromBackup(true)
-                .setWriteSynchronizationMode(FULL_SYNC)
-                .setRebalanceDelay(-1)
-                .setAffinity(affFunc));
+                new CacheConfiguration<Integer, Integer>()
+                        .setName(cacheName)
+                        .setCacheMode(PARTITIONED)
+                        .setBackups(1)
+                        .setPartitionLossPolicy(READ_ONLY_SAFE)
+                        .setReadFromBackup(true)
+                        .setWriteSynchronizationMode(FULL_SYNC)
+                        .setRebalanceDelay(-1)
+                        .setAffinity(affFunc)
+                        .setDataRegionName(PERSISTENT_REGION_NAME)
+        );
 
         Map<Integer, String> keyToConsId = new HashMap<>();
 
@@ -949,10 +984,10 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
             TestValue other = (TestValue)o;
 
             return
-                f1 == other.f1 &&
-                f2 == other.f2 &&
-                f3 == other.f3 &&
-                f4 == other.f4;
+                    f1 == other.f1 &&
+                            f2 == other.f2 &&
+                            f3 == other.f3 &&
+                            f4 == other.f4;
 
         }
 
