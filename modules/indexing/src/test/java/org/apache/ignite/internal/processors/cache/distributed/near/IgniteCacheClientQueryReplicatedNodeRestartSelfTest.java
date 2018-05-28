@@ -202,7 +202,7 @@ public class IgniteCacheClientQueryReplicatedNodeRestartSelfTest extends GridCom
      * @param client If it must be a client cache.
      */
     private void assertClient(IgniteCache<?,?> c, boolean client) {
-        assertTrue(((IgniteCacheProxy)c).context().affinityNode() == !client);
+        assertTrue(((IgniteCacheProxy)c).context().cacheApplicableNode() == !client);
     }
 
     /**

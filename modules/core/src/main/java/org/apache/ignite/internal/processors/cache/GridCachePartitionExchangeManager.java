@@ -225,7 +225,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
     /** Discovery listener. */
     private final DiscoveryEventListener discoLsnr = new DiscoveryEventListener() {
-        @Override public void onEvent(DiscoveryEvent evt, DiscoCache cache) {
+        @Override public void onEvent(DiscoveryEvent evt, DiscoCache discoCache) {
             if (!enterBusy())
                 return;
 
@@ -238,7 +238,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                     if (stateChangeMsg.exchangeActions() == null)
                         return;
 
-                    onDiscoveryEvent(evt, cache);
+                    onDiscoveryEvent(evt, discoCache);
 
                     return;
                 }
@@ -265,16 +265,16 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                     return;
                 }
 
-                if (cache.state().transition()) {
+                if (discoCache.state().transition()) {
                     if (log.isDebugEnabled())
                         log.debug("Adding pending event: " + evt);
 
-                    pendingEvts.add(new PendingDiscoveryEvent(evt, cache));
+                    pendingEvts.add(new PendingDiscoveryEvent(evt, discoCache));
                 }
-                else if (cache.state().active())
-                    onDiscoveryEvent(evt, cache);
+                else if (discoCache.state().active())
+                    onDiscoveryEvent(evt, discoCache);
                 else
-                    processEventInactive(evt, cache);
+                    processEventInactive(evt, discoCache);
 
                 notifyNodeFail(evt);
             }
@@ -413,17 +413,17 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
      * Callback for local join event (needed since regular event for local join is not generated).
      *
      * @param evt Event.
-     * @param cache Cache.
+     * @param discoCache Cache.
      */
-    public void onLocalJoin(DiscoveryEvent evt, DiscoCache cache) {
-        discoLsnr.onEvent(evt, cache);
+    public void onLocalJoin(DiscoveryEvent evt, DiscoCache discoCache) {
+        discoLsnr.onEvent(evt, discoCache);
     }
 
     /**
      * @param evt Event.
-     * @param cache Discovery data cache.
+     * @param discoCache Discovery data cache.
      */
-    private void onDiscoveryEvent(DiscoveryEvent evt, DiscoCache cache) {
+    private void onDiscoveryEvent(DiscoveryEvent evt, DiscoCache discoCache) {
         ClusterNode loc = cctx.localNode();
 
         assert evt.type() == EVT_NODE_JOINED || evt.type() == EVT_NODE_LEFT || evt.type() == EVT_NODE_FAILED ||
@@ -453,7 +453,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 }
             }
 
-            exchFut = exchangeFuture(exchId, evt, cache, exchActs, null);
+            exchFut = exchangeFuture(exchId, evt, discoCache, exchActs, null);
         }
         else {
             DiscoveryCustomMessage customMsg = ((DiscoveryCustomEvent)evt).customMessage();
@@ -466,7 +466,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 if (exchActions != null) {
                     exchId = exchangeId(n.id(), affinityTopologyVersion(evt), evt);
 
-                    exchFut = exchangeFuture(exchId, evt, cache, exchActions, null);
+                    exchFut = exchangeFuture(exchId, evt, discoCache, exchActions, null);
                 }
             }
             else if (customMsg instanceof DynamicCacheChangeBatch) {
@@ -477,7 +477,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 if (exchActions != null) {
                     exchId = exchangeId(n.id(), affinityTopologyVersion(evt), evt);
 
-                    exchFut = exchangeFuture(exchId, evt, cache, exchActions, null);
+                    exchFut = exchangeFuture(exchId, evt, discoCache, exchActions, null);
                 }
             }
             else if (customMsg instanceof CacheAffinityChangeMessage) {
@@ -487,7 +487,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                     if (msg.exchangeNeeded()) {
                         exchId = exchangeId(n.id(), affinityTopologyVersion(evt), evt);
 
-                        exchFut = exchangeFuture(exchId, evt, cache, null, msg);
+                        exchFut = exchangeFuture(exchId, evt, discoCache, null, msg);
                     }
                 }
                 else if (msg.exchangeId().topologyVersion().topologyVersion() >= cctx.discovery().localJoinEvent().topologyVersion())
@@ -521,7 +521,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 log.debug("Discovery event (will start exchange): " + exchId);
 
             // Event callback - without this callback future will never complete.
-            exchFut.onEvent(exchId, evt, cache);
+            exchFut.onEvent(exchId, evt, discoCache);
 
             // Start exchange process.
             addFuture(exchFut);
@@ -1340,14 +1340,14 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     /**
      * @param exchId Exchange ID.
      * @param discoEvt Discovery event.
-     * @param cache Discovery data cache.
+     * @param discoCache Discovery data cache.
      * @param exchActions Cache change actions.
      * @param affChangeMsg Affinity change message.
      * @return Exchange future.
      */
     private GridDhtPartitionsExchangeFuture exchangeFuture(GridDhtPartitionExchangeId exchId,
         @Nullable DiscoveryEvent discoEvt,
-        @Nullable DiscoCache cache,
+        @Nullable DiscoCache discoCache,
         @Nullable ExchangeActions exchActions,
         @Nullable CacheAffinityChangeMessage affChangeMsg) {
         GridDhtPartitionsExchangeFuture fut;
@@ -1366,7 +1366,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         }
 
         if (discoEvt != null)
-            fut.onEvent(exchId, discoEvt, cache);
+            fut.onEvent(exchId, discoEvt, discoCache);
 
         if (stopErr != null)
             fut.onDone(stopErr);

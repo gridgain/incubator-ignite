@@ -594,7 +594,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
              * @param type Event type.
              * @param topVer Event topology version.
              * @param node Event node.
-             * @param topSnapshot Topology snapsjot.
+             * @param topSnapshot Topology snapshot.
              * @param snapshots Topology snapshots history.
              * @param spiCustomMsg Custom event.
              */
@@ -1994,7 +1994,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
     public boolean cacheGroupAffinityNode(ClusterNode node, int grpId) {
         CacheGroupAffinity aff = registeredCacheGrps.get(grpId);
 
-        return CU.affinityNode(node, aff.cacheFilter);
+        return CU.cacheAffinityNode(node, discoCache(), aff.cacheFilter);
     }
 
     /**
@@ -3128,9 +3128,6 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
         /** Cache mode. */
         private final CacheMode cacheMode;
 
-        /** Persistent cache group or not. */
-        private final boolean persistentCacheGrp;
-
         /**
          * @param name Name.
          * @param cacheFilter Node filter.
@@ -3145,7 +3142,6 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
             this.name = name;
             this.cacheFilter = cacheFilter;
             this.cacheMode = cacheMode;
-            this.persistentCacheGrp = persistentCacheGrp;
         }
 
         /** {@inheritDoc} */
@@ -3219,7 +3215,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          * @return {@code True} if this node is a data node for given cache.
          */
         public boolean dataNode(ClusterNode node) {
-            return CU.affinityNode(node, aff.cacheFilter);
+            return CU.cacheAffinityNode(node, discoCache(), aff.cacheFilter);
         }
 
         /**
@@ -3227,7 +3223,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          * @return {@code True} if cache is accessible on the given node.
          */
         boolean cacheNode(ClusterNode node) {
-            return !node.isDaemon() && (CU.affinityNode(node, aff.cacheFilter) ||
+            return !node.isDaemon() && (CU.cacheAffinityNode(node, discoCache(), aff.cacheFilter) ||
                 cacheClientNode(node) != null);
         }
 
@@ -3236,7 +3232,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          * @return {@code True} if near cache is present on the given nodes.
          */
         boolean nearNode(ClusterNode node) {
-            if (CU.affinityNode(node, aff.cacheFilter))
+            if (CU.cacheAffinityNode(node, discoCache(), aff.cacheFilter))
                 return nearEnabled;
 
             Boolean near = cacheClientNode(node);
@@ -3296,10 +3292,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 CacheGroupAffinity grpAff = e.getValue();
                 Integer grpId = e.getKey();
 
-                if (CU.affinityNode(node, grpAff.cacheFilter)) {
-                    if (grpAff.persistentCacheGrp && bltNodes != null && !bltNodes.contains(node.id())) // Filter out.
-                        continue;
-                    
+                if (CU.cacheAffinityNode(node, bltNodes, grpAff.cacheFilter)) {
                     List<ClusterNode> nodes = cacheGrpAffNodes.get(grpId);
 
                     if (nodes == null)

@@ -410,7 +410,7 @@ public abstract class GridNearCacheAdapter<K, V> extends GridDistributedCacheAda
         boolean readers) {
         assert configuration().getNearConfiguration() != null;
 
-        if (ctx.affinityNode()) {
+        if (ctx.cacheApplicableNode()) {
             GridCacheVersion obsoleteVer = ctx.versions().next();
 
             List<GridCacheClearAllRunnable<K, V>> dhtJobs = dht().splitClearLocally(srv, near, readers);

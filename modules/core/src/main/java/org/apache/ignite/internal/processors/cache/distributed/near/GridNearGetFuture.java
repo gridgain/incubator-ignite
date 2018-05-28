@@ -251,7 +251,7 @@ public final class GridNearGetFuture<K, V> extends CacheDistributedGetFutureAdap
         Collection<ClusterNode> affNodes = CU.affinityNodes(cctx, topVer);
 
         if (affNodes.isEmpty()) {
-            assert !cctx.affinityNode();
+            assert !cctx.cacheApplicableNode();
 
             onDone(new ClusterTopologyServerNotFoundException("Failed to map keys for near-only cache (all partition " +
                 "nodes left the grid)."));
@@ -574,7 +574,7 @@ public final class GridNearGetFuture<K, V> extends CacheDistributedGetFutureAdap
         boolean nearRead) {
         GridDhtCacheAdapter<K, V> dht = cache().dht();
 
-        assert dht.context().affinityNode() : this;
+        assert dht.context().cacheApplicableNode() : this;
 
         while (true) {
             GridCacheEntryEx dhtEntry = null;

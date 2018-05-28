@@ -344,7 +344,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
     private boolean initPartitions(AffinityTopologyVersion affVer, List<List<ClusterNode>> affAssignment, GridDhtPartitionsExchangeFuture exchFut, long updateSeq) {
         boolean needRefresh = false;
 
-        if (grp.affinityNode()) {
+        if (grp.cacheApplicableNode()) {
             ClusterNode loc = ctx.localNode();
 
             ClusterNode oldest = discoCache.oldestAliveServerNode();
@@ -435,7 +435,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
      * @param updateSeq Update sequence.
      */
     private void createPartitions(AffinityTopologyVersion affVer, List<List<ClusterNode>> aff, long updateSeq) {
-        if (!grp.affinityNode())
+        if (!grp.cacheApplicableNode())
             return;
 
         int num = grp.affinity().partitions();
@@ -515,7 +515,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         }
                     }
 
-                    if (grp.affinityNode()) {
+                    if (grp.cacheApplicableNode()) {
                         if (grpStarted ||
                             exchFut.firstEvent().type() == EVT_DISCOVERY_CUSTOM_EVT ||
                             exchFut.serverNodeDiscoveryEvent()) {
@@ -2277,7 +2277,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         int ownerCnt = nodeIds.size();
                         int affCnt = affNodes.size();
 
-                        if (ownerCnt > affCnt) { //TODO !!! we could loss all owners in such case. Should be fixed by GG-13223
+                        if (ownerCnt > affCnt) {
                             // Sort by node orders in ascending order.
                             Collections.sort(nodes, CU.nodeComparator(true));
 

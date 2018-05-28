@@ -92,7 +92,7 @@ public class CacheGroupContext {
     private final GridCacheSharedContext ctx;
 
     /** */
-    private final boolean affNode;
+    private final boolean cacheApplicableNode;
 
     /** */
     private final CacheType cacheType;
@@ -163,7 +163,7 @@ public class CacheGroupContext {
      * @param rcvdFrom Node ID cache group was received from.
      * @param cacheType Cache type.
      * @param ccfg Cache configuration.
-     * @param affNode Affinity node flag.
+     * @param cacheApplicableNode Cache applicable node flag.
      * @param dataRegion data region.
      * @param cacheObjCtx Cache object context.
      * @param freeList Free list.
@@ -177,7 +177,7 @@ public class CacheGroupContext {
         UUID rcvdFrom,
         CacheType cacheType,
         CacheConfiguration ccfg,
-        boolean affNode,
+        boolean cacheApplicableNode,
         DataRegion dataRegion,
         CacheObjectContext cacheObjCtx,
         FreeList freeList,
@@ -185,14 +185,14 @@ public class CacheGroupContext {
         AffinityTopologyVersion locStartVer,
         boolean walEnabled) {
         assert ccfg != null;
-        assert dataRegion != null || !affNode;
+        assert dataRegion != null || !cacheApplicableNode;
         assert grpId != 0 : "Invalid group ID [cache=" + ccfg.getName() + ", grpName=" + ccfg.getGroupName() + ']';
 
         this.grpId = grpId;
         this.rcvdFrom = rcvdFrom;
         this.ctx = ctx;
         this.ccfg = ccfg;
-        this.affNode = affNode;
+        this.cacheApplicableNode = cacheApplicableNode;
         this.dataRegion = dataRegion;
         this.cacheObjCtx = cacheObjCtx;
         this.freeList = freeList;
@@ -208,7 +208,7 @@ public class CacheGroupContext {
 
         depEnabled = ctx.kernalContext().deploy().enabled() && !ctx.kernalContext().cacheObjects().isBinaryEnabled(ccfg);
 
-        storeCacheId = affNode && dataRegion.config().getPageEvictionMode() != DataPageEvictionMode.DISABLED;
+        storeCacheId = cacheApplicableNode && dataRegion.config().getPageEvictionMode() != DataPageEvictionMode.DISABLED;
 
         log = ctx.kernalContext().log(getClass());
 
@@ -557,10 +557,10 @@ public class CacheGroupContext {
     }
 
     /**
-     * @return {@code True} if local node is affinity node.
+     * @return {@code True} if local node is cache applicable node {@link CU#cacheApplicableNode(ClusterNode, IgnitePredicate)}.
      */
-    public boolean affinityNode() {
-        return affNode;
+    public boolean cacheApplicableNode() {
+        return cacheApplicableNode;
     }
 
     /**
@@ -868,8 +868,8 @@ public class CacheGroupContext {
             ccfg.getAffinity(),
             ccfg.getNodeFilter(),
             ccfg.getBackups(),
-            ccfg.getCacheMode() == LOCAL,
-            persistenceEnabled());
+            ccfg.getCacheMode() == LOCAL
+        );
 
         if (ccfg.getCacheMode() != LOCAL) {
             top = new GridDhtPartitionTopologyImpl(ctx, this);

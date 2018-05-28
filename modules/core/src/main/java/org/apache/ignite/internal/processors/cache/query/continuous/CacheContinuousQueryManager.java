@@ -129,7 +129,7 @@ public class CacheContinuousQueryManager extends GridCacheManagerAdapter {
         // Append cache name to the topic.
         topicPrefix = "CONTINUOUS_QUERY" + (cctx.name() == null ? "" : "_" + cctx.name());
 
-        if (cctx.affinityNode()) {
+        if (cctx.cacheApplicableNode()) {
             cctx.io().addCacheHandler(cctx.cacheId(), CacheContinuousQueryBatchAck.class,
                 new CI2<UUID, CacheContinuousQueryBatchAck>() {
                     @Override public void apply(UUID uuid, CacheContinuousQueryBatchAck msg) {
@@ -666,7 +666,7 @@ public class CacheContinuousQueryManager extends GridCacheManagerAdapter {
         int taskNameHash = !internal && cctx.kernalContext().security().enabled() ?
             cctx.kernalContext().job().currentTaskNameHash() : 0;
 
-        boolean skipPrimaryCheck = loc && cctx.config().getCacheMode() == CacheMode.REPLICATED && cctx.affinityNode();
+        boolean skipPrimaryCheck = loc && cctx.config().getCacheMode() == CacheMode.REPLICATED && cctx.cacheApplicableNode();
 
         final CacheContinuousQueryHandler hnd = clsr.apply();
 

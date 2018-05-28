@@ -33,10 +33,10 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.GridTestUtils;
 
 /**
- * Failover test for cache putAll operations when BaselineTopology is changed down
- * (existing node gets stopped and removed from BaselineTopology).
+ * Failover test for cache putAll operations when AffinityTopology is changed down
+ * (existing node gets stopped and removed from AffinityTopology).
  */
-public class IgniteChangingBaselineDownCachePutAllFailoverTest extends CachePutAllFailoverAbstractTest {
+public class IgniteChangingAffinityTopologyDownPersistentCachePutAllFailoverTest extends CachePutAllFailoverAbstractTest {
     /** */
     private static final int GRIDS_COUNT = 5;
 

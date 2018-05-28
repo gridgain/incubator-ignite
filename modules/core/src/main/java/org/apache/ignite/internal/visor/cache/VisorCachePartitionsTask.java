@@ -106,7 +106,7 @@ public class VisorCachePartitionsTask extends VisorMultiNodeTask<VisorCacheParti
             CacheMode mode = cfg.getCacheMode();
 
             boolean partitioned = (mode == CacheMode.PARTITIONED || mode == CacheMode.REPLICATED)
-                && ca.context().affinityNode();
+                && ca.context().cacheApplicableNode();
 
             if (partitioned) {
                 GridDhtCacheAdapter dca = null;

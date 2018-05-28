@@ -41,7 +41,6 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteInClosure;
-import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.thread.OomExceptionHandler;
 import org.apache.ignite.thread.IgniteThread;
@@ -355,7 +354,7 @@ public class WalStateManager extends GridCacheSharedManagerAdapter {
         boolean hasNonEmptyOwning = false;
 
         for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
-            if (grp.isLocal() || !grp.affinityNode() || !grp.persistenceEnabled())
+            if (grp.isLocal() || !grp.cacheApplicableNode() || !grp.persistenceEnabled())
                 continue;
 
             boolean hasOwning = false;
@@ -375,9 +374,8 @@ public class WalStateManager extends GridCacheSharedManagerAdapter {
                 }
             }
 
-            if (hasOwning && !grp.localWalEnabled()) {
+            if (hasOwning && !grp.localWalEnabled())
                 grpsToEnableWal.add(grp.groupId());
-            }
             else if (!hasOwning && grp.localWalEnabled()) {
                 grpsToDisableWal.add(grp.groupId());
 
@@ -480,9 +478,8 @@ public class WalStateManager extends GridCacheSharedManagerAdapter {
 
                 assert grpDesc != null;
 
-                IgnitePredicate<ClusterNode> nodeFilter = grpDesc.config().getNodeFilter();
-
-                boolean affNode = srv && (nodeFilter == null || nodeFilter.apply(cctx.localNode()));
+                boolean affNode = GridCacheUtils.cacheAffinityNode(cctx.localNode(),
+                    cctx.discovery().discoCache(), grpDesc.config().getNodeFilter());
 
                 msg.affinityNode(affNode);
 

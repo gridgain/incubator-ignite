@@ -447,7 +447,7 @@ public class GridPartitionedGetFuture<K, V> extends CacheDistributedGetFutureAda
      * @return {@code True} if there is no need to further search value.
      */
     private boolean localGet(AffinityTopologyVersion topVer, KeyCacheObject key, int part, Map<K, V> locVals) {
-        assert cctx.affinityNode() : this;
+        assert cctx.cacheApplicableNode() : this;
 
         GridDhtCacheAdapter<K, V> cache = cache();
 
