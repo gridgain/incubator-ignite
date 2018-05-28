@@ -139,16 +139,16 @@ public class CacheAffinityTopologyTest extends GridCommonAbstractTest {
             new DataStorageConfiguration().setDefaultDataRegionConfiguration(
                     new DataRegionConfiguration()
                             .setPersistenceEnabled(false)
-                            .setMaxSize(100 * 1024 * 1024)
-                            .setInitialSize(100 * 1024 * 1024)
+                            .setMaxSize(100L * 1024 * 1024)
+                            .setInitialSize(100L * 1024 * 1024)
 
             )
             .setDataRegionConfigurations(
                     new DataRegionConfiguration()
                             .setName(PERSISTENT_REGION_NAME)
                             .setPersistenceEnabled(true)
-                            .setMaxSize(100 * 1024 * 1024)
-                            .setInitialSize(100 * 1024 * 1024)
+                            .setMaxSize(100L * 1024 * 1024)
+                            .setInitialSize(100L * 1024 * 1024)
             )
             .setWalMode(WALMode.LOG_ONLY)
         );
