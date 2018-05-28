@@ -15,38 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.distributed.near;
+package org.apache.ignite.internal;
 
-import java.io.Serializable;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.LockSupport;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
-import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
-import org.apache.ignite.cache.query.FieldsQueryCursor;
-import org.apache.ignite.cache.query.SqlFieldsQuery;
-import org.apache.ignite.cache.query.annotations.QuerySqlField;
-import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.internal.IgniteEx;
-import org.apache.ignite.internal.IgniteInternalFuture;
-import org.apache.ignite.internal.TestRecordingCommunicationSpi;
-import org.apache.ignite.internal.util.lang.gridfunc.NoOpClosure;
 import org.apache.ignite.internal.util.nio.GridCommunicationClient;
-import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.nio.GridTcpNioCommunicationClient;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.LoggerResource;
-import org.apache.ignite.spi.communication.CommunicationSpi;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.communication.tcp.messages.HandshakeMessage2;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
@@ -54,14 +37,9 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
-import static org.apache.ignite.cache.CacheMode.PARTITIONED;
-import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
-import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
-
 /**
  */
-public class IgniteConnectionCloseSqlQueryTest extends GridCommonAbstractTest {
+public class IgniteConnectionConcurrentReserveAndRemoveTest extends GridCommonAbstractTest {
     /** */
     private static TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
 
@@ -83,26 +61,14 @@ public class IgniteConnectionCloseSqlQueryTest extends GridCommonAbstractTest {
         c.setDiscoverySpi(disco);
 
         TestRecordingCommunicationSpi spi = new TestRecordingCommunicationSpi();
-        spi.setIdleConnectionTimeout(1000L);
+        spi.setIdleConnectionTimeout(1000000000L);
 
         c.setCommunicationSpi(spi);
-
-        CacheConfiguration<?, ?> cc = defaultCacheConfiguration();
-
-        cc.setName(DEFAULT_CACHE_NAME);
-        cc.setCacheMode(PARTITIONED);
-        cc.setBackups(2);
-        cc.setWriteSynchronizationMode(FULL_SYNC);
-        cc.setAtomicityMode(TRANSACTIONAL);
-        cc.setRebalanceMode(SYNC);
-        cc.setAffinity(new RendezvousAffinityFunction(false, 60));
-        cc.setIndexedTypes(Integer.class, Person.class);
-
-        c.setCacheConfiguration(cc);
 
         return c;
     }
 
+    /** */
     private static final class TestClosure implements IgniteRunnable {
         /** Serial version uid. */
         private static final long serialVersionUid = 0L;
@@ -110,8 +76,9 @@ public class IgniteConnectionCloseSqlQueryTest extends GridCommonAbstractTest {
         @LoggerResource
         private IgniteLogger log;
 
+        /** {@inheritDoc} */
         @Override public void run() {
-            log.info("INVOKE");
+            log.info("CALLED");
         }
     }
 
@@ -130,8 +97,6 @@ public class IgniteConnectionCloseSqlQueryTest extends GridCommonAbstractTest {
         TestRecordingCommunicationSpi spi2 = (TestRecordingCommunicationSpi)c1.configuration().getCommunicationSpi();
 
         spi2.blockMessages(HandshakeMessage2.class, c1.name());
-
-        AtomicBoolean stop = new AtomicBoolean();
 
         c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new TestClosure());
 
@@ -153,43 +118,27 @@ public class IgniteConnectionCloseSqlQueryTest extends GridCommonAbstractTest {
             }
         }
 
-        doSleep(3000);
-
         assertNotNull(client);
 
-        client.session().outRecoveryDescriptor().printDebugInfo(new StringBuilder());
+        spi1.failSend = true;
 
-        c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new TestClosure());
-//
-//        System.out.println();
+        IgniteInternalFuture<?> future = multithreadedAsync(new Runnable() {
+            @Override public void run() {
+                doSleep(1000);
 
-//        IgniteInternalFuture<?> fut = multithreadedAsync(new Runnable() {
-//            @Override public void run() {
-//                while(!stop.get())
-//                    c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new NoOpClosure());
-//            }
-//        }, 8, "send-thread");
-//
-//        doSleep(15_000);
+                spi1.failSend = false;
 
-        stop.set(true);
+                c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new TestClosure());
+            }
+        }, 1, "hang-thread");
 
-        //fut.get();
-    }
-
-    /**
-     *
-     */
-    private static class Person implements Serializable {
-        /** */
-        @QuerySqlField(index = true)
-        int id;
-
-        /**
-         * @param id Person ID.
-         */
-        Person(int id) {
-            this.id = id;
+        try {
+            c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new TestClosure());
         }
+        catch (IgniteException e) {
+            e.printStackTrace();
+        }
+
+        client.session().outRecoveryDescriptor().printDebugInfo("Test");
     }
 }

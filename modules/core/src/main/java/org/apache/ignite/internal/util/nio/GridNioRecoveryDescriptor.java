@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.util.nio;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
+import java.util.Date;
 import java.util.Deque;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.LinkedList;
+import java.util.List;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
@@ -86,8 +89,10 @@ public class GridNioRecoveryDescriptor {
     public GridSelectorNioSessionImpl ses;
 
     /** */
-    private ConcurrentLinkedQueue<StackTraceInfo> debugQ = new ConcurrentLinkedQueue<>();
+    private List<StackTraceInfo> debugQ = new LinkedList<>();
 
+    /** */
+    private StringBuilder debugB = new StringBuilder();
     /**
      * @param pairedConnections {@code True} if in/out connections pair is used for communication with node.
      * @param queueLimit Maximum size of unacknowledged messages queue.
@@ -237,11 +242,11 @@ public class GridNioRecoveryDescriptor {
      * @return {@code False} if descriptor is reserved.
      */
     public boolean onNodeLeft() {
-        logStack();
-
         SessionWriteRequest[] reqs = null;
 
         synchronized (this) {
+            logStack(null);
+
             nodeLeft = true;
 
             if (reserved)
@@ -278,22 +283,21 @@ public class GridNioRecoveryDescriptor {
     /**
      * @throws InterruptedException If interrupted.
      * @return {@code True} if reserved.
-     * @param b
      */
-    public boolean reserve(StringBuilder b) throws InterruptedException {
-        logStack();
-
+    public boolean reserve(String info) throws InterruptedException {
         synchronized (this) {
+            logStack(info);
+
             while (!connected && reserved) {
                 long t1 = System.nanoTime();
 
-                wait(10_000);
+                wait(30_000);
 
                 long t2 = System.nanoTime();
 
-                if ((t2 - t1)/1000/1000 >= 9_000) {
+                if ((t2 - t1)/1000/1000 >= 29_000) {
                     // Dumping a descriptor.
-                    printDebugInfo(b);
+                    printDebugInfo("Hanging on reservation");
                 }
             }
 
@@ -311,9 +315,9 @@ public class GridNioRecoveryDescriptor {
      * @param rcvCnt Number of messages received by remote node.
      */
     public void onHandshake(long rcvCnt) {
-        logStack();
-
         synchronized (this) {
+            logStack(null);
+
             if (!nodeLeft)
                 ackReceived(rcvCnt);
 
@@ -325,9 +329,9 @@ public class GridNioRecoveryDescriptor {
      *
      */
     public void onConnected() {
-        logStack();
-
         synchronized (this) {
+            logStack(null);
+
             assert reserved : this;
             assert !connected : this;
 
@@ -378,11 +382,11 @@ public class GridNioRecoveryDescriptor {
      *
      */
     public void release() {
-        logStack();
-
         SessionWriteRequest[] futs = null;
 
         synchronized (this) {
+            logStack(null);
+
             connected = false;
 
             if (handshakeReq != null) {
@@ -417,9 +421,9 @@ public class GridNioRecoveryDescriptor {
      * @return {@code True} if reserved.
      */
     public boolean tryReserve(long id, IgniteInClosure<Boolean> c) {
-        logStack();
-
         synchronized (this) {
+            logStack(null);
+
             if (connected) {
                 c.apply(false);
 
@@ -485,18 +489,21 @@ public class GridNioRecoveryDescriptor {
     }
 
     /**
-     * @param b Builder.
+     * @param lb Label.
      */
-    public void printDebugInfo(StringBuilder b) {
-        log.info("DEBUG: Hanging on reservation: desc=" + toString() + ", ses=" + this.ses);
+    public void printDebugInfo(String lb) {
+        log.info("DEBUG: " + lb + ": desc=" + toString() + ", ses=" + this.ses);
 
-        if (b != null)
-            log.info(b.toString());
+        SimpleDateFormat dft = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss:SSS");
 
         for (StackTraceInfo info : debugQ) {
-            log.info("DEBUG: Logged stack: ts=" + info.getTs());
+            log.info("DEBUG: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+            log.info("DEBUG: Recorded entry: ts=" + dft.format(new Date(info.getTs())));
+            log.info("DEBUG: Context:");
+            log.info("DEBUG: " + info.getDebugObject());
+            log.info("DEBUG: Stacktrace:");
 
-            for (int i = 0; i < info.getElements().length; i++) {
+            for (int i = 1; i < info.getElements().length; i++) { // Skip top method.
                 StackTraceElement element = info.getElements()[i];
 
                 log.info("DEBUG: " + element.toString());
@@ -504,22 +511,52 @@ public class GridNioRecoveryDescriptor {
         }
     }
 
-    public void onRemove() {
-        logStack();
+    public synchronized void onBeforeRemove(String s) {
+        logStack(s);
     }
 
-    public void onAdd() {
-        logStack();
+    public synchronized void onAfterRemove(String s) {
+        logStack(s);
+    }
+
+    public synchronized void onBeforeAdd(String s) {
+        logStack(s);
+    }
+
+    public synchronized void onAfterAdd(String s) {
+        logStack(s);
+    }
+
+    public synchronized void onSendException(Throwable t) {
+        logStack(t);
+    }
+
+    public synchronized void onCloseSession(boolean res) {
+        logStack(res);
+    }
+
+    public synchronized void onCloseForceSession() {
+        logStack(null);
     }
 
     /** */
     private static final class StackTraceInfo {
+        private final Object debugObj;
         private final long ts;
         private final StackTraceElement[] elements;
 
-        public StackTraceInfo(long ts, StackTraceElement[] elements) {
+        /**
+         * @param ts Timestamp.
+         * @param elements Elements.
+         */
+        public StackTraceInfo(@Nullable Object debugObj, long ts, StackTraceElement[] elements) {
+            this.debugObj = debugObj;
             this.ts = ts;
             this.elements = elements;
+        }
+
+        public @Nullable Object getDebugObject() {
+            return debugObj;
         }
 
         public long getTs() {
@@ -531,8 +568,8 @@ public class GridNioRecoveryDescriptor {
         }
     }
 
-    private final void logStack() {
-        debugQ.add(new StackTraceInfo(U.currentTimeMillis(), new Exception().getStackTrace()));
+    private final void logStack(@Nullable Object o) {
+        debugQ.add(new StackTraceInfo(o, U.currentTimeMillis(), new Exception().getStackTrace()));
     }
 
     /** {@inheritDoc} */

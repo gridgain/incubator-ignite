@@ -80,12 +80,16 @@ public class GridTcpNioCommunicationClient extends GridAbstractCommunicationClie
         if (res)
             ses.close();
 
+        ses.outRecoveryDescriptor().onCloseSession(res);
+
         return res;
     }
 
     /** {@inheritDoc} */
     @Override public void forceClose() {
         super.forceClose();
+
+        ses.outRecoveryDescriptor().onCloseForceSession();
 
         ses.close();
     }
