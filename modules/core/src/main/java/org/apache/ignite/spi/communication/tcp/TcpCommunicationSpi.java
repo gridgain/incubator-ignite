@@ -20,6 +20,8 @@ package org.apache.ignite.spi.communication.tcp;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -2635,12 +2637,36 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 }
                 while (retry);
             }
-            catch (IgniteCheckedException e) {
-                throw new IgniteSpiException("Failed to send message to remote node: " + node, e);
+            catch (Throwable e) {
+                StringWriter out = new StringWriter();
+
+                PrintWriter w = new PrintWriter(out);
+
+                e.printStackTrace(w);
+
+                w.close();
+
+                log.info("DEBUG SEND 1: " + out.toString());
+
+                if (e instanceof IgniteCheckedException)
+                    throw new IgniteSpiException("Failed to send message to remote node: " + node, e);
+                else if (e instanceof RuntimeException)
+                    throw (RuntimeException) e;
             }
             finally {
-                if (client != null && removeNodeClient(node.id(), client))
-                    client.forceClose();
+                if (client != null) {
+                    boolean rmv = removeNodeClient(node.id(), client);
+
+                    log.info("DEBUG SEND 2: removed=" + rmv + ", nodeId=" + node.id() + ", idx=" + client.connectionIndex());
+
+                    if (rmv) {
+                        log.info("DEBUG SEND 3: before forceClose");
+
+                        client.forceClose();
+
+                        log.info("DEBUG SEND 4: session=" + ((GridTcpNioCommunicationClient)client).session());
+                    }
+                }
             }
         }
     }
