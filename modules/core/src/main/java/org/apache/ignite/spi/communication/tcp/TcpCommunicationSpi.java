@@ -2646,11 +2646,26 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
     }
 
     /**
+     * @param nodeId Node id.
+     * @param connIdx Connection index.
+     */
+    private @Nullable GridNioRecoveryDescriptor descriptor(UUID nodeId, int connIdx) {
+        ConcurrentMap<ConnectionKey, GridNioRecoveryDescriptor> descs = usePairedConnections ? outRecDescs : recoveryDescs;
+
+        return descs.get(new ConnectionKey(nodeId, connIdx, -1));
+    }
+
+    /**
      * @param nodeId Node ID.
      * @param rmvClient Client to remove.
      * @return {@code True} if client was removed.
      */
     private boolean removeNodeClient(UUID nodeId, GridCommunicationClient rmvClient) {
+        GridNioRecoveryDescriptor desc = descriptor(nodeId, rmvClient.connectionIndex());
+
+        if (desc != null)
+            desc.onRemove();
+
         for (;;) {
             GridCommunicationClient[] curClients = clients.get(nodeId);
 
@@ -2675,6 +2690,11 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
         assert connectionsPerNode > 0 : connectionsPerNode;
         assert connIdx == addClient.connectionIndex() : addClient;
 
+        GridNioRecoveryDescriptor desc = descriptor(node.id(), connIdx);
+
+        if (desc != null)
+            desc.onAdd();
+
         if (connIdx >= connectionsPerNode) {
             assert !usePairedConnections(node);
 
@@ -2683,6 +2703,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
             return;
         }
 
+        GridCommunicationClient[] newClients;
+
         for (;;) {
             GridCommunicationClient[] curClients = clients.get(node.id());
 
@@ -2690,8 +2712,6 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 ", connIdx=" + connIdx +
                 ", client=" + addClient +
                 ", oldClient=" + curClients[connIdx] + ']';
-
-            GridCommunicationClient[] newClients;
 
             if (curClients == null) {
                 newClients = new GridCommunicationClient[connectionsPerNode];
@@ -2708,6 +2728,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                     break;
             }
         }
+
+        assert newClients[connIdx] != null : "Client is NULL: nodeId=" + node.id() + ", connIdx=" + connIdx;
     }
 
     /**

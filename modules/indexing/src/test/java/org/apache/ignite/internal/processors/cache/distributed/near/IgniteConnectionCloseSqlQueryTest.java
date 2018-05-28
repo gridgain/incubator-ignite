@@ -141,8 +141,10 @@ public class IgniteConnectionCloseSqlQueryTest extends GridCommonAbstractTest {
 
         GridCommunicationClient[] arr = clientsMap.get(c2.cluster().localNode().id());
 
+        GridTcpNioCommunicationClient client = null;
+
         for (GridCommunicationClient c : arr) {
-            GridTcpNioCommunicationClient client = (GridTcpNioCommunicationClient)c;
+            client = (GridTcpNioCommunicationClient)c;
 
             if(client != null) {
                 assertTrue(client.session().outRecoveryDescriptor().reserved());
@@ -152,6 +154,10 @@ public class IgniteConnectionCloseSqlQueryTest extends GridCommonAbstractTest {
         }
 
         doSleep(3000);
+
+        assertNotNull(client);
+
+        client.session().outRecoveryDescriptor().printDebugInfo(new StringBuilder());
 
         c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new TestClosure());
 //

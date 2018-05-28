@@ -487,7 +487,7 @@ public class GridNioRecoveryDescriptor {
     /**
      * @param b Builder.
      */
-    private void printDebugInfo(StringBuilder b) {
+    public void printDebugInfo(StringBuilder b) {
         log.info("DEBUG: Hanging on reservation: desc=" + toString() + ", ses=" + this.ses);
 
         if (b != null)
@@ -502,6 +502,14 @@ public class GridNioRecoveryDescriptor {
                 log.info("DEBUG: " + element.toString());
             }
         }
+    }
+
+    public void onRemove() {
+        logStack();
+    }
+
+    public void onAdd() {
+        logStack();
     }
 
     /** */
@@ -524,7 +532,7 @@ public class GridNioRecoveryDescriptor {
     }
 
     private final void logStack() {
-        debugQ.add(new StackTraceInfo(U.currentTimeMillis(),  new Exception().getStackTrace()));
+        debugQ.add(new StackTraceInfo(U.currentTimeMillis(), new Exception().getStackTrace()));
     }
 
     /** {@inheritDoc} */
