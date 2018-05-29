@@ -139,7 +139,7 @@ public class IgniteConnectionConcurrentReserveAndRemoveTest extends GridCommonAb
             fail();
         }
         catch (IgniteException e) {
-            e.printStackTrace();
+            // Expected.
         }
 
         fut.get();
