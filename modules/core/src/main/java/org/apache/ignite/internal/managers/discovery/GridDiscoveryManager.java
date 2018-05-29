@@ -594,7 +594,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
              * @param type Event type.
              * @param topVer Event topology version.
              * @param node Event node.
-             * @param topSnapshot Topology snapsjot.
+             * @param topSnapshot Topology snapshot.
              * @param snapshots Topology snapshots history.
              * @param spiCustomMsg Custom event.
              */

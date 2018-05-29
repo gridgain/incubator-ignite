@@ -4385,7 +4385,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                             // If local node has near cache, return success.
                             req.clientStartOnly(true);
                     }
-                    else if (!CU.cacheApplicableNode(ctx.discovery().localNode(), descCfg.getNodeFilter()))
+                    else if (!CU.cacheApplicableNode(ctx.discovery().localNode(), descCfg.getNodeFilter())) //TODO IGNITE-8414
                         req.clientStartOnly(true);
 
                     req.deploymentId(desc.deploymentId());
