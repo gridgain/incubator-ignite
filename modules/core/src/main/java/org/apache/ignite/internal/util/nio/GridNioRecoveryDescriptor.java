@@ -26,6 +26,7 @@ import java.util.LinkedList;
 import java.util.List;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -33,10 +34,16 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_MAX_CHECKPOINT_MEMORY_HISTORY_SIZE;
+
 /**
  * Recovery information for single node.
  */
 public class GridNioRecoveryDescriptor {
+    /** Timeout for outgoing recovery descriptor reservation. */
+    private static final long outDescReservationTimeout =
+        IgniteSystemProperties.getLong(IGNITE_PDS_MAX_CHECKPOINT_MEMORY_HISTORY_SIZE, 10_000);
+
     /** Number of acknowledged messages. */
     private long acked;
 
@@ -291,14 +298,16 @@ public class GridNioRecoveryDescriptor {
             while (!connected && reserved) {
                 long t1 = System.nanoTime();
 
-                wait(30_000);
+                wait(outDescReservationTimeout);
 
                 long t2 = System.nanoTime();
 
-                if ((t2 - t1)/1000/1000 >= 29_000) {
+                if ((t2 - t1) / 1000 / 1000 >= outDescReservationTimeout - 1000) {
                     // Dumping a descriptor.
                     printDebugInfo("Hanging on reservation");
                 }
+
+                return false;
             }
 
             if (!connected) {

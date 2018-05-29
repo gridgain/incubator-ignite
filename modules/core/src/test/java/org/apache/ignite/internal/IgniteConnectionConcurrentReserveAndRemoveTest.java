@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -28,6 +29,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.nio.GridCommunicationClient;
 import org.apache.ignite.internal.util.nio.GridTcpNioCommunicationClient;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
@@ -69,16 +71,13 @@ public class IgniteConnectionConcurrentReserveAndRemoveTest extends GridCommonAb
     }
 
     /** */
-    private static final class TestClosure implements IgniteRunnable {
+    private static final class TestClosure implements IgniteCallable<Integer> {
         /** Serial version uid. */
         private static final long serialVersionUid = 0L;
 
-        @LoggerResource
-        private IgniteLogger log;
-
         /** {@inheritDoc} */
-        @Override public void run() {
-            log.info("CALLED");
+        @Override public Integer call() throws Exception {
+            return 1;
         }
     }
 
@@ -98,7 +97,9 @@ public class IgniteConnectionConcurrentReserveAndRemoveTest extends GridCommonAb
 
         spi2.blockMessages(HandshakeMessage2.class, c1.name());
 
-        c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new TestClosure());
+        AtomicInteger cnt = new AtomicInteger();
+
+        cnt.getAndAdd(c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).call(new TestClosure()));
 
         TcpCommunicationSpi spi1 = (TcpCommunicationSpi)c1.configuration().getCommunicationSpi();
 
@@ -122,23 +123,29 @@ public class IgniteConnectionConcurrentReserveAndRemoveTest extends GridCommonAb
 
         spi1.failSend = true;
 
-        IgniteInternalFuture<?> future = multithreadedAsync(new Runnable() {
+        IgniteInternalFuture<?> fut = multithreadedAsync(new Runnable() {
             @Override public void run() {
                 doSleep(1000);
 
                 spi1.failSend = false;
 
-                c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new TestClosure());
+                cnt.getAndAdd(c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).call(new TestClosure()));
             }
         }, 1, "hang-thread");
 
         try {
-            c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).run(new TestClosure());
+            cnt.getAndAdd(c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).call(new TestClosure()));
+
+            fail();
         }
         catch (IgniteException e) {
             e.printStackTrace();
         }
 
-        client.session().outRecoveryDescriptor().printDebugInfo("Test");
+        fut.get();
+
+        assertEquals(2, cnt.get());
+
+        //client.session().outRecoveryDescriptor().printDebugInfo("Test");
     }
 }

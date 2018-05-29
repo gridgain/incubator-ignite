@@ -795,6 +795,11 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_GRID_CLIENT_LOG_ENABLED = "IGNITE_GRID_CLIENT_LOG_ENABLED";
 
     /**
+     * Sets timeout for TCP client outgoing descriptor reservation.
+     */
+    public static final String IGNITE_TCP_OUTGOING_DESCRIPTOR_RESERVATION_TIMEOUT = "IGNITE_TCP_OUTGOING_DESCRIPTOR_RESERVATION_TIMEOUT";
+
+    /**
      * Enforces singleton.
      */
     private IgniteSystemProperties() {

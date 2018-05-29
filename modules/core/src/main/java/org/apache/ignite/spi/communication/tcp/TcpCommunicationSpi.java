@@ -88,6 +88,7 @@ import org.apache.ignite.internal.util.nio.GridNioServer;
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
 import org.apache.ignite.internal.util.nio.GridNioSession;
+import org.apache.ignite.internal.util.nio.GridNioSessionImpl;
 import org.apache.ignite.internal.util.nio.GridNioSessionMetaKey;
 import org.apache.ignite.internal.util.nio.GridShmemCommunicationClient;
 import org.apache.ignite.internal.util.nio.GridTcpNioCommunicationClient;
@@ -2665,15 +2666,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
             }
             finally {
                 if (client != null && removeNodeClient(node.id(), client)) {
-                    if (failSnd0) // While session is not closed, new reservation attempts will hang in the same stack as Sber has.
-                        try {
-                            U.sleep(10_000);
-                        }
-                        catch (IgniteInterruptedCheckedException e) {
-                            e.printStackTrace();
-                        }
-
-                    client.forceClose();
+                    if (!failSnd0) // While session is not closed, new reservation attempts will hang in the same stack as Sber has.
+                        client.forceClose();
                 }
             }
         }
@@ -3227,6 +3221,16 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
                     if (!recoveryDesc.reserve(connKey.toString())) {
                         U.closeQuiet(ch);
+
+                        // Ensure the session is closed.
+                        if (recoveryDesc.ses != null) {
+                            GridNioSessionImpl ses = recoveryDesc.ses;
+
+                            while(!ses.closed())
+                                ses.close();
+
+                            recoveryDesc.ses = null;
+                        }
 
                         return null;
                     }
