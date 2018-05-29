@@ -789,7 +789,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         try {
             if (!F.isEmpty(cachesToStart)) {
                 for (DynamicCacheDescriptor desc : cachesToStart) {
-                    if (CU.affinityNode(cctx.localNode(), desc.cacheConfiguration().getNodeFilter()))
+                    if (CU.cacheApplicableNode(cctx.localNode(), desc.cacheConfiguration().getNodeFilter()))
                         storeMgr.initializeForCache(desc.groupDescriptor(), new StoredCacheData(desc.cacheConfiguration()));
                 }
             }
@@ -1330,7 +1330,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     final int cacheId = cacheCtx.cacheId();
                     final GridFutureAdapter<Void> usrFut = idxRebuildFuts.get(cacheId);
 
-                    if (!cctx.pageStore().hasIndexStore(cacheCtx.groupId()) && cacheCtx.affinityNode()) {
+                    if (!cctx.pageStore().hasIndexStore(cacheCtx.groupId()) && cacheCtx.cacheApplicableNode()) {
                         IgniteInternalFuture<?> rebuildFut = cctx.kernalContext().query()
                             .rebuildIndexesFromHash(Collections.singletonList(cacheCtx.cacheId()));
 

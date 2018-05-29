@@ -325,7 +325,7 @@ public class GridAffinityAssignmentCache {
             boolean skipCalculation = true;
 
             for (DiscoveryEvent event : events.events()) {
-                boolean affinityNode = CU.affinityNode(event.eventNode(), nodeFilter);
+                boolean affinityNode = CU.cacheApplicableNode(event.eventNode(), nodeFilter);
 
                 if (affinityNode || event.type() == EVT_DISCOVERY_CUSTOM_EVT) {
                     skipCalculation = false;

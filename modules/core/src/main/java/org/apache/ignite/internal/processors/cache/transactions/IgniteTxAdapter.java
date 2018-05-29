@@ -1729,7 +1729,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
         if (primaryOnly) {
             ClusterNode primary = F.first(affNodes);
 
-            if (primary == null && !cacheCtx.affinityNode())
+            if (primary == null && !cacheCtx.cacheApplicableNode())
                 return false;
 
             assert primary != null : "Primary node is null for affinity nodes: " + affNodes;

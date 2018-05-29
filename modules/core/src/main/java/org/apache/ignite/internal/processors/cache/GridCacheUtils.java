@@ -65,6 +65,7 @@ import org.apache.ignite.internal.IgniteNodeAttributes;
 import org.apache.ignite.internal.cluster.ClusterGroupEmptyCheckedException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.cluster.ClusterTopologyServerNotFoundException;
+import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.discovery.IgniteClusterNode;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
@@ -99,7 +100,6 @@ import org.apache.ignite.lang.IgniteReducer;
 import org.apache.ignite.lifecycle.LifecycleAware;
 import org.apache.ignite.plugin.CachePluginConfiguration;
 import org.apache.ignite.plugin.security.SecurityException;
-import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
@@ -1376,11 +1376,31 @@ public class GridCacheUtils {
 
     /**
      * @param node Node.
-     * @param filter Node filter.
-     * @return {@code True} if node is not client node and pass given filter.
+     * @param cacheNodeFilter Node filter.
+     * @return {@code True} if node is not client node and pass given node filter.
      */
-    public static boolean affinityNode(ClusterNode node, IgnitePredicate<ClusterNode> filter) {
-        return !node.isDaemon() && !clientNode(node) && filter.apply(node);
+    public static boolean cacheApplicableNode(ClusterNode node, IgnitePredicate<ClusterNode> cacheNodeFilter) {
+        return !node.isDaemon() && !clientNode(node) && cacheNodeFilter.apply(node);
+    }
+
+    /**
+     * @param node Node to check.
+     * @param cacheNodeFilter Node filter for cache to apply.
+     * @return {@code True} if node is server node, participate in affinity topology and passes node filter.
+     */
+    public static boolean cacheAffinityNode(ClusterNode node, DiscoCache discoCache, IgnitePredicate<ClusterNode> cacheNodeFilter) {
+        return !node.isDaemon() && !clientNode(node) && cacheNodeFilter.apply(node) &&
+            (discoCache == null || discoCache.baselineNode(node));
+    }
+
+    /**
+     * @param node Node to check.
+     * @param cacheNodeFilter Node filter for cache to apply.
+     * @return {@code True} if node is server node, participate in affinity topology and passes node filter.
+     */
+    public static boolean cacheAffinityNode(ClusterNode node, Set<UUID> baselineNodes, IgnitePredicate<ClusterNode> cacheNodeFilter) {
+        return !node.isDaemon() && !clientNode(node) && cacheNodeFilter.apply(node) &&
+            (baselineNodes == null || baselineNodes.contains(node.id()));
     }
 
     /**

@@ -885,7 +885,7 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
      * @param req Get request.
      */
     protected void processNearSingleGetRequest(final UUID nodeId, final GridNearSingleGetRequest req) {
-        assert ctx.affinityNode();
+        assert ctx.cacheApplicableNode();
 
         final CacheExpiryPolicy expiryPlc = CacheExpiryPolicy.fromRemote(req.createTtl(), req.accessTtl());
 
@@ -989,7 +989,7 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
      * @param req Get request.
      */
     protected void processNearGetRequest(final UUID nodeId, final GridNearGetRequest req) {
-        assert ctx.affinityNode();
+        assert ctx.cacheApplicableNode();
 
         final CacheExpiryPolicy expiryPlc = CacheExpiryPolicy.fromRemote(req.createTtl(), req.accessTtl());
 
@@ -1206,7 +1206,7 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
     /** {@inheritDoc} */
     @Override public List<GridCacheClearAllRunnable<K, V>> splitClearLocally(boolean srv, boolean near,
         boolean readers) {
-        return ctx.affinityNode() ? super.splitClearLocally(srv, near, readers) :
+        return ctx.cacheApplicableNode() ? super.splitClearLocally(srv, near, readers) :
             Collections.<GridCacheClearAllRunnable<K, V>>emptyList();
     }
 

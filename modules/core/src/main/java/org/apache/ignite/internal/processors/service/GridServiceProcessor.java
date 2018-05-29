@@ -1528,7 +1528,7 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
 
             qry.keepAll(false);
 
-            if (!cache.context().affinityNode()) {
+            if (!cache.context().cacheApplicableNode()) {
                 ClusterNode oldestSrvNode =
                     ctx.discovery().oldestAliveServerNode(AffinityTopologyVersion.NONE);
 

@@ -113,7 +113,7 @@ public class H2TreeIndex extends GridH2IndexBase {
 
         name = BPlusTree.treeName(name, "H2Tree");
 
-        if (cctx.affinityNode()) {
+        if (cctx.cacheApplicableNode()) {
             inlineIdxs = getAvailableInlineColumns(cols);
 
             segments = new H2Tree[segmentsCnt];
@@ -352,7 +352,7 @@ public class H2TreeIndex extends GridH2IndexBase {
     /** {@inheritDoc} */
     @Override public void destroy(boolean rmvIndex) {
         try {
-            if (cctx.affinityNode() && rmvIndex) {
+            if (cctx.cacheApplicableNode() && rmvIndex) {
                 assert cctx.shared().database().checkpointLockIsHeldByThread();
 
                 for (int i = 0; i < segments.length; i++) {

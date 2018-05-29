@@ -780,7 +780,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                     startCache = true;
                 }
                 else {
-                    startCache = CU.affinityNode(cctx.localNode(),
+                    startCache = CU.cacheApplicableNode(cctx.localNode(),
                         cacheDesc.groupDescriptor().config().getNodeFilter());
                 }
             }
@@ -1210,7 +1210,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
         ExchangeDiscoveryEvents evts = fut.context().events();
 
         if (canCalculateAffinity(desc, aff, fut))
-            calculateAndInit(evts, aff, evts.topologyVersion());
+            calculateAndInit(evts, aff);
         else {
             GridDhtAssignmentFetchFuture fetchFut = new GridDhtAssignmentFetchFuture(cctx,
                 desc.groupId(),
@@ -1355,7 +1355,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                     aff.initialize(evts.topologyVersion(), assignments);
                 }
                 else if (fut.cacheGroupAddedOnExchange(aff.groupId(), grp.receivedFrom()))
-                    calculateAndInit(evts, aff, evts.topologyVersion());
+                    calculateAndInit(evts, aff);
 
                 grp.topology().initPartitionsWhenAffinityReady(resTopVer, fut);
             }
@@ -1556,13 +1556,25 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
      * @param aff Affinity.
      * @param topVer Topology version.
      */
-    private void calculateAndInit(ExchangeDiscoveryEvents evts,
+    private void calculateAndInit(
+        ExchangeDiscoveryEvents evts,
         GridAffinityAssignmentCache aff,
-        AffinityTopologyVersion topVer)
-    {
+        AffinityTopologyVersion topVer
+    ) {
         List<List<ClusterNode>> assignment = aff.calculate(topVer, evts, evts.discoveryCache());
 
         aff.initialize(topVer, assignment);
+    }
+
+    /**
+     * @param evts Discovery events.
+     * @param aff Affinity.
+     */
+    private void calculateAndInit(
+        ExchangeDiscoveryEvents evts,
+        GridAffinityAssignmentCache aff
+    ) {
+        calculateAndInit(evts, aff, evts.topologyVersion());
     }
 
     /**
@@ -1970,7 +1982,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
     ) {
         if (addedOnExchnage) {
             if (!aff.lastVersion().equals(evts.topologyVersion()))
-                calculateAndInit(evts, aff, evts.topologyVersion());
+                calculateAndInit(evts, aff);
 
             return;
         }
@@ -2476,7 +2488,8 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                 affFunc,
                 ccfg.getNodeFilter(),
                 ccfg.getBackups(),
-                ccfg.getCacheMode() == LOCAL);
+                ccfg.getCacheMode() == LOCAL
+            );
 
             return new CacheGroupHolder2(ccfg.getRebalanceMode() != NONE, cctx, aff, initAff);
         }

@@ -59,7 +59,7 @@ public class DynamicCacheChangeRequest implements Serializable {
     @GridToStringExclude
     private NearCacheConfiguration nearCacheCfg;
 
-    /** Start only client cache, do not start data nodes. */
+    /** Start cache on client nodes, but not on server nodes, because it is already started there. */
     private boolean clientStartOnly;
 
     /** Stop flag. */

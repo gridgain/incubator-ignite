@@ -158,7 +158,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
     protected void initPendingTree(GridCacheContext cctx) throws IgniteCheckedException {
         assert !cctx.group().persistenceEnabled();
 
-        if (cctx.affinityNode() && cctx.ttl().eagerTtlEnabled() && pendingEntries == null) {
+        if (cctx.cacheApplicableNode() && cctx.ttl().eagerTtlEnabled() && pendingEntries == null) {
             String name = "PendingEntries";
 
             long rootPage = allocateForTree();

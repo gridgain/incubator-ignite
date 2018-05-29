@@ -364,7 +364,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
      * @return {@code True} if future completed.
      */
     private boolean localGet(AffinityTopologyVersion topVer, int part) {
-        assert cctx.affinityNode() : this;
+        assert cctx.cacheApplicableNode() : this;
 
         GridDhtCacheAdapter colocated = cctx.dht();
 

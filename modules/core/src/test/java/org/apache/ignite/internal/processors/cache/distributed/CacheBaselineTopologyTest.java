@@ -500,9 +500,9 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         ig.getOrCreateCache(
                 new CacheConfiguration<>(cacheName)
-                        .setCacheMode(REPLICATED)
-//                        .setCacheMode(PARTITIONED)
-//                        .setBackups(3)
+//                        .setCacheMode(REPLICATED)
+                        .setCacheMode(PARTITIONED)
+                        .setBackups(3)
                         .setReadFromBackup(true)
                         .setAffinity(new RendezvousAffinityFunction(false, 32))
         );
@@ -511,9 +511,9 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         ig.getOrCreateCache(
                 new CacheConfiguration<>(persistentCacheName)
-                        .setCacheMode(REPLICATED)
-//                        .setCacheMode(PARTITIONED)
-//                        .setBackups(3)
+//                        .setCacheMode(REPLICATED)
+                        .setCacheMode(PARTITIONED)
+                        .setBackups(3)
                         .setReadFromBackup(true)
                         .setAffinity(new RendezvousAffinityFunction(false, 32))
                         .setDataRegionName(PERSISTENT_REGION_NAME)
@@ -850,9 +850,9 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         ignite3.cluster().active(true);
 
         CacheConfiguration<Object, Object> repCacheCfg = new CacheConfiguration<>("replicated")
-                .setCacheMode(REPLICATED)
-                .setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL)
-                .setDataRegionName(PERSISTENT_REGION_NAME);
+            .setCacheMode(CacheMode.REPLICATED)
+            .setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL)
+            .setDataRegionName(PERSISTENT_REGION_NAME);
 
         IgniteCache<Object, Object> cache = ignite3.getOrCreateCache(repCacheCfg);
 
@@ -998,11 +998,10 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
             TestValue other = (TestValue)o;
 
             return
-                    f1 == other.f1 &&
-                            f2 == other.f2 &&
-                            f3 == other.f3 &&
-                            f4 == other.f4;
-
+                f1 == other.f1 &&
+                f2 == other.f2 &&
+                f3 == other.f3 &&
+                f4 == other.f4;
         }
 
         /** {@inheritDoc} */

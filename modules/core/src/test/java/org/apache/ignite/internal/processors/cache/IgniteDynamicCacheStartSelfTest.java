@@ -666,7 +666,7 @@ public class IgniteDynamicCacheStartSelfTest extends GridCommonAbstractTest {
             GridCacheAdapter<Object, Object> cache = started.internalCache(DYNAMIC_CACHE_NAME);
 
             assertNotNull(cache);
-            assertFalse(cache.context().affinityNode());
+            assertFalse(cache.context().cacheApplicableNode());
 
             // Should obtain client cache on new node.
             IgniteCache<Object, Object> clientCache = ignite(nodeCount()).cache(DYNAMIC_CACHE_NAME);
@@ -710,7 +710,7 @@ public class IgniteDynamicCacheStartSelfTest extends GridCommonAbstractTest {
             GridCacheAdapter<Object, Object> cache = started.internalCache(DYNAMIC_CACHE_NAME);
 
             assertNotNull(cache);
-            assertFalse(cache.context().affinityNode());
+            assertFalse(cache.context().cacheApplicableNode());
             assertTrue(cache.context().isNear());
 
             // Should obtain client cache on new node.
@@ -821,7 +821,7 @@ public class IgniteDynamicCacheStartSelfTest extends GridCommonAbstractTest {
                 ((IgniteKernal)ig).internalCache(DYNAMIC_CACHE_NAME);
 
             assertNotNull(cacheAdapter);
-            assertFalse(cacheAdapter.context().affinityNode());
+            assertFalse(cacheAdapter.context().cacheApplicableNode());
             assertTrue(cacheAdapter.context().isNear());
 
             try {
@@ -882,7 +882,7 @@ public class IgniteDynamicCacheStartSelfTest extends GridCommonAbstractTest {
                     .internalCache(DYNAMIC_CACHE_NAME).context();
 
                 assertTrue(nCtx.isNear());
-                assertFalse(nCtx.affinityNode());
+                assertFalse(nCtx.cacheApplicableNode());
 
                 IgniteEx clientGrid = grid(nodeCount() + 1);
 
@@ -893,7 +893,7 @@ public class IgniteDynamicCacheStartSelfTest extends GridCommonAbstractTest {
                     .internalCache(DYNAMIC_CACHE_NAME).context();
 
                 assertFalse(cCtx.isNear());
-                assertFalse(cCtx.affinityNode());
+                assertFalse(cCtx.cacheApplicableNode());
             }
             finally {
                 stopGrid(nodeCount() + 1);
@@ -970,7 +970,7 @@ public class IgniteDynamicCacheStartSelfTest extends GridCommonAbstractTest {
                 GridCacheContext<Object, Object> ctx = ((IgniteKernal)ignite(i)).internalCache(DYNAMIC_CACHE_NAME)
                     .context();
 
-                assertTrue(ctx.affinityNode());
+                assertTrue(ctx.cacheApplicableNode());
                 assertFalse(ctx.isNear());
             }
 
@@ -1063,7 +1063,7 @@ public class IgniteDynamicCacheStartSelfTest extends GridCommonAbstractTest {
                     GridCacheContext<Object, Object> ctx = ((IgniteKernal)ignite(i)).internalCache(DYNAMIC_CACHE_NAME)
                         .context();
 
-                    assertTrue(ctx.affinityNode());
+                    assertTrue(ctx.cacheApplicableNode());
                     assertFalse(ctx.isNear());
                 }
 
@@ -1071,7 +1071,7 @@ public class IgniteDynamicCacheStartSelfTest extends GridCommonAbstractTest {
                     GridCacheContext<Object, Object> ctx = ((IgniteKernal)ignite(nodeCount() + i))
                         .internalCache(DYNAMIC_CACHE_NAME).context();
 
-                    assertFalse(ctx.affinityNode());
+                    assertFalse(ctx.cacheApplicableNode());
                     assertTrue("Cache is not near for index: " + (nodeCount() + i), ctx.isNear());
                 }
 

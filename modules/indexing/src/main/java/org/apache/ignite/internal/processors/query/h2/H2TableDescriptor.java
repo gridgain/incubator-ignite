@@ -171,7 +171,7 @@ public class H2TableDescriptor implements GridH2SystemIndexFactory {
      * @return H2 row factory.
      */
     H2RowFactory rowFactory(GridH2RowDescriptor rowDesc) {
-        if (cctx.affinityNode())
+        if (cctx.cacheApplicableNode())
             return new H2RowFactory(rowDesc, cctx);
 
         return null;
@@ -317,7 +317,7 @@ public class H2TableDescriptor implements GridH2SystemIndexFactory {
      * @return Index.
      */
     private Index createHashIndex(GridH2Table tbl, String idxName, List<IndexColumn> cols) {
-        if (cctx.affinityNode()) {
+        if (cctx.cacheApplicableNode()) {
             assert pkHashIdx == null : pkHashIdx;
 
             pkHashIdx = new H2PkHashIndex(cctx, tbl, idxName, cols);

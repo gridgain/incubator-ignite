@@ -260,7 +260,7 @@ public class IgfsDataManager extends IgfsManager {
     @SuppressWarnings("ConstantConditions")
     public IgniteUuid nextAffinityKey(@Nullable IgniteUuid prevAffKey) {
         // Do not generate affinity key for non-affinity nodes.
-        if (!dataCache.context().affinityNode())
+        if (!dataCache.context().cacheApplicableNode())
             return null;
 
         UUID nodeId = igfsCtx.kernalContext().localNodeId();

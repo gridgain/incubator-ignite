@@ -223,8 +223,8 @@ public class GridCacheContext<K, V> implements Externalizable {
     /** Cache weak query iterator holder. */
     private CacheWeakQueryIteratorsHolder<Map.Entry<K, V>> itHolder;
 
-    /** Affinity node. */
-    private boolean affNode;
+    /** Cache applicable node. */
+    private boolean cacheApplicableNode;
 
     /** Conflict resolver. */
     private CacheVersionConflictResolver conflictRslvr;
@@ -285,7 +285,7 @@ public class GridCacheContext<K, V> implements Externalizable {
      * @param grp Cache group.
      * @param cacheType Cache type.
      * @param locStartTopVer Topology version when cache was started on local node.
-     * @param affNode {@code True} if local node is affinity node.
+     * @param cacheApplicableNode {@code True} if local node is affinity node.
      * @param updatesAllowed Updates allowed flag.
      * @param evtMgr Cache event manager.
      * @param storeMgr Store manager.
@@ -307,7 +307,7 @@ public class GridCacheContext<K, V> implements Externalizable {
         CacheGroupContext grp,
         CacheType cacheType,
         AffinityTopologyVersion locStartTopVer,
-        boolean affNode,
+        boolean cacheApplicableNode,
         boolean updatesAllowed,
 
         /*
@@ -350,7 +350,7 @@ public class GridCacheContext<K, V> implements Externalizable {
         this.grp = grp;
         this.cacheType = cacheType;
         this.locStartTopVer = locStartTopVer;
-        this.affNode = affNode;
+        this.cacheApplicableNode = cacheApplicableNode;
         this.updatesAllowed = updatesAllowed;
         this.depEnabled = ctx.deploy().enabled() && !cacheObjects().isBinaryEnabled(cacheCfg);
 
@@ -441,17 +441,17 @@ public class GridCacheContext<K, V> implements Externalizable {
     }
 
     /**
-     * @return {@code True} if local node is affinity node.
+     * @return {@code True} if local node is cache applicable {@link CU#cacheApplicableNode(ClusterNode, IgnitePredicate)}
      */
-    public boolean affinityNode() {
-        return affNode;
+    public boolean cacheApplicableNode() {
+        return cacheApplicableNode;
     }
 
     /**
      * @return {@code true} If this is a replicated cache and we are on a data node.
      */
     public boolean isReplicatedAffinityNode() {
-        return isReplicated() && affinityNode();
+        return isReplicated() && cacheApplicableNode();
     }
 
     /**
@@ -1717,7 +1717,7 @@ public class GridCacheContext<K, V> implements Externalizable {
      * of {@link CacheConfiguration#isCopyOnRead()}.
      */
     public boolean needValueCopy() {
-        return affNode && cacheCfg.isCopyOnRead();
+        return cacheApplicableNode && cacheCfg.isCopyOnRead();
     }
 
     /**
@@ -2065,7 +2065,7 @@ public class GridCacheContext<K, V> implements Externalizable {
      * @return {@code True} if cache 'get' operation is allowed to get entry locally.
      */
     public boolean reserveForFastLocalGet(int part, AffinityTopologyVersion topVer) {
-        boolean result = affinityNode() && rebalanceEnabled() && checkAndReservePartition(part, topVer);
+        boolean result = cacheApplicableNode() && rebalanceEnabled() && checkAndReservePartition(part, topVer);
 
         // Only reading from partitions with OWNING state is allowed.
         assert !result || topology().partitionState(localNodeId(), part) == OWNING :
@@ -2083,7 +2083,7 @@ public class GridCacheContext<K, V> implements Externalizable {
      * @param topVer Topology version.
      */
     public void releaseForFastLocalGet(int part, AffinityTopologyVersion topVer) {
-        assert affinityNode();
+        assert cacheApplicableNode();
 
         if (!isReplicated() || group().persistenceEnabled()) {
             GridDhtLocalPartition locPart = topology().localPartition(part, topVer, false);
@@ -2113,7 +2113,7 @@ public class GridCacheContext<K, V> implements Externalizable {
      * @return {@code True} if partition is available locally.
      */
     private boolean checkAndReservePartition(int part, AffinityTopologyVersion topVer) {
-        assert affinityNode();
+        assert cacheApplicableNode();
 
         GridDhtPartitionTopology top = topology();
 

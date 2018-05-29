@@ -259,8 +259,8 @@ class ClusterCachesInfo {
 
             ClusterNode rmtNode = ctx.discovery().node(rmt);
 
-            if (CU.affinityNode(ctx.discovery().localNode(), locInfo.cacheData().config().getNodeFilter())
-                && rmtNode != null && CU.affinityNode(rmtNode, rmtData.cacheConfiguration().getNodeFilter())) {
+            if (CU.cacheApplicableNode(ctx.discovery().localNode(), locInfo.cacheData().config().getNodeFilter())
+                && rmtNode != null && CU.cacheApplicableNode(rmtNode, rmtData.cacheConfiguration().getNodeFilter())) {
                 CU.checkAttributeMismatch(log, rmtAttr.cacheName(), rmt, "storeFactory", "Store factory",
                     locAttr.storeFactoryClassName(), rmtAttr.storeFactoryClassName(), true);
             }
@@ -1306,7 +1306,8 @@ class ClusterCachesInfo {
 
                 if (locCfg != null ||
                     joinDiscoData.startCaches() ||
-                    CU.affinityNode(ctx.discovery().localNode(), desc.groupDescriptor().config().getNodeFilter())) {
+                    // we start caches on all nodes (i.e. don't check affinity topology)
+                    CU.cacheApplicableNode(ctx.discovery().localNode(), desc.groupDescriptor().config().getNodeFilter())) {
                     if (active)
                         locJoinStartCaches.add(new T2<>(desc, nearCfg));
                     else
