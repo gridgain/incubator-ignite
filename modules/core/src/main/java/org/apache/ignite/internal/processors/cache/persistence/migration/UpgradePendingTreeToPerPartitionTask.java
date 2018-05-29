@@ -77,7 +77,7 @@ public class UpgradePendingTreeToPerPartitionTask implements IgniteCallable<Bool
         GridCacheSharedContext<Object, Object> sharedCtx = node.context().cache().context();
 
         for (CacheGroupContext grp : sharedCtx.cache().cacheGroups()) {
-            if (!grp.persistenceEnabled() || !grp.affinityNode()) {
+            if (!grp.persistenceEnabled() || !grp.cacheApplicableNode()) {
                 if (!grp.persistenceEnabled())
                     log.info("Skip pending tree upgrade for non-persistent cache group: [grpId=" + grp.groupId() +
                         ", grpName=" + grp.name() + ']');

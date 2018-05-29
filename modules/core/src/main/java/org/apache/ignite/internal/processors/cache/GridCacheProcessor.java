@@ -4670,7 +4670,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                 @Override public void run() {
                     try {
                         for (CacheGroupContext grp : sharedCtx.cache().cacheGroups()) {
-                            if (!grp.isLocal() && grp.affinityNode()) {
+                            if (!grp.isLocal() && grp.cacheApplicableNode()) {
                                 GridDhtPartitionTopology top = null;
 
                                 try {

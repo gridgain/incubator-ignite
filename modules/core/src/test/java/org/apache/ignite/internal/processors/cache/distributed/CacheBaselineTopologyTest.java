@@ -59,6 +59,7 @@ import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.cache.PartitionLossPolicy.READ_ONLY_SAFE;
 
@@ -499,9 +500,10 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         ig.getOrCreateCache(
                 new CacheConfiguration<>(cacheName)
-//                        .setCacheMode(REPLICATED)
-                        .setCacheMode(PARTITIONED)
-                        .setBackups(3)
+                        .setCacheMode(REPLICATED)
+//                        .setCacheMode(PARTITIONED)
+//                        .setBackups(3)
+                        .setReadFromBackup(true)
                         .setAffinity(new RendezvousAffinityFunction(false, 32))
         );
 
@@ -509,9 +511,10 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         ig.getOrCreateCache(
                 new CacheConfiguration<>(persistentCacheName)
-//                        .setCacheMode(REPLICATED)
-                        .setCacheMode(PARTITIONED)
-                        .setBackups(3)
+                        .setCacheMode(REPLICATED)
+//                        .setCacheMode(PARTITIONED)
+//                        .setBackups(3)
+                        .setReadFromBackup(true)
                         .setAffinity(new RendezvousAffinityFunction(false, 32))
                         .setDataRegionName(PERSISTENT_REGION_NAME)
         );
@@ -542,12 +545,23 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         load2Fut.get();
 
         {
+            IgniteCache<Object, Object> inMemoryCache = ig.cache(cacheName);
+            IgniteCache<Object, Object> persistentCache = ig.cache(persistentCacheName);
+
+            for (int i = 0; i < 320; i++) {
+                assertEquals(i, inMemoryCache.get(i));
+
+                assertEquals(i, persistentCache.get(i));
+            }
+        }
+
+        {
             IgniteCache<Object, Object> inMemoryCache = igNotInBaseline.cache(cacheName);
             IgniteCache<Object, Object> persistentCache = igNotInBaseline.cache(persistentCacheName);
 
             for (int i = 0; i < 320; i++) {
                 assertEquals(i, inMemoryCache.get(i));
-//                assertNull(inMemoryCache.localPeek(i));
+                assertNull(inMemoryCache.localPeek(i));
 
                 assertEquals(i, persistentCache.get(i));
                 assertNull(persistentCache.localPeek(i));
@@ -836,7 +850,7 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
         ignite3.cluster().active(true);
 
         CacheConfiguration<Object, Object> repCacheCfg = new CacheConfiguration<>("replicated")
-                .setCacheMode(CacheMode.REPLICATED)
+                .setCacheMode(REPLICATED)
                 .setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL)
                 .setDataRegionName(PERSISTENT_REGION_NAME);
 

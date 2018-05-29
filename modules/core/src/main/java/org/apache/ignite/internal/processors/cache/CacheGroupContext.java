@@ -559,7 +559,7 @@ public class CacheGroupContext {
     /**
      * @return {@code True} if local node is affinity node.
      */
-    public boolean affinityNode() {
+    public boolean cacheApplicableNode() {
         return affNode;
     }
 

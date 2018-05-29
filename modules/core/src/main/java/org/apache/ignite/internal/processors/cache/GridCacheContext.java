@@ -2067,11 +2067,9 @@ public class GridCacheContext<K, V> implements Externalizable {
     public boolean reserveForFastLocalGet(int part, AffinityTopologyVersion topVer) {
         boolean result = affinityNode() && rebalanceEnabled() && checkAndReservePartition(part, topVer);
 
-        // When persistence is enabled, only reading from partitions with OWNING state is allowed.
-        assert !result || !group().persistenceEnabled() ||
-            topology().partitionState(localNodeId(), part) == OWNING :
-            "result=" + result + ", persistenceEnabled=" + group().persistenceEnabled() +
-                ", partitionState=" + topology().partitionState(localNodeId(), part) +
+        // Only reading from partitions with OWNING state is allowed.
+        assert !result || topology().partitionState(localNodeId(), part) == OWNING :
+            "result=" + result + ", partitionState=" + topology().partitionState(localNodeId(), part) +
                 ", replicated=" + isReplicated() + ", part=" + part;
 
         return result;
@@ -2119,36 +2117,23 @@ public class GridCacheContext<K, V> implements Externalizable {
 
         GridDhtPartitionTopology top = topology();
 
-        if (isReplicated() && !group().persistenceEnabled()) {
-            boolean rebFinished = top.rebalanceFinished(topVer);
+        GridDhtLocalPartition locPart = top.localPartition(part, topVer, false, false);
 
-            if (rebFinished)
-                return true;
+        if (locPart != null && locPart.reserve()) {
+            boolean canRead = true;
 
-            GridDhtLocalPartition locPart = top.localPartition(part, topVer, false, false);
+            try {
+                canRead = locPart.state() == OWNING;
 
-            // No need to reserve a partition for REPLICATED cache because this partition cannot be evicted.
-            return locPart != null && locPart.state() == OWNING;
-        }
-        else {
-            GridDhtLocalPartition locPart = top.localPartition(part, topVer, false, false);
-
-            if (locPart != null && locPart.reserve()) {
-                boolean canRead = true;
-
-                try {
-                    canRead = locPart.state() == OWNING;
-
-                    return canRead;
-                }
-                finally {
-                    if (!canRead)
-                        locPart.release();
-                }
+                return canRead;
             }
-            else
-                return false;
+            finally {
+                if (!canRead)
+                    locPart.release();
+            }
         }
+        else
+            return false;
     }
 
     /**

@@ -355,7 +355,7 @@ public class WalStateManager extends GridCacheSharedManagerAdapter {
         boolean hasNonEmptyOwning = false;
 
         for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
-            if (grp.isLocal() || !grp.affinityNode() || !grp.persistenceEnabled())
+            if (grp.isLocal() || !grp.cacheApplicableNode() || !grp.persistenceEnabled())
                 continue;
 
             boolean hasOwning = false;

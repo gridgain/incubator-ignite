@@ -70,7 +70,6 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiInClosure;
 import org.apache.ignite.lang.IgniteClosure;
-import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
@@ -446,7 +445,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                 CacheGroupContext grp = cctx.cache().cacheGroup(desc.groupId());
 
                 assert grp != null : desc.groupId();
-                assert !grp.affinityNode() || grp.isLocal() : grp.cacheOrGroupName();
+                assert !grp.cacheApplicableNode() || grp.isLocal() : grp.cacheOrGroupName();
 
                 if (!grp.isLocal() && grp.affinity().lastVersion().equals(AffinityTopologyVersion.NONE)) {
                     assert grp.localStartVersion().equals(topVer) : grp.localStartVersion();
