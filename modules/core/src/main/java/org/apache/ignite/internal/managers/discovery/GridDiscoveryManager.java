@@ -1994,7 +1994,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
     public boolean cacheGroupAffinityNode(ClusterNode node, int grpId) {
         CacheGroupAffinity aff = registeredCacheGrps.get(grpId);
 
-        return CU.cacheApplicableNode(node, aff.cacheFilter);
+        return CU.cacheAffinityNode(node, discoCache(), aff.cacheFilter);
     }
 
     /**

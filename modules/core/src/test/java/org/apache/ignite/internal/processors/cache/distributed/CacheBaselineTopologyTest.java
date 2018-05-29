@@ -500,9 +500,9 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         ig.getOrCreateCache(
                 new CacheConfiguration<>(cacheName)
-//                        .setCacheMode(REPLICATED)
-                        .setCacheMode(PARTITIONED)
-                        .setBackups(3)
+                        .setCacheMode(REPLICATED)
+//                        .setCacheMode(PARTITIONED)
+//                        .setBackups(3)
                         .setReadFromBackup(true)
                         .setAffinity(new RendezvousAffinityFunction(false, 32))
         );
@@ -511,9 +511,9 @@ public class CacheBaselineTopologyTest extends GridCommonAbstractTest {
 
         ig.getOrCreateCache(
                 new CacheConfiguration<>(persistentCacheName)
-//                        .setCacheMode(REPLICATED)
-                        .setCacheMode(PARTITIONED)
-                        .setBackups(3)
+                        .setCacheMode(REPLICATED)
+//                        .setCacheMode(PARTITIONED)
+//                        .setBackups(3)
                         .setReadFromBackup(true)
                         .setAffinity(new RendezvousAffinityFunction(false, 32))
                         .setDataRegionName(PERSISTENT_REGION_NAME)
