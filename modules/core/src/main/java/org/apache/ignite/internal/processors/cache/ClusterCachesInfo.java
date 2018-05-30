@@ -195,7 +195,7 @@ class ClusterCachesInfo {
 
                         if (rmt == null) {
                             for (ClusterNode node : ctx.discovery().localJoin().discoCache().serverNodes()) {
-                                if (!node.isLocal() && ctx.discovery().cacheAffinityNode(node, locCfg.getName())) {
+                                if (!node.isLocal() && ctx.discovery().cacheApplicableNode(node, locCfg.getName())) {
                                     rmt = node;
 
                                     break;
@@ -594,7 +594,7 @@ class ClusterCachesInfo {
                         ClusterNode node = ctx.discovery().node(req.initiatingNodeId());
 
                         boolean clientReq = node != null &&
-                            !ctx.discovery().cacheAffinityNode(node, req.cacheName());
+                            !ctx.discovery().cacheApplicableNode(node, req.cacheName());
 
                         if (clientReq) {
                             ctx.discovery().addClientNode(req.cacheName(),

@@ -1978,6 +1978,19 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
      * @param cacheName Cache name.
      * @return {@code True} if node is a cache data node.
      */
+    public boolean cacheApplicableNode(ClusterNode node, String cacheName) {
+        CachePredicate pred = registeredCaches.get(cacheName);
+
+        return pred != null && pred.applcableNode(node);
+    }
+
+    /**
+     * Checks if node is a data node for the given cache.
+     *
+     * @param node Node to check.
+     * @param cacheName Cache name.
+     * @return {@code True} if node is a cache data node.
+     */
     public boolean cacheAffinityNode(ClusterNode node, String cacheName) {
         CachePredicate pred = registeredCaches.get(cacheName);
 
@@ -3216,6 +3229,14 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          * @return {@code True} if this node is a data node for given cache.
          */
         public boolean dataNode(ClusterNode node) {
+            return CU.cacheApplicableNode(node, aff.cacheFilter);
+        }
+
+        /**
+         * @param node Node to check.
+         * @return {@code True} if this node is a data node for given cache.
+         */
+        public boolean applcableNode(ClusterNode node) {
             return CU.cacheApplicableNode(node, aff.cacheFilter);
         }
 

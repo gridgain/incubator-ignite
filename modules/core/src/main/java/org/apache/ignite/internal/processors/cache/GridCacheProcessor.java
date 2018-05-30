@@ -417,8 +417,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             if (cc.getCacheMode() == LOCAL)
                 return true;
 
-            return ctx.discovery().cacheAffinityNode(ctx.discovery().localNode(), cc.getName());
-
+            return ctx.discovery().cacheApplicableNode(ctx.discovery().localNode(), cc.getName());
         }
         else
             return false;
@@ -439,7 +438,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
         if (cc.getCacheMode() == REPLICATED) {
             if (cc.getNearConfiguration() != null &&
-                ctx.discovery().cacheAffinityNode(ctx.discovery().localNode(), cc.getName())) {
+                ctx.discovery().cacheApplicableNode(ctx.discovery().localNode(), cc.getName())) {
                 U.warn(log, "Near cache cannot be used with REPLICATED cache, " +
                     "will be ignored [cacheName=" + U.maskName(cc.getName()) + ']');
 

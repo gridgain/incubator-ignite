@@ -610,8 +610,7 @@ public class GridCacheQueryAdapter<T> implements CacheQuery<T> {
 
         return F.view(affNodes, new P1<ClusterNode>() {
             @Override public boolean apply(ClusterNode n) {
-                return cctx.discovery().cacheAffinityNode(n, cctx.name()) &&
-                    (prj == null || prj.node(n.id()) != null) &&
+                return (prj == null || prj.node(n.id()) != null) &&
                     (part == null || owners.contains(n));
             }
         });
