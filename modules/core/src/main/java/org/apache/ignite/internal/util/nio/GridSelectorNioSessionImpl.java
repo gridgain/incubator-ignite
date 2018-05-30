@@ -449,8 +449,6 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
         return fut;
     }
 
-
-
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(GridSelectorNioSessionImpl.class, this, super.toString());

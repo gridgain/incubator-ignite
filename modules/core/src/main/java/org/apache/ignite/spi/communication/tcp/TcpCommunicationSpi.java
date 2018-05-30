@@ -96,7 +96,6 @@ import org.apache.ignite.internal.util.nio.GridNioServer;
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
 import org.apache.ignite.internal.util.nio.GridNioSession;
-import org.apache.ignite.internal.util.nio.GridNioSessionImpl;
 import org.apache.ignite.internal.util.nio.GridNioSessionMetaKey;
 import org.apache.ignite.internal.util.nio.GridShmemCommunicationClient;
 import org.apache.ignite.internal.util.nio.GridTcpNioCommunicationClient;
@@ -372,7 +371,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
     private ConnectionPolicy connPlc;
 
     /** For testing purposes. */
-    public volatile boolean failSend = false;
+    public volatile boolean failSend;
 
     /** */
     private boolean enableForcibleNodeKill = IgniteSystemProperties
@@ -2724,7 +2723,13 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 while (retry);
             }
             catch (Throwable t) {
-                log.error("Failed to send message to remote node=" + node + ", msg=" + msg, t);
+                log.error("Failed to send message to remote [node=" + node + ", msg=" + msg + ']', t);
+
+                if (t instanceof Error)
+                    throw (Error)t;
+
+                if (t instanceof RuntimeException)
+                    throw (RuntimeException)t;
 
                 throw new IgniteSpiException("Failed to send message to remote node: " + node, t);
             }

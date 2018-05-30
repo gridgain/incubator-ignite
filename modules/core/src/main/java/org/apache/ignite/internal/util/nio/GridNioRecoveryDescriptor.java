@@ -30,15 +30,15 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.IgniteSystemProperties.IGNITE_TCP_REC_DESCRIPTOR_RESERVATION_TIMEOUT;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_NIO_RECOVERY_DESCRIPTOR_RESERVATION_TIMEOUT;
 
 /**
  * Recovery information for single node.
  */
 public class GridNioRecoveryDescriptor {
     /** Timeout for outgoing recovery descriptor reservation. */
-    private static final long outDescReservationTimeout =
-        Math.max(1_000, IgniteSystemProperties.getLong(IGNITE_TCP_REC_DESCRIPTOR_RESERVATION_TIMEOUT, 5_000));
+    private static final long DESC_RESERVATION_TIMEOUT =
+        Math.max(1_000, IgniteSystemProperties.getLong(IGNITE_NIO_RECOVERY_DESCRIPTOR_RESERVATION_TIMEOUT, 5_000));
 
     /** Number of acknowledged messages. */
     private long acked;
@@ -286,11 +286,12 @@ public class GridNioRecoveryDescriptor {
             long t0 = System.nanoTime();
 
             while (!connected && reserved) {
-                wait(outDescReservationTimeout);
+                wait(DESC_RESERVATION_TIMEOUT);
 
-                if ((System.nanoTime() - t0) / 1_000_000 >= outDescReservationTimeout - 100) {
+                if ((System.nanoTime() - t0) / 1_000_000 >= DESC_RESERVATION_TIMEOUT - 100) {
                     // Dumping a descriptor.
-                    log.error("Hanging on reservation: desc=" + this + ", ses=" + ses);
+                    log.error("Failed to wait for recovery descriptor reservation " +
+                        "[desc=" + this + ", ses=" + ses + ']');
 
                     return false;
                 }

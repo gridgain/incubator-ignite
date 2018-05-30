@@ -890,7 +890,8 @@ public final class IgniteSystemProperties {
     /**
      * Sets timeout for TCP client recovery descriptor reservation.
      */
-    public static final String IGNITE_TCP_REC_DESCRIPTOR_RESERVATION_TIMEOUT = "IGNITE_TCP_REC_DESCRIPTOR_RESERVATION_TIMEOUT";
+    public static final String IGNITE_NIO_RECOVERY_DESCRIPTOR_RESERVATION_TIMEOUT =
+            "IGNITE_NIO_RECOVERY_DESCRIPTOR_RESERVATION_TIMEOUT";
 
     /**
      * Enforces singleton.
