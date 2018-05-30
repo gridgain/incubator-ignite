@@ -370,9 +370,6 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
     /** */
     private ConnectionPolicy connPlc;
 
-    /** For testing purposes. */
-    public volatile boolean failSend;
-
     /** */
     private boolean enableForcibleNodeKill = IgniteSystemProperties
         .getBoolean(IgniteSystemProperties.IGNITE_ENABLE_FORCIBLE_NODE_KILL);
