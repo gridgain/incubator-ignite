@@ -377,6 +377,8 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
         assert recoveryDesc != null;
 
         outRecovery = recoveryDesc;
+
+        outRecovery.session(this);
     }
 
     /** {@inheritDoc} */
@@ -435,6 +437,19 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
 
         return ret;
     }
+
+    /** {@inheritDoc} */
+    @Override public GridNioFuture<Boolean> close() {
+        GridNioFuture<Boolean> fut = super.close();
+
+        // Log error if any.
+        if (fut.error() != null)
+            log.error("Failed to close session: " + this, fut.error());
+
+        return fut;
+    }
+
+
 
     /** {@inheritDoc} */
     @Override public String toString() {

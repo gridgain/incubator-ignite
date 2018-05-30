@@ -96,6 +96,7 @@ import org.apache.ignite.internal.util.nio.GridNioServer;
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioServerListenerAdapter;
 import org.apache.ignite.internal.util.nio.GridNioSession;
+import org.apache.ignite.internal.util.nio.GridNioSessionImpl;
 import org.apache.ignite.internal.util.nio.GridNioSessionMetaKey;
 import org.apache.ignite.internal.util.nio.GridShmemCommunicationClient;
 import org.apache.ignite.internal.util.nio.GridTcpNioCommunicationClient;
@@ -369,6 +370,9 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
     /** */
     private ConnectionPolicy connPlc;
+
+    /** For testing purposes. */
+    public volatile boolean failSend = false;
 
     /** */
     private boolean enableForcibleNodeKill = IgniteSystemProperties
@@ -2678,6 +2682,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
             throw new IgniteSpiException("Local node has not been started or fully initialized " +
                 "[isStopping=" + getSpiContext().isStopping() + ']');
 
+        boolean failSnd0 = failSend;
+
         if (node.id().equals(locNode.id()))
             notifyListener(node.id(), msg, NOOP);
         else {
@@ -2695,6 +2701,9 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
                     if (!client.async())
                         nodeId = node.id();
+
+                    if (failSnd0)
+                        throw new RuntimeException("Failed to send message");
 
                     retry = client.sendMessage(nodeId, msg, ackC);
 
@@ -2714,12 +2723,16 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 }
                 while (retry);
             }
-            catch (IgniteCheckedException e) {
-                throw new IgniteSpiException("Failed to send message to remote node: " + node, e);
+            catch (Throwable t) {
+                log.error("Failed to send message to remote node=" + node + ", msg=" + msg, t);
+
+                throw new IgniteSpiException("Failed to send message to remote node: " + node, t);
             }
             finally {
-                if (client != null && removeNodeClient(node.id(), client))
-                    client.forceClose();
+                if (client != null && removeNodeClient(node.id(), client)) {
+                    if (!failSnd0) // If session is not closed new reservation attempt will hang.
+                        client.forceClose();
+                }
             }
         }
     }
@@ -3248,6 +3261,20 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
                     if (!recoveryDesc.reserve()) {
                         U.closeQuiet(ch);
+
+                        // Ensure the session is closed.
+                        GridNioSession ses = recoveryDesc.session();
+
+                        if (ses != null) {
+                            while(ses.closeTime() == 0) {
+                                try {
+                                    ses.close().get();
+                                }
+                                catch (IgniteCheckedException e) {
+                                    log.error("Failed to close session: " + ses, e);
+                                }
+                            }
+                        }
 
                         return null;
                     }
