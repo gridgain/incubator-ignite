@@ -482,12 +482,18 @@ public class GridNioRecoveryDescriptor {
      */
     private void notifyOnNodeLeft(SessionWriteRequest[] reqs) {
         IOException e = new IOException("Failed to send message, node has left: " + node.id());
+        IgniteException cloErr = null;
+
 
         for (SessionWriteRequest req : reqs) {
             req.onError(e);
 
-            if (req.ackClosure() != null)
-                req.ackClosure().apply(new IgniteException(e));
+            if (req.ackClosure() != null) {
+                if (cloErr == null)
+                    cloErr = new IgniteException(e);
+
+                req.ackClosure().apply(cloErr);
+            }
         }
     }
 
