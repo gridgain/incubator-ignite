@@ -270,10 +270,6 @@ public class GridNioSessionImpl implements GridNioSession {
         return accepted;
     }
 
-    public boolean isMarkedForClose() {
-        return markedForClose;
-    }
-
     /**
      * @param <T> Chain type.
      * @return Filter chain.

@@ -485,7 +485,6 @@ public class GridNioRecoveryDescriptor {
         IOException e = new IOException("Failed to send message, node has left: " + node.id());
         IgniteException cloErr = null;
 
-
         for (SessionWriteRequest req : reqs) {
             req.onError(e);
 

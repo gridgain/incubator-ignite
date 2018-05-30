@@ -2681,8 +2681,6 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
             throw new IgniteSpiException("Local node has not been started or fully initialized " +
                 "[isStopping=" + getSpiContext().isStopping() + ']');
 
-        boolean failSnd0 = failSend;
-
         if (node.id().equals(locNode.id()))
             notifyListener(node.id(), msg, NOOP);
         else {
@@ -2700,9 +2698,6 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
                     if (!client.async())
                         nodeId = node.id();
-
-                    if (failSnd0)
-                        throw new RuntimeException("Failed to send message");
 
                     retry = client.sendMessage(nodeId, msg, ackC);
 
@@ -2723,7 +2718,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 while (retry);
             }
             catch (Throwable t) {
-                log.error("Failed to send message to remote [node=" + node + ", msg=" + msg + ']', t);
+                log.error("Failed to send message to remote node [node=" + node + ", msg=" + msg + ']', t);
 
                 if (t instanceof Error)
                     throw (Error)t;
@@ -2734,10 +2729,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 throw new IgniteSpiException("Failed to send message to remote node: " + node, t);
             }
             finally {
-                if (client != null && removeNodeClient(node.id(), client)) {
-                    if (!failSnd0) // If session is not closed new reservation attempt will hang.
-                        client.forceClose();
-                }
+                if (client != null && removeNodeClient(node.id(), client))
+                    client.forceClose();
             }
         }
     }
@@ -3271,14 +3264,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                         GridNioSession ses = recoveryDesc.session();
 
                         if (ses != null) {
-                            while(ses.closeTime() == 0) {
-                                try {
-                                    ses.close().get();
-                                }
-                                catch (IgniteCheckedException e) {
-                                    log.error("Failed to close session: " + ses, e);
-                                }
-                            }
+                            while(ses.closeTime() == 0)
+                                ses.close();
                         }
 
                         return null;
