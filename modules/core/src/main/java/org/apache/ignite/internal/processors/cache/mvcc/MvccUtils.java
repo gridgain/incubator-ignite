@@ -25,6 +25,7 @@ import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.cluster.ClusterTopologyServerNotFoundException;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
@@ -44,8 +45,6 @@ import org.jetbrains.annotations.Nullable;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagemem.PageIdUtils.pageId;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_COUNTER_NA;
-import static org.apache.ignite.internal.processors.cache.mvcc.MvccProcessor.MVCC_OP_COUNTER_NA;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO.MVCC_INFO_SIZE;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
@@ -54,6 +53,24 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
  * Utils for MVCC.
  */
 public class MvccUtils {
+    /** */
+    public static final long MVCC_CRD_COUNTER_NA = 0L;
+    /** */
+    public static final long MVCC_CRD_START_CNTR = 1L;
+    /** */
+    public static final long MVCC_COUNTER_NA = 0L;
+    /** */
+    public static final long MVCC_START_CNTR = 3L;
+    /** */
+    public static final int MVCC_OP_COUNTER_NA = 0;
+    /** */
+    public static final int MVCC_START_OP_CNTR = 1;
+    /** */
+    public static final int MVCC_READ_OP_CNTR = Integer.MAX_VALUE;
+    /** */
+    public static final MvccVersion INITIAL_VERSION =
+        mvccVersion(MVCC_CRD_START_CNTR, 1L, MVCC_START_OP_CNTR);
+
     /** */
     private static final MvccClosure<Boolean> isNewVisible = new IsNewVisible();
 
@@ -67,6 +84,56 @@ public class MvccUtils {
      *
      */
     private MvccUtils(){
+    }
+
+    /**
+     * @param cctx Cache context.
+     * @param mvccCrd Mvcc coordinator version.
+     * @param mvccCntr Mvcc counter.
+     * @return {@code True} if transaction is active.
+     * @see TxState
+     * @throws IgniteCheckedException If failed.
+     */
+    public static boolean isActive(GridCacheContext cctx, long mvccCrd, long mvccCntr) throws IgniteCheckedException {
+        byte state = state(cctx, mvccCrd, mvccCntr);
+
+        return state != TxState.COMMITTED && state != TxState.ABORTED;
+    }
+
+    /**
+     * @param cctx Cache context.
+     * @param mvccCrd Mvcc coordinator version.
+     * @param mvccCntr Mvcc counter.
+     * @return TxState
+     * @see TxState
+     * @throws IgniteCheckedException If failed.
+     */
+    public static byte state(GridCacheContext cctx, long mvccCrd, long mvccCntr) throws IgniteCheckedException {
+        return state(cctx.kernalContext(), mvccCrd, mvccCntr);
+    }
+
+    /**
+     * @param grp Cache group context.
+     * @param mvccCrd Mvcc coordinator version.
+     * @param mvccCntr Mvcc counter.
+     * @return TxState
+     * @see TxState
+     * @throws IgniteCheckedException If failed.
+     */
+    public static byte state(CacheGroupContext grp, long mvccCrd, long mvccCntr) throws IgniteCheckedException {
+        return state(grp.shared().kernalContext(), mvccCrd, mvccCntr);
+    }
+
+    /**
+     * @param ctx Kernal context.
+     * @param mvccCrd Mvcc coordinator version.
+     * @param mvccCntr Mvcc counter.
+     * @return TxState
+     * @see TxState
+     * @throws IgniteCheckedException If failed.
+     */
+    private static byte state(GridKernalContext ctx, long mvccCrd, long mvccCntr) throws IgniteCheckedException {
+        return ctx.coordinators().state(mvccCrd, mvccCntr);
     }
 
     /**
@@ -99,8 +166,11 @@ public class MvccUtils {
      */
     public static boolean isVisible(GridCacheContext cctx, MvccSnapshot snapshot, long mvccCrd, long mvccCntr,
         int opCntr, boolean useTxLog) throws IgniteCheckedException {
-        if (mvccCrd == 0) {
-            assert mvccCntr == MvccProcessor.MVCC_COUNTER_NA && opCntr == MvccProcessor.MVCC_OP_COUNTER_NA
+        if (compare(INITIAL_VERSION, mvccCrd, mvccCntr, opCntr) == 0)
+            return true; // Initial version is always visible
+
+        if (mvccCrd == MVCC_CRD_COUNTER_NA) {
+            assert mvccCntr == MVCC_COUNTER_NA && opCntr == MVCC_OP_COUNTER_NA
                 : "rowVer=" + mvccVersion(mvccCrd, mvccCntr, opCntr) + ", snapshot=" + snapshot;
 
             return false; // Unassigned version is always invisible
@@ -164,9 +234,10 @@ public class MvccUtils {
      * @return {@code True} if row has a new version.
      */
     public static boolean hasNewMvccVersionFast(MvccUpdateVersionAware row) {
-        assert row.newMvccCoordinatorVersion() > 0 == row.newMvccCounter() > MVCC_COUNTER_NA;
+        assert row.newMvccCoordinatorVersion() == MVCC_CRD_COUNTER_NA
+            || mvccVersionIsValid(row.newMvccCoordinatorVersion(), row.newMvccCounter(), row.newMvccOperationCounter());
 
-        return row.newMvccCoordinatorVersion() > 0;
+        return row.newMvccCoordinatorVersion() > MVCC_CRD_COUNTER_NA;
     }
 
     /**
@@ -197,18 +268,41 @@ public class MvccUtils {
     }
 
     /**
-     * Compares to pairs of coordinator/counter versions. See {@link Comparable}.
+     * Compares row version (xid_min) with the given version.
      *
-     * @param mvccCrdLeft First coordinator version.
-     * @param mvccCntrLeft First counter version.
-     * @param mvccCrdRight Second coordinator version.
-     * @param mvccCntrRight Second counter version.
+     * @param row Row.
+     * @param ver Version.
      * @return Comparison result, see {@link Comparable}.
      */
-    public static int compare(long mvccCrdLeft, long mvccCntrLeft, long mvccCrdRight, long mvccCntrRight) {
-        int cmp = Long.compare(mvccCrdLeft, mvccCrdRight);
+    public static int compare(MvccVersionAware row, MvccVersion ver) {
+        return compare(row.mvccCoordinatorVersion(), row.mvccCounter(), row.mvccOperationCounter(),
+            ver.coordinatorVersion(), ver.counter(), ver.operationCounter());
+    }
 
-        return cmp != 0 ? cmp : Long.compare(mvccCntrLeft, mvccCntrRight);
+    /**
+     * Compares to pairs of MVCC versions. See {@link Comparable}.
+     *
+     * @param mvccVerLeft First MVCC version.
+     * @param mvccCrdRight Second coordinator version.
+     * @param mvccCntrRight Second counter.
+     * @return Comparison result, see {@link Comparable}.
+     */
+    public static int compare(MvccVersion mvccVerLeft, long mvccCrdRight, long mvccCntrRight) {
+        return compare(mvccVerLeft.coordinatorVersion(), mvccVerLeft.counter(), mvccCrdRight, mvccCntrRight);
+    }
+
+    /**
+     * Compares to pairs of MVCC versions. See {@link Comparable}.
+     *
+     * @param mvccVerLeft First MVCC version.
+     * @param mvccCrdRight Second coordinator version.
+     * @param mvccCntrRight Second counter.
+     * @param mvccOpCntrRight Second operation counter.
+     * @return Comparison result, see {@link Comparable}.
+     */
+    public static int compare(MvccVersion mvccVerLeft, long mvccCrdRight, long mvccCntrRight, int mvccOpCntrRight) {
+        return compare(mvccVerLeft.coordinatorVersion(), mvccVerLeft.counter(),
+            mvccVerLeft.operationCounter(), mvccCrdRight, mvccCntrRight, mvccOpCntrRight);
     }
 
     /**
@@ -230,6 +324,19 @@ public class MvccUtils {
      *
      * @param mvccCrdLeft First coordinator version.
      * @param mvccCntrLeft First counter version.
+     * @param mvccCrdRight Second coordinator version.
+     * @param mvccCntrRight Second counter version.
+     * @return Comparison result, see {@link Comparable}.
+     */
+    public static int compare(long mvccCrdLeft, long mvccCntrLeft, long mvccCrdRight, long mvccCntrRight) {
+        return compare(mvccCrdLeft, mvccCntrLeft, 0, mvccCrdRight, mvccCntrRight, 0);
+    }
+
+    /**
+     * Compares to pairs of coordinator/counter versions. See {@link Comparable}.
+     *
+     * @param mvccCrdLeft First coordinator version.
+     * @param mvccCntrLeft First counter version.
      * @param mvccOpCntrLeft First operation counter.
      * @param mvccCrdRight Second coordinator version.
      * @param mvccCntrRight Second counter version.
@@ -238,33 +345,14 @@ public class MvccUtils {
      */
     public static int compare(long mvccCrdLeft, long mvccCntrLeft, int mvccOpCntrLeft, long mvccCrdRight,
         long mvccCntrRight, int mvccOpCntrRight) {
-        int cmp = compare(mvccCrdLeft, mvccCntrLeft, mvccCrdRight, mvccCntrRight);
+        int cmp;
 
-        return cmp != 0 ? cmp : Integer.compare(mvccOpCntrLeft, mvccOpCntrRight);
-    }
+        if ((cmp = Long.compare(mvccCrdLeft, mvccCrdRight)) != 0
+            || (cmp = Long.compare(mvccCntrLeft, mvccCntrRight)) != 0
+            || (cmp = Integer.compare(mvccOpCntrLeft, mvccOpCntrRight)) != 0)
+            return cmp;
 
-    /**
-     * Compares to pairs of MVCC versions. See {@link Comparable}.
-     *
-     * @param mvccVerLeft First MVCC version.
-     * @param mvccCrdRight Second coordinator version.
-     * @param mvccCntrRight Second counter.
-     * @return Comparison result, see {@link Comparable}.
-     */
-    public static int compare(MvccVersion mvccVerLeft, long mvccCrdRight, long mvccCntrRight) {
-        return compare(mvccVerLeft.coordinatorVersion(), mvccVerLeft.counter(), mvccCrdRight, mvccCntrRight);
-    }
-
-    /**
-     * Compares row version (xid_min) with the given version.
-     *
-     * @param row Row.
-     * @param ver Version.
-     * @return Comparison result, see {@link Comparable}.
-     */
-    public static int compare(MvccVersionAware row, MvccVersion ver) {
-        return compare(row.mvccCoordinatorVersion(), row.mvccCounter(), row.mvccOperationCounter(),
-            ver.coordinatorVersion(), ver.counter(), ver.operationCounter());
+        return 0;
     }
 
     /**
@@ -320,7 +408,7 @@ public class MvccUtils {
      * @return {@code True} if version is valid.
      */
     public static boolean mvccVersionIsValid(long crdVer, long cntr) {
-        return crdVer > 0 && cntr != MVCC_COUNTER_NA;
+        return crdVer > MVCC_CRD_COUNTER_NA && cntr != MVCC_COUNTER_NA;
     }
 
     /**
@@ -385,7 +473,7 @@ public class MvccUtils {
                 long newMvccCntr = dataIo.newMvccCounter(pageAddr, offset);
                 int newMvccOpCntr = dataIo.newMvccOperationCounter(pageAddr, offset);
 
-                assert newMvccCrd == 0 || mvccVersionIsValid(newMvccCrd, newMvccCntr, newMvccOpCntr)
+                assert newMvccCrd == MVCC_CRD_COUNTER_NA || mvccVersionIsValid(newMvccCrd, newMvccCntr, newMvccOpCntr)
                     : mvccVersion(newMvccCrd, newMvccCntr, newMvccOpCntr);
 
                 return clo.apply(cctx, snapshot, mvccCrd, mvccCntr, mvccOpCntr, newMvccCrd, newMvccCntr, newMvccOpCntr);
@@ -408,7 +496,7 @@ public class MvccUtils {
      * @throws IgniteCheckedException If failed.
      */
     private static boolean isCommitted(GridCacheContext cctx, long mvccCrd, long mvccCntr) throws IgniteCheckedException {
-        return cctx.shared().coordinators().state(mvccCrd, mvccCntr) == TxState.COMMITTED;
+        return state(cctx, mvccCrd, mvccCntr) == TxState.COMMITTED;
     }
 
     /**
@@ -444,34 +532,24 @@ public class MvccUtils {
 
         GridNearTxLocal tx = tx0 != null && tx0.user() ? (GridNearTxLocal)tx0 : null;
 
-        assert tx == null || (tx.pessimistic() && tx.repeatableRead());
-
-        return tx;
-    }
-
-    /**
-     * @param ctx Grid kernal context.
-     * @param txId Transaction ID.
-     * @return Currently started active user transaction, or {@code null} if none started.
-     */
-    @Nullable private static GridNearTxLocal activeTx(GridKernalContext ctx, @Nullable GridCacheVersion txId) {
-        GridNearTxLocal tx = tx(ctx, txId);
-
         if (tx != null) {
-            assert tx.state() == TransactionState.ACTIVE;
+            if (!tx.pessimistic() || !tx.repeatableRead()) {
+                tx.setRollbackOnly();
 
-            return tx;
+                throw new IgniteSQLException("Only pessimistic repeatable read transactions are supported at the moment.",
+                    IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+
+            }
+
+            if (!tx.isOperationAllowed(true)) {
+                tx.setRollbackOnly();
+
+                throw new IgniteSQLException("SQL queries and cache operations " +
+                    "may not be used in the same transaction.", IgniteQueryErrorCode.TRANSACTION_TYPE_MISMATCH);
+            }
         }
 
-        return null;
-    }
-
-    /**
-     * @param ctx Grid kernal context.
-     * @return Currently started active user transaction, or {@code null} if none started.
-     */
-    @Nullable public static GridNearTxLocal activeSqlTx(GridKernalContext ctx) {
-        return activeSqlTx(ctx, null);
+        return tx;
     }
 
     /**
@@ -479,14 +557,26 @@ public class MvccUtils {
      * @param txId Transaction ID.
      * @return Currently started active user transaction, or {@code null} if none started.
      */
-    @Nullable public static GridNearTxLocal activeSqlTx(GridKernalContext ctx, GridCacheVersion txId) {
-        GridNearTxLocal tx = activeTx(ctx, txId);
+    @Nullable public static GridNearTxLocal activeTx(GridKernalContext ctx, @Nullable GridCacheVersion txId) {
+        GridNearTxLocal tx = tx(ctx, txId);
 
-        if (tx != null && !tx.isOperationAllowed(true))
-            throw new IgniteSQLException("SQL queries and cache operations " +
-                "may not be used in the same transaction.", IgniteQueryErrorCode.TRANSACTION_TYPE_MISMATCH);
+        if (tx != null && tx.state() != TransactionState.ACTIVE) {
+            tx.setRollbackOnly();
+
+            throw new IgniteSQLException("Failed to get active transaction. Transaction has been completed: [tx=" + tx + "]",
+                IgniteQueryErrorCode.TRANSACTION_COMPLETED);
+        }
 
         return tx;
+    }
+
+    /**
+     * @param ctx Grid kernal context.
+     * @return Currently started active user transaction, or {@code null} if none started.
+     * @throws IgniteSQLException If failed.
+     */
+    @Nullable public static GridNearTxLocal activeTx(GridKernalContext ctx) throws IgniteSQLException {
+        return activeTx(ctx, null);
     }
 
     /**
@@ -602,19 +692,21 @@ public class MvccUtils {
     public static MvccSnapshot requestMvccVersion(GridCacheContext cctx, GridNearTxLocal tx) throws IgniteCheckedException {
         tx.addActiveCache(cctx, false);
 
-        if (tx.mvccInfo() == null) {
+        MvccTxInfo mvccInfo = tx.mvccInfo();
+
+        if (mvccInfo == null) {
             MvccProcessor mvccProc = cctx.shared().coordinators();
             MvccCoordinator crd = mvccProc.currentCoordinator();
 
             assert crd != null : tx.topologyVersion();
 
             if (crd.nodeId().equals(cctx.localNodeId()))
-                tx.mvccInfo(new MvccTxInfo(cctx.localNodeId(), mvccProc.requestTxSnapshotOnCoordinator(tx)));
+                tx.mvccInfo(mvccInfo = new MvccTxInfo(cctx.localNodeId(), mvccProc.requestTxSnapshotOnCoordinator(tx)));
             else
                 return mvccProc.requestTxSnapshot(crd, new MvccTxSnapshotResponseListener(tx), tx.nearXidVersion()).get(); // TODO IGNITE-7388
         }
 
-        return tx.mvccInfo().snapshot();
+        return mvccInfo.snapshot();
     }
 
     /** */
@@ -661,7 +753,7 @@ public class MvccUtils {
         @Override public Boolean apply(GridCacheContext cctx, MvccSnapshot snapshot, long mvccCrd, long mvccCntr,
             int mvccOpCntr, long newMvccCrd, long newMvccCntr, int newMvccOpCntr) throws IgniteCheckedException {
 
-            if (newMvccCrd == 0)
+            if (newMvccCrd == MVCC_CRD_COUNTER_NA)
                 return false;
 
             assert mvccVersionIsValid(newMvccCrd, newMvccCntr, newMvccOpCntr);
@@ -678,7 +770,7 @@ public class MvccUtils {
         /** {@inheritDoc} */
         @Override public MvccVersion apply(GridCacheContext cctx, MvccSnapshot snapshot, long mvccCrd, long mvccCntr,
             int mvccOpCntr, long newMvccCrd, long newMvccCntr, int newMvccOpCntr) {
-            return newMvccCrd == 0 ? null : new MvccVersionImpl(newMvccCrd, newMvccCntr, newMvccOpCntr);
+            return newMvccCrd == MVCC_CRD_COUNTER_NA ? null : mvccVersion(newMvccCrd, newMvccCntr, newMvccOpCntr);
         }
     }
 

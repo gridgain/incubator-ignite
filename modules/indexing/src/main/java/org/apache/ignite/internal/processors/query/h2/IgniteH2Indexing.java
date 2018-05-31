@@ -996,6 +996,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         MvccQueryTracker mvccTracker) throws IgniteCheckedException {
 
         GridNearTxLocal tx = null;
+        boolean mvccEnabled = MvccUtils.mvccEnabled(kernalContext());
+
+        assert mvccEnabled || mvccTracker == null;
 
         try {
             final Connection conn = connectionForSchema(schemaName);
@@ -1028,6 +1031,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             boolean forUpdate = GridSqlQueryParser.isForUpdateQuery(p);
 
             if (forUpdate) {
+                if (!mvccEnabled)
+                    throw new IgniteSQLException("SELECT FOR UPDATE query requires transactional " +
+                        "cache with MVCC enabled.", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
+
                 String newQry = GridSqlQueryParser.rewriteQueryForUpdateIfNeeded(p);
 
                 assert newQry != null;
@@ -1057,30 +1064,27 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             final GridH2QueryContext ctx = new GridH2QueryContext(nodeId, nodeId, 0, LOCAL)
                 .filter(filter).distributedJoinMode(OFF);
 
-            final MvccQueryTracker mvccTracker0 = mvccTracker != null ? mvccTracker : mvccTracker(stmt, startTx);
+            if (mvccEnabled) {
+                if (mvccTracker != null || (mvccTracker = mvccTracker(stmt, startTx)) != null)
+                    ctx.mvccSnapshot(mvccTracker.snapshot());
+                else if (forUpdate)
+                    throw new IgniteSQLException("SELECT FOR UPDATE query requires transactional " +
+                        "cache with MVCC enabled.", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
 
-            tx = MvccUtils.activeSqlTx(this.ctx);
+                tx = MvccUtils.activeTx(this.ctx);
 
-            assert !startTx || tx != null;
+                if (tx != null) {
+                    int tm1 = (int)tx.remainingTime(), tm2 = timeout;
 
-            if (tx != null) {
-                int tm1 = (int)tx.remainingTime(), tm2 = timeout;
-
-                timeout = tm1 > 0 && tm2 > 0 ? Math.min(tm1, tm2) : Math.max(tm1, tm2);
+                    timeout = tm1 > 0 && tm2 > 0 ? Math.min(tm1, tm2) : Math.max(tm1, tm2);
+                }
             }
-
-            if (mvccTracker0 != null)
-                ctx.mvccSnapshot(mvccTracker0.snapshot());
 
             final GridNearTxSelectForUpdateFuture sfuFut;
 
             final AffinityTopologyVersion topVer;
 
             if (forUpdate && tx != null) {
-                if (mvccTracker0 == null)
-                    throw new IgniteSQLException("SELECT FOR UPDATE query requires transactional cache " +
-                        "with MVCC enabled.");
-
                 // Otherwise rewriting would throw.
                 assert p instanceof Select;
 
@@ -1095,10 +1099,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 assert t instanceof GridH2Table;
 
                 GridCacheContext cctx = ((GridH2Table)t).cache();
-
-                if (!cctx.mvccEnabled())
-                    throw new IgniteSQLException("SELECT FOR UPDATE query requires transactional cache " +
-                        "with MVCC enabled.");
 
                 sfuFut = new GridNearTxSelectForUpdateFuture(cctx, tx, timeout);
 
@@ -1124,6 +1124,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             }
 
             GridNearTxLocal tx0 = tx;
+            MvccQueryTracker mvccTracker0 = mvccTracker;
             PreparedStatement stmt0 = stmt;
             String qry0 = qry;
             int timeout0 = timeout;
@@ -1212,14 +1213,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             };
         }
         catch (IgniteCheckedException | RuntimeException | Error e) {
-            if ((tx = MvccUtils.tx(ctx)) != null)
+            if (mvccEnabled && (tx != null || (tx = MvccUtils.tx(ctx)) != null))
                 tx.setRollbackOnly();
 
             throw e;
-        }
-        finally {
-            if ((tx != null || (tx = MvccUtils.tx(ctx)) != null) && tx.isRollbackOnly())
-                U.close(tx, log);
         }
     }
 
@@ -1474,8 +1471,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         final boolean keepBinary, IndexingQueryFilter filter, GridQueryCancel cancel) throws IgniteCheckedException {
         String sql = qry.getSql();
         List<Object> params = F.asList(qry.getArgs());
-        boolean enforceJoinOrder = qry.isEnforceJoinOrder();
-        boolean startTx = MvccUtils.mvccEnabled(ctx) && autoStartTx(qry);
+        boolean enforceJoinOrder = qry.isEnforceJoinOrder(), startTx = autoStartTx(qry);
         int timeout = qry.getTimeout();
 
         final GridQueryFieldsResult res = queryLocalSqlFields(schemaName, sql, params, filter,
@@ -1663,13 +1659,14 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         final boolean lazy,
         MvccQueryTracker mvccTracker) {
         assert !qry.mvccEnabled() || !F.isEmpty(qry.cacheIds());
+        assert qry.mvccEnabled() || mvccTracker == null;
 
         try {
             final MvccQueryTracker tracker = mvccTracker == null && qry.mvccEnabled() ?
                 MvccUtils.mvccTracker(ctx.cache().context().cacheContext(qry.cacheIds().get(0)), startTx) : mvccTracker;
 
             if (qry.forUpdate())
-                qry.forUpdate(MvccUtils.activeSqlTx(ctx) != null);
+                qry.forUpdate(MvccUtils.activeTx(ctx) != null);
 
             return new Iterable<List<?>>() {
                 @Override public Iterator<List<?>> iterator() {
@@ -1890,10 +1887,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         NestedTxMode nestedTxMode = qry instanceof SqlFieldsQueryEx ? ((SqlFieldsQueryEx)qry).getNestedTxMode() :
             NestedTxMode.DEFAULT;
 
-        GridNearTxLocal tx = null;
-
-        if (MvccUtils.mvccEnabled(ctx))
-            tx = MvccUtils.activeSqlTx(ctx);
+        GridNearTxLocal tx = MvccUtils.mvccEnabled(ctx) ? MvccUtils.tx(ctx) : null;
 
         if (cmd instanceof SqlBeginTransactionCommand) {
             if (tx != null) {
@@ -1947,7 +1941,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     @SuppressWarnings("ThrowFromFinallyBlock")
     private void doCommit(@NotNull GridNearTxLocal tx) throws IgniteCheckedException {
         try {
-            tx.commit();
+            if (!tx.isRollbackOnly())
+                tx.commit();
         }
         finally {
             closeTx(tx);
@@ -1988,11 +1983,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     @Override public List<FieldsQueryCursor<List<?>>> querySqlFields(String schemaName, SqlFieldsQuery qry,
         @Nullable SqlClientContext cliCtx, boolean keepBinary, boolean failOnMultipleStmts, MvccQueryTracker tracker,
         GridQueryCancel cancel) {
-        GridNearTxLocal tx = null;
+        boolean mvccEnabled = MvccUtils.mvccEnabled(ctx), startTx = autoStartTx(qry);
 
         try {
-            final boolean startTx = MvccUtils.mvccEnabled(ctx) && autoStartTx(qry);
-
             List<FieldsQueryCursor<List<?>>> res = tryQueryDistributedSqlFieldsNative(schemaName, qry, cliCtx);
 
             if (res != null)
@@ -2074,14 +2067,12 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             return res;
         }
         catch (RuntimeException | Error e) {
-            if ((tx = MvccUtils.tx(ctx)) != null)
+            GridNearTxLocal tx;
+
+            if (mvccEnabled && (tx = MvccUtils.tx(ctx)) != null)
                 tx.setRollbackOnly();
 
             throw e;
-        }
-        finally {
-            if ((tx != null || (tx = MvccUtils.tx(ctx)) != null) && tx.isRollbackOnly())
-                U.close(tx, log);
         }
     }
 
@@ -2370,10 +2361,10 @@ public class IgniteH2Indexing implements GridQueryIndexing {
      * @return {@code True} if need to start transaction.
      */
     public boolean autoStartTx(SqlFieldsQuery qry) {
-        // Let's do this call before anything else so that we always check tx type properly.
-        GridNearTxLocal tx = MvccUtils.activeSqlTx(ctx);
+        if (!MvccUtils.mvccEnabled(ctx))
+            return false;
 
-        return qry instanceof SqlFieldsQueryEx && !((SqlFieldsQueryEx)qry).isAutoCommit() && tx == null;
+        return qry instanceof SqlFieldsQueryEx && !((SqlFieldsQueryEx)qry).isAutoCommit() && MvccUtils.activeTx(ctx) == null;
     }
 
     /** {@inheritDoc} */
@@ -2570,11 +2561,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 throw new IgniteSQLException("SELECT FOR UPDATE is supported only for queries " +
                     "that involve single transactional cache.");
 
-            GridCacheContext cctx = sharedCtx.cacheContext(cacheIds.get(0));
-
-            if (cctx.atomic() || !cctx.mvccEnabled())
+            if (!mvccEnabled)
                 throw new IgniteSQLException("SELECT FOR UPDATE query requires transactional cache " +
-                    "with MVCC enabled.");
+                    "with MVCC enabled.", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
         }
     }
 
@@ -3257,7 +3246,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         if (!MvccUtils.mvccEnabled(ctx))
             return;
 
-        GridNearTxLocal tx = MvccUtils.activeSqlTx(ctx);
+        GridNearTxLocal tx = MvccUtils.activeTx(ctx);
 
         if (tx != null)
             doRollback(tx);

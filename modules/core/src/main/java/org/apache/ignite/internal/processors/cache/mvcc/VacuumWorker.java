@@ -34,12 +34,16 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
 import org.apache.ignite.internal.util.lang.GridCursor;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.worker.GridWorker;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.OWNING;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.compare;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.hasNewMvccVersionFast;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.state;
 import static org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter.RowData.KEY_ONLY;
 
 /**
@@ -127,29 +131,24 @@ public class VacuumWorker  extends GridWorker {
                 }
 
                 if (!prevKey.equals(row.key())) {
-                    if (cleanupRows != null && !cleanupRows.isEmpty())
+                    if (!F.isEmpty(cleanupRows))
                         cleanup(part, prevKey, cleanupRows, cctx, metrics);
 
-                    if (shared && curCacheId != row.cacheId()) {
-                        curCacheId = row.cacheId();
-                        cctx = part.group().shared().cacheContext(curCacheId);
-                    }
+                    cleanupRows = null;
+
+                    if (shared && curCacheId != row.cacheId())
+                        cctx = part.group().shared().cacheContext(curCacheId = row.cacheId());
 
                     prevKey = row.key();
                 }
 
-                if (canClean(row, cleanupVer, cctx)) {
-                    if (cleanupRows == null)
-                        cleanupRows = new ArrayList<>();
-
-                    cleanupRows.add(new MvccLinkAwareSearchRow(row.cacheId(), row.key(), row.mvccCoordinatorVersion(),
-                        row.mvccCounter(), row.mvccOperationCounter(), row.link()));
-                }
+                if (canClean(row, cleanupVer, cctx))
+                    cleanupRows = addRow(cleanupRows, row);
 
                 metrics.addScannedRowsCount(1);
             }
 
-            if (cleanupRows != null && !cleanupRows.isEmpty())
+            if (!F.isEmpty(cleanupRows))
                 cleanup(part, prevKey, cleanupRows, cctx, metrics);
 
             metrics.addSearchNanoTime(System.nanoTime() - startNanoTime - metrics.cleanupNanoTime());
@@ -162,6 +161,21 @@ public class VacuumWorker  extends GridWorker {
     }
 
     /**
+     * @param rows Collection of rows.
+     * @param row Row to add.
+     * @return Collection of rows.
+     */
+    @NotNull private List<MvccLinkAwareSearchRow> addRow(@Nullable List<MvccLinkAwareSearchRow> rows, MvccDataRow row) {
+        if (rows == null)
+            rows = new ArrayList<>();
+
+        rows.add(new MvccLinkAwareSearchRow(row.cacheId(), row.key(), row.mvccCoordinatorVersion(),
+            row.mvccCounter(), row.mvccOperationCounter(), row.link()));
+
+        return rows;
+    }
+
+    /**
      * @param row Mvcc row to check.
      * @param cleanupVer Cleanup version to compare with.
      * @param cctx Cache context.
@@ -171,8 +185,8 @@ public class VacuumWorker  extends GridWorker {
         GridCacheContext cctx) throws IgniteCheckedException {
         return compare(row, cleanupVer) <= 0
             && hasNewMvccVersionFast(row) && MvccUtils.compareNewVersion(row, cleanupVer) <= 0
-            && cctx.shared().coordinators().state(row.newMvccCoordinatorVersion(), row.newMvccCounter()) == TxState.COMMITTED
-            || cctx.shared().coordinators().state(row.mvccCoordinatorVersion(), row.mvccCounter()) == TxState.ABORTED;
+            && state(cctx, row.newMvccCoordinatorVersion(), row.newMvccCounter()) == TxState.COMMITTED
+            || state(cctx, row.mvccCoordinatorVersion(), row.mvccCounter()) == TxState.ABORTED;
     }
 
     /**
@@ -186,9 +200,7 @@ public class VacuumWorker  extends GridWorker {
      */
     private void cleanup(GridDhtLocalPartition part, KeyCacheObject key, List<MvccLinkAwareSearchRow> cleanupRows,
         GridCacheContext cctx, VacuumMetrics metrics) throws IgniteCheckedException {
-        assert key != null;
-        assert cleanupRows != null && !cleanupRows.isEmpty();
-        assert cctx != null;
+        assert key != null && cctx != null && !F.isEmpty(cleanupRows);
 
         long cleanupStartNanoTime = System.nanoTime();
 
