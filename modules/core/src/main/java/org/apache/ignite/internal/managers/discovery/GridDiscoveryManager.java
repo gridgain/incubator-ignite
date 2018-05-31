@@ -1997,6 +1997,19 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
         return pred != null && pred.dataNode(node);
     }
 
+//    /**
+//     * Checks if node is a data node for the given cache.
+//     *
+//     * @param node Node to check.
+//     * @param cacheName Cache name.
+//     * @return {@code True} if node is a cache data node.
+//     */
+//    public Collection<ClusterNode> cacheAffinityNodes(ClusterNode node, String cacheName) {
+//        CachePredicate pred = registeredCaches.get(cacheName);
+//
+//        return pred != null && pred.dataNode(node);
+//    }
+
     /**
      * Checks if node is a data node for the given cache group.
      *
