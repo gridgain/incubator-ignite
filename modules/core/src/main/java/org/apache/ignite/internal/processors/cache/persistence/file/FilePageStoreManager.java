@@ -30,6 +30,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -52,10 +53,12 @@ import org.apache.ignite.internal.processors.cache.CacheGroupDescriptor;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedManagerAdapter;
 import org.apache.ignite.internal.processors.cache.StoredCacheData;
 import org.apache.ignite.internal.processors.cache.persistence.AllocatedPageTracker;
+import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.filename.PdsFolderSettings;
 import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage;
 import org.apache.ignite.internal.processors.cache.persistence.snapshot.IgniteCacheSnapshotManager;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.marshaller.Marshaller;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
@@ -141,6 +144,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
     /** {@inheritDoc} */
     @Override public void start0() throws IgniteCheckedException {
         final GridKernalContext ctx = cctx.kernalContext();
+
         if (ctx.clientNode())
             return;
 
@@ -149,6 +153,40 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         storeWorkDir = new File(folderSettings.persistentStoreRootPath(), folderSettings.folderName());
 
         U.ensureDirectory(storeWorkDir, "page store work directory", log);
+
+        String tmpDir = System.getProperty("java.io.tmpdir");
+
+        if (tmpDir != null && storeWorkDir.getAbsolutePath().contains(tmpDir)) {
+            log.warning("Persistence store directory is in the temp directory and may be cleaned." +
+                "To avoid this set \"IGNITE_HOME\" environment variable properly or " +
+                "change location of persistence directories in data storage configuration " +
+                "(see DataStorageConfiguration#walPath, DataStorageConfiguration#walArchivePath, " +
+                "DataStorageConfiguration#storagePath properties). " +
+                "Current persistence store directory is: [" + tmpDir + "]");
+        }
+    }
+
+    /** {@inheritDoc} */
+    public void cleanupPersistentSpace(CacheConfiguration cacheConfiguration) throws IgniteCheckedException {
+        try {
+            File cacheWorkDir = cacheWorkDir(cacheConfiguration);
+
+            if(!cacheWorkDir.exists())
+                return;
+
+            try (DirectoryStream<Path> files = Files.newDirectoryStream(cacheWorkDir.toPath(),
+                new DirectoryStream.Filter<Path>() {
+                    @Override public boolean accept(Path entry) throws IOException {
+                        return entry.toFile().getName().endsWith(FILE_SUFFIX);
+                    }
+                })) {
+                for (Path path : files)
+                    Files.delete(path);
+            }
+        }
+        catch (IOException e) {
+            throw new IgniteCheckedException("Failed to cleanup persistent directory: ", e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -409,13 +447,20 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
 
         File cacheWorkDir = cacheWorkDir(ccfg);
 
-        AllocatedPageTracker allocatedTracker =
-            cctx.database().dataRegion(grpDesc.config().getDataRegionName()).memoryMetrics();
+        String dataRegionName = grpDesc.config().getDataRegionName();
 
-        return initDir(cacheWorkDir,
+        DataRegionMetricsImpl regionMetrics = cctx.database().dataRegion(dataRegionName).memoryMetrics();
+
+        int grpId = CU.cacheId(grpDesc.cacheOrGroupName());
+
+        AllocatedPageTracker allocatedTracker = regionMetrics.getOrAllocateGroupPageAllocationTracker(grpId);
+
+        return initDir(
+            cacheWorkDir,
             grpDesc.groupId(),
             grpDesc.config().getAffinity().partitions(),
-            allocatedTracker);
+            allocatedTracker
+        );
     }
 
     /**
@@ -614,6 +659,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
 
         Map<String, StoredCacheData> ccfgs = new HashMap<>();
 
+        Arrays.sort(files);
+
         for (File file : files) {
             if (file.isDirectory()) {
                 if (file.getName().startsWith(CACHE_DIR_PREFIX)) {
@@ -622,7 +669,14 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
                     if (conf.exists() && conf.length() > 0) {
                         StoredCacheData cacheData = readCacheData(conf);
 
-                        ccfgs.put(cacheData.config().getName(), cacheData);
+                        String cacheName = cacheData.config().getName();
+
+                        if (!ccfgs.containsKey(cacheName))
+                            ccfgs.put(cacheName, cacheData);
+                        else {
+                            U.warn(log, "Cache with name=" + cacheName + " is already registered, skipping config file "
+                                    + file.getName());
+                        }
                     }
                 }
                 else if (file.getName().startsWith(CACHE_GRP_DIR_PREFIX))
@@ -648,7 +702,14 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
             if (!file.isDirectory() && file.getName().endsWith(CACHE_DATA_FILENAME) && file.length() > 0) {
                 StoredCacheData cacheData = readCacheData(file);
 
-                ccfgs.put(cacheData.config().getName(), cacheData);
+                String cacheName = cacheData.config().getName();
+
+                if (!ccfgs.containsKey(cacheName))
+                    ccfgs.put(cacheName, cacheData);
+                else {
+                    U.warn(log, "Cache with name=" + cacheName + " is already registered, skipping config file "
+                            + file.getName() + " in group directory " + grpDir.getName());
+                }
             }
         }
     }
@@ -665,6 +726,15 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         catch (IOException e) {
             throw new IgniteCheckedException("Failed to read cache configuration from disk for cache: " +
                 conf.getAbsolutePath(), e);
+        }
+        catch (IgniteCheckedException e) {
+            if (e.hasCause(ClassNotFoundException.class))
+                throw new IgniteCheckedException("An error occurred during cache configuration loading from file [file=" +
+                    conf.getAbsolutePath() + "]. You may want to remove the configuration file; cache will be running " +
+                    "after next node start if static Ignite Configuration contains correct configuration of this cache. " +
+                    "If it was started dynamically, you may need to start it again (all data will be present).", e);
+            else
+                throw e;
         }
     }
 

@@ -131,8 +131,8 @@ public abstract class IgnitePdsCacheRebalancingAbstractTest extends GridCommonAb
         DataRegionConfiguration memPlcCfg = new DataRegionConfiguration();
 
         memPlcCfg.setName("dfltDataRegion");
-        memPlcCfg.setMaxSize(150 * 1024 * 1024);
-        memPlcCfg.setInitialSize(100 * 1024 * 1024);
+        memPlcCfg.setMaxSize(150L * 1024 * 1024);
+        memPlcCfg.setInitialSize(100L * 1024 * 1024);
         memPlcCfg.setPersistenceEnabled(true);
 
         memCfg.setDefaultDataRegionConfiguration(memPlcCfg);
@@ -584,7 +584,7 @@ public abstract class IgnitePdsCacheRebalancingAbstractTest extends GridCommonAb
         try (IgniteDataStreamer ds = ig.dataStreamer(cacheName)) {
             ds.allowOverwrite(true);
 
-            for (int k0 = k; k < k0 + 50_000; k++)
+            for (int k0 = k; k < k0 + 10_000; k++)
                 ds.addData(k, k);
         }
 
@@ -631,7 +631,7 @@ public abstract class IgnitePdsCacheRebalancingAbstractTest extends GridCommonAb
                     for (;k < k0 + 3; k++)
                         ds.addData(k, k);
 
-                    U.sleep(1);
+                    U.sleep(10);
                 }
             }
             catch (Exception e) {

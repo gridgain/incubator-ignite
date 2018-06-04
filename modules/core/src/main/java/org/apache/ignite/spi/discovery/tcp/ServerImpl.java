@@ -1473,7 +1473,7 @@ class ServerImpl extends TcpDiscoveryImpl {
      *
      * @return {@code true} if local node is coordinator.
      */
-    private boolean isLocalNodeCoordinator() {
+    public boolean isLocalNodeCoordinator() {
         synchronized (mux) {
             boolean crd = spiState == CONNECTED && locNode.equals(resolveCoordinator());
 
@@ -4212,9 +4212,9 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                     DiscoveryDataPacket dataPacket = msg.gridDiscoveryData();
 
-                    dataPacket.joiningNodeClient(msg.client());
-
                     assert dataPacket != null : msg;
+
+                    dataPacket.joiningNodeClient(msg.client());
 
                     if (dataPacket.hasJoiningNodeData())
                         spi.onExchange(dataPacket, U.resolveClassLoader(spi.ignite().configuration()));
