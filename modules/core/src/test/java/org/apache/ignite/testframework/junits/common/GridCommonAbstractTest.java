@@ -932,7 +932,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
                 sb.append("local part=");
 
                 if (part != null)
-                    sb.append(p).append(" state=").append(part.state());
+                    sb.append(p).append(" state=").append(part.state()).append(" cntr=").append(part.updateCounter()).append(" size=" + part.dataStore().fullSize());
                 else
                     sb.append(p).append(" is null");
 
