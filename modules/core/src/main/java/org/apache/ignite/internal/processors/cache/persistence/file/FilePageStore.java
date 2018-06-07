@@ -340,7 +340,8 @@ public class FilePageStore implements PageStore {
             long off = pageOffset(pageId);
 
             assert pageBuf.capacity() == pageSize;
-            assert pageBuf.position() == 0;
+            if (pageBuf.position() != 0)
+            assert pageBuf.position() == 0: pageBuf.position();
             assert pageBuf.order() == ByteOrder.nativeOrder();
             assert off <= (allocated.get() - headerSize()) : "calculatedOffset=" + off +
                 ", allocated=" + allocated.get() + ", headerSize="+headerSize();
