@@ -14,13 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.internal.processors.cache.persistence;
+package org.apache.ignite.internal.processors.cache.persistence.db.wal;
 
-import org.apache.ignite.internal.processors.cache.persistence.db.wal.IgniteWalFlushFsyncSelfTest;
-
+/**
+ * Native IO version of test
+ */
 public class IgniteNativeIoWalFlushFsyncSelfTest extends IgniteWalFlushFsyncSelfTest {
     /** {@inheritDoc} */
     @Override public void testFailAfterStart() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-8742");
+
         super.testFailAfterStart();
     }
 }
