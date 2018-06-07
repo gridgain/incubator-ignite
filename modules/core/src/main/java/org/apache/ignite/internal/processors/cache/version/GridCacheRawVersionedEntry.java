@@ -116,6 +116,10 @@ public class GridCacheRawVersionedEntry<K, V> extends DataStreamerEntry implemen
     @Override public K key() {
         assert key != null : "Entry is being improperly processed.";
 
+        // Dirty fix for AA POC
+        if (key.toString().startsWith("SQL_PUBLIC"))
+            return (K)key;
+
         return key.value(null, false);
     }
 
