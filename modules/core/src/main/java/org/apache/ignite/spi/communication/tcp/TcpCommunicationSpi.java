@@ -3249,6 +3249,14 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                     if (!recoveryDesc.reserve()) {
                         U.closeQuiet(ch);
 
+                        // Ensure the session is closed.
+                        GridNioSession ses = recoveryDesc.session();
+
+                        if (ses != null) {
+                            while(ses.closeTime() == 0)
+                                ses.close();
+                        }
+
                         return null;
                     }
 

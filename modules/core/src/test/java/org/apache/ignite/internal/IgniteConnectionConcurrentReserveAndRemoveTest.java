@@ -1,0 +1,134 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal;
+
+import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.configuration.DataRegionConfiguration;
+import org.apache.ignite.configuration.DataStorageConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.nio.GridCommunicationClient;
+import org.apache.ignite.internal.util.nio.GridTcpNioCommunicationClient;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiPredicate;
+import org.apache.ignite.lang.IgniteCallable;
+import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+
+/**
+ */
+public class IgniteConnectionConcurrentReserveAndRemoveTest extends GridCommonAbstractTest {
+    /** */
+    private static TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
+
+    /** {@inheritDoc} */
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration c = super.getConfiguration(igniteInstanceName);
+
+        c.setCommunicationSpi(new TestRecordingCommunicationSpi());
+
+        DataStorageConfiguration memCfg = new DataStorageConfiguration().setDefaultDataRegionConfiguration(
+            new DataRegionConfiguration().setMaxSize(50 * 1024 * 1024));
+
+        c.setDataStorageConfiguration(memCfg);
+
+        c.setClientMode(igniteInstanceName.startsWith("client"));
+
+        TcpDiscoverySpi disco = new TcpDiscoverySpi();
+
+        disco.setIpFinder(ipFinder);
+
+        c.setDiscoverySpi(disco);
+
+        return c;
+    }
+
+    /** */
+    private static final class TestClosure implements IgniteCallable<Integer> {
+        /** Serial version uid. */
+        private static final long serialVersionUid = 0L;
+
+        /** {@inheritDoc} */
+        @Override public Integer call() throws Exception {
+            return 1;
+        }
+    }
+
+
+    public void testReservationHang() throws Exception {
+        IgniteEx svr = startGrid(0);
+
+        Ignite c1 = startGrid("client1");
+
+        assertTrue(c1.configuration().isClientMode());
+
+        Ignite c2 = startGrid("client2");
+
+        assertTrue(c2.configuration().isClientMode());
+
+        AtomicInteger cnt = new AtomicInteger();
+
+        cnt.getAndAdd(c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).call(new TestClosure()));
+
+        TestRecordingCommunicationSpi spi1 = TestRecordingCommunicationSpi.spi(c1);
+
+        ConcurrentMap<UUID, GridCommunicationClient[]> clientsMap = U.field(spi1, "clients");
+
+        GridCommunicationClient[] arr = clientsMap.get(c2.cluster().localNode().id());
+
+        GridTcpNioCommunicationClient client = null;
+
+        for (GridCommunicationClient c : arr) {
+            client = (GridTcpNioCommunicationClient)c;
+
+            if(client != null) {
+                assertTrue(client.session().outRecoveryDescriptor().reserved());
+
+                assertFalse(client.session().outRecoveryDescriptor().connected());
+            }
+        }
+
+        assertNotNull(client);
+
+        spi1.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+            @Override public boolean apply(ClusterNode node, Message message) {
+                if (message instanceof GridJobExecuteRequest) {
+                    System.out.println(message);
+                }
+
+                return false;
+            }
+        });
+
+        try {
+            cnt.getAndAdd(c1.compute(c1.cluster().forNodeId(c2.cluster().localNode().id())).call(new TestClosure()));
+        }
+        catch (IgniteException e) {
+            // Expected.
+        }
+
+        assertEquals(2, cnt.get());
+    }
+}

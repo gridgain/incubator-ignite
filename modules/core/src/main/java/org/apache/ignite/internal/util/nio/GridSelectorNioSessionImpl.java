@@ -377,6 +377,8 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
         assert recoveryDesc != null;
 
         outRecovery = recoveryDesc;
+
+        outRecovery.session(this);
     }
 
     /** {@inheritDoc} */
