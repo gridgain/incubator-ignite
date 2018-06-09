@@ -20,12 +20,16 @@ package org.apache.ignite.internal.util.nio;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.UUID;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.util.GridCallStackHolder;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.jetbrains.annotations.Nullable;
@@ -38,7 +42,7 @@ import static org.apache.ignite.IgniteSystemProperties.IGNITE_NIO_RECOVERY_DESCR
 public class GridNioRecoveryDescriptor {
     /** Timeout for outgoing recovery descriptor reservation. */
     private static final long DESC_RESERVATION_TIMEOUT =
-        Math.max(1_000, IgniteSystemProperties.getLong(IGNITE_NIO_RECOVERY_DESCRIPTOR_RESERVATION_TIMEOUT, 5_000));
+        Math.max(500, IgniteSystemProperties.getLong(IGNITE_NIO_RECOVERY_DESCRIPTOR_RESERVATION_TIMEOUT, 500));
 
     /** Number of acknowledged messages. */
     private long acked;
@@ -93,6 +97,11 @@ public class GridNioRecoveryDescriptor {
     private GridNioSession ses;
 
     /**
+     * Call stack holder.
+     */
+    private final GridCallStackHolder holder;
+
+    /**
      * @param pairedConnections {@code True} if in/out connections pair is used for communication with node.
      * @param queueLimit Maximum size of unacknowledged messages queue.
      * @param node Node.
@@ -113,6 +122,8 @@ public class GridNioRecoveryDescriptor {
         this.queueLimit = queueLimit;
         this.node = node;
         this.log = log;
+
+        holder = U.IGNITE_TEST_FEATURES_ENABLED ? new GridCallStackHolder() : null;
     }
 
     /**
@@ -288,10 +299,21 @@ public class GridNioRecoveryDescriptor {
             while (!connected && reserved) {
                 wait(DESC_RESERVATION_TIMEOUT);
 
-                if ((System.nanoTime() - t0) / 1_000_000 >= DESC_RESERVATION_TIMEOUT - 100) {
+                if ((System.nanoTime() - t0) / 1_000_000 >= DESC_RESERVATION_TIMEOUT) {
                     // Dumping a descriptor.
                     log.error("Failed to wait for recovery descriptor reservation " +
                         "[desc=" + this + ", ses=" + ses + ']');
+
+                    if (U.IGNITE_TEST_FEATURES_ENABLED) {
+                        log.info(">>>>>>>>>>>>>>> Printing descriptor call history:");
+
+                        holder.print(log);
+
+                        log.info(">>>>>>>>>>>>>>> Printing session call history:");
+
+                        if (ses instanceof GridSelectorNioSessionImpl)
+                            ((GridSelectorNioSessionImpl)ses).holder.print(log);
+                    }
 
                     return false;
                 }
@@ -476,6 +498,24 @@ public class GridNioRecoveryDescriptor {
      */
     public synchronized void session(GridNioSession ses) {
         this.ses = ses;
+    }
+
+    /**
+     * @param nodeId Node id.
+     * @param connIdx Connection index.
+     */
+    public void clientAdded(UUID nodeId, int connIdx) {
+        if (U.IGNITE_TEST_FEATURES_ENABLED)
+            holder.logStack(new T2<>(nodeId, connIdx));
+    }
+
+    /**
+     * @param nodeId Node id.
+     * @param connIdx Connection index.
+     */
+    public void clientRemoved(UUID nodeId, int connIdx) {
+        if (U.IGNITE_TEST_FEATURES_ENABLED)
+            holder.logStack(new T2<>(nodeId, connIdx));
     }
 
     /**

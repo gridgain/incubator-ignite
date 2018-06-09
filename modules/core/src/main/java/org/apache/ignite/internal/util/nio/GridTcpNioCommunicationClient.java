@@ -146,6 +146,22 @@ public class GridTcpNioCommunicationClient extends GridAbstractCommunicationClie
     }
 
     /** {@inheritDoc} */
+    @Override public void onAdded(UUID nodeId) {
+        GridNioRecoveryDescriptor desc = ses.outRecoveryDescriptor();
+
+        if (desc != null)
+            desc.clientAdded(nodeId, connectionIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onRemoved(UUID nodeId) {
+        GridNioRecoveryDescriptor desc = ses.outRecoveryDescriptor();
+
+        if (desc != null)
+            desc.clientRemoved(nodeId, connectionIndex());
+    }
+
+    /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(GridTcpNioCommunicationClient.class, this, super.toString());
     }

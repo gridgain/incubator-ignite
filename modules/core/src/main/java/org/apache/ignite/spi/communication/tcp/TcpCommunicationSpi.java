@@ -2752,8 +2752,12 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
             newClients[rmvClient.connectionIndex()] = null;
 
-            if (clients.replace(nodeId, curClients, newClients))
+            if (clients.replace(nodeId, curClients, newClients)) {
+                if (U.IGNITE_TEST_FEATURES_ENABLED)
+                    rmvClient.onRemoved(nodeId);
+
                 return true;
+            }
         }
     }
 
@@ -2786,15 +2790,21 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 newClients = new GridCommunicationClient[connectionsPerNode];
                 newClients[connIdx] = addClient;
 
-                if (clients.putIfAbsent(node.id(), newClients) == null)
+                if (clients.putIfAbsent(node.id(), newClients) == null) {
+                    addClient.onAdded(node.id());
+
                     break;
+                }
             }
             else {
                 newClients = Arrays.copyOf(curClients, curClients.length);
                 newClients[connIdx] = addClient;
 
-                if (clients.replace(node.id(), curClients, newClients))
+                if (clients.replace(node.id(), curClients, newClients)) {
+                    addClient.onAdded(node.id());
+
                     break;
+                }
             }
         }
     }

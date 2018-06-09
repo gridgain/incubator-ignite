@@ -26,10 +26,15 @@ import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.internal.util.GridCallStackHolder;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.Nullable;
 import org.apache.ignite.util.deque.FastSizeDeque;
 
@@ -76,6 +81,11 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
 
     /** */
     private Object sysMsg;
+
+    /**
+     * Call stack holder.
+     */
+    GridCallStackHolder holder;
 
     /**
      * Creates session instance.
@@ -128,6 +138,9 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
 
             this.readBuf = readBuf;
         }
+
+        if (U.IGNITE_TEST_FEATURES_ENABLED)
+            holder = new GridCallStackHolder();
     }
 
     /** {@inheritDoc} */
@@ -191,10 +204,17 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
 
             GridNioWorker worker0 = worker;
 
-            if (worker0 != from)
+            if (worker0 != from) {
+                if (U.IGNITE_TEST_FEATURES_ENABLED)
+                    holder.logStack(new T2<>(from, fut));
+
                 return false;
+            }
 
             worker.offer(fut);
+
+            if (U.IGNITE_TEST_FEATURES_ENABLED)
+                holder.logStack(new T2<>(from, fut));
         }
 
         return true;
@@ -215,9 +235,16 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
                     pendingStateChanges = new ArrayList<>();
 
                 pendingStateChanges.add(fut);
+
+                if (U.IGNITE_TEST_FEATURES_ENABLED)
+                    holder.logStack(fut);
             }
-            else
+            else {
                 worker0.offer(fut);
+
+                if (U.IGNITE_TEST_FEATURES_ENABLED)
+                    holder.logStack(fut);
+            }
         }
     }
 
@@ -240,7 +267,12 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
                     pendingStateChanges = new ArrayList<>();
 
                 pendingStateChanges.addAll(sesReqs);
+
+                if (U.IGNITE_TEST_FEATURES_ENABLED)
+                    holder.logStack(new T2<>(moveFrom, sesReqs));
             }
+            else if (U.IGNITE_TEST_FEATURES_ENABLED)
+                holder.logStack(moveFrom);
         }
     }
 
@@ -260,6 +292,13 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
                 moveTo.offer(pendingStateChanges);
 
                 pendingStateChanges = null;
+
+                if (U.IGNITE_TEST_FEATURES_ENABLED)
+                    holder.logStack(moveTo);
+            }
+            else {
+                if (U.IGNITE_TEST_FEATURES_ENABLED)
+                    holder.logStack(moveTo);
             }
         }
     }
@@ -423,6 +462,16 @@ class GridSelectorNioSessionImpl extends GridNioSessionImpl implements GridNioKe
      */
     boolean hasSystemMessage() {
         return sysMsg != null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public GridNioFuture<Boolean> close() {
+        GridNioFuture<Boolean> fut = super.close();
+
+        if (U.IGNITE_TEST_FEATURES_ENABLED)
+            holder.logStack(fut);
+
+        return fut;
     }
 
     /**

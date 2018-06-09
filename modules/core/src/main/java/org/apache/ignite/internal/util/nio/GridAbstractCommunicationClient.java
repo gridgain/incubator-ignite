@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.util.nio;
 
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -92,6 +93,16 @@ public abstract class GridAbstractCommunicationClient implements GridCommunicati
     /** {@inheritDoc} */
     @Override public boolean async() {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onAdded(UUID nodeId) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onRemoved(UUID nodeId) {
+        // No-op.
     }
 
     /** {@inheritDoc} */

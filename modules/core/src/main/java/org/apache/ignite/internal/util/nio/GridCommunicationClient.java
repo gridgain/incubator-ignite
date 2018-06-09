@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.util.lang.IgniteInClosure2X;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
@@ -107,4 +108,16 @@ public interface GridCommunicationClient {
      * @return Connection index.
      */
     public int connectionIndex();
+
+    /**
+     * Callback which is invoked when client was added.
+     * @param nodeId Cluster node id.
+     */
+    public void onAdded(UUID nodeId);
+
+    /**
+     * Callback which is invoked when client was removed.
+     * @param nodeId Cluster node id.
+     */
+    public void onRemoved(UUID nodeId);
 }
