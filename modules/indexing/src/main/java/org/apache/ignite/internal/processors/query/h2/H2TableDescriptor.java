@@ -26,7 +26,9 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.cache.QueryIndexType;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.query.GridQueryIndexDescriptor;
+import org.apache.ignite.internal.processors.query.GridQueryProperty;
 import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
+import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.processors.query.h2.database.H2PkHashIndex;
 import org.apache.ignite.internal.processors.query.h2.database.H2RowFactory;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2IndexBase;
@@ -199,12 +201,36 @@ public class H2TableDescriptor implements GridH2SystemIndexFactory {
         if (hashIdx != null)
             idxs.add(hashIdx);
 
+        List<IndexColumn> keyCols;
+
+        if (QueryUtils.isSqlType(type.keyClass()))
+            keyCols = Collections.singletonList(keyCol);
+        else {
+            keyCols = new ArrayList<>();
+
+            for (String propName : type.fields().keySet()) {
+                GridQueryProperty prop = type.property(propName);
+
+                if (prop.key()) {
+                    Column col = tbl.getColumn(propName);
+
+                    keyCols.add(tbl.indexColumn(col.getColumnId(), SortOrder.ASCENDING));
+                }
+            }
+
+            // If key is object but the user has not specified any particular columns,
+            // we have to fall back to whole-key index.
+            // This case also covers the situation when key is Ignite's AffinityKey.
+            if (keyCols.isEmpty())
+                keyCols = Collections.singletonList(keyCol);
+        }
+
         // Add primary key index.
         Index pkIdx = idx.createSortedIndex(
             PK_IDX_NAME,
             tbl,
             true,
-            Collections.singletonList(keyCol),
+            keyCols,
             -1
         );
 
