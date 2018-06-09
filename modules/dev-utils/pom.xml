@@ -31,7 +31,7 @@
     </parent>
 
     <artifactId>ignite-dev-utils</artifactId>
-    <version>2.5.0-SNAPSHOT</version>
+    <version>2.5.1-p4</version>
     <url>http://ignite.apache.org</url>
 
     <dependencies>
@@ -46,7 +46,20 @@
             <artifactId>ignite-indexing</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>1.2.17</version>
+        </dependency>
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>internal_repo</id>
+            <url>http://www.gridgainsystems.com/nexus/content/repositories/gridgain_staging-2787</url>
+        </repository>
+    </repositories>
 
     <build>
         <plugins>
