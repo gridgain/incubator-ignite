@@ -18,7 +18,6 @@
 package org.apache.ignite.jdbc.thin;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -103,6 +102,7 @@ public class JdbcThinMetadataSelfTest extends JdbcThinAbstractSelfTest {
             cacheConfiguration(new QueryEntity(String.class.getName(), Organization.class.getName())
                 .addQueryField("id", Integer.class.getName(), null)
                 .addQueryField("name", String.class.getName(), null)
+                .setKeyFields(Collections.emptySet())
                 .setIndexes(Arrays.asList(
                     new QueryIndex("id"),
                     new QueryIndex("name", false, "org_name_index")
@@ -124,6 +124,7 @@ public class JdbcThinMetadataSelfTest extends JdbcThinAbstractSelfTest {
                     .addQueryField("name", String.class.getName(), null)
                     .addQueryField("age", Integer.class.getName(), null)
                     .addQueryField("orgId", Integer.class.getName(), null)
+                    .setKeyFields(Collections.emptySet())
                     .setIndexes(Arrays.asList(
                         new QueryIndex("orgId"),
                         new QueryIndex().setFields(persFields))))

@@ -30,6 +30,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Set;
@@ -83,6 +84,7 @@ public class JdbcMetadataSelfTest extends GridCommonAbstractTest {
                         .addQueryField("name", String.class.getName(), null)
                         .addQueryField("age", Integer.class.getName(), null)
                         .addQueryField("orgId", Integer.class.getName(), null)
+                        .setKeyFields(Collections.emptySet())
                         .setIndexes(Arrays.asList(
                             new QueryIndex("orgId"),
                             new QueryIndex().setFields(persFields))))
