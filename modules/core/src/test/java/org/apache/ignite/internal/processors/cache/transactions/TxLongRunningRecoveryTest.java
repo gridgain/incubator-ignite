@@ -33,7 +33,6 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
@@ -76,6 +75,8 @@ public class TxLongRunningRecoveryTest extends GridCommonAbstractTest {
     /** */
     public static final long MB = 1024 * 1024;
 
+    private boolean persistenceEnabled;
+
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
@@ -88,16 +89,13 @@ public class TxLongRunningRecoveryTest extends GridCommonAbstractTest {
 
         cfg.setClientMode(client);
 
-        if (persistenceEnabled())
+        if (persistenceEnabled)
             cfg.setDataStorageConfiguration(new DataStorageConfiguration().setWalMode(LOG_ONLY).setPageSize(1024).
                 setDefaultDataRegionConfiguration(new DataRegionConfiguration().setPersistenceEnabled(true).
                     setInitialSize(100 * MB).setMaxSize(100 * MB)));
 
         if (!client) {
             CacheConfiguration ccfg = new CacheConfiguration(CACHE_NAME);
-
-            if (nearCacheEnabled())
-                ccfg.setNearConfiguration(new NearCacheConfiguration());
 
             ccfg.setAtomicityMode(TRANSACTIONAL);
             ccfg.setBackups(2);
@@ -110,22 +108,11 @@ public class TxLongRunningRecoveryTest extends GridCommonAbstractTest {
         return cfg;
     }
 
-    /**
-     * @return Near cache flag.
-     */
-    protected boolean nearCacheEnabled() {
-        return false;
-    }
-
-    /**
-     *
-     * @return {@code True} if persistence must be enabled for test.
-     */
-    protected boolean persistenceEnabled() { return false; }
-
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
+
+        cleanPersistenceDir();
 
         System.setProperty(IgniteSystemProperties.IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT, "5000");
 
@@ -146,6 +133,8 @@ public class TxLongRunningRecoveryTest extends GridCommonAbstractTest {
 
         try {
             stopAllGrids();
+
+            cleanPersistenceDir();
         }
         finally {
             System.clearProperty(IgniteSystemProperties.IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT);
@@ -163,10 +152,7 @@ public class TxLongRunningRecoveryTest extends GridCommonAbstractTest {
 
         assertTrue(client.configuration().isClientMode());
 
-        if (nearCacheEnabled())
-            client.createNearCache(CACHE_NAME, new NearCacheConfiguration<>());
-        else
-            assertNotNull(client.cache(CACHE_NAME));
+        assertNotNull(client.cache(CACHE_NAME));
 
         return client;
     }
@@ -175,6 +161,24 @@ public class TxLongRunningRecoveryTest extends GridCommonAbstractTest {
      *
      */
     public void testRecovery() throws Exception {
+        persistenceEnabled = false;
+
+        doTestRecovery();
+    }
+
+    /**
+     *
+     */
+    public void testRecoveryWithPersistence() throws Exception {
+        persistenceEnabled = true;
+
+        doTestRecovery();
+    }
+
+    /**
+     *
+     */
+    private void doTestRecovery() throws Exception {
         Ignite[] clients = new Ignite[] {
             startClient("client1"),
             startClient("client2"),
