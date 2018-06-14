@@ -896,8 +896,8 @@ public final class IgniteSystemProperties {
     /**
      * When set to {@code true} enables recovery on long running transactions.
      */
-    public static final String IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS = "IGNITE_ENABLE_RECOVERY_ON_LONG_RUNNING_TXS";
-
+    public static final String IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS =
+        "IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS";
 
     /**
      * Enables threads dumping on critical node failure.
