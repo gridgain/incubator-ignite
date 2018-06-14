@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.cache.Cache;
-
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
@@ -113,6 +112,7 @@ public class IgniteBinaryObjectQueryArgumentsTest extends GridCommonAbstractTest
         person.setKeyType(TestKey.class.getName());
         person.setValueType(Person.class.getName());
         person.addQueryField("name", String.class.getName(), null);
+        person.setKeyFields(Collections.emptySet());
 
         ccfg.setQueryEntities(Collections.singletonList(person));
 
