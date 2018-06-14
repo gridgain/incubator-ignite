@@ -116,7 +116,7 @@ public class TxLongRunningRecoveryTest extends GridCommonAbstractTest {
 
         System.setProperty(IgniteSystemProperties.IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT, "5000");
 
-        System.setProperty(IgniteSystemProperties.IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS, "true");
+        System.setProperty(IgniteSystemProperties.IGNITE_ROLLBACK_TIMEOUT_FOR_LONG_RUNNING_BACKUP_TXS, "5000");
 
         final IgniteEx crd = startGrid(0);
 
@@ -139,7 +139,7 @@ public class TxLongRunningRecoveryTest extends GridCommonAbstractTest {
         finally {
             System.clearProperty(IgniteSystemProperties.IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT);
 
-            System.clearProperty(IgniteSystemProperties.IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS);
+            System.clearProperty(IgniteSystemProperties.IGNITE_ROLLBACK_TIMEOUT_FOR_LONG_RUNNING_BACKUP_TXS);
         }
     }
 

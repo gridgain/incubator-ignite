@@ -155,9 +155,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     /** Partition resend timeout after eviction. */
     private final long partResendTimeout = getLong(IGNITE_PRELOAD_RESEND_TIMEOUT, DFLT_PRELOAD_RESEND_TIMEOUT);
 
-    /** Enable recovery for long running txs. */
-    private final boolean enableRecoveryForLongRunningTxs =
-        getBoolean(IgniteSystemProperties.IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS, false);
+    /** Sets rollback timeout for long running backup txs. */
+    private final long rollbackTimeoutForLongRunningBackupTxs =
+        getLong(IgniteSystemProperties.IGNITE_ROLLBACK_TIMEOUT_FOR_LONG_RUNNING_BACKUP_TXS, 0);
 
     /** */
     private final ReadWriteLock busyLock = new ReentrantReadWriteLock();
@@ -1686,14 +1686,13 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
         if (tm != null) {
             for (IgniteInternalTx tx : tm.activeTransactions()) {
-                if (curTime - tx.startTime() > timeout) {
+                long duration = curTime - tx.startTime();
+
+                if (duration > timeout) {
                     found = true;
 
                     U.warn(diagnosticLog, "Found long running transaction [startTime=" + formatTime(tx.startTime()) +
                         ", curTime=" + formatTime(curTime) + ", tx=" + tx + ']');
-
-                    if (enableRecoveryForLongRunningTxs && !tx.near() && tx.state() == TransactionState.PREPARED)
-                        tm.finishTxOnRecovery(tx, true);
                 }
             }
         }
@@ -1747,6 +1746,18 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         try {
             GridDhtPartitionsExchangeFuture lastFut = lastInitializedFut;
 
+            if (rollbackTimeoutForLongRunningBackupTxs > 0) {
+                long curTime = U.currentTimeMillis();
+
+                IgniteTxManager tm = cctx.tm();
+
+                for (IgniteInternalTx tx : tm.activeTransactions()) {
+                    if (curTime - tx.startTime() >= rollbackTimeoutForLongRunningBackupTxs && !tx.near() && !tx.local() &&
+                        tx.state() == TransactionState.PREPARED)
+                        tm.finishTxOnRecovery(tx, false);
+                }
+            }
+
             // If exchange is in progress it will dump all hanging operations if any.
             if (lastFut != null && !lastFut.isDone())
                 return;
@@ -1766,9 +1777,10 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 if (IgniteSystemProperties.getBoolean(IGNITE_IO_DUMP_ON_TIMEOUT, false)) {
                     U.warn(diagnosticLog, "Found long running cache operations, dump IO statistics.");
 
-                // Dump IO manager statistics.
-                if (IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_IO_DUMP_ON_TIMEOUT, false))
-                    cctx.gridIO().dumpStats();}
+                    // Dump IO manager statistics.
+                    if (IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_IO_DUMP_ON_TIMEOUT, false))
+                        cctx.gridIO().dumpStats();
+                }
             }
             else {
                 nextLongRunningOpsDumpTime = 0;

@@ -894,10 +894,10 @@ public final class IgniteSystemProperties {
             "IGNITE_NIO_RECOVERY_DESCRIPTOR_RESERVATION_TIMEOUT";
 
     /**
-     * When set to {@code true} enables recovery on long running transactions.
+     * When set to non-zero value enables rollback for long running backup transactions.
      */
-    public static final String IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS =
-        "IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS";
+    public static final String IGNITE_ROLLBACK_TIMEOUT_FOR_LONG_RUNNING_BACKUP_TXS =
+        "IGNITE_ROLLBACK_TIMEOUT_FOR_LONG_RUNNING_BACKUP_TXS";
 
     /**
      * Enables threads dumping on critical node failure.
