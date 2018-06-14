@@ -17,30 +17,17 @@
 
 package org.apache.ignite.internal.processors.cache.transactions;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Random;
-import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicIntegerArray;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
-import javax.cache.CacheException;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.MutableEntry;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteException;
-import org.apache.ignite.IgniteTransactions;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -49,56 +36,34 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
-import org.apache.ignite.internal.IgniteInterruptedCheckedException;
-import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.managers.communication.GridIoMessage;
-import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheFuture;
-import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxFinishRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
-import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
-import org.apache.ignite.lang.IgniteFuture;
-import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgnitePredicate;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
-import org.apache.ignite.transactions.TransactionConcurrency;
-import org.apache.ignite.transactions.TransactionIsolation;
-import org.apache.ignite.transactions.TransactionRollbackException;
 import org.apache.ignite.transactions.TransactionTimeoutException;
 
-import static java.lang.Thread.yield;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.configuration.WALMode.LOG_ONLY;
 import static org.apache.ignite.testframework.GridTestUtils.runAsync;
-import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
-import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
-import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
-import static org.apache.ignite.transactions.TransactionState.ROLLED_BACK;
 
 /**
  * Tests an ability to async rollback near transactions.
  */
-public class TxCommitOnBackupTest extends GridCommonAbstractTest {
-    /** */
-    public static final int DURATION = 60_000;
-
+public class TxLongRunningRecoveryTest extends GridCommonAbstractTest {
     /** */
     private static final String CACHE_NAME = "test";
 
@@ -110,9 +75,6 @@ public class TxCommitOnBackupTest extends GridCommonAbstractTest {
 
     /** */
     public static final long MB = 1024 * 1024;
-
-    /** */
-    public static final String LABEL = "wLockTx";
 
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
@@ -165,6 +127,10 @@ public class TxCommitOnBackupTest extends GridCommonAbstractTest {
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
 
+        System.setProperty(IgniteSystemProperties.IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT, "5000");
+
+        System.setProperty(IgniteSystemProperties.IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS, "true");
+
         final IgniteEx crd = startGrid(0);
 
         startGridsMultiThreaded(1, GRID_CNT - 1);
@@ -178,14 +144,14 @@ public class TxCommitOnBackupTest extends GridCommonAbstractTest {
     @Override protected void afterTest() throws Exception {
         super.afterTest();
 
-        stopAllGrids();
-    }
+        try {
+            stopAllGrids();
+        }
+        finally {
+            System.clearProperty(IgniteSystemProperties.IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT);
 
-    /**
-     *
-     */
-    private Ignite startClient() throws Exception {
-        return startClient("client");
+            System.clearProperty(IgniteSystemProperties.IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS);
+        }
     }
 
     /**
@@ -205,7 +171,10 @@ public class TxCommitOnBackupTest extends GridCommonAbstractTest {
         return client;
     }
 
-    public void testCommitOnBackup() throws Exception {
+    /**
+     *
+     */
+    public void testRecovery() throws Exception {
         Ignite[] clients = new Ignite[] {
             startClient("client1"),
             startClient("client2"),
@@ -240,7 +209,6 @@ public class TxCommitOnBackupTest extends GridCommonAbstractTest {
             @Override public void run() {
                 int id = idx.getAndIncrement();
 
-                //while(!stop.get()) {
                 Ignite client = clients[id];
 
                 try (Transaction tx = client.transactions().txStart(PESSIMISTIC, READ_COMMITTED, 0, 1)) {
@@ -297,23 +265,28 @@ public class TxCommitOnBackupTest extends GridCommonAbstractTest {
             }
         });
 
-        multithreadedAsync(new Runnable() {
-            @Override public void run() {
-                while (true) {
-                    checkFutures();
+        // Wait for all remote txs to finish.
+        for (Ignite ignite : G.allGrids()) {
+            if (ignite.configuration().isClientMode())
+                continue;
 
-                    doSleep(10_000);
-                }
-            }
-        }, 1, "dump-thread");
+            Collection<IgniteInternalTx> txs = ((IgniteEx)ignite).context().cache().context().tm().activeTransactions();
 
-        checkFutures();
+            for (IgniteInternalTx tx : txs)
+                if (!tx.local())
+                    tx.finishFuture().get();
+        }
+
+        // Send remaining message.
+        primSpi.stopBlock(true);
 
         fut.get();
 
         Long cur = (Long)clients[0].cache(CACHE_NAME).get(0L);
 
         assertEquals(tc - 1, cur.longValue());
+
+        checkFutures();
     }
 
     /**
@@ -333,7 +306,8 @@ public class TxCommitOnBackupTest extends GridCommonAbstractTest {
             for (IgniteInternalTx tx : activeTxs)
                 log.info("Waiting for transactions: " + tx);
 
-            //assertTrue("Expecting no active futures: node=" + ig.localNode().id(), futs.isEmpty());
+            assertTrue("Expecting no active futures: node=" + ig.localNode().id(), futs.isEmpty());
+            assertTrue("Expecting no active transactions: tx=" + ig.localNode().id(), activeTxs.isEmpty());
         }
     }
 

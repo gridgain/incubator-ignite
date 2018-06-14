@@ -114,12 +114,14 @@ import org.apache.ignite.lang.IgniteBiInClosure;
 import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.thread.IgniteThread;
+import org.apache.ignite.transactions.TransactionState;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_IO_DUMP_ON_TIMEOUT;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_PRELOAD_RESEND_TIMEOUT;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_THREAD_DUMP_ON_EXCHANGE_TIMEOUT;
+import static org.apache.ignite.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.IgniteSystemProperties.getLong;
 import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
 import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
@@ -152,6 +154,10 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
     /** Partition resend timeout after eviction. */
     private final long partResendTimeout = getLong(IGNITE_PRELOAD_RESEND_TIMEOUT, DFLT_PRELOAD_RESEND_TIMEOUT);
+
+    /** Enable recovery for long running txs. */
+    private final boolean enableRecoveryForLongRunningTxs =
+        getBoolean(IgniteSystemProperties.IGNITE_ENABLE_RECOVERY_FOR_LONG_RUNNING_TXS, false);
 
     /** */
     private final ReadWriteLock busyLock = new ReentrantReadWriteLock();
@@ -1685,6 +1691,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                     U.warn(diagnosticLog, "Found long running transaction [startTime=" + formatTime(tx.startTime()) +
                         ", curTime=" + formatTime(curTime) + ", tx=" + tx + ']');
+
+                    if (enableRecoveryForLongRunningTxs && !tx.near() && tx.state() == TransactionState.PREPARED)
+                        tm.finishTxOnRecovery(tx, true);
                 }
             }
         }
