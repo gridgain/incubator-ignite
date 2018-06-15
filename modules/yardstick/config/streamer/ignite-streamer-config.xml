@@ -73,7 +73,7 @@
             </bean>
         </property>
 
-        <property name="binaryConfActivate the cluster. Required to do if the persistent storeiguration">
+        <property name="binaryConfiguration">
             <bean class="org.apache.ignite.configuration.BinaryConfiguration">
                 <property name="compactFooter" value="false"/>
             </bean>
