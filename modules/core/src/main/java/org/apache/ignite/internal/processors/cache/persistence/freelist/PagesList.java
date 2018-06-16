@@ -627,6 +627,10 @@ public abstract class PagesList extends DataStructure {
             try {
                 long tailAddr = writeLockPage(tailId, tailPage, bucket, lockAttempt++, bag); // Explicit check.
 
+                // Tail changed while we try get write lock.
+                if (stripe.tailId != tailId)
+                    continue;
+
                 if (tailAddr == 0L) {
                     // No need to continue if bag has been utilized at writeLockPage.
                     if (bag != null && bag.isEmpty())
