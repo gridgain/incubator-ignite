@@ -23,8 +23,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.failure.FailureType;
 import org.apache.ignite.internal.client.GridClientException;
@@ -44,8 +42,6 @@ import org.apache.ignite.internal.processors.rest.client.message.GridRouterRespo
 import org.apache.ignite.internal.util.nio.GridNioServerListener;
 import org.apache.ignite.internal.util.nio.GridNioSession;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.lang.IgnitePredicate;
-import org.apache.ignite.marshaller.MarshallerUtils;
 import org.apache.ignite.plugin.PluginProvider;
 import org.jetbrains.annotations.Nullable;
 
@@ -91,15 +87,7 @@ public abstract class GridTcpRouterNioListenerAdapter implements GridNioServerLi
 
         marshMap.put(GridClientOptimizedMarshaller.ID, optdMarsh);
         marshMap.put(GridClientZipOptimizedMarshaller.ID, new GridClientZipOptimizedMarshaller(optdMarsh, providers));
-
-        try {
-            IgnitePredicate<String> clsFilter = MarshallerUtils.classNameFilter(this.getClass().getClassLoader());
-
-            marshMap.put(GridClientJdkMarshaller.ID, new GridClientJdkMarshaller(clsFilter));
-        }
-        catch (IgniteCheckedException e) {
-            throw new IgniteException(e);
-        }
+        marshMap.put(GridClientJdkMarshaller.ID, new GridClientJdkMarshaller());
 
         init();
     }
