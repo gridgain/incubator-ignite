@@ -311,11 +311,11 @@ public class PagesWriteThrottleSmokeTest extends GridCommonAbstractTest {
                     return delegate.write(srcBuf, position);
                 }
 
-                @Override public int write(byte[] buf, int off, int len) throws IOException {
+                @Override public void write(byte[] buf, int off, int len) throws IOException {
                     if (slowCheckpointEnabled.get() && Thread.currentThread().getName().contains("checkpoint"))
                         LockSupport.parkNanos(5_000_000);
 
-                    return delegate.write(buf, off, len);
+                    delegate.write(buf, off, len);
                 }
 
                 /** {@inheritDoc} */

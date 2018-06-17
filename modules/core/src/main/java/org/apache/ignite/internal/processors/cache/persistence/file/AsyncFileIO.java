@@ -154,14 +154,14 @@ public class AsyncFileIO implements FileIO {
     }
 
     /** {@inheritDoc} */
-    @Override public int write(byte[] buf, int off, int len) throws IOException {
+    @Override public void write(byte[] buf, int off, int len) throws IOException {
         ChannelOpFuture fut = holder.get();
         fut.reset();
 
         ch.write(ByteBuffer.wrap(buf, off, len), position, this, fut);
 
         try {
-            return fut.getUninterruptibly();
+            fut.getUninterruptibly();
         }
         catch (IgniteCheckedException e) {
             throw new IOException(e);
