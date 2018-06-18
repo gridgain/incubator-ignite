@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 import org.apache.ignite.DataRegionMetrics;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.lang.IgniteCallable;
 import org.yardstickframework.BenchmarkConfiguration;
 import org.yardstickframework.BenchmarkDriver;
@@ -79,7 +80,8 @@ public class DataRegionMetricsProbe implements BenchmarkProbe {
         // Time delta in seconds, rounding is used because Thread.sleep(1000) can last less than a second.
         long delta = (long)Math.floor((lastTstamp1 - lastTstamp0) / 1000d + 0.5);
 
-        double[] metrics = Ignition.ignite().compute().call(new MetricsJob());
+        ClusterGroup oldest = Ignition.ignite().cluster().forOldest();
+        double[] metrics = Ignition.ignite().compute(oldest).call(new MetricsJob());
         List<Double> metricsList = DoubleStream.of(metrics).boxed().collect(Collectors.toList());
 
         double totalSize = metrics[0];
