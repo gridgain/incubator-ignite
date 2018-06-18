@@ -98,14 +98,12 @@ final class MarshallerMappingFileStore {
             File file = new File(workDir, fileName);
 
             try (FileOutputStream out = new FileOutputStream(file)) {
-                FileLock fileLock = fileLock(out.getChannel(), false);
-
-                assert fileLock != null : fileName;
-
                 try (Writer writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
-                    writer.write(typeName);
+                    try (FileLock fileLock = fileLock(out.getChannel(), false)) {
+                        writer.write(typeName);
 
-                    writer.flush();
+                        writer.flush();
+                    }
                 }
             }
             catch (IOException e) {
@@ -119,6 +117,7 @@ final class MarshallerMappingFileStore {
             catch (IgniteInterruptedCheckedException e) {
                 U.error(log, "Interrupted while waiting for acquiring file lock: " + file, e);
             }
+
             try {
                 String read = readMapping(platformId, typeId);
                 A.ensure(typeName.equals(read), "Read null typeName. Name=" + typeName + ", Read=" + read);
@@ -161,12 +160,10 @@ final class MarshallerMappingFileStore {
             File file = new File(workDir, fileName);
 
             try (FileInputStream in = new FileInputStream(file)) {
-                FileLock fileLock = fileLock(in.getChannel(), true);
-
-                assert fileLock != null : fileName;
-
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                    return reader.readLine();
+                    try (FileLock fileLock = fileLock(in.getChannel(), true)) {
+                        return reader.readLine();
+                    }
                 }
             }
             catch (IOException ignored) {
@@ -197,21 +194,19 @@ final class MarshallerMappingFileStore {
             lock.lock();
 
             try (FileInputStream in = new FileInputStream(file)) {
-                FileLock fileLock = fileLock(in.getChannel(), true);
-
-                assert fileLock != null : name;
-
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                    String clsName = reader.readLine();
+                    try (FileLock fileLock = fileLock(in.getChannel(), true)) {
+                        String clsName = reader.readLine();
 
-                    if (clsName == null) {
-                        throw new IgniteCheckedException("Class name is null for [platformId=" + platformId +
-                            ", typeId=" + typeId + "], marshaller mappings storage is broken. " +
-                            "Clean up marshaller directory (<work_dir>/marshaller) and restart the node. File name: " + name +
-                            ", FileSize: " + file.length());
+                        if (clsName == null) {
+                            throw new IgniteCheckedException("Class name is null for [platformId=" + platformId +
+                                ", typeId=" + typeId + "], marshaller mappings storage is broken. " +
+                                "Clean up marshaller directory (<work_dir>/marshaller) and restart the node. File name: " + name +
+                                ", FileSize: " + file.length());
+                        }
+
+                        marshCtx.registerClassNameLocally(platformId, typeId, clsName);
                     }
-
-                    marshCtx.registerClassNameLocally(platformId, typeId, clsName);
                 }
             }
             catch (IOException e) {
