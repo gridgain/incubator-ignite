@@ -33,6 +33,7 @@ import java.util.concurrent.locks.Lock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.util.GridStripedLock;
+import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.marshaller.MarshallerContext;
 
@@ -82,6 +83,8 @@ final class MarshallerMappingFileStore {
      * @param typeName Type name.
      */
     void writeMapping(byte platformId, int typeId, String typeName) {
+        A.ensure(!typeName.isEmpty(), "typeName is empty. platformId=" + platformId + ", TypeId=" + typeId );
+
         String fileName = getFileName(platformId, typeId);
 
         Lock lock = fileLock(fileName);
