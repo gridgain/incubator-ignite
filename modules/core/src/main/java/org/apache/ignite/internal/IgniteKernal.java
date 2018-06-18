@@ -197,6 +197,7 @@ import org.apache.ignite.lifecycle.LifecycleAware;
 import org.apache.ignite.lifecycle.LifecycleBean;
 import org.apache.ignite.lifecycle.LifecycleEventType;
 import org.apache.ignite.marshaller.MarshallerExclusions;
+import org.apache.ignite.marshaller.MarshallerUtils;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.mxbean.ClusterMetricsMXBean;
 import org.apache.ignite.mxbean.IgniteMXBean;
@@ -764,6 +765,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
      * @param schemaExecSvc Schema executor service.
      * @param customExecSvcs Custom named executors.
      * @param errHnd Error handler to use for notification about startup problems.
+     * @param workerRegistry Worker registry.
      * @throws IgniteCheckedException Thrown in case of any errors.
      */
     @SuppressWarnings({"CatchGenericClass", "unchecked"})
@@ -785,7 +787,8 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
         ExecutorService qryExecSvc,
         ExecutorService schemaExecSvc,
         @Nullable final Map<String, ? extends ExecutorService> customExecSvcs,
-        GridAbsClosure errHnd
+        GridAbsClosure errHnd,
+        WorkersRegistry workerRegistry
     )
         throws IgniteCheckedException {
         gw.compareAndSet(null, new GridKernalGatewayImpl(cfg.getIgniteInstanceName()));
@@ -902,7 +905,8 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                 schemaExecSvc,
                 customExecSvcs,
                 plugins,
-                classNameFilter()
+                MarshallerUtils.classNameFilter(this.getClass().getClassLoader()),
+                workerRegistry
             );
 
             cfg.getMarshaller().setContext(ctx.marshallerContext());
