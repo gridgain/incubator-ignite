@@ -116,6 +116,14 @@ final class MarshallerMappingFileStore {
             catch (IgniteInterruptedCheckedException e) {
                 U.error(log, "Interrupted while waiting for acquiring file lock: " + file, e);
             }
+            try {
+                String read = readMapping(platformId, typeId);
+                A.ensure(typeName.equals(read), "Read null typeName. Name=" + typeName + ", Read=" + read);
+            }
+            catch (IgniteCheckedException e) {
+                e.printStackTrace();
+            }
+
         }
         finally {
             lock.unlock();
