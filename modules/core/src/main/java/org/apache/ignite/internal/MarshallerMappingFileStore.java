@@ -121,7 +121,8 @@ final class MarshallerMappingFileStore {
                 A.ensure(typeName.equals(read), "Read null typeName. Name=" + typeName + ", Read=" + read);
             }
             catch (IgniteCheckedException e) {
-                e.printStackTrace();
+                U.error(log, "Failed to read class name from file [platformId=" + platformId + "id=" + typeId +
+                    ", clsName=" + typeName + ", file=" + file.getAbsolutePath() + ']', e);
             }
 
         }
@@ -183,7 +184,8 @@ final class MarshallerMappingFileStore {
                     if (clsName == null) {
                         throw new IgniteCheckedException("Class name is null for [platformId=" + platformId +
                             ", typeId=" + typeId + "], marshaller mappings storage is broken. " +
-                            "Clean up marshaller directory (<work_dir>/marshaller) and restart the node. File name: " + name);
+                            "Clean up marshaller directory (<work_dir>/marshaller) and restart the node. File name: " + name +
+                            ", FileSize: " + file.length());
                     }
 
                     marshCtx.registerClassNameLocally(platformId, typeId, clsName);
