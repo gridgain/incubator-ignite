@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.processors.cache.persistence.db.wal;
 
+import org.apache.ignite.binary.BinaryBasicIdMapper;
+
 /**
  *
  */
@@ -24,5 +26,11 @@ public class IgniteWalFlushFsyncWithMmapBufferSelfTest extends IgniteWalFlushFsy
     /** {@inheritDoc} */
     @Override protected boolean mmap() {
         return true;
+    }
+
+    public void test() {
+        BinaryBasicIdMapper mapper = new BinaryBasicIdMapper(true);
+
+        log.warning("" + mapper.typeId("null"));
     }
 }

@@ -172,7 +172,7 @@ final class MarshallerMappingFileStore {
                     if (clsName == null) {
                         throw new IgniteCheckedException("Class name is null for [platformId=" + platformId +
                             ", typeId=" + typeId + "], marshaller mappings storage is broken. " +
-                            "Clean up marshaller directory (<work_dir>/marshaller) and restart the node.");
+                            "Clean up marshaller directory (<work_dir>/marshaller) and restart the node. File name: " + name);
                     }
 
                     marshCtx.registerClassNameLocally(platformId, typeId, clsName);
