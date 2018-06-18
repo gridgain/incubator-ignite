@@ -57,8 +57,8 @@
                 <property name="defaultDataRegionConfiguration">
                     <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
                         <property name="persistenceEnabled" value="true"/>
-                        <property name="initialSize" value="#{4L * 1024 * 1024 * 1024}"/>
-                        <property name="maxSize" value="#{4L * 1024 * 1024 * 1024}"/>
+                        <property name="initialSize" value="#{30L * 1024 * 1024 * 1024}"/>
+                        <property name="maxSize" value="#{30L * 1024 * 1024 * 1024}"/>
                         <property name="checkpointPageBufferSize" value="#{4L * 1024 * 1024 * 1024}"/>
                         <property name="metricsEnabled" value="true"/>
                     </bean>
