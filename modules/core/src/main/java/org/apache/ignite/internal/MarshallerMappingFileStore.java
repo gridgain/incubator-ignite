@@ -28,6 +28,9 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileStore;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Lock;
 import org.apache.ignite.IgniteCheckedException;
@@ -125,6 +128,18 @@ final class MarshallerMappingFileStore {
                     ", clsName=" + typeName + ", file=" + file.getAbsolutePath() + ']', e);
             }
 
+            if (file.length() < 1) {
+                try {
+                    FileStore store = Files.getFileStore(workDir.toPath());
+                    U.error(log,"Failed to write class name to file (zero length) [platformId=" + platformId + "id=" + typeId +
+                        ", clsName=" + typeName + ", file=" + file.getAbsolutePath() + "]. Avail=" + store.getUsableSpace()
+                        + ", Total=" + store.getTotalSpace());
+                }
+                catch (IOException e) {
+                    U.error(log, "Failed to get free space [platformId=" + platformId + "id=" + typeId +
+                        ", clsName=" + typeName + ", file=" + file.getAbsolutePath() + ']', e);
+                }
+            }
         }
         finally {
             lock.unlock();
@@ -177,7 +192,15 @@ final class MarshallerMappingFileStore {
 
             int typeId = getTypeId(name);
 
+            Lock lock = fileLock(name);
+
+            lock.lock();
+
             try (FileInputStream in = new FileInputStream(file)) {
+                FileLock fileLock = fileLock(in.getChannel(), true);
+
+                assert fileLock != null : name;
+
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
                     String clsName = reader.readLine();
 
@@ -193,6 +216,9 @@ final class MarshallerMappingFileStore {
             }
             catch (IOException e) {
                 throw new IgniteCheckedException("Reading marshaller mapping from file " + name + " failed.", e);
+            }
+            finally {
+                lock.unlock();
             }
         }
     }
