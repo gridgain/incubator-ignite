@@ -17,6 +17,7 @@
 package org.apache.ignite.internal;
 
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -30,7 +31,7 @@ import java.nio.channels.OverlappingFileLockException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileStore;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Lock;
 import org.apache.ignite.IgniteCheckedException;
@@ -80,6 +81,50 @@ final class MarshallerMappingFileStore {
         this.log = log;
     }
 
+    private static class FileLockImpl implements Closeable {
+        private final FileLock lock;
+        private final String fileName;
+        static final ConcurrentHashMap<String, String> locked = new ConcurrentHashMap<>();
+
+        private FileLockImpl(FileLock lock, String name) {
+            this.lock = lock;
+            this.fileName = name;
+        }
+
+        @Override public void close() throws IOException {
+            try {
+                lock.close();
+            }
+            finally {
+                locked.remove(fileName);
+            }
+        }
+
+        public static FileLockImpl tryLock(String fileName, FileChannel ch, String desc, boolean shared)
+            throws IOException, IgniteInterruptedCheckedException {
+            ThreadLocalRandom rnd = ThreadLocalRandom.current();
+
+            while (true) {
+                FileLock fileLock;
+
+                try {
+                    if ((fileLock = ch.tryLock(0L, Long.MAX_VALUE, shared)) != null) {
+                        locked.put(fileName, desc);
+                        return new FileLockImpl(fileLock, fileName);
+                    }
+                }
+                catch (OverlappingFileLockException e) {
+                    String d = locked.get(fileName);
+                    if (d != null)
+                        throw new IOException("ConcurrentLock: " + fileName + ", getting=" + desc + ", exists=" + d);
+                }
+
+                U.sleep(rnd.nextLong(50));
+            }
+        }
+
+    }
+
     /**
      * @param platformId Platform id.
      * @param typeId Type id.
@@ -99,7 +144,7 @@ final class MarshallerMappingFileStore {
 
             try (FileOutputStream out = new FileOutputStream(file)) {
                 try (Writer writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
-                    try (FileLock fileLock = fileLock(out.getChannel(), false)) {
+                    try (FileLockImpl fileLock = FileLockImpl.tryLock(file.getAbsolutePath(), out.getChannel(), "write", false)) {
                         writer.write(typeName);
 
                         writer.flush();
@@ -161,7 +206,7 @@ final class MarshallerMappingFileStore {
 
             try (FileInputStream in = new FileInputStream(file)) {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                    try (FileLock fileLock = fileLock(in.getChannel(), true)) {
+                    try (FileLockImpl fileLock = FileLockImpl.tryLock(file.getAbsolutePath(), in.getChannel(), "read", true)) {
                         return reader.readLine();
                     }
                 }
@@ -195,7 +240,7 @@ final class MarshallerMappingFileStore {
 
             try (FileInputStream in = new FileInputStream(file)) {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                    try (FileLock fileLock = fileLock(in.getChannel(), true)) {
+                    try (FileLockImpl fileLock = FileLockImpl.tryLock(file.getAbsolutePath(), in.getChannel(), "restore", true)) {
                         String clsName = reader.readLine();
 
                         if (clsName == null) {
@@ -311,15 +356,13 @@ final class MarshallerMappingFileStore {
             FileLock fileLock = null;
 
             try {
-                fileLock = ch.tryLock(0L, Long.MAX_VALUE, shared);
+                if ((fileLock = ch.tryLock(0L, Long.MAX_VALUE, shared)) != null)
+                    return fileLock;
             }
             catch (OverlappingFileLockException e) {
             }
 
-            if (fileLock == null)
-                U.sleep(rnd.nextLong(50));
-            else
-                return fileLock;
+            U.sleep(rnd.nextLong(50));
         }
     }
 }
