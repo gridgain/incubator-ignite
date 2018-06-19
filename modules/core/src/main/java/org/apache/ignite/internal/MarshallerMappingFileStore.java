@@ -31,6 +31,7 @@ import java.nio.channels.OverlappingFileLockException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileStore;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Lock;
@@ -103,6 +104,8 @@ final class MarshallerMappingFileStore {
         public static FileLockImpl tryLock(String fileName, FileChannel ch, String desc, boolean shared)
             throws IOException, IgniteInterruptedCheckedException {
             ThreadLocalRandom rnd = ThreadLocalRandom.current();
+
+            Path p;
 
             while (true) {
                 FileLock fileLock;
@@ -238,10 +241,12 @@ final class MarshallerMappingFileStore {
 
             lock.lock();
 
+            final String clsName;
+            
             try (FileInputStream in = new FileInputStream(file)) {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
                     try (FileLockImpl fileLock = FileLockImpl.tryLock(file.getAbsolutePath(), in.getChannel(), "restore", true)) {
-                        String clsName = reader.readLine();
+                        clsName = reader.readLine();
 
                         if (clsName == null) {
                             throw new IgniteCheckedException("Class name is null for [platformId=" + platformId +
@@ -249,8 +254,6 @@ final class MarshallerMappingFileStore {
                                 "Clean up marshaller directory (<work_dir>/marshaller) and restart the node. File name: " + name +
                                 ", FileSize: " + file.length());
                         }
-
-                        marshCtx.registerClassNameLocally(platformId, typeId, clsName);
                     }
                 }
             }
@@ -260,6 +263,8 @@ final class MarshallerMappingFileStore {
             finally {
                 lock.unlock();
             }
+
+            marshCtx.registerClassNameLocally(platformId, typeId, clsName);
         }
     }
 
