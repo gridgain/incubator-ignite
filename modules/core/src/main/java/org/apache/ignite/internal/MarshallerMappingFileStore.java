@@ -308,7 +308,13 @@ final class MarshallerMappingFileStore {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
         while (true) {
-            FileLock fileLock = ch.tryLock(0L, Long.MAX_VALUE, shared);
+            FileLock fileLock = null;
+
+            try {
+                fileLock = ch.tryLock(0L, Long.MAX_VALUE, shared);
+            }
+            catch (OverlappingFileLockException e) {
+            }
 
             if (fileLock == null)
                 U.sleep(rnd.nextLong(50));
