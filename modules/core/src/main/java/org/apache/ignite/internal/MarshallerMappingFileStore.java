@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.util.GridStripedLock;
@@ -82,60 +83,12 @@ final class MarshallerMappingFileStore {
         this.log = log;
     }
 
-    private static class FileLockImpl implements Closeable {
-        private final FileLock lock;
-        private final String fileName;
-        static final ConcurrentHashMap<String, String> locked = new ConcurrentHashMap<>();
-
-        private FileLockImpl(FileLock lock, String name) {
-            this.lock = lock;
-            this.fileName = name;
-        }
-
-        @Override public void close() throws IOException {
-            try {
-                lock.close();
-            }
-            finally {
-                locked.remove(fileName);
-            }
-        }
-
-        public static FileLockImpl tryLock(String fileName, FileChannel ch, String desc, boolean shared)
-            throws IOException, IgniteInterruptedCheckedException {
-            ThreadLocalRandom rnd = ThreadLocalRandom.current();
-
-            Path p;
-
-            while (true) {
-                FileLock fileLock;
-
-                try {
-                    if ((fileLock = ch.tryLock(0L, Long.MAX_VALUE, shared)) != null) {
-                        locked.put(fileName, desc);
-                        return new FileLockImpl(fileLock, fileName);
-                    }
-                }
-                catch (OverlappingFileLockException e) {
-                    String d = locked.get(fileName);
-                    if (d != null)
-                        throw new IOException("ConcurrentLock: " + fileName + ", getting=" + desc + ", exists=" + d);
-                }
-
-                U.sleep(rnd.nextLong(50));
-            }
-        }
-
-    }
-
     /**
      * @param platformId Platform id.
      * @param typeId Type id.
      * @param typeName Type name.
      */
     void writeMapping(byte platformId, int typeId, String typeName) {
-        A.ensure(!typeName.isEmpty(), "typeName is empty. platformId=" + platformId + ", TypeId=" + typeId );
-
         String fileName = getFileName(platformId, typeId);
 
         Lock lock = fileLock(fileName);
@@ -147,7 +100,7 @@ final class MarshallerMappingFileStore {
 
             try (FileOutputStream out = new FileOutputStream(file)) {
                 try (Writer writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
-                    try (FileLockImpl fileLock = FileLockImpl.tryLock(file.getAbsolutePath(), out.getChannel(), "write", false)) {
+                    try (FileLock fileLock = fileLock(out.getChannel(), false)) {
                         writer.write(typeName);
 
                         writer.flush();
@@ -174,18 +127,32 @@ final class MarshallerMappingFileStore {
                 U.error(log, "Failed to read class name from file [platformId=" + platformId + "id=" + typeId +
                     ", clsName=" + typeName + ", file=" + file.getAbsolutePath() + ']', e);
             }
+        }
+        finally {
+            lock.unlock();
+        }
+    }
 
-            if (file.length() < 1) {
-                try {
-                    FileStore store = Files.getFileStore(workDir.toPath());
-                    U.error(log,"Failed to write class name to file (zero length) [platformId=" + platformId + "id=" + typeId +
-                        ", clsName=" + typeName + ", file=" + file.getAbsolutePath() + "]. Avail=" + store.getUsableSpace()
-                        + ", Total=" + store.getTotalSpace());
+    /**
+     * @param fileName File name.
+     */
+    private String readMapping(String fileName) throws IgniteCheckedException {
+        Lock lock = fileLock(fileName);
+
+        lock.lock();
+
+        try {
+            File file = new File(workDir, fileName);
+
+            try (FileInputStream in = new FileInputStream(file)) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                    try (FileLock fileLock = fileLock(in.getChannel(), true)) {
+                        return reader.readLine();
+                    }
                 }
-                catch (IOException e) {
-                    U.error(log, "Failed to get free space [platformId=" + platformId + "id=" + typeId +
-                        ", clsName=" + typeName + ", file=" + file.getAbsolutePath() + ']', e);
-                }
+            }
+            catch (IOException ignored) {
+                return null;
             }
         }
         finally {
@@ -198,29 +165,7 @@ final class MarshallerMappingFileStore {
      * @param typeId Type id.
      */
     String readMapping(byte platformId, int typeId) throws IgniteCheckedException {
-        String fileName = getFileName(platformId, typeId);
-
-        Lock lock = fileLock(fileName);
-
-        lock.lock();
-
-        try {
-            File file = new File(workDir, fileName);
-
-            try (FileInputStream in = new FileInputStream(file)) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                    try (FileLockImpl fileLock = FileLockImpl.tryLock(file.getAbsolutePath(), in.getChannel(), "read", true)) {
-                        return reader.readLine();
-                    }
-                }
-            }
-            catch (IOException ignored) {
-                return null;
-            }
-        }
-        finally {
-            lock.unlock();
-        }
+        return readMapping(getFileName(platformId, typeId));
     }
 
     /**
@@ -237,31 +182,13 @@ final class MarshallerMappingFileStore {
 
             int typeId = getTypeId(name);
 
-            Lock lock = fileLock(name);
+            String clsName = readMapping(name);
 
-            lock.lock();
-
-            final String clsName;
-            
-            try (FileInputStream in = new FileInputStream(file)) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                    try (FileLockImpl fileLock = FileLockImpl.tryLock(file.getAbsolutePath(), in.getChannel(), "restore", true)) {
-                        clsName = reader.readLine();
-
-                        if (clsName == null) {
-                            throw new IgniteCheckedException("Class name is null for [platformId=" + platformId +
-                                ", typeId=" + typeId + "], marshaller mappings storage is broken. " +
-                                "Clean up marshaller directory (<work_dir>/marshaller) and restart the node. File name: " + name +
-                                ", FileSize: " + file.length());
-                        }
-                    }
-                }
-            }
-            catch (IOException e) {
-                throw new IgniteCheckedException("Reading marshaller mapping from file " + name + " failed.", e);
-            }
-            finally {
-                lock.unlock();
+            if (clsName == null) {
+                throw new IgniteCheckedException("Class name is null for [platformId=" + platformId +
+                    ", typeId=" + typeId + "], marshaller mappings storage is broken. " +
+                    "Clean up marshaller directory (<work_dir>/marshaller) and restart the node. File name: " + name +
+                    ", FileSize: " + file.length());
             }
 
             marshCtx.registerClassNameLocally(platformId, typeId, clsName);
@@ -358,14 +285,10 @@ final class MarshallerMappingFileStore {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
         while (true) {
-            FileLock fileLock = null;
+            FileLock fileLock = ch.tryLock(0L, Long.MAX_VALUE, shared);
 
-            try {
-                if ((fileLock = ch.tryLock(0L, Long.MAX_VALUE, shared)) != null)
-                    return fileLock;
-            }
-            catch (OverlappingFileLockException e) {
-            }
+            if (fileLock != null)
+                return fileLock;
 
             U.sleep(rnd.nextLong(50));
         }
