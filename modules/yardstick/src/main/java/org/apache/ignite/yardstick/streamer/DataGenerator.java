@@ -16,12 +16,12 @@ class DataGenerator {
     private static final int ALPHABET_LENGTH = ALPHABET.length();
 
     /** */
-    static CustomKey randomKey() {
+    static CustomKey randomKey(int maxAffinityKey) {
         return new CustomKey(
             randomString(12),
             randomString(12),
             randomString(12),
-            randomInt()
+            randomInt(maxAffinityKey)
         );
     }
 

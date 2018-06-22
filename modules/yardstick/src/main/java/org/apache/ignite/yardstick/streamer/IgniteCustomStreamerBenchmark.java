@@ -23,7 +23,7 @@ public class IgniteCustomStreamerBenchmark extends IgniteAbstractBenchmark {
     @Override public boolean test(Map<Object, Object> map) {
         Map<CustomKey, CustomValue> entries = new HashMap<>();
         for (int i = 0; i < args.batch(); i++)
-            entries.put(DataGenerator.randomKey(), DataGenerator.randomValue());
+            entries.put(DataGenerator.randomKey(args.range()), DataGenerator.randomValue());
 
         try (IgniteDataStreamer<CustomKey, CustomValue> dataStreamer = ignite().dataStreamer(CACHE_NAME)) {
             dataStreamer.allowOverwrite(true);

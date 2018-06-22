@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
+    <import resource="ignite-streamer-config-parent.xml"/>
+
+    <bean parent="ignite.cfg" class="org.apache.ignite.configuration.IgniteConfiguration">
+        <property name="cacheConfiguration">
+            <list>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="streamer-atomic"/>
+                    <property name="cacheMode" value="PARTITIONED"/>
+                    <property name="backups" value="1"/>
+                    <property name="atomicityMode" value="ATOMIC"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="queryEntities">
+                        <list>
+                            <bean class="org.apache.ignite.cache.QueryEntity">
+                                <property name="keyType" value="org.apache.ignite.yardstick.streamer.CustomKey"/>
+                                <property name="valueType" value="org.apache.ignite.yardstick.streamer.CustomValue"/>
+                                <property name="fields">
+                                    <map>
+                                        <entry key="str1" value="java.lang.String"/>
+                                        <entry key="str2" value="java.lang.String"/>
+                                        <entry key="str3" value="java.lang.String"/>
+                                        <entry key="int1" value="java.lang.Integer"/>
+                                        <entry key="time" value="java.time.LocalDateTime"/>
+                                    </map>
+                                </property>
+                                <property name="indexes">
+                                    <list>
+                                        <bean class="org.apache.ignite.cache.QueryIndex">
+                                            <constructor-arg value="str1"/>
+                                        </bean>
+                                    </list>
+                                </property>
+                                <property name="keyFields">
+                                    <set value-type="java.lang.String">
+                                        <value>str1</value>
+                                        <value>str2</value>
+                                        <value>str3</value>
+                                        <value>int1</value>
+                                    </set>
+                                </property>
+                            </bean>
+                        </list>
+                    </property>
+
+                    <property name="affinity">
+                        <bean class="org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction">
+                            <constructor-arg value="false"/>
+                            <constructor-arg value="1024"/>
+                        </bean>
+                    </property>
+                </bean>
+            </list>
+        </property>
+    </bean>
+</beans>
