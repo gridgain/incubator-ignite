@@ -3,11 +3,9 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="
         http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
-    <bean id="ignite.cfg" class="org.apache.ignite.configuration.IgniteConfiguration">
-        <property name="peerClassLoadingEnabled" value="false"/>
+    <import resource="ignite-streamer-config-parent.xml"/>
 
-        <property name="metricsLogFrequency" value="0"/>
-
+    <bean parent="ignite.cfg" class="org.apache.ignite.configuration.IgniteConfiguration">
         <property name="cacheConfiguration">
             <list>
                 <bean class="org.apache.ignite.configuration.CacheConfiguration">
@@ -34,6 +32,7 @@
                                     <list>
                                         <bean class="org.apache.ignite.cache.QueryIndex">
                                             <constructor-arg value="str1"/>
+                                            <property name="inlineSize" value="15"/>
                                         </bean>
                                     </list>
                                 </property>
@@ -48,52 +47,15 @@
                             </bean>
                         </list>
                     </property>
+
+                    <property name="affinity">
+                        <bean class="org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction">
+                            <constructor-arg value="false"/>
+                            <constructor-arg value="1024"/>
+                        </bean>
+                    </property>
                 </bean>
             </list>
-        </property>
-
-        <property name="dataStorageConfiguration" >
-            <bean class="org.apache.ignite.configuration.DataStorageConfiguration">
-                <property name="defaultDataRegionConfiguration">
-                    <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
-                        <property name="persistenceEnabled" value="true"/>
-                        <property name="initialSize" value="#{30L * 1024 * 1024 * 1024}"/>
-                        <property name="maxSize" value="#{30L * 1024 * 1024 * 1024}"/>
-                        <property name="checkpointPageBufferSize" value="#{4L * 1024 * 1024 * 1024}"/>
-                        <property name="metricsEnabled" value="true"/>
-                    </bean>
-                </property>
-
-                <property name="pageSize" value="4096"/>
-                <property name="walMode" value="LOG_ONLY"/>
-                <property name="checkpointFrequency" value="3000000"/>
-                <property name="checkpointThreads" value="4"/>
-                <property name="metricsEnabled" value="true"/>
-                <property name="writeThrottlingEnabled" value="true"/>
-            </bean>
-        </property>
-
-        <property name="binaryConfiguration">
-            <bean class="org.apache.ignite.configuration.BinaryConfiguration">
-                <property name="compactFooter" value="false"/>
-            </bean>
-        </property>
-
-        <property name="discoverySpi">
-            <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
-                <property name="ipFinder">
-                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
-                        <property name="addresses">
-                            <list>
-                                <value>172.25.1.30:47500..47501</value>
-                                <value>172.25.1.11:47500..47501</value>
-                                <value>172.25.1.12:47500..47501</value>
-                                <value>172.25.1.14:47500..47501</value>
-                            </list>
-                        </property>
-                    </bean>
-                </property>
-            </bean>
         </property>
     </bean>
 </beans>
