@@ -2,10 +2,13 @@ package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -15,7 +18,9 @@ import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgnitePredicate;
@@ -24,12 +29,15 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionState;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.configuration.WALMode.LOG_ONLY;
 import static org.apache.ignite.testframework.GridTestUtils.runAsync;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * <p> The <code>TxLectureTest</code> </p>
@@ -80,6 +88,7 @@ public class TxLectureTest extends GridCommonAbstractTest {
         return cfg;
     }
 
+    // Test useless.
     public void testOnePhaseCommit() throws Exception {
         Ignite client = startGrid("client");
 
@@ -113,7 +122,13 @@ public class TxLectureTest extends GridCommonAbstractTest {
                     // Prevent backup commit.
                     spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
                         @Override public boolean apply(ClusterNode node, Message msg) {
-                            return node.equals(backup.localNode()) && msg instanceof GridDhtTxFinishRequest;
+                            if (msg instanceof GridDhtTxPrepareRequest) {
+                                GridDhtTxPrepareRequest req = (GridDhtTxPrepareRequest)msg;
+
+                                assertTrue(req.onePhaseCommit());
+                            }
+
+                            return false;
                         }
                     });
 
@@ -179,6 +194,85 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
         fut1.get();
         fut2.get();
+    }
+
+    public void testRecoveryOnPrimaryLeft() throws Exception {
+        Ignite client = startGrid("client");
+
+        IgniteEx prim = grid(0);
+
+        Integer key = primaryKey(prim.cache(DEFAULT_CACHE_NAME));
+
+        IgniteEx backup = (IgniteEx)backupNode(key, DEFAULT_CACHE_NAME);
+
+        Ignite other = null;
+
+        for (Ignite ignite : G.allGrids()) {
+            if (ignite != prim && ignite != backup) {
+                other = ignite;
+
+                break;
+            }
+        }
+
+        Integer key2 = primaryKey(backup.cache(DEFAULT_CACHE_NAME));
+
+        assertFalse(Objects.equals(key, key2));
+
+        // Start pessimistic tx.
+        try (Transaction tx = client.transactions().txStart()) {
+            log.info("Near tx: " + tx);
+
+            // Acquire write exclusive lock.
+            client.cache(DEFAULT_CACHE_NAME).put(key, key);
+            client.cache(DEFAULT_CACHE_NAME).put(key2, key2);
+
+            IgniteInternalTx locTx = F.first(txs(prim));
+
+            log.info("Primary tx: " + locTx);
+
+            IgniteInternalTx backupTx = F.first(txs(backup));
+
+            log.info("Backup tx: " + backupTx); // Null, backup transactions are created on prepare.
+
+            CountDownLatch l = new CountDownLatch(1);
+
+            runAsync(new Runnable() {
+                @Override public void run() {
+                    TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(prim);
+
+                    // Prevent backup commit.
+                    spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+                        @Override public boolean apply(ClusterNode node, Message msg) {
+                            return node.equals(backup.localNode()) && msg instanceof GridDhtTxFinishRequest;
+                        }
+                    });
+
+                    l.countDown(); // Makes sure message blocked before trying to commit.
+
+                    try {
+                        spi.waitForBlocked();
+                    }
+                    catch (InterruptedException e) {
+                        log.error("Interrupted", e);
+                    }
+
+                    IgniteInternalTx backupTx = F.first(txs(backup));
+
+                    log.info("Backup tx: " + backupTx);
+
+                    assertTrue(backupTx.state() == TransactionState.PREPARED);
+
+                    prim.close();
+                }
+            });
+
+            U.awaitQuiet(l);
+
+            tx.commit();
+        }
+
+        assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
     }
 
     /** {@inheritDoc} */
