@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.Latches;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
@@ -1209,6 +1210,11 @@ public class IgniteTxHandler {
             return;
         }
 
+        if (Latches.lock) {
+            Latches.l1.countDown();
+            U.awaitQuiet(Latches.l1);
+        }
+
         final GridDhtTxRemote dhtTx = ctx.tm().tx(req.version());
         GridNearTxRemote nearTx = ctx.tm().nearTx(req.version());
 
@@ -1567,6 +1573,11 @@ public class IgniteTxHandler {
                 tx.writeVersion(req.writeVersion());
 
                 tx = ctx.tm().onCreated(null, tx);
+
+                if (Latches.lock) {
+                    Latches.l1.countDown();
+                    U.awaitQuiet(Latches.l1);
+                }
 
                 if (tx == null || !ctx.tm().onStarted(tx)) {
                     if (log.isDebugEnabled())

@@ -8,6 +8,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.Latches;
 import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -17,10 +18,14 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
+import org.apache.ignite.internal.managers.communication.GridIoMessage;
+import org.apache.ignite.internal.processors.cache.GridCacheFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareResponse;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgnitePredicate;
@@ -80,7 +85,7 @@ public class TxLectureTest extends GridCommonAbstractTest {
         CacheConfiguration ccfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
         ccfg.setAtomicityMode(TRANSACTIONAL);
-        ccfg.setBackups(1);
+        ccfg.setBackups(2);
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
 
         cfg.setCacheConfiguration(ccfg);
@@ -155,6 +160,101 @@ public class TxLectureTest extends GridCommonAbstractTest {
         }
 
         assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
+    }
+
+    public void testBad() throws Exception {
+        Ignite client = startGrid("client");
+
+        doTestBad0(client);
+    }
+
+    private void doTestBad0(Ignite client) throws Exception {
+        IgniteEx prim = grid(0);
+
+        Integer key = primaryKey(prim.cache(DEFAULT_CACHE_NAME));
+
+        List<Ignite> backups = backupNodes(key, DEFAULT_CACHE_NAME);
+
+        // Start pessimistic tx.
+        try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 3000, 1)) {
+            log.info("Near tx: " + tx);
+
+            // Acquire write exclusive lock.
+            client.cache(DEFAULT_CACHE_NAME).put(key, key);
+
+            CountDownLatch l = new CountDownLatch(1);
+
+            runAsync(new Runnable() {
+                @Override public void run() {
+                    TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(prim);
+
+                    // Prevent one backup commit.
+                    spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+                        @Override public boolean apply(ClusterNode node, Message msg) {
+                            if (node.id().equals(backups.get(0).cluster().localNode().id()) && (
+                                msg instanceof GridDhtTxPrepareRequest || msg instanceof GridDhtTxFinishRequest))
+                                return true;
+
+                            return false;
+                        }
+                    });
+
+                    try {
+                        ((IgniteEx)backups.get(1)).context().cache().context().tm().remoteTxFinishFuture(((TransactionProxyImpl)tx).tx().nearXidVersion()).get();
+                    }
+                    catch (IgniteCheckedException e) {
+                        e.printStackTrace();
+                    }
+
+                    l.countDown(); // Makes sure message blocked before trying to commit.
+
+                    try {
+                        spi.waitForBlocked(2);
+                    }
+                    catch (InterruptedException e) {
+                        log.error("Interrupted", e);
+                    }
+
+                    Latches.lock = true;
+
+                    spi.stopBlock();
+                }
+            });
+
+            U.awaitQuiet(l);
+
+            tx.commit();
+        }
+        catch (Exception e) {
+            System.out.println(e);
+        }
+
+        checkFutures();
+    }
+
+
+
+    /**
+     * Checks if all tx futures are finished.
+     */
+    private void checkFutures() {
+        for (Ignite ignite : G.allGrids()) {
+            IgniteEx ig = (IgniteEx)ignite;
+
+            final Collection<GridCacheFuture<?>> futs = ig.context().cache().context().mvcc().activeFutures();
+
+            for (GridCacheFuture<?> fut : futs)
+                log.info("Waiting for future: " + fut);
+
+            assertTrue("Expecting no active futures: node=" + ig.localNode().id(), futs.isEmpty());
+
+            Collection<IgniteInternalTx> txs = ig.context().cache().context().tm().activeTransactions();
+
+            for (IgniteInternalTx tx : txs)
+                log.info("Waiting for tx: " + tx);
+
+            assertTrue("Expecting no active transactions: node=" + ig.localNode().id(), txs.isEmpty());
+        }
     }
 
     private Iterable<IgniteInternalTx> txs(IgniteEx prim) {

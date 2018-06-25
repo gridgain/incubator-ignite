@@ -30,9 +30,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.LockSupport;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteClientDisconnectedException;
 import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.Latches;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.DiscoveryEvent;
@@ -646,10 +648,20 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
         assert tx.state() == ACTIVE || tx.isRollbackOnly() : "Invalid transaction state [locId=" + cctx.localNodeId() +
             ", tx=" + tx + ']';
 
+        if (Latches.lock) {
+            Latches.l2.countDown();
+            U.awaitQuiet(Latches.l2);
+        }
+
         if (isCompleted(tx)) {
             ConcurrentMap<GridCacheVersion, IgniteInternalTx> txIdMap = transactionMap(tx);
 
             txIdMap.remove(tx.xidVersion(), tx);
+
+            if (Latches.lock) {
+                Latches.l3.countDown();
+                U.awaitQuiet(Latches.l3);
+            }
 
             if (log.isDebugEnabled())
                 log.debug("Attempt to start a completed transaction (will ignore): " + tx);
@@ -1331,11 +1343,24 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
         if (log.isDebugEnabled())
             log.debug("Rolling back from TM [locNodeId=" + cctx.localNodeId() + ", tx=" + tx + ']');
 
+//        if (Latches.lock)
+//            U.awaitQuiet(Latches.l1); // Wait until created.
+
         // 1. Record transaction version to avoid duplicates.
         if (!skipCompletedVers)
             addRolledbackTx(tx);
 
+        if (Latches.lock) {
+            Latches.l2.countDown();
+            U.awaitQuiet(Latches.l2);
+        }
+
         ConcurrentMap<GridCacheVersion, IgniteInternalTx> txIdMap = transactionMap(tx);
+
+        if (Latches.lock) {
+            Latches.l3.countDown();
+            U.awaitQuiet(Latches.l3);
+        }
 
         if (txIdMap.remove(tx.xidVersion(), tx)) {
             // 2. Unlock write resources.
