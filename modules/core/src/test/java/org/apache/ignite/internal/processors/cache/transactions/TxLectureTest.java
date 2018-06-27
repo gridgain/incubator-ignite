@@ -2,9 +2,11 @@ package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
@@ -23,6 +25,12 @@ import org.apache.ignite.internal.processors.cache.GridCacheFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxFinishFuture;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxFinishRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
+import org.apache.ignite.internal.util.GridLeanMap;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.T2;
@@ -162,13 +170,9 @@ public class TxLectureTest extends GridCommonAbstractTest {
         assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
     }
 
-    public void testBad() throws Exception {
+    public void testBackupRace() throws Exception {
         Ignite client = startGrid("client");
 
-        doTestBad0(client);
-    }
-
-    private void doTestBad0(Ignite client) throws Exception {
         IgniteEx prim = grid(0);
 
         Integer key = primaryKey(prim.cache(DEFAULT_CACHE_NAME));
@@ -230,9 +234,75 @@ public class TxLectureTest extends GridCommonAbstractTest {
         }
 
         checkFutures();
+
+        LockSupport.park();
     }
 
+    public void testPrimaryRace() throws Exception {
+        Ignite client = startGrid("client");
 
+        int k1 = 0;
+
+        Ignite prim1 = primaryNode(k1, DEFAULT_CACHE_NAME);
+
+        // Delay prepare to second primary.
+        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(client);
+
+        spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+            @Override public boolean apply(ClusterNode node, Message message) {
+                if (node.id().equals(prim1.cluster().localNode().id()) &&
+                    (message instanceof GridNearLockRequest || message instanceof GridNearTxFinishRequest))
+                    return true;
+
+                return false;
+            }
+        });
+
+        // Start pessimistic tx.
+        TransactionProxyImpl ref = null;
+
+        try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 500, 1)) {
+            ref = (TransactionProxyImpl)tx;
+
+            log.info("Near tx: " + tx);
+
+            runAsync(new Runnable() {
+                @Override public void run() {
+                    try {
+                        spi.waitForBlocked(2);
+                    }
+                    catch (InterruptedException e) {
+                        fail();
+                    }
+
+                    spi.stopBlock(true, new IgnitePredicate<T2<ClusterNode, GridIoMessage>>() {
+                        @Override public boolean apply(T2<ClusterNode, GridIoMessage> objects) {
+                            return objects.get2().message() instanceof GridNearTxFinishRequest;
+                        }
+                    });
+
+                    doSleep(500);
+
+                    spi.stopBlock();
+                }
+            });
+
+            client.cache(DEFAULT_CACHE_NAME).put(k1, k1);
+        }
+        catch (Exception e) {
+            System.out.println(e);
+        }
+
+        assertNotNull(ref);
+
+//        IgniteInternalFuture<?> fut = U.field(ref.tx(), "finishFut");
+//
+//        fut.get();
+
+        doSleep(5000);
+
+        checkFutures();
+    }
 
     /**
      * Checks if all tx futures are finished.
