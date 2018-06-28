@@ -1,6 +1,7 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -8,6 +9,7 @@ import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
+import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.Latches;
@@ -22,6 +24,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.managers.communication.GridIoMessage;
 import org.apache.ignite.internal.processors.cache.GridCacheFuture;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareResponse;
@@ -93,7 +96,7 @@ public class TxLectureTest extends GridCommonAbstractTest {
         CacheConfiguration ccfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
         ccfg.setAtomicityMode(TRANSACTIONAL);
-        ccfg.setBackups(2);
+        ccfg.setBackups(1);
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
 
         cfg.setCacheConfiguration(ccfg);
@@ -236,6 +239,88 @@ public class TxLectureTest extends GridCommonAbstractTest {
         checkFutures();
 
         LockSupport.park();
+    }
+
+    public void testBackupRaceOPC() throws Exception {
+        Ignite client = startGrid("client");
+
+        IgniteEx prim = grid(0);
+
+        List<Integer> keys = primaryKeys(prim.cache(DEFAULT_CACHE_NAME), 2);
+
+        Ignite backup = backupNode(keys.get(0), DEFAULT_CACHE_NAME);
+
+        CountDownLatch l2 = new CountDownLatch(1);
+
+        // Start pessimistic tx.
+        try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 3000, 1)) {
+            log.info("Near tx: " + tx);
+
+            Map<Integer, Integer> map = new HashMap<>();
+            map.put(keys.get(0), keys.get(0));
+            map.put(keys.get(1), keys.get(1));
+
+            TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(prim);
+
+            // Prevent one backup commit.
+            spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+                @Override public boolean apply(ClusterNode node, Message msg) {
+                    if (msg instanceof GridDhtTxPrepareRequest || msg instanceof GridDhtTxFinishRequest)
+                        return true;
+
+                    return false;
+                }
+            });
+
+            // Acquire write exclusive lock.
+            client.cache(DEFAULT_CACHE_NAME).putAll(map);
+
+            CountDownLatch l = new CountDownLatch(1);
+
+            runAsync(new Runnable() {
+                @Override public void run() {
+                    l.countDown(); // Makes sure message blocked before trying to commit.
+
+                    try {
+                        spi.waitForBlocked();
+                    }
+                    catch (InterruptedException e) {
+                        log.error("Interrupted", e);
+                    }
+
+                    //Latches.lock = true;
+
+                    U.awaitQuiet(l2);
+
+                    spi.stopBlock();
+                }
+            });
+
+            U.awaitQuiet(l);
+
+            tx.commit();
+        }
+        catch (Exception e) {
+            System.out.println(e);
+        }
+
+        l2.countDown();
+
+        doSleep(3000);
+
+        int c1 = 0;
+        Iterable<Cache.Entry<Object, Object>> v1 = prim.cache(DEFAULT_CACHE_NAME).localEntries(CachePeekMode.ALL);
+        for (Cache.Entry<Object, Object> entry : v1)
+            c1++;
+
+        int c2 = 0;
+        Iterable<Cache.Entry<Object, Object>> v2 = backup.cache(DEFAULT_CACHE_NAME).localEntries(CachePeekMode.ALL);
+        for (Cache.Entry<Object, Object> entry : v2)
+            c2++;
+
+        assertEquals(c1, c2);
+
+        checkFutures();
     }
 
     public void testPrimaryRace() throws Exception {
