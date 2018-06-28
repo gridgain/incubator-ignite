@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,12 +43,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.management.JMX;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
-import org.apache.curator.test.TestingCluster;
 import org.apache.curator.test.TestingZooKeeperServer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
@@ -78,9 +75,7 @@ import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.managers.discovery.CustomEventListener;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
-import org.apache.ignite.internal.managers.discovery.DiscoveryLocalJoinData;
 import org.apache.ignite.internal.managers.discovery.GridDiscoveryManager;
-import org.apache.ignite.internal.managers.discovery.IgniteDiscoverySpiInternalListener;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheAbstractFullApiSelfTest;
 import org.apache.ignite.internal.processors.cache.distributed.TestCacheNodeExcludingFilter;
@@ -109,19 +104,15 @@ import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.plugin.security.SecurityCredentials;
 import org.apache.ignite.plugin.security.SecurityPermission;
 import org.apache.ignite.plugin.security.SecuritySubject;
-import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.discovery.DiscoverySpi;
-import org.apache.ignite.spi.discovery.DiscoverySpiCustomMessage;
 import org.apache.ignite.spi.discovery.DiscoverySpiNodeAuthenticator;
 import org.apache.ignite.spi.discovery.zk.ZookeeperDiscoverySpi;
-import org.apache.ignite.spi.discovery.zk.ZookeeperDiscoverySpiAbstractTestSuite;
 import org.apache.ignite.spi.discovery.zk.ZookeeperDiscoverySpiMBean;
 import org.apache.ignite.spi.discovery.zk.ZookeeperDiscoverySpiTestSuite2;
 import org.apache.ignite.testframework.GridTestUtils;
-import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZKUtil;
 import org.apache.zookeeper.ZkTestClientCnxnSocketNIO;
@@ -135,11 +126,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.events.EventType.EVT_CLIENT_NODE_DISCONNECTED;
 import static org.apache.ignite.events.EventType.EVT_CLIENT_NODE_RECONNECTED;
-import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
-import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
-import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IGNITE_INSTANCE_NAME;
-import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_SECURITY_CREDENTIALS;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_SECURITY_SUBJECT_V2;
 import static org.apache.ignite.spi.discovery.zk.internal.ZookeeperDiscoveryImpl.IGNITE_ZOOKEEPER_DISCOVERY_SPI_ACK_THRESHOLD;
 import static org.apache.zookeeper.ZooKeeper.ZOOKEEPER_CLIENT_CNXN_SOCKET;
@@ -148,30 +135,12 @@ import static org.apache.zookeeper.ZooKeeper.ZOOKEEPER_CLIENT_CNXN_SOCKET;
  *
  */
 @SuppressWarnings("deprecation")
-public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
+public class ZookeeperDiscoverySpiTest extends ZookeeperDiscoverySpiAbstractTest {
     /** */
-    private static final String IGNITE_ZK_ROOT = ZookeeperDiscoverySpi.DFLT_ROOT_PATH;
-
-    /** */
-    private static final int ZK_SRVS = 3;
-
-    /** */
-    private static TestingCluster zkCluster;
-
-    /** To run test with real local ZK. */
-    private static final boolean USE_TEST_CLUSTER = true;
+    protected static ThreadLocal<Boolean> clientThreadLoc = new ThreadLocal<>();
 
     /** */
     private boolean client;
-
-    /** */
-    private static ThreadLocal<Boolean> clientThreadLoc = new ThreadLocal<>();
-
-    /** */
-    private static ConcurrentHashMap<UUID, Map<Long, DiscoveryEvent>> evts = new ConcurrentHashMap<>();
-
-    /** */
-    private static volatile boolean err;
 
     /** */
     private boolean testSockNio;
@@ -184,12 +153,6 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
 
     /** */
     private long sesTimeout;
-
-    /** */
-    private long joinTimeout;
-
-    /** */
-    private boolean clientReconnectDisabled;
 
     /** */
     private ConcurrentHashMap<String, ZookeeperDiscoverySpi> spis = new ConcurrentHashMap<>();
@@ -230,46 +193,7 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
 
         ZookeeperDiscoverySpi zkSpi = new ZookeeperDiscoverySpi();
 
-        if (joinTimeout != 0)
-            zkSpi.setJoinTimeout(joinTimeout);
-
-        zkSpi.setSessionTimeout(sesTimeout > 0 ? sesTimeout : 10_000);
-
-        zkSpi.setClientReconnectDisabled(clientReconnectDisabled);
-
-        // Set authenticator for basic sanity tests.
-        if (auth != null) {
-            zkSpi.setAuthenticator(auth.apply());
-
-            zkSpi.setInternalListener(new IgniteDiscoverySpiInternalListener() {
-                @Override public void beforeJoin(ClusterNode locNode, IgniteLogger log) {
-                    ZookeeperClusterNode locNode0 = (ZookeeperClusterNode)locNode;
-
-                    Map<String, Object> attrs = new HashMap<>(locNode0.getAttributes());
-
-                    attrs.put(ATTR_SECURITY_CREDENTIALS, new SecurityCredentials(null, null, igniteInstanceName));
-
-                    locNode0.setAttributes(attrs);
-                }
-
-                @Override public boolean beforeSendCustomEvent(DiscoverySpi spi, IgniteLogger log, DiscoverySpiCustomMessage msg) {
-                    return false;
-                }
-            });
-        }
-
         spis.put(igniteInstanceName, zkSpi);
-
-        if (USE_TEST_CLUSTER) {
-            assert zkCluster != null;
-
-            zkSpi.setZkConnectionString(zkCluster.getConnectString());
-
-            if (zkRootPath != null)
-                zkSpi.setZkRootPath(zkRootPath);
-        }
-        else
-            zkSpi.setZkConnectionString("localhost:2181");
 
         cfg.setDiscoverySpi(zkSpi);
 
@@ -288,56 +212,6 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
 
         if (userAttrs != null)
             cfg.setUserAttributes(userAttrs);
-
-        Map<IgnitePredicate<? extends Event>, int[]> lsnrs = new HashMap<>();
-
-        lsnrs.put(new IgnitePredicate<Event>() {
-            /** */
-            @IgniteInstanceResource
-            private Ignite ignite;
-
-            @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
-            @Override public boolean apply(Event evt) {
-                try {
-                    DiscoveryEvent discoveryEvt = (DiscoveryEvent)evt;
-
-                    UUID locId = ((IgniteKernal)ignite).context().localNodeId();
-
-                    Map<Long, DiscoveryEvent> nodeEvts = evts.get(locId);
-
-                    if (nodeEvts == null) {
-                        Object old = evts.put(locId, nodeEvts = new TreeMap<>());
-
-                        assertNull(old);
-
-                        // If the current node has failed, the local join will never happened.
-                        if (evt.type() != EVT_NODE_FAILED ||
-                            discoveryEvt.eventNode().consistentId().equals(ignite.configuration().getConsistentId())) {
-                            synchronized (nodeEvts) {
-                                DiscoveryLocalJoinData locJoin = ((IgniteEx)ignite).context().discovery().localJoin();
-
-                                nodeEvts.put(locJoin.event().topologyVersion(), locJoin.event());
-                            }
-                        }
-                    }
-
-                    synchronized (nodeEvts) {
-                        DiscoveryEvent old = nodeEvts.put(discoveryEvt.topologyVersion(), discoveryEvt);
-
-                        assertNull(old);
-                    }
-                }
-                catch (Throwable e) {
-                    error("Unexpected error [evt=" + evt + ", err=" + e + ']', e);
-
-                    err = true;
-                }
-
-                return true;
-            }
-        }, new int[]{EVT_NODE_JOINED, EVT_NODE_FAILED, EVT_NODE_LEFT});
-
-        cfg.setLocalEventListeners(lsnrs);
 
         if (persistence) {
             DataStorageConfiguration memCfg = new DataStorageConfiguration()
@@ -375,101 +249,11 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
         clientThreadLoc.set(clientMode);
     }
 
-    /** {@inheritDoc} */
-    @Override protected void beforeTestsStarted() throws Exception {
-        super.beforeTestsStarted();
-
-        System.setProperty(ZookeeperDiscoveryImpl.IGNITE_ZOOKEEPER_DISCOVERY_SPI_ACK_TIMEOUT, "1000");
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void afterTestsStopped() throws Exception {
-        stopZkCluster();
-
-        System.clearProperty(ZookeeperDiscoveryImpl.IGNITE_ZOOKEEPER_DISCOVERY_SPI_ACK_TIMEOUT);
-    }
-
-    /**
-     *
-     */
-    private void stopZkCluster() {
-        if (zkCluster != null) {
-            try {
-                zkCluster.close();
-            }
-            catch (Exception e) {
-                U.error(log, "Failed to stop Zookeeper client: " + e, e);
-            }
-
-            zkCluster = null;
-        }
-    }
-
     /**
      *
      */
     private static void ackEveryEventSystemProperty() {
         System.setProperty(IGNITE_ZOOKEEPER_DISCOVERY_SPI_ACK_THRESHOLD, "1");
-    }
-
-    /**
-     *
-     */
-    private void clearAckEveryEventSystemProperty() {
-        System.setProperty(IGNITE_ZOOKEEPER_DISCOVERY_SPI_ACK_THRESHOLD, "1");
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void beforeTest() throws Exception {
-        super.beforeTest();
-
-        if (USE_TEST_CLUSTER && zkCluster == null) {
-            zkCluster = ZookeeperDiscoverySpiAbstractTestSuite.createTestingCluster(ZK_SRVS);
-
-            zkCluster.start();
-        }
-
-        reset();
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void afterTest() throws Exception {
-        super.afterTest();
-
-        clearAckEveryEventSystemProperty();
-
-        try {
-            assertFalse("Unexpected error, see log for details", err);
-
-            checkEventsConsistency();
-
-            checkInternalStructuresCleanup();
-
-            //TODO uncomment when https://issues.apache.org/jira/browse/IGNITE-8193 is fixed
-//            checkZkNodesCleanup();
-        }
-        finally {
-            reset();
-
-            stopAllGrids();
-        }
-    }
-
-    /**
-     * @throws Exception If failed.
-     */
-    private void checkInternalStructuresCleanup() throws Exception {
-        for (Ignite node : G.allGrids()) {
-            final AtomicReference<?> res = GridTestUtils.getFieldValue(spi(node), "impl", "commErrProcFut");
-
-            GridTestUtils.waitForCondition(new GridAbsPredicate() {
-                @Override public boolean apply() {
-                    return res.get() == null;
-                }
-            }, 30_000);
-
-            assertNull(res.get());
-        }
     }
 
     /**
@@ -3307,7 +3091,7 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testReconnectDisabled_ConnectionLost() throws Exception {
-        clientReconnectDisabled = true;
+        zkSpiBuilder.setClientReconnectDisabled(true);
 
         startGrid(0);
 
@@ -3352,7 +3136,7 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
 
         final int CLIENTS = 5;
 
-        joinTimeout = 3000;
+        zkSpiBuilder.setJoinTimeout(3_000);
 
         clientMode(true);
 
@@ -3385,7 +3169,9 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
      *
      */
     public void testStartNoServers_FailOnTimeout() {
-        joinTimeout = 3000;
+        final int joinTimeout = 3000;
+
+        zkSpiBuilder.setJoinTimeout(joinTimeout);
 
         clientMode(true);
 
@@ -3426,7 +3212,7 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     private void startNoServer_WaitForServers(long joinTimeout) throws Exception {
-        this.joinTimeout = joinTimeout;
+        zkSpiBuilder.setJoinTimeout(joinTimeout);
 
         IgniteInternalFuture<?> fut = GridTestUtils.runAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
@@ -3483,7 +3269,7 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testDisconnectOnServersLeft_5() throws Exception {
-        joinTimeout = 10_000;
+        zkSpiBuilder.setJoinTimeout(10_000);
 
         disconnectOnServersLeft(5, 10);
     }
@@ -4282,33 +4068,6 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
     }
 
     /**
-     *
-     */
-    private void reset() {
-        System.clearProperty(ZOOKEEPER_CLIENT_CNXN_SOCKET);
-
-        ZkTestClientCnxnSocketNIO.reset();
-
-        System.clearProperty(ZOOKEEPER_CLIENT_CNXN_SOCKET);
-
-        err = false;
-
-        failCommSpi = false;
-        PeerToPeerCommunicationFailureSpi.unfail();
-
-        evts.clear();
-
-        try {
-            cleanPersistenceDir();
-        }
-        catch (Exception e) {
-            error("Failed to delete DB files: " + e, e);
-        }
-
-        clientThreadLoc.set(null);
-    }
-
-    /**
      * @param stopTime Stop time.
      * @param stop Stop flag.
      * @return Future.
@@ -4393,54 +4152,6 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
                 return true;
             }
         }, 10_000));
-    }
-
-    /**
-     *
-     */
-    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
-    private void checkEventsConsistency() {
-        for (Map.Entry<UUID, Map<Long, DiscoveryEvent>> nodeEvtEntry : evts.entrySet()) {
-            UUID nodeId = nodeEvtEntry.getKey();
-            Map<Long, DiscoveryEvent> nodeEvts = nodeEvtEntry.getValue();
-
-            for (Map.Entry<UUID, Map<Long, DiscoveryEvent>> nodeEvtEntry0 : evts.entrySet()) {
-                if (!nodeId.equals(nodeEvtEntry0.getKey())) {
-                    Map<Long, DiscoveryEvent> nodeEvts0 = nodeEvtEntry0.getValue();
-
-                    synchronized (nodeEvts) {
-                        synchronized (nodeEvts0) {
-                            checkEventsConsistency(nodeEvts, nodeEvts0);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * @param evts1 Received events.
-     * @param evts2 Received events.
-     */
-    private void checkEventsConsistency(Map<Long, DiscoveryEvent> evts1, Map<Long, DiscoveryEvent> evts2) {
-        for (Map.Entry<Long, DiscoveryEvent> e1 : evts1.entrySet()) {
-            DiscoveryEvent evt1 = e1.getValue();
-            DiscoveryEvent evt2 = evts2.get(e1.getKey());
-
-            if (evt2 != null) {
-                assertEquals(evt1.topologyVersion(), evt2.topologyVersion());
-                assertEquals(evt1.eventNode(), evt2.eventNode());
-                assertEquals(evt1.topologyNodes(), evt2.topologyNodes());
-            }
-        }
-    }
-
-    /**
-     * @param node Node.
-     * @return Node's discovery SPI.
-     */
-    private static ZookeeperDiscoverySpi spi(Ignite node) {
-        return (ZookeeperDiscoverySpi)node.configuration().getDiscoverySpi();
     }
 
     /**
