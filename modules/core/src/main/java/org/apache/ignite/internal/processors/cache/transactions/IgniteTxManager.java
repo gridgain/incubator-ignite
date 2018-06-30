@@ -581,8 +581,20 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
                 });
 
         for (IgniteInternalTx tx : activeTransactions()) {
-            if (needWaitTransaction(tx, topVer))
+            if (needWaitTransaction(tx, topVer)) {
                 res.add(tx.finishFuture());
+
+                if (tx instanceof IgniteTxRemoteEx) {
+                    StackTraceElement[] caller = ((IgniteTxAdapter)tx).rollbackCaller;
+
+                    if (caller != null) {
+                        log.info("DEBUG: remote tx rollback caller stack:");
+
+                        for (StackTraceElement element : caller)
+                            log.info("DEBUG: " + element.toString());
+                    }
+                }
+            }
         }
 
         res.markInitialized();

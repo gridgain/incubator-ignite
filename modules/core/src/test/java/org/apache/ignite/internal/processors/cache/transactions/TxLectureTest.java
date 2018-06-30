@@ -75,6 +75,8 @@ public class TxLectureTest extends GridCommonAbstractTest {
     /** */
     private boolean persistenceEnabled;
 
+    private int backups = 2;
+
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
@@ -95,7 +97,7 @@ public class TxLectureTest extends GridCommonAbstractTest {
         CacheConfiguration ccfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
 
         ccfg.setAtomicityMode(TRANSACTIONAL);
-        ccfg.setBackups(1);
+        ccfg.setBackups(backups);
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
 
         cfg.setCacheConfiguration(ccfg);
@@ -105,6 +107,10 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
     // Test useless.
     public void testOnePhaseCommit() throws Exception {
+        backups = 1;
+
+        startGridsMultiThreaded(GRID_CNT);
+
         Ignite client = startGrid("client");
 
         IgniteEx prim = grid(0);
@@ -173,6 +179,10 @@ public class TxLectureTest extends GridCommonAbstractTest {
     }
 
     public void testBackupRace() throws Exception {
+        backups = 2;
+
+        startGridsMultiThreaded(GRID_CNT);
+
         Ignite client = startGrid("client");
 
         IgniteEx prim = grid(0);
@@ -234,11 +244,13 @@ public class TxLectureTest extends GridCommonAbstractTest {
         }
 
         checkFutures();
-
-        LockSupport.park();
     }
 
     public void testBackupRaceOPC() throws Exception {
+        backups = 1;
+
+        startGridsMultiThreaded(GRID_CNT);
+
         Ignite client = startGrid("client");
 
         IgniteEx prim = grid(0);
@@ -321,6 +333,10 @@ public class TxLectureTest extends GridCommonAbstractTest {
     }
 
     public void testPrimaryRace() throws Exception {
+        backups = 2;
+
+        startGridsMultiThreaded(GRID_CNT);
+
         Ignite client = startGrid("client");
 
         int k1 = 0;
@@ -449,6 +465,10 @@ public class TxLectureTest extends GridCommonAbstractTest {
     }
 
     public void testRecoveryOnPrimaryLeft() throws Exception {
+        backups = 2;
+
+        startGridsMultiThreaded(GRID_CNT);
+
         Ignite client = startGrid("client");
 
         IgniteEx prim = grid(0);
@@ -525,18 +545,5 @@ public class TxLectureTest extends GridCommonAbstractTest {
         }
 
         assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void beforeTest() throws Exception {
-        super.beforeTest();
-
-        final IgniteEx crd = startGrid(0);
-
-        startGridsMultiThreaded(1, GRID_CNT - 1);
-
-        crd.cluster().active(true);
-
-        awaitPartitionMapExchange();
     }
 }

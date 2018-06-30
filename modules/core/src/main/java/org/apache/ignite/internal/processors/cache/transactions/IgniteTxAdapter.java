@@ -215,6 +215,10 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
     @GridToStringInclude
     private Map<Integer, Set<Integer>> invalidParts;
 
+    /** */
+    @GridToStringExclude
+    public volatile StackTraceElement[] rollbackCaller;
+
     /**
      * Transaction state. Note that state is not protected, as we want to
      * always use {@link #state()} and {@link #state(TransactionState)}
@@ -815,7 +819,14 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
 
     /** {@inheritDoc} */
     @Override public boolean setRollbackOnly() {
-        return state(MARKED_ROLLBACK);
+        boolean state = state(MARKED_ROLLBACK);
+
+        if (state) {
+            if (this instanceof IgniteTxRemoteEx)
+                rollbackCaller = new Exception().getStackTrace();
+        }
+
+        return state;
     }
 
     /**
