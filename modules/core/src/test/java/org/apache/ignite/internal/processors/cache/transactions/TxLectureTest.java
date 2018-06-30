@@ -12,7 +12,6 @@ import java.util.stream.Collectors;
 import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.Latches;
 import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -221,8 +220,6 @@ public class TxLectureTest extends GridCommonAbstractTest {
                     catch (InterruptedException e) {
                         log.error("Interrupted", e);
                     }
-
-                    Latches.lock = true;
 
                     spi.stopBlock();
                 }
