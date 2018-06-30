@@ -43,14 +43,18 @@ import org.apache.ignite.internal.managers.communication.GridIoPolicy;
 import org.apache.ignite.internal.managers.communication.GridMessageListener;
 import org.apache.ignite.internal.managers.deployment.GridDeploymentInfo;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryRequest;
+import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryResponse;
 import org.apache.ignite.internal.processors.cache.distributed.dht.CacheGetFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtAffinityAssignmentRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLockResponse;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishResponse;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxOnePhaseCommitAckRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareResponse;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtUnlockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridPartitionedSingleGetFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridDhtAtomicAbstractUpdateRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridDhtAtomicNearResponse;
@@ -82,12 +86,17 @@ import org.apache.ignite.internal.processors.cache.query.GridCacheQueryResponse;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxState;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxStateAware;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashMap;
+import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashSet;
 import org.apache.ignite.internal.util.StripedCompositeReadWriteLock;
 import org.apache.ignite.internal.util.typedef.CI1;
+import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiInClosure;
+import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.thread.IgniteThread;
 import org.jetbrains.annotations.Nullable;
@@ -1053,6 +1062,8 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
      */
     private void processMessage(UUID nodeId, GridCacheMessage msg, IgniteBiInClosure<UUID, GridCacheMessage> c) {
         try {
+            addIn(nodeId, msg);
+
             c.apply(nodeId, msg);
 
             if (log.isDebugEnabled())
@@ -1168,6 +1179,8 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
                 cnt++;
 
                 cctx.gridIO().sendToGridTopic(node, TOPIC_CACHE, msg, plc);
+
+                addOut(node, msg);
 
                 return;
             }
@@ -1566,6 +1579,60 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
         X.println(">>>   cacheGrpClsHandlersSize: " + grpHandlers.clsHandlers.size());
         X.println(">>>   cacheGrpOrderedHandlersSize: " + grpHandlers.orderedHandlers.size());
     }
+
+    /** */
+    private GridBoundedConcurrentLinkedHashSet<T3<UUID, GridCacheMessage, Boolean>> queue = new GridBoundedConcurrentLinkedHashSet<>(500);
+
+    /** */
+    public void dump() {
+        if (log.isInfoEnabled()) {
+            log.info("Dumping recorded messages:");
+
+            for (T3<UUID, GridCacheMessage, Boolean> entry : queue)
+                log.info("    Message: [" + (entry.get3() ? "from" : "to") + "=" + entry.get1() + ", msg=" + entry.get2() + ']');
+        }
+    }
+
+    /**
+     * @param nodeId Node id.
+     * @param msg Message.
+     */
+    public void addIn(UUID nodeId, GridCacheMessage msg) {
+        if (TX_MSG_PREDICATE.apply(msg))
+            queue.add(new T3<>(nodeId, msg, true));
+    }
+
+    /**
+     * @param node Node.
+     * @param msg Message.
+     */
+    public void addOut(ClusterNode node, GridCacheMessage msg) {
+        if (TX_MSG_PREDICATE.apply(msg))
+            queue.add(new T3<>(node.id(), msg, false));
+    }
+
+    /** Tx message predicate. */
+    private static final IgnitePredicate<GridCacheMessage> TX_MSG_PREDICATE = new IgnitePredicate<GridCacheMessage>() {
+        @Override public boolean apply(GridCacheMessage msg) {
+            return msg instanceof GridNearLockRequest ||
+                msg instanceof GridNearLockResponse ||
+                msg instanceof GridNearTxPrepareRequest ||
+                msg instanceof GridNearTxPrepareResponse ||
+                msg instanceof GridNearTxFinishRequest ||
+                msg instanceof GridNearTxFinishResponse ||
+                msg instanceof GridDhtLockRequest ||
+                msg instanceof GridDhtLockResponse ||
+                msg instanceof GridDhtTxPrepareRequest ||
+                msg instanceof GridDhtTxPrepareResponse ||
+                msg instanceof GridDhtTxFinishRequest ||
+                msg instanceof GridDhtTxFinishResponse ||
+                msg instanceof GridDhtUnlockRequest ||
+                msg instanceof GridDhtTxOnePhaseCommitAckRequest ||
+                msg instanceof GridCacheTxRecoveryRequest ||
+                msg instanceof GridCacheTxRecoveryResponse;
+
+        }
+    };
 
     /**
      *
