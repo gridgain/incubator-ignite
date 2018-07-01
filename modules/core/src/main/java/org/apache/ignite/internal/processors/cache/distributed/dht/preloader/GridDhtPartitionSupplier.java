@@ -324,7 +324,7 @@ class GridDhtPartitionSupplier {
             if (sctx == null) {
                 if (log.isInfoEnabled())
                     log.info("Sup ctx init [grp=" + grp.cacheOrGroupName() + ", curVer=" + curTop.toShortString() + ", ctx=" + supCtxId(contextId)
-                            + ", rebId=" + ", rcvRebId=" + d.rebalanceId());
+                            + ", rcvRebId=" + d.rebalanceId() + ",reqFullParts=" + S.compact(d.partitions().fullSet()));
             }
 
             if (sctx == null || sctx.iterator == null) {

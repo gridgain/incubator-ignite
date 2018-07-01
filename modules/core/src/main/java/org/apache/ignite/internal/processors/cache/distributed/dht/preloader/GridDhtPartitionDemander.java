@@ -523,7 +523,7 @@ public class GridDhtPartitionDemander {
 
                             if (log.isInfoEnabled())
                                 log.info("Requested rebalancing [from nodeId=" + node.id() + ", nodeConsId=" + node.consistentId() + ", listener index=" +
-                                    topicId + " " + demandMsg.rebalanceId() + ", partitions count=" + stripePartitions.get(topicId).size() +
+                                    topicId + ", rebId=" + demandMsg.rebalanceId() + ", partitions count=" + stripePartitions.get(topicId).size() +
                                     " (" + stripePartitions.get(topicId).partitionsList() + ")]");
                         }
                         catch (IgniteCheckedException e1) {
