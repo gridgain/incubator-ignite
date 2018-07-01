@@ -236,6 +236,9 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
             // TODO ignite-db
             throw new IgniteException(e);
         }
+
+        if (log.isInfoEnabled())
+            log.info("Created " + grp.cacheOrGroupName() + " P " + id + " -> " + state());
     }
 
     /**
@@ -532,10 +535,15 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
     private boolean casState(long state, GridDhtPartitionState toState) {
         if (grp.persistenceEnabled() && grp.walEnabled()) {
             synchronized (this) {
+                GridDhtPartitionState prevState = getPartState(state);
+
                 boolean update = this.state.compareAndSet(state, setPartState(state, toState));
 
                 if (update)
                     try {
+                        if (log.isInfoEnabled())
+                            log.info("Change state " + grp.cacheOrGroupName() + ". P " + id + " " + prevState + " -> " + toState);
+
                         ctx.wal().log(new PartitionMetaStateRecord(grp.groupId(), id, toState, updateCounter()));
                     }
                     catch (IgniteCheckedException e) {
@@ -545,8 +553,18 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
                 return update;
             }
         }
-        else
-            return this.state.compareAndSet(state, setPartState(state, toState));
+        else {
+            GridDhtPartitionState prevState = getPartState(state);
+
+            boolean update = this.state.compareAndSet(state, setPartState(state, toState));
+
+            if (update) {
+                if (log.isInfoEnabled())
+                    log.info("Change state [X] " + grp.cacheOrGroupName() + ". P " + id + " " + prevState + " -> " + toState);
+            }
+
+            return update;
+        }
     }
 
     /**
@@ -671,6 +689,9 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
         if (!reinitialized)
             return;
 
+        if (log.isInfoEnabled())
+            log.info("Evict/Clear sch " + grp.cacheOrGroupName() + " [p=" + id + ",st=" + state() + "]");
+
         // Try fast eviction
         if (isEmpty() && getSize(state) == 0 && !grp.queriesEnabled()
                 && getReservations(state) == 0 && !groupReserved()) {
@@ -788,8 +809,8 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
         GridDhtPartitionState state = getPartState(state0);
 
         if (state == EVICTED || (isEmpty() && getSize(state0) == 0 && getReservations(state0) == 0 && state == RENTING && casState(state0, EVICTED))) {
-            if (log.isDebugEnabled())
-                log.debug("Evicted partition: " + this);
+            if (log.isInfoEnabled())
+                log.debug("Part evicted " + grp.cacheOrGroupName() + "[p=" + id + ", updSeq=" + updateSeq + "]");
 
             updateSeqOnDestroy = updateSeq;
         }
@@ -875,8 +896,8 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
                 // Attempt to evict partition entries from cache.
                 long clearedEntities = clearAll();
 
-                if (log.isDebugEnabled())
-                    log.debug("Partition is cleared [clearedEntities=" + clearedEntities + ", part=" + this + "]");
+                if (log.isInfoEnabled())
+                    log.info("Part cleared " + grp.cacheOrGroupName() + " [p=" + id + ", st=" + state() + "]");
             }
             catch (NodeStoppingException e) {
                 clearFuture.finish(e);

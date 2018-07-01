@@ -2382,9 +2382,22 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
                                         changed = true;
                                     }
+
+                                    GridDhtPartitionState restored = GridDhtPartitionState.fromOrdinal(stateId);
+
+                                    if (log.isInfoEnabled())
+                                        log.info("Restored " + grp.cacheOrGroupName() + " P " + i + " -> " + safe(restored) + " [WAL]");
                                 }
-                                else
-                                    updateState(part, (int)io.getPartitionState(pageAddr));
+                                else {
+                                    int stateId = (int) io.getPartitionState(pageAddr);
+
+                                    GridDhtPartitionState restored = GridDhtPartitionState.fromOrdinal(stateId);
+
+                                    if (log.isInfoEnabled())
+                                        log.info("Restored " + grp.cacheOrGroupName() + " P " + i + " -> " + safe(restored) + " [PM]");
+
+                                    updateState(part, stateId);
+                                }
                             }
                             finally {
                                 pageMem.writeUnlock(grpId, partMetaId, partMetaPage, null, changed);
@@ -2406,13 +2419,24 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-6097
                     grp.offheap().onPartitionInitialCounterUpdated(i, 0);
 
-                    updateState(part, restore.get1());
+                    int stateId = restore.get1();
+
+                    updateState(part, stateId);
+
+                    GridDhtPartitionState restored = GridDhtPartitionState.fromOrdinal(stateId);
+
+                    if (log.isInfoEnabled())
+                        log.info("Restored " + grp.cacheOrGroupName() + " P " + i + " -> " + safe(restored) + " [WAL]");
                 }
             }
 
             // After partition states are restored, it is necessary to update internal data structures in topology.
             grp.topology().afterStateRestored(grp.topology().lastTopologyChangeVersion());
         }
+    }
+
+    private String safe(@Nullable Object obj) {
+        return obj == null ? "null" : obj.toString();
     }
 
     /**
@@ -4244,12 +4268,23 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         checkpointReadLock();
 
         try {
-            if (enabled)
+            if (enabled) {
                 metaStorage.remove(key);
+
+                CacheGroupContext grp = cctx.cache().cacheGroup(grpId);
+
+                if (log.isInfoEnabled())
+                    log.info("WAL enabled for [grp=" + (grp != null ? grp.cacheOrGroupName() : grpId) + "]");
+            }
             else {
                 metaStorage.write(key, true);
 
                 lastCheckpointInapplicableForWalRebalance(grpId);
+
+                CacheGroupContext grp = cctx.cache().cacheGroup(grpId);
+
+                if (log.isInfoEnabled())
+                    log.info("WAL disabled for [grp=" + (grp != null ? grp.cacheOrGroupName() : grpId) + "]");
             }
         }
         catch (IgniteCheckedException e) {
