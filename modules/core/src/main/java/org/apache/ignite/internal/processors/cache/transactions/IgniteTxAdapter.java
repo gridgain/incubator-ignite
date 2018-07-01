@@ -217,7 +217,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
 
     /** */
     @GridToStringExclude
-    public volatile StackTraceElement[] rollbackCaller;
+    public List<T2<TransactionState, StackTraceElement[]>> stateChanges = new ArrayList<>();
 
     /**
      * Transaction state. Note that state is not protected, as we want to
@@ -819,14 +819,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
 
     /** {@inheritDoc} */
     @Override public boolean setRollbackOnly() {
-        boolean state = state(MARKED_ROLLBACK);
-
-        if (state) {
-            if (this instanceof IgniteTxRemoteEx)
-                rollbackCaller = new Exception().getStackTrace();
-        }
-
-        return state;
+        return state(MARKED_ROLLBACK);
     }
 
     /**
@@ -1105,6 +1098,8 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
 
                 if (log.isDebugEnabled())
                     log.debug("Changed transaction state [prev=" + prev + ", new=" + this.state + ", tx=" + this + ']');
+
+                stateChanges.add(new T2<>(state, new Exception().getStackTrace()));
 
                 notifyAll();
             }
@@ -2384,6 +2379,11 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
         @Override public String toString() {
             return S.toString(TxShadow.class, this);
         }
+
+        /** {@inheritDoc} */
+        @Override public List<T2<TransactionState, StackTraceElement[]>> stateChanges() {
+            return null;
+        }
     }
 
     /**
@@ -2422,5 +2422,15 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
 
             return S.toString(TxFinishFuture.class, this, "duration", duration);
         }
+    }
+
+    @Override public List<T2<TransactionState, StackTraceElement[]>> stateChanges() {
+        List<T2<TransactionState, StackTraceElement[]>> cp;
+
+        synchronized (this) {
+            cp = new ArrayList<>(stateChanges);
+        }
+
+        return cp;
     }
 }

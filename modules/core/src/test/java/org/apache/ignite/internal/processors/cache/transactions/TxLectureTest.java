@@ -31,11 +31,13 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLock
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockResponse;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxFinishFuture;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxFinishRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
 import org.apache.ignite.internal.util.GridLeanMap;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgnitePredicate;
@@ -261,8 +263,13 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
         CountDownLatch l2 = new CountDownLatch(1);
 
+        GridNearTxLocal locTx = null;
+
         // Start pessimistic tx.
         try (Transaction tx = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 3000, 1)) {
+            TransactionProxyImpl p = (TransactionProxyImpl)tx;
+            locTx = p.tx();
+
             log.info("Near tx: " + tx);
 
             Map<Integer, Integer> map = new HashMap<>();
@@ -315,21 +322,38 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
         l2.countDown();
 
-        doSleep(3000);
+        assertNotNull(locTx);
 
-        int c1 = 0;
-        Iterable<Cache.Entry<Object, Object>> v1 = prim.cache(DEFAULT_CACHE_NAME).localEntries(CachePeekMode.ALL);
-        for (Cache.Entry<Object, Object> entry : v1)
-            c1++;
+        List<T2<TransactionState, StackTraceElement[]>> changes = locTx.stateChanges();
 
-        int c2 = 0;
-        Iterable<Cache.Entry<Object, Object>> v2 = backup.cache(DEFAULT_CACHE_NAME).localEntries(CachePeekMode.ALL);
-        for (Cache.Entry<Object, Object> entry : v2)
-            c2++;
+        U.warn(log, "   TX: [tx=" + CU.txString(locTx) + ']');
 
-        assertEquals(c1, c2);
+        for (T2<TransactionState, StackTraceElement[]> change : changes) {
+            U.warn(log, "   StateChange: [state=" + change.get1() + ']');
 
-        checkFutures();
+            for (StackTraceElement element : change.get2())
+                U.warn(log, "   StateChange: " + element.toString());
+        }
+
+        System.out.println();
+
+//        doSleep(3000);
+//
+//        int c1 = 0;
+//        Iterable<Cache.Entry<Object, Object>> v1 = prim.cache(DEFAULT_CACHE_NAME).localEntries(CachePeekMode.ALL);
+//        for (Cache.Entry<Object, Object> entry : v1)
+//            c1++;
+//
+//        int c2 = 0;
+//        Iterable<Cache.Entry<Object, Object>> v2 = backup.cache(DEFAULT_CACHE_NAME).localEntries(CachePeekMode.ALL);
+//        for (Cache.Entry<Object, Object> entry : v2)
+//            c2++;
+//
+//        assertEquals(c1, c2);
+//
+//        checkFutures();
+
+        LockSupport.park();
     }
 
     public void testPrimaryRace() throws Exception {

@@ -1584,7 +1584,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
     private GridBoundedConcurrentLinkedHashSet<T3<UUID, GridCacheMessage, Boolean>> queue = new GridBoundedConcurrentLinkedHashSet<>(500);
 
     /** */
-    public void dump() {
+    public void dumpRecordedMessages() {
         if (log.isInfoEnabled()) {
             log.info("Dumping recorded messages:");
 

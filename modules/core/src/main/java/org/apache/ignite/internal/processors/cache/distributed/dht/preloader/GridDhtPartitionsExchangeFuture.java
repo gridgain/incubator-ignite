@@ -59,7 +59,6 @@ import org.apache.ignite.internal.managers.communication.GridIoPolicy;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
 import org.apache.ignite.internal.pagemem.wal.record.ExchangeRecord;
-import org.apache.ignite.internal.processors.affinity.AffinityAssignment;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentCache;
 import org.apache.ignite.internal.processors.cache.CacheAffinityChangeMessage;
@@ -86,6 +85,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartit
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionsStateValidator;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTopologyFutureAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.snapshot.SnapshotDiscoveryMessage;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.cluster.BaselineTopology;
@@ -106,6 +106,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.transactions.TransactionState;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT_LIMIT;
@@ -1422,6 +1423,26 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         U.warn(cctx.kernalContext().cluster().diagnosticLog(),
             "Failed to wait for partition release future [topVer=" + initialVersion() +
             ", node=" + cctx.localNodeId() + "]");
+
+        cctx.io().dumpRecordedMessages();
+
+        Collection<IgniteInternalTx> txs = cctx.kernalContext().cache().context().tm().activeTransactions();
+
+        U.warn(log, "Active transactions: [cnt=" + txs.size() + ']');
+
+        for (IgniteInternalTx tx : txs) {
+            List<T2<TransactionState, StackTraceElement[]>> changes = tx.stateChanges();
+
+            U.warn(log, "   TX: [tx=" + CU.txString(tx) + ']');
+
+            for (T2<TransactionState, StackTraceElement[]> change : changes) {
+                U.warn(log, "   StateChange: [state=" + change.get1() + ']');
+
+                for (StackTraceElement element : change.get2())
+                    U.warn(log, "   StateChange: " + element.toString());
+            }
+        }
+
 
         U.warn(log, "Partition release future: " + partReleaseFut);
 
