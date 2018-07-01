@@ -3451,7 +3451,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
         guard();
 
         try {
-            checkClusterState();
+            //checkClusterState();
 
             return (T)ctx.pluginProvider(name).plugin();
         }
