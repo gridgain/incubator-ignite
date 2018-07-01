@@ -88,6 +88,8 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
         }
     };
 
+    public static final ThreadLocal<String> stateChangeReason = ThreadLocal.withInitial(() -> "NO");
+
     /** Maximum size for delete queue. */
     public static final int MAX_DELETE_QUEUE_SIZE = Integer.getInteger(IGNITE_ATOMIC_CACHE_DELETE_HISTORY_SIZE, 200_000);
 
@@ -238,7 +240,7 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
         }
 
         if (log.isInfoEnabled())
-            log.info("Created " + grp.cacheOrGroupName() + " P " + id + " -> " + state());
+            log.info("Created part " + grp.cacheOrGroupName() + " P " + id + " -> " + state());
     }
 
     /**
@@ -542,7 +544,7 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
                 if (update)
                     try {
                         if (log.isInfoEnabled())
-                            log.info("Change state " + grp.cacheOrGroupName() + ". P " + id + " " + prevState + " -> " + toState);
+                            log.info("Change part state " + grp.cacheOrGroupName() + ". P " + id + " " + prevState + " -> " + toState);
 
                         ctx.wal().log(new PartitionMetaStateRecord(grp.groupId(), id, toState, updateCounter()));
                     }
@@ -560,7 +562,7 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
 
             if (update) {
                 if (log.isInfoEnabled())
-                    log.info("Change state [X] " + grp.cacheOrGroupName() + ". P " + id + " " + prevState + " -> " + toState);
+                    log.info("Change part state [NO-WAL] " + grp.cacheOrGroupName() + ". P " + id + " " + prevState + " -> " + toState);
             }
 
             return update;

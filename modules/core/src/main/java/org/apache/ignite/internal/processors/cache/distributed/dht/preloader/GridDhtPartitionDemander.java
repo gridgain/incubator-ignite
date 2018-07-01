@@ -680,13 +680,24 @@ public class GridDhtPartitionDemander {
 
         ClusterNode node = ctx.node(nodeId);
 
-        if (node == null)
-            return;
+        if (node == null) {
+            if (log.isInfoEnabled())
+                log.info("[REB] Sup msg reject " + grp.cacheOrGroupName() + ", dir=" + demandDirection(topicId, nodeId, supply));
 
-        if (topologyChanged(fut)) // Topology already changed (for the future that supply message based on).
             return;
+        }
+
+        if (topologyChanged(fut)) { // Topology already changed (for the future that supply message based on).
+            if (log.isInfoEnabled())
+                log.info("[REB] Sup msg reject, top change " + grp.cacheOrGroupName() + ", dir=" + demandDirection(topicId, nodeId, supply) + ", newTopVer=" + grp.affinity().lastVersion().toShortString());
+
+            return;
+        }
 
         if (!fut.isActual(supply.rebalanceId())) {
+            if (log.isInfoEnabled())
+                log.info("[REB] Sup msg reject, reb id changed " + grp.cacheOrGroupName() + ", dir=" + demandDirection(topicId, nodeId, supply) + ", supRebId=" + supply.rebalanceId() + ", futRebId=" + fut.rebalanceId);
+
             // Current future have another rebalance id.
             // Supple message based on another future.
             return;
@@ -834,15 +845,17 @@ public class GridDhtPartitionDemander {
                     markMissed.add(miss);
                 }
 
-                if (log.isInfoEnabled())
-                    log.info("[REB] Mark as missed " + grp.cacheOrGroupName() + ", parts=" + S.compact(markMissed) + ", dir=" + demandDirection(topicId, nodeId, supply));
+                if (!markMissed.isEmpty())
+                    if (log.isInfoEnabled())
+                        log.info("[REB] Mark as missed " + grp.cacheOrGroupName() + ", parts=" + S.compact(markMissed) + ", dir=" + demandDirection(topicId, nodeId, supply));
             }
 
             for (Integer miss : supply.missed())
                 fut.partitionDone(nodeId, miss, false);
 
-            if (log.isInfoEnabled())
-                log.info("[REB] Done as missed " + grp.cacheOrGroupName() + ", parts=" + S.compact(supply.missed()) + ", dir=" + demandDirection(topicId, nodeId, supply));
+            if (!supply.missed().isEmpty())
+                if (log.isInfoEnabled())
+                    log.info("[REB] Done as missed " + grp.cacheOrGroupName() + ", parts=" + S.compact(supply.missed()) + ", dir=" + demandDirection(topicId, nodeId, supply));
 
             GridDhtPartitionDemandMessage d = new GridDhtPartitionDemandMessage(
                 supply.rebalanceId(),

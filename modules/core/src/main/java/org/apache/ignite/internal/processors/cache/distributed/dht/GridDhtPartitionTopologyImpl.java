@@ -2186,6 +2186,11 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                             "[nodeId=" + ctx.localNodeId() + ", grp=" + grp.cacheOrGroupName() +
                             ", partId=" + p + ", haveHistory=" + haveHistory + "]");
                     }
+                    else if (locPart.state() == MOVING && !ownersByUpdCounters.contains(ctx.localNodeId())) {
+                        U.warn(log, "Partition has been scheduled for rebalancing " +
+                                "[nodeId=" + ctx.localNodeId() + ", grp=" + grp.cacheOrGroupName() +
+                                ", partId=" + p + ", haveHistory=" + haveHistory + "]");
+                    }
                 }
 
                 for (Map.Entry<UUID, GridDhtPartitionMap> e : node2part.entrySet()) {
@@ -2209,6 +2214,11 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         U.warn(log, "Partition has been scheduled for rebalancing due to outdated update counter " +
                             "[nodeId=" + remoteNodeId + ", grp=" + grp.cacheOrGroupName() +
                             ", partId=" + p + ", haveHistory=" + haveHistory + "]");
+                    }
+                    else if (partMap.get(p) == MOVING) {
+                        U.warn(log, "Partition has been scheduled for rebalancing " +
+                                "[nodeId=" + remoteNodeId + ", grp=" + grp.cacheOrGroupName() +
+                                ", partId=" + p + ", haveHistory=" + haveHistory + "]");
                     }
                 }
 
