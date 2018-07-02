@@ -149,6 +149,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
      */
     private static final boolean SKIP_PARTITION_SIZE_VALIDATION = Boolean.getBoolean(IgniteSystemProperties.IGNITE_SKIP_PARTITION_SIZE_VALIDATION);
 
+    public static final int EXCHANGE_NODE_KICK_TIMEOUT = 10_000;
+
     /** */
     @GridToStringExclude
     private final Object mux = new Object();
@@ -1218,7 +1220,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
         changeWalModeIfNeeded();
 
-        // TODO : register timeout.
+        // TODO : register soft/hard timeout.
+        cctx.time().schedule(this::onDistributedExchangeTimeout, EXCHANGE_NODE_KICK_TIMEOUT * (crd.isLocal() ? 1 : 2), -1);
 
         if (crd.isLocal()) {
             if (remaining.isEmpty())
@@ -1231,14 +1234,19 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
     }
 
     private void onDistributedExchangeTimeout() {
-        if (crd.isLocal()) {
-            for (UUID remainingUuid : remaining)
-                cctx.discovery().failNode(remainingUuid, null);
-        }
-        else {
-            // TODO: check if CRD finished exchange, kick if it didn't
+        if (!isDone()) {
+            synchronized (mux) {
+                if (crd.isLocal()) {
+                    for (UUID remainingUuid : remaining)
+                        cctx.discovery().failNode(remainingUuid, null);
+                }
+                else {
+                    // TODO: check if CRD finished exchange, kick if it didn't
+                    cctx.discovery().failNode(crd.id(), null);
 
-            cctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, new TimeoutException()));
+//                    cctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, new TimeoutException()));
+                }
+            }
         }
     }
 
