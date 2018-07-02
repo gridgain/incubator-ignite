@@ -23,7 +23,7 @@ import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.ml.dataset.impl.cache.CacheBasedDatasetBuilder;
+import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
 import org.apache.ignite.ml.nn.performance.MnistMLPTestUtil;
 import org.apache.ignite.ml.tree.DecisionTreeClassificationTrainer;
 import org.apache.ignite.ml.tree.DecisionTreeNode;
@@ -81,7 +81,8 @@ public class DecisionTreeMNISTIntegrationTest extends GridCommonAbstractTest {
             new SimpleStepFunctionCompressor<>());
 
         DecisionTreeNode mdl = trainer.fit(
-            new CacheBasedDatasetBuilder<>(ignite, trainingSet),
+            ignite,
+            trainingSet,
             (k, v) -> v.getPixels(),
             (k, v) -> (double) v.getLabel()
         );
@@ -90,7 +91,7 @@ public class DecisionTreeMNISTIntegrationTest extends GridCommonAbstractTest {
         int incorrectAnswers = 0;
 
         for (MnistUtils.MnistLabeledImage e : MnistMLPTestUtil.loadTestSet(10_000)) {
-            double res = mdl.apply(e.getPixels());
+            double res = mdl.apply(new DenseLocalOnHeapVector(e.getPixels()));
 
             if (res == e.getLabel())
                 correctAnswers++;

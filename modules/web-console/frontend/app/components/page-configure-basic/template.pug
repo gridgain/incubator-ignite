@@ -15,15 +15,15 @@
     limitations under the License.
 
 include /app/helpers/jade/mixins
-include /app/modules/states/configuration/clusters/general/discovery/cloud
-include /app/modules/states/configuration/clusters/general/discovery/google
-include /app/modules/states/configuration/clusters/general/discovery/jdbc
-include /app/modules/states/configuration/clusters/general/discovery/multicast
-include /app/modules/states/configuration/clusters/general/discovery/s3
-include /app/modules/states/configuration/clusters/general/discovery/shared
-include /app/modules/states/configuration/clusters/general/discovery/vm
-include /app/modules/states/configuration/clusters/general/discovery/zookeeper
-include /app/modules/states/configuration/clusters/general/discovery/kubernetes
+include ./../page-configure-advanced/components/cluster-edit-form/templates/general/discovery/cloud
+include ./../page-configure-advanced/components/cluster-edit-form/templates/general/discovery/google
+include ./../page-configure-advanced/components/cluster-edit-form/templates/general/discovery/jdbc
+include ./../page-configure-advanced/components/cluster-edit-form/templates/general/discovery/multicast
+include ./../page-configure-advanced/components/cluster-edit-form/templates/general/discovery/s3
+include ./../page-configure-advanced/components/cluster-edit-form/templates/general/discovery/shared
+include ./../page-configure-advanced/components/cluster-edit-form/templates/general/discovery/vm
+include ./../page-configure-advanced/components/cluster-edit-form/templates/general/discovery/zookeeper
+include ./../page-configure-advanced/components/cluster-edit-form/templates/general/discovery/kubernetes
 
 - const model = '$ctrl.clonedCluster'
 - const modelDiscoveryKind = `${model}.discovery.kind`
@@ -171,7 +171,6 @@ form(novalidate name=form)
         
     .pc-form-actions-panel
         button-preview-project(ng-hide='$ctrl.isNew$|async:this' cluster=model)
-        button-download-project(ng-hide='$ctrl.isNew$|async:this' cluster=model)
 
         .pc-form-actions-panel__right-after
         button.btn-ignite.btn-ignite--link-success(
@@ -179,16 +178,4 @@ form(novalidate name=form)
             ng-click='$ctrl.confirmAndReset()'
         )
             | Cancel
-        .btn-ignite-group
-            button.btn-ignite.btn-ignite--success(
-                ng-click='::$ctrl.formActionsMenu[0].click()'
-                type='button'
-            )
-                svg(ignite-icon='{{ ::$ctrl.formActionsMenu[0].icon }}').icon-left
-                | {{ ::$ctrl.formActionsMenu[0].text }}
-            button.btn-ignite.btn-ignite--success(
-                bs-dropdown='$ctrl.formActionsMenu'
-                data-placement='top-right'
-                type='button'
-            )
-                span.icon.fa.fa-caret-up
+        pc-split-button(actions=`::$ctrl.formActionsMenu`)

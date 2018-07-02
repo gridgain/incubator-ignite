@@ -20,7 +20,7 @@ package org.apache.ignite.ml.tree.performance;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.ml.dataset.impl.local.LocalDatasetBuilder;
+import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
 import org.apache.ignite.ml.nn.performance.MnistMLPTestUtil;
 import org.apache.ignite.ml.tree.DecisionTreeClassificationTrainer;
 import org.apache.ignite.ml.tree.DecisionTreeNode;
@@ -50,7 +50,8 @@ public class DecisionTreeMNISTTest {
             new SimpleStepFunctionCompressor<>());
 
         DecisionTreeNode mdl = trainer.fit(
-            new LocalDatasetBuilder<>(trainingSet, 10),
+            trainingSet,
+            10,
             (k, v) -> v.getPixels(),
             (k, v) -> (double) v.getLabel()
         );
@@ -59,7 +60,7 @@ public class DecisionTreeMNISTTest {
         int incorrectAnswers = 0;
 
         for (MnistUtils.MnistLabeledImage e : MnistMLPTestUtil.loadTestSet(10_000)) {
-            double res = mdl.apply(e.getPixels());
+            double res = mdl.apply(new DenseLocalOnHeapVector(e.getPixels()));
 
             if (res == e.getLabel())
                 correctAnswers++;

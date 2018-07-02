@@ -154,7 +154,13 @@ public abstract class WALRecord implements Serializable { // todo gg-13416 remov
         /** Page list meta reset count record. */
         PAGE_LIST_META_RESET_COUNT_RECORD,
 
-        /** Switch segment record. */
+        /** Switch segment record.
+         *  Marker record for indicate end of segment.
+         *  If the next one record is written down exactly at the end of segment,
+         *  SWITCH_SEGMENT_RECORD will not be written, if not then it means that we have more
+         *  that one byte in the end,then we write SWITCH_SEGMENT_RECORD as marker end of segment.
+         *  No need write CRC or WAL pointer for this record. It is byte marker record.
+         *  */
         SWITCH_SEGMENT_RECORD,
 
         /** */
@@ -175,8 +181,11 @@ public abstract class WALRecord implements Serializable { // todo gg-13416 remov
         /** Exchange record. */
         EXCHANGE,
 
-        /** Baseline topology record. */
-        BASELINE_TOP_RECORD,
+        /** Reserved for future record. */
+        RESERVED,
+
+        /** Rotated id part record. */
+        ROTATED_ID_PART_RECORD,
 
         /** Consistent cut record. */
         CONSISTENT_CUT;
