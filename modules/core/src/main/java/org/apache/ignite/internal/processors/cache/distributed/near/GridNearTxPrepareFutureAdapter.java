@@ -160,21 +160,7 @@ public abstract class GridNearTxPrepareFutureAdapter extends
      * @param txMapping Transaction mapping.
      */
     final void checkOnePhase(GridDhtTxMapping txMapping) {
-        if (tx.storeWriteThrough())
-            return;
-
-        Map<UUID, Collection<UUID>> map = txMapping.transactionNodes();
-
-        if (map.size() == 1) {
-            Map.Entry<UUID, Collection<UUID>> entry = map.entrySet().iterator().next();
-
-            assert entry != null;
-
-            Collection<UUID> backups = entry.getValue();
-
-            if (backups.size() <= 1)
-                tx.onePhaseCommit(true);
-        }
+        // No-op.
     }
 
     /**
