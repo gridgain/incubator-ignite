@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
@@ -146,7 +147,18 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
             return row;
         }
         else
-            return rowStore.getRow(link);
+            try {
+                return rowStore.getRow(link);
+            }
+            catch (IgniteCheckedException e) {
+                throw e;
+            }
+            catch (Throwable t) {
+                long pageId = PageIdUtils.pageId(link);
+                int partId = PageIdUtils.partId(pageId);
+                throw new IgniteException("Failed to get row: [link=" + link + ", pageId=" + pageId +
+                    ", partId=" + partId, t);
+            }
     }
 
     /** {@inheritDoc} */
