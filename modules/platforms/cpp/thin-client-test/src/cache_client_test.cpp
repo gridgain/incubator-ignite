@@ -21,6 +21,9 @@
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread/thread.hpp>
+#include <boost/interprocess/sync/interprocess_semaphore.hpp>
+#include <boost/algorithm/algorithm.hpp>
+#include <boost/algorithm/minmax_element.hpp>
 
 #include <ignite/ignition.h>
 
@@ -53,7 +56,7 @@ public:
     }
 
     template<typename K, typename V>
-    void LocalPeek(cache::CacheClient<K,V>& cache, const K& key, V& value)
+    static void LocalPeek(cache::CacheClient<K,V>& cache, const K& key, V& value)
     {
         using namespace ignite::impl::thin;
         using namespace ignite::impl::thin::cache;
@@ -765,6 +768,224 @@ BOOST_AUTO_TEST_CASE(CacheClientClear)
         size = cache.GetSize(cache::CachePeekMode::ALL);
         BOOST_CHECK_EQUAL(size, 1000 - i - 1);
     }
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(Bench)
+
+void PrintBackets(const std::string& annotation, std::vector<int64_t>& res)
+{
+    std::sort(res.begin(), res.end());
+
+    std::cout << annotation << ": "
+        << "min: " << res.front() << "us, "
+        << "10%: " << res.at(static_cast<size_t>(res.size() * 0.2)) << "us, "
+        << "20%: " << res.at(static_cast<size_t>(res.size() * 0.2)) << "us, "
+        << "50%: " << res.at(static_cast<size_t>(res.size() * 0.5)) << "us, "
+        << "90%: " << res.at(static_cast<size_t>(res.size() * 0.9)) << "us, "
+        << "95%: " << res.at(static_cast<size_t>(res.size() * 0.95)) << "us, "
+        << "99%: " << res.at(static_cast<size_t>(res.size() * 0.99)) << "us, "
+        << "max: " << res.back() << "us"
+        << std::endl;
+}
+
+int64_t Measure(int64_t keyNum, bool lessenLatency, std::vector<int64_t>& puts, std::vector<int64_t>& gets)
+{
+    using namespace boost::chrono;
+
+    IgniteClientConfiguration cfg;
+    cfg.SetEndPoints("172.25.1.18:11110,172.25.1.39:11110,172.25.1.44:11110");
+
+    IgniteClient client = IgniteClient::Start(cfg);
+
+    cache::CacheClientConfiguration cacheCfg;
+    cacheCfg.SetLessenLatency(lessenLatency);
+
+    cache::CacheClient<int64_t, int64_t> cache =
+        client.GetCache<int64_t, int64_t>("partitioned", cacheCfg);
+
+    cache.RemoveAll();
+    cache.Clear();
+
+    puts.clear();
+    gets.clear();
+
+    puts.reserve(keyNum);
+    gets.reserve(keyNum);
+
+    auto begin = steady_clock::now();
+
+    for (int64_t i = 0; i < keyNum; ++i)
+    {
+        auto putBegin = steady_clock::now();
+
+        cache.Put(static_cast<int64_t>((i + 1) * 39916801), (i + 1) * 5039);
+
+        puts.push_back(duration_cast<microseconds>(steady_clock::now() - putBegin).count());
+    }
+
+//    int64_t num = 0;
+
+    for (int64_t i = 1; i < keyNum; ++i)
+    {
+        auto getBegin = steady_clock::now();
+
+        cache.Get(static_cast<int64_t>((i + 1) * 39916801));
+
+        gets.push_back(duration_cast<microseconds>(steady_clock::now() - getBegin).count());
+
+//        int64_t val;
+//        CacheClientTestSuiteFixture::LocalPeek(cache, static_cast<int64_t>((i + 1) * 39916801), val);
+
+//        if (val != (i + 1) * 5039)
+//            ++num;
+
+//            std::cout << "Miss" << std::endl;
+    }
+
+    auto duration = steady_clock::now() - begin;
+
+//    std::cout << "Duration: " << duration_cast<milliseconds>(duration).count() << " ms, " << num << std::endl;
+    std::cout << "Duration: " << duration_cast<milliseconds>(duration).count() << " ms" << std::endl;
+
+    cache.RemoveAll();
+    cache.Clear();
+
+    PrintBackets("Puts", puts);
+    PrintBackets("Gets", gets);
+
+    return duration_cast<milliseconds>(duration).count();
+}
+
+void MeasureThread(
+    boost::interprocess::interprocess_semaphore& sem,
+    cache::CacheClient<int64_t, int64_t>& cache,
+    int64_t from,
+    int64_t to)
+{
+    sem.wait();
+
+    for (int64_t i = from; i < to; ++i)
+        cache.Put(static_cast<int64_t>((i + 1) * 39916801), (i + 1) * 5039);
+
+    for (int64_t i = from; i < to; ++i)
+        cache.Get(static_cast<int64_t>((i + 1) * 39916801));
+}
+
+int64_t MeasureInThreads(int32_t tnum, int64_t keyNum, bool lessenLatency)
+{
+    IgniteClientConfiguration cfg;
+    cfg.SetEndPoints("172.25.1.18:11110,172.25.1.39:11110,172.25.1.44:11110");
+
+    IgniteClient client = IgniteClient::Start(cfg);
+
+    cache::CacheClientConfiguration cacheCfg;
+    cacheCfg.SetLessenLatency(lessenLatency);
+
+    cache::CacheClient<int64_t, int64_t> cache =
+        client.GetCache<int64_t, int64_t>("partitioned", cacheCfg);
+
+    cache.RemoveAll();
+    cache.Clear();
+
+    std::vector<boost::thread> threads;
+    boost::interprocess::interprocess_semaphore sem(0);
+
+    int64_t fraction = keyNum / tnum;
+
+    for (int32_t i = 0; i < tnum; ++i)
+        threads.push_back(boost::thread(MeasureThread, boost::ref(sem), cache, fraction * i, fraction * (i + 1)));
+
+    auto begin = boost::chrono::steady_clock::now();
+
+    for (int32_t i = 0; i < tnum; ++i)
+        sem.post();
+
+    for (int32_t i = 0; i < tnum; ++i)
+        threads[i].join();
+
+    using namespace boost::chrono;
+
+    auto duration = steady_clock::now() - begin;
+
+    std::cout << "Duration: " << duration_cast<milliseconds>(duration).count() << " ms" << std::endl;
+
+    cache.RemoveAll();
+    cache.Clear();
+
+    return duration_cast<milliseconds>(duration).count();
+}
+
+//BOOST_AUTO_TEST_CASE(Benchmark)
+//{
+//    int32_t runs = 5;
+//    int64_t keyNum = 10000;
+//
+//    std::cout << "Starting benchmark. Runs: " << runs << std::endl;
+//
+//    std::cout << "Affinity disabled... " << std::endl;
+//
+//    int64_t mean1 = 0;
+//
+//    for (int32_t i = 0; i < runs; ++i)
+//        mean1 += Measure(keyNum, false);
+////        mean1 += MeasureInThreads(boost::thread::hardware_concurrency(), keyNum, false);
+//
+//    std::cout << "Mean: " << (mean1 / runs) << " ms" << std::endl;
+//    std::cout << std::endl;
+//
+//    std::cout << "Affinity enabled... " << std::endl;
+//
+//    int64_t mean2 = 0;
+//
+//    for (int32_t i = 0; i < runs; ++i)
+//        mean2 += MeasureInThreads(boost::thread::hardware_concurrency(), keyNum, true);
+//
+//    std::cout << "Mean: " << (mean2 / runs) << " ms" << std::endl;
+//    std::cout << std::endl;
+//
+//    std::cout << "Relation: " << (static_cast<float>(mean1) / static_cast<float>(mean2)) << std::endl;
+//    std::cout << "Relation: " << (static_cast<float>(mean2) / static_cast<float>(mean1)) << std::endl;
+//}
+
+BOOST_AUTO_TEST_CASE(Benchmark)
+{
+    std::vector<int64_t> puts;
+    std::vector<int64_t> gets;
+
+    int32_t runs = 1;
+    int64_t warmupKeyNum = 100000;
+    int64_t keyNum = 500000;
+
+//    std::cout << "Warming up. Operations number: " << warmupKeyNum << std::endl;
+//    Measure(warmupKeyNum, true, puts, gets);
+//    Measure(warmupKeyNum, false, puts, gets);
+
+    std::cout << "Starting benchmark. Operations number: " << keyNum << ", Runs: " << runs << std::endl;
+
+    std::cout << "Affinity enabled... " << std::endl;
+
+    int64_t mean2 = 0;
+
+    for (int32_t i = 0; i < runs; ++i)
+        mean2 += Measure(keyNum, true, puts, gets);
+
+    std::cout << "Mean: " << (mean2 / runs) << " ms" << std::endl;
+    std::cout << std::endl;
+
+//    std::cout << "Affinity disabled... " << std::endl;
+//
+//    int64_t mean1 = 0;
+//
+//    for (int32_t i = 0; i < runs; ++i)
+//        mean1 += Measure(keyNum, false, puts, gets);
+//
+//    std::cout << "Mean: " << (mean1 / runs) << " ms" << std::endl;
+//    std::cout << std::endl;
+//
+//    std::cout << "Relation: " << (static_cast<float>(mean1) / static_cast<float>(mean2)) << std::endl;
+//    std::cout << "Relation: " << (static_cast<float>(mean2) / static_cast<float>(mean1)) << std::endl;
 }
 
 BOOST_AUTO_TEST_SUITE_END()
