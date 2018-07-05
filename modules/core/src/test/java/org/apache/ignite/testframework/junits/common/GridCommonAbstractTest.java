@@ -866,7 +866,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
                     .append(" res=").append(f.isDone() ? f.get() : "N/A")
                     .append(" topVer=")
                     .append((U.hasField(f, "topVer") ?
-                        String.valueOf(U.field(f, "topVer")) : "[unknown] may be it is finished future"))
+                        U.field(f, "topVer") : AffinityTopologyVersion.NONE))
                     .append("\n");
 
                 Map<UUID, T2<Long, Collection<Integer>>> remaining = U.field(f, "remaining");
@@ -894,7 +894,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
             IgniteKernal g0 = (IgniteKernal)g;
 
             sb.append("localNodeId=").append(g0.localNode().id())
-                .append(" grid=").append(g0.name())
+                .append(" grid=").append(g0.name()).append(" order=" + g0.localNode().order())
                 .append("\n");
 
             IgniteCacheProxy<?, ?> cache = g0.context().cache().jcache(cacheName);
@@ -934,6 +934,8 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
                     if (!nodeId.equals(g0.localNode().id()))
                         sb.append(" nodeId=")
                             .append(nodeId)
+                            .append(" order=")
+                            .append(g0.context().discovery().node(nodeId).order())
                             .append(" part=")
                             .append(p)
                             .append(" state=")
