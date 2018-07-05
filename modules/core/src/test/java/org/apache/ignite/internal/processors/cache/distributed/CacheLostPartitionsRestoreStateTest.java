@@ -47,9 +47,12 @@ import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionTopology;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionDemandMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionSupplyMessage;
+import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteDhtDemandedPartitionsMap;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgnitePredicate;
@@ -149,31 +152,29 @@ public class CacheLostPartitionsRestoreStateTest extends GridCommonAbstractTest 
 
             int blockPartId = 1;
 
+            int c = 0;
+
             for (int i = 0; i < 1000; i++) {
-                if (ignite.affinity(CACHE_1).partition(i) == blockPartId)
+                if (ignite.affinity(CACHE_1).partition(i) == blockPartId) {
                     ignite.cache(CACHE_1).put(i, i);
+
+                    c++;
+                }
             }
+
+            assertEquals(c, ignite.cache(CACHE_1).size());
 
             startGridsMultiThreaded(GRIDS_CNT / 2, GRIDS_CNT / 2);
 
             for (Ignite ig0 : G.allGrids()) {
                 TestRecordingCommunicationSpi.spi(ig0).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
                     @Override public boolean apply(ClusterNode node, Message message) {
-                        if (message instanceof GridDhtPartitionSupplyMessage) {
-                            assertTrue(node.order() > GRIDS_CNT / 2);
+                        if (message instanceof GridDhtPartitionDemandMessage) {
+                            assertTrue(node.order() <= GRIDS_CNT / 2);
 
-                            GridDhtPartitionSupplyMessage msg = (GridDhtPartitionSupplyMessage)message;
+                            GridDhtPartitionDemandMessage msg = (GridDhtPartitionDemandMessage)message;
 
-                            Map<Integer, CacheEntryInfoCollection> infos = U.field(msg, "infos");
-
-                            boolean b = infos.containsKey(blockPartId);
-
-                            if (b) {
-                                CacheEntryInfoCollection collection = infos.get(blockPartId);
-
-                                if (collection != null && collection.infos().size() > 0)
-                                    return true;
-                            }
+                            return msg.groupId() == CU.cacheId(CACHE_1) || msg.groupId() == CU.cacheId(CACHE_2);
                         }
 
                         return false;
@@ -184,16 +185,16 @@ public class CacheLostPartitionsRestoreStateTest extends GridCommonAbstractTest 
             ignite.cluster().setBaselineTopology(GRIDS_CNT);
 
             for (Ignite ig0 : G.allGrids()) {
-                if (ig0.cluster().localNode().order() > GRIDS_CNT / 2)
+                if (ig0.cluster().localNode().order() <= GRIDS_CNT / 2)
                     continue;
 
                 TestRecordingCommunicationSpi.spi(ig0).waitForBlocked();
             }
 
-            printPartitionState(ignite.cache(CACHE_1));
+            assertEquals(c, ignite.cache(CACHE_1).size());
 
-            doSleep(150000000000L);
-//
+            //printPartitionState(ignite.cache(CACHE_1));
+
 //            for (Ignite ig : G.allGrids()) {
 //                IgniteKernal g0 = ((IgniteKernal)ig);
 //
@@ -201,8 +202,8 @@ public class CacheLostPartitionsRestoreStateTest extends GridCommonAbstractTest 
 //
 //                validateCacheSplit(g0, CACHE_2);
 //            }
-
-            Iterator<Cache.Entry<Object, Object>> it = ignite.cache(CACHE_1).iterator();
+//
+//            Iterator<Cache.Entry<Object, Object>> it = ignite.cache(CACHE_1).iterator();
 
             int i = 0;
 
@@ -230,11 +231,17 @@ public class CacheLostPartitionsRestoreStateTest extends GridCommonAbstractTest 
             printPartitionState(ignite.cache(CACHE_1));
 
             printPartitionState(ignite.cache(CACHE_2));
+
+            assertEquals(c, ignite.cache(CACHE_1).size());
+
+            assertEquals(0, ignite.cache(CACHE_2).size());
         }
         finally {
             stopAllGrids();
         }
     }
+
+
 
     private void validateCacheSplit(IgniteKernal kernal, String cacheName) {
         IgniteCacheProxy<?, ?> cache = kernal.context().cache().jcache(cacheName);
