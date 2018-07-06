@@ -1697,6 +1697,8 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             }
             catch (AssertionError e) {
                 log.error(checkpointHistory().debugPrintLog());
+
+                throw e;
             }
         }
         catch (IgniteCheckedException e) {
