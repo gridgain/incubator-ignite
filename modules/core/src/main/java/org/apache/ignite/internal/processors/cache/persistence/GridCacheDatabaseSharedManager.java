@@ -1602,11 +1602,13 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
     @Override public synchronized Map<Integer, Map<Integer, Long>> reserveHistoryForExchange() {
         assert reservedForExchange == null : reservedForExchange;
 
+        checkpointHistory().debugClearLog();
+
         reservedForExchange = new HashMap<>();
 
-     /*   Map<*//*grpId*//*Integer, Set<*//*partId*//*Integer>> applicableGroupsAndPartitions = partitionsApplicableForWalRebalance();
+        Map</*grpId*/Integer, Set</*partId*/Integer>> applicableGroupsAndPartitions = partitionsApplicableForWalRebalance();
 
-        Map<*//*grpId*//*Integer, Map<*//*partId*//*Integer, CheckpointEntry>> earliestValidCheckpoints;
+        Map</*grpId*/Integer, Map</*partId*/Integer, CheckpointEntry>> earliestValidCheckpoints;
 
         checkpointReadLock();
 
@@ -1615,11 +1617,11 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         }
         finally {
             checkpointReadUnlock();
-        }*/
+        }
 
         Map</*grpId*/Integer, Map</*partId*/Integer, /*updCntr*/Long>> grpPartsWithCnts = new HashMap<>();
 
-        /*for (Map.Entry<Integer, Map<Integer, CheckpointEntry>> e : earliestValidCheckpoints.entrySet()) {
+        for (Map.Entry<Integer, Map<Integer, CheckpointEntry>> e : earliestValidCheckpoints.entrySet()) {
             int grpId = e.getKey();
 
             for (Map.Entry<Integer, CheckpointEntry> e0 : e.getValue().entrySet()) {
@@ -1639,7 +1641,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     grpPartsWithCnts.computeIfAbsent(grpId, k -> new HashMap<>()).put(partId, updCntr);
                 }
             }
-        }*/
+        }
 
         return grpPartsWithCnts;
     }
@@ -1688,7 +1690,14 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             : "Earliest checkpoint WAL pointer is not reserved for exchange: " + earliestPtr;
 
         try {
-            cctx.wal().release(earliestPtr);
+            checkpointHistory().debugLogRelease(new Exception(), earliestPtr.index());
+
+            try {
+                cctx.wal().release(earliestPtr);
+            }
+            catch (AssertionError e) {
+                log.error(checkpointHistory().debugPrintLog());
+            }
         }
         catch (IgniteCheckedException e) {
             log.error("Failed to release earliest checkpoint WAL pointer: " + earliestPtr, e);
