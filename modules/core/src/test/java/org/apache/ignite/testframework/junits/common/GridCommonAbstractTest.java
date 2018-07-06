@@ -1046,7 +1046,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
 
         boolean finished = false;
 
-        long stopTime = System.currentTimeMillis() + 60_000;
+        long stopTime = System.currentTimeMillis() + 600_000;
 
         while (!finished && (System.currentTimeMillis() < stopTime)) {
             finished = true;
