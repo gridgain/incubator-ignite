@@ -16,16 +16,15 @@
  */
 
 #include <sstream>
-#include <cstdio>
 #include <cassert>
 
 #include <ignite/common/utils.h>
 #include <ignite/common/concurrent.h>
 #include <ignite/ignite_error.h>
 
-#include <ignite/impl/thin/net/tcp_socket_client.h>
-#include <ignite/impl/thin/ssl/secure_socket_client.h>
-#include <ignite/impl/thin/ssl/ssl_bindings.h>
+#include "impl/net/tcp_socket_client.h"
+#include "impl/ssl/secure_socket_client.h"
+#include "impl/ssl/ssl_bindings.h"
 
 #ifndef SOCKET_ERROR
 #   define SOCKET_ERROR (-1)
@@ -281,7 +280,7 @@ namespace ignite
                     if (res != OPERATION_SUCCESS)
                     {
                         ssl::BIO_free_all(bio);
-                        
+
                         throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, "Can not set SSL connection hostname.");
                     }
 
@@ -338,7 +337,7 @@ namespace ignite
 
                         case SSL_ERROR_WANT_WRITE:
                             return std::string("SSL_connect wants write");
-                        
+
                         case SSL_ERROR_WANT_READ:
                             return std::string("SSL_connect wants read");
 

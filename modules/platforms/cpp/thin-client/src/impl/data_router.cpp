@@ -17,29 +17,20 @@
 
 #include <cstring>
 #include <cstddef>
+#include <cstdlib>
 
 #include <sstream>
+#include <iterator>
 #include <algorithm>
 
-#include <ignite/common/fixed_size_array.h>
-
-#include <ignite/impl/thin/utility.h>
-#include <ignite/impl/thin/data_router.h>
-#include <ignite/impl/thin/message.h>
-#include <ignite/impl/thin/ssl/ssl_gateway.h>
-#include <ignite/impl/thin/ssl/secure_socket_client.h>
-#include <ignite/impl/thin/net/tcp_socket_client.h>
-
-namespace
-{
-#pragma pack(push, 1)
-    struct OdbcProtocolHeader
-    {
-        int32_t len;
-    };
-#pragma pack(pop)
-}
-
+#include "impl/utility.h"
+#include "impl/data_router.h"
+#include "impl/message.h"
+#include "impl/response_status.h"
+#include "impl/ssl/ssl_gateway.h"
+#include "impl/net/remote_type_updater.h"
+#include "impl/net/net_utils.h"
+#include "ignite/impl/thin/writable_key.h"
 
 namespace ignite
 {
@@ -47,27 +38,22 @@ namespace ignite
     {
         namespace thin
         {
-            /** Version 1.1.0. */
-            const ProtocolVersion DataRouter::VERSION_1_1_0(1, 1, 0);
-
-            /** Current version. */
-            const ProtocolVersion DataRouter::VERSION_CURRENT(VERSION_1_1_0);
-
-            DataRouter::VersionSet::value_type supportedArray[] = {
-                DataRouter::VERSION_1_1_0,
-            };
-
-            const DataRouter::VersionSet DataRouter::supportedVersions(supportedArray,
-                supportedArray + (sizeof(supportedArray) / sizeof(supportedArray[0])));
-
             DataRouter::DataRouter(const ignite::thin::IgniteClientConfiguration& cfg) :
-                socket(),
-                timeout(0),
-                loginTimeout(DEFALT_CONNECT_TIMEOUT),
-                parser(VERSION_CURRENT),
-                config(cfg)
+                ioTimeout(DEFALT_IO_TIMEOUT),
+                connectionTimeout(DEFALT_CONNECT_TIMEOUT),
+                config(cfg),
+                ranges(),
+                localAddresses(),
+                typeUpdater(),
+                typeMgr()
             {
-                // No-op.
+                srand(common::GetRandSeed());
+
+                typeUpdater.reset(new net::RemoteTypeUpdater(*this));
+
+                typeMgr.SetUpdater(typeUpdater.get());
+
+                CollectAddresses(config.GetEndPoints(), ranges);
             }
 
             DataRouter::~DataRouter()
@@ -79,282 +65,199 @@ namespace ignite
             {
                 using ignite::thin::SslMode;
 
-                if (socket.get() != 0)
-                    throw IgniteError(IgniteError::IGNITE_ERR_ILLEGAL_STATE, "Already connected.");
+                UpdateLocalAddresses();
+
+                channels.clear();
 
                 if (config.GetEndPoints().empty())
                     throw IgniteError(IgniteError::IGNITE_ERR_ILLEGAL_ARGUMENT, "No valid address to connect.");
 
-                SslMode::Type sslMode = config.GetSslMode();
-
-                if (sslMode != SslMode::DISABLE)
+                for (std::vector<net::TcpRange>::iterator it = ranges.begin(); it != ranges.end(); ++it)
                 {
-                    ssl::SslGateway::GetInstance().LoadAll();
+                    net::TcpRange& range = *it;
 
-                    socket.reset(new ssl::SecureSocketClient(config.GetSslCertFile(),
-                        config.GetSslKeyFile(), config.GetSslCaFile()));
+                    for (uint16_t port = range.port; port <= range.port + range.range; ++port)
+                    {
+                        SP_DataChannel channel(new DataChannel(config, typeMgr));
+
+                        bool connected = channel.Get()->Connect(range.host, port, connectionTimeout);
+
+                        if (connected)
+                        {
+                            common::concurrent::CsLockGuard lock(channelsMutex);
+
+                            channels[channel.Get()->GetAddress()].Swap(channel);
+
+                            break;
+                        }
+                    }
+
+                    if (!channels.empty())
+                        break;
                 }
-                else
-                    socket.reset(new net::TcpSocketClient());
 
-                bool connected = TryRestoreConnection();
-
-                if (!connected)
-                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, "Failed to establish connection with the host.");
+                if (channels.empty())
+                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, "Failed to establish connection with any host.");
             }
 
             void DataRouter::Close()
             {
-                if (socket.get() != 0)
-                {
-                    socket->Close();
+                typeMgr.SetUpdater(0);
 
-                    socket.reset();
+                std::map<net::EndPoint, SP_DataChannel>::iterator it;
+
+                common::concurrent::CsLockGuard lock(channelsMutex);
+
+                for (it = channels.begin(); it != channels.end(); ++it)
+                {
+                    DataChannel* channel = it->second.Get();
+
+                    if (channel)
+                        channel->Close();
                 }
             }
 
-            bool DataRouter::Send(const int8_t* data, size_t len, int32_t timeout)
+            void DataRouter::RefreshAffinityMapping(int32_t cacheId, bool binary)
             {
-                if (socket.get() == 0)
-                    throw IgniteError(IgniteError::IGNITE_ERR_ILLEGAL_STATE, "Connection is not established");
+                std::vector<ConnectableNodePartitions> nodeParts;
 
-                int32_t newLen = static_cast<int32_t>(len + sizeof(OdbcProtocolHeader));
+                CacheRequest<RequestType::CACHE_NODE_PARTITIONS> req(cacheId, binary);
+                ClientCacheNodePartitionsResponse rsp(nodeParts);
 
-                common::FixedSizeArray<int8_t> msg(newLen);
+                SyncMessageNoMetaUpdate(req, rsp);
 
-                OdbcProtocolHeader *hdr = reinterpret_cast<OdbcProtocolHeader*>(msg.GetData());
+                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                    throw IgniteError(IgniteError::IGNITE_ERR_CACHE, rsp.GetError().c_str());
 
-                hdr->len = static_cast<int32_t>(len);
+                cache::SP_CacheAffinityInfo newMapping(new cache::CacheAffinityInfo(nodeParts));
 
-                memcpy(msg.GetData() + sizeof(OdbcProtocolHeader), data, len);
+                common::concurrent::CsLockGuard lock(cacheAffinityMappingMutex);
 
-                OperationResult::T res = SendAll(msg.GetData(), msg.GetSize(), timeout);
-
-                if (res == OperationResult::TIMEOUT)
-                    return false;
-
-                if (res == OperationResult::FAIL)
-                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC,
-                        "Can not send message due to connection failure");
-
-                return true;
+                cache::SP_CacheAffinityInfo& affinityInfo = cacheAffinityMapping[cacheId];
+                affinityInfo.Swap(newMapping);
             }
 
-            DataRouter::OperationResult::T DataRouter::SendAll(const int8_t* data, size_t len, int32_t timeout)
+            cache::SP_CacheAffinityInfo DataRouter::GetAffinityMapping(int32_t cacheId)
             {
-                int sent = 0;
+                common::concurrent::CsLockGuard lock(cacheAffinityMappingMutex);
 
-                while (sent != static_cast<int64_t>(len))
-                {
-                    int res = socket->Send(data + sent, len - sent, timeout);
-
-                    if (res < 0 || res == SocketClient::WaitResult::TIMEOUT)
-                    {
-                        Close();
-
-                        return res < 0 ? OperationResult::FAIL : OperationResult::TIMEOUT;
-                    }
-
-                    sent += res;
-                }
-
-                assert(static_cast<size_t>(sent) == len);
-
-                return OperationResult::SUCCESS;
+                return cacheAffinityMapping[cacheId];
             }
 
-            bool DataRouter::Receive(std::vector<int8_t>& msg, int32_t timeout)
+            void DataRouter::ReleaseAffinityMapping(int32_t cacheId)
             {
-                if (socket.get() == 0)
-                    throw IgniteError(IgniteError::IGNITE_ERR_ILLEGAL_STATE, "DataRouter is not established");
+                common::concurrent::CsLockGuard lock(cacheAffinityMappingMutex);
 
-                msg.clear();
-
-                OdbcProtocolHeader hdr = { 0 };
-
-                OperationResult::T res = ReceiveAll(reinterpret_cast<int8_t*>(&hdr), sizeof(hdr), timeout);
-
-                if (res == OperationResult::TIMEOUT)
-                    return false;
-
-                if (res == OperationResult::FAIL)
-                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, "Can not receive message header");
-
-                if (hdr.len < 0)
-                {
-                    Close();
-
-                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, "Protocol error: Message length is negative");
-                }
-
-                if (hdr.len == 0)
-                    return false;
-
-                msg.resize(hdr.len);
-
-                res = ReceiveAll(&msg[0], hdr.len, timeout);
-
-                if (res == OperationResult::TIMEOUT)
-                    return false;
-
-                if (res == OperationResult::FAIL)
-                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, "Can not receive message body");
-
-                return true;
+                cacheAffinityMapping.erase(cacheId);
             }
 
-            DataRouter::OperationResult::T DataRouter::ReceiveAll(void* dst, size_t len, int32_t timeout)
+            SP_DataChannel DataRouter::GetRandomChannel()
             {
-                size_t remain = len;
-                int8_t* buffer = reinterpret_cast<int8_t*>(dst);
+                int r = rand();
 
-                while (remain)
-                {
-                    size_t received = len - remain;
+                common::concurrent::CsLockGuard lock(channelsMutex);
 
-                    int res = socket->Receive(buffer + received, remain, timeout);
+                size_t idx = r % channels.size();
 
-                    if (res < 0 || res == SocketClient::WaitResult::TIMEOUT)
-                    {
-                        Close();
+                std::map<net::EndPoint, SP_DataChannel>::iterator it = channels.begin();
 
-                        return res < 0 ? OperationResult::FAIL : OperationResult::TIMEOUT;
-                    }
+                std::advance(it, idx);
 
-                    remain -= static_cast<size_t>(res);
-                }
-
-                return OperationResult::SUCCESS;
+                return it->second;
             }
 
-            bool DataRouter::MakeRequestHandshake(const ProtocolVersion& propVer, ProtocolVersion& resVer)
+            bool DataRouter::IsLocalHost(const std::vector<net::EndPoint>& hint)
             {
-                HandshakeRequest req(config);
-                HandshakeResponse rsp;
-
-                parser.SetProtocolVersion(propVer);
-
-                resVer = ProtocolVersion();
-
-                try
+                for (std::vector<net::EndPoint>::const_iterator it = hint.begin(); it != hint.end(); ++it)
                 {
-                    // Workaround for some Linux systems that report connection on non-blocking
-                    // sockets as successful but fail to establish real connection.
-                    bool sent = InternalSyncMessage(req, rsp, loginTimeout);
+                    const std::string& host = it->host;
 
-                    if (!sent)
-                    {
-                        //TODO: implement logging
-                        //"Failed to get handshake response (Did you forget to enable SSL?).");
+                    if (IsLocalAddress(host))
+                        continue;
 
+                    if (localAddresses.find(host) == localAddresses.end())
                         return false;
-                    }
-                }
-                catch (const IgniteError&)
-                {
-                    //TODO: implement logging
-                    return false;
-                }
-
-                if (!rsp.IsAccepted())
-                {
-                    //TODO: implement logging
-                    //constructor << "Node rejected handshake message. ";
-
-                    //if (!rsp.GetError().empty())
-                    //    constructor << "Additional info: " << rsp.GetError() << " ";
-
-                    //constructor << "Current node Apache Ignite version: " << rsp.GetCurrentVer().ToString() << ", "
-                    //            << "driver protocol version introduced in version: " << protocolVersion.ToString() << ".";
-
-                    resVer = rsp.GetCurrentVer();
-
-                    return false;
-                }
-
-                resVer = propVer;
-
-                return true;
-            }
-
-            void DataRouter::EnsureConnected()
-            {
-                if (socket.get() != 0)
-                    return;
-
-                bool success = TryRestoreConnection();
-
-                if (!success)
-                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC,
-                        "Failed to establish connection with any provided hosts");
-            }
-
-            bool DataRouter::NegotiateProtocolVersion()
-            {
-                ProtocolVersion resVer;
-                ProtocolVersion propVer = VERSION_CURRENT;
-
-                bool success = MakeRequestHandshake(propVer, resVer);
-
-                while (!success)
-                {
-                    if (resVer == propVer || !IsVersionSupported(resVer))
-                        return false;
-
-                    propVer = resVer;
-
-                    success = MakeRequestHandshake(propVer, resVer);
                 }
 
                 return true;
             }
 
-            bool DataRouter::TryRestoreConnection()
+            bool DataRouter::IsLocalAddress(const std::string& host)
             {
-                std::vector<net::EndPoint> addrs;
+                static const std::string s127("127");
 
-                CollectAddresses(config.GetEndPoints(), addrs);
+                bool ipv4 = std::count(host.begin(), host.end(), '.') == 3;
 
-                bool connected = false;
+                if (ipv4)
+                    return host.compare(0, 3, s127) == 0;
 
-                while (!addrs.empty() && !connected)
+                return host == "::1" || host == "0:0:0:0:0:0:0:1";
+            }
+
+            bool DataRouter::IsProvidedByUser(const net::EndPoint& endPoint)
+            {
+                for (std::vector<net::TcpRange>::iterator it = ranges.begin(); it != ranges.end(); ++it)
                 {
-                    const net::EndPoint& addr = addrs.back();
+                    if (it->host == endPoint.host &&
+                        endPoint.port >= it->port &&
+                        endPoint.port <= it->port + it->range)
+                        return true;
+                }
 
-                    for (uint16_t port = addr.port; port <= addr.port + addr.range; ++port)
+                return false;
+            }
+
+            SP_DataChannel DataRouter::GetBestChannel(const std::vector<net::EndPoint>& hint)
+            {
+                if (hint.empty())
+                    return GetRandomChannel();
+
+                bool localHost = IsLocalHost(hint);
+
+                for (std::vector<net::EndPoint>::const_iterator it = hint.begin(); it != hint.end(); ++it)
+                {
+                    if (IsLocalAddress(it->host) && !localHost)
+                        continue;
+
+                    if (!IsProvidedByUser(*it))
+                        continue;
+
+                    common::concurrent::CsLockGuard lock(channelsMutex);
+
+                    SP_DataChannel& dst = channels[*it];
+
+                    if (dst.IsValid())
+                        return dst;
+
+                    SP_DataChannel channel(new DataChannel(config, typeMgr));
+
+                    bool connected = channel.Get()->Connect(it->host, it->port, connectionTimeout);
+
+                    if (connected)
                     {
-                        connected = socket->Connect(addr.host.c_str(), port, loginTimeout);
+                        dst.Swap(channel);
 
-                        if (connected)
-                        {
-                            connected = NegotiateProtocolVersion();
-
-                            if (connected)
-                                break;
-                        }
+                        return dst;
                     }
-
-                    addrs.pop_back();
                 }
 
-                if (!connected)
-                    Close();
-
-                return connected;
+                return GetRandomChannel();
             }
 
-            void DataRouter::CollectAddresses(const std::string& str, std::vector<net::EndPoint>& endPoints)
+            void DataRouter::UpdateLocalAddresses()
             {
-                endPoints.clear();
+                localAddresses.clear();
 
-                utility::ParseAddress(str, endPoints, DEFAULT_PORT);
-
-                std::random_shuffle(endPoints.begin(), endPoints.end());
+                net::net_utils::GetLocalAddresses(localAddresses);
             }
 
-            bool DataRouter::IsVersionSupported(const ProtocolVersion& ver)
+            void DataRouter::CollectAddresses(const std::string& str, std::vector<net::TcpRange>& ranges)
             {
-                return supportedVersions.find(ver) != supportedVersions.end();
+                ranges.clear();
+
+                utility::ParseAddress(str, ranges, DEFAULT_PORT);
+
+                std::random_shuffle(ranges.begin(), ranges.end());
             }
         }
     }

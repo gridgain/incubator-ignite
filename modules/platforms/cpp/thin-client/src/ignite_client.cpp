@@ -18,13 +18,66 @@
 #include <ignite/thin/ignite_client.h>
 #include <ignite/thin/ignite_client_configuration.h>
 
-#include <ignite/impl/thin/ignite_client_impl.h>
+#include "impl/ignite_client_impl.h"
+#include "impl/cache/cache_client_impl.h"
+
+using namespace ignite::impl::thin;
+using namespace cache;
+using namespace ignite::common::concurrent;
+
+namespace
+{
+    IgniteClientImpl& GetClientImpl(SharedPointer<void>& ptr)
+    {
+        return *reinterpret_cast<IgniteClientImpl*>(ptr.Get());
+    }
+
+    const IgniteClientImpl& GetClientImpl(const SharedPointer<void>& ptr)
+    {
+        return *reinterpret_cast<const IgniteClientImpl*>(ptr.Get());
+    }
+
+    CacheClientImpl& GetCacheImpl(SharedPointer<void>& ptr)
+    {
+        return *reinterpret_cast<CacheClientImpl*>(ptr.Get());
+    }
+
+    const CacheClientImpl& GetCacheImpl(const SharedPointer<void>& ptr)
+    {
+        return *reinterpret_cast<const CacheClientImpl*>(ptr.Get());
+    }
+}
 
 namespace ignite
 {
     namespace thin
     {
-        IgniteClient::IgniteClient(common::concurrent::SharedPointer<impl::thin::IgniteClientImpl>& impl)
+        void IgniteClient::DestroyCache(const char* name)
+        {
+            GetClientImpl(impl).DestroyCache(name);
+        }
+
+        void IgniteClient::GetCacheNames(std::vector<std::string>& cacheNames)
+        {
+            GetClientImpl(impl).GetCacheNames(cacheNames);
+        }
+
+        IgniteClient::SP_Void IgniteClient::InternalGetCache(const char* name)
+        {
+            return GetClientImpl(impl).GetCache(name);
+        }
+
+        IgniteClient::SP_Void IgniteClient::InternalGetOrCreateCache(const char* name)
+        {
+            return GetClientImpl(impl).GetOrCreateCache(name);
+        }
+
+        IgniteClient::SP_Void IgniteClient::InternalCreateCache(const char* name)
+        {
+            return static_cast<SP_Void>(GetClientImpl(impl).CreateCache(name));
+        }
+
+        IgniteClient::IgniteClient(SP_Void& impl)
         {
             this->impl.Swap(impl);
         }
@@ -36,11 +89,13 @@ namespace ignite
 
         IgniteClient IgniteClient::Start(const IgniteClientConfiguration& cfg)
         {
-            common::concurrent::SharedPointer<impl::thin::IgniteClientImpl> res(new impl::thin::IgniteClientImpl(cfg));
+            SharedPointer<IgniteClientImpl> res(new IgniteClientImpl(cfg));
 
             res.Get()->Start();
 
-            return IgniteClient(res);
+            SP_Void ptr(res);
+
+            return IgniteClient(ptr);
         }
     }
 }

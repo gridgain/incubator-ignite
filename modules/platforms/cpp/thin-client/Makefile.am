@@ -24,6 +24,7 @@ SUBDIRS = \
 
 AM_CPPFLAGS = \
     -I$(srcdir)/include \
+    -I$(srcdir)/src \
     -I@top_srcdir@/common/include \
     -I@top_srcdir@/common/os/linux/include \
     -I@top_srcdir@/binary/include \
@@ -48,11 +49,17 @@ libignite_thin_client_la_DEPENDENCIES = \
     @top_srcdir@/binary/libignite-binary.la
 
 libignite_thin_client_la_SOURCES = \
+    os/linux/src/net/net_utils.cpp \
     os/linux/src/net/tcp_socket_client.cpp \
     src/impl/utility.cpp \
     src/impl/protocol_version.cpp \
+    src/impl/data_channel.cpp \
+    src/impl/net/remote_type_updater.cpp \
     src/impl/message.cpp \
     src/impl/ignite_client_impl.cpp \
+    src/impl/cache/cache_client_proxy.cpp \
+    src/impl/cache/cache_client_impl.cpp \
+    src/impl/cache/cache_affinity_info.cpp \
     src/impl/data_router.cpp \
     src/impl/ssl/ssl_gateway.cpp \
     src/impl/ssl/secure_socket_client.cpp \

@@ -12,6 +12,9 @@
     <Filter Include="Configs">
       <UniqueIdentifier>{0ed957ce-09b9-495f-8f11-7ed2b6a98c9b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Code\Types">
+      <UniqueIdentifier>{1a71111d-792b-48d8-b1af-044ebf8cec0e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\ignite_client_test.cpp">
@@ -32,6 +35,9 @@
     <ClCompile Include="..\..\src\auth_test.cpp">
       <Filter>Code</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\cache_client_test.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\teamcity\teamcity_messages.h">
@@ -39,6 +45,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\test_utils.h">
       <Filter>Code</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\ignite\complex_type.h">
+      <Filter>Code\Types</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

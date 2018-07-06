@@ -15,7 +15,12 @@
  * limitations under the License.
  */
 
-#include <ignite/impl/thin/ignite_client_impl.h>
+#include "impl/utility.h"
+#include "impl/cache/cache_client_impl.h"
+#include "impl/message.h"
+#include "impl/response_status.h"
+
+#include "impl/ignite_client_impl.h"
 
 namespace ignite
 {
@@ -25,7 +30,7 @@ namespace ignite
         {
             IgniteClientImpl::IgniteClientImpl(const ignite::thin::IgniteClientConfiguration& cfg) :
                 cfg(cfg),
-                router(cfg)
+                router(new DataRouter(cfg))
             {
                 // No-op.
             }
@@ -37,8 +42,97 @@ namespace ignite
 
             void IgniteClientImpl::Start()
             {
-                router.Connect();
+                router.Get()->Connect();
             }
-        }   
+
+            cache::SP_CacheClientImpl IgniteClientImpl::GetCache(const char* name) const
+            {
+                CheckCacheName(name);
+
+                int32_t cacheId = utility::GetCacheId(name);
+
+                return MakeCacheImpl(router, name, cacheId);
+            }
+
+            cache::SP_CacheClientImpl IgniteClientImpl::GetOrCreateCache(const char* name)
+            {
+                CheckCacheName(name);
+
+                int32_t cacheId = utility::GetCacheId(name);
+
+                GetOrCreateCacheWithNameRequest req(name);
+                Response rsp;
+
+                router.Get()->SyncMessage(req, rsp);
+
+                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, rsp.GetError().c_str());
+
+                return MakeCacheImpl(router, name, cacheId);
+            }
+
+            cache::SP_CacheClientImpl IgniteClientImpl::CreateCache(const char* name)
+            {
+                CheckCacheName(name);
+
+                int32_t cacheId = utility::GetCacheId(name);
+
+                CreateCacheWithNameRequest req(name);
+                Response rsp;
+
+                router.Get()->SyncMessage(req, rsp);
+
+                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, rsp.GetError().c_str());
+
+                return MakeCacheImpl(router, name, cacheId);
+            }
+
+            void IgniteClientImpl::DestroyCache(const char* name)
+            {
+                CheckCacheName(name);
+
+                int32_t cacheId = utility::GetCacheId(name);
+
+                DestroyCacheRequest req(cacheId);
+                Response rsp;
+
+                router.Get()->SyncMessage(req, rsp);
+
+                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, rsp.GetError().c_str());
+
+                router.Get()->ReleaseAffinityMapping(cacheId);
+            }
+
+            void IgniteClientImpl::GetCacheNames(std::vector<std::string>& cacheNames)
+            {
+                Request<RequestType::CACHE_GET_NAMES> req;
+                GetCacheNamesResponse rsp(cacheNames);
+
+                router.Get()->SyncMessage(req, rsp);
+
+                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                    throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, rsp.GetError().c_str());
+            }
+
+            common::concurrent::SharedPointer<cache::CacheClientImpl> IgniteClientImpl::MakeCacheImpl(
+                const SP_DataRouter& router,
+                const std::string& name,
+                int32_t id)
+            {
+                cache::SP_CacheClientImpl cache(new cache::CacheClientImpl(router, name, id));
+
+                cache.Get()->RefreshAffinityMapping();
+
+                return cache;
+            }
+
+            void IgniteClientImpl::CheckCacheName(const char* name)
+            {
+                if (!name || !strlen(name))
+                    throw IgniteError(IgniteError::IGNITE_ERR_ILLEGAL_ARGUMENT, "Specified cache name is not allowed");
+            }
+        }
     }
 }

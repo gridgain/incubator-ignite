@@ -20,7 +20,7 @@
 #include <ignite/ignite_error.h>
 #include <ignite/common/utils.h>
 
-#include <ignite/impl/thin/ssl/ssl_gateway.h>
+#include "impl/ssl/ssl_gateway.h"
 
 #ifndef ADDITIONAL_OPENSSL_HOME_ENV
 #   define ADDITIONAL_OPENSSL_HOME_ENV "OPEN_SSL_HOME"
@@ -84,7 +84,7 @@ namespace ignite
                     if (!libssl.IsLoaded() && (!libeay32.IsLoaded() || !ssleay32.IsLoaded()))
                     {
                         if (!libssl.IsLoaded())
-                            throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, 
+                            throw IgniteError(IgniteError::IGNITE_ERR_GENERIC,
                                 "Can not load neccessary OpenSSL library: libssl");
 
                         std::stringstream ss;
@@ -102,7 +102,7 @@ namespace ignite
                         libssl.Unload();
 
                         std::string res = ss.str();
-                        
+
                         throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, res.c_str());
                     }
                 }
@@ -223,7 +223,7 @@ namespace ignite
                         std::stringstream ss;
 
                         ss << "Can not load function " << name;
-                        
+
                         std::string res = ss.str();
 
                         throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, res.c_str());
