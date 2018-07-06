@@ -322,27 +322,9 @@ public class CheckpointHistory {
                     if (!isCheckpointApplicableForGroup(grpId, chpEntry))
                         groupsAndPartitions.remove(grpId);
 
-                // All groups are no more applicable, release history and stop searching.
-                if (groupsAndPartitions.isEmpty()) {
-                    debugLogRelease(new Exception(), ((FileWALPointer)(chpEntry.checkpointMark())).index());
-
-                    cctx.wal().release(chpEntry.checkpointMark());
-
-                    break;
-                }
-
-                // Release previous checkpoint marker.
-                if (prevReserved != null) {
-                    debugLogRelease(new Exception(), ((FileWALPointer)(prevReserved.checkpointMark())).index());
-
-                    cctx.wal().release(prevReserved.checkpointMark());
-                }
-
-                prevReserved = chpEntry;
-
                 for (Map.Entry<Integer, CheckpointEntry.GroupState> state : chpEntry.groupState(cctx).entrySet()) {
                     int grpId = state.getKey();
-                    CheckpointEntry.GroupState cpGroupState = state.getValue();
+                    CheckpointEntry.GroupState cpGrpState = state.getValue();
 
                     Set<Integer> applicablePartitions = groupsAndPartitions.get(grpId);
 
@@ -352,7 +334,7 @@ public class CheckpointHistory {
                     Set<Integer> inapplicablePartitions = null;
 
                     for (Integer partId : applicablePartitions) {
-                        int pIdx = cpGroupState.indexByPartition(partId);
+                        int pIdx = cpGrpState.indexByPartition(partId);
 
                         if (pIdx >= 0)
                             res.computeIfAbsent(grpId, k -> new HashMap<>()).put(partId, chpEntry);
@@ -374,6 +356,25 @@ public class CheckpointHistory {
                 for (Map.Entry<Integer, Set<Integer>> e : new HashSet<>(groupsAndPartitions.entrySet()))
                     if (e.getValue().isEmpty())
                         groupsAndPartitions.remove(e.getKey());
+
+                // All groups are no more applicable, release history and stop searching.
+                if (groupsAndPartitions.isEmpty()) {
+                    debugLogRelease(new Exception(), ((FileWALPointer)(chpEntry.checkpointMark())).index());
+
+                    cctx.wal().release(chpEntry.checkpointMark());
+
+                    break;
+                }
+                else {
+                    // Release previous checkpoint marker.
+                    if (prevReserved != null) {
+                        debugLogRelease(new Exception(), ((FileWALPointer)(prevReserved.checkpointMark())).index());
+
+                        cctx.wal().release(prevReserved.checkpointMark());
+                    }
+
+                    prevReserved = chpEntry;
+                }
             }
             catch (IgniteCheckedException ex) {
                 U.error(log, "Failed to process checkpoint: " + (chpEntry != null ? chpEntry : "none"), ex);
