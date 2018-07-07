@@ -1526,7 +1526,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
                 GridDhtPartitionMap nodeMap = partMap.get(ctx.localNodeId());
 
-                if (nodeMap != null && grp.persistenceEnabled() && readyTopVer.initialized()) {
+                if (exchangeVer != null && nodeMap != null && grp.persistenceEnabled() && readyTopVer.initialized()) {
                     for (Map.Entry<Integer, GridDhtPartitionState> e : nodeMap.entrySet()) {
                         int p = e.getKey();
                         GridDhtPartitionState state = e.getValue();
