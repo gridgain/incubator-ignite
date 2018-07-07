@@ -468,7 +468,7 @@ public class GridDhtPartitionDemander {
                 parts = fut.remaining.get(node.id()).get2();
 
                 U.log(log, "Starting rebalancing [grp=" + grp.cacheOrGroupName()
-                        + ", mode=" + cfg.getRebalanceMode() + ", fromNode=" + node.id() + ", partitionsCount=" + parts.size()
+                        + ", mode=" + cfg.getRebalanceMode() + ", fromNode=" + node.id() + ", nodeConsId=" + node.consistentId() + ", partitionsCount=" + parts.size()
                         + ", topology=" + fut.topologyVersion() + ", rebalanceId=" + fut.rebalanceId + "]");
             }
 
@@ -521,9 +521,9 @@ public class GridDhtPartitionDemander {
                                     fut.cleanupRemoteContexts(node.id());
                             }
 
-                            if (log.isDebugEnabled())
-                                log.debug("Requested rebalancing [from node=" + node.id() + ", listener index=" +
-                                    topicId + " " + demandMsg.rebalanceId() + ", partitions count=" + stripePartitions.get(topicId).size() +
+                            if (log.isInfoEnabled())
+                                log.info("Requested rebalancing [from nodeId=" + node.id() + ", nodeConsId=" + node.consistentId() + ", listener index=" +
+                                    topicId + ", rebId=" + demandMsg.rebalanceId() + ", partitions count=" + stripePartitions.get(topicId).size() +
                                     " (" + stripePartitions.get(topicId).partitionsList() + ")]");
                         }
                         catch (IgniteCheckedException e1) {
@@ -560,6 +560,9 @@ public class GridDhtPartitionDemander {
         if (fullPartitions.isEmpty()) {
             clearAllFuture.onDone();
 
+            if (log.isInfoEnabled())
+                log.info("[REB] Parts already cleared " + grp.cacheOrGroupName());
+
             return clearAllFuture;
         }
 
@@ -572,6 +575,9 @@ public class GridDhtPartitionDemander {
         }
 
         final AtomicInteger clearingPartitions = new AtomicInteger(fullPartitions.size());
+
+        if (log.isInfoEnabled())
+            log.info("[REB] Will wait for clearing " + grp.cacheOrGroupName() + ", partsCnt=" + fullPartitions.size() + ",parts=" + S.compact(fullPartitions));
 
         for (int partId : fullPartitions) {
             if (fut.isDone()) {
@@ -612,12 +618,13 @@ public class GridDhtPartitionDemander {
                                 }
                             }
 
-                            if (log.isDebugEnabled())
-                                log.debug("Remaining clearing partitions [grp=" + grp.cacheOrGroupName()
-                                    + ", remaining=" + remaining + "]");
+                            if (log.isInfoEnabled())
+                                log.info("[REB] Clr fin [grp=" + grp.cacheOrGroupName()
+                                    + ", remCnt=" + remaining + ", p=" + partId + "]");
 
-                            if (remaining == 0)
+                            if (remaining == 0) {
                                 clearAllFuture.onDone();
+                            }
                         }
                     }
                     else {
@@ -636,9 +643,9 @@ public class GridDhtPartitionDemander {
                     }
                 }
 
-                if (log.isDebugEnabled())
-                    log.debug("Remaining clearing partitions [grp=" + grp.cacheOrGroupName()
-                        + ", remaining=" + remaining + "]");
+                if (log.isInfoEnabled())
+                    log.info("[REB] Clr fin, part not mov [grp=" + grp.cacheOrGroupName()
+                            + ", remCnt=" + remaining + ", p=" + partId + ", st=" + (part != null ? part.state() : "null") + "]");
 
                 if (remaining == 0)
                     clearAllFuture.onDone();
@@ -673,13 +680,24 @@ public class GridDhtPartitionDemander {
 
         ClusterNode node = ctx.node(nodeId);
 
-        if (node == null)
-            return;
+        if (node == null) {
+            if (log.isInfoEnabled())
+                log.info("[REB] Sup msg reject " + grp.cacheOrGroupName() + ", dir=" + demandDirection(topicId, nodeId, supply));
 
-        if (topologyChanged(fut)) // Topology already changed (for the future that supply message based on).
             return;
+        }
+
+        if (topologyChanged(fut)) { // Topology already changed (for the future that supply message based on).
+            if (log.isInfoEnabled())
+                log.info("[REB] Sup msg reject, top change " + grp.cacheOrGroupName() + ", dir=" + demandDirection(topicId, nodeId, supply) + ", newTopVer=" + grp.affinity().lastVersion().toShortString());
+
+            return;
+        }
 
         if (!fut.isActual(supply.rebalanceId())) {
+            if (log.isInfoEnabled())
+                log.info("[REB] Sup msg reject, reb id changed " + grp.cacheOrGroupName() + ", dir=" + demandDirection(topicId, nodeId, supply) + ", supRebId=" + supply.rebalanceId() + ", futRebId=" + fut.rebalanceId);
+
             // Current future have another rebalance id.
             // Supple message based on another future.
             return;
@@ -727,6 +745,13 @@ public class GridDhtPartitionDemander {
         try {
             AffinityAssignment aff = grp.affinity().cachedAffinity(topVer);
 
+            if (!supply.last().isEmpty()) {
+                Set<Integer> last = supply.last().keySet();
+
+                if (log.isInfoEnabled())
+                    log.info("[REB] Received last entries [" + grp.cacheOrGroupName() + ", parts=" + S.compact(last) + "]");
+            }
+
             ctx.database().checkpointReadLock();
 
             try {
@@ -771,8 +796,8 @@ public class GridDhtPartitionDemander {
                                 if (last) {
                                     fut.partitionDone(nodeId, p, true);
 
-                                    if (log.isDebugEnabled())
-                                        log.debug("Finished rebalancing partition: " + part);
+                                    if (log.isInfoEnabled())
+                                        log.info("[REB] Fin reb part " + grp.cacheOrGroupName() + ", p=" + part + ", dir=" + demandDirection(topicId, nodeId, supply));
                                 }
                             }
                             finally {
@@ -781,15 +806,26 @@ public class GridDhtPartitionDemander {
                             }
                         }
                         else {
-                            if (last)
+                            if (last) {
                                 fut.partitionDone(nodeId, p, false);
 
+                                if (log.isInfoEnabled())
+                                    log.info("[REB] Fin reb part (not mov) " + grp.cacheOrGroupName() + ", p=" + p + ", st=" + part.state() + ", dir=" + demandDirection(topicId, nodeId, supply));
+                            }
+                            else {
+                                if (log.isInfoEnabled())
+                                    log.info("[REB] Skip fin reb part " + grp.cacheOrGroupName() + ", p=" + p + ", st=" + part.state() + ", dir=" + demandDirection(topicId, nodeId, supply));
+                            }
+
                             if (log.isDebugEnabled())
-                                log.debug("Skipping rebalancing partition (state is not MOVING): " + part);
+                                log.debug("Skipping rebalancing partition (state is not MOVING): " + p);
                         }
                     }
                     else {
                         fut.partitionDone(nodeId, p, false);
+
+                        if (log.isInfoEnabled())
+                            log.info("[REB] Fin reb part (aff ch) " + grp.cacheOrGroupName() + ", p=" + p + ", dir=" + demandDirection(topicId, nodeId, supply));
 
                         if (log.isDebugEnabled())
                             log.debug("Skipping rebalancing partition (it does not belong on current node): " + p);
@@ -802,12 +838,24 @@ public class GridDhtPartitionDemander {
 
             // Only request partitions based on latest topology version.
             for (Integer miss : supply.missed()) {
-                if (aff.get(miss).contains(ctx.localNode()))
+                List<Integer> markMissed = new ArrayList<>();
+                if (aff.get(miss).contains(ctx.localNode())) {
                     fut.partitionMissed(nodeId, miss);
+
+                    markMissed.add(miss);
+                }
+
+                if (!markMissed.isEmpty())
+                    if (log.isInfoEnabled())
+                        log.info("[REB] Mark as missed " + grp.cacheOrGroupName() + ", parts=" + S.compact(markMissed) + ", dir=" + demandDirection(topicId, nodeId, supply));
             }
 
             for (Integer miss : supply.missed())
                 fut.partitionDone(nodeId, miss, false);
+
+            if (!supply.missed().isEmpty())
+                if (log.isInfoEnabled())
+                    log.info("[REB] Done as missed " + grp.cacheOrGroupName() + ", parts=" + S.compact(supply.missed()) + ", dir=" + demandDirection(topicId, nodeId, supply));
 
             GridDhtPartitionDemandMessage d = new GridDhtPartitionDemandMessage(
                 supply.rebalanceId(),
@@ -831,12 +879,23 @@ public class GridDhtPartitionDemander {
                     }
                 }
             }
+            else {
+                if (log.isInfoEnabled())
+                    log.info("[REB] Stop demand " + grp.cacheOrGroupName() + ", futDone=" + fut.isDone() + ", topCh=" + topologyChanged(fut) + ",dir=" + demandDirection(topicId, nodeId, supply));
+            }
         }
         catch (IgniteSpiException | IgniteCheckedException e) {
             LT.error(log, e, "Error during rebalancing [grp=" + grp.cacheOrGroupName() +
                 ", srcNode=" + node.id() +
                 ", err=" + e + ']');
         }
+    }
+
+    private String demandDirection(int topicId, final UUID nodeId, final GridDhtPartitionSupplyMessage supply) {
+        ClusterNode remote = ctx.discovery().node(nodeId);
+        AffinityTopologyVersion supTopVer = supply.topologyVersion();
+
+        return "[topVer=" + supTopVer.toShortString() + ", idx=" + topicId + ", sup=" + (remote != null ? remote.consistentId() : nodeId) + "]";
     }
 
     /**

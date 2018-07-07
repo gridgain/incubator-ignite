@@ -219,4 +219,8 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
     @Override public String toString() {
         return S.toString(AffinityTopologyVersion.class, this);
     }
+
+    public String toShortString() {
+        return "(" + topVer + ", " + minorTopVer + ")";
+    }
 }

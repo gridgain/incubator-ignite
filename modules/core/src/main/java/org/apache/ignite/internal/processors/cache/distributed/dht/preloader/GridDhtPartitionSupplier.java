@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryInfo;
+import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.IgniteRebalanceIterator;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState;
@@ -51,6 +53,8 @@ import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDh
 class GridDhtPartitionSupplier {
     /** */
     private final CacheGroupContext grp;
+
+    private final GridCacheSharedContext ctx;
 
     /** */
     private final IgniteLogger log;
@@ -75,6 +79,8 @@ class GridDhtPartitionSupplier {
         log = grp.shared().logger(getClass());
 
         top = grp.topology();
+
+        ctx = grp.shared();
     }
 
     /**
@@ -135,11 +141,25 @@ class GridDhtPartitionSupplier {
 
                     it.remove();
 
-                    if (log.isDebugEnabled())
-                        log.debug("Supply context removed [node=" + t.get1() + "]");
+                    if (log.isInfoEnabled())
+                        log.info("Sup ctx rmv on top change [grp=" + grp.cacheOrGroupName() + ", newTopVer=" + topVer.toShortString() + ", ctx=" + supCtxId(t) + "]");
                 }
             }
         }
+    }
+
+    private String supCtxId(T3<UUID, Integer, AffinityTopologyVersion> id) {
+        ClusterNode remote = ctx.discovery().node(id.get1());
+
+        AffinityTopologyVersion topVer = id.get3();
+
+        return "[idx=" + id.get2() + ", topVer=" + id.get3().toShortString() + ", dem=" + (remote != null ? remote.consistentId() : id.get1()) + "]";
+    }
+
+    private String supCtxId(int topicId, UUID nodeId, AffinityTopologyVersion rebTopVer) {
+        ClusterNode remote = ctx.discovery().node(nodeId);
+
+        return "[idx=" + topicId + ", topVer=" + rebTopVer.toShortString() + ", dem=" + (remote != null ? remote.consistentId() : nodeId) + "]";
     }
 
     /**
@@ -172,6 +192,9 @@ class GridDhtPartitionSupplier {
         AffinityTopologyVersion demTop = d.topologyVersion();
 
         if (curTop.compareTo(demTop) > 0) {
+            if (log.isInfoEnabled())
+                log.info("Demand req outdated [grp=" + grp.cacheOrGroupName() + ", curVer=" + curTop + ", ctx=" + supCtxId(topicId, nodeId, demTop));
+
             if (log.isDebugEnabled())
                 log.debug("Demand request outdated [grp=" + grp.cacheOrGroupName()
                         + ", currentTopVer=" + curTop
@@ -191,6 +214,9 @@ class GridDhtPartitionSupplier {
                 if (sctx != null && sctx.rebalanceId == -d.rebalanceId()) {
                     clearContext(scMap.remove(contextId), log);
 
+                    if (log.isInfoEnabled())
+                        log.info("Sup ctx rmvd [grp=" + grp.cacheOrGroupName() + ", ctx=" + supCtxId(contextId) + ", rebId=" + sctx.rebalanceId);
+
                     if (log.isDebugEnabled())
                         log.debug("Supply context cleaned [grp=" + grp.cacheOrGroupName()
                             + ", from=" + nodeId
@@ -198,6 +224,10 @@ class GridDhtPartitionSupplier {
                             + ", supplyContext=" + sctx + "]");
                 }
                 else {
+                    if (log.isInfoEnabled())
+                        log.info("Sup ctx rmvd [grp=" + grp.cacheOrGroupName() + ", ctx=" + supCtxId(contextId)
+                                + ", ctxRebId=" + (sctx != null ? sctx.rebalanceId : "null") + ", rcvRebId=" + d.rebalanceId());
+
                     if (log.isDebugEnabled())
                         log.debug("Stale supply context cleanup message [grp=" + grp.cacheOrGroupName()
                             + ", from=" + nodeId
@@ -218,8 +248,12 @@ class GridDhtPartitionSupplier {
 
         ClusterNode node = grp.shared().discovery().node(nodeId);
 
-        if (node == null)
+        if (node == null) {
+            if (log.isInfoEnabled())
+                log.info("Demand req reject, node is null [grp=" + grp.cacheOrGroupName() + ", ctx=" + supCtxId(topicId, nodeId, demTop));
+
             return;
+        }
 
         try {
             SupplyContext sctx;
@@ -230,6 +264,10 @@ class GridDhtPartitionSupplier {
                 if (sctx != null && d.rebalanceId() < sctx.rebalanceId) {
                     // Stale message, return context back and return.
                     scMap.put(contextId, sctx);
+
+                    if (log.isInfoEnabled())
+                        log.info("Demand req stale [grp=" + grp.cacheOrGroupName() + ", ctx=" + supCtxId(contextId)
+                                + ", ctxRebId=" + (sctx != null ? sctx.rebalanceId : "null") + ", rcvRebId=" + d.rebalanceId());
 
                     if (log.isDebugEnabled())
                         log.debug("Stale demand message [grp=" + grp.cacheOrGroupName()
@@ -243,6 +281,10 @@ class GridDhtPartitionSupplier {
 
             // Demand request should not contain empty partitions if no supply context is associated with it.
             if (sctx == null && (d.partitions() == null || d.partitions().isEmpty())) {
+                if (log.isInfoEnabled())
+                    log.info("No sup ctx for dem req [grp=" + grp.cacheOrGroupName() + ", ctx=" + supCtxId(contextId)
+                            + ", rcvRebId=" + d.rebalanceId());
+
                 if (log.isDebugEnabled())
                     log.debug("Empty demand message [grp=" + grp.cacheOrGroupName()
                         + ", from=" + nodeId
@@ -278,6 +320,12 @@ class GridDhtPartitionSupplier {
             IgniteRebalanceIterator iter;
 
             Set<Integer> remainingParts;
+
+            if (sctx == null) {
+                if (log.isInfoEnabled())
+                    log.info("Sup ctx init [grp=" + grp.cacheOrGroupName() + ", curVer=" + curTop.toShortString() + ", ctx=" + supCtxId(contextId)
+                            + ", rcvRebId=" + d.rebalanceId() + ",reqFullParts=" + S.compact(d.partitions().fullSet()));
+            }
 
             if (sctx == null || sctx.iterator == null) {
                 iter = grp.offheap().rebalanceIterator(d.partitions(), d.topologyVersion());
@@ -335,8 +383,13 @@ class GridDhtPartitionSupplier {
                         return;
                     }
                     else {
-                        if (!reply(node, d, s, contextId))
+                        if (!reply(node, d, s, contextId)) {
+                            if (log.isInfoEnabled())
+                                log.info("Sup msg not sent [grp=" + grp.cacheOrGroupName() + ", ctx=" + supCtxId(contextId)
+                                        + ", rebId=" + (sctx != null ? sctx.rebalanceId : "null") + ", rcvRebId=" + d.rebalanceId());
+
                             return;
+                        }
 
                         s = new GridDhtPartitionSupplyMessage(d.rebalanceId(),
                             grp.groupId(),
@@ -424,19 +477,18 @@ class GridDhtPartitionSupplier {
 
             reply(node, d, s, contextId);
 
-            if (log.isDebugEnabled())
-                log.debug("Finished supplying rebalancing [cache=" + grp.cacheOrGroupName() +
-                    ", fromNode=" + node.id() +
-                    ", topology=" + demTop + ", rebalanceId=" + d.rebalanceId() +
-                    ", topicId=" + topicId + "]");
+            if (log.isInfoEnabled())
+                log.info("Finished supplying rebalancing [grp=" + grp.cacheOrGroupName()
+                                + ", ctx=" + supCtxId(contextId)
+                                + ", rebId=" + d.rebalanceId());
         }
         catch (IgniteCheckedException e) {
-            U.error(log, "Failed to send partition supply message to node: " + nodeId, e);
+            U.error(log, "Failed to send partition supply message to node: "
+                    + ", ctx=" + supCtxId(contextId) + ", rebId=" + d.rebalanceId(), e);
         }
         catch (IgniteSpiException e) {
-            if (log.isDebugEnabled())
-                log.debug("Failed to send message to node (current node is stopping?) [node=" + node.id() +
-                    ", msg=" + e.getMessage() + ']');
+            U.error(log, "[SPI] Failed to send partition supply message to node: "
+                    + ", ctx=" + supCtxId(contextId) + ", rebId=" + d.rebalanceId(), e);
         }
     }
 
@@ -458,6 +510,22 @@ class GridDhtPartitionSupplier {
         try {
             if (log.isDebugEnabled())
                 log.debug("Replying to partition demand [node=" + node.id() + ", demand=" + d + ", supply=" + s + ']');
+
+            if (!s.last().isEmpty()) {
+                Set<Integer> last = s.last().keySet();
+
+                if (log.isInfoEnabled())
+                    log.info("Sup has fin parts [grp=" + grp.cacheOrGroupName() + ", ctx=" + supCtxId(contextId)
+                            + ", rebId=" + d.rebalanceId() + ", lastParts=" + S.compact(last));
+            }
+
+            if (!s.missed().isEmpty()) {
+                Collection<Integer> missed = s.missed();
+
+                if (log.isInfoEnabled())
+                    log.info("Sup has missed parts [grp=" + grp.cacheOrGroupName() + ", ctx=" + supCtxId(contextId)
+                            + ", rcvRebId=" + d.rebalanceId() + ", lastParts=" + S.compact(missed));
+            }
 
             grp.shared().io().sendOrderedMessage(node, d.topic(), s, grp.ioPolicy(), d.timeout());
 

@@ -309,6 +309,7 @@ public class GridDhtPartitionExchangeId implements Message, Comparable<GridDhtPa
     @Override public String toString() {
         return S.toString(GridDhtPartitionExchangeId.class, this,
             "nodeId", U.id8(nodeId),
-            "evt", U.gridEventName(evt));
+            "evt", U.gridEventName(evt),
+            "topVer", topVer.toShortString());
     }
 }
