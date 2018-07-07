@@ -1602,13 +1602,13 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
     @Override public synchronized Map<Integer, Map<Integer, Long>> reserveHistoryForExchange() {
         assert reservedForExchange == null : reservedForExchange;
 
-        checkpointHistory().debugClearLog();
+    //    checkpointHistory().debugClearLog();
 
         reservedForExchange = new HashMap<>();
+/*
+        Map<*//*grpId*//*Integer, Set<*//*partId*//*Integer>> applicableGroupsAndPartitions = partitionsApplicableForWalRebalance();
 
-        Map</*grpId*/Integer, Set</*partId*/Integer>> applicableGroupsAndPartitions = partitionsApplicableForWalRebalance();
-
-        Map</*grpId*/Integer, Map</*partId*/Integer, CheckpointEntry>> earliestValidCheckpoints;
+        Map<*//*grpId*//*Integer, Map<*//*partId*//*Integer, CheckpointEntry>> earliestValidCheckpoints;
 
         checkpointReadLock();
 
@@ -1617,10 +1617,10 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         }
         finally {
             checkpointReadUnlock();
-        }
+        }*/
 
         Map</*grpId*/Integer, Map</*partId*/Integer, /*updCntr*/Long>> grpPartsWithCnts = new HashMap<>();
-
+/*
         for (Map.Entry<Integer, Map<Integer, CheckpointEntry>> e : earliestValidCheckpoints.entrySet()) {
             int grpId = e.getKey();
 
@@ -1641,7 +1641,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     grpPartsWithCnts.computeIfAbsent(grpId, k -> new HashMap<>()).put(partId, updCntr);
                 }
             }
-        }
+        }*/
 
         return grpPartsWithCnts;
     }
