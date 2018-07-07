@@ -20,7 +20,9 @@ package org.apache.ignite.internal.util.tostring;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.Externalizable;
@@ -29,10 +31,13 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EventListener;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -1789,5 +1794,52 @@ public class GridToStringBuilder {
         }
 
         return cd;
+    }
+
+    /**
+     * Returns sorted and compacted string representation of given {@code col}.
+     * Two nearby numbers with difference at most 1 are compacted to one continuous segment.
+     * E.g. collection of [1, 2, 3, 5, 6, 7, 10] will be compacted to [1-3, 5-7, 10].
+     *
+     * @param col Collection of integers.
+     * @return Compacted string representation of given collections.
+     */
+    public static String compact(@NotNull Collection<Integer> col) {
+        if (col.isEmpty())
+            return "[]";
+
+        SB sb = new SB();
+        sb.a('[');
+
+        List<Integer> l = new ArrayList<>(col);
+        Collections.sort(l);
+
+        int left = l.get(0), right = left;
+        for (int i = 1; i < l.size(); i++) {
+            int val = l.get(i);
+
+            if (right == val || right + 1 == val) {
+                right = val;
+                continue;
+            }
+
+            if (left == right)
+                sb.a(left);
+            else
+                sb.a(left).a('-').a(right);
+
+            sb.a(',').a(' ');
+
+            left = right = val;
+        }
+
+        if (left == right)
+            sb.a(left);
+        else
+            sb.a(left).a('-').a(right);
+
+        sb.a(']');
+
+        return sb.toString();
     }
 }

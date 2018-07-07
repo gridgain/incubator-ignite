@@ -441,8 +441,12 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
             if (grp.eventRecordable(EVT_CACHE_REBALANCE_PART_UNLOADED))
                 grp.addUnloadEvent(part.id());
 
-            if (updateSeq)
+            if (updateSeq) {
+                if (log.isInfoEnabled())
+                    log.info("Sch resend parts " + grp.cacheOrGroupName() + "[PART_EVICT, p=" + part.id() + ", st= " + part.state() + "]");
+
                 ctx.exchange().scheduleResendPartitions();
+            }
         }
         finally {
             leaveBusy();
