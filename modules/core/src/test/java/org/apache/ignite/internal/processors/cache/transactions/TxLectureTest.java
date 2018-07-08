@@ -188,6 +188,81 @@ public class TxLectureTest extends GridCommonAbstractTest {
         assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
     }
 
+    // Test useless.
+    public void testTwoPhaseCommit() throws Exception {
+        persistenceEnabled = true;
+
+        backups = 2;
+
+        startGridsMultiThreaded(GRID_CNT);
+
+        Ignite client = startGrid("client");
+
+        IgniteEx prim = grid(0);
+
+        Integer key = primaryKey(prim.cache(DEFAULT_CACHE_NAME));
+
+        IgniteEx backup = (IgniteEx)backupNode(key, DEFAULT_CACHE_NAME);
+
+        // Start pessimistic tx.
+        try (Transaction tx = client.transactions().txStart()) {
+            log.info("Near tx: " + tx);
+
+            // Acquire write exclusive lock.
+            client.cache(DEFAULT_CACHE_NAME).put(key, key);
+
+            IgniteInternalTx locTx = F.first(txs(prim));
+
+            log.info("Primary tx: " + locTx);
+
+            IgniteInternalTx backupTx = F.first(txs(backup));
+
+            log.info("Backup tx: " + backupTx); // Null, backup transactions are created on prepare.
+
+            CountDownLatch l = new CountDownLatch(1);
+
+            runAsync(new Runnable() {
+                @Override public void run() {
+                    TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(prim);
+
+                    // Prevent backup commit.
+                    spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+                        @Override public boolean apply(ClusterNode node, Message msg) {
+                            if (msg instanceof GridDhtTxFinishRequest) {
+                                GridDhtTxFinishRequest req = (GridDhtTxFinishRequest)msg;
+
+                                assertTrue(req.commit());
+
+                                return true;
+                            }
+
+                            return false;
+                        }
+                    });
+
+                    l.countDown(); // Makes sure message blocked before trying to commit.
+
+                    try {
+                        spi.waitForBlocked(2);
+                    }
+                    catch (InterruptedException e) {
+                        log.error("Interrupted", e);
+                    }
+
+                    spi.stopBlock();
+                }
+            });
+
+            U.awaitQuiet(l);
+
+            tx.commit();
+        }
+
+        doSleep(3000);
+
+        assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
+    }
+
     public void test2PCKillPrimary() throws Exception {
         backups = 2;
 
@@ -856,5 +931,13 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
     @Override protected long getTestTimeout() {
         return Integer.MAX_VALUE;
+    }
+
+    @Override protected void beforeTest() throws Exception {
+        cleanPersistenceDir();
+    }
+
+    @Override protected void afterTest() throws Exception {
+        cleanPersistenceDir();
     }
 }
