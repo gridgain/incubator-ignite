@@ -132,7 +132,9 @@ public class TxLectureTest extends GridCommonAbstractTest {
             log.info("Near tx: " + tx);
 
             // Acquire write exclusive lock.
-            client.cache(DEFAULT_CACHE_NAME).put(key, key);
+            Object prev = client.cache(DEFAULT_CACHE_NAME).getAndPut(key, key);
+
+            assertNull(prev);
 
             IgniteInternalTx locTx = F.first(txs(prim));
 
@@ -154,7 +156,7 @@ public class TxLectureTest extends GridCommonAbstractTest {
                             if (msg instanceof GridDhtTxPrepareRequest) {
                                 GridDhtTxPrepareRequest req = (GridDhtTxPrepareRequest)msg;
 
-                                assertTrue(req.onePhaseCommit());
+                                assertFalse(req.onePhaseCommit());
                             }
 
                             return false;
