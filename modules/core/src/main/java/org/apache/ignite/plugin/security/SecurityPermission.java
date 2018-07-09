@@ -33,9 +33,6 @@ public enum SecurityPermission {
     /** Cache {@code remove} permission. */
     CACHE_REMOVE,
 
-    /** Cache get topology permission. */
-    CACHE_GET_TOPOLOGY,
-
     /** Task {@code execute} permission. */
     TASK_EXECUTE,
 
