@@ -1641,6 +1641,11 @@ public class PageMemoryImpl implements PageMemoryEx {
         return U.safeAbs(hash) % segments;
     }
 
+    /** {@inheritDoc} */
+    @Override public boolean isPersistent() {
+        return getDataRegionConfiguration().isPersistenceEnabled();
+    }
+
     /**
      *
      */

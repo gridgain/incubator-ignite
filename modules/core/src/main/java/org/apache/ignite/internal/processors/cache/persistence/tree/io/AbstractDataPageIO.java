@@ -28,6 +28,7 @@ import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.processors.cache.persistence.Storable;
+import org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryEx;
 import org.apache.ignite.internal.processors.cache.persistence.tree.util.PageHandler;
 import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.typedef.internal.SB;
@@ -37,7 +38,6 @@ import org.jetbrains.annotations.Nullable;
  * Data pages IO.
  */
 public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
-
     /** */
     private static final int SHOW_ITEM = 0b0001;
 
@@ -1009,10 +1009,25 @@ public abstract class AbstractDataPageIO<T extends Storable> extends PageIO {
 
         int itemId = addItem(pageAddr, fullEntrySize, directCnt, indirectCnt, dataOff, pageSize);
 
-        if (row != null)
-            setLinkByPageId(row, pageId, itemId);
+        if (row != null) {
+            if (pageMem instanceof PageMemoryEx && ((PageMemoryEx)pageMem).isPersistent())
+                setLink(row, pageAddr, itemId);
+            else
+                setLinkByPageId(row, pageId, itemId);
+        }
 
         return payloadSize;
+    }
+
+    /**
+     * @param row Row to set link to.
+     * @param pageAddr Page address.
+     * @param itemId Item ID.
+     */
+    private void setLink(T row, long pageAddr, int itemId) {
+        long pageId = getPageId(pageAddr);
+
+        setLinkByPageId(row, pageId, itemId);
     }
 
     /**

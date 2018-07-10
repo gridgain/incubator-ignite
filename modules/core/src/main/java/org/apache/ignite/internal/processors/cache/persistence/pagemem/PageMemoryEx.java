@@ -147,4 +147,9 @@ public interface PageMemoryEx extends PageMemory {
      * @return Future that will be completed when all pages are cleared.
      */
     public IgniteInternalFuture<Void> clearAsync(LoadedPagesMap.KeyPredicate pred, boolean cleanDirty);
+
+    /**
+     * @return {@code True} if page memory is persistent.
+     */
+    public boolean isPersistent();
 }
