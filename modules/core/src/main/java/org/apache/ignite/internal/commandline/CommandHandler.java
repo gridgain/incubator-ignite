@@ -34,6 +34,7 @@ import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.compute.ComputeTask;
 import org.apache.ignite.internal.client.GridClient;
 import org.apache.ignite.internal.client.GridClientAuthenticationException;
 import org.apache.ignite.internal.client.GridClientClosedException;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.commandline.cache.CacheArguments;
 import org.apache.ignite.internal.commandline.cache.CacheCommand;
 import org.apache.ignite.internal.processors.cache.verify.CacheInfo;
 import org.apache.ignite.internal.processors.cache.verify.ContentionInfo;
+import org.apache.ignite.internal.processors.cache.verify.IdleVerifyDumpResult;
 import org.apache.ignite.internal.processors.cache.verify.PartitionHashRecord;
 import org.apache.ignite.internal.processors.cache.verify.PartitionKey;
 import org.apache.ignite.internal.util.typedef.F;
@@ -79,6 +81,7 @@ import org.apache.ignite.internal.visor.verify.ValidateIndexesPartitionResult;
 import org.apache.ignite.internal.visor.verify.VisorContentionTask;
 import org.apache.ignite.internal.visor.verify.VisorContentionTaskArg;
 import org.apache.ignite.internal.visor.verify.VisorContentionTaskResult;
+import org.apache.ignite.internal.visor.verify.VisorIdleVerifyDumpTask;
 import org.apache.ignite.internal.visor.verify.VisorIdleVerifyTask;
 import org.apache.ignite.internal.visor.verify.VisorIdleVerifyTaskArg;
 import org.apache.ignite.internal.visor.verify.VisorIdleVerifyTaskResult;
@@ -146,6 +149,9 @@ public class CommandHandler {
 
     /** */
     protected static final String CMD_PING_TIMEOUT = "--ping-timeout";
+
+    /** */
+    private static final String CMD_DUMP = "--dump";
 
     /** List of optional auxiliary commands. */
     private static final Set<String> AUX_COMMANDS = new HashSet<>();
@@ -466,7 +472,7 @@ public class CommandHandler {
      * @return Task result.
      * @throws GridClientException If failed to execute task.
      */
-    private <R> R executeTask(GridClient client, Class<?> taskCls, Object taskArgs) throws GridClientException {
+    private <R> R executeTask(GridClient client, Class<? extends ComputeTask<?, R>> taskCls, Object taskArgs) throws GridClientException {
         return executeTaskByNameOnNode(client, taskCls.getName(), taskArgs, null);
     }
 
@@ -591,7 +597,7 @@ public class CommandHandler {
 
         usage("  Show information about caches, groups or sequences that match a regex:", CACHE, " list regexPattern [groups|seq] [nodeId]");
         usage("  Show hot keys that are point of contention for multiple transactions:", CACHE, " contention minQueueSize [nodeId] [maxPrint]");
-        usage("  Verify partition counters and hashes between primary and backups on idle cluster:", CACHE, " idle_verify [cache1,...,cacheN]");
+        usage("  Verify partition counters and hashes between primary and backups on idle cluster:", CACHE, " idle_verify [--dump] [cache1,...,cacheN]");
         usage("  Validate custom indexes on idle cluster:", CACHE, " validate_indexes [cache1,...,cacheN] [nodeId] [checkFirst|checkThrough]");
 
         log("  If [nodeId] is not specified, contention and validate_indexes commands will be broadcasted to all server nodes.");
@@ -717,6 +723,17 @@ public class CommandHandler {
      * @param cacheArgs Cache args.
      */
     private void cacheIdleVerify(GridClient client, CacheArguments cacheArgs) throws GridClientException {
+        if (cacheArgs.dump())
+            cacheIdleVerifyDump(client, cacheArgs);
+        else
+            legacyCacheIdleVerify(client, cacheArgs);
+    }
+
+    /**
+     * @param client Client.
+     * @param cacheArgs Cache args.
+     */
+    private void legacyCacheIdleVerify(GridClient client, CacheArguments cacheArgs) throws GridClientException {
         VisorIdleVerifyTaskResult res = executeTask(
             client, VisorIdleVerifyTask.class, new VisorIdleVerifyTaskArg(cacheArgs.caches()));
 
@@ -734,6 +751,37 @@ public class CommandHandler {
                 log("Conflict partition: " + entry.getKey());
 
                 log("Partition instances: " + entry.getValue());
+            }
+        }
+    }
+
+    /**
+     * @param client Client.
+     * @param cacheArgs Cache args.
+     */
+    private void cacheIdleVerifyDump(GridClient client, CacheArguments cacheArgs) throws GridClientException {
+        IdleVerifyDumpResult res = executeTask(
+            client, VisorIdleVerifyDumpTask.class, new VisorIdleVerifyTaskArg(cacheArgs.caches()));
+
+        if (F.isEmpty(res.clusterHashes())) {
+            log("idle_verify check has finished, found hashes list is empty.");
+            nl();
+        }
+        else {
+            if (!F.isEmpty(res.clusterHashes())) {
+                log("idle_verify check has finished, found " + res.clusterHashes().size() + " partitions");
+                nl();
+
+
+                log("Cluster partitions:");
+
+                for (Map.Entry<PartitionKey, List<PartitionHashRecord>> entry : res.clusterHashes().entrySet()) {
+                    log("Partition: " + entry.getKey());
+
+                    log("Partition instances: " + entry.getValue());
+                }
+
+                nl();
             }
         }
     }
@@ -1431,9 +1479,16 @@ public class CommandHandler {
                 break;
 
             case IDLE_VERIFY:
-                if (hasNextCacheArg())
-                    parseCacheNames(nextArg(""), cacheArgs);
+                int idleVerifyArgsCnt = 2;
 
+                while (hasNextCacheArg() && idleVerifyArgsCnt-- > 0) {
+                    String nextArg = nextArg("");
+
+                    if (CMD_DUMP.equals(nextArg))
+                        cacheArgs.dump(true);
+                    else
+                        parseCacheNames(nextArg, cacheArgs);
+                }
                 break;
 
             case CONTENTION:
