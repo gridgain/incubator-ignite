@@ -16,19 +16,27 @@
  */
 package org.apache.ignite.internal.processors.cache.verify;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.ComputeJobResult;
 import org.apache.ignite.compute.ComputeTaskAdapter;
 import org.apache.ignite.internal.processors.task.GridInternal;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.visor.verify.VisorIdleVerifyTaskArg;
+import org.apache.ignite.resources.IgniteInstanceResource;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,12 +48,15 @@ import org.jetbrains.annotations.Nullable;
  * concurrently updated.
  */
 @GridInternal
-public class VerifyBackupPartitionsDumpTask extends ComputeTaskAdapter<VisorIdleVerifyTaskArg, IdleVerifyDumpResult> {
+public class VerifyBackupPartitionsDumpTask extends ComputeTaskAdapter<VisorIdleVerifyTaskArg, String> {
     /** */
     private static final long serialVersionUID = 0L;
 
     /** Delegate for map execution */
     private final VerifyBackupPartitionsTask delegate = new VerifyBackupPartitionsTask();
+
+    @IgniteInstanceResource
+    private Ignite ignite;
 
     /** {@inheritDoc} */
     @Nullable @Override public Map<? extends ComputeJob, ClusterNode> map(
@@ -54,7 +65,7 @@ public class VerifyBackupPartitionsDumpTask extends ComputeTaskAdapter<VisorIdle
     }
 
     /** {@inheritDoc} */
-    @Nullable @Override public IdleVerifyDumpResult reduce(List<ComputeJobResult> results)
+    @Nullable @Override public String reduce(List<ComputeJobResult> results)
         throws IgniteException {
         Map<PartitionKey, List<PartitionHashRecord>> clusterHashes = new TreeMap<>(buildPartitionKeyComparator());
 
@@ -78,7 +89,54 @@ public class VerifyBackupPartitionsDumpTask extends ComputeTaskAdapter<VisorIdle
             partitions.put(entry.getKey(), entry.getValue());
         }
 
-        return new IdleVerifyDumpResult(partitions);
+        IdleVerifyDumpResult res = new IdleVerifyDumpResult(partitions);
+
+        return writeHashes(res);
+    }
+
+    /**
+     * @param res Dump result.
+     * @return Path where results are written.
+     * @throws IgniteException If failed to write the file.
+     */
+    private String writeHashes(IdleVerifyDumpResult res) throws IgniteException {
+        File workDir = ignite.configuration().getWorkDirectory() == null ?
+            new File("/tmp") :
+            new File(ignite.configuration().getWorkDirectory());
+
+        File out = new File(workDir, "idle-dump-" + System.currentTimeMillis() + ".txt");
+
+        ignite.log().info("IdleVerifyDumpTask will write output to " + out.getAbsolutePath());
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(out))) {
+            try {
+                if (!F.isEmpty(res.clusterHashes())) {
+                    writer.write("idle_verify check has finished, found " + res.clusterHashes().size() + " partitions\n");
+
+                    writer.write("Cluster partitions:\n");
+
+                    for (Map.Entry<PartitionKey, List<PartitionHashRecord>> entry : res.clusterHashes().entrySet()) {
+                        writer.write("Partition: " + entry.getKey() + "\n");
+
+                        writer.write("Partition instances: " + entry.getValue() + "\n");
+                    }
+                }
+                else
+                    writer.write("No partitions found.\n");
+            }
+            finally {
+                writer.flush();
+            }
+
+            ignite.log().info("IdleVerifyDumpTask successfully written dump to '" + out.getAbsolutePath() + "'");
+        }
+        catch (IOException e) {
+            ignite.log().error("Failed to write dump file: " + out.getAbsolutePath(), e);
+
+            throw new IgniteException(e);
+        }
+
+        return out.getAbsolutePath();
     }
 
     /**

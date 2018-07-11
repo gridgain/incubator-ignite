@@ -21,7 +21,6 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.compute.ComputeJobContext;
 import org.apache.ignite.compute.ComputeTask;
 import org.apache.ignite.compute.ComputeTaskFuture;
-import org.apache.ignite.internal.processors.cache.verify.IdleVerifyDumpResult;
 import org.apache.ignite.internal.processors.cache.verify.VerifyBackupPartitionsDumpTask;
 import org.apache.ignite.internal.processors.task.GridInternal;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -35,12 +34,12 @@ import org.apache.ignite.resources.JobContextResource;
  * Task to verify checksums of backup partitions and return all collected information.
  */
 @GridInternal
-public class VisorIdleVerifyDumpTask extends VisorOneNodeTask<VisorIdleVerifyTaskArg, IdleVerifyDumpResult> {
+public class VisorIdleVerifyDumpTask extends VisorOneNodeTask<VisorIdleVerifyTaskArg, String> {
     /** */
     private static final long serialVersionUID = 0L;
 
     /** {@inheritDoc} */
-    @Override protected VisorJob<VisorIdleVerifyTaskArg, IdleVerifyDumpResult> job(VisorIdleVerifyTaskArg arg) {
+    @Override protected VisorJob<VisorIdleVerifyTaskArg, String> job(VisorIdleVerifyTaskArg arg) {
         return new VisorIdleVerifyJob<>(arg, debug, VerifyBackupPartitionsDumpTask.class);
     }
 

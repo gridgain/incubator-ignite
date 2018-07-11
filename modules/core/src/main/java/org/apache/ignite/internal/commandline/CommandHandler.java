@@ -760,30 +760,10 @@ public class CommandHandler {
      * @param cacheArgs Cache args.
      */
     private void cacheIdleVerifyDump(GridClient client, CacheArguments cacheArgs) throws GridClientException {
-        IdleVerifyDumpResult res = executeTask(
+        String path = executeTask(
             client, VisorIdleVerifyDumpTask.class, new VisorIdleVerifyTaskArg(cacheArgs.caches()));
 
-        if (F.isEmpty(res.clusterHashes())) {
-            log("idle_verify check has finished, found hashes list is empty.");
-            nl();
-        }
-        else {
-            if (!F.isEmpty(res.clusterHashes())) {
-                log("idle_verify check has finished, found " + res.clusterHashes().size() + " partitions");
-                nl();
-
-
-                log("Cluster partitions:");
-
-                for (Map.Entry<PartitionKey, List<PartitionHashRecord>> entry : res.clusterHashes().entrySet()) {
-                    log("Partition: " + entry.getKey());
-
-                    log("Partition instances: " + entry.getValue());
-                }
-
-                nl();
-            }
-        }
+        log("VisorIdleVerifyDumpTask successfully written output to '" + path + "'");
     }
 
     /**
