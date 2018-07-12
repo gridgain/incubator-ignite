@@ -221,13 +221,7 @@ public:
 
     virtual bool Test()
     {
-        std::cout << iteration << std::endl;
-        std::cout << keys[iteration] << std::endl;
-        std::cout << values[iteration] << std::endl;
-
         cache.Put(keys[iteration], SampleValue(values[iteration]));
-
-        std::cout << "After" << std::endl;
 
         ++iteration;
 
@@ -301,7 +295,7 @@ void PrintBackets(const std::string& annotation, std::vector<int64_t>& res, std:
 
     log << annotation << ": "
         << "min: " << res.front() << "us, "
-        << "10%: " << res.at(static_cast<size_t>(res.size() * 0.2)) << "us, "
+        << "10%: " << res.at(static_cast<size_t>(res.size() * 0.1)) << "us, "
         << "20%: " << res.at(static_cast<size_t>(res.size() * 0.2)) << "us, "
         << "50%: " << res.at(static_cast<size_t>(res.size() * 0.5)) << "us, "
         << "90%: " << res.at(static_cast<size_t>(res.size() * 0.9)) << "us, "
@@ -361,7 +355,7 @@ int64_t MeasureInThreads(
 
         contexts[i].SetUp();
 
-        threads.push_back(boost::thread(MeasureThread, boost::ref(sem), latencies[i], contexts[i]));
+        threads.push_back(boost::thread(MeasureThread, boost::ref(sem), boost::ref(latencies[i]), boost::ref(contexts[i])));
     }
 
     auto begin = steady_clock::now();
@@ -383,13 +377,13 @@ int64_t MeasureInThreads(
     latency.reserve(cfg.iterationsNum * cfg.threadNum);
 
     for (int32_t i = 0; i < cfg.threadNum; ++i)
-        latency.insert(latency.end(), latencies[i].begin(), latencies[i].end());
+        latency.insert(latency.end(), latencies[i].begin(), latencies[i].end());   
 
     return duration_cast<milliseconds>(duration).count();
 }
 
 template<typename T>
-void Run(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg)
+void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg)
 {
     std::ostream* log = cfg.log;
 
@@ -405,12 +399,18 @@ void Run(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& cli
     duration = MeasureInThreads<T>(cfg, clientCfg, latency);
 
     if (log)
-        PrintBackets("Put", latency, *log);
+    {
+        PrintBackets(annotation, latency, *log);
+
+        *log << std::endl << "Duration: " << duration << "ms" << std::endl;
+
+        *log << "Throughput: " << static_cast<int32_t>((cfg.iterationsNum * 1000.0) / duration) << "op/sec" << std::endl;
+    }
 }
 
 const int32_t WARMUP_ITERATIONS_NUM = 100000;
-const int32_t ITERATIONS_NUM = 500000;
-const int32_t THREAD_NUM = 1;//boost::thread::hardware_concurrency();
+const int32_t ITERATIONS_NUM = 100000;
+const int32_t THREAD_NUM = boost::thread::hardware_concurrency();
 
 const std::string logDir = "";
 const std::string address = "127.0.0.1";
@@ -419,23 +419,7 @@ BOOST_AUTO_TEST_SUITE(Benchmark)
 
 BOOST_AUTO_TEST_CASE(Put)
 {
-    std::fstream log(logDir + "put.log");
-
-    BenchmarkConfiguration cfg;
-    cfg.iterationsNum = ITERATIONS_NUM;
-    cfg.warmupIterationsNum = WARMUP_ITERATIONS_NUM;
-    cfg.threadNum = THREAD_NUM;
-    cfg.log = &std::cout;
-
-    IgniteClientConfiguration clientCfg;
-    clientCfg.SetEndPoints(address);
-
-    Run<ClientCachePutBenchmark>(cfg, clientCfg);
-}
-
-BOOST_AUTO_TEST_CASE(Get)
-{
-    std::fstream log(logDir + "get.log");
+    std::ofstream log(logDir + "put.log");
 
     BenchmarkConfiguration cfg;
     cfg.iterationsNum = ITERATIONS_NUM;
@@ -446,7 +430,23 @@ BOOST_AUTO_TEST_CASE(Get)
     IgniteClientConfiguration clientCfg;
     clientCfg.SetEndPoints(address);
 
-    Run<ClientCacheGetBenchmark>(cfg, clientCfg);
+    Run<ClientCachePutBenchmark>("Put", cfg, clientCfg);
+}
+
+BOOST_AUTO_TEST_CASE(Get)
+{
+    std::ofstream log(logDir + "get.log");
+
+    BenchmarkConfiguration cfg;
+    cfg.iterationsNum = ITERATIONS_NUM;
+    cfg.warmupIterationsNum = WARMUP_ITERATIONS_NUM;
+    cfg.threadNum = THREAD_NUM;
+    cfg.log = &log;
+
+    IgniteClientConfiguration clientCfg;
+    clientCfg.SetEndPoints(address);
+
+    Run<ClientCacheGetBenchmark>("Get", cfg, clientCfg);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
