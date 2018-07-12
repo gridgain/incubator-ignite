@@ -25,6 +25,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/interprocess/sync/interprocess_semaphore.hpp>
+#include <boost/random/random_device.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/limits.hpp>
@@ -34,8 +35,6 @@
 #include <ignite/complex_type.h>
 #include <ignite/thin/ignite_client_configuration.h>
 #include <ignite/thin/ignite_client.h>
-
-std::string logPath = "out.log";
 
 using namespace ignite::thin;
 using namespace boost::unit_test;
@@ -71,12 +70,16 @@ struct ignite::binary::BinaryType<SampleValue>
 
     static void Write(BinaryWriter& writer, const SampleValue& obj)
     {
-        writer.RawWriter().WriteInt32(obj.id);
+        BinaryRawWriter raw = writer.RawWriter();
+
+        raw.WriteInt32(obj.id);
     }
 
     static void Read(BinaryReader& reader, SampleValue& dst)
     {
-        dst.id = reader.RawReader().ReadInt32();
+        BinaryRawReader raw = reader.RawReader();
+
+        dst.id = raw.ReadInt32();
     }
 };
 
@@ -128,8 +131,9 @@ public:
     {
         res.clear();
         res.reserve(num);
-
-        boost::random::mt19937 gen;
+        
+        boost::random_device seed_gen; 
+        boost::random::mt19937 gen(seed_gen());
         boost::random::uniform_int_distribution<int32_t> dist(min, max);
 
         for (int32_t i = 0; i < num; ++i)
@@ -138,7 +142,8 @@ public:
 
     void FillCache(cache::CacheClient<int32_t, SampleValue>& cache, int32_t min, int32_t max)
     {
-        boost::random::mt19937 gen;
+        boost::random_device seed_gen; 
+        boost::random::mt19937 gen(seed_gen());
         boost::random::uniform_int_distribution<int32_t> dist;
 
         for (int32_t i = min; i < max; ++i)
@@ -204,7 +209,7 @@ public:
     virtual void SetUp()
     {
         ClientCacheBenchmarkAdapter::SetUp();
-        
+
         GenerateRandomSequence(keys, GetConfig().iterationsNum);
         GenerateRandomSequence(values, GetConfig().iterationsNum);
     }
@@ -216,7 +221,13 @@ public:
 
     virtual bool Test()
     {
+        std::cout << iteration << std::endl;
+        std::cout << keys[iteration] << std::endl;
+        std::cout << values[iteration] << std::endl;
+
         cache.Put(keys[iteration], SampleValue(values[iteration]));
+
+        std::cout << "After" << std::endl;
 
         ++iteration;
 
@@ -399,7 +410,7 @@ void Run(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& cli
 
 const int32_t WARMUP_ITERATIONS_NUM = 100000;
 const int32_t ITERATIONS_NUM = 500000;
-const int32_t THREAD_NUM = boost::thread::hardware_concurrency();
+const int32_t THREAD_NUM = 1;//boost::thread::hardware_concurrency();
 
 const std::string logDir = "";
 const std::string address = "127.0.0.1";
@@ -414,7 +425,7 @@ BOOST_AUTO_TEST_CASE(Put)
     cfg.iterationsNum = ITERATIONS_NUM;
     cfg.warmupIterationsNum = WARMUP_ITERATIONS_NUM;
     cfg.threadNum = THREAD_NUM;
-    cfg.log = &log;
+    cfg.log = &std::cout;
 
     IgniteClientConfiguration clientCfg;
     clientCfg.SetEndPoints(address);

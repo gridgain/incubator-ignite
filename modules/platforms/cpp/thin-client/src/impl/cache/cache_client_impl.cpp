@@ -58,7 +58,7 @@ namespace ignite
                     else
                     {
                         const EndPoints& endPoints = affinityInfo.Get()->GetMapping(key);
-                        
+
                         router.Get()->SyncMessage(req, rsp, endPoints);
                     }
 
