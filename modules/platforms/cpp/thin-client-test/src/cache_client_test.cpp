@@ -21,18 +21,16 @@
 
 #include <boost/test/unit_test.hpp>
 #include <boost/thread/thread.hpp>
-#include <boost/interprocess/sync/interprocess_semaphore.hpp>
-#include <boost/algorithm/algorithm.hpp>
-#include <boost/algorithm/minmax_element.hpp>
 
 #include <ignite/ignition.h>
 
-#include <ignite/complex_type.h>
 #include <ignite/thin/ignite_client_configuration.h>
 #include <ignite/thin/ignite_client.h>
 
+#include <ignite/thin/cache/cache_peek_mode.h>
+
+#include <ignite/complex_type.h>
 #include <test_utils.h>
-#include "ignite/thin/cache/cache_peek_mode.h"
 
 using namespace ignite::thin;
 using namespace boost::unit_test;
@@ -56,7 +54,7 @@ public:
     }
 
     template<typename K, typename V>
-    static void LocalPeek(cache::CacheClient<K,V>& cache, const K& key, V& value)
+    void LocalPeek(cache::CacheClient<K,V>& cache, const K& key, V& value)
     {
         using namespace ignite::impl::thin;
         using namespace ignite::impl::thin::cache;
@@ -73,7 +71,6 @@ public:
     void NumPartitionTest(int64_t num)
     {
         StartNode("node1");
-        StartNode("node2");
 
         boost::this_thread::sleep_for(boost::chrono::seconds(2));
 
@@ -82,13 +79,10 @@ public:
 
         IgniteClient client = IgniteClient::Start(cfg);
 
-        cache::CacheClientConfiguration cacheCfg;
-        cacheCfg.SetLessenLatency(true);
-
         cache::CacheClient<KeyType, int64_t> cache =
-            client.GetCache<KeyType, int64_t>("partitioned", cacheCfg);
+            client.GetCache<KeyType, int64_t>("partitioned");
 
-        cache.UpdatePartitions();
+        cache.RefreshAffinityMapping();
 
         for (int64_t i = 1; i < num; ++i)
             cache.Put(static_cast<KeyType>(i * 39916801), i * 5039);
@@ -145,7 +139,7 @@ BOOST_AUTO_TEST_CASE(CacheClientGetCacheNonxisting)
 
     IgniteClient client = IgniteClient::Start(cfg);
 
-    client.GetCache<int32_t, std::string>("unknown");
+    BOOST_REQUIRE_THROW((client.GetCache<int32_t, std::string>("unknown")), ignite::IgniteError);
 }
 
 BOOST_AUTO_TEST_CASE(CacheClientGetOrCreateCacheExisting)
@@ -405,7 +399,6 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsDouble)
 BOOST_AUTO_TEST_CASE(CacheClientPartitionsString)
 {
     StartNode("node1");
-    StartNode("node2");
 
     boost::this_thread::sleep_for(boost::chrono::seconds(2));
 
@@ -414,13 +407,10 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsString)
 
     IgniteClient client = IgniteClient::Start(cfg);
 
-    cache::CacheClientConfiguration cacheCfg;
-    cacheCfg.SetLessenLatency(true);
-
     cache::CacheClient<std::string, int64_t> cache =
-        client.GetCache<std::string, int64_t>("partitioned", cacheCfg);
+        client.GetCache<std::string, int64_t>("partitioned");
 
-    cache.UpdatePartitions();
+    cache.RefreshAffinityMapping();
 
     for (int64_t i = 1; i < 1000; ++i)
         cache.Put(ignite::common::LexicalCast<std::string>(i * 39916801), i * 5039);
@@ -437,7 +427,6 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsString)
 BOOST_AUTO_TEST_CASE(CacheClientPartitionsGuid)
 {
     StartNode("node1");
-    StartNode("node2");
 
     boost::this_thread::sleep_for(boost::chrono::seconds(2));
 
@@ -446,13 +435,10 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsGuid)
 
     IgniteClient client = IgniteClient::Start(cfg);
 
-    cache::CacheClientConfiguration cacheCfg;
-    cacheCfg.SetLessenLatency(true);
-
     cache::CacheClient<ignite::Guid, int64_t> cache =
-        client.GetCache<ignite::Guid, int64_t>("partitioned", cacheCfg);
+        client.GetCache<ignite::Guid, int64_t>("partitioned");
 
-    cache.UpdatePartitions();
+    cache.RefreshAffinityMapping();
 
     for (int64_t i = 1; i < 1000; ++i)
         cache.Put(ignite::Guid(i * 406586897, i * 87178291199), i * 5039);
@@ -469,7 +455,6 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsGuid)
 BOOST_AUTO_TEST_CASE(CacheClientPartitionsComplexType)
 {
     StartNode("node1");
-    StartNode("node2");
 
     boost::this_thread::sleep_for(boost::chrono::seconds(2));
 
@@ -478,13 +463,10 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsComplexType)
 
     IgniteClient client = IgniteClient::Start(cfg);
 
-    cache::CacheClientConfiguration cacheCfg;
-    cacheCfg.SetLessenLatency(true);
-
     cache::CacheClient<ignite::ComplexType, int64_t> cache =
-        client.GetCache<ignite::ComplexType, int64_t>("partitioned", cacheCfg);
+        client.GetCache<ignite::ComplexType, int64_t>("partitioned");
 
-    cache.UpdatePartitions();
+    cache.RefreshAffinityMapping();
 
     for (int64_t i = 1; i < 1000; ++i)
     {
@@ -517,7 +499,6 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsComplexType)
 BOOST_AUTO_TEST_CASE(CacheClientPartitionsDate)
 {
     StartNode("node1");
-    StartNode("node2");
 
     boost::this_thread::sleep_for(boost::chrono::seconds(2));
 
@@ -526,13 +507,10 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsDate)
 
     IgniteClient client = IgniteClient::Start(cfg);
 
-    cache::CacheClientConfiguration cacheCfg;
-    cacheCfg.SetLessenLatency(true);
-
     cache::CacheClient<ignite::Date, int64_t> cache =
-        client.GetCache<ignite::Date, int64_t>("partitioned", cacheCfg);
+        client.GetCache<ignite::Date, int64_t>("partitioned");
 
-    cache.UpdatePartitions();
+    cache.RefreshAffinityMapping();
 
     for (int64_t i = 1; i < 1000; ++i)
         cache.Put(ignite::common::MakeDateGmt(
@@ -563,7 +541,6 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsDate)
 BOOST_AUTO_TEST_CASE(CacheClientPartitionsTime)
 {
     StartNode("node1");
-    StartNode("node2");
 
     boost::this_thread::sleep_for(boost::chrono::seconds(2));
 
@@ -572,13 +549,10 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsTime)
 
     IgniteClient client = IgniteClient::Start(cfg);
 
-    cache::CacheClientConfiguration cacheCfg;
-    cacheCfg.SetLessenLatency(true);
-
     cache::CacheClient<ignite::Time, int64_t> cache =
-        client.GetCache<ignite::Time, int64_t>("partitioned", cacheCfg);
+        client.GetCache<ignite::Time, int64_t>("partitioned");
 
-    cache.UpdatePartitions();
+    cache.RefreshAffinityMapping();
 
     for (int64_t i = 1; i < 100; ++i)
         cache.Put(ignite::common::MakeTimeGmt(
@@ -603,7 +577,6 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsTime)
 BOOST_AUTO_TEST_CASE(CacheClientPartitionsTimestamp)
 {
     StartNode("node1");
-    StartNode("node2");
 
     boost::this_thread::sleep_for(boost::chrono::seconds(2));
 
@@ -612,13 +585,10 @@ BOOST_AUTO_TEST_CASE(CacheClientPartitionsTimestamp)
 
     IgniteClient client = IgniteClient::Start(cfg);
 
-    cache::CacheClientConfiguration cacheCfg;
-    cacheCfg.SetLessenLatency(true);
-
     cache::CacheClient<ignite::Timestamp, int64_t> cache =
-        client.GetCache<ignite::Timestamp, int64_t>("partitioned", cacheCfg);
+        client.GetCache<ignite::Timestamp, int64_t>("partitioned");
 
-    cache.UpdatePartitions();
+    cache.RefreshAffinityMapping();
 
     for (int64_t i = 1; i < 1000; ++i)
         cache.Put(ignite::common::MakeTimestampGmt(

@@ -46,7 +46,7 @@ public class ClientCacheNodePartitionsRequest extends ClientCacheRequest {
 
     /** {@inheritDoc} */
     @Override public ClientResponse process(ClientConnectionContext ctx) {
-        authorize(ctx, SecurityPermission.CACHE_GET_TOPOLOGY);
+        authorize(ctx, SecurityPermission.CACHE_READ);
         IgniteCache cache = cache(ctx);
 
         GridDiscoveryManager discovery = ctx.kernalContext().discovery();

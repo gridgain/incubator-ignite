@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-#include <ignite/impl/binary/binary_object_impl.h>
-
-#include <ignite/impl/thin/response_status.h>
-#include <ignite/impl/thin/message.h>
 #include <ignite/impl/thin/writable_key.h>
 
-#include <ignite/impl/thin/cache/cache_client_impl.h>
+#include "impl/response_status.h"
+#include "impl/message.h"
+#include "impl/cache/cache_client_impl.h"
 
 namespace ignite
 {
@@ -34,15 +32,11 @@ namespace ignite
                 CacheClientImpl::CacheClientImpl(
                         const SP_DataRouter& router,
                         const std::string& name,
-                        const ignite::thin::cache::CacheClientConfiguration& config,
                         int32_t id) :
                     router(router),
                     name(name),
-                    config(config),
                     id(id),
-                    binary(false),
-                    assignment(),
-                    mask(-1)
+                    binary(false)
                 {
                     // No-op.
                 }
@@ -53,15 +47,17 @@ namespace ignite
                 }
 
                 template<typename ReqT, typename RspT>
-                void CacheClientImpl::SyncCacheKeyMessage(const WritableKey& key, const ReqT & req, RspT & rsp)
+                void CacheClientImpl::SyncCacheKeyMessage(const WritableKey& key, const ReqT& req, RspT& rsp)
                 {
-                    if (assignment.empty())
+                    SP_CacheAffinityInfo affinityInfo = router.Get()->GetAffinityMapping(id);
+
+                    if (!affinityInfo.IsValid())
                     {
                         router.Get()->SyncMessage(req, rsp);
                     }
                     else
                     {
-                        const std::vector<net::EndPoint>& endPoints = GetEndPointsForKey(key);
+                        const EndPoints& endPoints = affinityInfo.Get()->GetMapping(key);
                         
                         router.Get()->SyncMessage(req, rsp, endPoints);
                     }
@@ -172,72 +168,9 @@ namespace ignite
                         throw IgniteError(IgniteError::IGNITE_ERR_CACHE, rsp.GetError().c_str());
                 }
 
-                void CacheClientImpl::UpdatePartitions()
+                void CacheClientImpl::RefreshAffinityMapping()
                 {
-                    if (!config.IsLessenLatency())
-                        return;
-
-                    std::vector<ConnectableNodePartitions> nodeParts;
-
-                    CacheRequest<RequestType::CACHE_NODE_PARTITIONS> req(id, binary);
-                    ClientCacheNodePartitionsResponse rsp(nodeParts);
-
-                    router.Get()->SyncMessageNoMetaUpdate(req, rsp);
-
-                    if (rsp.GetStatus() != ResponseStatus::SUCCESS)
-                        throw IgniteError(IgniteError::IGNITE_ERR_CACHE, rsp.GetError().c_str());
-
-                    assignment.clear();
-
-                    std::vector<ConnectableNodePartitions>::const_iterator it;
-
-                    for (it = nodeParts.begin(); it != nodeParts.end(); ++it)
-                    {
-                        const std::vector<int32_t>& parts = it->GetPartitions();
-                        const std::vector<net::EndPoint>& endPoints = it->GetEndPoints();
-
-                        for (size_t i = 0; i < parts.size(); ++i)
-                        {
-                            assert(parts[i] >= 0);
-
-                            size_t upart = static_cast<size_t>(parts[i]);
-
-                            if (upart >= assignment.size())
-                                assignment.resize(upart + 1);
-
-                            std::vector<net::EndPoint>& dst = assignment[upart];
-
-                            assert(dst.empty());
-
-                            dst.insert(dst.end(), endPoints.begin(), endPoints.end());
-                        }
-                    }
-
-                    int32_t parts = static_cast<int32_t>(assignment.size());
-
-                    mask = (parts & (parts - 1)) == 0 ? parts - 1 : -1;
-                }
-
-                const std::vector<net::EndPoint>& CacheClientImpl::GetEndPointsForKey(const WritableKey& key) const
-                {
-                    assert(!assignment.empty());
-
-                    int32_t hash = key.GetHashCode();
-                    uint32_t uhash = static_cast<uint32_t>(hash);
-
-                    int32_t part = 0;
-
-                    if (mask >= 0)
-                        part = (uhash ^ (uhash >> 16)) & mask;
-                    else
-                    {
-                        part = std::abs(hash % static_cast<int32_t>(assignment.size()));
-
-                        if (part < 0)
-                            part = 0;
-                    }
-
-                    return assignment[part];
+                    router.Get()->RefreshAffinityMapping(id, binary);
                 }
             }
         }

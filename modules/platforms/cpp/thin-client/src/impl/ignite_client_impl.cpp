@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-#include <ignite/impl/thin/utility.h>
-#include <ignite/impl/thin/ignite_client_impl.h>
-#include <ignite/impl/thin/cache/cache_client_impl.h>
-#include <ignite/impl/thin/message.h>
-#include <ignite/impl/thin/response_status.h>
+#include "impl/utility.h"
+#include "impl/cache/cache_client_impl.h"
+#include "impl/message.h"
+#include "impl/response_status.h"
+
+#include "impl/ignite_client_impl.h"
 
 namespace ignite
 {
@@ -46,33 +47,17 @@ namespace ignite
 
             cache::SP_CacheClientImpl IgniteClientImpl::GetCache(const char* name) const
             {
-                ignite::thin::cache::CacheClientConfiguration cacheConfig;
-
-                return GetCache(name, cacheConfig);
-            }
-
-            common::concurrent::SharedPointer<cache::CacheClientImpl> IgniteClientImpl::GetCache(const char* name,
-                const ignite::thin::cache::CacheClientConfiguration& config) const
-            {
                 CheckCacheName(name);
 
                 int32_t cacheId = utility::GetCacheId(name);
 
-                return MakeCacheImpl(router, name, config, cacheId);
+                return MakeCacheImpl(router, name, cacheId);
             }
 
             cache::SP_CacheClientImpl IgniteClientImpl::GetOrCreateCache(const char* name)
             {
-                ignite::thin::cache::CacheClientConfiguration cacheConfig;
-
-                return GetOrCreateCache(name, cacheConfig);
-            }
-
-            common::concurrent::SharedPointer<cache::CacheClientImpl> IgniteClientImpl::GetOrCreateCache(const char* name,
-                const ignite::thin::cache::CacheClientConfiguration& config)
-            {
                 CheckCacheName(name);
-                
+
                 int32_t cacheId = utility::GetCacheId(name);
 
                 GetOrCreateCacheWithNameRequest req(name);
@@ -82,19 +67,11 @@ namespace ignite
 
                 if (rsp.GetStatus() != ResponseStatus::SUCCESS)
                     throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, rsp.GetError().c_str());
-                
-                return MakeCacheImpl(router, name, config, cacheId);
+
+                return MakeCacheImpl(router, name, cacheId);
             }
 
             cache::SP_CacheClientImpl IgniteClientImpl::CreateCache(const char* name)
-            {
-                ignite::thin::cache::CacheClientConfiguration cacheConfig;
-
-                return CreateCache(name, cacheConfig);
-            }
-
-            common::concurrent::SharedPointer<cache::CacheClientImpl> IgniteClientImpl::CreateCache(const char* name,
-                const ignite::thin::cache::CacheClientConfiguration& config)
             {
                 CheckCacheName(name);
 
@@ -108,7 +85,7 @@ namespace ignite
                 if (rsp.GetStatus() != ResponseStatus::SUCCESS)
                     throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, rsp.GetError().c_str());
 
-                return MakeCacheImpl(router, name, config, cacheId);
+                return MakeCacheImpl(router, name, cacheId);
             }
 
             void IgniteClientImpl::DestroyCache(const char* name)
@@ -124,6 +101,8 @@ namespace ignite
 
                 if (rsp.GetStatus() != ResponseStatus::SUCCESS)
                     throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, rsp.GetError().c_str());
+
+                router.Get()->ReleaseAffinityMapping(cacheId);
             }
 
             void IgniteClientImpl::GetCacheNames(std::vector<std::string>& cacheNames)
@@ -140,13 +119,11 @@ namespace ignite
             common::concurrent::SharedPointer<cache::CacheClientImpl> IgniteClientImpl::MakeCacheImpl(
                 const SP_DataRouter& router,
                 const std::string& name,
-                const ignite::thin::cache::CacheClientConfiguration& config,
                 int32_t id)
             {
-                cache::SP_CacheClientImpl cache(new cache::CacheClientImpl(router, name, config, id));
+                cache::SP_CacheClientImpl cache(new cache::CacheClientImpl(router, name, id));
 
-                if (config.IsLessenLatency())
-                    cache.Get()->UpdatePartitions();
+                cache.Get()->RefreshAffinityMapping();
 
                 return cache;
             }

@@ -17,11 +17,11 @@
 
 /**
  * @file
- * Declares ignite::thin::cache::CachePeekMode enum.
+ * Declares ignite::thin::cache::CachePeekMode.
  */
 
-#ifndef _IGNITE_THIN_CACHE_CACHE_PEEK_MODE
-#define _IGNITE_THIN_CACHE_CACHE_PEEK_MODE
+#ifndef _IGNITE_IMPL_THIN_CACHE_CACHE_PEEK_MODE
+#define _IGNITE_IMPL_THIN_CACHE_CACHE_PEEK_MODE
 
 namespace ignite
 {
@@ -74,4 +74,4 @@ namespace ignite
     }
 }
 
-#endif //_IGNITE_THIN_CACHE_CACHE_PEEK_MODE
+#endif //_IGNITE_IMPL_THIN_CACHE_CACHE_PEEK_MODE

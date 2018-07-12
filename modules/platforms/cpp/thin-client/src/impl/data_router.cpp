@@ -23,13 +23,14 @@
 #include <iterator>
 #include <algorithm>
 
-#include <ignite/impl/thin/utility.h>
-#include <ignite/impl/thin/data_router.h>
-#include <ignite/impl/thin/message.h>
-#include <ignite/impl/thin/ssl/ssl_gateway.h>
-#include <ignite/impl/thin/net/remote_type_updater.h>
-#include <ignite/impl/thin/net/net_utils.h>
-
+#include "impl/utility.h"
+#include "impl/data_router.h"
+#include "impl/message.h"
+#include "impl/response_status.h"
+#include "impl/ssl/ssl_gateway.h"
+#include "impl/net/remote_type_updater.h"
+#include "impl/net/net_utils.h"
+#include "ignite/impl/thin/writable_key.h"
 
 namespace ignite
 {
@@ -64,12 +65,12 @@ namespace ignite
             {
                 using ignite::thin::SslMode;
 
+                UpdateLocalAddresses();
+
+                channels.clear();
+
                 if (config.GetEndPoints().empty())
                     throw IgniteError(IgniteError::IGNITE_ERR_ILLEGAL_ARGUMENT, "No valid address to connect.");
-
-                SP_DataChannel channel(new DataChannel(config, typeMgr));
-
-                bool connected = false;
 
                 for (std::vector<net::TcpRange>::iterator it = ranges.begin(); it != ranges.end(); ++it)
                 {
@@ -77,19 +78,26 @@ namespace ignite
 
                     for (uint16_t port = range.port; port <= range.port + range.range; ++port)
                     {
-                        connected = channel.Get()->Connect(range.host, port, connectionTimeout);
+                        SP_DataChannel channel(new DataChannel(config, typeMgr));
+
+                        bool connected = channel.Get()->Connect(range.host, port, connectionTimeout);
 
                         if (connected)
+                        {
+                            common::concurrent::CsLockGuard lock(channelsMutex);
+
+                            channels[channel.Get()->GetAddress()].Swap(channel);
+
                             break;
+                        }
                     }
+
+                    if (!channels.empty())
+                        break;
                 }
 
-                if (!connected)
+                if (channels.empty())
                     throw IgniteError(IgniteError::IGNITE_ERR_GENERIC, "Failed to establish connection with any host.");
-
-                common::concurrent::CsLockGuard lock(channelsMutex);
-
-                channels[channel.Get()->GetAddress()].Swap(channel);
             }
 
             void DataRouter::Close()
@@ -107,6 +115,40 @@ namespace ignite
                     if (channel)
                         channel->Close();
                 }
+            }
+
+            void DataRouter::RefreshAffinityMapping(int32_t cacheId, bool binary)
+            {
+                std::vector<ConnectableNodePartitions> nodeParts;
+
+                CacheRequest<RequestType::CACHE_NODE_PARTITIONS> req(cacheId, binary);
+                ClientCacheNodePartitionsResponse rsp(nodeParts);
+
+                SyncMessageNoMetaUpdate(req, rsp);
+
+                if (rsp.GetStatus() != ResponseStatus::SUCCESS)
+                    throw IgniteError(IgniteError::IGNITE_ERR_CACHE, rsp.GetError().c_str());
+
+                cache::SP_CacheAffinityInfo newMapping(new cache::CacheAffinityInfo(nodeParts));
+
+                common::concurrent::CsLockGuard lock(cacheAffinityMappingMutex);
+
+                cache::SP_CacheAffinityInfo& affinityInfo = cacheAffinityMapping[cacheId];
+                affinityInfo.Swap(newMapping);
+            }
+
+            cache::SP_CacheAffinityInfo DataRouter::GetAffinityMapping(int32_t cacheId)
+            {
+                common::concurrent::CsLockGuard lock(cacheAffinityMappingMutex);
+
+                return cacheAffinityMapping[cacheId];
+            }
+
+            void DataRouter::ReleaseAffinityMapping(int32_t cacheId)
+            {
+                common::concurrent::CsLockGuard lock(cacheAffinityMappingMutex);
+
+                cacheAffinityMapping.erase(cacheId);
             }
 
             SP_DataChannel DataRouter::GetRandomChannel()
@@ -149,7 +191,7 @@ namespace ignite
                 if (ipv4)
                     return host.compare(0, 3, s127) == 0;
 
-                return host == "::1" || host == "0:0:0:0:0:0:0:1" || common::ToLower(host) == "localhost";
+                return host == "::1" || host == "0:0:0:0:0:0:0:1";
             }
 
             bool DataRouter::IsProvidedByUser(const net::EndPoint& endPoint)
@@ -171,8 +213,6 @@ namespace ignite
                     return GetRandomChannel();
 
                 bool localHost = IsLocalHost(hint);
-
-                UpdateLocalAddresses();
 
                 for (std::vector<net::EndPoint>::const_iterator it = hint.begin(); it != hint.end(); ++it)
                 {
@@ -216,6 +256,8 @@ namespace ignite
                 ranges.clear();
 
                 utility::ParseAddress(str, ranges, DEFAULT_PORT);
+
+                std::random_shuffle(ranges.begin(), ranges.end());
             }
         }
     }

@@ -15,6 +15,11 @@
  * limitations under the License.
  */
 
+/**
+ * @file
+ * Declares ignite::thin::cache::CacheClient.
+ */
+
 #ifndef _IGNITE_THIN_CACHE_CACHE_CLIENT
 #define _IGNITE_THIN_CACHE_CACHE_CLIENT
 
@@ -33,7 +38,19 @@ namespace ignite
         namespace cache
         {
             /**
-             * Cache client class.
+             * Cache client class template.
+             *
+             * Main entry point for all Data Grid APIs.
+             *
+             * Both key and value types should be default-constructable, copy-constructable and assignable. Also
+             * BinaryType class  template should be specialized for both types, if they are not one of the basic types.
+             *
+             * This class implemented as a reference to an implementation so copying of this class instance will only
+             * create another reference to the same underlying object. Underlying object released automatically once all
+             * the instances are destructed.
+             *
+             * @tparam K Cache key type.
+             * @tparam V Cache value type.
              */
             template<typename K, typename V>
             class CacheClient
@@ -46,14 +63,6 @@ namespace ignite
 
                 /** Value type. */
                 typedef V ValueType;
-
-                /**
-                 * Default constructor.
-                 */
-                CacheClient()
-                {
-                    // No-op.
-                }
 
                 /**
                  * Constructor.
@@ -134,6 +143,8 @@ namespace ignite
                  * Gets the number of all entries cached across all nodes.
                  * @note This operation is distributed and will query all participating nodes for their cache sizes.
                  *
+                 * @see CachePeekMode for details.
+                 *
                  * @param peekModes Peek modes mask.
                  * @return Cache size across all nodes.
                  */
@@ -194,11 +205,13 @@ namespace ignite
                 }
 
                 /**
-                 * Update cache partitions info.
+                 * Refresh affinity mapping.
+                 *
+                 * TODO
                  */
-                void UpdatePartitions()
+                void RefreshAffinityMapping()
                 {
-                    proxy.UpdatePartitions();
+                    proxy.RefreshAffinityMapping();
                 }
 
             private:

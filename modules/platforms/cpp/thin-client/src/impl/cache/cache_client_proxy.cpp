@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-#include <ignite/impl/thin/cache/cache_client_impl.h>
 #include <ignite/impl/thin/cache/cache_client_proxy.h>
+
+#include "impl/cache/cache_client_impl.h"
 
 using namespace ignite::impl::thin;
 using namespace cache;
-using namespace ignite::common::concurrent;
 
 namespace
 {
+    using namespace ignite::common::concurrent;
+
     CacheClientImpl& GetCacheImpl(SharedPointer<void>& ptr)
     {
         return *reinterpret_cast<CacheClientImpl*>(ptr.Get());
@@ -34,7 +36,6 @@ namespace
         return *reinterpret_cast<const CacheClientImpl*>(ptr.Get());
     }
 }
-
 
 namespace ignite
 {
@@ -69,9 +70,9 @@ namespace ignite
                     GetCacheImpl(impl).LocalPeek(key, value);
                 }
 
-                void CacheClientProxy::UpdatePartitions()
+                void CacheClientProxy::RefreshAffinityMapping()
                 {
-                    GetCacheImpl(impl).UpdatePartitions();
+                    GetCacheImpl(impl).RefreshAffinityMapping();
                 }
 
                 bool CacheClientProxy::Remove(const WritableKey& key)

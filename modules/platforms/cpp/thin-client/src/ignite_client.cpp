@@ -18,8 +18,8 @@
 #include <ignite/thin/ignite_client.h>
 #include <ignite/thin/ignite_client_configuration.h>
 
-#include <ignite/impl/thin/ignite_client_impl.h>
-#include <ignite/impl/thin/cache/cache_client_impl.h>
+#include "impl/ignite_client_impl.h"
+#include "impl/cache/cache_client_impl.h"
 
 using namespace ignite::impl::thin;
 using namespace cache;
@@ -67,32 +67,14 @@ namespace ignite
             return GetClientImpl(impl).GetCache(name);
         }
 
-        IgniteClient::SP_Void IgniteClient::InternalGetCache(const char* name,
-            const cache::CacheClientConfiguration& config)
-        {
-            return GetClientImpl(impl).GetCache(name, config);
-        }
-
         IgniteClient::SP_Void IgniteClient::InternalGetOrCreateCache(const char* name)
         {
             return GetClientImpl(impl).GetOrCreateCache(name);
         }
 
-        IgniteClient::SP_Void IgniteClient::InternalGetOrCreateCache(const char* name,
-            const cache::CacheClientConfiguration& config)
-        {
-            return GetClientImpl(impl).GetOrCreateCache(name, config);
-        }
-
         IgniteClient::SP_Void IgniteClient::InternalCreateCache(const char* name)
         {
             return static_cast<SP_Void>(GetClientImpl(impl).CreateCache(name));
-        }
-
-        IgniteClient::SP_Void IgniteClient::InternalCreateCache(const char* name,
-            const cache::CacheClientConfiguration& config)
-        {
-            return static_cast<SP_Void>(GetClientImpl(impl).CreateCache(name, config));
         }
 
         IgniteClient::IgniteClient(SP_Void& impl)

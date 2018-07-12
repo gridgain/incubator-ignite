@@ -15,6 +15,11 @@
  * limitations under the License.
  */
 
+/**
+ * @file
+ * Declares ignite::thin::IgniteClient class.
+ */
+
 #ifndef _IGNITE_THIN_IGNITE_CLIENT
 #define _IGNITE_THIN_IGNITE_CLIENT
 
@@ -24,7 +29,6 @@
 
 #include <ignite/thin/ignite_client_configuration.h>
 #include <ignite/thin/cache/cache_client.h>
-#include <ignite/thin/cache/cache_client_configuration.h>
 
 namespace ignite
 {
@@ -33,8 +37,12 @@ namespace ignite
         /**
          * Ignite client class.
          *
-         * This is an entry point for Thin C++ Ignite client. Its main
-         * purpose is to establish connection to the remote server node.
+         * This is an entry point for Thin C++ Ignite client. Its main purpose is to establish connection to the remote
+         * server nodes.
+         *
+         * This class implemented as a reference to an implementation so copying of this class instance will only
+         * create another reference to the same underlying object. Underlying object released automatically once all
+         * the instances are destructed.
          */
         class IGNITE_IMPORT_EXPORT IgniteClient
         {
@@ -67,19 +75,6 @@ namespace ignite
             }
 
             /**
-             * Get cache.
-             *
-             * @param name Cache name.
-             * @param config Cache configuration.
-             * @return Cache.
-             */
-            template<typename K, typename V>
-            cache::CacheClient<K, V> GetCache(const char* name, const cache::CacheClientConfiguration& config)
-            {
-                return cache::CacheClient<K, V>(InternalGetCache(name, config));
-            }
-
-            /**
              * Get or create cache.
              *
              * @param name Cache name.
@@ -92,19 +87,6 @@ namespace ignite
             }
 
             /**
-             * Get or create cache.
-             *
-             * @param name Cache name.
-             * @param config Cache configuration.
-             * @return Cache.
-             */
-            template<typename K, typename V>
-            cache::CacheClient<K, V> GetOrCreateCache(const char* name, const cache::CacheClientConfiguration& config)
-            {
-                return cache::CacheClient<K, V>(InternalGetOrCreateCache(name, config));
-            }
-
-            /**
              * Create cache.
              *
              * @param name Cache name.
@@ -114,19 +96,6 @@ namespace ignite
             cache::CacheClient<K, V> CreateCache(const char* name)
             {
                 return cache::CacheClient<K, V>(InternalCreateCache(name));
-            }
-
-            /**
-             * Create cache.
-             *
-             * @param name Cache name.
-             * @param config Cache configuration.
-             * @return Cache.
-             */
-            template<typename K, typename V>
-            cache::CacheClient<K, V> CreateCache(const char* name, const cache::CacheClientConfiguration& config)
-            {
-                return cache::CacheClient<K, V>(InternalCreateCache(name, config));
             }
 
             /**
@@ -153,15 +122,6 @@ namespace ignite
              * @return Cache.
              */
             SP_Void InternalGetCache(const char* name);
-            /**
-             * Get cache.
-             * Internal call.
-             *
-             * @param name Cache name.
-             * @param config Cache configuration.
-             * @return Cache.
-             */
-            SP_Void InternalGetCache(const char* name, const cache::CacheClientConfiguration& config);
 
             /**
              * Get or create cache.
@@ -173,16 +133,6 @@ namespace ignite
             SP_Void InternalGetOrCreateCache(const char* name);
 
             /**
-             * Get or create cache.
-             * Internal call.
-             *
-             * @param name Cache name.
-             * @param config Cache configuration.
-             * @return Cache.
-             */
-            SP_Void InternalGetOrCreateCache(const char* name, const cache::CacheClientConfiguration& config);
-
-            /**
              * Create cache.
              * Internal call.
              *
@@ -190,16 +140,6 @@ namespace ignite
              * @return Cache.
              */
             SP_Void InternalCreateCache(const char* name);
-
-            /**
-             * Create cache.
-             * Internal call.
-             *
-             * @param name Cache name.
-             * @param config Cache configuration.
-             * @return Cache.
-             */
-            SP_Void InternalCreateCache(const char* name, const cache::CacheClientConfiguration& config);
 
             /**
              * Constructor.
