@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\auth_test.cpp" />
+    <ClCompile Include="..\..\src\benchmark.cpp" />
     <ClCompile Include="..\..\src\cache_client_test.cpp" />
     <ClCompile Include="..\..\src\ignite_client_test.cpp" />
     <ClCompile Include="..\..\src\ssl_test.cpp" />
