@@ -34,6 +34,7 @@
 
 #include <ignite/complex_type.h>
 #include <test_utils.h>
+#include "ignite/thin/cache/cache_peek_mode.h"
 
 using namespace ignite::thin;
 using namespace boost::unit_test;

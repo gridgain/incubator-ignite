@@ -1,0 +1,441 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef _MSC_VER
+#   define BOOST_TEST_DYN_LINK
+#endif
+
+#include <fstream>
+#include <climits>
+
+#include <boost/test/unit_test.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/interprocess/sync/interprocess_semaphore.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
+#include <boost/limits.hpp>
+
+#include <ignite/ignition.h>
+
+#include <ignite/complex_type.h>
+#include <ignite/thin/ignite_client_configuration.h>
+#include <ignite/thin/ignite_client.h>
+
+std::string logPath = "out.log";
+
+using namespace ignite::thin;
+using namespace boost::unit_test;
+
+class SampleValue
+{
+    friend struct ignite::binary::BinaryType<SampleValue>;
+public:
+    SampleValue() :
+        id(0)
+    {
+        // No-op.
+    }
+
+    SampleValue(int32_t id) :
+        id(id)
+    {
+        // No-op.
+    }
+
+private:
+    int32_t id;
+};
+
+template<>
+struct ignite::binary::BinaryType<SampleValue>
+{
+    IGNITE_BINARY_GET_TYPE_ID_AS_HASH(SampleValue)
+    IGNITE_BINARY_GET_TYPE_NAME_AS_IS(SampleValue)
+    IGNITE_BINARY_GET_FIELD_ID_AS_HASH
+    IGNITE_BINARY_IS_NULL_FALSE(SampleValue)
+    IGNITE_BINARY_GET_NULL_DEFAULT_CTOR(SampleValue)
+
+    static void Write(BinaryWriter& writer, const SampleValue& obj)
+    {
+        writer.RawWriter().WriteInt32(obj.id);
+    }
+
+    static void Read(BinaryReader& reader, SampleValue& dst)
+    {
+        dst.id = reader.RawReader().ReadInt32();
+    }
+};
+
+struct BenchmarkConfiguration
+{
+    BenchmarkConfiguration() :
+        threadNum(boost::thread::hardware_concurrency()),
+        iterationsNum(100000),
+        warmupIterationsNum(100000),
+        log(0)
+    {
+        // No-op.
+    }
+
+    int32_t threadNum;
+    int32_t iterationsNum;
+    int32_t warmupIterationsNum;
+    std::ostream* log;
+};
+
+class BenchmarkBase
+{
+public:
+    BenchmarkBase(const BenchmarkConfiguration& cfg):
+        cfg(cfg)
+    {
+        // No-op.
+    }
+
+    virtual ~BenchmarkBase()
+    {
+        // No-op.
+    }
+
+    virtual void SetUp() = 0;
+
+    virtual bool Test() = 0;
+
+    virtual void TearDown() = 0;
+
+    virtual std::string GetName() = 0;
+
+    const BenchmarkConfiguration& GetConfig() const
+    {
+        return cfg;
+    }
+
+    void GenerateRandomSequence(std::vector<int32_t>& res, int32_t num, int32_t min = 0, int32_t max = INT32_MAX)
+    {
+        res.clear();
+        res.reserve(num);
+
+        boost::random::mt19937 gen;
+        boost::random::uniform_int_distribution<int32_t> dist(min, max);
+
+        for (int32_t i = 0; i < num; ++i)
+            res.push_back(dist(gen));
+    }
+
+    void FillCache(cache::CacheClient<int32_t, SampleValue>& cache, int32_t min, int32_t max)
+    {
+        boost::random::mt19937 gen;
+        boost::random::uniform_int_distribution<int32_t> dist;
+
+        for (int32_t i = min; i < max; ++i)
+            cache.Put(i, SampleValue(dist(gen)));
+    }
+
+protected:
+    const BenchmarkConfiguration cfg;
+};
+
+class ClientCacheBenchmarkAdapter : public BenchmarkBase
+{
+public:
+    ClientCacheBenchmarkAdapter(
+        const BenchmarkConfiguration& cfg,
+        const IgniteClientConfiguration& clientCfg,
+        const std::string& cacheName) :
+        BenchmarkBase(cfg),
+        client(IgniteClient::Start(clientCfg)),
+        cache(client.GetOrCreateCache<int32_t, SampleValue>(cacheName.c_str()))
+    {
+        // No-op.
+    }
+
+    virtual ~ClientCacheBenchmarkAdapter()
+    {
+        // No-op.
+    }
+
+    virtual void SetUp()
+    {
+        cache.RemoveAll();
+        cache.Clear();
+    }
+
+    virtual void TearDown()
+    {
+        cache.RemoveAll();
+        cache.Clear();
+    }
+
+protected:
+    IgniteClient client;
+
+    cache::CacheClient<int32_t, SampleValue> cache;
+};
+
+class ClientCachePutBenchmark : public ClientCacheBenchmarkAdapter
+{
+public:
+    ClientCachePutBenchmark(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg) :
+        ClientCacheBenchmarkAdapter(cfg, clientCfg, "PutBenchTestCache"),
+        iteration(0)
+    {
+        // No-op.
+    }
+
+    virtual ~ClientCachePutBenchmark()
+    {
+        // No-op.
+    }
+
+    virtual void SetUp()
+    {
+        ClientCacheBenchmarkAdapter::SetUp();
+        
+        GenerateRandomSequence(keys, GetConfig().iterationsNum);
+        GenerateRandomSequence(values, GetConfig().iterationsNum);
+    }
+
+    virtual void TearDown()
+    {
+        ClientCacheBenchmarkAdapter::TearDown();
+    }
+
+    virtual bool Test()
+    {
+        cache.Put(keys[iteration], SampleValue(values[iteration]));
+
+        ++iteration;
+
+        return iteration < GetConfig().iterationsNum;
+    }
+
+    virtual std::string GetName()
+    {
+        return "Thin client Put";
+    }
+
+private:
+    std::vector<int32_t> keys;
+    std::vector<int32_t> values;
+    int32_t iteration;
+};
+
+class ClientCacheGetBenchmark : public ClientCacheBenchmarkAdapter
+{
+public:
+    ClientCacheGetBenchmark(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg) :
+        ClientCacheBenchmarkAdapter(cfg, clientCfg, "GutBenchTestCache"),
+        iteration(0)
+    {
+        // No-op.
+    }
+
+    virtual ~ClientCacheGetBenchmark()
+    {
+        // No-op.
+    }
+
+    virtual void SetUp()
+    {
+        ClientCacheBenchmarkAdapter::SetUp();
+        
+        GenerateRandomSequence(keys, GetConfig().iterationsNum, 0, 10000);
+
+        FillCache(cache, 0, 10000);
+    }
+
+    virtual void TearDown()
+    {
+        ClientCacheBenchmarkAdapter::TearDown();
+    }
+
+    virtual bool Test()
+    {
+        SampleValue val;
+        cache.Get(keys[iteration], val);
+
+        ++iteration;
+
+        return iteration < GetConfig().iterationsNum;
+    }
+
+    virtual std::string GetName()
+    {
+        return "Thin client Get";
+    }
+
+private:
+    std::vector<int32_t> keys;
+    int32_t iteration;
+};
+
+
+void PrintBackets(const std::string& annotation, std::vector<int64_t>& res, std::ostream& log)
+{
+    std::sort(res.begin(), res.end());
+
+    log << annotation << ": "
+        << "min: " << res.front() << "us, "
+        << "10%: " << res.at(static_cast<size_t>(res.size() * 0.2)) << "us, "
+        << "20%: " << res.at(static_cast<size_t>(res.size() * 0.2)) << "us, "
+        << "50%: " << res.at(static_cast<size_t>(res.size() * 0.5)) << "us, "
+        << "90%: " << res.at(static_cast<size_t>(res.size() * 0.9)) << "us, "
+        << "95%: " << res.at(static_cast<size_t>(res.size() * 0.95)) << "us, "
+        << "99%: " << res.at(static_cast<size_t>(res.size() * 0.99)) << "us, "
+        << "max: " << res.back() << "us"
+        << std::endl;
+}
+
+void MeasureThread(
+    boost::interprocess::interprocess_semaphore& sem,
+    std::vector<int64_t>& latency,
+    BenchmarkBase& bench)
+{
+    using namespace boost::chrono;
+
+    sem.wait();
+
+    latency.clear();
+
+    latency.reserve(bench.GetConfig().iterationsNum);
+
+    auto begin = steady_clock::now();
+
+    bool run = true;
+
+    while (run)
+    {
+        auto putBegin = steady_clock::now();
+
+        run = bench.Test();
+
+        latency.push_back(duration_cast<microseconds>(steady_clock::now() - putBegin).count());
+    }
+}
+
+template<typename T>
+int64_t MeasureInThreads(
+    const BenchmarkConfiguration& cfg,
+    const IgniteClientConfiguration& clientCfg,
+    std::vector<int64_t>& latency)
+{
+    using namespace boost::chrono;
+
+    std::vector<T> contexts;
+    std::vector<boost::thread> threads;
+    std::vector< std::vector<int64_t> > latencies(cfg.threadNum);
+
+    contexts.reserve(cfg.threadNum);
+    threads.reserve(cfg.threadNum);
+
+    boost::interprocess::interprocess_semaphore sem(0);
+
+    for (int32_t i = 0; i < cfg.threadNum; ++i)
+    {
+        contexts.push_back(T(cfg, clientCfg));
+
+        contexts[i].SetUp();
+
+        threads.push_back(boost::thread(MeasureThread, boost::ref(sem), latencies[i], contexts[i]));
+    }
+
+    auto begin = steady_clock::now();
+
+    for (int32_t i = 0; i < cfg.threadNum; ++i)
+        sem.post();
+
+    for (int32_t i = 0; i < cfg.threadNum; ++i)
+        threads[i].join();
+    
+    for (int32_t i = 0; i < cfg.threadNum; ++i)
+        contexts[i].TearDown();
+
+    using namespace boost::chrono;
+
+    auto duration = steady_clock::now() - begin;
+
+    latency.clear();
+    latency.reserve(cfg.iterationsNum * cfg.threadNum);
+
+    for (int32_t i = 0; i < cfg.threadNum; ++i)
+        latency.insert(latency.end(), latencies[i].begin(), latencies[i].end());
+
+    return duration_cast<milliseconds>(duration).count();
+}
+
+template<typename T>
+void Run(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg)
+{
+    std::ostream* log = cfg.log;
+
+    if (log)
+        *log << "Warming up. Operations number: " << cfg.warmupIterationsNum << std::endl;
+
+    std::vector<int64_t> latency;
+    int64_t duration = MeasureInThreads<T>(cfg, clientCfg, latency);
+    
+    if (log)
+        *log << std::endl << "Starting benchmark. Operations number: " << cfg.iterationsNum << std::endl;
+
+    duration = MeasureInThreads<T>(cfg, clientCfg, latency);
+
+    if (log)
+        PrintBackets("Put", latency, *log);
+}
+
+const int32_t WARMUP_ITERATIONS_NUM = 100000;
+const int32_t ITERATIONS_NUM = 500000;
+const int32_t THREAD_NUM = boost::thread::hardware_concurrency();
+
+const std::string logDir = "";
+const std::string address = "127.0.0.1";
+
+BOOST_AUTO_TEST_SUITE(Benchmark)
+
+BOOST_AUTO_TEST_CASE(Put)
+{
+    std::fstream log(logDir + "put.log");
+
+    BenchmarkConfiguration cfg;
+    cfg.iterationsNum = ITERATIONS_NUM;
+    cfg.warmupIterationsNum = WARMUP_ITERATIONS_NUM;
+    cfg.threadNum = THREAD_NUM;
+    cfg.log = &log;
+
+    IgniteClientConfiguration clientCfg;
+    clientCfg.SetEndPoints(address);
+
+    Run<ClientCachePutBenchmark>(cfg, clientCfg);
+}
+
+BOOST_AUTO_TEST_CASE(Get)
+{
+    std::fstream log(logDir + "get.log");
+
+    BenchmarkConfiguration cfg;
+    cfg.iterationsNum = ITERATIONS_NUM;
+    cfg.warmupIterationsNum = WARMUP_ITERATIONS_NUM;
+    cfg.threadNum = THREAD_NUM;
+    cfg.log = &log;
+
+    IgniteClientConfiguration clientCfg;
+    clientCfg.SetEndPoints(address);
+
+    Run<ClientCacheGetBenchmark>(cfg, clientCfg);
+}
+
+BOOST_AUTO_TEST_SUITE_END()

@@ -65,6 +65,14 @@ namespace ignite
                 typedef V ValueType;
 
                 /**
+                 * Default constructor.
+                 */
+                CacheClient()
+                {
+                    // No-op.
+                }
+
+                /**
                  * Constructor.
                  *
                  * @param impl Implementation.
