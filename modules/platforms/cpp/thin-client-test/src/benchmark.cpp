@@ -59,29 +59,35 @@ private:
     int32_t id;
 };
 
-template<>
-struct ignite::binary::BinaryType<SampleValue>
+namespace ignite
 {
-    IGNITE_BINARY_GET_TYPE_ID_AS_HASH(SampleValue)
-    IGNITE_BINARY_GET_TYPE_NAME_AS_IS(SampleValue)
-    IGNITE_BINARY_GET_FIELD_ID_AS_HASH
-    IGNITE_BINARY_IS_NULL_FALSE(SampleValue)
-    IGNITE_BINARY_GET_NULL_DEFAULT_CTOR(SampleValue)
-
-    static void Write(BinaryWriter& writer, const SampleValue& obj)
+    namespace binary
     {
-        BinaryRawWriter raw = writer.RawWriter();
+        template<>
+        struct BinaryType<SampleValue>
+        {
+            IGNITE_BINARY_GET_TYPE_ID_AS_HASH(SampleValue)
+            IGNITE_BINARY_GET_TYPE_NAME_AS_IS(SampleValue)
+            IGNITE_BINARY_GET_FIELD_ID_AS_HASH
+            IGNITE_BINARY_IS_NULL_FALSE(SampleValue)
+            IGNITE_BINARY_GET_NULL_DEFAULT_CTOR(SampleValue)
 
-        raw.WriteInt32(obj.id);
+            static void Write(BinaryWriter& writer, const SampleValue& obj)
+            {
+                BinaryRawWriter raw = writer.RawWriter();
+
+                raw.WriteInt32(obj.id);
+            }
+
+            static void Read(BinaryReader& reader, SampleValue& dst)
+            {
+                BinaryRawReader raw = reader.RawReader();
+
+                dst.id = raw.ReadInt32();
+            }
+        };
     }
-
-    static void Read(BinaryReader& reader, SampleValue& dst)
-    {
-        BinaryRawReader raw = reader.RawReader();
-
-        dst.id = raw.ReadInt32();
-    }
-};
+}
 
 struct BenchmarkConfiguration
 {
