@@ -951,7 +951,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             rootPage,
             true);
 
-        return new CacheDataStoreImpl(p, idxName, rowStore, dataTree);
+        return new CacheDataStoreImpl(p, grp.groupId(), idxName, rowStore, dataTree);
     }
 
     /** {@inheritDoc} */
@@ -1073,6 +1073,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         /** */
         private final int partId;
 
+        private final int grpId;
+
         /** Tree name. */
         private String name;
 
@@ -1102,11 +1104,13 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
          */
         public CacheDataStoreImpl(
             int partId,
+            int grpId,
             String name,
             CacheDataRowStore rowStore,
             CacheDataTree dataTree
         ) {
             this.partId = partId;
+            this.grpId=grpId;
             this.name = name;
             this.rowStore = rowStore;
             this.dataTree = dataTree;
@@ -1197,8 +1201,11 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                 if (val0 >= val)
                     break;
 
-                if (cntr.compareAndSet(val0, val))
+                if (cntr.compareAndSet(val0, val)){
+                    U.DebugPartitionCounterTracker.onUpdate(grpId, partId, val0, val);
+
                     break;
+                }
             }
         }
 
@@ -1590,7 +1597,11 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
          * @return Next update index.
          */
         @Override public long nextUpdateCounter() {
-            return cntr.incrementAndGet();
+            long cur = cntr.incrementAndGet();
+
+            U.DebugPartitionCounterTracker.onUpdate(grpId, partId, cur - 1, cur);
+
+            return cur;
         }
 
         /** {@inheritDoc} */
@@ -1616,7 +1627,11 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             initCntr = updCntr;
             storageSize.set(size);
 
+            long prev = cntr.get();
+
             cntr.set(updCntr);
+
+            U.DebugPartitionCounterTracker.onUpdate(grpId, partId, prev, updCntr);
 
             if (cacheSizes != null) {
                 for (Map.Entry<Integer, Long> e : cacheSizes.entrySet())

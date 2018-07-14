@@ -170,6 +170,7 @@ import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.suggestions.GridPerformanceSuggestions;
 import org.apache.ignite.internal.suggestions.JvmConfigurationSuggestions;
 import org.apache.ignite.internal.suggestions.OsConfigurationSuggestions;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.StripedExecutor;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
@@ -535,6 +536,26 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
         DiscoveryDataClusterState clusterState = ctx.state().clusterState();
 
         return clusterState.baselineTopology() != null && CU.baselineNode(locNode, clusterState);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean debugCountersStack() {
+        return U.DebugPartitionCounterTracker.debug;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void debugCountersStack(boolean enable) {
+        U.DebugPartitionCounterTracker.debug = enable;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void dumpCountersStack() {
+        U.DebugPartitionCounterTracker.dump();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void resetCountersStack() {
+        U.DebugPartitionCounterTracker.reset();
     }
 
     /** {@inheritDoc} */

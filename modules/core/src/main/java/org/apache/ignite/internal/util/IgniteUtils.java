@@ -89,6 +89,7 @@ import java.security.ProtectionDomain;
 import java.security.cert.X509Certificate;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -212,6 +213,7 @@ import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.P1;
+import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.internal.util.typedef.internal.SB;
@@ -241,9 +243,11 @@ import org.apache.ignite.transactions.TransactionRollbackException;
 import org.apache.ignite.transactions.TransactionTimeoutException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jsr166.ConcurrentLinkedHashMap;
 import sun.misc.Unsafe;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_DISABLE_HOSTNAME_VERIFIER;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_DUMP_COUNTER_STACK;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_HOME;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_LOCAL_HOST;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_MBEAN_APPEND_CLASS_LOADER_ID;
@@ -10573,6 +10577,93 @@ public abstract class IgniteUtils {
          */
         public long getLockUnlockCounter() {
             return cnt.get();
+        }
+    }
+
+    public static class DebugPartitionCounterTracker {
+
+        private static final DateFormat DATE_FORMAT = new SimpleDateFormat("HH:mm:ss.SSS");
+
+        static {
+            DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("UTC"));
+        }
+
+        public static volatile Boolean debug = IgniteSystemProperties.getBoolean(IGNITE_DUMP_COUNTER_STACK, false);
+
+        private static ConcurrentHashMap<T2<Integer, Integer>, Map<Long, Exception>> stacks = new ConcurrentHashMap<>();
+
+        public static void onUpdate(int grpId, int partId, long prev, long cur) {
+            if (!debug)
+                return;
+
+            T2<Integer, Integer> key = new T2<>(grpId, partId);
+
+            Map<Long, Exception> counters = stacks.get(key);
+
+            if (counters == null) {
+                Map<Long, Exception> prevMap = stacks.putIfAbsent(key, counters = new ConcurrentLinkedHashMap<>());
+
+                if (prevMap != null)
+                    counters = prevMap;
+            }
+
+            IgniteException curEx = new IgniteException("grpId=" + grpId + ", partId=" + partId + ", prev=" + prev + ", cur=" + cur);
+
+            Exception prevEx = counters.putIfAbsent(cur, curEx);
+
+            if (prevEx != null) {
+                // TODO
+            }
+        }
+
+        public static void onDataEntryLogged(int grpId, int partId, long cntr) {
+            if (!debug)
+                return;
+
+            T2<Integer, Integer> key = new T2<>(grpId, partId);
+
+            Map<Long, Exception> counters = stacks.get(key);
+
+            if (counters == null) {
+                // TODO
+            }
+
+            Exception exp = counters.remove(cntr);
+
+            if (exp == null) {
+                // TODO
+            }
+        }
+
+        public static void reset() {
+            stacks.clear();
+        }
+
+        public static void dump() {
+            try {
+                File file = new File(U.defaultWorkDirectory(),
+                    DATE_FORMAT.format(new Date(U.currentTimeMillis())) + ".dump");
+
+                file.createNewFile();
+
+                PrintStream ps = new PrintStream(file);
+
+                for (Map.Entry<T2<Integer, Integer>, Map<Long, Exception>> entry : stacks.entrySet()) {
+                    T2<Integer, Integer> grpAndPart = entry.getKey();
+                    Map<Long, Exception> counters = entry.getValue();
+
+                    ps.println("\n[grpId=" + grpAndPart.get1() + ", partId=" + grpAndPart.get2() + "]\n");
+
+                    for (Exception e : counters.values()) {
+                        e.printStackTrace(ps);
+                    }
+                }
+            }
+            catch (IOException | IgniteCheckedException e) {
+                e.printStackTrace();
+
+                System.out.println("Failed to save counters stack dump." + e);
+            }
         }
     }
 }

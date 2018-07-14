@@ -447,6 +447,36 @@ public interface IgniteMXBean {
     public boolean isNodeInBaseline();
 
     /**
+     *
+     */
+    @MXBeanDescription("Dump counters debug.")
+    public boolean debugCountersStack();
+
+    /**
+     *
+     */
+    @MXBeanDescription("Dump counters debug")
+    @MXBeanParametersNames(
+        "flag"
+    )
+    @MXBeanParametersDescriptions(
+        "Enable or disable debug counters."
+    )
+    public void debugCountersStack(boolean enable);
+
+    /**
+     *
+     */
+    @MXBeanDescription("Dump counters stack")
+    public void dumpCountersStack();
+
+    /**
+     *
+     */
+    @MXBeanDescription("Reset counters stack")
+    public void resetCountersStack();
+
+    /**
      * Runs IO latency test against all remote server nodes in cluster.
      *
      * @param warmup Warmup duration in milliseconds.

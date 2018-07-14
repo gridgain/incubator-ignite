@@ -1378,7 +1378,9 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
      * @param entry Data entry.
      */
     static void putDataEntry(ByteBuffer buf, DataEntry entry) throws IgniteCheckedException {
-        buf.putInt(entry.cacheId());
+        int cacheId = entry.cacheId();
+
+        buf.putInt(cacheId);
 
         if (!entry.key().putValue(buf))
             throw new AssertionError();
@@ -1393,9 +1395,14 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
         putVersion(buf, entry.nearXidVersion(), true);
         putVersion(buf, entry.writeVersion(), false);
 
-        buf.putInt(entry.partitionId());
-        buf.putLong(entry.partitionCounter());
+        int partitionId = entry.partitionId();
+        long counter = entry.partitionCounter();
+
+        buf.putInt(partitionId);
+        buf.putLong(counter);
         buf.putLong(entry.expireTime());
+
+        U.DebugPartitionCounterTracker.onDataEntryLogged(cacheId, partitionId, counter);
     }
 
     /**

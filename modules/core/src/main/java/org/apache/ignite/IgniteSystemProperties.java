@@ -901,6 +901,12 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_DUMP_THREADS_ON_FAILURE = "IGNITE_DUMP_THREADS_ON_FAILURE";
 
     /**
+     *
+     * Default is {@code true}.
+     */
+    public static final String IGNITE_DUMP_COUNTER_STACK = "IGNITE_DUMP_COUNTER_STACK";
+
+    /**
      * Enforces singleton.
      */
     private IgniteSystemProperties() {

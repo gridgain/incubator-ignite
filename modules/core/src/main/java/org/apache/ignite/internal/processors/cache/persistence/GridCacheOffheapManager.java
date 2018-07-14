@@ -150,11 +150,11 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
     /** {@inheritDoc} */
     @Override protected CacheDataStore createCacheDataStore0(int p) throws IgniteCheckedException {
         if (ctx.database() instanceof GridCacheDatabaseSharedManager)
-            ((GridCacheDatabaseSharedManager) ctx.database()).cancelOrWaitPartitionDestroy(grp.groupId(), p);
+            ((GridCacheDatabaseSharedManager)ctx.database()).cancelOrWaitPartitionDestroy(grp.groupId(), p);
 
         boolean exists = ctx.pageStore() != null && ctx.pageStore().exists(grp.groupId(), p);
 
-        return new GridCacheDataStore(p, exists);
+        return new GridCacheDataStore(p, grp.groupId(), exists);
     }
 
     /** {@inheritDoc} */
@@ -1136,6 +1136,8 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
      *
      */
     private class GridCacheDataStore implements CacheDataStore {
+        private final int grpId;
+
         /** */
         private final int partId;
 
@@ -1161,7 +1163,8 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
          * @param partId Partition.
          * @param exists {@code True} if store for this index exists.
          */
-        private GridCacheDataStore(int partId, boolean exists) {
+        private GridCacheDataStore(int partId, int grpId, boolean exists) {
+            this.grpId = grpId;
             this.partId = partId;
             this.exists = exists;
 
@@ -1229,7 +1232,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
                     PageMemoryEx pageMem = (PageMemoryEx)grp.dataRegion().pageMemory();
 
-                    delegate0 = new CacheDataStoreImpl(partId, name, rowStore, dataTree);
+                    delegate0 = new CacheDataStoreImpl(partId, grpId, name, rowStore, dataTree);
 
                     int grpId = grp.groupId();
                     long partMetaId = pageMem.partitionMetaPageId(grpId, partId);
