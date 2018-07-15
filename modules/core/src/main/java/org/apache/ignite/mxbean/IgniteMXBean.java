@@ -455,7 +455,7 @@ public interface IgniteMXBean {
     /**
      *
      */
-    @MXBeanDescription("Dump counters debug")
+    @MXBeanDescription("Dump counters debug.")
     @MXBeanParametersNames(
         "flag"
     )
@@ -467,13 +467,13 @@ public interface IgniteMXBean {
     /**
      *
      */
-    @MXBeanDescription("Dump counters stack")
+    @MXBeanDescription("Dump counters stack.")
     public void dumpCountersStack();
 
     /**
      *
      */
-    @MXBeanDescription("Reset counters stack")
+    @MXBeanDescription("Reset counters stack.")
     public void resetCountersStack();
 
     /**
