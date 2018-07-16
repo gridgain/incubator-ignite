@@ -22,6 +22,7 @@ if COND_THIN_CLIENT
 
 if COND_TESTS
     MAYBE_THIN_CLIENT_TESTS = thin-client-test
+    MAYBE_THIN_CLIENT_BENCH = thin-client-bench
 endif
 endif
 
@@ -58,7 +59,8 @@ SUBDIRS = \
     $(MAYBE_NODE) \
     $(MAYBE_ODBC_TESTS) \
     $(MAYBE_CORE_TESTS) \
-    $(MAYBE_THIN_CLIENT_TESTS)
+    $(MAYBE_THIN_CLIENT_TESTS) \
+    $(MAYBE_THIN_CLIENT_BENCH)
 
 DIST_SUBDIRS = \
     common \
@@ -70,4 +72,5 @@ DIST_SUBDIRS = \
     ignite \
     core-test \
     odbc-test \
-    thin-client-test
+    thin-client-test \
+    thin-client-bench

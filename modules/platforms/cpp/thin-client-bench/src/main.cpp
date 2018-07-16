@@ -15,29 +15,23 @@
  * limitations under the License.
  */
 
-#ifndef _MSC_VER
-#   define BOOST_TEST_DYN_LINK
-#endif
-
 #include <fstream>
 #include <climits>
 
-#include <boost/test/unit_test.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/interprocess/sync/interprocess_semaphore.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/limits.hpp>
+#include <boost/program_options.hpp>
 
-#include <ignite/ignition.h>
+#include <ignite/binary/binary.h>
 
-#include <ignite/complex_type.h>
 #include <ignite/thin/ignite_client_configuration.h>
 #include <ignite/thin/ignite_client.h>
 
 using namespace ignite::thin;
-using namespace boost::unit_test;
 
 class SampleValue
 {
@@ -165,10 +159,10 @@ class ClientCacheBenchmarkAdapter : public BenchmarkBase
 public:
     ClientCacheBenchmarkAdapter(
         const BenchmarkConfiguration& cfg,
-        const IgniteClientConfiguration& clientCfg,
+        IgniteClient& client,
         const std::string& cacheName) :
         BenchmarkBase(cfg),
-        client(IgniteClient::Start(clientCfg)),
+        client(client),
         cache(client.GetOrCreateCache<int32_t, SampleValue>(cacheName.c_str()))
     {
         // No-op.
@@ -192,7 +186,7 @@ public:
     }
 
 protected:
-    IgniteClient client;
+    IgniteClient& client;
 
     cache::CacheClient<int32_t, SampleValue> cache;
 };
@@ -200,8 +194,8 @@ protected:
 class ClientCachePutBenchmark : public ClientCacheBenchmarkAdapter
 {
 public:
-    ClientCachePutBenchmark(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg) :
-        ClientCacheBenchmarkAdapter(cfg, clientCfg, "PutBenchTestCache"),
+    ClientCachePutBenchmark(const BenchmarkConfiguration& cfg, IgniteClient& client) :
+        ClientCacheBenchmarkAdapter(cfg, client, "PutBenchTestCache"),
         iteration(0)
     {
         // No-op.
@@ -248,8 +242,8 @@ private:
 class ClientCacheGetBenchmark : public ClientCacheBenchmarkAdapter
 {
 public:
-    ClientCacheGetBenchmark(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg) :
-        ClientCacheBenchmarkAdapter(cfg, clientCfg, "GutBenchTestCache"),
+    ClientCacheGetBenchmark(const BenchmarkConfiguration& cfg, IgniteClient& client) :
+        ClientCacheBenchmarkAdapter(cfg, client, "GutBenchTestCache"),
         iteration(0)
     {
         // No-op.
@@ -341,7 +335,7 @@ void MeasureThread(
 template<typename T>
 int64_t MeasureInThreads(
     const BenchmarkConfiguration& cfg,
-    const IgniteClientConfiguration& clientCfg,
+    IgniteClient& client,
     std::vector<int64_t>& latency)
 {
     using namespace boost::chrono;
@@ -357,7 +351,7 @@ int64_t MeasureInThreads(
 
     for (int32_t i = 0; i < cfg.threadNum; ++i)
     {
-        contexts.push_back(T(cfg, clientCfg));
+        contexts.push_back(T(cfg, client));
 
         contexts[i].SetUp();
 
@@ -396,13 +390,15 @@ void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const
     if (log)
         *log << "Warming up. Operations number: " << cfg.warmupIterationsNum << std::endl;
 
+    IgniteClient client = IgniteClient::Start(clientCfg);
+
     std::vector<int64_t> latency;
-    int64_t duration = MeasureInThreads<T>(cfg, clientCfg, latency);
+    int64_t duration = MeasureInThreads<T>(cfg, client, latency);
     
     if (log)
         *log << std::endl << "Starting benchmark. Operations number: " << cfg.iterationsNum << std::endl;
 
-    duration = MeasureInThreads<T>(cfg, clientCfg, latency);
+    duration = MeasureInThreads<T>(cfg, client, latency);
 
     if (log)
     {
@@ -414,84 +410,74 @@ void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const
     }
 }
 
-
-class BenchmarkTestSuiteFixture
+int main(int argc, const char* argv[])
 {
-public:
-    BenchmarkTestSuiteFixture() :
-        warmupIterationsNum(100000),
-        iterationsNum(100000),
-        threadNum(boost::thread::hardware_concurrency())
+    using namespace boost::program_options;
+
+    try
     {
-        logDir = ignite::common::GetEnv("CPP_THIN_BENCH_LOG");
-        address = ignite::common::GetEnv("CPP_THIN_BENCH_ADDRESS");
+        options_description desc("Options");
 
-        std::string warmupIterationsStr = ignite::common::GetEnv("CPP_THIN_BENCH_WARMUP_RUNS");
-        std::string iterationsStr = ignite::common::GetEnv("CPP_THIN_BENCH_RUNS");
-        std::string threadNumStr = ignite::common::GetEnv("CPP_THIN_BENCH_THREADS");
+        desc.add_options()
+            ("help,h", "Help screen")
+            ("get,g", "Run Get() benchmark")
+            ("put,p", "Run Put() benchmark")
+            ("log_dir,l", value<std::string>()->default_value(""), "Logs output directory")
+            ("address,a", value<std::string>()->required(), "Address. Format: \"address.com[port[..range]][,...]\"")
+            ("warmup_runs,w", value<int32_t>()->default_value(10000), "Warmup runs number")
+            ("runs,r", value<int32_t>()->default_value(10000), "Measure runs number")
+            ("threads,t", value<int32_t>()->default_value(boost::thread::hardware_concurrency()), "Threads number");
 
-        if (!warmupIterationsStr.empty())
-            warmupIterationsNum = ignite::common::LexicalCast<int32_t>(warmupIterationsStr);
+        variables_map vm;
+        store(parse_command_line(argc, argv, desc), vm);
+        vm.notify();
 
-        if (!iterationsStr.empty())
-            iterationsNum = ignite::common::LexicalCast<int32_t>(iterationsStr);
+        if (vm.count("help"))
+        {
+            std::cout << desc << std::endl;
 
-        if (!threadNumStr.empty())
-            threadNum = ignite::common::LexicalCast<int32_t>(threadNumStr);
-    }
+            return 0;
+        }
 
-    ~BenchmarkTestSuiteFixture()
-    {
-        // No-op.
-    }
+        if ((!vm.count("get") && !vm.count("put")) || (vm.count("get") && vm.count("put")))
+        {
+            std::cout << "Please, specify --get or --put." << std::endl;
+            std::cout << desc << std::endl;
 
-    void PrepareConfig(BenchmarkConfiguration& cfg, std::ofstream& log)
-    {
-        log << "CPP_THIN_BENCH_ADDRESS: " << address << std::endl;
-        log << "CPP_THIN_BENCH_WARMUP_RUNS: " << warmupIterationsNum << std::endl;
-        log << "CPP_THIN_BENCH_RUNS: " << iterationsNum << std::endl;
-        log << "CPP_THIN_BENCH_THREADS: " << threadNum << std::endl;
+            return -1;
+        }
 
-        cfg.iterationsNum = iterationsNum;
-        cfg.warmupIterationsNum = warmupIterationsNum;
-        cfg.threadNum = threadNum;
+        std::string logDir = vm["log_dir"].as<std::string>();
+
+        std::ofstream log(logDir + "thin_bench.log");
+
+        BenchmarkConfiguration cfg;
+        cfg.iterationsNum = vm["runs"].as<int32_t>();
+        cfg.warmupIterationsNum = vm["warmup_runs"].as<int32_t>();
+        cfg.threadNum = vm["threads"].as<int32_t>();
         cfg.log = &log;
+
+        IgniteClientConfiguration clientCfg;
+        clientCfg.SetEndPoints(vm["address"].as<std::string>());
+
+        log << "log_dir: " << logDir << std::endl;
+        log << "address: " << clientCfg.GetEndPoints() << std::endl;
+        log << "runs: " << cfg.iterationsNum << std::endl;
+        log << "warmup_runs: " << cfg.warmupIterationsNum << std::endl;
+        log << "threads: " << cfg.threadNum << std::endl;
+
+        if (vm.count("put"))
+            Run<ClientCachePutBenchmark>("Put", cfg, clientCfg);
+
+        if (vm.count("get"))
+            Run<ClientCacheGetBenchmark>("Get", cfg, clientCfg);
+    }
+    catch (const error &ex)
+    {
+        std::cerr << ex.what() << std::endl;
+
+        return -1;
     }
 
-    int32_t warmupIterationsNum;
-    int32_t iterationsNum;
-    int32_t threadNum;
-
-    std::string logDir;
-    std::string address;
-};
-
-BOOST_FIXTURE_TEST_SUITE(Benchmark, BenchmarkTestSuiteFixture)
-
-BOOST_AUTO_TEST_CASE(Put)
-{
-    std::ofstream log(logDir + "put.log");
-
-    BenchmarkConfiguration cfg;
-    PrepareConfig(cfg, log);
-
-    IgniteClientConfiguration clientCfg;
-    clientCfg.SetEndPoints(address);
-
-    Run<ClientCachePutBenchmark>("Put", cfg, clientCfg);
+    return 0;
 }
-
-BOOST_AUTO_TEST_CASE(Get)
-{
-    std::ofstream log(logDir + "get.log");
-
-    BenchmarkConfiguration cfg;
-    PrepareConfig(cfg, log);
-
-    IgniteClientConfiguration clientCfg;
-    clientCfg.SetEndPoints(address);
-
-    Run<ClientCacheGetBenchmark>("Get", cfg, clientCfg);
-}
-
-BOOST_AUTO_TEST_SUITE_END()

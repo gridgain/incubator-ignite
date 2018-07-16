@@ -17,20 +17,16 @@
 
 ACLOCAL_AMFLAGS =-I m4
 
-noinst_PROGRAMS = ignite-thin-client-tests
+noinst_PROGRAMS = ignite-thin-client-bench
 
 SUBDIRS = \
 	include
 
 AM_CPPFLAGS = \
 	-I$(srcdir)/include \
-	-I@top_srcdir@/core/include \
-	-I@top_srcdir@/core/os/linux/include \
 	-I@top_srcdir@/common/include \
 	-I@top_srcdir@/common/os/linux/include \
 	-I@top_srcdir@/binary/include \
-	-I@top_srcdir@/jni/include \
-	-I@top_srcdir@/jni/os/linux/include \
 	-I@top_srcdir@/thin-client/include \
 	-I@top_srcdir@/thin-client/os/linux/include \
 	-I$(JAVA_HOME)/include \
@@ -41,34 +37,28 @@ AM_CPPFLAGS = \
 
 AM_CXXFLAGS = \
 	-Wall \
-        -std=c++11
+    -std=c++11
 
-ignite_thin_client_tests_LDADD = \
-	@top_srcdir@/core/libignite.la \
+ignite_thin_client_bench_LDADD = \
 	@top_srcdir@/thin-client/libignite-thin-client.la \
 	-lpthread \
 	-lboost_thread \
 	-lboost_system \
-	-lboost_chrono
+    -lboost_chrono \
+    -lboost_random
 
-ignite_thin_client_tests_LDFLAGS = \
+ignite_thin_client_bench_LDFLAGS = \
 	-static-libtool-libs \
 	-rdynamic
 
-ignite_thin_client_tests_SOURCES = \
-	src/cache_client_test.cpp \
-	src/teamcity/teamcity_boost.cpp \
-	src/teamcity/teamcity_messages.cpp \
-	src/test_utils.cpp \
-	src/ignite_client_test.cpp \
-	src/auth_test.cpp \
-	src/ssl_test.cpp
+ignite_thin_client_bench_SOURCES = \
+    src/main.cpp
 
 run-check: check
-	./ignite-thin-client-tests -p
+	./ignite-thin-client-bench -p
 
 clean-local: clean-check
 	$(RM) *.gcno *.gcda
 
 clean-check:
-	$(RM) $(ignite_thin_client_tests_OBJECTS)
+	$(RM) $(ignite_thin_client_bench_OBJECTS)
