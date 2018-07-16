@@ -318,17 +318,15 @@ void MeasureThread(
 
     latency.reserve(bench.GetConfig().iterationsNum);
 
-    auto begin = steady_clock::now();
-
     bool run = true;
 
     while (run)
     {
-        auto putBegin = steady_clock::now();
+        auto begin = steady_clock::now();
 
         run = bench.Test();
 
-        latency.push_back(duration_cast<microseconds>(steady_clock::now() - putBegin).count());
+        latency.push_back(duration_cast<microseconds>(steady_clock::now() - begin).count());
     }
 }
 
