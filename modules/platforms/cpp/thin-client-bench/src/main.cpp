@@ -424,8 +424,8 @@ int main(int argc, const char* argv[])
             ("put,p", "Run Put() benchmark")
             ("log_dir,l", value<std::string>()->default_value(""), "Logs output directory")
             ("address,a", value<std::string>(), "Address. Format: \"address.com[port[..range]][,...]\"")
-            ("warmup_runs,w", value<int32_t>()->default_value(10000), "Warmup runs number")
-            ("runs,r", value<int32_t>()->default_value(10000), "Measure runs number")
+            ("warmup_runs,w", value<int32_t>()->default_value(100000), "Warmup runs number")
+            ("runs,r", value<int32_t>()->default_value(100000), "Measure runs number")
             ("threads,t", value<int32_t>()->default_value(boost::thread::hardware_concurrency()), "Threads number");
 
         variables_map vm;
