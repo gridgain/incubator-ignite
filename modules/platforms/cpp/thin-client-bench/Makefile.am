@@ -19,11 +19,7 @@ ACLOCAL_AMFLAGS =-I m4
 
 noinst_PROGRAMS = ignite-thin-client-bench
 
-SUBDIRS = \
-	include
-
 AM_CPPFLAGS = \
-	-I$(srcdir)/include \
 	-I@top_srcdir@/common/include \
 	-I@top_srcdir@/common/os/linux/include \
 	-I@top_srcdir@/binary/include \
@@ -37,22 +33,23 @@ AM_CPPFLAGS = \
 
 AM_CXXFLAGS = \
 	-Wall \
-    -std=c++11
+	-std=c++11
 
 ignite_thin_client_bench_LDADD = \
 	@top_srcdir@/thin-client/libignite-thin-client.la \
 	-lpthread \
 	-lboost_thread \
 	-lboost_system \
-    -lboost_chrono \
-    -lboost_random
+	-lboost_chrono \
+	-lboost_random \
+	-lboost_program_options
 
 ignite_thin_client_bench_LDFLAGS = \
 	-static-libtool-libs \
 	-rdynamic
 
 ignite_thin_client_bench_SOURCES = \
-    src/main.cpp
+	src/main.cpp
 
 run-check: check
 	./ignite-thin-client-bench -p

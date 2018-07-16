@@ -423,14 +423,13 @@ int main(int argc, const char* argv[])
             ("get,g", "Run Get() benchmark")
             ("put,p", "Run Put() benchmark")
             ("log_dir,l", value<std::string>()->default_value(""), "Logs output directory")
-            ("address,a", value<std::string>()->required(), "Address. Format: \"address.com[port[..range]][,...]\"")
+            ("address,a", value<std::string>(), "Address. Format: \"address.com[port[..range]][,...]\"")
             ("warmup_runs,w", value<int32_t>()->default_value(10000), "Warmup runs number")
             ("runs,r", value<int32_t>()->default_value(10000), "Measure runs number")
             ("threads,t", value<int32_t>()->default_value(boost::thread::hardware_concurrency()), "Threads number");
 
         variables_map vm;
         store(parse_command_line(argc, argv, desc), vm);
-        vm.notify();
 
         if (vm.count("help"))
         {
@@ -442,6 +441,14 @@ int main(int argc, const char* argv[])
         if ((!vm.count("get") && !vm.count("put")) || (vm.count("get") && vm.count("put")))
         {
             std::cout << "Please, specify --get or --put." << std::endl;
+            std::cout << desc << std::endl;
+
+            return -1;
+        }
+
+        if (vm["address"].empty())
+        {
+            std::cout << "Argument --address is required." << std::endl;
             std::cout << desc << std::endl;
 
             return -1;
