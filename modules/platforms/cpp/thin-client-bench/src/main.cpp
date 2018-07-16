@@ -301,6 +301,7 @@ void PrintBackets(const std::string& annotation, std::vector<int64_t>& res, std:
         << "90%: " << res.at(static_cast<size_t>(res.size() * 0.9)) << "us, "
         << "95%: " << res.at(static_cast<size_t>(res.size() * 0.95)) << "us, "
         << "99%: " << res.at(static_cast<size_t>(res.size() * 0.99)) << "us, "
+        << "99.9%: " << res.at(static_cast<size_t>(res.size() * 0.999)) << "us, "
         << "max: " << res.back() << "us"
         << std::endl;
 }
