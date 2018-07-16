@@ -414,24 +414,66 @@ void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const
     }
 }
 
-const int32_t WARMUP_ITERATIONS_NUM = 100000;
-const int32_t ITERATIONS_NUM = 100000;
-const int32_t THREAD_NUM = boost::thread::hardware_concurrency();
 
-const std::string logDir = "";
-const std::string address = "127.0.0.1";
+class BenchmarkTestSuiteFixture
+{
+public:
+    BenchmarkTestSuiteFixture() :
+        warmupIterationsNum(100000),
+        iterationsNum(100000),
+        threadNum(boost::thread::hardware_concurrency())
+    {
+        logDir = ignite::common::GetEnv("CPP_THIN_BENCH_LOG");
+        address = ignite::common::GetEnv("CPP_THIN_BENCH_ADDRESS");
 
-BOOST_AUTO_TEST_SUITE(Benchmark)
+        std::string warmupIterationsStr = ignite::common::GetEnv("CPP_THIN_BENCH_WARMUP_RUNS");
+        std::string iterationsStr = ignite::common::GetEnv("CPP_THIN_BENCH_RUNS");
+        std::string threadNumStr = ignite::common::GetEnv("CPP_THIN_BENCH_THREADS");
+
+        if (!warmupIterationsStr.empty())
+            warmupIterationsNum = ignite::common::LexicalCast<int32_t>(warmupIterationsStr);
+
+        if (!iterationsStr.empty())
+            iterationsNum = ignite::common::LexicalCast<int32_t>(iterationsStr);
+
+        if (!threadNumStr.empty())
+            threadNum = ignite::common::LexicalCast<int32_t>(threadNumStr);
+    }
+
+    ~BenchmarkTestSuiteFixture()
+    {
+        // No-op.
+    }
+
+    void PrepareConfig(BenchmarkConfiguration& cfg, std::ofstream& log)
+    {
+        log << "CPP_THIN_BENCH_ADDRESS: " << address << std::endl;
+        log << "CPP_THIN_BENCH_WARMUP_RUNS: " << warmupIterationsNum << std::endl;
+        log << "CPP_THIN_BENCH_RUNS: " << iterationsNum << std::endl;
+        log << "CPP_THIN_BENCH_THREADS: " << threadNum << std::endl;
+
+        cfg.iterationsNum = iterationsNum;
+        cfg.warmupIterationsNum = warmupIterationsNum;
+        cfg.threadNum = threadNum;
+        cfg.log = &log;
+    }
+
+    int32_t warmupIterationsNum;
+    int32_t iterationsNum;
+    int32_t threadNum;
+
+    std::string logDir;
+    std::string address;
+};
+
+BOOST_FIXTURE_TEST_SUITE(Benchmark, BenchmarkTestSuiteFixture)
 
 BOOST_AUTO_TEST_CASE(Put)
 {
     std::ofstream log(logDir + "put.log");
 
     BenchmarkConfiguration cfg;
-    cfg.iterationsNum = ITERATIONS_NUM;
-    cfg.warmupIterationsNum = WARMUP_ITERATIONS_NUM;
-    cfg.threadNum = THREAD_NUM;
-    cfg.log = &log;
+    PrepareConfig(cfg, log);
 
     IgniteClientConfiguration clientCfg;
     clientCfg.SetEndPoints(address);
@@ -444,10 +486,7 @@ BOOST_AUTO_TEST_CASE(Get)
     std::ofstream log(logDir + "get.log");
 
     BenchmarkConfiguration cfg;
-    cfg.iterationsNum = ITERATIONS_NUM;
-    cfg.warmupIterationsNum = WARMUP_ITERATIONS_NUM;
-    cfg.threadNum = THREAD_NUM;
-    cfg.log = &log;
+    PrepareConfig(cfg, log);
 
     IgniteClientConfiguration clientCfg;
     clientCfg.SetEndPoints(address);
