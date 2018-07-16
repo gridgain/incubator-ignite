@@ -164,10 +164,8 @@ public class DiscoCache {
         this.consIdxToNodeId = consIdxToNodeId;
 
         aliveBaselineNodePred = new P1<BaselineNode>() {
-            @Override
-            public boolean apply(BaselineNode node) {
+            @Override public boolean apply(BaselineNode node) {
                 return node instanceof ClusterNode && alives.contains(((ClusterNode)node).id());
-
             }
         };
 
@@ -307,6 +305,16 @@ public class DiscoCache {
             if (alives.contains(srv.id()))
                 return srv;
         }
+
+        return null;
+    }
+
+    /**
+     * @return Oldest server node.
+     */
+    @Nullable public ClusterNode oldestServerNode(){
+        if (srvNodes.size() > 0)
+            return srvNodes.get(0);
 
         return null;
     }
