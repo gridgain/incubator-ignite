@@ -467,7 +467,7 @@
                             </group>
                             <group>
                                 <title>SpringData integration</title>
-                                <packages>org.apache.ignite.springdata.repository*</packages>
+                                <packages>org.apache.ignite.springdata.repository*:org.apache.ignite.springdata20.repository*</packages>
                             </group>
                             <group>
                                 <title>RocketMQ integration</title>
