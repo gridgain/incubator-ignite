@@ -478,6 +478,12 @@ int main(int argc, const char* argv[])
 
         return -1;
     }
+    catch (const ignite::IgniteError& err)
+    {
+        std::cerr << err.what() << std::endl;
+
+        return -1;
+    }
 
     return 0;
 }
