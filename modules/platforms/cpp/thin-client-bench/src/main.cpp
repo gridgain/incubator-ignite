@@ -339,18 +339,22 @@ int64_t MeasureInThreads(
 {
     using namespace boost::chrono;
 
+    BenchmarkConfiguration tBench(cfg);
+    tBench.warmupIterationsNum /= tBench.threadNum;
+    tBench.iterationsNum /= tBench.threadNum;
+
     std::vector<T> contexts;
     std::vector<boost::thread> threads;
-    std::vector< std::vector<int64_t> > latencies(cfg.threadNum);
+    std::vector< std::vector<int64_t> > latencies(tBench.threadNum);
 
-    contexts.reserve(cfg.threadNum);
-    threads.reserve(cfg.threadNum);
+    contexts.reserve(tBench.threadNum);
+    threads.reserve(tBench.threadNum);
 
     boost::interprocess::interprocess_semaphore sem(0);
 
-    for (int32_t i = 0; i < cfg.threadNum; ++i)
+    for (int32_t i = 0; i < tBench.threadNum; ++i)
     {
-        contexts.push_back(T(cfg, client));
+        contexts.push_back(T(tBench, client));
 
         contexts[i].SetUp();
 
@@ -359,23 +363,21 @@ int64_t MeasureInThreads(
 
     auto begin = steady_clock::now();
 
-    for (int32_t i = 0; i < cfg.threadNum; ++i)
+    for (int32_t i = 0; i < tBench.threadNum; ++i)
         sem.post();
 
-    for (int32_t i = 0; i < cfg.threadNum; ++i)
+    for (int32_t i = 0; i < tBench.threadNum; ++i)
         threads[i].join();
-    
-    for (int32_t i = 0; i < cfg.threadNum; ++i)
-        contexts[i].TearDown();
-
-    using namespace boost::chrono;
 
     auto duration = steady_clock::now() - begin;
+    
+    for (int32_t i = 0; i < tBench.threadNum; ++i)
+        contexts[i].TearDown();
 
     latency.clear();
-    latency.reserve(cfg.iterationsNum * cfg.threadNum);
+    latency.reserve(tBench.iterationsNum * tBench.threadNum);
 
-    for (int32_t i = 0; i < cfg.threadNum; ++i)
+    for (int32_t i = 0; i < tBench.threadNum; ++i)
         latency.insert(latency.end(), latencies[i].begin(), latencies[i].end());   
 
     return duration_cast<milliseconds>(duration).count();
@@ -394,6 +396,9 @@ void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const
     std::vector<int64_t> latency;
     int64_t duration = MeasureInThreads<T>(cfg, client, latency);
     
+    if (log)
+        *log << "Warm up duration: " << duration << "ms" << std::endl;
+
     if (log)
         *log << std::endl << "Starting benchmark. Operations number: " << cfg.iterationsNum << std::endl;
 
