@@ -80,6 +80,8 @@ namespace ignite
                     {
                         SP_DataChannel channel(new DataChannel(config, typeMgr));
 
+                        std::cout << range.host << ":" << port << std::endl;
+
                         bool connected = channel.Get()->Connect(range.host, port, connectionTimeout);
 
                         if (connected)

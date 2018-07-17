@@ -243,7 +243,7 @@ class ClientCacheGetBenchmark : public ClientCacheBenchmarkAdapter
 {
 public:
     ClientCacheGetBenchmark(const BenchmarkConfiguration& cfg, IgniteClient& client) :
-        ClientCacheBenchmarkAdapter(cfg, client, "GutBenchTestCache"),
+        ClientCacheBenchmarkAdapter(cfg, client, "GetBenchTestCache"),
         iteration(0)
     {
         // No-op.
