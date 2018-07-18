@@ -1586,7 +1586,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
     /** */
     public void dumpRecordedMessages() {
         if (log.isInfoEnabled()) {
-            log.info("Dumping recorded messages:");
+            log.info("Dumping recorded messages [node=" + cctx.localNode() + ']');
 
             for (T3<UUID, GridCacheMessage, Boolean> entry : queue)
                 log.info("    Message: [" + (entry.get3() ? "from" : "to") + "=" + entry.get1() + ", msg=" + entry.get2() + ']');
@@ -1612,7 +1612,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
     }
 
     /** Tx message predicate. */
-    private static final IgnitePredicate<GridCacheMessage> TX_MSG_PREDICATE = new IgnitePredicate<GridCacheMessage>() {
+    public static final IgnitePredicate<GridCacheMessage> TX_MSG_PREDICATE = new IgnitePredicate<GridCacheMessage>() {
         @Override public boolean apply(GridCacheMessage msg) {
             return msg instanceof GridNearLockRequest ||
                 msg instanceof GridNearLockResponse ||

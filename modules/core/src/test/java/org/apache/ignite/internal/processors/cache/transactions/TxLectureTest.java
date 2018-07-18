@@ -57,7 +57,9 @@ import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.configuration.WALMode.LOG_ONLY;
 import static org.apache.ignite.testframework.GridTestUtils.runAsync;
+import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
@@ -263,6 +265,7 @@ public class TxLectureTest extends GridCommonAbstractTest {
         assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
     }
 
+    /** Stop primary while preparing. */
     public void test2PCKillPrimary() throws Exception {
         backups = 2;
 
@@ -275,6 +278,8 @@ public class TxLectureTest extends GridCommonAbstractTest {
         Integer key = primaryKey(prim.cache(DEFAULT_CACHE_NAME));
 
         IgniteEx backup = (IgniteEx)backupNode(key, DEFAULT_CACHE_NAME);
+
+        CountDownLatch nodeStopLatch = new CountDownLatch(1);
 
         // Start pessimistic tx.
         try (Transaction tx = client.transactions().txStart()) {
@@ -291,13 +296,13 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
             log.info("Backup tx: " + backupTx); // Null, backup transactions are created on prepare.
 
-            CountDownLatch l = new CountDownLatch(1);
+            CountDownLatch commitLatch = new CountDownLatch(1);
 
             runAsync(new Runnable() {
                 @Override public void run() {
                     TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(prim);
 
-                    // Prevent backup commit.
+                    // Prevent prepare on backups.
                     spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
                         @Override public boolean apply(ClusterNode node, Message msg) {
                             if (msg instanceof GridDhtTxPrepareRequest) {
@@ -312,7 +317,7 @@ public class TxLectureTest extends GridCommonAbstractTest {
                         }
                     });
 
-                    l.countDown(); // Makes sure message blocked before trying to commit.
+                    commitLatch.countDown(); // Makes sure message blocked before trying to commit.
 
                     try {
                         spi.waitForBlocked(2);
@@ -327,13 +332,11 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
                     prim.close();
 
-                    LockSupport.park();
-
-                    //spi.stopBlock();
+                    nodeStopLatch.countDown();
                 }
             });
 
-            U.awaitQuiet(l);
+            U.awaitQuiet(commitLatch);
 
             tx.commit();
         }
@@ -341,11 +344,18 @@ public class TxLectureTest extends GridCommonAbstractTest {
             // No-op.
         }
 
-        //assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
+        U.awaitQuiet(nodeStopLatch);
 
-        LockSupport.park();
+        awaitPartitionMapExchange(); // Triggered by left node.
+
+        dumpRecordedMessages();
+
+        checkFutures();
+
+        assertNull(client.cache(DEFAULT_CACHE_NAME).get(key));
     }
 
+    /** Stop near while preparing. */
     public void test2PCKillNear() throws Exception {
         backups = 2;
 
@@ -410,9 +420,6 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
                     client.close();
 
-                    LockSupport.park();
-
-                    //spi.stopBlock();
                 }
             });
 
@@ -425,8 +432,43 @@ public class TxLectureTest extends GridCommonAbstractTest {
         }
 
         //assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
+    }
 
-        LockSupport.park();
+    public void testDelayFinishFromNearNode() {
+
+    }
+
+    /** Optimistic commit will wait for lock release */
+    public void testPreparingOptimistic() throws Exception {
+        System.setProperty("IGNITE_WAL_LOG_TX_RECORDS", "true");
+
+        backups = 2;
+        persistenceEnabled = true;
+
+        startGridsMultiThreaded(GRID_CNT);
+
+        Ignite client = startGrid("client");
+
+        Transaction tx1 = client.transactions().txStart(PESSIMISTIC, READ_COMMITTED, 0, 0);
+        client.cache(DEFAULT_CACHE_NAME).put(0, 0);
+
+        IgniteInternalFuture fut = runAsync(new Runnable() {
+            @Override public void run() {
+                Transaction tx2 = client.transactions().txStart(OPTIMISTIC, READ_COMMITTED, 0, 0);
+
+                client.cache(DEFAULT_CACHE_NAME).put(0, 0);
+
+                tx2.commit();
+            }
+        });
+
+        doSleep(3000);
+
+        Ignite prim = primaryNode(0, DEFAULT_CACHE_NAME);
+
+        prim.close();
+
+        awaitPartitionMapExchange();
     }
 
     public void testBackupRace() throws Exception {
@@ -927,6 +969,11 @@ public class TxLectureTest extends GridCommonAbstractTest {
         }
 
         assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
+    }
+
+    private void dumpRecordedMessages() {
+        for (Ignite ignite : G.allGrids())
+            ((IgniteEx)ignite).context().cache().context().io().dumpRecordedMessages();
     }
 
     @Override protected long getTestTimeout() {
