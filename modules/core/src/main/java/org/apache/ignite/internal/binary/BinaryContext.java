@@ -48,6 +48,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.UnregisteredClassException;
+import org.apache.ignite.internal.binary.compress.LZWBytes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.binary.BinaryBasicIdMapper;
 import org.apache.ignite.binary.BinaryBasicNameMapper;
@@ -259,6 +260,9 @@ public class BinaryContext {
 
     /** Object schemas. */
     private volatile Map<Integer, BinarySchemaRegistry> schemas;
+
+
+    private final LZWBytes lzwBytes = new LZWBytes();
 
     /**
      * @param metaHnd Meta data handler.
@@ -1453,6 +1457,14 @@ public class BinaryContext {
             enumMap.put(((Enum)enumVal).name(), ((Enum)enumVal).ordinal());
 
         return enumMap;
+    }
+
+    public byte[] compress(byte[] arr) {
+        return lzwBytes.handle(arr);
+    }
+
+    public byte[] decompress(byte[] bytes) {
+        return lzwBytes.decompress(bytes);
     }
 
     /**
