@@ -284,6 +284,9 @@ public final class IgniteSystemProperties {
     /** System property to enable experimental commands in control.sh script. */
     public static final String IGNITE_ENABLE_EXPERIMENTAL_COMMAND = "IGNITE_ENABLE_EXPERIMENTAL_COMMAND";
 
+    /** System property to enable experimental commands in control.sh script. */
+    public static final String IGNITE_ENABLE_COMPRESSION = "IGNITE_ENABLE_COMPRESSION";
+
     /** System property to hold SSH user name for visor-started nodes. */
     public static final String IGNITE_SSH_USER_NAME = "IGNITE_SSH_USER_NAME";
 
