@@ -13,8 +13,8 @@
                 <property name="defaultDataRegionConfiguration">
                     <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
                         <property name="persistenceEnabled" value="true"/>
-                        <property name="initialSize" value="#{50L * 1024 * 1024 * 1024}"/>
-                        <property name="maxSize" value="#{50L * 1024 * 1024 * 1024}"/>
+                        <property name="initialSize" value="#{10L * 1024 * 1024 * 1024}"/>
+                        <property name="maxSize" value="#{10L * 1024 * 1024 * 1024}"/>
                         <property name="checkpointPageBufferSize" value="#{4L * 1024 * 1024 * 1024}"/>
                         <property name="metricsEnabled" value="true"/>
                     </bean>
@@ -25,7 +25,7 @@
                 <property name="checkpointFrequency" value="3000000"/>
                 <property name="checkpointThreads" value="4"/>
                 <property name="metricsEnabled" value="true"/>
-                <property name="writeThrottlingEnabled" value="true"/>
+                <!--<property name="writeThrottlingEnabled" value="true"/>-->
             </bean>
         </property>
 

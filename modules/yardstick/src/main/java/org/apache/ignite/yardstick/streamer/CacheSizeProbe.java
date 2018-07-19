@@ -20,7 +20,7 @@ import org.yardstickframework.BenchmarkProbe;
 import org.yardstickframework.BenchmarkProbePoint;
 
 /**  */
-public class DataRegionMetricsProbe implements BenchmarkProbe {
+public class CacheSizeProbe implements BenchmarkProbe {
     /** Collected points. */
     private Collection<BenchmarkProbePoint> collected = new ArrayList<>();
 
@@ -48,13 +48,8 @@ public class DataRegionMetricsProbe implements BenchmarkProbe {
     @Override public Collection<String> metaInfo() {
         return Arrays.asList(
             "Time, sec",
-            "Total allocated size, KB",
-            "Number of dirty pages",
-            "Checkpoint buffer size, KB",
-            "Pages replace age, sec",
-            "Pages replace rate, pages/sec",
-            "Total allocated size growth rate, KB/sec",
-            "Pages fill factor"
+            "Cache size, entries",
+            "Cache size growth rate, entries/sec"
         );
     }
 
@@ -81,25 +76,16 @@ public class DataRegionMetricsProbe implements BenchmarkProbe {
         // Time delta in seconds, rounding is used because Thread.sleep(1000) can last less than a second.
         long delta = (long)Math.floor((lastTstamp1 - lastTstamp0) / 1000d + 0.5);
 
-        ClusterGroup oldest = Ignition.ignite().cluster().forOldest();
-        double[] metrics = Ignition.ignite().compute(oldest).call(new MetricsJob());
-        List<Double> metricsList = DoubleStream.of(metrics).boxed().collect(Collectors.toList());
-
-        double totalSize = metrics[0];
+        double totalSize = Ignition.ignite().cache("default").sizeLong();
         double totalSizeGrowthRate = delta == 0
             ? Double.NaN
             : (totalSize - lastTotalSize) / delta;
-        metricsList.add(totalSizeGrowthRate);
 
         lastTotalSize = totalSize;
 
         long seconds = TimeUnit.MILLISECONDS.toSeconds(time);
 
-        BenchmarkProbePoint pnt = new BenchmarkProbePoint(seconds, metricsList.stream().mapToDouble(new ToDoubleFunction<Double>() {
-            @Override public double applyAsDouble(Double d) {
-                return d;
-            }
-        }).toArray());
+        BenchmarkProbePoint pnt = new BenchmarkProbePoint(seconds, new double[] { totalSize, totalSizeGrowthRate });
 
         collectPoint(pnt);
     }
@@ -109,29 +95,5 @@ public class DataRegionMetricsProbe implements BenchmarkProbe {
      */
     private synchronized void collectPoint(BenchmarkProbePoint pnt) {
         collected.add(pnt);
-    }
-
-    /** */
-    private static class MetricsJob implements IgniteCallable<double[]> {
-        /** */
-        @Override public double[] call() {
-            Ignite ignite = Ignition.localIgnite();
-            String dfltRegionName = ignite.configuration()
-                .getDataStorageConfiguration()
-                .getDefaultDataRegionConfiguration()
-                .getName();
-            DataRegionMetrics metrics = ignite.dataRegionMetrics(dfltRegionName);
-
-            assert metrics != null;
-
-            return new double[] {
-                metrics.getTotalAllocatedSize() / 1024,
-                metrics.getDirtyPages(),
-                metrics.getCheckpointBufferSize() / 1024,
-                metrics.getPagesReplaceAge() / 1000,
-                metrics.getPagesReplaceRate(),
-                metrics.getPagesFillFactor()
-            };
-        }
     }
 }

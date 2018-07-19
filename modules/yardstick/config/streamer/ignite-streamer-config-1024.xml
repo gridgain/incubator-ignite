@@ -9,7 +9,6 @@
         <property name="cacheConfiguration">
             <list>
                 <bean class="org.apache.ignite.configuration.CacheConfiguration">
-                    <property name="name" value="streamer-atomic"/>
                     <property name="cacheMode" value="PARTITIONED"/>
                     <property name="backups" value="1"/>
                     <property name="atomicityMode" value="ATOMIC"/>
@@ -19,30 +18,6 @@
                             <bean class="org.apache.ignite.cache.QueryEntity">
                                 <property name="keyType" value="org.apache.ignite.yardstick.streamer.CustomKey"/>
                                 <property name="valueType" value="org.apache.ignite.yardstick.streamer.CustomValue"/>
-                                <property name="fields">
-                                    <map>
-                                        <entry key="str1" value="java.lang.String"/>
-                                        <entry key="str2" value="java.lang.String"/>
-                                        <entry key="str3" value="java.lang.String"/>
-                                        <entry key="int1" value="java.lang.Integer"/>
-                                        <entry key="time" value="java.time.LocalDateTime"/>
-                                    </map>
-                                </property>
-                                <property name="indexes">
-                                    <list>
-                                        <bean class="org.apache.ignite.cache.QueryIndex">
-                                            <constructor-arg value="str1"/>
-                                        </bean>
-                                    </list>
-                                </property>
-                                <property name="keyFields">
-                                    <set value-type="java.lang.String">
-                                        <value>str1</value>
-                                        <value>str2</value>
-                                        <value>str3</value>
-                                        <value>int1</value>
-                                    </set>
-                                </property>
                             </bean>
                         </list>
                     </property>

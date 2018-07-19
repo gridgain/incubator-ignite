@@ -255,6 +255,10 @@ public class IgniteBenchmarkArguments {
     private int streamerBufSize = IgniteDataStreamer.DFLT_PER_NODE_BUFFER_SIZE;
 
     /** */
+    @Parameter(names = {"-rkp", "--repeatingKeysPercent"}, description = "Repeating keys percent")
+    private int repeatingKeysPercent;
+
+    /** */
     @Parameter(names = {"-sqlr", "--sqlRange"}, description = "Result set size")
     @GridToStringInclude
     private int sqlRange = 1;
@@ -660,6 +664,13 @@ public class IgniteBenchmarkArguments {
      */
     public int clientNodesAfterId() {
         return clientNodesAfterId;
+    }
+
+    /**
+     * @return Repeating keys percent.
+     */
+    public int repeatingKeysPercent() {
+        return repeatingKeysPercent;
     }
 
     /** {@inheritDoc} */

@@ -16,44 +16,31 @@ class DataGenerator {
     private static final int ALPHABET_LENGTH = ALPHABET.length();
 
     /** */
-    static CustomKey randomKey(int maxAffinityKey) {
+    static CustomKey randomKey() {
         return new CustomKey(
-            randomString(12),
-            randomString(12),
-            randomString(12),
-            randomInt(maxAffinityKey)
+            randomString(20),
+            randomString(20),
+            randomString(20)
         );
     }
 
     /** */
     static CustomValue randomValue() {
-        int numOfTxn = randomInt(5);
+        int numOfObjects = randomInt(5);
 
-        List<CustomNestedValue> txns = new ArrayList<>(numOfTxn);
-        for (int i = 0; i < numOfTxn; i++) {
-            txns.add(new CustomNestedValue(
+        List<CustomNestedValue> list = new ArrayList<>(numOfObjects);
+        for (int i = 0; i < numOfObjects; i++) {
+            list.add(new CustomNestedValue(
                 LocalDate.now(),
                 new BigDecimal(randomLong()),
-                randomString(10),
-                randomLong(),
-                randomLong(),
-                randomInt(),
-                randomString(10)
+                randomString(20),
+                randomLong()
             ));
         }
 
         return new CustomValue(
-            randomString(12),
-            randomString(12),
-            randomString(12),
-            randomString(4),
-            randomString(10),
-            new BigDecimal(randomLong()),
-            randomInt(),
-            randomString(10),
-            randomString(10),
-            randomString(10),
-            txns,
+            randomString(256),
+            list,
             LocalDateTime.now()
         );
     }
