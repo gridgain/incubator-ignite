@@ -389,8 +389,11 @@ void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const
     if (log)
         *log << "Warming up. Operations number: " << cfg.warmupIterationsNum << std::endl;
 
+    BenchmarkConfiguration wcfg(cfg);
+    wcfg.iterationsNum = wcfg.warmupIterationsNum;
+
     std::vector<int64_t> latency;
-    int64_t duration = MeasureInThreads<T>(cfg, clientCfg, latency);
+    int64_t duration = MeasureInThreads<T>(wcfg, clientCfg, latency);
     
     if (log)
     {
@@ -400,7 +403,7 @@ void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const
 
         *log << "Starting benchmark. Operations number: " << cfg.iterationsNum << std::endl;
 
-        *log << T::GetName() << cfg.iterationsNum << std::endl;
+        *log << T::GetName() << std::endl;
     }
 
     duration = MeasureInThreads<T>(cfg, clientCfg, latency);
