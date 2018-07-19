@@ -120,8 +120,6 @@ public:
 
     virtual void TearDown() = 0;
 
-    virtual std::string GetName() = 0;
-
     const BenchmarkConfiguration& GetConfig() const
     {
         return cfg;
@@ -159,10 +157,10 @@ class ClientCacheBenchmarkAdapter : public BenchmarkBase
 public:
     ClientCacheBenchmarkAdapter(
         const BenchmarkConfiguration& cfg,
-        IgniteClient& client,
+        const IgniteClientConfiguration& clientCfg,
         const std::string& cacheName) :
         BenchmarkBase(cfg),
-        client(client),
+        client(IgniteClient::Start(clientCfg)),
         cache(client.GetOrCreateCache<int32_t, SampleValue>(cacheName.c_str()))
     {
         // No-op.
@@ -186,7 +184,7 @@ public:
     }
 
 protected:
-    IgniteClient& client;
+    IgniteClient client;
 
     cache::CacheClient<int32_t, SampleValue> cache;
 };
@@ -194,8 +192,8 @@ protected:
 class ClientCachePutBenchmark : public ClientCacheBenchmarkAdapter
 {
 public:
-    ClientCachePutBenchmark(const BenchmarkConfiguration& cfg, IgniteClient& client) :
-        ClientCacheBenchmarkAdapter(cfg, client, "PutBenchTestCache"),
+    ClientCachePutBenchmark(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg) :
+        ClientCacheBenchmarkAdapter(cfg, clientCfg, "PutBenchTestCache"),
         iteration(0)
     {
         // No-op.
@@ -228,7 +226,7 @@ public:
         return iteration < GetConfig().iterationsNum;
     }
 
-    virtual std::string GetName()
+    static std::string GetName()
     {
         return "Thin client Put";
     }
@@ -242,8 +240,8 @@ private:
 class ClientCacheGetBenchmark : public ClientCacheBenchmarkAdapter
 {
 public:
-    ClientCacheGetBenchmark(const BenchmarkConfiguration& cfg, IgniteClient& client) :
-        ClientCacheBenchmarkAdapter(cfg, client, "GetBenchTestCache"),
+    ClientCacheGetBenchmark(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg) :
+        ClientCacheBenchmarkAdapter(cfg, clientCfg, "GetBenchTestCache"),
         iteration(0)
     {
         // No-op.
@@ -278,7 +276,7 @@ public:
         return iteration < GetConfig().iterationsNum;
     }
 
-    virtual std::string GetName()
+    static std::string GetName()
     {
         return "Thin client Get";
     }
@@ -334,7 +332,7 @@ void MeasureThread(
 template<typename T>
 int64_t MeasureInThreads(
     const BenchmarkConfiguration& cfg,
-    IgniteClient& client,
+    const IgniteClientConfiguration& clientCfg,
     std::vector<int64_t>& latency)
 {
     using namespace boost::chrono;
@@ -354,7 +352,7 @@ int64_t MeasureInThreads(
 
     for (int32_t i = 0; i < tBench.threadNum; ++i)
     {
-        contexts.push_back(T(tBench, client));
+        contexts.push_back(T(tBench, clientCfg));
 
         contexts[i].SetUp();
 
@@ -391,18 +389,21 @@ void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const
     if (log)
         *log << "Warming up. Operations number: " << cfg.warmupIterationsNum << std::endl;
 
-    IgniteClient client = IgniteClient::Start(clientCfg);
-
     std::vector<int64_t> latency;
-    int64_t duration = MeasureInThreads<T>(cfg, client, latency);
+    int64_t duration = MeasureInThreads<T>(cfg, clientCfg, latency);
     
     if (log)
+    {
         *log << "Warm up duration: " << duration << "ms" << std::endl;
 
-    if (log)
-        *log << std::endl << "Starting benchmark. Operations number: " << cfg.iterationsNum << std::endl;
+        *log << std::endl;
 
-    duration = MeasureInThreads<T>(cfg, client, latency);
+        *log << "Starting benchmark. Operations number: " << cfg.iterationsNum << std::endl;
+
+        *log << T::GetName() << cfg.iterationsNum << std::endl;
+    }
+
+    duration = MeasureInThreads<T>(cfg, clientCfg, latency);
 
     if (log)
     {
@@ -430,7 +431,7 @@ int main(int argc, const char* argv[])
             ("address,a", value<std::string>(), "Address. Format: \"address.com[port[..range]][,...]\"")
             ("warmup_runs,w", value<int32_t>()->default_value(100000), "Warmup runs number")
             ("runs,r", value<int32_t>()->default_value(100000), "Measure runs number")
-            ("threads,t", value<int32_t>()->default_value(boost::thread::hardware_concurrency()), "Threads number");
+            ("threads,t", value<int32_t>()->default_value(boost::thread::hardware_concurrency() * 2), "Threads number");
 
         variables_map vm;
         store(parse_command_line(argc, argv, desc), vm);
