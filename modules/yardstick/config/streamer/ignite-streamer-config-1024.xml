@@ -9,6 +9,7 @@
         <property name="cacheConfiguration">
             <list>
                 <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="streamer-atomic"/>
                     <property name="cacheMode" value="PARTITIONED"/>
                     <property name="backups" value="1"/>
                     <property name="atomicityMode" value="ATOMIC"/>

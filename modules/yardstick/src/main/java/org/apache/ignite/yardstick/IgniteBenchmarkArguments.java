@@ -31,6 +31,7 @@ import org.apache.ignite.transactions.TransactionIsolation;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.yardstick.cache.IgniteStreamerBenchmark;
+import org.apache.ignite.yardstick.streamer.StreamerBenchmarkArguments;
 import org.apache.ignite.yardstick.upload.UploadBenchmarkArguments;
 import org.jetbrains.annotations.Nullable;
 
@@ -255,10 +256,6 @@ public class IgniteBenchmarkArguments {
     private int streamerBufSize = IgniteDataStreamer.DFLT_PER_NODE_BUFFER_SIZE;
 
     /** */
-    @Parameter(names = {"-rkp", "--repeatingKeysPercent"}, description = "Repeating keys percent")
-    private int repeatingKeysPercent;
-
-    /** */
     @Parameter(names = {"-sqlr", "--sqlRange"}, description = "Result set size")
     @GridToStringInclude
     private int sqlRange = 1;
@@ -272,6 +269,10 @@ public class IgniteBenchmarkArguments {
     @ParametersDelegate
     @GridToStringInclude
     public UploadBenchmarkArguments upload = new UploadBenchmarkArguments();
+
+    @ParametersDelegate
+    @GridToStringInclude
+    public StreamerBenchmarkArguments streamer = new StreamerBenchmarkArguments();
 
     /**
      * @return {@code True} if need set {@link DataStorageConfiguration}.
@@ -664,13 +665,6 @@ public class IgniteBenchmarkArguments {
      */
     public int clientNodesAfterId() {
         return clientNodesAfterId;
-    }
-
-    /**
-     * @return Repeating keys percent.
-     */
-    public int repeatingKeysPercent() {
-        return repeatingKeysPercent;
     }
 
     /** {@inheritDoc} */
