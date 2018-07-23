@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.h2.opt;
 
+import com.vividsolutions.jts.geom.Envelope;
+import com.vividsolutions.jts.geom.Geometry;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,8 +28,6 @@ import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import com.vividsolutions.jts.geom.Envelope;
-import com.vividsolutions.jts.geom.Geometry;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.query.h2.H2Cursor;
 import org.apache.ignite.internal.util.GridCursorIteratorWrapper;
@@ -52,7 +52,6 @@ import org.h2.table.IndexColumn;
 import org.h2.table.TableFilter;
 import org.h2.value.Value;
 import org.h2.value.ValueGeometry;
-import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.processors.query.h2.opt.GridH2KeyValueRowOnheap.KEY_COL;
 
@@ -208,11 +207,6 @@ public class GridH2SpatialIndex extends GridH2IndexBase implements SpatialIndex 
         GridH2Row old = put(row);
 
         return old != null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean update(GridH2Row row, @Nullable GridH2Row oldRow) {
-        return put(row) != null;
     }
 
     /**
