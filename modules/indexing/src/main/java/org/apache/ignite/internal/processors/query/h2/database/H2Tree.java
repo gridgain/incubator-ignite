@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.query.h2.database;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
@@ -57,6 +58,10 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
 
     /** */
     private final List<InlineIndexHelper> inlineIdxs;
+
+    public final static AtomicInteger cnt = new AtomicInteger();
+
+    public static volatile H2Tree instance;
 
     /** */
     private final IndexColumn[] cols;
@@ -136,6 +141,9 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
         setIos(H2ExtrasInnerIO.getVersions(inlineSize), H2ExtrasLeafIO.getVersions(inlineSize));
 
         initTree(initNew, inlineSize);
+
+        if (!getName().toLowerCase().contains("pk"))
+            instance = this;
 
         if (!linksBasedComparison)
             U.warn(log, "Grid has been restored from persistent storage created by older version, falling back " +
@@ -265,6 +273,17 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
     @Override protected int compare(BPlusIO<SearchRow> io, long pageAddr, int idx,
         SearchRow row, @Nullable SearchRow oldRow) throws IgniteCheckedException {
 
+        if (!getName().toLowerCase().contains("pk")) {
+            cnt.incrementAndGet();
+
+            GridH2Row r2 = getRow(io, pageAddr, idx);
+
+            System.out.println("Comparison: " + row.getValue(0).getInt() +
+                " vs " + r2.getValue(0).getInt() + " (" + ((H2RowLinkIO)io).getLink(pageAddr, idx) + ")");
+
+            print();
+        }
+
         if (inlineSize() == 0) {
             int rowsCmpRes = compareRows(getRow(io, pageAddr, idx), row);
 
@@ -338,14 +357,13 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
         if (unique)
             return 0;
 
-        assert oldRow == null || oldRow instanceof CacheSearchRow;
+        if (oldRow == null)
+            return 0;
+
+        assert oldRow instanceof CacheSearchRow;
 
         long link1 = ((H2RowLinkIO)io).getLink(pageAddr, idx);
-
-        // If old row is present, we're dealing with secondary index update and thus need to use for comparison
-        // the row that PK index update has yielded.
-        // If old row is missing, we should use new row's link to provide for correct search order.
-        long link2 = ((CacheSearchRow)(oldRow != null ? oldRow : row)).link();
+        long link2 = ((CacheSearchRow)oldRow).link();
 
         return Long.compare(link1, link2);
     }
@@ -379,6 +397,15 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
         }
 
         return 0;
+    }
+
+    private static void print() {
+        StackTraceElement[] elements = Thread.currentThread().getStackTrace();
+        for (int i = 2; i < Math.min(30, elements.length); i++) {
+            StackTraceElement s = elements[i];
+            System.out.println("\tat " + s.getClassName() + "." + s.getMethodName()
+                + "(" + s.getFileName() + ":" + s.getLineNumber() + ")");
+        }
     }
 
     /**
