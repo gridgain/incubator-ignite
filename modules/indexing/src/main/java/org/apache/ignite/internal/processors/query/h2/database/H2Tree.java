@@ -271,7 +271,7 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
     /** {@inheritDoc} */
     @SuppressWarnings("ForLoopReplaceableByForEach")
     @Override protected int compare(BPlusIO<SearchRow> io, long pageAddr, int idx,
-        SearchRow row, @Nullable SearchRow oldRow) throws IgniteCheckedException {
+        SearchRow row) throws IgniteCheckedException {
 
         if (!getName().toLowerCase().contains("pk")) {
             cnt.incrementAndGet();
@@ -357,13 +357,8 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
         if (unique)
             return 0;
 
-        if (oldRow == null)
-            return 0;
-
-        assert oldRow instanceof CacheSearchRow;
-
         long link1 = ((H2RowLinkIO)io).getLink(pageAddr, idx);
-        long link2 = ((CacheSearchRow)oldRow).link();
+        long link2 = ((CacheSearchRow)row).link();
 
         return Long.compare(link1, link2);
     }
