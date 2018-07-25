@@ -42,8 +42,8 @@ class DataGenerator {
     }
 
     /** */
-    static CustomValue randomValue() {
-        int numOfObjects = randomInt(5);
+    static CustomValue randomValue(int payloadSize) {
+        int numOfObjects = 5;
 
         List<CustomNestedValue> list = new ArrayList<>(numOfObjects);
         for (int i = 0; i < numOfObjects; i++) {
@@ -56,7 +56,7 @@ class DataGenerator {
         }
 
         return new CustomValue(
-            randomString(256),
+            randomString(payloadSize),
             list,
             LocalDateTime.now()
         );

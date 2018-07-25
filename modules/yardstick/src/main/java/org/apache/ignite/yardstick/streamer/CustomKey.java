@@ -22,13 +22,11 @@ import org.apache.ignite.cache.query.annotations.QuerySqlField;
 
 /** */
 class CustomKey {
-    @AffinityKeyMapped
-    @QuerySqlField(index = true)
     private String str1;
-    @QuerySqlField
     private String str2;
-    @QuerySqlField
     private String str3;
+    @AffinityKeyMapped
+    private int affKey;
 
     /** */
     public CustomKey() { }
@@ -38,5 +36,6 @@ class CustomKey {
         this.str1 = str1;
         this.str2 = str2;
         this.str3 = str3;
+        this.affKey = str1.hashCode();
     }
 }

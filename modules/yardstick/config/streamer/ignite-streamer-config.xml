@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
+    <bean id="ignite.cfg" class="org.apache.ignite.configuration.IgniteConfiguration">
+        <property name="peerClassLoadingEnabled" value="false"/>
+
+        <property name="metricsLogFrequency" value="0"/>
+
+        <property name="cacheConfiguration">
+            <list>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="default"/>
+                    <property name="cacheMode" value="PARTITIONED"/>
+                    <property name="backups" value="1"/>
+                    <property name="atomicityMode" value="ATOMIC"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="queryEntities">
+                        <list>
+                            <bean class="org.apache.ignite.cache.QueryEntity">
+                                <property name="keyType" value="org.apache.ignite.yardstick.streamer.CustomKey"/>
+                                <property name="valueType" value="org.apache.ignite.yardstick.streamer.CustomValue"/>
+
+                                <property name="keyFields">
+                                    <set value-type="java.lang.String">
+                                        <value>str1</value>
+                                        <value>str2</value>
+                                        <value>str3</value>
+                                    </set>
+                                </property>
+
+                                <property name="fields">
+                                    <map>
+                                        <entry key="str1" value="java.lang.String"/>
+                                        <entry key="str2" value="java.lang.String"/>
+                                        <entry key="str3" value="java.lang.String"/>
+                                        <entry key="time" value="java.lang.String"/>
+                                    </map>
+                                </property>
+
+                                <property name="indexes">
+                                    <list>
+                                        <bean class="org.apache.ignite.cache.QueryIndex">
+                                            <constructor-arg value="str1"/>
+                                        </bean>
+                                    </list>
+                                </property>
+                            </bean>
+                        </list>
+                    </property>
+                </bean>
+            </list>
+        </property>
+
+        <property name="dataStorageConfiguration" >
+            <bean class="org.apache.ignite.configuration.DataStorageConfiguration">
+                <property name="defaultDataRegionConfiguration">
+                    <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                        <property name="persistenceEnabled" value="true"/>
+                        <property name="initialSize" value="#{5L * 1024 * 1024 * 1024}"/>
+                        <property name="maxSize" value="#{5L * 1024 * 1024 * 1024}"/>
+                        <property name="checkpointPageBufferSize" value="#{2L * 1024 * 1024 * 1024}"/>
+                        <property name="metricsEnabled" value="true"/>
+                    </bean>
+                </property>
+
+                <property name="pageSize" value="4096"/>
+                <property name="walMode" value="LOG_ONLY"/>
+                <property name="checkpointFrequency" value="3000000"/>
+                <property name="checkpointThreads" value="4"/>
+                <property name="metricsEnabled" value="true"/>
+                <!--<property name="writeThrottlingEnabled" value="true"/>-->
+            </bean>
+        </property>
+
+        <property name="binaryConfiguration">
+            <bean class="org.apache.ignite.configuration.BinaryConfiguration">
+                <property name="compactFooter" value="false"/>
+            </bean>
+        </property>
+    </bean>
+</beans>

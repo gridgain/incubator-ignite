@@ -19,11 +19,17 @@ package org.apache.ignite.yardstick;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Collection;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteSpring;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.QueryEntity;
+import org.apache.ignite.cache.QueryIndex;
 import org.apache.ignite.cache.eviction.lru.LruEvictionPolicy;
 import org.apache.ignite.configuration.BinaryConfiguration;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -36,6 +42,8 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.yardstick.io.FileUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
@@ -104,7 +112,7 @@ public class IgniteNode implements BenchmarkServer {
         CacheConfiguration[] ccfgs = c.getCacheConfiguration();
 
         if (ccfgs != null) {
-            for (CacheConfiguration cc : ccfgs) {
+            for (CacheConfiguration<?, ?> cc : ccfgs) {
                 // IgniteNode can not run in CLIENT_ONLY mode,
                 // except the case when it's used inside IgniteAbstractBenchmark.
                 boolean cl = args.isClientOnly() && (args.isNearCache() || clientMode);
@@ -129,6 +137,12 @@ public class IgniteNode implements BenchmarkServer {
                 cc.setWriteSynchronizationMode(args.syncMode());
 
                 cc.setBackups(args.backups());
+
+                for (QueryEntity qe : cc.getQueryEntities()) {
+                    for (QueryIndex index : qe.getIndexes()) {
+                        index.setInlineSize(args.streamer.inlineSize());
+                    }
+                }
 
                 if (args.restTcpPort() != 0) {
                     ConnectorConfiguration ccc = new ConnectorConfiguration();
@@ -165,25 +179,38 @@ public class IgniteNode implements BenchmarkServer {
 
         c.setCommunicationSpi(commSpi);
 
-        if (args.getPageSize() != DataStorageConfiguration.DFLT_PAGE_SIZE) {
-            DataStorageConfiguration memCfg = c.getDataStorageConfiguration();
+        if (c.getDataStorageConfiguration() == null)
+            c.setDataStorageConfiguration(new DataStorageConfiguration());
 
-            if (memCfg == null) {
-                memCfg = new DataStorageConfiguration();
-
-                c.setDataStorageConfiguration(memCfg);
-            }
-
-            memCfg.setPageSize(args.getPageSize());
-        }
+        c.getDataStorageConfiguration().setPageSize(args.getPageSize());
 
         if (args.persistentStoreEnabled()) {
-            DataStorageConfiguration pcCfg = new DataStorageConfiguration();
-
             c.setBinaryConfiguration(new BinaryConfiguration().setCompactFooter(false));
 
-            c.setDataStorageConfiguration(pcCfg);
+            c.getDataStorageConfiguration()
+                .getDefaultDataRegionConfiguration()
+                .setPersistenceEnabled(true);
         }
+
+        c.getDataStorageConfiguration()
+            .setCheckpointFrequency(args.streamer.checkpointFrequency())
+            .setCheckpointThreads(args.streamer.checkpointThreads());
+
+        c.getDataStorageConfiguration().getDefaultDataRegionConfiguration()
+            .setInitialSize(args.streamer.dataRegionSize())
+            .setMaxSize(args.streamer.dataRegionSize())
+            .setCheckpointPageBufferSize(args.streamer.checkpointBufferSize());
+
+        String[] addrsArr = cfg.customProperties().get("SERVER_HOSTS").split(",");
+        Collection<String> addrs = Stream.of(addrsArr)
+            .map(new Function<String, String>() {
+                @Override public String apply(String s) {
+                    return s.trim() + ":47500..47509";
+                }
+            })
+            .collect(Collectors.toList());
+        c.setDiscoverySpi(new TcpDiscoverySpi()
+            .setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(addrs)));
 
         ignite = IgniteSpring.start(c, appCtx);
 

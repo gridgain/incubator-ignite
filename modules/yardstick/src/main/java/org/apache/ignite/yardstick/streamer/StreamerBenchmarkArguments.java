@@ -18,44 +18,73 @@
 package org.apache.ignite.yardstick.streamer;
 
 import com.beust.jcommander.Parameter;
+import org.apache.ignite.cache.QueryIndex;
+import org.apache.ignite.configuration.DataStorageConfiguration;
 
 /**
- * TODO: Add class description.
  *
- * @author @java.author
- * @version @java.version
  */
 public class StreamerBenchmarkArguments {
-    /** */
     @Parameter(names = {"-rkp", "--repeatingKeysPercent"}, description = "Repeating keys percent")
-    private double repeatingKeysPercent;
+    private double repeatingKeysPercent = 0.0;
 
-    /** */
     @Parameter(names = {"-rcv", "--useReceiver"}, description = "Enable stream receiver")
-    private boolean useReceiver;
+    private boolean useReceiver = false;
 
-    /** */
     @Parameter(names = {"-alow", "--allowOverwrite"}, description = "Enable allowOverwrite mode")
-    private boolean allowOverwrite;
+    private boolean allowOverwrite = false;
 
-    /**
-     * @return Repeating keys percent.
-     */
+    @Parameter(names = {"-cbs", "--checkpointBufferSize"}, description = "Checkpoint buffer size")
+    private long checkpointBufferSize = 0;
+
+    @Parameter(names = {"-cfrq", "--checkpointFrequency"}, description = "Checkpoint frequency")
+    private long checkpointFrequency = DataStorageConfiguration.DFLT_CHECKPOINT_FREQ;
+
+    @Parameter(names = {"-cthr", "--checkpointThreads"}, description = "Checkpoint threads")
+    private int checkpointThreads = DataStorageConfiguration.DFLT_CHECKPOINT_THREADS;
+
+    @Parameter(names = {"-inl", "--inlineSize"}, description = "Index inline size")
+    private int inlineSize = QueryIndex.DFLT_INLINE_SIZE;
+
+    @Parameter(names = {"-drsz", "--dataRegionSize"}, description = "Data region size")
+    private long dataRegionSize = DataStorageConfiguration.DFLT_DATA_REGION_MAX_SIZE;
+
+    @Parameter(names = {"-pld", "--payloadSize"}, description = "Payload size")
+    private int payloadSize = 256;
+
     public double repeatingKeysPercent() {
         return repeatingKeysPercent;
     }
 
-    /**
-     * @return Repeating keys percent.
-     */
     public boolean useReceiver() {
         return useReceiver;
     }
 
-    /**
-     * @return Repeating keys percent.
-     */
     public boolean allowOverwrite() {
         return allowOverwrite;
+    }
+
+    public long checkpointBufferSize() {
+        return checkpointBufferSize;
+    }
+
+    public long checkpointFrequency() {
+        return checkpointFrequency;
+    }
+
+    public int checkpointThreads() {
+        return checkpointThreads;
+    }
+
+    public int inlineSize() {
+        return inlineSize;
+    }
+
+    public long dataRegionSize() {
+        return dataRegionSize;
+    }
+
+    public int payloadSize() {
+        return payloadSize;
     }
 }

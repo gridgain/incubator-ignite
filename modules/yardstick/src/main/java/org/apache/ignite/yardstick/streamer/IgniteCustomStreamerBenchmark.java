@@ -28,7 +28,7 @@ import org.yardstickframework.BenchmarkConfiguration;
 
 /** */
 public class IgniteCustomStreamerBenchmark extends IgniteAbstractBenchmark {
-    private static final String CACHE_NAME = "streamer-atomic";
+    private static final String CACHE_NAME = "default";
     private final ArrayList<CustomKey> keys = new ArrayList<>();
 
     /** {@inheritDoc} */
@@ -42,21 +42,17 @@ public class IgniteCustomStreamerBenchmark extends IgniteAbstractBenchmark {
     @Override public boolean test(Map<Object, Object> map) {
         Map<CustomKey, CustomValue> entries = new HashMap<>();
         for (int i = 0; i < args.batch(); i++) {
-            boolean useNewKey = ThreadLocalRandom.current().nextDouble() > args.repeatingKeysPercent() || keys.isEmpty();
-            CustomKey key;
-            if (useNewKey) {
-                key = DataGenerator.randomKey();
-                keys.add(key);
-            }
-            else
-                key = keys.get(ThreadLocalRandom.current().nextInt(keys.size()));
-            CustomValue val = DataGenerator.randomValue();
+            CustomKey key = getKey();
+            CustomValue val = DataGenerator.randomValue(args.streamer.payloadSize());
             entries.put(key, val);
         }
 
         try (IgniteDataStreamer<CustomKey, CustomValue> dataStreamer = ignite().dataStreamer(CACHE_NAME)) {
-            dataStreamer.allowOverwrite(true);
-            dataStreamer.receiver(new CustomEntryResolver());
+            if (args.streamer.allowOverwrite())
+                dataStreamer.allowOverwrite(true);
+            if (args.streamer.useReceiver())
+                dataStreamer.receiver(new CustomEntryResolver());
+
             entries.entrySet().parallelStream().forEach(new Consumer<Map.Entry<CustomKey, CustomValue>>() {
                 @Override public void accept(Map.Entry<CustomKey, CustomValue> entry) {
                     dataStreamer.addData(entry);
@@ -65,5 +61,19 @@ public class IgniteCustomStreamerBenchmark extends IgniteAbstractBenchmark {
         }
 
         return true;
+    }
+
+    private CustomKey getKey() {
+        boolean useNewKey = ThreadLocalRandom.current().nextDouble() > args.streamer.repeatingKeysPercent()
+            || keys.isEmpty();
+        CustomKey key;
+        if (useNewKey) {
+            key = DataGenerator.randomKey();
+            keys.add(key);
+        }
+        else
+            key = keys.get(ThreadLocalRandom.current().nextInt(keys.size()));
+
+        return key;
     }
 }
