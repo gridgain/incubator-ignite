@@ -85,7 +85,7 @@ public class CacheSizeProbe implements BenchmarkProbe {
         // Time delta in seconds, rounding is used because Thread.sleep(1000) can last less than a second.
         long delta = (long)Math.floor((lastTstamp1 - lastTstamp0) / 1000d + 0.5);
 
-        double totalSize = Ignition.ignite().cache("streamer-atomic").sizeLong();
+        double totalSize = Ignition.ignite().cache("default").sizeLong();
         double totalSizeGrowthRate = delta == 0
             ? Double.NaN
             : (totalSize - lastTotalSize) / delta;
