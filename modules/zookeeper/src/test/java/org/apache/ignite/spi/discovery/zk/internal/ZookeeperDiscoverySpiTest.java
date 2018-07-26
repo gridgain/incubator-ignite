@@ -232,12 +232,17 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
     /** */
     private String zkRootPath;
 
+    /** */
+    private boolean p2pEnabled = false;
+
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(final String igniteInstanceName) throws Exception {
         if (testSockNio)
             System.setProperty(ZOOKEEPER_CLIENT_CNXN_SOCKET, ZkTestClientCnxnSocketNIO.class.getName());
 
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
+
+        cfg.setPeerClassLoadingEnabled(p2pEnabled);
 
         if (nodeId != null)
             cfg.setNodeId(nodeId);
@@ -387,6 +392,40 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
             ccfg.setBackups(backups);
 
         return ccfg;
+    }
+
+    /** */
+    private static final String CONSUME_FILTER = "org.apache.ignite.tests.p2p.GridEventConsumeFilter";
+
+    /** */
+    public void testServerJoinWithP2PClassDeployedInCluster() throws Exception {
+        //external class loader to make sure that class is not presented on server node's classpath
+        ClassLoader extLdr = getExternalClassLoader();
+
+        p2pEnabled = true;
+
+        startGrid(0);
+
+        clientMode(true);
+
+        Ignite client = startGrid(1);
+
+        Class<?> cls = extLdr.loadClass(CONSUME_FILTER);
+
+        client.events().remoteListen(
+            new IgniteBiPredicate<UUID, Event>() {
+                @Override public boolean apply(UUID uuid, Event event) {
+                    return true;
+                }
+            },
+            (IgnitePredicate<Event>) cls.newInstance(),
+
+            EventType.EVT_CACHE_OBJECT_PUT
+        );
+
+        clientMode(false);
+
+        startGrid(2);
     }
 
     /**
