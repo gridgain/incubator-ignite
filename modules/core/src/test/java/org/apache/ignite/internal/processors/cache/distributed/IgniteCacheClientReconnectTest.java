@@ -162,6 +162,8 @@ public class IgniteCacheClientReconnectTest extends GridCommonAbstractTest {
      * @throws Exception If failed
      */
     public void testClientInForceServerModeStopsOnExchangeHistoryExhaustion() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-9087");
+
         System.setProperty(IgniteSystemProperties.IGNITE_EXCHANGE_HISTORY_SIZE, "1");
 
         try {
