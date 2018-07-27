@@ -23,7 +23,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 
@@ -84,7 +86,7 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
     /**
      *
      */
-    public void testCommitAfterAsyncPut() {
+    public void testCommitAfterAsyncPut() throws Exception {
         CacheConfiguration[] caches = cacheConfigurations();
 
         try {
@@ -100,6 +102,20 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
             catch (Exception e) {
                 System.out.println();
             }
+
+            GridTestUtils.runMultiThreaded(() -> {
+                for (int i = 0; i < 1_000_000_000; i++) {
+                    try (Transaction tx = grid(0).transactions().txStart()) {
+                        grid(0).cache(caches[0].getName()).put(1, grid(0).cache(caches[0].getName()).get(1));
+
+                        //U.sleep(10);
+
+                        tx.commit();
+                    }
+                    catch (Exception e) {
+
+                    }
+                } }, 1000, "test");
 
             for (int i = 0; i < caches.length; i++)
                 assertEquals((i + 1) * 10, grid(0).cache(caches[i].getName()).get(1));
