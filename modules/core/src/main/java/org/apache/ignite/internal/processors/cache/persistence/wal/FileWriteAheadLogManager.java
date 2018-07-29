@@ -1099,6 +1099,8 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
      * @return Handle that will fit the entry.
      */
     private FileWriteHandle rollOver(FileWriteHandle cur) throws StorageException, IgniteCheckedException {
+        log.info("segment rolling over: hnd=" + cur);
+
         FileWriteHandle hnd = currentHandle();
 
         if (hnd != cur)
