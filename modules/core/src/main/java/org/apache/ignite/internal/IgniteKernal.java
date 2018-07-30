@@ -96,6 +96,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.MemoryConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.events.EventType;
+import org.apache.ignite.failure.TestUnresponsiveExchangeTcpCommunicationSpi;
 import org.apache.ignite.internal.binary.BinaryEnumCache;
 import org.apache.ignite.internal.binary.BinaryMarshaller;
 import org.apache.ignite.internal.binary.BinaryUtils;
@@ -198,6 +199,7 @@ import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.mxbean.ClusterMetricsMXBean;
 import org.apache.ignite.mxbean.IgniteMXBean;
 import org.apache.ignite.mxbean.StripedExecutorMXBean;
+import org.apache.ignite.mxbean.TestUnresponsiveExchangeMessagesControlMXBean;
 import org.apache.ignite.mxbean.ThreadPoolMXBean;
 import org.apache.ignite.mxbean.TransactionMetricsMxBean;
 import org.apache.ignite.mxbean.TransactionsMXBean;
@@ -207,6 +209,7 @@ import org.apache.ignite.plugin.PluginNotFoundException;
 import org.apache.ignite.plugin.PluginProvider;
 import org.apache.ignite.spi.IgniteSpi;
 import org.apache.ignite.spi.IgniteSpiVersionCheckException;
+import org.apache.ignite.spi.communication.CommunicationSpi;
 import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 import org.apache.ignite.thread.IgniteStripedThreadPoolExecutor;
 import org.jetbrains.annotations.Nullable;
@@ -4216,6 +4219,13 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
                 registerMBean("Kernal", workerCtrlMXBean.getClass().getSimpleName(),
                     workerCtrlMXBean, WorkersControlMXBean.class);
+
+                CommunicationSpi commSpi = cfg.getCommunicationSpi();
+
+                if (commSpi instanceof TestUnresponsiveExchangeTcpCommunicationSpi)
+                    registerMBean("Kernal", TestUnresponsiveExchangeMessagesControlMXBean.class.getSimpleName(),
+                        (TestUnresponsiveExchangeMessagesControlMXBean)commSpi,
+                        TestUnresponsiveExchangeMessagesControlMXBean.class);
             }
         }
 
