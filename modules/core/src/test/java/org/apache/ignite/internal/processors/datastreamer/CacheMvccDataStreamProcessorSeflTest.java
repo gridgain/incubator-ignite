@@ -22,7 +22,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 
-public class DataStreamProcessorMvccSeflTest extends DataStreamProcessorSelfTest {
+public class CacheMvccDataStreamProcessorSeflTest extends DataStreamProcessorSelfTest {
     @Override
     protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration igniteConfiguration = super.getConfiguration(igniteInstanceName);
