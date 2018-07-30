@@ -82,7 +82,7 @@ public class CacheMvccReadThroughTest extends CacheMvccAbstractTest {
         assertEquals(buddy, buddyCache.get(1));
     }
 
-    public void testDoesNotReadThroughAllIfPartiallyPresent() throws Exception {
+    public void testReadThroughAllIfPartiallyPresent() throws Exception {
         Buddy buddy = new Buddy(2, "ivan");
         buddyCache.put(2, buddy);
 
