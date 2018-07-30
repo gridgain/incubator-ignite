@@ -124,7 +124,9 @@ public class LocalPendingTransactionsTracker {
 
             notCommittedInTimeoutTxs = new ConcurrentHashMap<>(currentlyPreparedTxs);
 
-            committingTxs = new HashSet<>(currentlyCommittingTxs);
+            committingTxs = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+            committingTxs.addAll(currentlyCommittingTxs);
 
             if (committingTxsTimeout > preparedTxsTimeout) {
                 cctx.time().addTimeoutObject(new GridTimeoutObjectAdapter(preparedTxsTimeout) {
