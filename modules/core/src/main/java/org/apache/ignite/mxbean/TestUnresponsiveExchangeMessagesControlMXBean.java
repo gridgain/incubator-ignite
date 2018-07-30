@@ -17,8 +17,9 @@
 
 package org.apache.ignite.mxbean;
 
-import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
-
+/**
+ *
+ */
 @MXBeanDescription("MBean that provides ability to control delays of exchange messages for testing.")
 public interface TestUnresponsiveExchangeMessagesControlMXBean {
     /**
