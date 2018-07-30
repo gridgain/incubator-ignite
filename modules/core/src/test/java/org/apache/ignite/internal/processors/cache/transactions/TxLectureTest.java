@@ -1,16 +1,20 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import javax.cache.Cache;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.cluster.ClusterNode;
@@ -23,6 +27,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.managers.communication.GridIoMessage;
 import org.apache.ignite.internal.processors.cache.GridCacheFuture;
+import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
@@ -33,6 +38,7 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxFi
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxFinishRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareResponse;
 import org.apache.ignite.internal.util.GridLeanMap;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.typedef.F;
@@ -55,12 +61,14 @@ import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.cache.CacheWriteSynchronizationMode.PRIMARY_SYNC;
 import static org.apache.ignite.configuration.WALMode.LOG_ONLY;
 import static org.apache.ignite.testframework.GridTestUtils.runAsync;
 import static org.apache.ignite.transactions.TransactionConcurrency.OPTIMISTIC;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
+import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 
 /**
  * <p> The <code>TxLectureTest</code> </p>
@@ -108,7 +116,7 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
         ccfg.setAtomicityMode(TRANSACTIONAL);
         ccfg.setBackups(backups);
-        ccfg.setWriteSynchronizationMode(FULL_SYNC);
+        ccfg.setWriteSynchronizationMode(PRIMARY_SYNC);
 
         cfg.setCacheConfiguration(ccfg);
 
@@ -265,8 +273,8 @@ public class TxLectureTest extends GridCommonAbstractTest {
         assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
     }
 
-    /** Stop primary while preparing. */
-    public void test2PCKillPrimary() throws Exception {
+    /** Stop primary before preparing preparing. */
+    public void test2PCKillPrimaryBeforePrepare() throws Exception {
         backups = 2;
 
         startGridsMultiThreaded(GRID_CNT);
@@ -355,8 +363,9 @@ public class TxLectureTest extends GridCommonAbstractTest {
         assertNull(client.cache(DEFAULT_CACHE_NAME).get(key));
     }
 
-    /** Stop near while preparing. */
-    public void test2PCKillNear() throws Exception {
+    /** Stop primary after preparing preparing. */
+    public void test2PCKillPrimaryAfterPrepare() throws Exception {
+        System.setProperty("IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT", "10000");
         backups = 2;
 
         startGridsMultiThreaded(GRID_CNT);
@@ -367,63 +376,62 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
         Integer key = primaryKey(prim.cache(DEFAULT_CACHE_NAME));
 
-        IgniteEx backup = (IgniteEx)backupNode(key, DEFAULT_CACHE_NAME);
+        List<Ignite> backups = backupNodes(key, DEFAULT_CACHE_NAME);
+
+        CountDownLatch nodeStopLatch = new CountDownLatch(1);
 
         // Start pessimistic tx.
         try (Transaction tx = client.transactions().txStart()) {
             log.info("Near tx: " + tx);
 
+            TransactionProxyImpl tmp = (TransactionProxyImpl)tx;
+
+            IgniteInternalTx tx1 = ((IgniteEx)client).context().cache().context().tm().tx(tmp.tx().nearXidVersion());
+
             // Acquire write exclusive lock.
             client.cache(DEFAULT_CACHE_NAME).put(key, key);
 
-            IgniteInternalTx locTx = F.first(txs(prim));
-
-            log.info("Primary tx: " + locTx);
-
-            IgniteInternalTx backupTx = F.first(txs(backup));
-
-            log.info("Backup tx: " + backupTx); // Null, backup transactions are created on prepare.
-
-            CountDownLatch l = new CountDownLatch(1);
+            CountDownLatch commitLatch = new CountDownLatch(1);
 
             runAsync(new Runnable() {
                 @Override public void run() {
-                    TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(prim);
+                    for (Ignite backup : backups) {
+                        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(backup);
 
-                    // Prevent backup commit.
-                    spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-                        @Override public boolean apply(ClusterNode node, Message msg) {
-                            if (msg instanceof GridDhtTxPrepareRequest) {
-                                GridDhtTxPrepareRequest req = (GridDhtTxPrepareRequest)msg;
+                        // Prevent prepare response.
+                        spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+                            @Override public boolean apply(ClusterNode node, Message msg) {
+                                if (msg instanceof GridDhtTxPrepareResponse) {
+                                    GridDhtTxPrepareResponse resp = (GridDhtTxPrepareResponse)msg;
 
-                                assertFalse(req.onePhaseCommit());
+                                    return true;
+                                }
 
-                                return true;
+                                return false;
                             }
+                        });
+                    }
 
-                            return false;
+                    commitLatch.countDown(); // Makes sure message blocked before trying to commit.
+
+                    for (Ignite backup : backups) {
+                        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(backup);
+
+                        try {
+                            spi.waitForBlocked();
                         }
-                    });
-
-                    l.countDown(); // Makes sure message blocked before trying to commit.
-
-                    try {
-                        spi.waitForBlocked(2);
-                    }
-                    catch (InterruptedException e) {
-                        log.error("Interrupted", e);
+                        catch (InterruptedException e) {
+                            fail();
+                        }
                     }
 
-                    IgniteInternalTx backupTx = F.first(txs(backup));
+                    prim.close();
 
-                    log.info("Backup tx: " + backupTx);
-
-                    client.close();
-
+                    nodeStopLatch.countDown();
                 }
             });
 
-            U.awaitQuiet(l);
+            U.awaitQuiet(commitLatch);
 
             tx.commit();
         }
@@ -431,7 +439,243 @@ public class TxLectureTest extends GridCommonAbstractTest {
             // No-op.
         }
 
-        //assertEquals(key, client.cache(DEFAULT_CACHE_NAME).get(key));
+        U.awaitQuiet(nodeStopLatch);
+
+        awaitPartitionMapExchange(); // Triggered by left node.
+
+        dumpRecordedMessages();
+
+        checkFutures();
+
+        assertNull(client.cache(DEFAULT_CACHE_NAME).get(key));
+    }
+
+    /** Stop primary after preparing preparing. */
+    public void test2PCKillPrimaryAfterPrepare2() throws Exception {
+        System.setProperty("IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT", "10000");
+        backups = 2;
+
+        startGridsMultiThreaded(GRID_CNT);
+
+        Ignite client = startGrid("client");
+
+        IgniteEx prim1 = grid(0);
+        IgniteEx prim2 = grid(1);
+        IgniteEx prim3 = grid(2);
+
+        Integer key1 = primaryKey(prim1.cache(DEFAULT_CACHE_NAME));
+        Integer key2 = primaryKey(prim2.cache(DEFAULT_CACHE_NAME));
+        Integer key3 = primaryKey(prim3.cache(DEFAULT_CACHE_NAME));
+
+        List<Ignite> nodes = new ArrayList<>();
+        nodes.add(prim1);
+        nodes.add(prim2);
+
+        assertFalse(key1.equals(key2));
+        assertFalse(key2.equals(key3));
+
+        CountDownLatch finisLatch = new CountDownLatch(1);
+
+        // Start pessimistic tx.
+        try (Transaction tx = client.transactions().txStart()) {
+            log.info("Near tx: " + tx);
+
+            TransactionProxyImpl p = (TransactionProxyImpl)tx;
+
+            GridNearTxLocal locTx = p.tx();
+
+            // Acquire write exclusive lock.
+            client.cache(DEFAULT_CACHE_NAME).put(key1, key1);
+            client.cache(DEFAULT_CACHE_NAME).put(key2, key2);
+            client.cache(DEFAULT_CACHE_NAME).put(key3, key3);
+
+            CountDownLatch commitLatch = new CountDownLatch(1);
+
+            runAsync(new Runnable() {
+                @Override public void run() {
+                    for (Ignite prim : nodes) {
+                        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(prim);
+
+                        // Prevent prepare response.
+                        spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+                            @Override public boolean apply(ClusterNode node, Message msg) {
+                                return msg instanceof GridNearTxPrepareResponse;
+                            }
+                        });
+                    }
+
+                    commitLatch.countDown(); // Makes sure message blocked before trying to commit.
+
+                    for (Ignite backup : nodes) {
+                        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(backup);
+
+                        try {
+                            spi.waitForBlocked();
+                        }
+                        catch (InterruptedException e) {
+                            fail();
+                        }
+                    }
+
+                    for (Ignite node : nodes) {
+                        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(node);
+
+                        // Prevent prepare response.
+                        spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+                            @Override public boolean apply(ClusterNode node, Message msg) {
+                                return msg instanceof GridCacheTxRecoveryRequest;
+                            }
+                        });
+                    }
+
+                    prim3.close();
+
+                    for (Ignite node : nodes) {
+                        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(node);
+
+                        try {
+                            spi.waitForBlocked(2);
+                        }
+                        catch (InterruptedException e) {
+                            fail();
+                        }
+                    }
+
+                    // Finishes corresponding mini fut in prepare fut for prim1.
+                    TestRecordingCommunicationSpi.spi(prim1).stopBlock();
+
+                    // Finishes corresponding mini fut in prepare fut for prim2.
+                    TestRecordingCommunicationSpi.spi(prim2).stopBlock();
+
+                    doSleep(3000);
+
+                    finisLatch.countDown();
+                }
+            });
+
+            U.awaitQuiet(commitLatch);
+
+            tx.commit();
+        }
+        catch (Exception e) {
+            // No-op.
+        }
+
+        U.awaitQuiet(finisLatch);
+
+        awaitPartitionMapExchange(); // Triggered by left node.
+
+        //dumpRecordedMessages();
+
+        checkFutures();
+
+        // TODO FIXME race with prim3 left event and prepare future completion.
+        assertEquals(key1, client.cache(DEFAULT_CACHE_NAME).get(key1));
+        assertEquals(key2, client.cache(DEFAULT_CACHE_NAME).get(key2));
+        assertEquals(key3, client.cache(DEFAULT_CACHE_NAME).get(key3));
+
+        verifyBackupPartitions(client, Collections.singleton(DEFAULT_CACHE_NAME));
+
+        startGrid(2);
+
+        awaitPartitionMapExchange();
+
+        verifyBackupPartitions(client, Collections.singleton(DEFAULT_CACHE_NAME));
+    }
+
+    public void test2PCKillNear() throws Exception {
+        System.setProperty("IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT", "10000");
+        backups = 2;
+
+        startGridsMultiThreaded(GRID_CNT);
+
+        Ignite client = startGrid("client");
+
+        IgniteEx prim1 = grid(0);
+        IgniteEx prim2 = grid(1);
+        IgniteEx prim3 = grid(2);
+
+        Integer key1 = primaryKey(prim1.cache(DEFAULT_CACHE_NAME));
+        Integer key2 = primaryKey(prim2.cache(DEFAULT_CACHE_NAME));
+        Integer key3 = primaryKey(prim3.cache(DEFAULT_CACHE_NAME));
+
+        List<Ignite> nodes = new ArrayList<>();
+        nodes.add(prim1);
+        nodes.add(prim2);
+        nodes.add(prim3);
+
+        assertFalse(key1.equals(key2));
+        assertFalse(key2.equals(key3));
+
+        CountDownLatch finishLatch = new CountDownLatch(1);
+
+        // Start pessimistic tx.
+        try (Transaction tx = client.transactions().txStart()) {
+            log.info("Near tx: " + tx);
+
+            TransactionProxyImpl p = (TransactionProxyImpl)tx;
+
+            GridNearTxLocal locTx = p.tx();
+
+            // Acquire write exclusive lock.
+            client.cache(DEFAULT_CACHE_NAME).put(key1, key1);
+            client.cache(DEFAULT_CACHE_NAME).put(key2, key2);
+            client.cache(DEFAULT_CACHE_NAME).put(key3, key3);
+
+            CountDownLatch commitLatch = new CountDownLatch(1);
+
+            runAsync(new Runnable() {
+                @Override public void run() {
+                    TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(client);
+
+                    // Prevent prepare request to one primary node.
+                    spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+                        @Override public boolean apply(ClusterNode node, Message msg) {
+                            return msg instanceof GridNearTxPrepareRequest && node.equals(grid(0).localNode());
+                        }
+                    });
+
+                    commitLatch.countDown(); // Makes sure message blocked before trying to commit.
+
+                    try {
+                        spi.waitForBlocked();
+                    }
+                    catch (InterruptedException e) {
+                        fail();
+                    }
+
+                    doSleep(2000);
+
+                    client.close();
+
+                    finishLatch.countDown();
+                }
+            });
+
+            U.awaitQuiet(commitLatch);
+
+            tx.commit();
+        }
+        catch (Exception e) {
+            // No-op.
+        }
+
+        U.awaitQuiet(finishLatch);
+
+        awaitPartitionMapExchange(); // Triggered by left node.
+
+        //dumpRecordedMessages();
+
+        doSleep(3000);
+
+        checkFutures();
+
+        // All must be rolled back.
+        assertNull(grid(0).cache(DEFAULT_CACHE_NAME).get(key1));
+        assertNull(grid(0).cache(DEFAULT_CACHE_NAME).get(key2));
+        assertNull(grid(0).cache(DEFAULT_CACHE_NAME).get(key3));
+
+        verifyBackupPartitions(grid(0), Collections.singleton(DEFAULT_CACHE_NAME));
     }
 
     public void testDelayFinishFromNearNode() {
@@ -451,24 +695,104 @@ public class TxLectureTest extends GridCommonAbstractTest {
 
         Transaction tx1 = client.transactions().txStart(PESSIMISTIC, READ_COMMITTED, 0, 0);
         client.cache(DEFAULT_CACHE_NAME).put(0, 0);
+        client.cache(DEFAULT_CACHE_NAME).put(1, 1);
 
-        IgniteInternalFuture fut = runAsync(new Runnable() {
-            @Override public void run() {
-                Transaction tx2 = client.transactions().txStart(OPTIMISTIC, READ_COMMITTED, 0, 0);
+//        IgniteInternalFuture fut = runAsync(new Runnable() {
+//            @Override public void run() {
+//                Transaction tx2 = client.transactions().txStart(OPTIMISTIC, SERIALIZABLE, 0, 0);
+//
+//                client.cache(DEFAULT_CACHE_NAME).put(0, 0);
+//
+//                tx2.commit();
+//            }
+//        });
 
-                client.cache(DEFAULT_CACHE_NAME).put(0, 0);
+        //fut.get();
+        tx1.commit();
+    }
 
-                tx2.commit();
+    /** Optimistic commit will wait for lock release */
+    public void testPreparingOptimistic2() throws Exception {
+        System.setProperty("IGNITE_LONG_OPERATIONS_DUMP_TIMEOUT", "10000");
+
+        backups = 2;
+        //persistenceEnabled = true;
+
+        startGridsMultiThreaded(GRID_CNT);
+
+        Ignite client = startGrid("client");
+
+        final IgniteCache<Integer, Integer> cache = client.cache(DEFAULT_CACHE_NAME);
+
+        cache.put(0, 0);
+
+        Transaction tx2 = client.transactions().txStart(OPTIMISTIC, SERIALIZABLE, 0, 0);
+
+        Integer val = cache.get(0);
+
+        cache.put(0, val + 1);
+        //client.cache(DEFAULT_CACHE_NAME).remove(0);
+
+        CyclicBarrier b = new CyclicBarrier(2);
+
+        TestRecordingCommunicationSpi spi = TestRecordingCommunicationSpi.spi(client);
+
+        spi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
+            @Override public boolean apply(ClusterNode node, Message message) {
+                if (message instanceof GridNearTxFinishRequest)
+                    return true;
+
+                return false;
             }
         });
 
-        doSleep(3000);
+        IgniteInternalFuture fut = runAsync(new Runnable() {
+            @Override public void run() {
+                Transaction tx1 = client.transactions().txStart(OPTIMISTIC, SERIALIZABLE, 0, 0);
 
-        Ignite prim = primaryNode(0, DEFAULT_CACHE_NAME);
+                Integer val = cache.get(0);
 
-        prim.close();
+                cache.put(0, val + 1);
 
-        awaitPartitionMapExchange();
+                U.awaitQuiet(b);
+
+                doSleep(500); // Wait for cand enqueue.
+
+                tx1.commit();
+            }
+        });
+
+        U.awaitQuiet(b);
+
+//        runAsync(new Runnable() {
+//            @Override public void run() {
+//                doSleep(1000);
+//
+//                Transaction tx3 = client.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 0, 0);
+//
+//                client.cache(DEFAULT_CACHE_NAME).get(keys.get(0));
+//
+//                tx3.commit();
+//            }
+//        });
+
+//        IgniteInternalFuture fut2 = runAsync(new Runnable() {
+//            @Override public void run() {
+//                doSleep(2000); // Wait for prepared
+//
+//                spi.stopBlock();
+//            }
+//        });
+
+        tx2.commit();
+
+        fut.get();
+
+        //fut2.get();
+
+        Integer last = cache.get(0);
+
+        System.out.println();
     }
 
     public void testBackupRace() throws Exception {

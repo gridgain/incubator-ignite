@@ -92,6 +92,7 @@ import org.apache.ignite.internal.util.StripedCompositeReadWriteLock;
 import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.T3;
+import org.apache.ignite.internal.util.typedef.T4;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -1062,7 +1063,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
      */
     private void processMessage(UUID nodeId, GridCacheMessage msg, IgniteBiInClosure<UUID, GridCacheMessage> c) {
         try {
-            addIn(nodeId, msg);
+            //addIn(nodeId, msg);
 
             c.apply(nodeId, msg);
 
@@ -1180,7 +1181,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
 
                 cctx.gridIO().sendToGridTopic(node, TOPIC_CACHE, msg, plc);
 
-                addOut(node, msg);
+                //addOut(node, msg);
 
                 return;
             }
@@ -1581,15 +1582,21 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
     }
 
     /** */
-    private GridBoundedConcurrentLinkedHashSet<T3<UUID, GridCacheMessage, Boolean>> queue = new GridBoundedConcurrentLinkedHashSet<>(500);
+    private GridBoundedConcurrentLinkedHashSet<T4<UUID, GridCacheMessage, Boolean, StackTraceElement[]>> queue = new GridBoundedConcurrentLinkedHashSet<>(500);
 
     /** */
     public void dumpRecordedMessages() {
         if (log.isInfoEnabled()) {
             log.info("Dumping recorded messages [node=" + cctx.localNode() + ']');
 
-            for (T3<UUID, GridCacheMessage, Boolean> entry : queue)
+            for (T4<UUID, GridCacheMessage, Boolean, StackTraceElement[]> entry : queue) {
                 log.info("    Message: [" + (entry.get3() ? "from" : "to") + "=" + entry.get1() + ", msg=" + entry.get2() + ']');
+                StackTraceElement[] stack = entry.get4();
+
+                for (StackTraceElement element : stack)
+                    log.info("    " + element.toString());
+            }
+
         }
     }
 
@@ -1599,7 +1606,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
      */
     public void addIn(UUID nodeId, GridCacheMessage msg) {
         if (TX_MSG_PREDICATE.apply(msg))
-            queue.add(new T3<>(nodeId, msg, true));
+            queue.add(new T4<>(nodeId, msg, true, new StackTraceElement[0]));
     }
 
     /**
@@ -1608,7 +1615,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
      */
     public void addOut(ClusterNode node, GridCacheMessage msg) {
         if (TX_MSG_PREDICATE.apply(msg))
-            queue.add(new T3<>(node.id(), msg, false));
+            queue.add(new T4<>(node.id(), msg, false, new StackTraceElement[0]));
     }
 
     /** Tx message predicate. */
