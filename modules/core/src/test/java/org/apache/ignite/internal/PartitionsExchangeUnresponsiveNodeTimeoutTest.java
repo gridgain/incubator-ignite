@@ -22,22 +22,12 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.failure.StopNodeFailureHandler;
-import org.apache.ignite.internal.managers.communication.GridIoMessage;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
-import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsFullMessage;
-import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsSingleMessage;
-import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.PartitionsExchangeFinishedCheckRequest;
-import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.PartitionsExchangeFinishedCheckResponse;
 import org.apache.ignite.internal.util.lang.GridAbsPredicateX;
 import org.apache.ignite.internal.util.typedef.G;
-import org.apache.ignite.lang.IgniteInClosure;
-import org.apache.ignite.plugin.extensions.communication.Message;
-import org.apache.ignite.spi.IgniteSpiException;
-import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
@@ -49,7 +39,7 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        cfg.setCommunicationSpi(new TestCommunicationSpi());
+        cfg.setCommunicationSpi(new TestUnresponsiveExchangeTcpCommunicationSpi());
         cfg.setFailureHandler(new StopNodeFailureHandler());
 
         cfg.setExchangeHardTimeout(10_000);
@@ -60,8 +50,8 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         for (Ignite ig : G.allGrids()) {
-            ((TestCommunicationSpi)ig.configuration().getCommunicationSpi()).blockExchangeMessages = false;
-            ((TestCommunicationSpi)ig.configuration().getCommunicationSpi()).sndOutdatedCheckMessages = false;
+            ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).exchangeMessagesSndDelay = 0;
+            ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).checkMessagesSndTopVer = null;
         }
 
         List<Ignite> nodes = G.allGrids();
@@ -88,7 +78,7 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
 
         final ClusterNode failNode = ignite(1).cluster().localNode();
 
-        ((TestCommunicationSpi) ignite(1).configuration().getCommunicationSpi()).blockExchangeMessages = true;
+        ((TestUnresponsiveExchangeTcpCommunicationSpi) ignite(1).configuration().getCommunicationSpi()).exchangeMessagesSndDelay = -1;
 
         GridTestUtils.runAsync(() -> startGrid(4));
 
@@ -111,7 +101,7 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
 
         ig.cluster().active(true);
 
-        ((TestCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).blockExchangeMessages = true;
+        ((TestUnresponsiveExchangeTcpCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).exchangeMessagesRcvDelay = -1;
 
         GridTestUtils.runAsync(() -> startGrid(4));
 
@@ -133,8 +123,8 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
 
         ig.cluster().active(true);
 
-        ((TestCommunicationSpi)ig.configuration().getCommunicationSpi()).blockExchangeMessages = true;
-        ((TestCommunicationSpi)ig.configuration().getCommunicationSpi()).blockCheckMessages = true;
+        ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).exchangeMessagesSndDelay = -1;
+        ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).checkMessagesSndDelay = -1;
 
         GridTestUtils.runAsync(() -> startGrid(4));
 
@@ -160,8 +150,8 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
 
         UUID failNode = ignite(0).cluster().localNode().id();
 
-        ((TestCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).blockExchangeMessages = true;
-        ((TestCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).sndOutdatedCheckMessages = true;
+        ((TestUnresponsiveExchangeTcpCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).exchangeMessagesSndDelay = -1;
+        ((TestUnresponsiveExchangeTcpCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).checkMessagesSndTopVer = AffinityTopologyVersion.ZERO;
 
         GridTestUtils.runAsync(() -> startGrid(4));
 
@@ -174,37 +164,5 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
         }, 60_000));
     }
 
-    /**
-     *
-     */
-    private static class TestCommunicationSpi extends TcpCommunicationSpi {
-        /** Block exchange messages. */
-        private volatile boolean blockExchangeMessages;
 
-        /** Block check messages. */
-        private volatile boolean blockCheckMessages;
-
-        /** Send outdated check messages. */
-        private volatile boolean sndOutdatedCheckMessages;
-
-        /** {@inheritDoc} */
-        @Override public void sendMessage(ClusterNode node, Message msg,
-            IgniteInClosure<IgniteException> ackC) throws IgniteSpiException {
-
-            Message msg0 = ((GridIoMessage)msg).message();
-            if ((msg0 instanceof GridDhtPartitionsSingleMessage || msg0 instanceof GridDhtPartitionsFullMessage)
-                && blockExchangeMessages)
-                return;
-
-            if ((msg0 instanceof PartitionsExchangeFinishedCheckRequest ||
-                msg0 instanceof PartitionsExchangeFinishedCheckResponse)
-                && blockCheckMessages)
-                return;
-
-            if (msg0 instanceof PartitionsExchangeFinishedCheckResponse && sndOutdatedCheckMessages)
-                GridTestUtils.setFieldValue(msg0, "topVer", AffinityTopologyVersion.ZERO);
-
-            super.sendMessage(node, msg, ackC);
-        }
-    }
 }
