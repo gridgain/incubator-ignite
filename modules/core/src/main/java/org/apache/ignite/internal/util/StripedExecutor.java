@@ -198,8 +198,7 @@ public class StripedExecutor implements ExecutorService {
                 });
 
                 stripe.taskHist.descendingMap().values().stream().limit(5)
-                        .forEach((snaps) -> {
-                            for (StripeTaskSnap snap: snaps)
+                        .forEach(snap -> {
                                 sb.a("  ").a(LocalDateTime.ofInstant(
                                             Instant.ofEpochMilli(snap.timestamp()),
                                             sysZoneId).format(formatter))
@@ -563,15 +562,15 @@ public class StripedExecutor implements ExecutorService {
                 IgniteSystemProperties.getInteger(
                         IgniteSystemProperties.IGNITE_STRIPE_MAX_CONTENTION_HISTORY_SIZE, 1000);
 
-        private static final int IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD =
+        private static final long IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD =
                 IgniteSystemProperties.getInteger(
-                        IgniteSystemProperties.IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD, 1000);
+                        IgniteSystemProperties.IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD, 1000) * 1_000_000L;
 
         /** */
         ConcurrentNavigableMap<Integer, List<StripeSnap>> contHist = new ConcurrentSkipListMap<>();
 
         /** */
-        ConcurrentNavigableMap<Long, List<StripeTaskSnap>> taskHist = new ConcurrentSkipListMap<>();
+        ConcurrentNavigableMap<Long, StripeTaskSnap> taskHist = new ConcurrentSkipListMap<>();
 
         /** */
         private final String igniteInstanceName;
@@ -649,9 +648,8 @@ public class StripedExecutor implements ExecutorService {
                             long start = System.nanoTime();
                             cmd.run();
                             long duration = System.nanoTime() - start;
-                            if (duration >= IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD * 1_000_000L) {
-                                taskHist.computeIfAbsent(duration, k -> Collections.synchronizedList(new ArrayList<>()))
-                                        .add(new StripeTaskSnap(startMillis, duration, cmd.toString()));
+                            if (duration >= IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
+                                taskHist.put(duration, new StripeTaskSnap(startMillis, duration, cmd.toString()));
 
                                 if (taskHist.size() > IGNITE_STRIPE_MAX_CONTENTION_HISTORY_SIZE)
                                     taskHist.remove(taskHist.firstKey());
