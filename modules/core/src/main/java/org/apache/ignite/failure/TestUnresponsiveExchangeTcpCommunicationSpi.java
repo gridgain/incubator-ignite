@@ -129,7 +129,7 @@ public class TestUnresponsiveExchangeTcpCommunicationSpi extends TcpCommunicatio
     }
 
     /** {@inheritDoc} */
-    @Override public void setExchangeMessageSendDelay(long delay) {
+    @Override public void writeExchangeMessageSendDelay(long delay) {
         exchangeMsgSndDelay = delay;
     }
 
@@ -139,7 +139,7 @@ public class TestUnresponsiveExchangeTcpCommunicationSpi extends TcpCommunicatio
     }
 
     /** {@inheritDoc} */
-    @Override public void setExchangeMessageReceiveDelay(long delay) {
+    @Override public void writeExchangeMessageReceiveDelay(long delay) {
         exchangeMsgRcvDelay = delay;
     }
 
@@ -149,7 +149,7 @@ public class TestUnresponsiveExchangeTcpCommunicationSpi extends TcpCommunicatio
     }
 
     /** {@inheritDoc} */
-    @Override public void setCheckMessageSendDelay(long delay) {
+    @Override public void writeCheckMessageSendDelay(long delay) {
         checkMsgSndDelay = delay;
     }
 
@@ -159,7 +159,7 @@ public class TestUnresponsiveExchangeTcpCommunicationSpi extends TcpCommunicatio
     }
 
     /** {@inheritDoc} */
-    @Override public void setCheckMessageReceiveDelay(long delay) {
+    @Override public void writeCheckMessageReceiveDelay(long delay) {
         checkMsgRcvDelay = delay;
     }
 
@@ -169,7 +169,7 @@ public class TestUnresponsiveExchangeTcpCommunicationSpi extends TcpCommunicatio
     }
 
     /** {@inheritDoc} */
-    @Override public void setCheckMessageSendOverrideTopologyVersion(int majorVer) {
+    @Override public void writeCheckMessageSendOverrideTopologyVersion(int majorVer) {
         checkMsgSndOverrideTopVer = majorVer;
     }
 
@@ -179,7 +179,7 @@ public class TestUnresponsiveExchangeTcpCommunicationSpi extends TcpCommunicatio
     }
 
     /** {@inheritDoc} */
-    @Override public void setCheckMessageReceiveOverrideTopologyVersion(int majorVer) {
+    @Override public void writeCheckMessageReceiveOverrideTopologyVersion(int majorVer) {
         checkMsgRcvOverrideTopVer = majorVer;
     }
 

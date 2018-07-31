@@ -26,7 +26,6 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.failure.StopNodeFailureHandler;
 import org.apache.ignite.failure.TestUnresponsiveExchangeTcpCommunicationSpi;
-import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.util.lang.GridAbsPredicateX;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.testframework.GridTestUtils;
@@ -51,8 +50,8 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         for (Ignite ig : G.allGrids()) {
-            ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).setExchangeMessageSendDelay(0);
-            ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).setCheckMessageSendOverrideTopologyVersion(-1);
+            ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).writeExchangeMessageSendDelay(0);
+            ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).writeCheckMessageSendOverrideTopologyVersion(-1);
         }
 
         List<Ignite> nodes = G.allGrids();
@@ -79,7 +78,7 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
 
         final ClusterNode failNode = ignite(1).cluster().localNode();
 
-        ((TestUnresponsiveExchangeTcpCommunicationSpi) ignite(1).configuration().getCommunicationSpi()).setExchangeMessageSendDelay(-1);
+        ((TestUnresponsiveExchangeTcpCommunicationSpi) ignite(1).configuration().getCommunicationSpi()).writeExchangeMessageSendDelay(-1);
 
         GridTestUtils.runAsync(() -> startGrid(4));
 
@@ -102,7 +101,7 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
 
         ig.cluster().active(true);
 
-        ((TestUnresponsiveExchangeTcpCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).setExchangeMessageReceiveDelay(-1);
+        ((TestUnresponsiveExchangeTcpCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).writeExchangeMessageReceiveDelay(-1);
 
         GridTestUtils.runAsync(() -> startGrid(4));
 
@@ -124,8 +123,8 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
 
         ig.cluster().active(true);
 
-        ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).setExchangeMessageSendDelay(-1);
-        ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).setCheckMessageSendDelay(-1);
+        ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).writeExchangeMessageSendDelay(-1);
+        ((TestUnresponsiveExchangeTcpCommunicationSpi)ig.configuration().getCommunicationSpi()).writeCheckMessageSendDelay(-1);
 
         GridTestUtils.runAsync(() -> startGrid(4));
 
@@ -151,8 +150,8 @@ public class PartitionsExchangeUnresponsiveNodeTimeoutTest extends GridCommonAbs
 
         UUID failNode = ignite(0).cluster().localNode().id();
 
-        ((TestUnresponsiveExchangeTcpCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).setExchangeMessageSendDelay(-1);
-        ((TestUnresponsiveExchangeTcpCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).setCheckMessageSendOverrideTopologyVersion(1);
+        ((TestUnresponsiveExchangeTcpCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).writeExchangeMessageSendDelay(-1);
+        ((TestUnresponsiveExchangeTcpCommunicationSpi)ignite(0).configuration().getCommunicationSpi()).writeCheckMessageSendOverrideTopologyVersion(1);
 
         GridTestUtils.runAsync(() -> startGrid(4));
 

@@ -25,72 +25,72 @@ public interface TestUnresponsiveExchangeMessagesControlMXBean {
     /**
      *
      */
-    @MXBeanDescription("")
+    @MXBeanDescription("Exchange message send delay")
     public long getExchangeMessageSendDelay();
 
     /**
      * @param delay Delay.
      */
-    @MXBeanDescription("")
-    public void setExchangeMessageSendDelay(long delay);
+    @MXBeanDescription("Write exchange message send delay")
+    public void writeExchangeMessageSendDelay(long delay);
 
     /**
      *
      */
-    @MXBeanDescription("")
+    @MXBeanDescription("Exchange message receive delay")
     public long getExchangeMessageReceiveDelay();
 
     /**
      * @param delay Delay.
      */
-    @MXBeanDescription("")
-    public void setExchangeMessageReceiveDelay(long delay);
+    @MXBeanDescription("Write exchange message receive delay")
+    public void writeExchangeMessageReceiveDelay(long delay);
 
     /**
      *
      */
-    @MXBeanDescription("")
+    @MXBeanDescription("Check message send delay")
     public long getCheckMessageSendDelay();
 
     /**
      * @param delay Delay.
      */
-    @MXBeanDescription("")
-    public void setCheckMessageSendDelay(long delay);
+    @MXBeanDescription("Write check message send delay")
+    public void writeCheckMessageSendDelay(long delay);
 
     /**
      *
      */
-    @MXBeanDescription("")
+    @MXBeanDescription("Check message receive delay")
     public long getCheckMessageReceiveDelay();
 
     /**
      * @param delay Delay.
      */
-    @MXBeanDescription("")
-    public void setCheckMessageReceiveDelay(long delay);
+    @MXBeanDescription("Write check message receive delay")
+    public void writeCheckMessageReceiveDelay(long delay);
 
     /**
      *
      */
-    @MXBeanDescription("")
+    @MXBeanDescription("Override topology version for check message on sender")
     public int getCheckMessageSendOverrideTopologyVersion();
 
     /**
      *
      */
-    @MXBeanDescription("")
-    public void setCheckMessageSendOverrideTopologyVersion(int majorVer);
+    @MXBeanDescription("Set override topology version for check message on sender")
+    public void writeCheckMessageSendOverrideTopologyVersion(int majorVer);
 
     /**
      *
      */
-    @MXBeanDescription("")
+    @MXBeanDescription("Override topology version for check message on receiver")
     public int getCheckMessageReceiveOverrideTopologyVersion();
 
     /**
      *
      */
-    @MXBeanDescription("")
-    public void setCheckMessageReceiveOverrideTopologyVersion(int majorVer);
+    @MXBeanDescription("Set override topology version for check message on receiver")
+    public void writeCheckMessageReceiveOverrideTopologyVersion(int majorVer);
 }
