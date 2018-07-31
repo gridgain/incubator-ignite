@@ -1063,7 +1063,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
      */
     private void processMessage(UUID nodeId, GridCacheMessage msg, IgniteBiInClosure<UUID, GridCacheMessage> c) {
         try {
-            //addIn(nodeId, msg);
+            addIn(nodeId, msg);
 
             c.apply(nodeId, msg);
 
@@ -1181,7 +1181,7 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
 
                 cctx.gridIO().sendToGridTopic(node, TOPIC_CACHE, msg, plc);
 
-                //addOut(node, msg);
+                addOut(node, msg);
 
                 return;
             }
