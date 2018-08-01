@@ -20,24 +20,45 @@ package org.apache.ignite.internal.processors.cache.transactions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.events.Event;
+import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.processors.cache.GridCacheFuture;
+import org.apache.ignite.internal.processors.cache.GridCacheUtilityKey;
+import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.visor.VisorTaskArgument;
+import org.apache.ignite.internal.visor.tx.VisorTxInfo;
+import org.apache.ignite.internal.visor.tx.VisorTxOperation;
+import org.apache.ignite.internal.visor.tx.VisorTxTask;
+import org.apache.ignite.internal.visor.tx.VisorTxTaskArg;
+import org.apache.ignite.internal.visor.tx.VisorTxTaskResult;
+import org.apache.ignite.lang.IgniteClosure;
+import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 
@@ -210,6 +231,106 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
         checkFutures();
     }
 
+    public void testRollbackSystemTransaction() throws IgniteCheckedException {
+        CountDownLatch finishLatch = new CountDownLatch(1);
+
+        AtomicInteger idx = new AtomicInteger();
+
+        List<IgniteInternalFuture> futs = new ArrayList<>(CLNT_CNT);
+
+        // Start LRT.
+        for (int i = 0; i < CLNT_CNT; i++) {
+            Runnable task = () -> {
+                IgniteEx cl = grid(SRV_CNT + idx.getAndIncrement());
+
+                assertTrue(cl.configuration().isClientMode());
+
+                try (Transaction transaction = cl.transactions().txStart()) {
+                    cl.cache(CACHE_NAME).put(0, 0);
+
+                    finishLatch.await();
+
+                    transaction.commit(); // Will throw the exception.
+
+                    fail();
+                }
+                catch (Exception e) {
+                    // Expected.
+                }
+            };
+
+            futs.add(GridTestUtils.runAsync(task));
+        }
+
+        IgniteEx crd = null;
+
+        for (Ignite ignite : G.allGrids()) {
+            if (ignite.cluster().localNode().order() == 1) {
+                crd = (IgniteEx)ignite;
+
+                break;
+            }
+        }
+
+        assertNotNull(crd);
+
+        IgniteInternalCache<GridCacheUtilityKey, Object> utilityCache = crd.utilityCache();
+
+        crd.events().enableLocal(EventType.EVT_NODE_FAILED, EventType.EVT_NODE_LEFT);
+
+        crd.events().localListen(new IgnitePredicate<Event>() {
+            @Override public boolean apply(Event event) {
+                try (GridNearTxLocal tx = utilityCache.txStartEx(PESSIMISTIC, REPEATABLE_READ)) {
+                    Map<String, String> schedules = (Map<String, String>)utilityCache.get(SnapshotScheduleKey.SCHEDULES);
+
+                    finishLatch.await();
+                }
+                catch (Exception e) {
+
+                }
+
+                return true;
+            }
+        }, EventType.EVT_NODE_FAILED, EventType.EVT_NODE_LEFT);
+
+        grid(2).close();
+
+        doSleep(1000);
+
+        IgniteEx client1 = grid(SRV_CNT);
+
+        VisorTxTaskArg arg = new VisorTxTaskArg(VisorTxOperation.LIST, null, null, null, null, null, null, null, null, null);
+
+        Map<ClusterNode, VisorTxTaskResult> res = client1.compute().execute(new VisorTxTask(),
+            new VisorTaskArgument<>(client1.cluster().localNode().id(), arg, false));
+
+        for (Map.Entry<ClusterNode, VisorTxTaskResult> entry : res.entrySet()) {
+            if (entry.getValue().getInfos().isEmpty())
+                continue;
+
+            ClusterNode key = entry.getKey();
+
+            log.info(key.toString());
+
+            for (VisorTxInfo info : entry.getValue().getInfos())
+                log.info("    Tx: [xid=" + info.getXid() +
+                    ", label=" + info.getLabel() +
+                    ", state=" + info.getState() +
+                    ", startTime=" + info.getFormattedStartTime() +
+                    ", duration=" + info.getDuration() / 1000 +
+                    ", isolation=" + info.getIsolation() +
+                    ", concurrency=" + info.getConcurrency() +
+                    ", timeout=" + info.getTimeout() +
+                    ", size=" + info.getSize() +
+                    ", dhtNodes=" + F.transform(info.getPrimaryNodes(), new IgniteClosure<UUID, String>() {
+                    @Override public String apply(UUID id) {
+                        return U.id8(id);
+                    }
+                }) +
+                    ']');
+        }
+    }
+
     /**
      * Checks if all tx futures are finished.
      */
@@ -223,6 +344,48 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
                 log.info("Waiting for future: " + fut);
 
             assertTrue("Expecting no active futures: node=" + ig.localNode().id(), futs.isEmpty());
+        }
+    }
+
+    private static class SnapshotScheduleKey extends GridCacheUtilityKey<SnapshotScheduleKey> {
+        /** */
+        private static final long serialVersionUID = 0L;
+
+        /** Key to store map of schedule names to IDs. */
+        public static final SnapshotScheduleKey SCHEDULES = new SnapshotScheduleKey("_SCHEDULES_");
+
+        /** */
+        private String id;
+
+        /**
+         * @param id ID.
+         */
+        public SnapshotScheduleKey(String id) {
+            assert id != null;
+
+            this.id = id;
+        }
+
+        /**
+         * @return Key ID.
+         */
+        public String id() {
+            return id;
+        }
+
+        /** {@inheritDoc} */
+        @Override public boolean equalsx(SnapshotScheduleKey that) {
+            return that != null && id.equals(that.id);
+        }
+
+        /** {@inheritDoc} */
+        @Override public int hashCode() {
+            return id.hashCode();
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return S.toString(SnapshotScheduleKey.class, this);
         }
     }
 }
