@@ -231,8 +231,13 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
         checkFutures();
     }
 
+    /**
+     *
+     */
     public void testRollbackSystemTransaction() throws IgniteCheckedException {
         CountDownLatch finishLatch = new CountDownLatch(1);
+
+        CountDownLatch systemTxLatch = new CountDownLatch(1);
 
         AtomicInteger idx = new AtomicInteger();
 
@@ -283,10 +288,12 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
                 try (GridNearTxLocal tx = utilityCache.txStartEx(PESSIMISTIC, REPEATABLE_READ)) {
                     Map<String, String> schedules = (Map<String, String>)utilityCache.get(SnapshotScheduleKey.SCHEDULES);
 
+                    systemTxLatch.countDown();
+
                     finishLatch.await();
                 }
                 catch (Exception e) {
-
+                    log.error("err", e);
                 }
 
                 return true;
@@ -294,6 +301,8 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
         }, EventType.EVT_NODE_FAILED, EventType.EVT_NODE_LEFT);
 
         grid(2).close();
+
+        U.awaitQuiet(systemTxLatch);
 
         doSleep(1000);
 
@@ -322,11 +331,19 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
                     ", concurrency=" + info.getConcurrency() +
                     ", timeout=" + info.getTimeout() +
                     ", size=" + info.getSize() +
-                    ", dhtNodes=" + F.transform(info.getPrimaryNodes(), new IgniteClosure<UUID, String>() {
-                    @Override public String apply(UUID id) {
-                        return U.id8(id);
-                    }
-                }) +
+                    ", dhtNodes=" + (info.getPrimaryNodes() == null ? "N/A" :
+                    F.transform(info.getPrimaryNodes(), new IgniteClosure<UUID, String>() {
+                        @Override public String apply(UUID id) {
+                            return U.id8(id);
+                        }
+                    })) +
+                    ", nearXid=" + info.getNearXid() +
+                    ", parentNodeIds=" + (info.getMasterNodeIds() == null ? "N/A" :
+                    F.transform(info.getMasterNodeIds(), new IgniteClosure<UUID, String>() {
+                        @Override public String apply(UUID id) {
+                            return U.id8(id);
+                        }
+                    })) +
                     ']');
         }
     }

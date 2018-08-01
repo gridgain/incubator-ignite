@@ -30,6 +30,7 @@ import org.apache.ignite.binary.BinaryRawWriter;
 import org.apache.ignite.binary.BinaryReader;
 import org.apache.ignite.binary.BinaryWriter;
 import org.apache.ignite.binary.Binarylizable;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.util.lang.GridIterator;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.A;
@@ -238,5 +239,14 @@ public final class IgniteUuid implements Comparable<IgniteUuid>, Iterable<Ignite
     /** {@inheritDoc} */
     @Override public String toString() {
         return shortString() + '-' + gid.toString();
+    }
+
+    public static void main(String[] args) {
+        IgniteUuid uuid = IgniteUuid.fromString("d3f33a1f461-00000000-089d-88b4-0000-000000000001");
+        UUID gid = uuid.gid;
+
+        GridCacheVersion v = new GridCacheVersion((int)gid.getMostSignificantBits(), (int)gid.getLeastSignificantBits(), uuid.locId);
+
+        System.out.println(v.toString());
     }
 }
