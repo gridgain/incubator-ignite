@@ -16,13 +16,16 @@
 */
 package org.apache.ignite.internal.processors.cache.transactions;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
@@ -32,7 +35,9 @@ import org.apache.ignite.internal.processors.cache.persistence.wal.FileWALPointe
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
+import org.apache.ignite.internal.util.GridDebug;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -536,6 +541,75 @@ public class LocalPendingTransactionsTrackerTest {
         assertEquals(2, dependentFrom2.size());
         assertTrue(dependentFrom2.contains(nearXidVersion(5)));
         assertTrue(dependentFrom2.contains(nearXidVersion(6)));
+    }
+
+    /**
+     * Transaction tracker memory leak test.
+     */
+    @Test
+    public void testTrackerMemoryLeak() throws Exception {
+        AtomicInteger txCnt = new AtomicInteger();
+
+        AtomicInteger iterationsCnt = new AtomicInteger();
+
+        String heapDumpFileName = "test.hprof";
+
+        int allowedLeakSize = 100 * 1024;
+
+        int threadsCnt = 20;
+
+        Runnable txRunnable = new Runnable() {
+            @Override public void run() {
+                ThreadLocalRandom rnd = ThreadLocalRandom.current();
+
+                int iterCnt = iterationsCnt.get();
+
+                for (int iter = 0; iter < iterCnt; iter++) {
+                    int txId = txCnt.incrementAndGet();
+
+                    txPrepare(txId);
+
+                    int opCnt = rnd.nextInt(1000);
+
+                    for (int i = 0; i < opCnt; i++) {
+                        if (rnd.nextBoolean())
+                            txKeyRead(txId, rnd.nextInt());
+                        else
+                            txKeyWrite(txId, rnd.nextInt());
+                    }
+
+                    if (rnd.nextInt(10) == 0)
+                        txRollback(txId);
+                    else
+                        txCommit(txId);
+                }
+            }
+        };
+
+        // Warmup phase.
+        iterationsCnt.set(10000);
+
+        GridTestUtils.runMultiThreaded(txRunnable, threadsCnt, "tx-runner");
+
+        GridDebug.dumpHeap(heapDumpFileName, true);
+
+        File dumpFile = new File(heapDumpFileName);
+
+        long sizeBefore = dumpFile.length();
+
+        // Main phase.
+        iterationsCnt.set(50000);
+
+        GridTestUtils.runMultiThreaded(txRunnable, threadsCnt, "tx-runner");
+
+        GridDebug.dumpHeap(heapDumpFileName, true);
+
+        long sizeAfter = dumpFile.length();
+
+        assertTrue("Possible memory leak detected. Memory consumed before transaction tracking: " + sizeBefore +
+            ", memory consumed after transaction tracking: " + sizeAfter, sizeAfter - sizeBefore < allowedLeakSize);
+
+        dumpFile.delete();
     }
 
     /**
