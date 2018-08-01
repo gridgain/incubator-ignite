@@ -211,6 +211,10 @@ public class StripedExecutor implements ExecutorService {
 
                 U.warn(log, msg);
 
+                U.printStackTrace(
+                        stripe.thread.getId(),
+                        sb);
+
                 stripe.contHist.clear();
 
                 stripe.taskHist.clear();

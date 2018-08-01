@@ -28,6 +28,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import javax.cache.Cache;
 import javax.cache.expiry.ExpiryPolicy;
 import org.apache.ignite.IgniteCheckedException;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSing
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetResponse;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.platform.cache.PlatformCacheEntryFilter;
+import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.CI1;
@@ -778,18 +780,48 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
         boolean skipVals,
         boolean recovery
     ) {
-        return getAllAsync0(keys,
-            readerArgs,
-            readThrough,
-            /*don't check local tx. */false,
-            subjId,
-            taskName,
-            false,
-            expiry,
-            skipVals,
-            /*keep cache objects*/true,
-            recovery,
-            /*need version*/true);
+        StatSnap statSnap = new StatSnap();
+
+        if (dhtAllAsyncStatistics.get() == null)
+            dhtAllAsyncStatistics.set(statSnap);
+
+        long start = System.nanoTime();
+
+        IgniteInternalFuture<Map<KeyCacheObject, EntryGetResult>> ret = getAllAsync0(keys,
+                readerArgs,
+                readThrough,
+                /*don't check local tx. */false,
+                subjId,
+                taskName,
+                false,
+                expiry,
+                skipVals,
+                /*keep cache objects*/true,
+                recovery,
+                /*need version*/true);
+
+        long duration = System.nanoTime() - start;
+
+        if (duration > IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
+            GridStringBuilder sb = new GridStringBuilder();
+
+            sb.a(">>> GetDhtAllAsync time processing").a(U.nl())
+                    .a("    Thread name: ").a(Thread.currentThread().getName()).a(U.nl())
+                    .a("    Duration: ").a(TimeUnit.NANOSECONDS.toMillis(duration)).a(U.nl());
+
+            statSnap.keyStat().descendingMap().forEach((keyDur, key) -> {
+                 sb.a("    Key: ").a(key)
+                         .a("    duration: ").a(TimeUnit.NANOSECONDS.toMillis(keyDur))
+                         .a(U.nl());
+
+            });
+
+            U.warn(log, sb.toString());
+        }
+
+        dhtAllAsyncStatistics.set(null);
+
+        return ret;
     }
 
     /**

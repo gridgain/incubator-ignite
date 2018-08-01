@@ -18,16 +18,20 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
@@ -89,13 +93,20 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
     public void testCommitAfterAsyncPut() throws Exception {
         CacheConfiguration[] caches = cacheConfigurations();
 
+        IgniteEx client = startGrid(getConfiguration("Client").setClientMode(true));
+
         try {
-            for (int i = 0; i < caches.length; i++)
+            for (int i = 0; i < caches.length; i++) {
                 grid(0).cache(caches[i].getName()).put(1, i + 1);
+                grid(0).cache(caches[i].getName()).put(2, i + 1);
+            }
 
             try (Transaction tx = grid(0).transactions().txStart()) {
-                for (int i = 0; i < caches.length; i++)
+                for (int i = 0; i < caches.length; i++) {
                     grid(0).cache(caches[i].getName()).putAsync(1, (i + 1) * 10);
+
+                    grid(0).cache(caches[i].getName()).putAsync(2, (i + 1) * 10);
+                }
 
                 tx.commit();
             }
@@ -105,8 +116,13 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
 
             GridTestUtils.runMultiThreaded(() -> {
                 for (int i = 0; i < 1_000_000_000; i++) {
-                    try (Transaction tx = grid(0).transactions().txStart()) {
-                        grid(0).cache(caches[0].getName()).put(1, grid(0).cache(caches[0].getName()).get(1));
+                    try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.READ_COMMITTED)) {
+                        client.cache(caches[0].getName()).getAll(new HashSet<Object>() {{
+                            add(1);
+                            add(2);
+                        }});
+
+                        //grid(0).cache(caches[0].getName()).put(1, grid(0).cache(caches[0].getName()).get(1));
 
                         //U.sleep(10);
 
@@ -115,7 +131,7 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
                     catch (Exception e) {
 
                     }
-                } }, 1000, "test");
+                } }, 2, "test");
 
             for (int i = 0; i < caches.length; i++)
                 assertEquals((i + 1) * 10, grid(0).cache(caches[i].getName()).get(1));

@@ -23,18 +23,7 @@ import java.io.InvalidObjectException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.io.ObjectStreamException;
-import java.util.AbstractSet;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -159,6 +148,39 @@ import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED
  */
 @SuppressWarnings("unchecked")
 public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V>, Externalizable {
+    /** */
+    public static ThreadLocal<StatSnap> dhtAllAsyncStatistics = new ThreadLocal<>();
+
+    /** */
+    public static final long IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD =
+            IgniteSystemProperties.getInteger(
+                    IgniteSystemProperties.IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD, 1000) * 1_000_000L;
+
+    /**
+     *
+     */
+    public static class StatSnap {
+        private long duration;
+
+        private NavigableMap<Long, KeyCacheObject> keyProc = new TreeMap<>();
+
+        public void addKeyStat(long duration, KeyCacheObject key) {
+            keyProc.put(duration, key);
+        }
+
+        public NavigableMap<Long, KeyCacheObject> keyStat() {
+            return keyProc;
+        }
+
+        public long totalDuration() {
+            return duration;
+        }
+
+        public void setTotalDuration(long duration) {
+            this.duration = duration;
+        }
+    }
+
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -1815,18 +1837,24 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         if (keyCheck)
             validateCacheKeys(keys);
 
-        return getAllAsync0(ctx.cacheKeysView(keys),
-            readerArgs,
-            readThrough,
-            checkTx,
-            subjId,
-            taskName,
-            deserializeBinary,
-            expiry,
-            skipVals,
-            /*keep cache objects*/false,
-            recovery,
-            needVer);
+        long start = System.nanoTime();
+
+        IgniteInternalFuture<Map<K, V>> ret = getAllAsync0(ctx.cacheKeysView(keys),
+                readerArgs,
+                readThrough,
+                checkTx,
+                subjId,
+                taskName,
+                deserializeBinary,
+                expiry,
+                skipVals,
+                /*keep cache objects*/false,
+                recovery,
+                needVer);
+
+        long duration = start - System.nanoTime();
+
+        return ret;
     }
 
     /**
@@ -1912,7 +1940,17 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                             boolean skipEntry = readNoEntry;
 
                             if (readNoEntry) {
+                                long start = System.nanoTime();
+
                                 CacheDataRow row = ctx.offheap().read(ctx, key);
+
+                                long duration = System.nanoTime() - start;
+
+                                if (dhtAllAsyncStatistics.get() != null) {
+                                    StatSnap statSnap = dhtAllAsyncStatistics.get();
+
+                                    statSnap.addKeyStat(duration, key);
+                                }
 
                                 if (row != null) {
                                     long expireTime = row.expireTime();
