@@ -183,7 +183,7 @@ public class VisorTxTask extends VisorMultiNodeTask<VisorTxTaskArg, Map<ClusterN
         private static final TxKillClosure NEAR_KILL_CLOSURE = new NearKillClosure();
 
         /** */
-        private static final TxKillClosure LOCAL_KILL_CLOSURE = NEAR_KILL_CLOSURE;
+        private static final TxKillClosure LOCAL_KILL_CLOSURE = new LocalKillClosure();
 
         /** */
         private static final TxKillClosure REMOTE_KILL_CLOSURE = new RemoteKillClosure();
@@ -402,7 +402,19 @@ public class VisorTxTask extends VisorMultiNodeTask<VisorTxTaskArg, Map<ClusterN
         /** {@inheritDoc} */
         @Override public IgniteInternalFuture<IgniteInternalTx> apply(IgniteInternalTx tx, IgniteTxManager tm) {
             return tx.isRollbackOnly() || tx.state() == COMMITTING || tx.state() == COMMITTED ?
-                new GridFinishedFuture<>() : tx.rollbackAsync();
+                new GridFinishedFuture<>() : ((GridNearTxLocal)tx).rollbackNearTxLocalAsync(false, false);
+        }
+    }
+
+    /** Kills near or local tx. */
+    private static class LocalKillClosure implements TxKillClosure {
+        /** */
+        private static final long serialVersionUID = 0L;
+
+        /** {@inheritDoc} */
+        @Override public IgniteInternalFuture<IgniteInternalTx> apply(IgniteInternalTx tx, IgniteTxManager tm) {
+            return tx.isRollbackOnly() || tx.state() == COMMITTING || tx.state() == COMMITTED ?
+                new GridFinishedFuture<>() : ((GridDhtTxLocal)tx).rollbackDhtLocalAsync();
         }
     }
 
