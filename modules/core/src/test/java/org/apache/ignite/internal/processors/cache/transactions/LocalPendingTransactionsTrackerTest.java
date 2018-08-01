@@ -548,28 +548,40 @@ public class LocalPendingTransactionsTrackerTest {
      */
     @Test
     public void testTrackerMemoryLeak() throws Exception {
-        AtomicInteger txCnt = new AtomicInteger();
-
-        AtomicInteger iterationsCnt = new AtomicInteger();
-
-        String heapDumpFileName = "test.hprof";
-
         int allowedLeakSize = 100 * 1024;
 
-        int threadsCnt = 20;
+        // Warmup phase.
+        long sizeBefore = memoryFootprintForTransactionTracker(1000, 20);
+
+        // Main phase.
+        long sizeAfter = memoryFootprintForTransactionTracker(5000, 20);
+
+        assertTrue("Possible memory leak detected. Memory consumed before transaction tracking: " + sizeBefore +
+            ", memory consumed after transaction tracking: " + sizeAfter, sizeAfter - sizeBefore < allowedLeakSize);
+
+    }
+
+    /**
+     * @param iterationsCnt Iterations count.
+     * @param threadsCnt Threads count.
+     */
+    private long memoryFootprintForTransactionTracker(int iterationsCnt, int threadsCnt) throws Exception {
+        AtomicInteger txCnt = new AtomicInteger();
+
+        AtomicInteger trackerState = new AtomicInteger();
+
+        String heapDumpFileName = "test.hprof";
 
         Runnable txRunnable = new Runnable() {
             @Override public void run() {
                 ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
-                int iterCnt = iterationsCnt.get();
-
-                for (int iter = 0; iter < iterCnt; iter++) {
+                for (int iteration = 0; iteration < iterationsCnt; iteration++) {
                     int txId = txCnt.incrementAndGet();
 
                     txPrepare(txId);
 
-                    int opCnt = rnd.nextInt(1000);
+                    int opCnt = rnd.nextInt(100);
 
                     for (int i = 0; i < opCnt; i++) {
                         if (rnd.nextBoolean())
@@ -582,34 +594,60 @@ public class LocalPendingTransactionsTrackerTest {
                         txRollback(txId);
                     else
                         txCommit(txId);
+
+                    // Change tracker state
+                    if (rnd.nextInt(20) == 0) {
+                        tracker.writeLockState();
+
+                        try {
+                            int state = trackerState.getAndIncrement();
+
+                            switch (state % 4) {
+                                case 0:
+                                    tracker.startTrackingPrepared();
+
+                                    break;
+                                case 1:
+                                    tracker.stopTrackingPrepared();
+
+                                    break;
+                                case 2:
+                                    tracker.startTrackingCommitted();
+
+                                    break;
+                                case 3:
+                                    tracker.stopTrackingCommitted();
+                            }
+                        }
+                        finally {
+                            tracker.writeUnlockState();
+                        }
+                    }
                 }
             }
         };
 
-        // Warmup phase.
-        iterationsCnt.set(10000);
-
         GridTestUtils.runMultiThreaded(txRunnable, threadsCnt, "tx-runner");
+
+        tracker.writeLockState();
+
+        try {
+            tracker.stopTrackingPrepared();
+            tracker.stopTrackingCommitted();
+        }
+        finally {
+            tracker.writeUnlockState();
+        }
 
         GridDebug.dumpHeap(heapDumpFileName, true);
 
         File dumpFile = new File(heapDumpFileName);
 
-        long sizeBefore = dumpFile.length();
-
-        // Main phase.
-        iterationsCnt.set(50000);
-
-        GridTestUtils.runMultiThreaded(txRunnable, threadsCnt, "tx-runner");
-
-        GridDebug.dumpHeap(heapDumpFileName, true);
-
-        long sizeAfter = dumpFile.length();
-
-        assertTrue("Possible memory leak detected. Memory consumed before transaction tracking: " + sizeBefore +
-            ", memory consumed after transaction tracking: " + sizeAfter, sizeAfter - sizeBefore < allowedLeakSize);
+        long fileSize = dumpFile.length();
 
         dumpFile.delete();
+
+        return fileSize;
     }
 
     /**
