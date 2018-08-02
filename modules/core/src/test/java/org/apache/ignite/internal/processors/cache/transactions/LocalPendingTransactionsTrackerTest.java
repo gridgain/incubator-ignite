@@ -265,7 +265,9 @@ public class LocalPendingTransactionsTrackerTest {
 
         IgniteInternalFuture<Map<GridCacheVersion, WALPointer>> fut;
         try {
-            fut = tracker.awaitFinishOfPreparedTxs(1_000, 1_000);
+            tracker.startTxFinishAwaiting(1_000, 10_000);
+
+            fut = tracker.awaitPendingTxsFinished(Collections.emptySet());
         }
         finally {
             tracker.writeUnlockState();
@@ -295,7 +297,9 @@ public class LocalPendingTransactionsTrackerTest {
         tracker.writeLockState();
 
         try {
-            fut = tracker.awaitFinishOfPreparedTxs(1_000, 1_000);
+            tracker.startTxFinishAwaiting(1_000, 10_000);
+
+            fut = tracker.awaitPendingTxsFinished(Collections.emptySet());
         }
         finally {
             tracker.writeUnlockState();
@@ -501,7 +505,9 @@ public class LocalPendingTransactionsTrackerTest {
         try {
             tracker.startTrackingCommitted();
 
-            awaitFutCut1 = tracker.awaitFinishOfPreparedTxs(1_000, 1_000);
+            tracker.startTxFinishAwaiting(1_000, 10_000);
+
+            awaitFutCut1 = tracker.awaitPendingTxsFinished(Collections.emptySet());
         }
         finally {
             tracker.writeUnlockState();
@@ -696,7 +702,9 @@ public class LocalPendingTransactionsTrackerTest {
         tracker.writeLockState();
 
         try {
-            fut = tracker.awaitFinishOfPreparedTxs(preparedTxsTimeout, committingTxsTimeout);
+            tracker.startTxFinishAwaiting(preparedTxsTimeout, committingTxsTimeout);
+
+            fut = tracker.awaitPendingTxsFinished(Collections.emptySet());
         }
         finally {
             tracker.writeUnlockState();
