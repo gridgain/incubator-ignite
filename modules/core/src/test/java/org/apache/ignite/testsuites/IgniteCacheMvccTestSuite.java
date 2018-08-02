@@ -19,7 +19,7 @@ package org.apache.ignite.testsuites;
 
 import junit.framework.TestSuite;
 import org.apache.ignite.internal.processors.cache.mvcc.*;
-import org.apache.ignite.internal.processors.datastreamer.DataStreamProcessorSelfTest;
+import org.apache.ignite.internal.processors.datastreamer.CacheMvccDataStreamProcessorSeflTest;
 
 /**
  *
@@ -43,7 +43,7 @@ public class IgniteCacheMvccTestSuite extends TestSuite {
         suite.addTestSuite(CacheMvccVacuumTest.class);
         suite.addTestSuite(CacheMvccPartitionedCoordinatorFailoverTest.class);
         suite.addTestSuite(CacheMvccReplicatedCoordinatorFailoverTest.class);
-        suite.addTestSuite(DataStreamProcessorSelfTest.class);
+        suite.addTestSuite(CacheMvccDataStreamProcessorSeflTest.class);
 
         return suite;
     }

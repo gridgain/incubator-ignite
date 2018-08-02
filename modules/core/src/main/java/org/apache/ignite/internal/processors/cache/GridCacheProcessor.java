@@ -35,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
+import javax.cache.configuration.Factory;
 import javax.cache.expiry.EternalExpiryPolicy;
 import javax.management.MBeanServer;
 import org.apache.ignite.IgniteCheckedException;
@@ -546,22 +547,31 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                 ", cacheType=" + cacheType + "]");
 
         if (cc.getAtomicityMode() == TRANSACTIONAL && c.isMvccEnabled()) {
-            if (cc.getCacheStoreFactory() != null) {
-                throw new IgniteCheckedException("Transactional cache may not have a third party cache store when " +
+            if (!isCacheStoreSetupSupported(cc)) {
+                throw new IgniteCheckedException("Transactional cache must not have a third party cache writer when " +
                     "MVCC is enabled.");
             }
 
             if (cc.getExpiryPolicyFactory() != null && !(cc.getExpiryPolicyFactory().create() instanceof
                 EternalExpiryPolicy)) {
-                throw new IgniteCheckedException("Transactional cache may not have expiry policy when " +
+                throw new IgniteCheckedException("Transactional cache must not have expiry policy when " +
                     "MVCC is enabled.");
             }
 
             if (cc.getInterceptor() != null) {
-                throw new IgniteCheckedException("Transactional cache may not have an interceptor when " +
+                throw new IgniteCheckedException("Transactional cache must not have an interceptor when " +
                     "MVCC is enabled.");
             }
         }
+    }
+
+    /** */
+    private static boolean isCacheStoreSetupSupported(CacheConfiguration cc) {
+        Factory f = cc.getCacheStoreFactory();
+        if (f == null)
+            return true;
+        return f instanceof GridCacheLoaderWriterStoreFactory
+            && ((GridCacheLoaderWriterStoreFactory)f).writerFactory() == null;
     }
 
     /**
