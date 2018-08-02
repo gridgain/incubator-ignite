@@ -558,7 +558,6 @@ public class LocalPendingTransactionsTrackerTest {
 
         assertTrue("Possible memory leak detected. Memory consumed before transaction tracking: " + sizeBefore +
             ", memory consumed after transaction tracking: " + sizeAfter, sizeAfter - sizeBefore < allowedLeakSize);
-
     }
 
     /**
@@ -570,7 +569,9 @@ public class LocalPendingTransactionsTrackerTest {
 
         AtomicInteger trackerState = new AtomicInteger();
 
-        String heapDumpFileName = "test.hprof";
+        File dumpFile = new File(U.defaultWorkDirectory(), "test.hprof");
+
+        String heapDumpFileName = dumpFile.getAbsolutePath();
 
         Runnable txRunnable = new Runnable() {
             @Override public void run() {
@@ -640,8 +641,6 @@ public class LocalPendingTransactionsTrackerTest {
         }
 
         GridDebug.dumpHeap(heapDumpFileName, true);
-
-        File dumpFile = new File(heapDumpFileName);
 
         long fileSize = dumpFile.length();
 
