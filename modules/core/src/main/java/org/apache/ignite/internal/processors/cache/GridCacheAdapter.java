@@ -110,6 +110,7 @@ import org.apache.ignite.internal.util.typedef.CIX3;
 import org.apache.ignite.internal.util.typedef.CX1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.internal.util.typedef.internal.CU;
@@ -160,25 +161,20 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
      *
      */
     public static class StatSnap {
-        private long duration;
+        public static int TOTAL_METRICS_CNT = 0;
+        public static final int TOTAL_READ_DURATION = TOTAL_METRICS_CNT++;
+        public static final int PART_INIT_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_PAGE_ACQUIRE_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_SEG_READ_LOCK_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_SEG_WRITE_LOCK_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_DISK_READ_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_MEM_TABLE_SEARCH_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_EVICT_PROCESS_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_PAGE_READ_DURATION = TOTAL_METRICS_CNT++;
 
-        private NavigableMap<Long, KeyCacheObject> keyProc = new TreeMap<>();
+        public KeyCacheObject currKey;
 
-        public void addKeyStat(long duration, KeyCacheObject key) {
-            keyProc.put(duration, key);
-        }
-
-        public NavigableMap<Long, KeyCacheObject> keyStat() {
-            return keyProc;
-        }
-
-        public long totalDuration() {
-            return duration;
-        }
-
-        public void setTotalDuration(long duration) {
-            this.duration = duration;
-        }
+        public Map<KeyCacheObject, long[]> stats = new HashMap<>();
     }
 
     /** */
@@ -1837,8 +1833,6 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         if (keyCheck)
             validateCacheKeys(keys);
 
-        long start = System.nanoTime();
-
         IgniteInternalFuture<Map<K, V>> ret = getAllAsync0(ctx.cacheKeysView(keys),
                 readerArgs,
                 readThrough,
@@ -1851,8 +1845,6 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                 /*keep cache objects*/false,
                 recovery,
                 needVer);
-
-        long duration = start - System.nanoTime();
 
         return ret;
     }
@@ -1940,17 +1932,20 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                             boolean skipEntry = readNoEntry;
 
                             if (readNoEntry) {
+                                StatSnap snap = dhtAllAsyncStatistics.get();
+
+                                if (snap != null) {
+                                    snap.stats.put(key, new long[StatSnap.TOTAL_METRICS_CNT]);
+
+                                    snap.currKey = key;
+                                }
+
                                 long start = System.nanoTime();
 
                                 CacheDataRow row = ctx.offheap().read(ctx, key);
 
-                                long duration = System.nanoTime() - start;
-
-                                if (dhtAllAsyncStatistics.get() != null) {
-                                    StatSnap statSnap = dhtAllAsyncStatistics.get();
-
-                                    statSnap.addKeyStat(duration, key);
-                                }
+                                if (snap != null)
+                                    snap.stats.get(key)[StatSnap.TOTAL_READ_DURATION] = System.nanoTime() - start;
 
                                 if (row != null) {
                                     long expireTime = row.expireTime();

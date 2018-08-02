@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.distributed.dht;
 import java.io.Externalizable;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -29,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import javax.cache.Cache;
 import javax.cache.expiry.ExpiryPolicy;
 import org.apache.ignite.IgniteCheckedException;
@@ -780,14 +782,14 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
         boolean skipVals,
         boolean recovery
     ) {
-        StatSnap statSnap = new StatSnap();
+        try {
+            StatSnap snap = new StatSnap();
 
-        if (dhtAllAsyncStatistics.get() == null)
-            dhtAllAsyncStatistics.set(statSnap);
+            dhtAllAsyncStatistics.set(snap);
 
-        long start = System.nanoTime();
+            long start = System.nanoTime();
 
-        IgniteInternalFuture<Map<KeyCacheObject, EntryGetResult>> ret = getAllAsync0(keys,
+            IgniteInternalFuture<Map<KeyCacheObject, EntryGetResult>> ret = getAllAsync0(keys,
                 readerArgs,
                 readThrough,
                 /*don't check local tx. */false,
@@ -800,28 +802,51 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
                 recovery,
                 /*need version*/true);
 
-        long duration = System.nanoTime() - start;
+            long duration = System.nanoTime() - start;
 
-        if (duration > IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
-            GridStringBuilder sb = new GridStringBuilder();
+            if (duration > IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
+                log.info("");
 
-            sb.a(">>> GetDhtAllAsync time processing").a(U.nl())
-                    .a("    Thread name: ").a(Thread.currentThread().getName()).a(U.nl())
-                    .a("    Duration: ").a(TimeUnit.NANOSECONDS.toMillis(duration)).a(U.nl());
+                GridStringBuilder sb = new GridStringBuilder();
 
-            statSnap.keyStat().descendingMap().forEach((keyDur, key) -> {
-                 sb.a("    Key: ").a(key)
-                         .a("    duration: ").a(TimeUnit.NANOSECONDS.toMillis(keyDur))
-                         .a(U.nl());
+                sb.a(">>> GetDhtAllAsync: [totalTime=" + TimeUnit.NANOSECONDS.toMillis(duration) + ", grp=" + ctx.groupId() + ", keys=[");
 
-            });
+                List<Map.Entry<KeyCacheObject, long[]>> sorted = snap.stats.entrySet().stream().
+                    sorted((o1, o2) -> Long.compare(o2.getValue()[StatSnap.TOTAL_READ_DURATION],
+                        o2.getValue()[StatSnap.TOTAL_READ_DURATION])).collect(Collectors.toList());
 
-            U.warn(log, sb.toString());
+                Iterator<Map.Entry<KeyCacheObject, long[]>> it = sorted.iterator();
+
+                while (it.hasNext()) {
+                    Map.Entry<KeyCacheObject, long[]> entry = it.next();
+
+                    sb.a('[').a(entry.getKey()).a(", times=[");
+
+                    for (int i = 0; i < entry.getValue().length; i++) {
+                        long t = entry.getValue()[i];
+
+                        sb.a(TimeUnit.NANOSECONDS.toMillis(t));
+
+                        if (i < entry.getValue().length - 1)
+                            sb.a(", ");
+                    }
+
+                    sb.a(']');
+
+                    if (it.hasNext())
+                        sb.a(", ");
+                }
+
+                sb.a(']').a(U.nl());
+
+                U.warn(log, sb.toString());
+            }
+
+            return ret;
         }
-
-        dhtAllAsyncStatistics.set(null);
-
-        return ret;
+        finally {
+            dhtAllAsyncStatistics.set(null);
+        }
     }
 
     /**
