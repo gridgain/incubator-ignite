@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
@@ -44,9 +43,9 @@ import org.apache.ignite.internal.processors.cache.GridCacheFuture;
 import org.apache.ignite.internal.processors.cache.GridCacheUtilityKey;
 import org.apache.ignite.internal.processors.cache.IgniteInternalCache;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
+import org.apache.ignite.internal.processors.service.GridServiceDeploymentKey;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
-import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.visor.VisorTaskArgument;
 import org.apache.ignite.internal.visor.tx.VisorTxInfo;
@@ -58,13 +57,13 @@ import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
-import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 
 import static java.lang.Thread.yield;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.testframework.GridTestUtils.runAsync;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
@@ -72,9 +71,6 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
  * Tests an ability to rollback transactions on topology change.
  */
 public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
-    /** */
-    public static final int ROLLBACK_TIMEOUT = 500;
-
     /** */
     private static final String CACHE_NAME = "test";
 
@@ -93,18 +89,25 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
     /** */
     public static final int ITERATIONS = 100;
 
+    /** */
+    private int rollbackTimeout = 500;
+
+    /** */
+    private boolean rollbackOnlySrvNodes = false;
+
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
-
-        cfg.setTransactionConfiguration(new TransactionConfiguration().
-            setTxTimeoutOnPartitionMapExchange(ROLLBACK_TIMEOUT));
 
         ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(IP_FINDER);
 
         cfg.setCommunicationSpi(new TestRecordingCommunicationSpi());
 
         cfg.setClientMode(getTestIgniteInstanceIndex(igniteInstanceName) >= SRV_CNT);
+
+        if (!rollbackOnlySrvNodes || !cfg.isClientMode())
+            cfg.setTransactionConfiguration(new TransactionConfiguration().
+                setTxTimeoutOnPartitionMapExchange(rollbackTimeout));
 
         CacheConfiguration ccfg = new CacheConfiguration(CACHE_NAME);
 
@@ -117,24 +120,12 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
         return cfg;
     }
 
-    /** {@inheritDoc} */
-    @Override protected void beforeTest() throws Exception {
-        super.beforeTest();
-
-        startGridsMultiThreaded(TOTAL_CNT);
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void afterTest() throws Exception {
-        super.afterTest();
-
-        stopAllGrids();
-    }
-
     /**
      * Tests rollbacks on topology change.
      */
     public void testRollbackOnTopologyChange() throws Exception {
+        startGridsMultiThreaded(TOTAL_CNT);
+
         final AtomicBoolean stop = new AtomicBoolean();
 
         final long seed = System.currentTimeMillis();
@@ -170,7 +161,7 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
 
                     int nodeId;
 
-                    while(!reservedIdx.compareAndSet((nodeId = r.nextInt(TOTAL_CNT)), 0, 1))
+                    while (!reservedIdx.compareAndSet((nodeId = r.nextInt(TOTAL_CNT)), 0, 1))
                         doSleep(10);
 
                     U.awaitQuiet(b);
@@ -200,7 +191,7 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
 
         final IgniteInternalFuture<?> restartFut = multithreadedAsync(new Callable<Void>() {
             @Override public Void call() throws Exception {
-                while(!stop.get()) {
+                while (!stop.get()) {
                     final int nodeId = r.nextInt(TOTAL_CNT);
 
                     if (!reservedIdx.compareAndSet(nodeId, 0, 1)) {
@@ -234,19 +225,30 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
     /**
      *
      */
-    public void testRollbackSystemTransaction() throws IgniteCheckedException {
+    public void testRollbackSystemTransaction() throws Exception {
+        rollbackOnlySrvNodes = true;
+
+        rollbackTimeout = 10000;
+
+        startGridsMultiThreaded(TOTAL_CNT);
+
         CountDownLatch finishLatch = new CountDownLatch(1);
 
         CountDownLatch systemTxLatch = new CountDownLatch(1);
+
+        CountDownLatch startLatch = new CountDownLatch(1);
 
         AtomicInteger idx = new AtomicInteger();
 
         List<IgniteInternalFuture> futs = new ArrayList<>(CLNT_CNT);
 
-        // Start LRT.
-        for (int i = 0; i < CLNT_CNT; i++) {
-            Runnable task = () -> {
-                IgniteEx cl = grid(SRV_CNT + idx.getAndIncrement());
+        Ignite prim = primaryNode(0, CACHE_NAME);
+
+        List<Ignite> backups = backupNodes(0, CACHE_NAME);
+
+        IgniteInternalFuture clTxFut = runAsync(new Runnable() {
+            @Override public void run() {
+                IgniteEx cl = grid(SRV_CNT);
 
                 assertTrue(cl.configuration().isClientMode());
 
@@ -260,12 +262,10 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
                     fail();
                 }
                 catch (Exception e) {
-                    // Expected.
+                    // Ex
                 }
-            };
-
-            futs.add(GridTestUtils.runAsync(task));
-        }
+            }
+        });
 
         IgniteEx crd = null;
 
@@ -279,39 +279,92 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
 
         assertNotNull(crd);
 
+        doSleep(2000);
+
         IgniteInternalCache<GridCacheUtilityKey, Object> utilityCache = crd.utilityCache();
 
         crd.events().enableLocal(EventType.EVT_NODE_FAILED, EventType.EVT_NODE_LEFT);
 
+        // Start tx on next topology.
         crd.events().localListen(new IgnitePredicate<Event>() {
             @Override public boolean apply(Event event) {
-                try (GridNearTxLocal tx = utilityCache.txStartEx(PESSIMISTIC, REPEATABLE_READ)) {
-                    Map<String, String> schedules = (Map<String, String>)utilityCache.get(SnapshotScheduleKey.SCHEDULES);
+                runAsync(new Runnable() {
+                    @Override public void run() {
+                        try (GridNearTxLocal tx = utilityCache.txStartEx(PESSIMISTIC, REPEATABLE_READ)) {
+                            log.info("System tx xid: " + tx.xid());
 
-                    systemTxLatch.countDown();
+                            systemTxLatch.countDown();
 
-                    finishLatch.await();
-                }
-                catch (Exception e) {
-                    log.error("err", e);
-                }
+                            Map<String, String> schedules = (Map<String, String>)utilityCache.get(new GridServiceDeploymentKey("8"));
+
+                            finishLatch.await();
+                        }
+                        catch (Exception e) {
+                            log.error("err", e);
+                        }
+                    }
+                });
 
                 return true;
             }
         }, EventType.EVT_NODE_FAILED, EventType.EVT_NODE_LEFT);
 
-        grid(2).close();
+        // Additional check to prevent tx rollback due to dht node leave.
+        for (Ignite ignite : G.allGrids()) {
+            if (!ignite.configuration().isClientMode() && !ignite.equals(prim) && !backups.contains(ignite)) {
+                ignite.close();
+
+                runAsync(new Runnable() {
+                    @Override public void run() {
+                        int stopIdx = getTestIgniteInstanceIndex(ignite.name());
+
+                        doSleep(1000);
+
+                        startLatch.countDown();
+
+                        try {
+                            startGrid(stopIdx);
+                        }
+                        catch (Exception e) {
+                            fail();
+                        }
+                    }
+                });
+
+                break;
+            }
+        }
 
         U.awaitQuiet(systemTxLatch);
 
-        doSleep(1000);
+        doSleep(1000); // Wait for system tx blocking.
 
         IgniteEx client1 = grid(SRV_CNT);
 
-        VisorTxTaskArg arg = new VisorTxTaskArg(VisorTxOperation.LIST, null, null, null, null, null, null, null, null, null);
+        U.awaitQuiet(startLatch);
 
-        Map<ClusterNode, VisorTxTaskResult> res = client1.compute().execute(new VisorTxTask(),
-            new VisorTaskArgument<>(client1.cluster().localNode().id(), arg, false));
+        doSleep(2000);
+
+        txAction(client1, true);
+
+        awaitPartitionMapExchange();
+
+        checkFutures();
+    }
+
+    @Override protected long getTestTimeout() {
+        return 1000000000L;
+    }
+
+    /**
+     * @param client Client.
+     * @param kill {@code True} to kill, else list.
+     */
+    private void txAction(Ignite client, boolean kill) {
+        VisorTxTaskArg arg = new VisorTxTaskArg(kill ? VisorTxOperation.KILL : VisorTxOperation.LIST, null, null, null, null, null, null, null, null, null);
+
+        Map<ClusterNode, VisorTxTaskResult> res = client.compute(client.cluster().forPredicate(F.alwaysTrue())).
+            execute(new VisorTxTask(), new VisorTaskArgument<>(client.cluster().localNode().id(), arg, false));
 
         for (Map.Entry<ClusterNode, VisorTxTaskResult> entry : res.entrySet()) {
             if (entry.getValue().getInfos().isEmpty())
@@ -361,48 +414,6 @@ public class TxRollbackOnTopologyChangeTest extends GridCommonAbstractTest {
                 log.info("Waiting for future: " + fut);
 
             assertTrue("Expecting no active futures: node=" + ig.localNode().id(), futs.isEmpty());
-        }
-    }
-
-    private static class SnapshotScheduleKey extends GridCacheUtilityKey<SnapshotScheduleKey> {
-        /** */
-        private static final long serialVersionUID = 0L;
-
-        /** Key to store map of schedule names to IDs. */
-        public static final SnapshotScheduleKey SCHEDULES = new SnapshotScheduleKey("_SCHEDULES_");
-
-        /** */
-        private String id;
-
-        /**
-         * @param id ID.
-         */
-        public SnapshotScheduleKey(String id) {
-            assert id != null;
-
-            this.id = id;
-        }
-
-        /**
-         * @return Key ID.
-         */
-        public String id() {
-            return id;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean equalsx(SnapshotScheduleKey that) {
-            return that != null && id.equals(that.id);
-        }
-
-        /** {@inheritDoc} */
-        @Override public int hashCode() {
-            return id.hashCode();
-        }
-
-        /** {@inheritDoc} */
-        @Override public String toString() {
-            return S.toString(SnapshotScheduleKey.class, this);
         }
     }
 }
