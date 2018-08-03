@@ -783,6 +783,10 @@ public class PageMemoryImpl implements PageMemoryEx {
             if (stats != null)
                 stats[GridCacheAdapter.StatSnap.TOTAL_EVICT_PROCESS_DURATION] = t7 - t6;
 
+            if (snap != null) {
+                snap.pageTypes.add(PageIO.getType(absPtr));
+            }
+
             return absPtr;
         }
         catch (IgniteOutOfMemoryException oom) {
@@ -793,8 +797,23 @@ public class PageMemoryImpl implements PageMemoryEx {
         finally {
             seg.writeLock().unlock();
 
-            if (delayedWriter != null)
+            if (stats != null) {
+                long limit = seg.pool.region.address() + seg.pool.region.size();
+
+                long lastIdx = GridUnsafe.getLong(seg.pool.lastAllocatedIdxPtr);
+
+                stats[GridCacheAdapter.StatSnap.SEGMENT_UTILIZATION] =
+                        (limit - seg.pool.pagesBase - (lastIdx + 1) * sysPageSize) / sysPageSize;
+            }
+
+            if (delayedWriter != null) {
+                long t8 = System.nanoTime();
+
                 delayedWriter.finishReplacement();
+
+                if (stats != null)
+                    stats[GridCacheAdapter.StatSnap.TOTAL_PAGE_REPLACEMENT_DURATION] = t8 - System.nanoTime();
+            }
 
             if (readPageFromStore) {
                 assert lockedPageAbsPtr != -1 : "Page is expected to have a valid address [pageId=" + fullId +

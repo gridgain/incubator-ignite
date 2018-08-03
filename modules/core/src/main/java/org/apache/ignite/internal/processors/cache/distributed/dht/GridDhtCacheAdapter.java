@@ -813,7 +813,7 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
 
                 List<Map.Entry<KeyCacheObject, long[]>> sorted = snap.stats.entrySet().stream().
                     sorted((o1, o2) -> Long.compare(o2.getValue()[StatSnap.TOTAL_READ_DURATION],
-                        o2.getValue()[StatSnap.TOTAL_READ_DURATION])).collect(Collectors.toList());
+                        o1.getValue()[StatSnap.TOTAL_READ_DURATION])).collect(Collectors.toList());
 
                 Iterator<Map.Entry<KeyCacheObject, long[]>> it = sorted.iterator();
 
@@ -822,20 +822,27 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
 
                     sb.a('[').a(entry.getKey()).a(", times=[");
 
-                    for (int i = 0; i < entry.getValue().length; i++) {
+                    for (int i = 0; i < entry.getValue().length - 1; i++) {
                         long t = entry.getValue()[i];
 
-                        sb.a(TimeUnit.NANOSECONDS.toMillis(t));
+                        sb.a(TimeUnit.NANOSECONDS.toMillis(t) == 0 ? t + "ns" : TimeUnit.NANOSECONDS.toMillis(t) + "ms");
 
-                        if (i < entry.getValue().length - 1)
+                        if (i < entry.getValue().length - 2)
                             sb.a(", ");
                     }
+
+                    sb.a(']');
+
+                    sb.a(", segment utilization = ").a(entry.getValue()[entry.getValue().length - 1]);
 
                     sb.a(']');
 
                     if (it.hasNext())
                         sb.a(", ");
                 }
+
+                sb.a(", page types=").a(snap.pageTypes);
+
 
                 sb.a(']').a(U.nl());
 
