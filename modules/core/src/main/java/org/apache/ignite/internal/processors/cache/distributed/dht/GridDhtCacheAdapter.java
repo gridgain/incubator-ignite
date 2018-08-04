@@ -835,14 +835,13 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
 
                     sb.a(", segment utilization = ").a(entry.getValue()[entry.getValue().length - 1]);
 
+                    sb.a(", slowPages=").a(snap.pageTypes.get(entry.getKey()));
+
                     sb.a(']');
 
                     if (it.hasNext())
                         sb.a(", ");
                 }
-
-                sb.a(", page types=").a(snap.pageTypes);
-
 
                 sb.a(']').a(U.nl());
 

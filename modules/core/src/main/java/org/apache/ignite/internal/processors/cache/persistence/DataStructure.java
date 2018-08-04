@@ -26,6 +26,7 @@ import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.pagemem.wal.record.delta.RecycleRecord;
 import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseBag;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
@@ -146,7 +147,12 @@ public abstract class DataStructure implements PageLockListener {
 
             long ptr = pageMem.acquirePage(grpId, pageId);
 
-            snap.stats.get(snap.currKey)[GridCacheAdapter.StatSnap.TOTAL_PAGE_ACQUIRE_DURATION] += System.nanoTime() - t1;
+            long t2 = System.nanoTime();
+
+            snap.stats.get(snap.currKey)[GridCacheAdapter.StatSnap.TOTAL_PAGE_ACQUIRE_DURATION] += t2 - t1;
+
+            if (t2 - t1 > 1_000_000_000)
+                snap.addPage(snap.currKey, PageIO.getType(ptr + PageMemoryImpl.PAGE_OVERHEAD));
 
             return ptr;
         }

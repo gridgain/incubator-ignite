@@ -647,7 +647,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         long t2 = System.nanoTime();
 
         if (stats != null)
-            stats[GridCacheAdapter.StatSnap.TOTAL_SEG_READ_LOCK_DURATION] = t2 - t1;
+            stats[GridCacheAdapter.StatSnap.TOTAL_SEG_READ_LOCK_DURATION] += t2 - t1;
 
         try {
             long relPtr = seg.loadedPages.get(
@@ -661,7 +661,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             long t3 = System.nanoTime();
 
             if (stats != null)
-                stats[GridCacheAdapter.StatSnap.TOTAL_MEM_TABLE_SEARCH_DURATION] = t3 - t2;
+                stats[GridCacheAdapter.StatSnap.TOTAL_MEM_TABLE_SEARCH_DURATION] += t3 - t2;
 
             // The page is loaded to the memory.
             if (relPtr != INVALID_REL_PTR) {
@@ -686,7 +686,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         long t5 = System.nanoTime();
 
         if (stats != null)
-            stats[GridCacheAdapter.StatSnap.TOTAL_SEG_WRITE_LOCK_DURATION] = t5 - t4;
+            stats[GridCacheAdapter.StatSnap.TOTAL_SEG_WRITE_LOCK_DURATION] += t5 - t4;
 
         long lockedPageAbsPtr = -1;
         boolean readPageFromStore = false;
@@ -784,11 +784,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             long t7 = System.nanoTime();
 
             if (stats != null)
-                stats[GridCacheAdapter.StatSnap.TOTAL_EVICT_PROCESS_DURATION] = t7 - t6;
-
-            if (snap != null) {
-                snap.pageTypes.add(PageIO.getType(absPtr));
-            }
+                stats[GridCacheAdapter.StatSnap.TOTAL_EVICT_PROCESS_DURATION] += t7 - t6;
 
             return absPtr;
         }
@@ -815,7 +811,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 delayedWriter.finishReplacement();
 
                 if (stats != null)
-                    stats[GridCacheAdapter.StatSnap.TOTAL_PAGE_REPLACEMENT_DURATION] = t8 - System.nanoTime();
+                    stats[GridCacheAdapter.StatSnap.TOTAL_PAGE_REPLACEMENT_DURATION] += t8 - System.nanoTime();
             }
 
             if (readPageFromStore) {
@@ -847,7 +843,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 }
                 finally {
                     if (stats != null)
-                        stats[GridCacheAdapter.StatSnap.TOTAL_DISK_READ_DURATION] = System.nanoTime() - t0;
+                        stats[GridCacheAdapter.StatSnap.TOTAL_DISK_READ_DURATION] += System.nanoTime() - t0;
 
                     rwLock.writeUnlock(lockedPageAbsPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
                 }

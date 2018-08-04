@@ -1181,8 +1181,6 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         finally {
             if (g.canRelease(pageId, lvl))
                 releasePage(pageId, page);
-
-            GridCacheAdapter.StatSnap snap = GridCacheAdapter.dhtAllAsyncStatistics.get();
         }
     }
 

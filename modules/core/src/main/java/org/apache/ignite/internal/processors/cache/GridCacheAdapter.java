@@ -178,7 +178,17 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
 
         public Map<KeyCacheObject, long[]> stats = new HashMap<>();
 
-        public List<Integer> pageTypes = new LinkedList<>();
+        public Map<KeyCacheObject, List<Integer>> pageTypes = new HashMap<>();
+
+        public void addPage(KeyCacheObject key, int pType) {
+            List<Integer> list = pageTypes.get(key);
+
+            if (list == null) {
+                pageTypes.put(key, (list = new ArrayList<Integer>(4)));
+            }
+
+            list.add(pType);
+        }
     }
 
     /** */
