@@ -17,24 +17,15 @@
 
 package org.apache.ignite.internal.util;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.LockSupport;
+import java.util.stream.Collectors;
+
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.managers.communication.GridIoPolicy;
@@ -47,6 +38,8 @@ import org.apache.ignite.internal.util.worker.GridWorkerListener;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.thread.IgniteThread;
 import org.jetbrains.annotations.NotNull;
+
+import static java.util.Comparator.reverseOrder;
 
 /**
  * Striped executor.
@@ -174,6 +167,58 @@ public class StripedExecutor implements ExecutorService {
 
             if (active || completedCnt > 0)
                 completedCntrs[i] = completedCnt;
+        }
+    }
+
+    /**
+     *
+     */
+    public void checkContention() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        ZoneId sysZoneId = ZoneId.systemDefault();
+
+        for (int i = 0; i < stripes.length; i++) {
+            Stripe stripe = stripes[i];
+
+            if (!stripe.contHist.isEmpty() || !stripe.taskHist.isEmpty()) {
+                GridStringBuilder sb = new GridStringBuilder();
+
+                sb.a(">>> Possible contention in striped pool.").a(U.nl())
+                        .a("    Thread name: ").a(stripe.thread.getName()).a(U.nl());
+
+                stripe.contHist.descendingMap().values().stream().limit(5)
+                        .forEach((snaps) -> {
+                            for (StripeSnap snap: snaps)
+                                sb.a("  ").a(LocalDateTime.ofInstant(
+                                        Instant.ofEpochMilli(snap.timestamp()),
+                                        sysZoneId).format(formatter))
+                                    .a(" ")
+                                    .a("queue size: ").a(snap.queueSize()).a(" ")
+                                    .a("runnables: ").a(snap.message()).a(U.nl());
+                });
+
+                stripe.taskHist.descendingMap().values().stream().limit(5)
+                        .forEach(snap -> {
+                                sb.a("  ").a(LocalDateTime.ofInstant(
+                                            Instant.ofEpochMilli(snap.timestamp()),
+                                            sysZoneId).format(formatter))
+                                        .a(" ")
+                                        .a("task duration: ").a(TimeUnit.NANOSECONDS.toMillis(snap.duration())).a("ms ")
+                                        .a("runnable: ").a(snap.message()).a(U.nl());
+                });
+
+                String msg = sb.toString();
+
+                U.warn(log, msg);
+
+                U.printStackTrace(
+                        stripe.thread.getId(),
+                        sb);
+
+                stripe.contHist.clear();
+
+                stripe.taskHist.clear();
+            }
         }
     }
 
@@ -418,9 +463,119 @@ public class StripedExecutor implements ExecutorService {
     }
 
     /**
+     *
+     */
+    private static class StripeSnap {
+        /** */
+        long ts;
+
+        /** */
+        int queueSize;
+
+        /** */
+        String msg;
+
+        /**
+         * @param ts Timestamp.
+         * @param queueSize Queue size.
+         * @param msg Message.
+         */
+        StripeSnap(long ts, int queueSize, String msg) {
+            this.ts = ts;
+            this.queueSize = queueSize;
+            this.msg = msg;
+        }
+
+        /**
+         * @return Timestamp.
+         */
+        public long timestamp() {
+            return ts;
+        }
+
+        /**
+         * @return Queue size.
+         */
+        public int queueSize() {
+            return queueSize;
+        }
+
+        /**
+         * @return Message.
+         */
+        public String message() {
+            return msg;
+        }
+    }
+
+    /**
+     *
+     */
+    private static class StripeTaskSnap {
+        /** */
+        long ts;
+
+        /** */
+        long duration;
+
+        /** */
+        String msg;
+
+        /**
+         * @param ts Timestamp.
+         * @param duration In nanos.
+         * @param msg Message.
+         */
+        StripeTaskSnap(long ts, long duration, String msg) {
+            this.ts = ts;
+            this.duration = duration;
+            this.msg = msg;
+        }
+
+        /**
+         * @return Timestamp.
+         */
+        public long timestamp() {
+            return ts;
+        }
+
+        /**
+         * @return Duration in nanos.
+         */
+        public long duration() {
+            return duration;
+        }
+
+        /**
+         * @return Message.
+         */
+        public String message() {
+            return msg;
+        }
+    }
+
+    /**
      * Stripe.
      */
     private static abstract class Stripe extends GridWorker {
+        private static final int IGNITE_STRIPE_QUEUE_THRESHOLD =
+                IgniteSystemProperties.getInteger(
+                        IgniteSystemProperties.IGNITE_STRIPE_QUEUE_THRESHOLD, 10);
+
+        private static final int IGNITE_STRIPE_MAX_CONTENTION_HISTORY_SIZE =
+                IgniteSystemProperties.getInteger(
+                        IgniteSystemProperties.IGNITE_STRIPE_MAX_CONTENTION_HISTORY_SIZE, 1000);
+
+        private static final long IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD =
+                IgniteSystemProperties.getInteger(
+                        IgniteSystemProperties.IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD, 1000) * 1_000_000L;
+
+        /** */
+        ConcurrentNavigableMap<Integer, List<StripeSnap>> contHist = new ConcurrentSkipListMap<>();
+
+        /** */
+        ConcurrentNavigableMap<Long, StripeTaskSnap> taskHist = new ConcurrentSkipListMap<>();
+
         /** */
         private final String igniteInstanceName;
 
@@ -493,7 +648,16 @@ public class StripedExecutor implements ExecutorService {
                         active = true;
 
                         try {
+                            long startMillis = System.currentTimeMillis();
+                            long start = System.nanoTime();
                             cmd.run();
+                            long duration = System.nanoTime() - start;
+                            if (duration >= IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
+                                taskHist.put(duration, new StripeTaskSnap(startMillis, duration, cmd.toString()));
+
+                                if (taskHist.size() > IGNITE_STRIPE_MAX_CONTENTION_HISTORY_SIZE)
+                                    taskHist.remove(taskHist.firstKey());
+                            }
                         }
                         finally {
                             active = false;
@@ -525,7 +689,30 @@ public class StripedExecutor implements ExecutorService {
          *
          * @param cmd Command.
          */
-        abstract void execute(Runnable cmd);
+        void execute(Runnable cmd) {
+            int qSz = queueSize();
+            if (qSz >= IGNITE_STRIPE_QUEUE_THRESHOLD) {
+                long snapTime = System.currentTimeMillis();
+
+                contHist.computeIfAbsent(qSz, k -> Collections.synchronizedList(new ArrayList<>()))
+                        .add(new StripeSnap(snapTime, qSz, makeSnapMessage()));
+
+                if (contHist.size() > IGNITE_STRIPE_MAX_CONTENTION_HISTORY_SIZE)
+                    contHist.remove(contHist.firstKey());
+            }
+
+            execute0(cmd);
+        }
+
+        /**
+         * @param cmd Command.
+         */
+        abstract void execute0(Runnable cmd);
+
+        /**
+         *
+         */
+        abstract String makeSnapMessage();
 
         /**
          * @return Next runnable.
@@ -667,7 +854,12 @@ public class StripedExecutor implements ExecutorService {
         }
 
         /** {@inheritDoc} */
-        void execute(Runnable cmd) {
+        @Override String makeSnapMessage() {
+            return queue.stream().map(Runnable::toString).collect(Collectors.joining(","));
+        }
+
+        /** {@inheritDoc} */
+        void execute0(Runnable cmd) {
             queue.add(cmd);
 
             if (parked)
@@ -739,8 +931,13 @@ public class StripedExecutor implements ExecutorService {
         }
 
         /** {@inheritDoc} */
-        void execute(Runnable cmd) {
+        void execute0(Runnable cmd) {
             queue.add(cmd);
+        }
+
+        /** {@inheritDoc} */
+        @Override String makeSnapMessage() {
+            return queue.stream().map(Runnable::toString).collect(Collectors.joining(","));
         }
 
         /** {@inheritDoc} */
@@ -796,8 +993,13 @@ public class StripedExecutor implements ExecutorService {
         }
 
         /** {@inheritDoc} */
-        void execute(Runnable cmd) {
+        void execute0(Runnable cmd) {
             queue.add(cmd);
+        }
+
+        /** {@inheritDoc} */
+        @Override String makeSnapMessage() {
+            return queue.stream().map(Runnable::toString).collect(Collectors.joining(","));
         }
 
         /** {@inheritDoc} */

@@ -23,8 +23,7 @@ import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.PageSupport;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.pagemem.wal.record.delta.InitNewPageRecord;
-import org.apache.ignite.internal.processors.cache.GridCacheSharedManager;
-import org.apache.ignite.internal.processors.cache.GridCacheSharedManagerAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.util.GridUnsafe;
 
@@ -151,6 +150,8 @@ public abstract class PageHandler<X, R> {
         int intArg,
         R lockFailed
     ) throws IgniteCheckedException {
+        long t1 = System.nanoTime();
+
         long pageAddr = readLock(pageMem, cacheId, pageId, page, lsnr);
 
         if (pageAddr == 0L)
@@ -161,6 +162,11 @@ public abstract class PageHandler<X, R> {
         }
         finally {
             readUnlock(pageMem, cacheId, pageId, page, pageAddr, lsnr);
+
+            GridCacheAdapter.StatSnap snap = GridCacheAdapter.dhtAllAsyncStatistics.get();
+
+            if (snap != null)
+                snap.stats.get(snap.currKey)[GridCacheAdapter.StatSnap.TOTAL_PAGE_READ_DURATION] += System.nanoTime() - t1;
         }
     }
 

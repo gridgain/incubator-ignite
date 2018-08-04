@@ -23,18 +23,7 @@ import java.io.InvalidObjectException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.io.ObjectStreamException;
-import java.util.AbstractSet;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -121,6 +110,7 @@ import org.apache.ignite.internal.util.typedef.CIX3;
 import org.apache.ignite.internal.util.typedef.CX1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T2;
+import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.internal.util.typedef.internal.CU;
@@ -159,6 +149,38 @@ import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED
  */
 @SuppressWarnings("unchecked")
 public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V>, Externalizable {
+    /** */
+    public static ThreadLocal<StatSnap> dhtAllAsyncStatistics = new ThreadLocal<>();
+
+    /** */
+    public static final long IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD =
+            IgniteSystemProperties.getInteger(
+                    IgniteSystemProperties.IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD, 1000) * 1_000_000L;
+
+    /**
+     *
+     */
+    public static class StatSnap {
+        public static int TOTAL_METRICS_CNT = 0;
+        public static final int TOTAL_READ_DURATION = TOTAL_METRICS_CNT++;
+        public static final int PART_INIT_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_PAGE_ACQUIRE_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_SEG_READ_LOCK_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_SEG_WRITE_LOCK_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_DISK_READ_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_MEM_TABLE_SEARCH_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_EVICT_PROCESS_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_PAGE_REPLACEMENT_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_PAGE_READ_DURATION = TOTAL_METRICS_CNT++;
+        public static final int SEGMENT_UTILIZATION = TOTAL_METRICS_CNT++;
+
+        public KeyCacheObject currKey;
+
+        public Map<KeyCacheObject, long[]> stats = new HashMap<>();
+
+        public List<Integer> pageTypes = new LinkedList<>();
+    }
+
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -1815,18 +1837,20 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         if (keyCheck)
             validateCacheKeys(keys);
 
-        return getAllAsync0(ctx.cacheKeysView(keys),
-            readerArgs,
-            readThrough,
-            checkTx,
-            subjId,
-            taskName,
-            deserializeBinary,
-            expiry,
-            skipVals,
-            /*keep cache objects*/false,
-            recovery,
-            needVer);
+        IgniteInternalFuture<Map<K, V>> ret = getAllAsync0(ctx.cacheKeysView(keys),
+                readerArgs,
+                readThrough,
+                checkTx,
+                subjId,
+                taskName,
+                deserializeBinary,
+                expiry,
+                skipVals,
+                /*keep cache objects*/false,
+                recovery,
+                needVer);
+
+        return ret;
     }
 
     /**
@@ -1912,7 +1936,20 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                             boolean skipEntry = readNoEntry;
 
                             if (readNoEntry) {
+                                StatSnap snap = dhtAllAsyncStatistics.get();
+
+                                if (snap != null) {
+                                    snap.stats.put(key, new long[StatSnap.TOTAL_METRICS_CNT]);
+
+                                    snap.currKey = key;
+                                }
+
+                                long start = System.nanoTime();
+
                                 CacheDataRow row = ctx.offheap().read(ctx, key);
+
+                                if (snap != null)
+                                    snap.stats.get(key)[StatSnap.TOTAL_READ_DURATION] = System.nanoTime() - start;
 
                                 if (row != null) {
                                     long expireTime = row.expireTime();

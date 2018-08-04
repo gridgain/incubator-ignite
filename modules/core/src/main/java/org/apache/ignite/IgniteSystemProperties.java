@@ -743,6 +743,18 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_DATA_STREAMING_EXECUTOR_SERVICE_TASKS_STEALING_THRESHOLD =
             "IGNITE_DATA_STREAMING_EXECUTOR_SERVICE_TASKS_STEALING_THRESHOLD";
 
+    /** */
+    public static final String IGNITE_STRIPE_QUEUE_THRESHOLD =
+            "IGNITE_STRIPE_QUEUE_THRESHOLD";
+
+    /** */
+    public static final String IGNITE_STRIPE_MAX_CONTENTION_HISTORY_SIZE =
+            "IGNITE_STRIPE_MAX_CONTENTION_HISTORY_SIZE";
+
+    /** */
+    public static final String IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD =
+            "IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD";
+
     /**
      * If this property is set, then Ignite will use Async File IO factory by default.
      */

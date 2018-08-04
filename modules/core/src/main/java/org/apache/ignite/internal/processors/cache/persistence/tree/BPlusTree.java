@@ -43,6 +43,7 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.NewRootInitRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.RemoveRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.ReplaceRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.SplitExistingPageRecord;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.DataStructure;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
@@ -838,6 +839,10 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
         final long metaPage = acquirePage(metaPageId);
         try {
+            GridCacheAdapter.StatSnap snap = GridCacheAdapter.dhtAllAsyncStatistics.get();
+
+            long t1 = System.nanoTime();
+
             long pageAddr = readLock(metaPageId, metaPage); // Meta can't be removed.
 
             assert pageAddr != 0 : "Failed to read lock meta page [metaPageId=" +
@@ -853,6 +858,9 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
             }
             finally {
                 readUnlock(metaPageId, metaPage, pageAddr);
+
+                if (snap != null)
+                    snap.stats.get(snap.currKey)[GridCacheAdapter.StatSnap.PART_INIT_DURATION] += System.nanoTime() - t1;
             }
         }
         finally {
@@ -1173,6 +1181,8 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         finally {
             if (g.canRelease(pageId, lvl))
                 releasePage(pageId, page);
+
+            GridCacheAdapter.StatSnap snap = GridCacheAdapter.dhtAllAsyncStatistics.get();
         }
     }
 

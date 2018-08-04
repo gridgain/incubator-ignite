@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.distributed.dht;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
@@ -216,11 +217,18 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
         rmvdEntryTtl = Long.getLong(IGNITE_CACHE_REMOVED_ENTRIES_TTL, 10_000);
 
         try {
+            long t1 = System.nanoTime();
+
             store = grp.offheap().createCacheDataStore(id);
 
             // Log partition creation for further crash recovery purposes.
             if (grp.walEnabled())
                 ctx.wal().log(new PartitionMetaStateRecord(grp.groupId(), id, state(), updateCounter()));
+
+            GridCacheAdapter.StatSnap snap = GridCacheAdapter.dhtAllAsyncStatistics.get();
+
+            if (snap != null)
+                snap.stats.get(snap.currKey)[GridCacheAdapter.StatSnap.PART_INIT_DURATION] = System.nanoTime() - t1;
 
             // Inject row cache cleaner on store creation
             // Used in case the cache with enabled SqlOnheapCache is single cache at the cache group

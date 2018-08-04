@@ -1193,8 +1193,11 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                         lastCompletedCntSys = checkPoolStarvation(exec, lastCompletedCntSys, "system");
                     }
 
-                    if (stripedExecSvc != null)
+                    if (stripedExecSvc != null) {
                         stripedExecSvc.checkStarvation();
+
+                        stripedExecSvc.checkContention();
+                    }
                 }
 
                 /**

@@ -60,6 +60,7 @@ import org.apache.ignite.internal.pagemem.wal.record.PageSnapshot;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.InitNewPageRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.PageDeltaRecord;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointLockStateChecker;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointWriteProgressSupplier;
@@ -629,13 +630,24 @@ public class PageMemoryImpl implements PageMemoryEx {
 
     /** {@inheritDoc} */
     @Override public long acquirePage(int grpId, long pageId, boolean restore) throws IgniteCheckedException {
+        GridCacheAdapter.StatSnap snap = GridCacheAdapter.dhtAllAsyncStatistics.get();
+
+        long[] stats = snap == null ? null : snap.stats.get(snap.currKey);
+
         FullPageId fullId = new FullPageId(pageId, grpId);
 
         int partId = PageIdUtils.partId(pageId);
 
+        long t1 = System.nanoTime();
+
         Segment seg = segment(grpId, pageId);
 
         seg.readLock().lock();
+
+        long t2 = System.nanoTime();
+
+        if (stats != null)
+            stats[GridCacheAdapter.StatSnap.TOTAL_SEG_READ_LOCK_DURATION] = t2 - t1;
 
         try {
             long relPtr = seg.loadedPages.get(
@@ -645,6 +657,11 @@ public class PageMemoryImpl implements PageMemoryEx {
                 INVALID_REL_PTR,
                 INVALID_REL_PTR
             );
+
+            long t3 = System.nanoTime();
+
+            if (stats != null)
+                stats[GridCacheAdapter.StatSnap.TOTAL_MEM_TABLE_SEARCH_DURATION] = t3 - t2;
 
             // The page is loaded to the memory.
             if (relPtr != INVALID_REL_PTR) {
@@ -662,7 +679,14 @@ public class PageMemoryImpl implements PageMemoryEx {
         DelayedDirtyPageWrite delayedWriter = delayedPageReplacementTracker != null
             ? delayedPageReplacementTracker.delayedPageWrite() : null;
 
+        long t4 = System.nanoTime();
+
         seg.writeLock().lock();
+
+        long t5 = System.nanoTime();
+
+        if (stats != null)
+            stats[GridCacheAdapter.StatSnap.TOTAL_SEG_WRITE_LOCK_DURATION] = t5 - t4;
 
         long lockedPageAbsPtr = -1;
         boolean readPageFromStore = false;
@@ -678,6 +702,8 @@ public class PageMemoryImpl implements PageMemoryEx {
             );
 
             long absPtr;
+
+            long t6 = System.nanoTime();
 
             if (relPtr == INVALID_REL_PTR) {
                 relPtr = seg.borrowOrAllocateFreePage(pageId);
@@ -755,6 +781,15 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             seg.acquirePage(absPtr);
 
+            long t7 = System.nanoTime();
+
+            if (stats != null)
+                stats[GridCacheAdapter.StatSnap.TOTAL_EVICT_PROCESS_DURATION] = t7 - t6;
+
+            if (snap != null) {
+                snap.pageTypes.add(PageIO.getType(absPtr));
+            }
+
             return absPtr;
         }
         catch (IgniteOutOfMemoryException oom) {
@@ -765,14 +800,31 @@ public class PageMemoryImpl implements PageMemoryEx {
         finally {
             seg.writeLock().unlock();
 
-            if (delayedWriter != null)
+            if (stats != null) {
+                long limit = seg.pool.region.address() + seg.pool.region.size();
+
+                long lastIdx = GridUnsafe.getLong(seg.pool.lastAllocatedIdxPtr);
+
+                stats[GridCacheAdapter.StatSnap.SEGMENT_UTILIZATION] =
+                        (limit - seg.pool.pagesBase - (lastIdx + 1) * sysPageSize) / sysPageSize;
+            }
+
+            if (delayedWriter != null) {
+                long t8 = System.nanoTime();
+
                 delayedWriter.finishReplacement();
+
+                if (stats != null)
+                    stats[GridCacheAdapter.StatSnap.TOTAL_PAGE_REPLACEMENT_DURATION] = t8 - System.nanoTime();
+            }
 
             if (readPageFromStore) {
                 assert lockedPageAbsPtr != -1 : "Page is expected to have a valid address [pageId=" + fullId +
                     ", lockedPageAbsPtr=" + U.hexLong(lockedPageAbsPtr) + ']';
 
                 assert isPageWriteLocked(lockedPageAbsPtr) : "Page is expected to be locked: [pageId=" + fullId + "]";
+
+                long t0 = System.nanoTime();
 
                 long pageAddr = lockedPageAbsPtr + PAGE_OVERHEAD;
 
@@ -794,6 +846,9 @@ public class PageMemoryImpl implements PageMemoryEx {
                     memMetrics.onPageRead();
                 }
                 finally {
+                    if (stats != null)
+                        stats[GridCacheAdapter.StatSnap.TOTAL_DISK_READ_DURATION] = System.nanoTime() - t0;
+
                     rwLock.writeUnlock(lockedPageAbsPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
                 }
             }

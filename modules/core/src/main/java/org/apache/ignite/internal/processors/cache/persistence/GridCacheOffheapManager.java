@@ -48,6 +48,7 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.PartitionDestroyRecor
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.CacheObject;
+import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.IgniteCacheOffheapManagerImpl;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
@@ -1185,7 +1186,13 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
             IgniteCacheDatabaseSharedManager dbMgr = ctx.database();
 
-                dbMgr.checkpointReadLock();if (init.compareAndSet(false, true)) {
+            dbMgr.checkpointReadLock();
+
+            if (init.compareAndSet(false, true)) {
+                GridCacheAdapter.StatSnap snap = GridCacheAdapter.dhtAllAsyncStatistics.get();
+
+                long t1 = System.nanoTime();
+
                 try {
                     Metas metas = getOrAllocatePartitionMetas();
 
@@ -1272,6 +1279,9 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
                     latch.countDown();
 
                     dbMgr.checkpointReadUnlock();
+
+                    if (snap != null)
+                        snap.stats.get(snap.currKey)[GridCacheAdapter.StatSnap.PART_INIT_DURATION] += System.nanoTime() - t1;
                 }
             }
             else {
