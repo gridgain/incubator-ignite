@@ -162,6 +162,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
      */
     public static class StatSnap {
         public static int TOTAL_METRICS_CNT = 0;
+
         public static final int TOTAL_READ_DURATION = TOTAL_METRICS_CNT++;
         public static final int PART_INIT_DURATION = TOTAL_METRICS_CNT++;
         public static final int TOTAL_PAGE_ACQUIRE_DURATION = TOTAL_METRICS_CNT++;
@@ -172,6 +173,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         public static final int TOTAL_EVICT_PROCESS_DURATION = TOTAL_METRICS_CNT++;
         public static final int TOTAL_PAGE_REPLACEMENT_DURATION = TOTAL_METRICS_CNT++;
         public static final int TOTAL_PAGE_READ_DURATION = TOTAL_METRICS_CNT++;
+
         public static final int SEGMENT_UTILIZATION = TOTAL_METRICS_CNT++;
 
         public KeyCacheObject currKey;

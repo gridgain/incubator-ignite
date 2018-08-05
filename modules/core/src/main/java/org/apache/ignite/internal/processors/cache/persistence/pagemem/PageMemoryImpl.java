@@ -811,7 +811,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 delayedWriter.finishReplacement();
 
                 if (stats != null)
-                    stats[GridCacheAdapter.StatSnap.TOTAL_PAGE_REPLACEMENT_DURATION] += t8 - System.nanoTime();
+                    stats[GridCacheAdapter.StatSnap.TOTAL_PAGE_REPLACEMENT_DURATION] += System.nanoTime() - t8;
             }
 
             if (readPageFromStore) {
