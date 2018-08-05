@@ -173,6 +173,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         public static final int TOTAL_EVICT_PROCESS_DURATION = TOTAL_METRICS_CNT++;
         public static final int TOTAL_PAGE_REPLACEMENT_DURATION = TOTAL_METRICS_CNT++;
         public static final int TOTAL_PAGE_READ_DURATION = TOTAL_METRICS_CNT++;
+        public static final int TOTAL_MEM_TABLE_SEARCH_AGAIN_DURATION = TOTAL_METRICS_CNT++;
 
         public static final int SEGMENT_UTILIZATION = TOTAL_METRICS_CNT++;
 
@@ -1951,7 +1952,11 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                                 StatSnap snap = dhtAllAsyncStatistics.get();
 
                                 if (snap != null) {
-                                    snap.stats.put(key, new long[StatSnap.TOTAL_METRICS_CNT]);
+                                    long[] arr = new long[StatSnap.TOTAL_METRICS_CNT];
+
+                                    Arrays.fill(arr, -1);
+
+                                    snap.stats.put(key, arr);
 
                                     snap.currKey = key;
                                 }

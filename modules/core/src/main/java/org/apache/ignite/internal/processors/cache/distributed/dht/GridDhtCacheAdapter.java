@@ -825,7 +825,7 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
                     for (int i = 0; i < entry.getValue().length - 1; i++) {
                         long t = entry.getValue()[i];
 
-                        sb.a(TimeUnit.NANOSECONDS.toMillis(t) == 0 ? t + "ns" : TimeUnit.NANOSECONDS.toMillis(t) + "ms");
+                        sb.a(t == -1 ? "NA" : t < 1_000_000 ? t + "ns" : TimeUnit.NANOSECONDS.toMillis(t) + "ms");
 
                         if (i < entry.getValue().length - 2)
                             sb.a(", ");
@@ -833,9 +833,11 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
 
                     sb.a(']');
 
-                    sb.a(", segment utilization = ").a(entry.getValue()[entry.getValue().length - 1]);
+                    long segUtil = entry.getValue()[StatSnap.SEGMENT_UTILIZATION];
 
-                    sb.a(", slowPages=").a(snap.pageTypes.get(entry.getKey()));
+                    sb.a(", segPages = ").a(segUtil == -1 ? "NA" : segUtil);
+
+                    sb.a(", slowPageTypes=").a(snap.pageTypes.get(entry.getKey()));
 
                     sb.a(']');
 

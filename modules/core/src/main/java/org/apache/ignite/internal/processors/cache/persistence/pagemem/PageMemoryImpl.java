@@ -658,11 +658,6 @@ public class PageMemoryImpl implements PageMemoryEx {
                 INVALID_REL_PTR
             );
 
-            long t3 = System.nanoTime();
-
-            if (stats != null)
-                stats[GridCacheAdapter.StatSnap.TOTAL_MEM_TABLE_SEARCH_DURATION] += t3 - t2;
-
             // The page is loaded to the memory.
             if (relPtr != INVALID_REL_PTR) {
                 long absPtr = seg.absolute(relPtr);
@@ -674,12 +669,17 @@ public class PageMemoryImpl implements PageMemoryEx {
         }
         finally {
             seg.readLock().unlock();
+
+            long t3 = System.nanoTime();
+
+            if (stats != null)
+                stats[GridCacheAdapter.StatSnap.TOTAL_MEM_TABLE_SEARCH_DURATION] += t3 - t2;
         }
+
+        long t4 = System.nanoTime();
 
         DelayedDirtyPageWrite delayedWriter = delayedPageReplacementTracker != null
             ? delayedPageReplacementTracker.delayedPageWrite() : null;
-
-        long t4 = System.nanoTime();
 
         seg.writeLock().lock();
 
@@ -704,6 +704,9 @@ public class PageMemoryImpl implements PageMemoryEx {
             long absPtr;
 
             long t6 = System.nanoTime();
+
+            if (stats != null)
+                stats[GridCacheAdapter.StatSnap.TOTAL_MEM_TABLE_SEARCH_AGAIN_DURATION] += t6 - t5;
 
             if (relPtr == INVALID_REL_PTR) {
                 relPtr = seg.borrowOrAllocateFreePage(pageId);
@@ -796,14 +799,8 @@ public class PageMemoryImpl implements PageMemoryEx {
         finally {
             seg.writeLock().unlock();
 
-            if (stats != null) {
-                long limit = seg.pool.region.address() + seg.pool.region.size();
-
-                long lastIdx = GridUnsafe.getLong(seg.pool.lastAllocatedIdxPtr);
-
-                stats[GridCacheAdapter.StatSnap.SEGMENT_UTILIZATION] =
-                        (limit - seg.pool.pagesBase - (lastIdx + 1) * sysPageSize) / sysPageSize;
-            }
+            if (stats != null)
+                stats[GridCacheAdapter.StatSnap.SEGMENT_UTILIZATION] = GridUnsafe.getLong(seg.pool.lastAllocatedIdxPtr);
 
             if (delayedWriter != null) {
                 long t8 = System.nanoTime();
