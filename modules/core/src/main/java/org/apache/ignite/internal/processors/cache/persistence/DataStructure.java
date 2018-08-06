@@ -149,9 +149,11 @@ public abstract class DataStructure implements PageLockListener {
 
             long t2 = System.nanoTime();
 
-            snap.stats.get(snap.currKey)[GridCacheAdapter.StatSnap.TOTAL_PAGE_ACQUIRE_DURATION] += t2 - t1;
+            long duration = t2 - t1;
 
-            if (t2 - t1 > 1_000_000_000)
+            snap.stats.get(snap.currKey)[GridCacheAdapter.StatSnap.TOTAL_PAGE_ACQUIRE_DURATION] += duration;
+
+            if (duration > 1_000_000_000)
                 snap.addPage(snap.currKey, PageIO.getType(ptr + PageMemoryImpl.PAGE_OVERHEAD));
 
             return ptr;

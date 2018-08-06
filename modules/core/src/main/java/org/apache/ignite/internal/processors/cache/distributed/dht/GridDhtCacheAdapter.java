@@ -20,7 +20,6 @@ package org.apache.ignite.internal.processors.cache.distributed.dht;
 import java.io.Externalizable;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -29,8 +28,6 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import javax.cache.Cache;
 import javax.cache.expiry.ExpiryPolicy;
 import org.apache.ignite.IgniteCheckedException;
@@ -73,7 +70,6 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSing
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetResponse;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.platform.cache.PlatformCacheEntryFilter;
-import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.CI1;
@@ -782,79 +778,18 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
         boolean skipVals,
         boolean recovery
     ) {
-        try {
-            StatSnap snap = new StatSnap();
-
-            dhtAllAsyncStatistics.set(snap);
-
-            long start = System.nanoTime();
-
-            IgniteInternalFuture<Map<KeyCacheObject, EntryGetResult>> ret = getAllAsync0(keys,
-                readerArgs,
-                readThrough,
-                /*don't check local tx. */false,
-                subjId,
-                taskName,
-                false,
-                expiry,
-                skipVals,
-                /*keep cache objects*/true,
-                recovery,
-                /*need version*/true);
-
-            long duration = System.nanoTime() - start;
-
-            if (duration > IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
-                log.info("");
-
-                GridStringBuilder sb = new GridStringBuilder();
-
-                sb.a(">>> GetDhtAllAsync: [totalTime=" + TimeUnit.NANOSECONDS.toMillis(duration) + ", grp=" + ctx.groupId() + ", keys=[");
-
-                List<Map.Entry<KeyCacheObject, long[]>> sorted = snap.stats.entrySet().stream().
-                    sorted((o1, o2) -> Long.compare(o2.getValue()[StatSnap.TOTAL_READ_DURATION],
-                        o1.getValue()[StatSnap.TOTAL_READ_DURATION])).collect(Collectors.toList());
-
-                Iterator<Map.Entry<KeyCacheObject, long[]>> it = sorted.iterator();
-
-                while (it.hasNext()) {
-                    Map.Entry<KeyCacheObject, long[]> entry = it.next();
-
-                    sb.a('[').a(entry.getKey()).a(", times=[");
-
-                    for (int i = 0; i < entry.getValue().length - 1; i++) {
-                        long t = entry.getValue()[i];
-
-                        sb.a(t == -1 ? "NA" : t < 1_000_000 ? t + "ns" : TimeUnit.NANOSECONDS.toMillis(t) + "ms");
-
-                        if (i < entry.getValue().length - 2)
-                            sb.a(", ");
-                    }
-
-                    sb.a(']');
-
-                    long segUtil = entry.getValue()[StatSnap.SEGMENT_UTILIZATION];
-
-                    sb.a(", segPages = ").a(segUtil == -1 ? "NA" : segUtil);
-
-                    sb.a(", slowPageTypes=").a(snap.pageTypes.get(entry.getKey()));
-
-                    sb.a(']');
-
-                    if (it.hasNext())
-                        sb.a(", ");
-                }
-
-                sb.a(']').a(U.nl());
-
-                U.warn(log, sb.toString());
-            }
-
-            return ret;
-        }
-        finally {
-            dhtAllAsyncStatistics.set(null);
-        }
+        return getAllAsync0(keys,
+            readerArgs,
+            readThrough,
+            /*don't check local tx. */false,
+            subjId,
+            taskName,
+            false,
+            expiry,
+            skipVals,
+            /*keep cache objects*/true,
+            recovery,
+            /*need version*/true);
     }
 
     /**

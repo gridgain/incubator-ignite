@@ -31,6 +31,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 import javax.cache.Cache;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.processor.EntryProcessor;
@@ -95,6 +96,7 @@ import org.apache.ignite.internal.processors.task.GridInternal;
 import org.apache.ignite.internal.transactions.IgniteTxHeuristicCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
+import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.future.GridEmbeddedFuture;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
@@ -175,6 +177,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         public static final int TOTAL_PAGE_READ_DURATION = TOTAL_METRICS_CNT++;
         public static final int TOTAL_MEM_TABLE_SEARCH_AGAIN_DURATION = TOTAL_METRICS_CNT++;
 
+        // Keep it last.
         public static final int SEGMENT_UTILIZATION = TOTAL_METRICS_CNT++;
 
         public KeyCacheObject currKey;
@@ -186,9 +189,8 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         public void addPage(KeyCacheObject key, int pType) {
             List<Integer> list = pageTypes.get(key);
 
-            if (list == null) {
+            if (list == null)
                 pageTypes.put(key, (list = new ArrayList<Integer>(4)));
-            }
 
             list.add(pType);
         }
@@ -1918,6 +1920,12 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             final AffinityTopologyVersion topVer = tx == null ? ctx.affinity().affinityTopologyVersion() :
                 tx.topologyVersion();
 
+            StatSnap snap = new StatSnap();
+
+            dhtAllAsyncStatistics.set(snap);
+
+            long start0 = System.nanoTime();
+
             try {
                 int keysSize = keys.size();
 
@@ -1949,24 +1957,19 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                             boolean skipEntry = readNoEntry;
 
                             if (readNoEntry) {
-                                StatSnap snap = dhtAllAsyncStatistics.get();
+                                long[] arr = new long[StatSnap.TOTAL_METRICS_CNT];
 
-                                if (snap != null) {
-                                    long[] arr = new long[StatSnap.TOTAL_METRICS_CNT];
+                                Arrays.fill(arr, -1);
 
-                                    Arrays.fill(arr, -1);
+                                snap.stats.put(key, arr);
 
-                                    snap.stats.put(key, arr);
-
-                                    snap.currKey = key;
-                                }
+                                snap.currKey = key;
 
                                 long start = System.nanoTime();
 
                                 CacheDataRow row = ctx.offheap().read(ctx, key);
 
-                                if (snap != null)
-                                    snap.stats.get(key)[StatSnap.TOTAL_READ_DURATION] = System.nanoTime() - start;
+                                snap.stats.get(key)[StatSnap.TOTAL_READ_DURATION] = System.nanoTime() - start;
 
                                 if (row != null) {
                                     long expireTime = row.expireTime();
@@ -2236,6 +2239,57 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             }
             catch (IgniteCheckedException e) {
                 return new GridFinishedFuture<>(e);
+            }
+            finally {
+                long duration = System.nanoTime() - start0;
+
+                if (duration > IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
+                    log.info("");
+
+                    GridStringBuilder sb = new GridStringBuilder();
+
+                    sb.a(">>> GetDhtAllAsync: [totalTime=" + TimeUnit.NANOSECONDS.toMillis(duration) + ", grp=" + ctx.groupId() + ", keys=[");
+
+                    List<Map.Entry<KeyCacheObject, long[]>> sorted = snap.stats.entrySet().stream().
+                        sorted((o1, o2) -> Long.compare(o2.getValue()[StatSnap.TOTAL_READ_DURATION],
+                            o1.getValue()[StatSnap.TOTAL_READ_DURATION])).collect(Collectors.toList());
+
+                    Iterator<Map.Entry<KeyCacheObject, long[]>> it = sorted.iterator();
+
+                    while (it.hasNext()) {
+                        Map.Entry<KeyCacheObject, long[]> entry = it.next();
+
+                        sb.a('[').a(entry.getKey()).a(", times=[");
+
+                        for (int i = 0; i < entry.getValue().length - 1; i++) {
+                            long t = entry.getValue()[i];
+
+                            sb.a(t == -1 ? "NA" : t < 1_000_000 ? t + "ns" : TimeUnit.NANOSECONDS.toMillis(t) + "ms");
+
+                            if (i < entry.getValue().length - 2)
+                                sb.a(", ");
+                        }
+
+                        sb.a(']');
+
+                        long segUtil = entry.getValue()[StatSnap.SEGMENT_UTILIZATION];
+
+                        sb.a(", segPages = ").a(segUtil == -1 ? "NA" : segUtil);
+
+                        sb.a(", slowPageTypes=").a(snap.pageTypes.get(entry.getKey()));
+
+                        sb.a(']');
+
+                        if (it.hasNext())
+                            sb.a(", ");
+                    }
+
+                    sb.a(']').a(U.nl());
+
+                    U.warn(log, sb.toString());
+                }
+
+                dhtAllAsyncStatistics.set(null);
             }
         }
         else {

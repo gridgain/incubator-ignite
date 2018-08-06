@@ -670,10 +670,8 @@ public class PageMemoryImpl implements PageMemoryEx {
         finally {
             seg.readLock().unlock();
 
-            long t3 = System.nanoTime();
-
             if (stats != null)
-                stats[GridCacheAdapter.StatSnap.TOTAL_MEM_TABLE_SEARCH_DURATION] += t3 - t2;
+                stats[GridCacheAdapter.StatSnap.TOTAL_MEM_TABLE_SEARCH_DURATION] += System.nanoTime() - t2;
         }
 
         long t4 = System.nanoTime();
@@ -784,10 +782,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             seg.acquirePage(absPtr);
 
-            long t7 = System.nanoTime();
-
             if (stats != null)
-                stats[GridCacheAdapter.StatSnap.TOTAL_EVICT_PROCESS_DURATION] += t7 - t6;
+                stats[GridCacheAdapter.StatSnap.TOTAL_EVICT_PROCESS_DURATION] += System.nanoTime() - t6;
 
             return absPtr;
         }
@@ -812,12 +808,12 @@ public class PageMemoryImpl implements PageMemoryEx {
             }
 
             if (readPageFromStore) {
+                long t0 = System.nanoTime();
+
                 assert lockedPageAbsPtr != -1 : "Page is expected to have a valid address [pageId=" + fullId +
                     ", lockedPageAbsPtr=" + U.hexLong(lockedPageAbsPtr) + ']';
 
                 assert isPageWriteLocked(lockedPageAbsPtr) : "Page is expected to be locked: [pageId=" + fullId + "]";
-
-                long t0 = System.nanoTime();
 
                 long pageAddr = lockedPageAbsPtr + PAGE_OVERHEAD;
 
@@ -839,10 +835,10 @@ public class PageMemoryImpl implements PageMemoryEx {
                     memMetrics.onPageRead();
                 }
                 finally {
+                    rwLock.writeUnlock(lockedPageAbsPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
+
                     if (stats != null)
                         stats[GridCacheAdapter.StatSnap.TOTAL_DISK_READ_DURATION] += System.nanoTime() - t0;
-
-                    rwLock.writeUnlock(lockedPageAbsPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
                 }
             }
         }
