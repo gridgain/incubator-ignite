@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
  * received job result. See {@link ComputeTask#result(ComputeJobResult, List)} for
  * more details.
  */
-public enum ComputeJobResultPolicy {
+public enum  ComputeJobResultPolicy {
     /**
      * Wait for results if any are still expected. If all results have been received -
      * it will start reducing results.
