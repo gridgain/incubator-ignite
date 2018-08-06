@@ -1,0 +1,501 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="ignite.cfg" class="org.apache.ignite.configuration.IgniteConfiguration">
+        <property name="consistentId" value="#{systemEnvironment['IGNITE_CONSISTENT_ID']?:null}"/>
+
+        <property name="communicationSpi">
+            <bean class="org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi">
+                <property name="messageQueueLimit" value="#{systemEnvironment['IGNITE_MESSAGE_QUEUE_LIMIT']?:'2048'}"/>
+                <property name="slowClientQueueLimit" value="#{systemEnvironment['IGNITE_SLOW_CLIENT_QUEUE_LIMIT']?:'1024'}"/>
+            </bean>
+        </property>
+
+        <!-- Redefining maximum memory size for the cluster node usage. -->
+        <property name="dataStorageConfiguration">
+            <bean class="org.apache.ignite.configuration.DataStorageConfiguration">
+                <!-- Redefining the default region's settings -->
+                <property name="defaultDataRegionConfiguration">
+                    <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                        <property name="name" value="Default_Region"/>
+                        <!-- 8GB MB memory region with disabled eviction -->
+                        <property name="initialSize" value="#{7L * 1024 * 1024 * 1024}"/>
+                        <!-- Setting the size of the default region to 8. -->
+                        <property name="maxSize" value="#{7L * 1024 * 1024 * 1024}"/>
+                        <property name="persistenceEnabled" value="true"/>
+                        <property name="checkpointPageBufferSize" value="#{7L * 1024 * 1024 * 1024}"/>
+                        <property name="metricsEnabled" value="true" />
+                    </bean>
+                </property>
+                <property name="dataRegionConfigurations">
+                    <list>
+                        <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                            <property name="name" value="TaskDataRegion"/>
+                            <property name="initialSize" value="#{1L * 1024 * 1024 * 1024}"/>
+                            <property name="maxSize" value="#{1L * 1024 * 1024 * 1024}"/>
+                            <property name="metricsEnabled" value="true" />
+                        </bean>
+                        <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                            <property name="name" value="TaskRegion"/>
+                            <property name="initialSize" value="#{1L * 1024 * 1024 * 1024}"/>
+                            <property name="maxSize" value="#{1L * 1024 * 1024 * 1024}"/>
+                            <property name="metricsEnabled" value="true" />
+                            <property name="persistenceEnabled" value="true"/>
+                            <property name="checkpointPageBufferSize" value="#{256L * 1024 * 1024}"/>
+                        </bean>
+                        <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                            <property name="name" value="FileStore"/>
+                            <property name="initialSize" value="#{100L * 1024 * 1024}"/>
+                            <property name="maxSize" value="#{100L * 1024 * 1024}"/>
+                            <property name="metricsEnabled" value="true" />
+                            <property name="persistenceEnabled" value="true" />
+                            <property name="checkpointPageBufferSize" value="#{100L * 1024 * 1024}"/>
+                        </bean>
+                    </list>
+                </property>
+                <property name="writeThrottlingEnabled" value="#{systemEnvironment['IGNITE_WRITE_THROTTLING_ENABLED']?:false}"/>
+                <property name="walMode" value="LOG_ONLY" />
+                <property name="walHistorySize" value="2"/>
+                <property name="metricsEnabled" value="true" />
+                <property name="checkpointThreads" value="5"/>
+                <property name="checkpointFrequency" value="#{systemEnvironment['IGNITE_CHECKPOINT_FREQUENCY']?:10000}"/>
+
+                <property name="storagePath" value="#{systemEnvironment['IGNITE_STORAGE_PATH']?:null}"/>
+                <property name="walPath" value="#{systemEnvironment['IGNITE_WAL_PATH']?:'db/wal'}"/>
+                <property name="walArchivePath" value="#{systemEnvironment['IGNITE_WAL_ARCHIVE_PATH']?:'db/wal/archive'}"/>
+
+            </bean>
+        </property>
+
+        <!-- Configure internal thread pool. -->
+        <property name="publicThreadPoolSize" value="#{systemEnvironment['IGNITE_PUBLIC_POOL_SIZE']?:'64'}"/>
+        <!-- Configure system thread pool. -->
+        <property name="systemThreadPoolSize" value="#{systemEnvironment['IGNITE_SYSTEM_POOL_SIZE']?:'32'}"/>
+        <!-- Configure queries thread pool. -->
+        <property name="queryThreadPoolSize" value="#{systemEnvironment['IGNITE_QUERY_POOL_SIZE']?:'32'}"/>
+        <!-- Configure striped thread pool. -->
+        <property name="stripedPoolSize" value="#{systemEnvironment['IGNITE_STRIPED_POOL_SIZE']?:'32'}"/>
+
+        <!-- Explicitly configure TCP discovery SPI to provide list of initial nodes. -->
+        <property name="discoverySpi">
+            <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
+                <property name="ipFinder">
+                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
+                        <property name="addresses">
+                            <list>
+                                <value>127.0.0.1:47500..47509</value>
+                            </list>
+                        </property>
+                    </bean>
+                    <!--<bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.kubernetes.TcpDiscoveryKubernetesIpFinder">
+                        <property name="serviceName" value="#{systemEnvironment['IGNITE_K8S_SERVICE_NAME']?:'ignite'}"/>
+                        <property name="namespace" value="#{systemEnvironment['K8S_NAMESPACE']?:'default'}"/>
+                    </bean>-->
+                </property>
+                <property name="networkTimeout" value = "15000" />
+            </bean>
+        </property>
+        <property name="failureDetectionTimeout" value="15000"/>
+        <!-- Set 4 threads for rebalancing. -->
+        <property name="rebalanceThreadPoolSize" value="4"/>
+        <!-- Explicitly enable peer class loading. -->
+        <!--
+        <property name="peerClassLoadingEnabled" value="true"/>
+        -->
+
+        <property name="cacheConfiguration">
+            <list>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="web_session_cache"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="ATOMIC" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'2'}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="1000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="task_execution_data"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="TaskDataNodeReferenceKO"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="TaskDataNodeReferenceKO.taskid"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="TaskDataNodeReferenceKO.src_node"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="TaskDataNodeReferenceKO.dest_node"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+
+                <!-- DataNodeReservationKO -->
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="DataNodeReservationKO"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="DataNodeReservationKO.reserved_by"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+
+                <!-- TaskDataNodeKO -->
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="TaskDataNodeKO"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="TaskDataNodeKO.rcpath_task_owner"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="TaskDataNodeKO.leafref"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="TaskDataNodeKO.parent"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="10000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="TaskDataNodeKO.rcpath"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="50000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="TaskDataNodeKO.task"/>
+                    <property name="writeSynchronizationMode" value="FULL_SYNC"/>
+                    <property name="atomicityMode" value="TRANSACTIONAL" />
+                    <property name="dataRegionName" value="TaskDataRegion" />
+                    <property name="affinity">
+                        <bean class="com.anuta.ncxignite.extension.affinity.NcxAffinityFunction">
+                            <property name="excludeNeighbors" value="true"/>
+                            <property name="partitions" value="4096"/>
+                        </bean>
+                    </property>
+                    <property name="backups" value="#{systemEnvironment['IGNITE_BACKUP_COUNT']?:'1'}" />
+                    <property name="storeKeepBinary" value="true" />
+                    <property name="cacheMode" value="PARTITIONED" />
+                    <property name="rebalanceDelay" value="15000" />
+                    <property name="partitionLossPolicy" value="IGNORE" />
+                    <property name="rebalanceThrottle" value="0" />
+                    <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
+                    <property name="nearConfiguration">
+                        <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
+                            <property name="nearEvictionPolicyFactory">
+                                <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
+                                    <property name="maxSize" value="1000"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+            </list>
+        </property>
+    </bean>
+</beans>
