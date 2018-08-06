@@ -167,6 +167,10 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
         locParts = new AtomicReferenceArray<>(grp.affinityFunction().partitions());
 
         cntrMap = new CachePartitionFullCountersMap(locParts.length());
+
+        log.info(String.format("GridDhtPartitionTopologyImpl is created. group name = %s", grp.cacheOrGroupName()));
+
+
     }
 
     /** {@inheritDoc} */
@@ -818,6 +822,10 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
             long updCntr = cntrMap.updateCounter(p);
 
+            if(p == 0)
+                log.info(String.format("Setting partition 0 to locParts array. grp = %s updCntr = %d. method getOrCreatePartition(int p)",
+                    grp.cacheOrGroupName(), updCntr));
+
             if (updCntr != 0)
                 loc.updateCounter(updCntr);
 
@@ -848,6 +856,10 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
             part = new GridDhtLocalPartition(ctx, grp, p);
 
             locParts.set(p, part);
+
+            if(p == 0)
+                log.info(String.format("Setting partition 0 to locParts array. grp = %s. method forceCreatePartition()",
+                    grp.cacheOrGroupName()));
 
             ctx.pageStore().onPartitionCreated(grp.groupId(), p);
 
@@ -902,6 +914,10 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
                     locParts.set(p, loc = null);
 
+                    if(p == 0)
+                        log.info(String.format("Setting partition 0 to locParts array. grp = %s. method localPartition0(loc != null && state == EVICTED)(int p)",
+                            grp.cacheOrGroupName()));
+
                     if (!belongs) {
                         throw new GridDhtInvalidPartitionException(p, "Adding entry to evicted partition " +
                             "(often may be caused by inconsistent 'key.hashCode()' implementation) " +
@@ -923,6 +939,10 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                             ", this.topVer=" + this.readyTopVer + ']');
 
                     locParts.set(p, loc = new GridDhtLocalPartition(ctx, grp, p));
+
+                    if(p == 0)
+                        log.info(String.format("Setting partition 0 to locParts array. grp = %s. method localPartition0(loc == null)(int p)",
+                            grp.cacheOrGroupName()));
 
                     this.updateSeq.incrementAndGet();
 

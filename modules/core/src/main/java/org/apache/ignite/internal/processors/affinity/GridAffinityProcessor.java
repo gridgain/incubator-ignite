@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.affinity;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.processors.GridProcessorAdapter;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
+import org.apache.ignite.internal.processors.cache.GridCacheAffinityManager;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
@@ -134,11 +136,15 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         super(ctx);
 
         log = ctx.log(GridAffinityProcessor.class);
+
+        log.info("GridAffinityProcessor created");
     }
 
     /** {@inheritDoc} */
     @Override public void start() throws IgniteCheckedException {
         ctx.event().addLocalEventListener(lsnr, EVT_NODE_FAILED, EVT_NODE_LEFT);
+
+        log.info("GridAffinityProcessor started");
     }
 
     /** {@inheritDoc} */
@@ -158,6 +164,10 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
      * @throws IgniteCheckedException If failed.
      */
     public int partition(String cacheName, Object key) throws IgniteCheckedException {
+//        log.info(String.format("GridAffinityProcessor returning partition %d for cache %s for key %s",
+//            partition(cacheName, key, null), cacheName, key.toString()));
+
+
         return partition(cacheName, key, null);
     }
 
@@ -216,6 +226,40 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         assert cacheName != null;
 
         AffinityInfo affInfo = affinityCache(cacheName, topVer);
+
+        if(cacheName.endsWith("_0") && partId < 1) {
+
+            Map<String, List<Integer>> nodePartMap = new HashMap<>();
+
+            for (int i = 0; i < affInfo.affFunc.partitions(); i++) {
+                ClusterNode node = F.first(affInfo.assignment().get(i));
+
+                String consId = node.consistentId().toString();
+
+                if (nodePartMap.containsKey(consId))
+                    nodePartMap.get(consId).add(i);
+                else {
+                    List<Integer> partList = new ArrayList<>();
+
+                    partList.add(i);
+
+                    nodePartMap.put(consId, partList);
+                }
+            }
+
+            log.info(String.format("mapPartToNode - cacheName = %s", cacheName));
+
+            for (String consId : nodePartMap.keySet()) {
+                log.info(String.format("Consistent Id = %s", consId));
+
+                StringBuilder sb = new StringBuilder();
+
+                for (Integer part : nodePartMap.get(consId))
+                    sb.append(" " + part + ",");
+
+                log.info(String.format("Partitions: %s", sb.toString()));
+            }
+        }
 
         return affInfo != null ? F.first(affInfo.assignment().get(partId)) : null;
     }
@@ -401,8 +445,40 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
         IgniteInternalFuture<AffinityInfo> fut = affMap.get(key);
 
+//        log.info("Affinity map log in affinityCache() method: ");
+//
+//        log.info(String.format("CacheName = %s", cacheName));
+//
+//        log.info(String.format("Top ver = %s", topVer));
+//
+//        log.info(String.format("Key = %s", key));
+//
+//        log.info(String.format("Size = %d", affMap.size()));
+
+//        log.info(String.format("Map content:"));
+//
+//        for(AffinityAssignmentKey key0 : affMap.keySet()){
+//            log.info(String.format("key = %s; value = %s", key, affMap.get(key0)));
+//
+//            if(affMap.get(key0) != null){
+//                IgniteInternalFuture<AffinityInfo> fut0 = affMap.get(key0);
+//
+//                AffinityInfo info0 = fut0.get();
+//
+//                log.info(info0.toString());
+//
+//
+//            }
+//        }
+
+//        log.info("*******************************************************************");
+//        log.info("");
+
         if (fut != null)
             return fut.get();
+//        else
+//            log.info("Future with affinity info is null.");
+
 
         GridCacheAdapter<Object, Object> cache = ctx.cache().internalCache(cacheName);
 
@@ -410,6 +486,11 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             GridCacheContext<Object, Object> cctx = cache.context();
 
             cctx.awaitStarted();
+
+            GridCacheAffinityManager affManager = cctx.affinity();
+
+            AffinityAssignment assgn = affManager.assignment(topVer);
+
 
             AffinityAssignment assign0 = cctx.affinity().assignment(topVer);
 

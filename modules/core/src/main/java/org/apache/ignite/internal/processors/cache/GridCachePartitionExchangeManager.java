@@ -2658,7 +2658,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                         else if (r != null) {
                             Collections.reverse(rebList);
 
-                            U.log(log, "Rebalancing scheduled [order=" + rebList + "]");
+                            U.log(log, "Rebalancing scheduled [size="+rebList.size()+", order=" + rebList + "]");
 
                             if (!hasPendingExchange()) {
                                 U.log(log, "Rebalancing started " +

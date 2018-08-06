@@ -20,7 +20,9 @@ package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -169,6 +171,8 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
     @Override public GridDhtPreloaderAssignments generateAssignments(GridDhtPartitionExchangeId exchId, GridDhtPartitionsExchangeFuture exchFut) {
         assert exchFut == null || exchFut.isDone();
 
+        log.info(String.format("Generating assignments for cache group %s", grp.cacheOrGroupName()));
+
         // No assignments for disabled preloader.
         GridDhtPartitionTopology top = grp.topology();
 
@@ -190,6 +194,10 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
 
         CachePartitionFullCountersMap countersMap = grp.topology().fullUpdateCounters();
 
+        Map<String, Integer> partStateMap = new HashMap<>();
+
+        partStateMap.put("Not local", 0);
+
         for (int p = 0; p < partCnt; p++) {
             if (ctx.exchange().hasPendingExchange()) {
                 if (log.isDebugEnabled())
@@ -201,12 +209,28 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
                 return assignments;
             }
 
+
+
             // If partition belongs to local node.
             if (aff.get(p).contains(ctx.localNode())) {
                 GridDhtLocalPartition part = top.localPartition(p);
 
                 assert part != null;
                 assert part.id() == p;
+
+                String state = part.state().toString();
+
+                if(partStateMap.containsKey(state)){
+                    int curr = partStateMap.get(state);
+
+                    curr++;
+
+                    partStateMap.put(state, curr);
+                }
+                else
+                    partStateMap.put(state, 1);
+
+//                log.info(String.format("Partition %d state = %s", p, part.state()));
 
                 // Do not rebalance OWNING or LOST partitions.
                 if (part.state() == OWNING || part.state() == LOST)
@@ -289,7 +313,20 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
                     }
                 }
             }
+            else{
+//                log.info(String.format("Partition %d does not belong to local node", p));
+
+                int curr = partStateMap.get("Not local");
+
+                curr++;
+
+                partStateMap.put("Not local", curr);
+            }
         }
+
+        for(String state : partStateMap.keySet())
+            log.info(String.format("Partition state - %s, partitions %d", state, partStateMap.get(state)));
+
 
         if (!assignments.isEmpty())
             ctx.database().lastCheckpointInapplicableForWalRebalance(grp.groupId());

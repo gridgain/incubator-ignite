@@ -125,6 +125,8 @@ public class GridDhtPartitionDemander {
 
         log = ctx.logger(getClass());
 
+        log.info(String.format("GridDhtPartitionDemander is created for cache group %s", grp.cacheOrGroupName()));
+
         boolean enabled = grp.rebalanceEnabled() && !ctx.kernalContext().clientNode();
 
         rebalanceFut = new RebalanceFuture(); //Dummy.

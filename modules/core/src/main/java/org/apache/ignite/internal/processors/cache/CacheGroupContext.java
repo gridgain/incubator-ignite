@@ -222,6 +222,8 @@ public class CacheGroupContext {
         caches = new ArrayList<>();
 
         mxBean = new CacheGroupMetricsMXBeanImpl(this);
+
+        log.info(String.format("CacheGroupContext is created. name = %s", cacheOrGroupName()));
     }
 
     /**

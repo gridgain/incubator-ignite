@@ -504,7 +504,15 @@ public class GridClosureProcessor extends GridProcessorAdapter {
             final String cacheName = F.first(cacheNames);
 
             final AffinityTopologyVersion mapTopVer = ctx.cache().context().exchange().readyAffinityVersion();
+
+//            log.info("Closure debug:");
+
+//            log.info(String.format("mapTopVer = %s", mapTopVer));
+
             final ClusterNode node = ctx.affinity().mapPartitionToNode(cacheName, partId, mapTopVer);
+
+//            log.info(String.format("node = %s", node.consistentId()));
+
 
             if (node == null)
                 return ComputeTaskInternalFuture.finishedFuture(ctx, T5.class, U.emptyTopologyException());

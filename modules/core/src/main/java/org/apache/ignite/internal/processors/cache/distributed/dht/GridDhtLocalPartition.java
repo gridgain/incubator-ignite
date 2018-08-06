@@ -190,6 +190,10 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
 
         log = U.logger(ctx.kernalContext(), logRef, this);
 
+        if(id == 0)
+            log.info(String.format("GridDhtLocalPartition is created; id = 0; group = %s; state = %s",
+            grp.cacheOrGroupName(), state()));
+
         if (grp.sharedGroup()) {
             singleCacheEntryMap = null;
             cacheMaps = new ConcurrentHashMap<>();
@@ -459,6 +463,11 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
 
             long newState = setReservations(state, getReservations(state) + 1);
 
+            if(id == 0){
+                log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method reserve()",
+                    grp.cacheOrGroupName(), getPartState(newState)));
+            }
+
             if (this.state.compareAndSet(state, newState))
                 return true;
         }
@@ -498,6 +507,11 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
 
             assert getSize(newState) == getSize(state) + sizeChange;
 
+            if(id == 0){
+                log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method release0()",
+                    grp.cacheOrGroupName(), getPartState(newState)));
+            }
+
             // Decrement reservations.
             if (this.state.compareAndSet(state, newState)) {
                 // If no more reservations try to continue delayed renting or clearing process.
@@ -528,6 +542,11 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
     private boolean casState(long state, GridDhtPartitionState toState) {
         if (grp.persistenceEnabled() && grp.walEnabled()) {
             synchronized (this) {
+                if(id == 0){
+                    log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method casState_if()",
+                        grp.cacheOrGroupName(), getPartState(setPartState(state, toState))));
+                }
+
                 boolean update = this.state.compareAndSet(state, setPartState(state, toState));
 
                 if (update)
@@ -541,8 +560,14 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
                 return update;
             }
         }
-        else
+        else {
+            if(id == 0){
+                log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method casState_else()",
+                    grp.cacheOrGroupName(), getPartState(setPartState(state, toState))));
+            }
+
             return this.state.compareAndSet(state, setPartState(state, toState));
+        }
     }
 
     /**
