@@ -464,10 +464,10 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
             long newState = setReservations(state, getReservations(state) + 1);
 
             if (this.state.compareAndSet(state, newState)) {
-                if(id == 0 && getPartState(newState).toString().equals("MOVING")){
-                    log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method reserve()",
-                        grp.cacheOrGroupName(), getPartState(newState)));
-                }
+//                if(id == 0 && getPartState(newState).toString().equals("MOVING")){
+//                    log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method reserve()",
+//                        grp.cacheOrGroupName(), getPartState(newState)));
+//                }
 
                 return true;
             }
@@ -520,10 +520,10 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
                         tryContinueClearing();
                 }
 
-                if(id == 0 && getPartState(newState).toString().equals("MOVING")){
-                    log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method release0()",
-                        grp.cacheOrGroupName(), getPartState(newState)));
-                }
+//                if(id == 0 && getPartState(newState).toString().equals("MOVING")){
+//                    log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method release0()",
+//                        grp.cacheOrGroupName(), getPartState(newState)));
+//                }
 
                 break;
             }
