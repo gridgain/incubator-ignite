@@ -1687,6 +1687,8 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
         GridNearAtomicAbstractUpdateRequest req,
         UpdateReplyClosure completionCb
     ) {
+        log.info("updateAllAsyncInternal0");
+
         GridNearAtomicUpdateResponse res = new GridNearAtomicUpdateResponse(ctx.cacheId(),
             node.id(),
             req.futureId(),
@@ -1715,6 +1717,8 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                 while (true) {
                     try {
                         GridDhtPartitionTopology top = topology();
+
+                        log.info("updateAllAsyncInternal0 trying to get readLock");
 
                         top.readLock();
 
@@ -1750,6 +1754,8 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                                 res.remapTopologyVersion(top.lastTopologyChangeVersion());
                         }
                         finally {
+                            log.info("updateAllAsyncInternal0 trying to unlock readLock");
+
                             top.readUnlock();
                         }
 

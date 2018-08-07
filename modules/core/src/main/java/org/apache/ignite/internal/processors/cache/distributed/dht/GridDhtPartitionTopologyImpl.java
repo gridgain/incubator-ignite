@@ -2493,6 +2493,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
     /** {@inheritDoc} */
     @Override public CachePartitionPartialCountersMap localUpdateCounters(boolean skipZeros) {
+        log.info("Trying to get readLock in localUpdateCounters method");
+
         lock.readLock().lock();
 
         try {
@@ -2527,6 +2529,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
             return res;
         }
         finally {
+            log.info("Trying to unlock readLock in localUpdateCounters method");
+
             lock.readLock().unlock();
         }
     }
