@@ -2154,7 +2154,15 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     if (locPart == null || locPart.state() != OWNING)
                         continue;
 
+                    if(part == 0)
+                        log.info(String.format("resetOwners called for partition 0 in cache group %s", grp.cacheOrGroupName()));
+
+
+
                     if (!newOwners.contains(ctx.localNodeId())) {
+                        if(part == 0)
+                            log.info(String.format("newOwners does not contain local node ID %s", ctx.localNodeId()));
+
                         rebalancePartition(part, haveHistory.contains(part));
 
                         result.computeIfAbsent(ctx.localNodeId(), n -> new HashSet<>());
@@ -2233,6 +2241,10 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
      */
     private GridDhtLocalPartition rebalancePartition(int p, boolean haveHistory) {
         GridDhtLocalPartition part = getOrCreatePartition(p);
+
+        if (p == 0)
+            log.info(String.format("rebalancePartition. Partition 0 in cache group %s has state %s",
+                grp.cacheOrGroupName(), part.state()));
 
         // Prevent renting.
         if (part.state() == RENTING) {

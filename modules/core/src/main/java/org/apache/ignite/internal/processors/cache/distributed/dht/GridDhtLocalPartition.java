@@ -463,13 +463,14 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
 
             long newState = setReservations(state, getReservations(state) + 1);
 
-            if(id == 0){
-                log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method reserve()",
-                    grp.cacheOrGroupName(), getPartState(newState)));
-            }
+            if (this.state.compareAndSet(state, newState)) {
+                if(id == 0 && getPartState(newState).toString().equals("MOVING")){
+                    log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method reserve()",
+                        grp.cacheOrGroupName(), getPartState(newState)));
+                }
 
-            if (this.state.compareAndSet(state, newState))
                 return true;
+            }
         }
     }
 
@@ -507,10 +508,7 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
 
             assert getSize(newState) == getSize(state) + sizeChange;
 
-            if(id == 0){
-                log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method release0()",
-                    grp.cacheOrGroupName(), getPartState(newState)));
-            }
+
 
             // Decrement reservations.
             if (this.state.compareAndSet(state, newState)) {
@@ -520,6 +518,11 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
                         rent(true);
                     else
                         tryContinueClearing();
+                }
+
+                if(id == 0 && getPartState(newState).toString().equals("MOVING")){
+                    log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method release0()",
+                        grp.cacheOrGroupName(), getPartState(newState)));
                 }
 
                 break;
@@ -542,7 +545,7 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
     private boolean casState(long state, GridDhtPartitionState toState) {
         if (grp.persistenceEnabled() && grp.walEnabled()) {
             synchronized (this) {
-                if(id == 0){
+                if(id == 0 && toState == GridDhtPartitionState.MOVING){
                     log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method casState_if()",
                         grp.cacheOrGroupName(), getPartState(setPartState(state, toState))));
                 }
@@ -561,7 +564,7 @@ public class GridDhtLocalPartition extends GridCacheConcurrentMapImpl implements
             }
         }
         else {
-            if(id == 0){
+            if(id == 0 && toState == GridDhtPartitionState.MOVING){
                 log.info(String.format("Trying to set to partition 0 in cache group %s new state %s. Method casState_else()",
                     grp.cacheOrGroupName(), getPartState(setPartState(state, toState))));
             }
