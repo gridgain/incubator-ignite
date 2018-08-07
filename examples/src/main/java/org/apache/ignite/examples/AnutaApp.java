@@ -17,13 +17,16 @@
 
 package org.apache.ignite.examples;
 
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.Ignition;
+
+import javax.cache.Cache;
 
 /**
  * Starts up an empty node with example compute configuration.
  */
-public class AnutaNodeStartup {
+public class AnutaApp {
     /**
      * Start up an empty node with example compute configuration.
      *
@@ -31,6 +34,14 @@ public class AnutaNodeStartup {
      * @throws IgniteException If failed.
      */
     public static void main(String[] args) throws IgniteException {
-        Ignition.start("examples/config/anuta-ignite-simple.xml");
+        try (Ignite ignite = Ignition.start("examples/config/anuta-ignite-simple.xml")) {
+            Cache<String, String> cache = ignite.cache("task_execution_data");
+
+            for (int i = 0; i < 100; i++) {
+                String s = Integer.toString(i);
+
+                cache.put(s, s);
+            }
+        }
     }
 }
