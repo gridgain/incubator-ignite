@@ -437,7 +437,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
             }
         }
 
-        updateRebalanceVersion(affAssignment);
+        updateRebalanceVersion(affVer, affAssignment);
 
         return needRefresh;
     }
@@ -766,7 +766,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                 if (node2part != null && node2part.valid())
                     changed |= checkEvictions(updateSeq, aff);
 
-                updateRebalanceVersion(aff.assignment());
+                updateRebalanceVersion(aff.topologyVersion(), aff.assignment());
 
                 consistencyCheck();
 
@@ -1555,7 +1555,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     if (exchangeVer == null)
                         changed |= checkEvictions(updateSeq, aff);
 
-                    updateRebalanceVersion(aff.assignment());
+                    updateRebalanceVersion(aff.topologyVersion(), aff.assignment());
                 }
 
                 if (partSizes != null)
@@ -1823,7 +1823,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     if (exchId == null)
                         changed |= checkEvictions(updateSeq, aff);
 
-                    updateRebalanceVersion(aff.assignment());
+                    updateRebalanceVersion(aff.topologyVersion(), aff.assignment());
                 }
 
                 consistencyCheck();
@@ -1847,8 +1847,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
     /** {@inheritDoc} */
     @Override public void onExchangeDone(@Nullable GridDhtPartitionsExchangeFuture fut,
-                                         AffinityAssignment assignment,
-                                         boolean updateRebalanceVer) {
+        AffinityAssignment assignment,
+        boolean updateRebalanceVer) {
         lock.writeLock().lock();
 
         try {
@@ -1870,10 +1870,13 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                 }
                 else
                     diffFromAffinityVer = readyTopVer;
+
+                if (!updateRebalanceVer)
+                    updateRebalanceVersion(assignment.topologyVersion(), assignment.assignment());
             }
 
             if (updateRebalanceVer)
-                updateRebalanceVersion(assignment.assignment());
+                updateRebalanceVersion(assignment.topologyVersion(), assignment.assignment());
         }
         finally {
             lock.writeLock().unlock();
@@ -2780,9 +2783,13 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
     }
 
     /**
+     * @param affVer Affinity version.
      * @param aff Affinity assignments.
      */
-    private void updateRebalanceVersion(List<List<ClusterNode>> aff) {
+    private void updateRebalanceVersion(AffinityTopologyVersion affVer, List<List<ClusterNode>> aff) {
+        if (!grp.isReplicated() && !affVer.equals(diffFromAffinityVer))
+            return;
+
         if (!rebalancedTopVer.equals(readyTopVer)) {
             if (node2part == null || !node2part.valid())
                 return;
