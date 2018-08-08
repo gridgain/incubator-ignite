@@ -20,8 +20,15 @@ package org.apache.ignite.examples;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.transactions.Transaction;
+import org.apache.ignite.transactions.TransactionConcurrency;
+import org.apache.ignite.transactions.TransactionIsolation;
 
 import javax.cache.Cache;
+import java.util.UUID;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Starts up an empty node with example compute configuration.
@@ -37,10 +44,23 @@ public class AnutaApp {
         try (Ignite ignite = Ignition.start("examples/config/anuta-ignite-simple.xml")) {
             Cache<String, String> cache = ignite.cache("task_execution_data");
 
-            for (int i = 0; i < 100; i++) {
-                String s = Integer.toString(i);
+            final int TX_CNT = 100;
+            final int ENTRY_CNT = 10_000;
 
-                cache.put(s, s);
+            for (int t = 0; t < TX_CNT; t++) {
+                BiFunction<Integer, Integer, String> getKey = (n1, n2) -> String.format("%s-%s", n1, n2);
+
+                try (Transaction ignored = ignite.transactions().txStart(TransactionConcurrency.OPTIMISTIC, TransactionIsolation.SERIALIZABLE)) {
+                    for (int e = 0; e < ENTRY_CNT; e++)
+                        cache.put(getKey.apply(t, e), UUID.randomUUID().toString());
+                }
+
+                try (Transaction ignored = ignite.transactions().txStart(TransactionConcurrency.OPTIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
+                    for (int e = 0; e < ENTRY_CNT; e++)
+                        cache.get(getKey.apply(t, e));
+                }
+
+                System.out.format("TX %s\n", t);
             }
         }
     }

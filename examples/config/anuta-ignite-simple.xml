@@ -22,7 +22,7 @@
                     <property name="partitionLossPolicy" value="IGNORE" />
                     <property name="rebalanceThrottle" value="0" />
                     <property name="rebalanceBatchSize" value="#{1L * 1024 * 1024}" />
-                    <!--<property name="nearConfiguration">
+                    <property name="nearConfiguration">
                         <bean class="org.apache.ignite.configuration.NearCacheConfiguration">
                             <property name="nearEvictionPolicyFactory">
                                 <bean class="org.apache.ignite.cache.eviction.lru.LruEvictionPolicyFactory">
@@ -30,7 +30,7 @@
                                 </bean>
                             </property>
                         </bean>
-                    </property>-->
+                    </property>
                 </bean>
             </list>
         </property>
