@@ -521,6 +521,9 @@ public class IgniteCacheProxyImpl<K, V> extends AsyncSupportAdapter<IgniteCache<
                 "continuous query. Use SCAN or SQL query for initial iteration.");
         }
 
+        ctx.checkSecurity(SecurityPermission.CACHE_CONTINUOUS_QUERY_START);
+
+
         CacheEntryUpdatedListener locLsnr = null;
 
         EventListener locTransLsnr = null;
@@ -592,6 +595,8 @@ public class IgniteCacheProxyImpl<K, V> extends AsyncSupportAdapter<IgniteCache<
                 }
 
                 @Override public void close() {
+                    ctx.checkSecurity(SecurityPermission.CACHE_CONTINUOUS_QUERY_STOP);
+
                     if (cur != null)
                         cur.close();
 

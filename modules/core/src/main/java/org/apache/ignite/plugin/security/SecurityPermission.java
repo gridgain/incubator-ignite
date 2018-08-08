@@ -73,7 +73,14 @@ public enum SecurityPermission {
     CACHE_DESTROY,
 
     /** Join as server node permission. */
-    JOIN_AS_SERVER;
+    JOIN_AS_SERVER,
+
+    /** Cache continuous query start permission. */
+    CACHE_CONTINUOUS_QUERY_START,
+
+    /** Cache continuous query stop permission. */
+    CACHE_CONTINUOUS_QUERY_STOP;
+
 
     /** Enumerated values. */
     private static final SecurityPermission[] VALS = values();
