@@ -529,8 +529,6 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         seg.writeLock().lock();
 
-        U.sleep(20);
-
         boolean isTrackingPage = changeTracker != null && trackingIO.trackingPageFor(pageId, pageSize()) == pageId;
 
         try {
@@ -1207,12 +1205,6 @@ public class PageMemoryImpl implements PageMemoryEx {
             seg.writeLock().lock();
 
             try {
-                U.sleep(20);
-            } catch (IgniteInterruptedCheckedException e) {
-                e.printStackTrace();
-            }
-
-            try {
                 // Double-check.
                 relPtr = seg.loadedPages.get(
                     fullId.groupId(),
@@ -1367,12 +1359,6 @@ public class PageMemoryImpl implements PageMemoryEx {
             seg.writeLock().lock();
 
             try {
-                U.sleep(20);
-            } catch (IgniteInterruptedCheckedException e) {
-                e.printStackTrace();
-            }
-
-            try {
                 int newTag = seg.incrementPartGeneration(grpId, partId);
 
                 if (tag == 0)
@@ -1399,12 +1385,6 @@ public class PageMemoryImpl implements PageMemoryEx {
             long t1 = System.nanoTime();
 
             seg.writeLock().lock();
-
-            try {
-                U.sleep(20);
-            } catch (IgniteInterruptedCheckedException e) {
-                e.printStackTrace();
-            }
 
             try {
                 seg.resetGroupPartitionsGeneration(grpId);
@@ -2078,13 +2058,6 @@ public class PageMemoryImpl implements PageMemoryEx {
             long t1 = System.nanoTime();
 
             writeLock().lock();
-
-            try {
-                U.sleep(20);
-            } catch (IgniteInterruptedCheckedException e) {
-                e.printStackTrace();
-            }
-
 
             try {
                 closed = true;
@@ -2893,13 +2866,6 @@ public class PageMemoryImpl implements PageMemoryEx {
                     long t1 = System.nanoTime();
 
                     seg.writeLock().lock();
-
-                    try {
-                        U.sleep(20);
-                    } catch (IgniteInterruptedCheckedException e) {
-                        e.printStackTrace();
-                    }
-
 
                     try {
                         GridLongList list = seg.loadedPages.removeIf(base, boundary, clearPred);
