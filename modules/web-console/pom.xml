@@ -31,7 +31,7 @@
     </parent>
 
     <artifactId>ignite-web-console</artifactId>
-    <version>2.4.0-SNAPSHOT</version>
+    <version>2.4.8</version>
     <url>http://ignite.apache.org</url>
 
     <properties>
@@ -208,14 +208,12 @@
                                 <configuration>
 
                                     <tasks>
-                                        <taskdef resource="net/sf/antcontrib/antlib.xml"/>
+                                        <taskdef resource="net/sf/antcontrib/antlib.xml" />
                                         <if>
-                                            <available
-                                                file="${project.basedir}/backend/node_modules/mongodb-download/node_modules/getos/index.js"/>
+                                            <available file="${project.basedir}/backend/node_modules/mongodb-download/node_modules/getos/index.js" />
                                             <then>
-                                                <replace dir="${project.basedir}/backend/node_modules/mongodb-download/node_modules/getos"
-                                                         token='"./logic/"' value='__dirname+"/logic/"'>
-                                                    <include name="index.js"/>
+                                                <replace dir="${project.basedir}/backend/node_modules/mongodb-download/node_modules/getos" token="&quot;./logic/&quot;" value="__dirname+&quot;/logic/&quot;">
+                                                    <include name="index.js" />
                                                 </replace>
                                             </then>
                                         </if>
@@ -231,9 +229,8 @@
                                 <phase>process-resources</phase>
                                 <configuration>
                                     <target>
-                                        <replace dir="${project.basedir}/backend/node_modules/mongodb-download/built"
-                                                 token="/rhel/" value="/Red Hat Linux/i.test(os.dist) || /rhel/">
-                                            <include name="mongodb-download.js"/>
+                                        <replace dir="${project.basedir}/backend/node_modules/mongodb-download/built" token="/rhel/" value="/Red Hat Linux/i.test(os.dist) || /rhel/">
+                                            <include name="mongodb-download.js" />
                                         </replace>
                                     </target>
                                 </configuration>
@@ -247,9 +244,8 @@
                                 <phase>process-resources</phase>
                                 <configuration>
                                     <target>
-                                        <replace dir="${project.basedir}/backend/node_modules/mongodb-download/built"
-                                                 token="https://downloads.mongodb.org" value="https://fastdl.mongodb.org">
-                                            <include name="mongodb-download.js"/>
+                                        <replace dir="${project.basedir}/backend/node_modules/mongodb-download/built" token="https://downloads.mongodb.org" value="https://fastdl.mongodb.org">
+                                            <include name="mongodb-download.js" />
                                         </replace>
                                     </target>
                                 </configuration>
