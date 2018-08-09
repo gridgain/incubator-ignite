@@ -2311,14 +2311,14 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         Iterator<Entry<Class<? extends Message>, Integer>> it =
                 statMap.entrySet().stream().sorted((o1, o2) -> Integer.compare(o2.getValue(), o1.getValue())).iterator();
 
-        sb.a(">>> Processed messages statistics: [[");
+        sb.a(">>> Processed messages statistics: [");
 
         int total = 0;
 
         while (it.hasNext()) {
             Entry<Class<? extends Message>, Integer> entry = it.next();
 
-            sb.a("msg=").a(entry.getKey().getSimpleName()).a(", cnt=").a(entry.getValue());
+            sb.a("[msg=").a(entry.getKey().getSimpleName()).a(", cnt=").a(entry.getValue()).a("]");
 
             total += entry.getValue();
 
