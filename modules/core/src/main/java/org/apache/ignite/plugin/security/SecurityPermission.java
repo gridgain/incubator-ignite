@@ -73,7 +73,20 @@ public enum SecurityPermission {
     CACHE_DESTROY,
 
     /** Join as server node permission. */
-    JOIN_AS_SERVER;
+    JOIN_AS_SERVER,
+
+    /** Cluster activation permission. */
+    ADMIN_CLUSTER_ACTIVATE,
+
+    /** Cluster deactivation permission. */
+    ADMIN_CLUSTER_DEACTIVATE,
+
+    /** Baseline change permission. */
+    BASELINE_CHANGE,
+
+    /** Compute deploy permission. */
+    COMPUTE_DEPLOY;
+
 
     /** Enumerated values. */
     private static final SecurityPermission[] VALS = values();

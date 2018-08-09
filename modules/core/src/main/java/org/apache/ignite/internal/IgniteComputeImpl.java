@@ -46,6 +46,7 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteReducer;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.plugin.security.SecurityPermission;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -1030,6 +1031,7 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
         guard();
 
         try {
+            checkPermissions(SecurityPermission.COMPUTE_DEPLOY);
             GridDeployment dep = ctx.deploy().deploy(taskCls, clsLdr);
 
             if (dep == null)
@@ -1041,6 +1043,11 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
         finally {
             unguard();
         }
+    }
+
+    /** Check permission*/
+    private void checkPermissions(SecurityPermission perm){
+        ctx.security().authorize(null, perm, null);
     }
 
     /** {@inheritDoc} */

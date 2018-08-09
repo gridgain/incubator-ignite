@@ -66,6 +66,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.lang.IgniteProductVersion;
+import org.apache.ignite.plugin.security.SecurityPermission;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
@@ -309,6 +310,10 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
         guard();
 
         try {
+            SecurityPermission perm = active ?
+                SecurityPermission.ADMIN_CLUSTER_ACTIVATE : SecurityPermission.ADMIN_CLUSTER_DEACTIVATE;
+            checkPermissions(perm);
+
             ctx.state().changeGlobalState(active, baselineNodes(), false).get();
         }
         catch (IgniteCheckedException e) {
@@ -317,6 +322,11 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
         finally {
             unguard();
         }
+    }
+
+    /** Check permission*/
+    private void checkPermissions(SecurityPermission perm){
+        ctx.security().authorize(null, perm, null);
     }
 
     /** */
@@ -400,6 +410,8 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
      * Executes validation checks of cluster state and BaselineTopology before changing BaselineTopology to new one.
      */
     private void validateBeforeBaselineChange(Collection<? extends BaselineNode> baselineTop) {
+        checkPermissions(SecurityPermission.BASELINE_CHANGE);
+
         verifyBaselineTopologySupport(ctx.discovery().discoCache());
 
         if (!ctx.state().clusterState().active())
@@ -709,7 +721,7 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
                     Collections.<ClusterStartNodeResult>emptyList());
 
             // Exceeding max line width for readability.
-            GridCompoundFuture<ClusterStartNodeResult, Collection<ClusterStartNodeResult>> fut = 
+            GridCompoundFuture<ClusterStartNodeResult, Collection<ClusterStartNodeResult>> fut =
                 new GridCompoundFuture<>(CU.<ClusterStartNodeResult>objectsReducer());
 
             AtomicInteger cnt = new AtomicInteger(nodeCallCnt);
