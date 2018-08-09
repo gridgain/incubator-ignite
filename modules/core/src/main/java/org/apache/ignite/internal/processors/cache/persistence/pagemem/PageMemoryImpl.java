@@ -716,6 +716,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             if (t2 - t1 >= SEGMENT_READ_LOCK_DURATION_THRESHOLD) {
                 List<SegmentWriteLockHolder> locks = writeLockHolder.getAndSet(null);
+                aqReadLock.set(false);
 
                 if (locks != null && !locks.isEmpty()) {
                     if (!snap.segmentWriteLockHolders.containsKey(snap.currKey))
@@ -724,9 +725,6 @@ public class PageMemoryImpl implements PageMemoryEx {
                         snap.segmentWriteLockHolders.get(snap.currKey).addAll(locks);
                 }
             }
-
-            writeLockHolder.set(null);
-            aqReadLock.set(false);
         }
 
         try {
