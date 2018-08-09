@@ -704,7 +704,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         Segment seg = segment(grpId, pageId);
 
-        aqReadLock.set(true);
+        if (snap != null)
+            aqReadLock.set(true);
 
         seg.readLock().lock();
 
@@ -757,8 +758,6 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         DelayedDirtyPageWrite delayedWriter = delayedPageReplacementTracker != null
             ? delayedPageReplacementTracker.delayedPageWrite() : null;
-
-        long t7 = System.nanoTime();
 
         seg.writeLock().lock();
 
@@ -878,7 +877,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 Thread curThread = Thread.currentThread();
 
                 SegmentWriteLockHolder holder = new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
-                        System.nanoTime() - t1, new SegmentContext(grpId, partId, segments.length));
+                        System.nanoTime() - t5, new SegmentContext(grpId, partId, segments.length));
 
 
                 if (writeLockHolder.get() != null)
