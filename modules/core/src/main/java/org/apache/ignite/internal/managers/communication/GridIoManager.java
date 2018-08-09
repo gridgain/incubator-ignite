@@ -22,12 +22,15 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NavigableMap;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.BrokenBarrierException;
@@ -35,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -49,6 +53,10 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
@@ -71,6 +79,7 @@ import org.apache.ignite.internal.processors.platform.message.PlatformMessageFil
 import org.apache.ignite.internal.processors.pool.PoolProcessor;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashSet;
+import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.StripedCompositeReadWriteLock;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
@@ -208,6 +217,8 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
             // No-op.
         }
     };
+
+    public static ConcurrentMap<Class<? extends GridIoMessage>, Integer> statMap = new ConcurrentHashMap<>();
 
     /**
      * @param ctx Grid kernal context.
@@ -1020,6 +1031,8 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
             U.error(log, "Failed to process message (will ignore): " + msg, e);
         }
         finally {
+            statMap.compute(msg.getClass(), (aClass, integer) -> integer == null ? 1 : integer + 1);
+
             busyLock0.unlock();
         }
     }
@@ -2291,6 +2304,30 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
         if (spi instanceof TcpCommunicationSpi)
             ((TcpCommunicationSpi)spi).dumpStats();
+
+        GridStringBuilder sb = new GridStringBuilder();
+
+        Iterator<Entry<Class<? extends GridIoMessage>, Integer>> it =
+                statMap.entrySet().stream().sorted((o1, o2) -> Integer.compare(o2.getValue(), o1.getValue())).iterator();
+
+        sb.a(">>> Processed messages statistics: [[");
+
+        int total = 0;
+
+        while (it.hasNext()) {
+            Entry<Class<? extends GridIoMessage>, Integer> entry = it.next();
+
+            sb.a("msg=").a(entry.getKey().getName()).a(", cnt").a(entry.getValue());
+
+            total++;
+
+            if (it.hasNext())
+                sb.a(", ");
+        }
+
+        sb.a("], total=").a(total).a("]");
+
+        U.warn(log, sb.toString());
     }
 
     /** {@inheritDoc} */
