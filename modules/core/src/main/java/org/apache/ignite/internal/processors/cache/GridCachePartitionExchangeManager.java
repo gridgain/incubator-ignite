@@ -1494,6 +1494,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                     else if (!grp.isLocal())
                         top = grp.topology();
 
+                    log.info(String.format("processFullPartitionUpdate Calling update method for cache group %s",
+                        grp.cacheOrGroupName()));
+
                     if (top != null) {
                         updated |= top.update(null,
                             entry.getValue(),
@@ -2681,7 +2684,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                         else if (r != null) {
                             Collections.reverse(rebList);
 
-                            U.log(log, "Rebalancing scheduled [order=" + rebList +
+                            U.log(log, "Rebalancing scheduled [size=" + rebList.size() + " order=" + rebList +
                                 ", top=" + resVer + ", force=" + (exchFut == null) +
                                 ", evt=" + exchId.discoveryEventName() +
                                 ", node=" + exchId.nodeId() + ']');

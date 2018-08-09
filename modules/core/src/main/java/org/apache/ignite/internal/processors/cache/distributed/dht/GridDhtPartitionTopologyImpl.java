@@ -383,6 +383,29 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
                             GridDhtLocalPartition locPart = getOrCreatePartition(p);
 
+                            if(p == 0) {
+                                String partState = null;
+                                String partCounter = null;
+
+                                try{
+                                    partState = locPart.state().toString();
+                                }
+                                catch (Exception e){
+                                    log.error("Failed to get part state.");
+                                }
+
+                                try{
+                                    partCounter = String.valueOf(locPart.updateCounter());
+                                }
+                                catch (Exception e){
+                                    log.error("Failed to get part state.");
+                                }
+
+                                log.info(String.format("Method initPartitions. Cache group %s; Partition 0 state = %s. " +
+                                    "Upd counter =%s", grp.cacheOrGroupName(), partState, partCounter));
+
+                            }
+
                             if (shouldOwn) {
                                 locPart.own();
 
@@ -717,6 +740,29 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
                 for (int p = 0; p < num; p++) {
                     GridDhtLocalPartition locPart = localPartition0(p, topVer, false, true);
+
+                    if(p == 0) {
+                        String partState = null;
+                        String partCounter = null;
+
+                        try{
+                            partState = locPart.state().toString();
+                        }
+                        catch (Exception e){
+                            log.error("Failed to get part state.");
+                        }
+
+                        try{
+                            partCounter = String.valueOf(locPart.updateCounter());
+                        }
+                        catch (Exception e){
+                            log.error("Failed to get part state.");
+                        }
+
+                        log.info(String.format("Method afterExchange. Cache group %s; Partition 0 state = %s. " +
+                            "Upd counter =%s", grp.cacheOrGroupName(), partState, partCounter));
+
+                    }
 
                     if (partitionLocalNode(p, topVer)) {
                         // Prepare partition to rebalance if it's not happened on full map update phase.
@@ -1360,9 +1406,12 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
                 if (stopping || !lastTopChangeVer.initialized() ||
                     // Ignore message not-related to exchange if exchange is in progress.
-                    (exchangeVer == null && !lastTopChangeVer.equals(readyTopVer)))
-                    return false;
+                    (exchangeVer == null && !lastTopChangeVer.equals(readyTopVer))) {
 
+                    log.info("Ignoring message not-related to exchange if exchange is in progress.");
+
+                    return false;
+                }
                 if (incomeCntrMap != null) {
                     // update local counters in partitions
                     for (int i = 0; i < locParts.length(); i++) {
@@ -1391,6 +1440,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                             ", readTopVer=" + readyTopVer +
                             ", exchVer=" + exchangeVer + ']');
 
+                        log.info("exchange already finished or new exchange started");
+
                         return false;
                     }
                 }
@@ -1405,7 +1456,11 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     return false;
                 }
 
+                log.info(String.format("node2part = %s", node2part));
+
                 boolean fullMapUpdated = (node2part == null);
+
+                log.info(String.format("fullMapUpdated = %s", String.valueOf(fullMapUpdated)));
 
                 if (node2part != null) {
                     for (GridDhtPartitionMap part : node2part.values()) {
@@ -1414,8 +1469,10 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         if (shouldOverridePartitionMap(part, newPart)) {
                             fullMapUpdated = true;
 
-                            if (log.isDebugEnabled()) {
-                                log.debug("Overriding partition map in full update map [" +
+                            log.info(String.format("(shouldOverridePartitionMap; fullMapUpdated = %s", String.valueOf(fullMapUpdated)));
+
+                            if (true) {
+                                log.info("Overriding partition map in full update map [" +
                                     "grp=" + grp.cacheOrGroupName() +
                                     ", exchVer=" + exchangeVer +
                                     ", curPart=" + mapString(part) +
@@ -1438,6 +1495,9 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                             break;
 
                         fullMapUpdated = !node2part.containsKey(part.nodeId());
+
+                        log.info(String.format("!node2part.containsKey(part.nodeId(); fullMapUpdated = %s", String.valueOf(fullMapUpdated)));
+
                     }
 
                     // Remove entry if node left.
@@ -1469,6 +1529,9 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                             ", curMap=" + node2part +
                             ", newMap=" + partMap + ']');
                     }
+
+                    log.info("No updates for full partition map (will ignore)");
+
 
                     return false;
                 }
@@ -1515,6 +1578,13 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
                 GridDhtPartitionMap nodeMap = partMap.get(ctx.localNodeId());
 
+                try {
+                    log.info(String.format("Group = %s; map = %s", grp.cacheOrGroupName(), nodeMap.toFullString().substring(0, 73)));
+                }
+                catch (Exception e){
+                    log.error("Failed to print map");
+                }
+
                 // Only in real exchange occurred.
                 if (exchangeVer != null &&
                     nodeMap != null &&
@@ -1539,6 +1609,31 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         }
                         else if (state == MOVING) {
                             boolean haveHistory = !partsToReload.contains(p);
+
+                            if(p == 0) {
+                                GridDhtLocalPartition locPart = locParts.get(p);
+
+                                String partState = null;
+                                String partCounter = null;
+
+                                try{
+                                    partState = locPart.state().toString();
+                                }
+                                catch (Exception e1){
+                                    log.error("Failed to get part state.");
+                                }
+
+                                try{
+                                    partCounter = String.valueOf(locPart.updateCounter());
+                                }
+                                catch (Exception e1){
+                                    log.error("Failed to get part state.");
+                                }
+
+                                log.info(String.format("Method update. Cache group %s; Partition 0 state = %s. " +
+                                    "Upd counter =%s", grp.cacheOrGroupName(), partState, partCounter));
+
+                            }
 
                             rebalancePartition(p, haveHistory);
 
@@ -2245,9 +2340,19 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
     private GridDhtLocalPartition rebalancePartition(int p, boolean haveHistory) {
         GridDhtLocalPartition part = getOrCreatePartition(p);
 
-        if (p == 0)
-            log.info(String.format("rebalancePartition. Partition 0 in cache group %s has state %s",
-                grp.cacheOrGroupName(), part.state()));
+        if (p == 0) {
+            String updCounter = null;
+
+            try{
+                updCounter = String.valueOf(part.updateCounter());
+            }
+            catch (Exception e){
+                log.error("Failed to get upd counter;");
+            }
+
+            log.info(String.format("rebalancePartition. Partition 0 in cache group %s has state %s; upd counter = %s",
+                grp.cacheOrGroupName(), part.state(), updCounter));
+        }
 
         // Prevent renting.
         if (part.state() == RENTING) {

@@ -910,6 +910,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 boolean updateTop = exchId.topologyVersion().equals(grp.localStartVersion());
 
                 if (updateTop && clientTop != null) {
+                    log.info(String.format("updateTopologies Calling update method for cache group %s",
+                        grp.cacheOrGroupName()));
+
                     top.update(null,
                         clientTop.partitionMap(true),
                         clientTop.fullUpdateCounters(),
@@ -3457,6 +3460,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 return;
             }
 
+            log.info("processFullMessage; updatePartitionFullMap is called; ");
+
             updatePartitionFullMap(resTopVer, msg);
 
             IgniteCheckedException err = null;
@@ -3487,6 +3492,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
         partHistSuppliers.putAll(msg.partitionHistorySuppliers());
 
+        log.info(String.format("Number of cache groups in msg.partitions() is %d", msg.partitions().size()));
+
         for (Map.Entry<Integer, GridDhtPartitionFullMap> entry : msg.partitions().entrySet()) {
             Integer grpId = entry.getKey();
 
@@ -3495,6 +3502,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             if (grp != null) {
                 CachePartitionFullCountersMap cntrMap = msg.partitionUpdateCounters(grpId,
                     grp.topology().partitions());
+
+                log.info(String.format("updatePartitionFullMap (if); Calling update method for cache group %s",
+                    grp.cacheOrGroupName()));
 
                 grp.topology().update(resTopVer,
                     entry.getValue(),
@@ -3511,6 +3521,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
                     CachePartitionFullCountersMap cntrMap = msg.partitionUpdateCounters(grpId,
                         top.partitions());
+
+                    log.info(String.format("updatePartitionFullMap (else) Calling update method for cache group %s",
+                        grp.cacheOrGroupName()));
 
                     top.update(resTopVer,
                         entry.getValue(),
@@ -3626,6 +3639,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
                             assert partsMsg != null : msg;
                             assert partsMsg.lastVersion() != null : partsMsg;
+
+                            log.info("onAffinityChangeMessage; updatePartitionFullMap is called; ");
 
                             updatePartitionFullMap(resTopVer, partsMsg);
 
