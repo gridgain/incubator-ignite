@@ -25,6 +25,7 @@ import java.io.ObjectOutput;
 import java.io.ObjectStreamException;
 import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -83,6 +84,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLoca
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.dr.GridCacheDrInfo;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
+import org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxLocalEx;
@@ -112,7 +114,6 @@ import org.apache.ignite.internal.util.typedef.CIX3;
 import org.apache.ignite.internal.util.typedef.CX1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T2;
-import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.internal.util.typedef.internal.CU;
@@ -130,7 +131,6 @@ import org.apache.ignite.mxbean.CacheMetricsMXBean;
 import org.apache.ignite.plugin.security.SecurityPermission;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.resources.JobContextResource;
-import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
@@ -190,10 +190,12 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             List<Integer> list = pageTypes.get(key);
 
             if (list == null)
-                pageTypes.put(key, (list = new ArrayList<Integer>(4)));
+                pageTypes.put(key, (list = new ArrayList<>(4)));
 
             list.add(pType);
         }
+
+        public Map<KeyCacheObject, List<PageMemoryImpl.SegmentWriteLockHolder>> segmentWriteLockHolders = new ConcurrentHashMap<>();
     }
 
     /** */
@@ -2243,7 +2245,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             finally {
                 long duration = System.nanoTime() - start0;
 
-                if (duration > IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
+                if (duration >= IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
                     log.info("");
 
                     GridStringBuilder sb = new GridStringBuilder();
@@ -2285,6 +2287,30 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                     }
 
                     sb.a(']').a(U.nl());
+
+                    snap.segmentWriteLockHolders.forEach((key, holders) -> {
+                        sb.a(" >>> seglock holders key=").a(key).a(U.nl());
+
+                        for(PageMemoryImpl.SegmentWriteLockHolder holder: holders) {
+                            sb.a("  >>> ").a(holder.threadName).a(" duration=").a(holder.duration < 1_000_000
+                                    ? holder.duration + "ns" : TimeUnit.NANOSECONDS.toMillis(holder.duration) + "ms");
+
+                            sb.a(" ctx=[groupId=").a(holder.ctx.groupId).a(", partId=").a(holder.ctx.partId)
+                                    .a(", segIdx=").a(holder.ctx.segIdx).a("]").a(U.nl());
+
+                            StackTraceElement[] stackTrace = holder.stackTrace;
+
+                            for (int i = 0; i < stackTrace.length; i++) {
+                                StackTraceElement e = stackTrace[i];
+
+                                sb.a("        at ").a(e.toString());
+
+                                sb.a(U.nl());
+                            }
+
+                            sb.a(U.nl());
+                        }
+                    });
 
                     U.warn(log, sb.toString());
                 }

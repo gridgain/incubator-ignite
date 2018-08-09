@@ -218,7 +218,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         }
     };
 
-    public static ConcurrentMap<Class<? extends GridIoMessage>, Integer> statMap = new ConcurrentHashMap<>();
+    public static ConcurrentMap<Class<? extends Message>, Integer> statMap = new ConcurrentHashMap<>();
 
     /**
      * @param ctx Grid kernal context.
@@ -1031,7 +1031,8 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
             U.error(log, "Failed to process message (will ignore): " + msg, e);
         }
         finally {
-            statMap.compute(msg.getClass(), (aClass, integer) -> integer == null ? 1 : integer + 1);
+            if (msg.message() != null)
+                statMap.compute(msg.message().getClass(), (aClass, integer) -> integer == null ? 1 : integer + 1);
 
             busyLock0.unlock();
         }
@@ -2307,7 +2308,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
         GridStringBuilder sb = new GridStringBuilder();
 
-        Iterator<Entry<Class<? extends GridIoMessage>, Integer>> it =
+        Iterator<Entry<Class<? extends Message>, Integer>> it =
                 statMap.entrySet().stream().sorted((o1, o2) -> Integer.compare(o2.getValue(), o1.getValue())).iterator();
 
         sb.a(">>> Processed messages statistics: [[");
@@ -2315,17 +2316,17 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         int total = 0;
 
         while (it.hasNext()) {
-            Entry<Class<? extends GridIoMessage>, Integer> entry = it.next();
+            Entry<Class<? extends Message>, Integer> entry = it.next();
 
-            sb.a("msg=").a(entry.getKey().getName()).a(", cnt").a(entry.getValue());
+            sb.a("msg=").a(entry.getKey().getSimpleName()).a(", cnt=").a(entry.getValue());
 
-            total++;
+            total += entry.getValue();
 
             if (it.hasNext())
                 sb.a(", ");
         }
 
-        sb.a("], total=").a(total).a("]");
+        sb.a("], total=").a(total).a("]").a(U.nl());
 
         U.warn(log, sb.toString());
     }

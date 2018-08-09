@@ -136,6 +136,8 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
             for (int i = 0; i < caches.length; i++)
                 grid(0).cache(caches[i].getName()).removeAll();
         }
+
+        grid(0).context().io().dumpStats();
     }
 
     /**

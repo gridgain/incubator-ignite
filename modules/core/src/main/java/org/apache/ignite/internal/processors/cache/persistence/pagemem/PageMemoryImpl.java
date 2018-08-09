@@ -33,7 +33,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -43,6 +45,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.failure.FailureContext;
 import org.apache.ignite.failure.FailureType;
 import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.mem.IgniteOutOfMemoryException;
@@ -62,6 +65,7 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.InitNewPageRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.PageDeltaRecord;
 import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
+import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointLockStateChecker;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointWriteProgressSupplier;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
@@ -266,6 +270,44 @@ public class PageMemoryImpl implements PageMemoryEx {
 
     /** Memory metrics to track dirty pages count and page replace rate. */
     private DataRegionMetricsImpl memMetrics;
+
+    public static AtomicReference<SegmentWriteLockHolder> writeLockHolder = new AtomicReference<>();
+
+    public static class SegmentWriteLockHolder {
+        public final String threadName;
+
+        public final long duration;
+
+        public final StackTraceElement[] stackTrace;
+
+        public final SegmentContext ctx;
+
+        public SegmentWriteLockHolder(String threadName, StackTraceElement[] stackTrace,
+                                      long duration, SegmentContext ctx) {
+            this.threadName = threadName;
+            this.stackTrace = stackTrace;
+            this.duration = duration;
+            this.ctx = ctx;
+        }
+    }
+
+    public static class SegmentContext {
+        public final int groupId;
+
+        public final int partId;
+
+        public final int segIdx;
+
+        public SegmentContext(int groupId, int partId, int segLength) {
+            this.groupId = groupId;
+            this.partId = partId;
+            this.segIdx = segmentIndex(groupId, partId, segLength);
+        }
+    }
+
+    // 50 ms
+    public static final long SEGMENT_READ_LOCK_DURATION_THRESHOLD = IgniteSystemProperties.getInteger(
+            IgniteSystemProperties.SEGMENT_READ_LOCK_DURATION_THRESHOLD , 50) * 1_000_000L;
 
     /**
      * @param directMemoryProvider Memory allocator to use.
@@ -483,7 +525,11 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         FullPageId fullId = new FullPageId(pageId, grpId);
 
+        long t1 = System.nanoTime();
+
         seg.writeLock().lock();
+
+        U.sleep(20);
 
         boolean isTrackingPage = changeTracker != null && trackingIO.trackingPageFor(pageId, pageSize()) == pageId;
 
@@ -568,6 +614,11 @@ public class PageMemoryImpl implements PageMemoryEx {
         finally {
             seg.writeLock().unlock();
 
+            Thread curThread = Thread.currentThread();
+
+            writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                    System.nanoTime() - t1, new SegmentContext(grpId, partId, segments.length)));
+
             if (delayedWriter != null)
                 delayedWriter.finishReplacement();
         }
@@ -646,8 +697,23 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         long t2 = System.nanoTime();
 
-        if (stats != null)
+        if (stats != null) {
             stats[GridCacheAdapter.StatSnap.TOTAL_SEG_READ_LOCK_DURATION] += t2 - t1;
+
+            if (t2 - t1 >= SEGMENT_READ_LOCK_DURATION_THRESHOLD)
+                snap.segmentWriteLockHolders.compute(snap.currKey, (k, v)-> {
+                    List<SegmentWriteLockHolder> ret = v == null ? new ArrayList<>() : v;
+
+                    SegmentWriteLockHolder lockHldr = writeLockHolder.get();
+
+                    if (lockHldr != null)
+                        ret.add(writeLockHolder.get());
+
+                    return ret;
+                });
+
+            writeLockHolder.set(null);
+        }
 
         try {
             long relPtr = seg.loadedPages.get(
@@ -678,6 +744,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         DelayedDirtyPageWrite delayedWriter = delayedPageReplacementTracker != null
             ? delayedPageReplacementTracker.delayedPageWrite() : null;
+
+        long t7 = System.nanoTime();
 
         seg.writeLock().lock();
 
@@ -794,6 +862,11 @@ public class PageMemoryImpl implements PageMemoryEx {
         }
         finally {
             seg.writeLock().unlock();
+
+            Thread curThread = Thread.currentThread();
+
+            writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                    System.nanoTime() - t7, new SegmentContext(grpId, partId, segments.length)));
 
             if (stats != null)
                 stats[GridCacheAdapter.StatSnap.SEGMENT_UTILIZATION] = GridUnsafe.getLong(seg.pool.lastAllocatedIdxPtr);
@@ -1129,7 +1202,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         }
 
         if (relPtr == OUTDATED_REL_PTR) {
+            long t1 = System.nanoTime();
+
             seg.writeLock().lock();
+
+            try {
+                U.sleep(20);
+            } catch (IgniteInterruptedCheckedException e) {
+                e.printStackTrace();
+            }
 
             try {
                 // Double-check.
@@ -1162,6 +1243,11 @@ public class PageMemoryImpl implements PageMemoryEx {
             }
             finally {
                 seg.writeLock().unlock();
+
+                Thread curThread = Thread.currentThread();
+
+                writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                        System.nanoTime() - t1, null));
             }
         }
         else
@@ -1276,7 +1362,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         int tag = 0;
 
         for (Segment seg : segments) {
+            long t1 = System.nanoTime();
+
             seg.writeLock().lock();
+
+            try {
+                U.sleep(20);
+            } catch (IgniteInterruptedCheckedException e) {
+                e.printStackTrace();
+            }
 
             try {
                 int newTag = seg.incrementPartGeneration(grpId, partId);
@@ -1288,6 +1382,11 @@ public class PageMemoryImpl implements PageMemoryEx {
             }
             finally {
                 seg.writeLock().unlock();
+
+                Thread curThread = Thread.currentThread();
+
+                writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                        System.nanoTime() - t1, new SegmentContext(grpId, partId, segments.length)));
             }
         }
 
@@ -1297,13 +1396,26 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** {@inheritDoc} */
     @Override public void onCacheGroupDestroyed(int grpId) {
         for (Segment seg : segments) {
+            long t1 = System.nanoTime();
+
             seg.writeLock().lock();
+
+            try {
+                U.sleep(20);
+            } catch (IgniteInterruptedCheckedException e) {
+                e.printStackTrace();
+            }
 
             try {
                 seg.resetGroupPartitionsGeneration(grpId);
             }
             finally {
                 seg.writeLock().unlock();
+
+                Thread curThread = Thread.currentThread();
+
+                writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                        System.nanoTime() - t1, null));
             }
         }
     }
@@ -1963,13 +2075,27 @@ public class PageMemoryImpl implements PageMemoryEx {
          * Closes the segment.
          */
         private void close() {
+            long t1 = System.nanoTime();
+
             writeLock().lock();
+
+            try {
+                U.sleep(20);
+            } catch (IgniteInterruptedCheckedException e) {
+                e.printStackTrace();
+            }
+
 
             try {
                 closed = true;
             }
             finally {
                 writeLock().unlock();
+
+                Thread curThread = Thread.currentThread();
+
+                writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                        System.nanoTime() - t1, null));
             }
         }
 
@@ -2764,7 +2890,16 @@ public class PageMemoryImpl implements PageMemoryEx {
                 for (int base = 0; base < cap; ) {
                     int boundary = Math.min(cap, base + chunkSize);
 
+                    long t1 = System.nanoTime();
+
                     seg.writeLock().lock();
+
+                    try {
+                        U.sleep(20);
+                    } catch (IgniteInterruptedCheckedException e) {
+                        e.printStackTrace();
+                    }
+
 
                     try {
                         GridLongList list = seg.loadedPages.removeIf(base, boundary, clearPred);
@@ -2775,6 +2910,11 @@ public class PageMemoryImpl implements PageMemoryEx {
                     }
                     finally {
                         seg.writeLock().unlock();
+
+                        Thread curThread = Thread.currentThread();
+
+                        writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                                System.nanoTime() - t1, null));
                     }
 
                     for (int i = 0; i < ptrs.size(); i++) {

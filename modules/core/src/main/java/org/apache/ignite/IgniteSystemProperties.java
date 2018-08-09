@@ -755,6 +755,10 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD =
             "IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD";
 
+    /** */
+    public static final String SEGMENT_READ_LOCK_DURATION_THRESHOLD =
+            "SEGMENT_READ_LOCK_DURATION_THRESHOLD";
+
     /**
      * If this property is set, then Ignite will use Async File IO factory by default.
      */
