@@ -195,7 +195,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             list.add(pType);
         }
 
-        public Map<KeyCacheObject, List<PageMemoryImpl.SegmentWriteLockHolder>> segmentWriteLockHolders = new ConcurrentHashMap<>();
+        public Map<KeyCacheObject, List<PageMemoryImpl.SegmentWriteLockHolder>> segmentWriteLockHolders = new HashMap<>();
     }
 
     /** */
@@ -2291,12 +2291,16 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                     snap.segmentWriteLockHolders.forEach((key, holders) -> {
                         sb.a(" >>> seglock holders key=").a(key).a(U.nl());
 
-                        for(PageMemoryImpl.SegmentWriteLockHolder holder: holders) {
+                        holders.stream().sorted((h1, h2) -> Long.compare(h2.duration, h1.duration))
+                                .limit(5).forEach(holder -> {
                             sb.a("  >>> ").a(holder.threadName).a(" duration=").a(holder.duration < 1_000_000
                                     ? holder.duration + "ns" : TimeUnit.NANOSECONDS.toMillis(holder.duration) + "ms");
 
-                            sb.a(" ctx=[groupId=").a(holder.ctx.groupId).a(", partId=").a(holder.ctx.partId)
-                                    .a(", segIdx=").a(holder.ctx.segIdx).a("]").a(U.nl());
+                            if (holder.ctx != null)
+                                sb.a(" ctx=[groupId=").a(holder.ctx.groupId).a(", partId=").a(holder.ctx.partId)
+                                        .a(", segIdx=").a(holder.ctx.segIdx).a("]");
+
+                            sb.a(U.nl());
 
                             StackTraceElement[] stackTrace = holder.stackTrace;
 
@@ -2309,7 +2313,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                             }
 
                             sb.a(U.nl());
-                        }
+                        });
                     });
 
                     U.warn(log, sb.toString());

@@ -32,6 +32,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -271,7 +272,9 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Memory metrics to track dirty pages count and page replace rate. */
     private DataRegionMetricsImpl memMetrics;
 
-    public static AtomicReference<SegmentWriteLockHolder> writeLockHolder = new AtomicReference<>();
+    public static AtomicReference<List<SegmentWriteLockHolder>> writeLockHolder = new AtomicReference<>(null);
+
+    public static AtomicBoolean aqReadLock = new AtomicBoolean();
 
     public static class SegmentWriteLockHolder {
         public final String threadName;
@@ -610,12 +613,22 @@ public class PageMemoryImpl implements PageMemoryEx {
             throw e;
         }
         finally {
+            if (aqReadLock.get()) {
+                Thread curThread = Thread.currentThread();
+
+                SegmentWriteLockHolder holder = new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                        System.nanoTime() - t1, new SegmentContext(grpId, partId, segments.length));
+
+                if (writeLockHolder.get() != null)
+                    writeLockHolder.get().add(holder);
+                else {
+                    List<SegmentWriteLockHolder> data = new ArrayList<>();
+                    data.add(holder);
+                    writeLockHolder.compareAndSet(null, data);
+                }
+            }
+
             seg.writeLock().unlock();
-
-            Thread curThread = Thread.currentThread();
-
-            writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
-                    System.nanoTime() - t1, new SegmentContext(grpId, partId, segments.length)));
 
             if (delayedWriter != null)
                 delayedWriter.finishReplacement();
@@ -691,6 +704,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         Segment seg = segment(grpId, pageId);
 
+        aqReadLock.set(true);
+
         seg.readLock().lock();
 
         long t2 = System.nanoTime();
@@ -698,19 +713,19 @@ public class PageMemoryImpl implements PageMemoryEx {
         if (stats != null) {
             stats[GridCacheAdapter.StatSnap.TOTAL_SEG_READ_LOCK_DURATION] += t2 - t1;
 
-            if (t2 - t1 >= SEGMENT_READ_LOCK_DURATION_THRESHOLD)
-                snap.segmentWriteLockHolders.compute(snap.currKey, (k, v)-> {
-                    List<SegmentWriteLockHolder> ret = v == null ? new ArrayList<>() : v;
+            if (t2 - t1 >= SEGMENT_READ_LOCK_DURATION_THRESHOLD) {
+                List<SegmentWriteLockHolder> locks = writeLockHolder.getAndSet(null);
 
-                    SegmentWriteLockHolder lockHldr = writeLockHolder.get();
-
-                    if (lockHldr != null)
-                        ret.add(writeLockHolder.get());
-
-                    return ret;
-                });
+                if (locks != null && !locks.isEmpty()) {
+                    if (!snap.segmentWriteLockHolders.containsKey(snap.currKey))
+                        snap.segmentWriteLockHolders.put(snap.currKey, locks);
+                    else
+                        snap.segmentWriteLockHolders.get(snap.currKey).addAll(locks);
+                }
+            }
 
             writeLockHolder.set(null);
+            aqReadLock.set(false);
         }
 
         try {
@@ -859,12 +874,23 @@ public class PageMemoryImpl implements PageMemoryEx {
             throw oom;
         }
         finally {
+            if (aqReadLock.get()) {
+                Thread curThread = Thread.currentThread();
+
+                SegmentWriteLockHolder holder = new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                        System.nanoTime() - t1, new SegmentContext(grpId, partId, segments.length));
+
+
+                if (writeLockHolder.get() != null)
+                    writeLockHolder.get().add(holder);
+                else {
+                    List<SegmentWriteLockHolder> data = new ArrayList<>();
+                    data.add(holder);
+                    writeLockHolder.compareAndSet(null, data);
+                }
+            }
+
             seg.writeLock().unlock();
-
-            Thread curThread = Thread.currentThread();
-
-            writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
-                    System.nanoTime() - t7, new SegmentContext(grpId, partId, segments.length)));
 
             if (stats != null)
                 stats[GridCacheAdapter.StatSnap.SEGMENT_UTILIZATION] = GridUnsafe.getLong(seg.pool.lastAllocatedIdxPtr);
@@ -1234,12 +1260,22 @@ public class PageMemoryImpl implements PageMemoryEx {
                 return null;
             }
             finally {
+                if (aqReadLock.get()) {
+                    Thread curThread = Thread.currentThread();
+
+                    SegmentWriteLockHolder holder = new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                            System.nanoTime() - t1, null);
+
+                    if (writeLockHolder.get() != null)
+                        writeLockHolder.get().add(holder);
+                    else {
+                        List<SegmentWriteLockHolder> data = new ArrayList<>();
+                        data.add(holder);
+                        writeLockHolder.compareAndSet(null, data);
+                    }
+                }
+
                 seg.writeLock().unlock();
-
-                Thread curThread = Thread.currentThread();
-
-                writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
-                        System.nanoTime() - t1, null));
             }
         }
         else
@@ -1367,12 +1403,22 @@ public class PageMemoryImpl implements PageMemoryEx {
                 assert tag == newTag;
             }
             finally {
+                if (aqReadLock.get()) {
+                    Thread curThread = Thread.currentThread();
+
+                    SegmentWriteLockHolder holder = new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                            System.nanoTime() - t1, new SegmentContext(grpId, partId, segments.length));
+
+                    if (writeLockHolder.get() != null)
+                        writeLockHolder.get().add(holder);
+                    else {
+                        List<SegmentWriteLockHolder> data = new ArrayList<>();
+                        data.add(holder);
+                        writeLockHolder.compareAndSet(null, data);
+                    }
+                }
+
                 seg.writeLock().unlock();
-
-                Thread curThread = Thread.currentThread();
-
-                writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
-                        System.nanoTime() - t1, new SegmentContext(grpId, partId, segments.length)));
             }
         }
 
@@ -1390,12 +1436,21 @@ public class PageMemoryImpl implements PageMemoryEx {
                 seg.resetGroupPartitionsGeneration(grpId);
             }
             finally {
+                if (aqReadLock.get()) {
+                    Thread curThread = Thread.currentThread();
+                    SegmentWriteLockHolder holder = new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                            System.nanoTime() - t1, null);
+
+                    if (writeLockHolder.get() != null)
+                        writeLockHolder.get().add(holder);
+                    else {
+                        List<SegmentWriteLockHolder> data = new ArrayList<>();
+                        data.add(holder);
+                        writeLockHolder.compareAndSet(null, data);
+                    }
+                }
+
                 seg.writeLock().unlock();
-
-                Thread curThread = Thread.currentThread();
-
-                writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
-                        System.nanoTime() - t1, null));
             }
         }
     }
@@ -2063,12 +2118,22 @@ public class PageMemoryImpl implements PageMemoryEx {
                 closed = true;
             }
             finally {
+                if (aqReadLock.get()) {
+                    Thread curThread = Thread.currentThread();
+
+                    SegmentWriteLockHolder holder = new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                            System.nanoTime() - t1, null);
+
+                    if (writeLockHolder.get() != null)
+                        writeLockHolder.get().add(holder);
+                    else {
+                        List<SegmentWriteLockHolder> data = new ArrayList<>();
+                        data.add(holder);
+                        writeLockHolder.compareAndSet(null, data);
+                    }
+                }
+
                 writeLock().unlock();
-
-                Thread curThread = Thread.currentThread();
-
-                writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
-                        System.nanoTime() - t1, null));
             }
         }
 
@@ -2875,12 +2940,22 @@ public class PageMemoryImpl implements PageMemoryEx {
                         base = boundary;
                     }
                     finally {
+                        if (aqReadLock.get()) {
+                            Thread curThread = Thread.currentThread();
+
+                            SegmentWriteLockHolder holder = new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
+                                    System.nanoTime() - t1, null);
+
+                            if (writeLockHolder.get() != null)
+                                writeLockHolder.get().add(holder);
+                            else {
+                                List<SegmentWriteLockHolder> data = new ArrayList<>();
+                                data.add(holder);
+                                writeLockHolder.compareAndSet(null, data);
+                            }
+                        }
+
                         seg.writeLock().unlock();
-
-                        Thread curThread = Thread.currentThread();
-
-                        writeLockHolder.set(new SegmentWriteLockHolder(curThread.getName(), curThread.getStackTrace(),
-                                System.nanoTime() - t1, null));
                     }
 
                     for (int i = 0; i < ptrs.size(); i++) {
