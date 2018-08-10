@@ -2305,7 +2305,9 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
         if (spi instanceof TcpCommunicationSpi)
             ((TcpCommunicationSpi)spi).dumpStats();
+    }
 
+    public void dumpProcessedMessagesStats() {
         GridStringBuilder sb = new GridStringBuilder();
 
         Iterator<Entry<Class<? extends Message>, Integer>> it =
