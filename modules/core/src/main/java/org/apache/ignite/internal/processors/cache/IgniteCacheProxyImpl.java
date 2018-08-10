@@ -523,7 +523,6 @@ public class IgniteCacheProxyImpl<K, V> extends AsyncSupportAdapter<IgniteCache<
 
         ctx.checkSecurity(SecurityPermission.CACHE_CONTINUOUS_QUERY_START);
 
-
         CacheEntryUpdatedListener locLsnr = null;
 
         EventListener locTransLsnr = null;
