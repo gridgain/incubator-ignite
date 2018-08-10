@@ -39,12 +39,14 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteAsyncSupport;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.plugin.security.SecurityPermission;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionState;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.plugin.security.SecurityPermission.ADMIN_CANCEL_TX;
 import static org.apache.ignite.transactions.TransactionState.SUSPENDED;
 
 /**
@@ -341,6 +343,8 @@ public class TransactionProxyImpl<K, V> implements TransactionProxy, Externaliza
         enter();
 
         try {
+            checkPermissions(ADMIN_CANCEL_TX);
+
             IgniteInternalFuture rollbackFut = cctx.rollbackTxAsync(tx);
 
             if (async)
@@ -361,6 +365,8 @@ public class TransactionProxyImpl<K, V> implements TransactionProxy, Externaliza
         enter();
 
         try {
+            checkPermissions(ADMIN_CANCEL_TX);
+
             return (IgniteFuture<Void>)(new IgniteFutureImpl(cctx.rollbackTxAsync(tx)));
         }
         catch (IgniteCheckedException e) {
@@ -384,6 +390,11 @@ public class TransactionProxyImpl<K, V> implements TransactionProxy, Externaliza
         finally {
             leave();
         }
+    }
+
+    /** Check permission */
+    private void checkPermissions(SecurityPermission perm) {
+        cctx.kernalContext().security().authorize(null, perm, null);
     }
 
     /**

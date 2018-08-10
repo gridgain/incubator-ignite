@@ -85,7 +85,10 @@ public enum SecurityPermission {
     BASELINE_CHANGE,
 
     /** Compute deploy permission. */
-    COMPUTE_DEPLOY;
+    COMPUTE_DEPLOY,
+
+    /** Cancel (rollback) transaction permission. */
+    ADMIN_CANCEL_TX;
 
 
     /** Enumerated values. */
