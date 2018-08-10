@@ -184,7 +184,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
 
         public Map<KeyCacheObject, long[]> stats = new HashMap<>();
 
-        public Map<KeyCacheObject, List<Integer>> pageTypes = new HashMap<>();
+        public Map<KeyCacheObject, List<Integer>> pageTypes = new ConcurrentHashMap<>();
 
         public void addPage(KeyCacheObject key, int pType) {
             List<Integer> list = pageTypes.get(key);
@@ -195,7 +195,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             list.add(pType);
         }
 
-        public Map<KeyCacheObject, List<PageMemoryImpl.SegmentWriteLockHolder>> segmentWriteLockHolders = new HashMap<>();
+        public Map<KeyCacheObject, List<PageMemoryImpl.SegmentWriteLockHolder>> segmentWriteLockHolders = new ConcurrentHashMap<>();
     }
 
     /** */
