@@ -316,7 +316,7 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
 
     /**
      * Affinity call implementation.
-
+     *
      * @param cacheName Cache name.
      * @param affKey Affinity key.
      * @param job Job.
@@ -370,7 +370,7 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
 
     /**
      * Affinity call implementation.
-
+     *
      * @param cacheNames Cache names collection.
      * @param affKey Affinity key.
      * @param job Job.
@@ -427,7 +427,7 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
 
     /**
      * Affinity call implementation.
-
+     *
      * @param cacheNames Cache names collection.
      * @param partId Partition ID.
      * @param job Job.
@@ -1032,6 +1032,7 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
 
         try {
             checkPermissions(SecurityPermission.COMPUTE_DEPLOY);
+
             GridDeployment dep = ctx.deploy().deploy(taskCls, clsLdr);
 
             if (dep == null)
@@ -1045,8 +1046,8 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
         }
     }
 
-    /** Check permission*/
-    private void checkPermissions(SecurityPermission perm){
+    /** Check permission */
+    private void checkPermissions(SecurityPermission perm) {
         ctx.security().authorize(null, perm, null);
     }
 

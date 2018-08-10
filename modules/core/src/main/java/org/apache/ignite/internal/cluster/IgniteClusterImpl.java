@@ -310,9 +310,10 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
         guard();
 
         try {
-            SecurityPermission perm = active ?
-                SecurityPermission.ADMIN_CLUSTER_ACTIVATE : SecurityPermission.ADMIN_CLUSTER_DEACTIVATE;
-            checkPermissions(perm);
+            if(active)
+                checkPermissions(SecurityPermission.ADMIN_CLUSTER_ACTIVATE);
+            else
+                checkPermissions(SecurityPermission.ADMIN_CLUSTER_DEACTIVATE);
 
             ctx.state().changeGlobalState(active, baselineNodes(), false).get();
         }
