@@ -2245,78 +2245,83 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             finally {
                 long duration = System.nanoTime() - start0;
 
-                if (duration >= IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
-                    log.info("");
+                try {
+                    if (duration >= IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
+                        log.info("");
 
-                    GridStringBuilder sb = new GridStringBuilder();
+                        GridStringBuilder sb = new GridStringBuilder();
 
-                    sb.a(">>> GetDhtAllAsync: [totalTime=" + TimeUnit.NANOSECONDS.toMillis(duration) + ", grp=" + ctx.groupId() + ", keys=[");
+                        sb.a(">>> GetDhtAllAsync: [totalTime=" + TimeUnit.NANOSECONDS.toMillis(duration) + ", grp=" + ctx.groupId() + ", keys=[");
 
-                    List<Map.Entry<KeyCacheObject, long[]>> sorted = snap.stats.entrySet().stream().
-                        sorted((o1, o2) -> Long.compare(o2.getValue()[StatSnap.TOTAL_READ_DURATION],
-                            o1.getValue()[StatSnap.TOTAL_READ_DURATION])).collect(Collectors.toList());
+                        List<Map.Entry<KeyCacheObject, long[]>> sorted = snap.stats.entrySet().stream().
+                                sorted((o1, o2) -> Long.compare(o2.getValue()[StatSnap.TOTAL_READ_DURATION],
+                                        o1.getValue()[StatSnap.TOTAL_READ_DURATION])).collect(Collectors.toList());
 
-                    Iterator<Map.Entry<KeyCacheObject, long[]>> it = sorted.iterator();
+                        Iterator<Map.Entry<KeyCacheObject, long[]>> it = sorted.iterator();
 
-                    while (it.hasNext()) {
-                        Map.Entry<KeyCacheObject, long[]> entry = it.next();
+                        while (it.hasNext()) {
+                            Map.Entry<KeyCacheObject, long[]> entry = it.next();
 
-                        sb.a('[').a(entry.getKey()).a(", times=[");
+                            sb.a('[').a(entry.getKey()).a(", times=[");
 
-                        for (int i = 0; i < entry.getValue().length - 1; i++) {
-                            long t = entry.getValue()[i];
+                            for (int i = 0; i < entry.getValue().length - 1; i++) {
+                                long t = entry.getValue()[i];
 
-                            sb.a(t == -1 ? "NA" : t < 1_000_000 ? t + "ns" : TimeUnit.NANOSECONDS.toMillis(t) + "ms");
+                                sb.a(t == -1 ? "NA" : t < 1_000_000 ? t + "ns" : TimeUnit.NANOSECONDS.toMillis(t) + "ms");
 
-                            if (i < entry.getValue().length - 2)
+                                if (i < entry.getValue().length - 2)
+                                    sb.a(", ");
+                            }
+
+                            sb.a(']');
+
+                            long segUtil = entry.getValue()[StatSnap.SEGMENT_UTILIZATION];
+
+                            sb.a(", segPages = ").a(segUtil == -1 ? "NA" : segUtil);
+
+                            sb.a(", slowPageTypes=").a(snap.pageTypes.get(entry.getKey()));
+
+                            sb.a(']');
+
+                            if (it.hasNext())
                                 sb.a(", ");
                         }
 
-                        sb.a(']');
+                        sb.a(']').a(U.nl());
 
-                        long segUtil = entry.getValue()[StatSnap.SEGMENT_UTILIZATION];
+                        snap.segmentWriteLockHolders.forEach((key, holders) -> {
+                            sb.a(" >>> seglock holders key=").a(key).a(U.nl());
 
-                        sb.a(", segPages = ").a(segUtil == -1 ? "NA" : segUtil);
+                            holders.stream().sorted((h1, h2) -> Long.compare(h2.duration, h1.duration))
+                                    .limit(5).forEach(holder -> {
+                                sb.a("  >>> ").a(holder.threadName).a(" duration=").a(holder.duration < 1_000_000
+                                        ? holder.duration + "ns" : TimeUnit.NANOSECONDS.toMillis(holder.duration) + "ms");
 
-                        sb.a(", slowPageTypes=").a(snap.pageTypes.get(entry.getKey()));
-
-                        sb.a(']');
-
-                        if (it.hasNext())
-                            sb.a(", ");
-                    }
-
-                    sb.a(']').a(U.nl());
-
-                    snap.segmentWriteLockHolders.forEach((key, holders) -> {
-                        sb.a(" >>> seglock holders key=").a(key).a(U.nl());
-
-                        holders.stream().sorted((h1, h2) -> Long.compare(h2.duration, h1.duration))
-                                .limit(5).forEach(holder -> {
-                            sb.a("  >>> ").a(holder.threadName).a(" duration=").a(holder.duration < 1_000_000
-                                    ? holder.duration + "ns" : TimeUnit.NANOSECONDS.toMillis(holder.duration) + "ms");
-
-                            if (holder.ctx != null)
-                                sb.a(" ctx=[groupId=").a(holder.ctx.groupId).a(", partId=").a(holder.ctx.partId)
-                                        .a(", segIdx=").a(holder.ctx.segIdx).a("]");
-
-                            sb.a(U.nl());
-
-                            StackTraceElement[] stackTrace = holder.stackTrace;
-
-                            for (int i = 0; i < stackTrace.length; i++) {
-                                StackTraceElement e = stackTrace[i];
-
-                                sb.a("        at ").a(e.toString());
+                                if (holder.ctx != null)
+                                    sb.a(" ctx=[groupId=").a(holder.ctx.groupId).a(", partId=").a(holder.ctx.partId)
+                                            .a(", segIdx=").a(holder.ctx.segIdx).a("]");
 
                                 sb.a(U.nl());
-                            }
 
-                            sb.a(U.nl());
+                                StackTraceElement[] stackTrace = holder.stackTrace;
+
+                                for (int i = 0; i < stackTrace.length; i++) {
+                                    StackTraceElement e = stackTrace[i];
+
+                                    sb.a("        at ").a(e.toString());
+
+                                    sb.a(U.nl());
+                                }
+
+                                sb.a(U.nl());
+                            });
                         });
-                    });
 
-                    U.warn(log, sb.toString());
+                        U.warn(log, sb.toString());
+                    }
+                }
+                catch (Throwable ignore) {
+                    // No-op.
                 }
 
                 dhtAllAsyncStatistics.set(null);
