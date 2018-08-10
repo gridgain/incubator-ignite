@@ -5843,7 +5843,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                     // Set socket options.
                     sock.setKeepAlive(true);
                     sock.setTcpNoDelay(true);
-                    sock.setSoLinger(true, 0);
+                    sock.setSoLinger(true, 5);
 
 
                     int timeout = sock.getSoTimeout();

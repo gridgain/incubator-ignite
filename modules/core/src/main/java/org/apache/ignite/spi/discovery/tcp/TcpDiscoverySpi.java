@@ -1478,7 +1478,7 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
         sock.bind(new InetSocketAddress(locHost, 0));
 
         sock.setTcpNoDelay(true);
-        sock.setSoLinger(true, 0);
+        sock.setSoLinger(true, 5);
 
         return sock;
     }
