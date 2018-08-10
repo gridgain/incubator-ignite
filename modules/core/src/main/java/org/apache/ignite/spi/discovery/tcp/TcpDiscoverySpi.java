@@ -1478,6 +1478,7 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
         sock.bind(new InetSocketAddress(locHost, 0));
 
         sock.setTcpNoDelay(true);
+        sock.setSoLinger(true, 0);
 
         return sock;
     }
@@ -2320,6 +2321,13 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
             log.debug("SocketTimeoutObject#timeout() addr: " + sock.getInetAddress() + " endTime: " + endTime + " done: " + done.get());
 
             if (done.compareAndSet(false, true)) {
+                try {
+                    log.debug("soLinger " + sock.getSoLinger());
+                }
+                catch (SocketException e) {
+                    log.error("soLinger exception " + e);
+                }
+
                 // Close socket - timeout occurred.
                 U.closeQuiet(sock);
 
