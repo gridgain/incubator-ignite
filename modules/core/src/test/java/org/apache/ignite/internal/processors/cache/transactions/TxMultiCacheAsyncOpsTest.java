@@ -120,24 +120,26 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
                 tx.commit();
             }
             catch (Exception e) {
-
+                // No-op.
             }
 
-            try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.READ_COMMITTED)) {
+            try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
                 client.cache(caches[0].getName()).getAll(new HashSet<>(keys.subList(2, 4)));
 
                 tx.commit();
             }
             catch (Exception e) {
-
+                // No-op.
             }
+
+            Object val = client.cache(caches[0].getName()).get(0);
         }
         finally {
             for (int i = 0; i < caches.length; i++)
                 grid(0).cache(caches[i].getName()).removeAll();
         }
 
-        grid(0).context().io().dumpStats();
+        grid(0).context().getStripedExecutorService().dumpProcessedMessagesStats();
     }
 
     /**
