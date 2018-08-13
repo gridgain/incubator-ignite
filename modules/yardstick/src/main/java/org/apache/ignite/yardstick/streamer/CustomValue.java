@@ -17,11 +17,12 @@
 
 package org.apache.ignite.yardstick.streamer;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
 
-class CustomValue {
+class CustomValue implements Serializable {
     private String payload;
     private List<CustomNestedValue> nestedValueList;
     @QuerySqlField

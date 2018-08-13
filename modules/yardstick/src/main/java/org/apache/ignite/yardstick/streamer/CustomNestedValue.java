@@ -17,10 +17,11 @@
 
 package org.apache.ignite.yardstick.streamer;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-class CustomNestedValue {
+class CustomNestedValue implements Serializable {
     private LocalDate date;
     private BigDecimal bigDecimal;
     private String nestedStr;

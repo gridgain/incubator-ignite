@@ -17,11 +17,11 @@
 
 package org.apache.ignite.yardstick.streamer;
 
+import java.io.Serializable;
 import org.apache.ignite.cache.affinity.AffinityKeyMapped;
-import org.apache.ignite.cache.query.annotations.QuerySqlField;
 
 /** */
-class CustomKey {
+class CustomKey implements Serializable {
     private String str1;
     private String str2;
     private String str3;

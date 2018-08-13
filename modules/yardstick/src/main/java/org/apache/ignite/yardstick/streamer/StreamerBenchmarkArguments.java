@@ -52,6 +52,12 @@ public class StreamerBenchmarkArguments {
     @Parameter(names = {"-pld", "--payloadSize"}, description = "Payload size")
     private int payloadSize = 256;
 
+    @Parameter(names = {"-fix", "--usePojoIndexFix"}, description = "Use POJO index fix")
+    private boolean usePojoIndexFix = false;
+
+    @Parameter(names = {"-thr", "--writeThrottlingEnabled"}, description = "Write throttling enabled")
+    private boolean writeThrottlingEnabled = false;
+
     public double repeatingKeysPercent() {
         return repeatingKeysPercent;
     }
@@ -86,5 +92,13 @@ public class StreamerBenchmarkArguments {
 
     public int payloadSize() {
         return payloadSize;
+    }
+
+    public boolean usePojoIndexFix() {
+        return usePojoIndexFix;
+    }
+
+    public boolean writeThrottlingEnabled() {
+        return writeThrottlingEnabled;
     }
 }

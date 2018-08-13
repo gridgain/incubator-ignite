@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.internal.processors.query.h2.database.InlineIndexHelper;
 import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
 import org.yardstickframework.BenchmarkConfiguration;
 
@@ -33,6 +34,9 @@ public class IgniteCustomStreamerBenchmark extends IgniteAbstractBenchmark {
 
     /** {@inheritDoc} */
     @Override public void setUp(BenchmarkConfiguration cfg) throws Exception {
+        if (args.streamer.usePojoIndexFix())
+            System.setProperty(InlineIndexHelper.IGNITE_USE_POJO_INDEX, "true");
+
         super.setUp(cfg);
 
         ignite().cluster().active(true);

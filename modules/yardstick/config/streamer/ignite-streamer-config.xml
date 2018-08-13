@@ -70,7 +70,6 @@
                 <property name="checkpointFrequency" value="3000000"/>
                 <property name="checkpointThreads" value="4"/>
                 <property name="metricsEnabled" value="true"/>
-                <!--<property name="writeThrottlingEnabled" value="true"/>-->
             </bean>
         </property>
 

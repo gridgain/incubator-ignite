@@ -38,6 +38,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.processors.query.h2.database.InlineIndexHelper;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -144,6 +145,8 @@ public class IgniteNode implements BenchmarkServer {
                     }
                 }
 
+                cc.setSqlIndexMaxInlineSize(args.streamer.inlineSize());
+
                 if (args.restTcpPort() != 0) {
                     ConnectorConfiguration ccc = new ConnectorConfiguration();
 
@@ -194,7 +197,8 @@ public class IgniteNode implements BenchmarkServer {
 
         c.getDataStorageConfiguration()
             .setCheckpointFrequency(args.streamer.checkpointFrequency())
-            .setCheckpointThreads(args.streamer.checkpointThreads());
+            .setCheckpointThreads(args.streamer.checkpointThreads())
+            .setWriteThrottlingEnabled(args.streamer.writeThrottlingEnabled());
 
         c.getDataStorageConfiguration().getDefaultDataRegionConfiguration()
             .setInitialSize(args.streamer.dataRegionSize())
@@ -211,6 +215,9 @@ public class IgniteNode implements BenchmarkServer {
             .collect(Collectors.toList());
         c.setDiscoverySpi(new TcpDiscoverySpi()
             .setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(addrs)));
+
+        if (args.streamer.usePojoIndexFix())
+            System.setProperty(InlineIndexHelper.IGNITE_USE_POJO_INDEX, "true");
 
         ignite = IgniteSpring.start(c, appCtx);
 
