@@ -218,6 +218,8 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
             releasePage(pageId, page);
         }
 
+        trackDataRead();
+
         // TODO GG-11768.
         CacheDataRowAdapter other = new CacheDataRowAdapter(link);
         other.initFromLink(grp, CacheDataRowAdapter.RowData.KEY_ONLY);

@@ -137,7 +137,7 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
             GridH2Row row = rowCache.get(link);
 
             if (row == null) {
-                row = rowStore.getRow(link);
+                row = getRowFromStore(link);
 
                 if (row instanceof GridH2KeyValueRowOnheap)
                     rowCache.put((GridH2KeyValueRowOnheap)row);
@@ -146,7 +146,12 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
             return row;
         }
         else
-            return rowStore.getRow(link);
+            return getRowFromStore(link);
+    }
+
+    private GridH2Row getRowFromStore(long link) throws IgniteCheckedException {
+        trackDataRead();
+        return rowStore.getRow(link);
     }
 
     /** {@inheritDoc} */
@@ -205,8 +210,13 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
     @SuppressWarnings("ForLoopReplaceableByForEach")
     @Override protected int compare(BPlusIO<SearchRow> io, long pageAddr, int idx,
         SearchRow row) throws IgniteCheckedException {
-        if (inlineSize() == 0)
+        if (inlineSize() == 0) {
+            if (COMPARE_DATA_READS_ZERO_INLINE.longValue() == 0)
+                System.out.println("Zero inline for tree: " + getName());
+
+            COMPARE_DATA_READS_ZERO_INLINE.increment();
             return compareRows(getRow(io, pageAddr, idx), row);
+        }
         else {
             int off = io.offset(idx);
 
@@ -241,6 +251,7 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
             if (lastIdxUsed == cols.length)
                 return 0;
 
+            COMPARE_DATA_READS_FAILED_COMPARE.increment();
             SearchRow rowData = getRow(io, pageAddr, idx);
 
             for (int i = lastIdxUsed, len = cols.length; i < len; i++) {

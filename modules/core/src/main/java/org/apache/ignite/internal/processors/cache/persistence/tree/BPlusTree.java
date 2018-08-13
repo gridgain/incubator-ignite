@@ -22,9 +22,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteSystemProperties;
@@ -44,6 +51,7 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.RemoveRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.ReplaceRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.SplitExistingPageRecord;
 import org.apache.ignite.internal.processors.cache.persistence.DataStructure;
+import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
@@ -93,6 +101,137 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
     /** */
     private static final int LOCK_RETRIES = IgniteSystemProperties.getInteger(
         IgniteSystemProperties.IGNITE_BPLUS_TREE_LOCK_RETRIES, IGNITE_BPLUS_TREE_LOCK_RETRIES_DEFAULT);
+
+    /** class_name -> operation */
+    private static final ConcurrentHashMap<String, ConcurrentLinkedDeque<Long>> TRACK_PUTS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, ConcurrentLinkedDeque<Long>> TRACK_FINDS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, ConcurrentLinkedDeque<Long>> TRACK_INVOKES = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, ConcurrentLinkedDeque<Long>> TRACK_REMOVES = new ConcurrentHashMap<>();
+
+    /** class_name -> num_of_data_reads */
+    private static final ConcurrentHashMap<String, LongAdder> TRACK_DATA_READS = new ConcurrentHashMap<>();
+
+    protected static final LongAdder COMPARE_DATA_READS_ZERO_INLINE = new LongAdder();
+    protected static final LongAdder COMPARE_DATA_READS_FAILED_COMPARE = new LongAdder();
+    protected static final LongAdder INSERT_WITH_SPLIT_DATA_READS = new LongAdder();
+    protected static final ConcurrentLinkedQueue<String> FAILED_COMPARES = new ConcurrentLinkedQueue<>();
+
+    static {
+        if (FilePageStoreManager.TRACK_TIMEOUT != -1) {
+            Thread t = new Thread(() -> {
+                try {
+                    while (true) {
+                        Thread.sleep(FilePageStoreManager.TRACK_TIMEOUT);
+
+                        printTrackInfo();
+                    }
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+
+            t.setName("btree-tracking");
+            t.setDaemon(true);
+
+            t.start();
+        }
+    }
+
+    private static void printTrackInfo() {
+        StringBuilder sb = new StringBuilder();
+
+        collectTrackInfo("put", sb, TRACK_PUTS);
+        collectTrackInfo("find", sb, TRACK_FINDS);
+        collectTrackInfo("invoke", sb, TRACK_INVOKES);
+        collectTrackInfo("remove", sb, TRACK_REMOVES);
+
+        sb.append("--> data reads\n");
+        for (Map.Entry<String, LongAdder> e : TRACK_DATA_READS.entrySet()) {
+            if (e.getValue().longValue() < 100)
+                continue;
+
+            sb.append(String.format("-----> %s: %d\n", e.getKey(), e.getValue().longValue()));
+        }
+
+        sb.append("--> data reads per stack trace:\n");
+        sb.append("-----> zero inline: ").append(COMPARE_DATA_READS_ZERO_INLINE.longValue()).append("\n");
+        sb.append("-----> failed compare: ").append(COMPARE_DATA_READS_FAILED_COMPARE.longValue()).append("\n");
+        sb.append("-----> insertWithSplit: ").append(INSERT_WITH_SPLIT_DATA_READS.longValue()).append("\n");
+
+        if (!FAILED_COMPARES.isEmpty()) {
+            sb.append("--> Failed compares:\n");
+
+            while (!FAILED_COMPARES.isEmpty())
+                sb.append("-----> ").append(FAILED_COMPARES.poll()).append("\n");
+        }
+
+        System.out.println(sb);
+    }
+
+    private static void collectTrackInfo(String type, StringBuilder sb, ConcurrentHashMap<String, ConcurrentLinkedDeque<Long>> map) {
+        boolean haveData = false;
+
+        for (Map.Entry<String, ConcurrentLinkedDeque<Long>> e : map.entrySet()) {
+            if (e.getValue().size() < 100)
+                continue;
+
+            if (!haveData) {
+                sb.append("--> ").append(type).append("\n");
+
+                haveData = true;
+            }
+
+            ArrayList<Long> list =  new ArrayList<>(e.getValue());
+            Collections.sort(list);
+
+            long p50 = percentile(list, 0.50f);
+            long p90 = percentile(list, 0.90f);
+            long p95 = percentile(list, 0.95f);
+            long p99 = percentile(list, 0.99f);
+            long max = list.get(list.size() - 1);
+            double avg = list.stream().mapToLong(l -> l).average().orElseThrow(AssertionError::new);
+
+            sb.append(String.format("-----> %s: %d, %d, %d, %d, %d, %f\n", e.getKey(), p50, p90, p95, p99, max, avg));
+        }
+
+        Set<String> keys = new HashSet<>(map.keySet());
+        for (String s : keys) {
+            map.put(s, new ConcurrentLinkedDeque<>());
+        }
+    }
+
+    private static <T> T percentile(List<T> list, float percentile) {
+        return list.get(Math.round(list.size() * percentile - 1));
+    }
+
+    {
+        TRACK_PUTS.putIfAbsent(getClass().getName(), new ConcurrentLinkedDeque<>());
+        TRACK_FINDS.putIfAbsent(getClass().getName(), new ConcurrentLinkedDeque<>());
+        TRACK_INVOKES.putIfAbsent(getClass().getName(), new ConcurrentLinkedDeque<>());
+        TRACK_REMOVES.putIfAbsent(getClass().getName(), new ConcurrentLinkedDeque<>());
+        TRACK_DATA_READS.putIfAbsent(getClass().getName(), new LongAdder());
+    }
+
+    private void trackPut(long nanos) {
+        TRACK_PUTS.get(getClass().getName()).add(nanos);
+    }
+
+    private void trackFind(long nanos) {
+        TRACK_FINDS.get(getClass().getName()).add(nanos);
+    }
+
+    private void trackInvoke(long nanos) {
+        TRACK_INVOKES.get(getClass().getName()).add(nanos);
+    }
+
+    private void trackRemoves(long nanos) {
+        TRACK_REMOVES.get(getClass().getName()).add(nanos);
+    }
+
+    protected void trackDataRead() {
+        TRACK_DATA_READS.get(getClass().getName()).increment();
+    }
 
     /** */
     private final AtomicBoolean destroyed = new AtomicBoolean(false);
@@ -1101,6 +1240,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
      * @throws IgniteCheckedException If failed.
      */
     private void doFind(Get g) throws IgniteCheckedException {
+        long start = System.nanoTime();
         for (;;) { // Go down with retries.
             g.init();
 
@@ -1112,6 +1252,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                     continue;
 
                 default:
+                    trackFind(System.nanoTime() - start);
                     return;
             }
         }
@@ -1599,6 +1740,8 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
     /** {@inheritDoc} */
     @Override public void invoke(L row, Object z, InvokeClosure<T> c) throws IgniteCheckedException {
+        long start = System.nanoTime();
+
         checkDestroyed();
 
         Invoke x = new Invoke(row, z, c);
@@ -1628,6 +1771,8 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
                             assert x.isFinished(): res;
                         }
+
+                        trackInvoke(System.nanoTime() - start);
 
                         return;
                 }
@@ -1754,6 +1899,8 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
      * @throws IgniteCheckedException If failed.
      */
     private T doRemove(L row, boolean needOld) throws IgniteCheckedException {
+        long start = System.nanoTime();
+
         checkDestroyed();
 
         Remove r = new Remove(row, needOld);
@@ -1788,6 +1935,8 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                         }
 
                         assert r.isFinished();
+
+                        trackRemoves(System.nanoTime() - start);
 
                         return r.rmvd;
                 }
@@ -2075,6 +2224,8 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
      * @throws IgniteCheckedException If failed.
      */
     private T doPut(T row, boolean needOld) throws IgniteCheckedException {
+        long start = System.nanoTime();
+
         checkDestroyed();
 
         Put p = new Put(row, needOld);
@@ -2104,6 +2255,8 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
                             continue;
                         }
+
+                        trackPut(System.nanoTime() - start);
 
                         return p.oldRow;
 
@@ -2832,6 +2985,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                     // Do move up.
                     cnt = io.getCount(pageAddr);
 
+                    INSERT_WITH_SPLIT_DATA_READS.increment();
                     // Last item from backward row goes up.
                     L moveUpRow = io.getLookupRow(BPlusTree.this, pageAddr, cnt - 1);
 
