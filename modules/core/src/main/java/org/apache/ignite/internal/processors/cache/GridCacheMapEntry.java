@@ -1181,8 +1181,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             if (res.resultType() == ResultType.VERSION_MISMATCH)
                 throw new IgniteSQLException("Mvcc version mismatch.", CONCURRENT_UPDATE);
-            else if (res.resultType() == ResultType.FIRST_VERSION_MISMATCH)
-                return new GridCacheUpdateTxResult(true);
             else if (res.resultType() == ResultType.LOCKED) {
                 unlockEntry();
 
@@ -4913,10 +4911,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
                 if (res.resultType() == ResultType.VERSION_MISMATCH) {
                     resFut.onDone(new IgniteSQLException("Mvcc version mismatch.", CONCURRENT_UPDATE));
-
-                    return;
-                } else if (res.resultType() == ResultType.FIRST_VERSION_MISMATCH) {
-                    resFut.onDone(new GridCacheUpdateTxResult(true));
 
                     return;
                 }

@@ -104,11 +104,6 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
     private List<MvccLinkAwareSearchRow> historyRows;
 
     /**
-     * Counter for visited versions. If entry was removed in some version counter is reset.
-     */
-    private int countInEpoch = -1;
-
-    /**
      * @param key Key.
      * @param val Value.
      * @param ver Version.
@@ -163,7 +158,6 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
         int idx, IgniteWriteAheadLogManager wal)
         throws IgniteCheckedException
     {
-        countInEpoch++;
         unsetFlags(DIRTY);
 
         RowLinkIO rowIo = (RowLinkIO)io;
@@ -224,8 +218,6 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
 
                 if (res == ResultType.PREV_NOT_NULL)
                     oldRow = row;
-                if (res == ResultType.PREV_NULL)
-                    countInEpoch = -1;
 
                 setFlags(LAST_FOUND);
             }
@@ -299,21 +291,12 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
 
                             res = ResultType.VERSION_MISMATCH; // Write conflict.
 
-                            if (removed)
-                                res = ResultType.FIRST_VERSION_MISMATCH;
-
-                            if (countInEpoch == 0)
-                                res = ResultType.FIRST_VERSION_MISMATCH;
-
                             return setFlags(STOP);
                         }
 
                         // no need to check further
                         unsetFlags(CHECK_VERSION);
                     }
-
-                    if (res == ResultType.PREV_NULL)
-                        countInEpoch = -1;
 
                     if (isFlagsSet(PRIMARY | REMOVE_OR_LOCK) && cleanupRows != null) {
                         rowIo.setMvccLockCoordinatorVersion(pageAddr, idx, mvccCrd);
