@@ -25,16 +25,22 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
 import java.nio.ByteBuffer;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -50,13 +56,14 @@ import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.CacheGroupDescriptor;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedManagerAdapter;
 import org.apache.ignite.internal.processors.cache.StoredCacheData;
+import org.apache.ignite.internal.processors.cache.persistence.AllocatedPageTracker;
 import org.apache.ignite.internal.processors.cache.persistence.filename.PdsFolderSettings;
 import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage;
-import org.apache.ignite.internal.processors.cache.persistence.AllocatedPageTracker;
-import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage;
 import org.apache.ignite.internal.processors.cache.persistence.snapshot.IgniteCacheSnapshotManager;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.marshaller.Marshaller;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.jetbrains.annotations.NotNull;
@@ -324,6 +331,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
 
         try {
             store.read(pageId, pageBuf, keepCrc);
+
+            trackRead(pageBuf);
         }
         catch (PersistentStorageIOException e) {
             NodeInvalidator.INSTANCE.invalidate(cctx.kernalContext(), e);
@@ -381,6 +390,8 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
 
         try {
             store.write(pageId, pageBuf, tag, calculateCrc);
+
+            trackWrite(pageBuf);
         }
         catch (PersistentStorageIOException e) {
             NodeInvalidator.INSTANCE.invalidate(cctx.kernalContext(), e);
@@ -389,6 +400,134 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
         }
 
         return store;
+    }
+
+    private static final ConcurrentHashMap<Integer, LongAdder> TRACK_READS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Integer, LongAdder> TRACK_WRITES = new ConcurrentHashMap<>();
+
+    private static final CopyOnWriteArrayList<StackTraceElement[]> READ_STACKS = new CopyOnWriteArrayList<>();
+
+    public static final long TRACK_TIMEOUT = Long.parseLong(System.getProperty("ignite.page.track.timeout", "5000"));
+
+    static {
+        if (TRACK_TIMEOUT != -1) {
+            Thread t = new Thread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        while (true) {
+                            Thread.sleep(TRACK_TIMEOUT);
+
+                            printTrackMap();
+                        }
+                    }
+                    catch (Exception e) {
+                        // No-op.
+                    }
+                }
+            });
+
+            t.setName("page-tracker");
+            t.setDaemon(true);
+
+            t.start();
+        }
+    }
+
+    public static void printTrackMap() {
+        TreeMap<Integer, IgniteBiTuple<Long, Long>> map = trackPrepareMap();
+
+        StringBuilder out = new StringBuilder().append(System.currentTimeMillis()).append(" reads\\writes by type: \n");
+
+        for (Map.Entry<Integer, IgniteBiTuple<Long, Long>> entry : map.entrySet()) {
+            int type = entry.getKey();
+            long readCnt = entry.getValue().get1();
+            long writeCnt = entry.getValue().get2();
+
+            String line = String.format("%6d -> %16d    %16d\n", type, readCnt, writeCnt);
+
+            out.append(line);
+        }
+
+        System.out.println(out);
+    }
+
+    private static TreeMap<Integer, IgniteBiTuple<Long, Long>> trackPrepareMap() {
+        TreeMap<Integer, IgniteBiTuple<Long, Long>> res = new TreeMap<>();
+
+        for (Map.Entry<Integer, LongAdder> entry : TRACK_READS.entrySet())
+            res.put(entry.getKey(), new IgniteBiTuple<>(entry.getValue().longValue(), 0L));
+
+        for (Map.Entry<Integer, LongAdder> entry : TRACK_WRITES.entrySet()) {
+            int type = entry.getKey();
+            long val = entry.getValue().longValue();
+
+            IgniteBiTuple<Long, Long> t = res.get(type);
+
+            if (t == null) {
+                t = new IgniteBiTuple<>(0L, val);
+
+                res.put(type, t);
+            }
+            else
+                t.set2(val);
+        }
+
+        return res;
+    }
+
+    private void trackRead(ByteBuffer pageBuf) {
+        int type = PageIO.getType(pageBuf);
+
+        if (type == 0)
+            return;
+
+        LongAdder ctr = TRACK_READS.get(type);
+
+        if (ctr == null) {
+            ctr = new LongAdder();
+
+            LongAdder oldCtr = TRACK_READS.putIfAbsent(type, ctr);
+
+            if (oldCtr != null)
+                ctr = oldCtr;
+        }
+
+        ctr.increment();
+
+        if (type != 1)
+            return;
+
+        ThreadInfo info = ManagementFactory.getThreadMXBean().getThreadInfo(Thread.currentThread().getId(), Integer.MAX_VALUE);
+        StackTraceElement[] stack = info.getStackTrace();
+
+        for (StackTraceElement[] oldStack : READ_STACKS) {
+            if (Arrays.deepEquals(stack, oldStack))
+                return;
+        }
+
+        // found new stack
+        System.out.println("Found new stack reading data pages");
+        READ_STACKS.add(stack);
+        for (StackTraceElement frame : stack) {
+            System.out.println(frame);
+        }
+    }
+
+    private void trackWrite(ByteBuffer pageBuf) {
+        int type = PageIO.getType(pageBuf);
+
+        LongAdder ctr = TRACK_WRITES.get(type);
+
+        if (ctr == null) {
+            ctr = new LongAdder();
+
+            LongAdder oldCtr = TRACK_WRITES.putIfAbsent(type, ctr);
+
+            if (oldCtr != null)
+                ctr = oldCtr;
+        }
+
+        ctr.increment();
     }
 
     /**
