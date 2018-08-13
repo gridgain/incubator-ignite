@@ -648,12 +648,14 @@ public class StripedExecutor implements ExecutorService {
                         active = true;
 
                         try {
-                            long startMillis = System.currentTimeMillis();
                             long start = System.nanoTime();
+
                             cmd.run();
+
                             long duration = System.nanoTime() - start;
+
                             if (duration >= IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD) {
-                                taskHist.put(duration, new StripeTaskSnap(startMillis, duration, cmd.toString()));
+                                taskHist.put(duration, new StripeTaskSnap(U.currentTimeMillis(), duration, cmd.toString()));
 
                                 if (taskHist.size() > IGNITE_STRIPE_MAX_CONTENTION_HISTORY_SIZE)
                                     taskHist.remove(taskHist.firstKey());
