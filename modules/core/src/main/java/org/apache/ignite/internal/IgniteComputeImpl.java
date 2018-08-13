@@ -1031,7 +1031,7 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
         guard();
 
         try {
-            checkPermissions(SecurityPermission.COMPUTE_DEPLOY);
+            checkPermissions(taskCls.getName(), SecurityPermission.COMPUTE_DEPLOY);
 
             GridDeployment dep = ctx.deploy().deploy(taskCls, clsLdr);
 
@@ -1046,9 +1046,14 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
         }
     }
 
-    /** Check permission */
-    private void checkPermissions(SecurityPermission perm) {
-        ctx.security().authorize(null, perm, null);
+    /**
+     * Check security permission.
+     *
+     * @param name Resource name which require check access.
+     * @param perm Required security permission.
+     */
+    private void checkPermissions(String name, SecurityPermission perm) {
+        ctx.security().authorize(name, perm, null);
     }
 
     /** {@inheritDoc} */
