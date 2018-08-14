@@ -43,6 +43,9 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
     /** */
     private Iterator<Object> it;
 
+    /** */
+    private final boolean fastUpdate;
+
     /**
      * @param nearNodeId Near node ID.
      * @param nearLockVer Near lock version.
@@ -78,10 +81,10 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
             null,
             tx,
             timeout,
-            cctx,
-            fastUpdate);
+            cctx);
 
         this.op = op;
+        this.fastUpdate = fastUpdate;
 
         it = rows.iterator();
 
@@ -129,5 +132,10 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
     /** {@inheritDoc} */
     public Object nextX() {
         return it.next();
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean isDirect() {
+        return fastUpdate;
     }
 }

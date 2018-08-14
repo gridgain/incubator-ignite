@@ -51,8 +51,7 @@ public class DhtResultSetEnlistFuture extends GridDhtTxAbstractEnlistFuture impl
     public DhtResultSetEnlistFuture(UUID nearNodeId, GridCacheVersion nearLockVer,
         MvccSnapshot mvccSnapshot, long threadId, IgniteUuid nearFutId, int nearMiniId, @Nullable int[] parts,
         GridDhtTxLocalAdapter tx, long timeout, GridCacheContext<?, ?> cctx, ResultSet rs) {
-        // TODO check if we need fast update here
-        super(nearNodeId, nearLockVer, mvccSnapshot, threadId, nearFutId, nearMiniId, parts, tx, timeout, cctx, false);
+        super(nearNodeId, nearLockVer, mvccSnapshot, threadId, nearFutId, nearMiniId, parts, tx, timeout, cctx);
 
         this.rs = rs;
     }

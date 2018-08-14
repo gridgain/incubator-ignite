@@ -67,7 +67,6 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxAbstractEnlistFut
      * @param pageSize Fetch page size.
      * @param timeout Lock acquisition timeout.
      * @param cctx Cache context.
-     * @param fastUpdate True if fast update mode should be used.
      */
     public GridDhtTxQueryEnlistFuture(
         UUID nearNodeId,
@@ -85,8 +84,7 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxAbstractEnlistFut
         int flags,
         int pageSize,
         long timeout,
-        GridCacheContext<?, ?> cctx,
-        boolean fastUpdate) {
+        GridCacheContext<?, ?> cctx) {
         super(nearNodeId,
             nearLockVer,
             mvccSnapshot,
@@ -96,8 +94,7 @@ public final class GridDhtTxQueryEnlistFuture extends GridDhtTxAbstractEnlistFut
             parts,
             tx,
             timeout,
-            cctx,
-            fastUpdate);
+            cctx);
 
         assert timeout >= 0;
         assert nearNodeId != null;

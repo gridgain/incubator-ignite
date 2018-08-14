@@ -744,8 +744,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             req.flags(),
             req.pageSize(),
             req.timeout(),
-            ctx,
-            false);
+            ctx);
 
         fut.listen(NearTxQueryEnlistResultHandler.instance());
 
