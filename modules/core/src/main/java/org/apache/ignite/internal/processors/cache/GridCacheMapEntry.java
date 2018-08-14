@@ -1034,7 +1034,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         @Nullable Long updateCntr,
         MvccSnapshot mvccVer,
         GridCacheOperation op,
-        boolean needHistory) throws IgniteCheckedException, GridCacheEntryRemovedException {
+        boolean needHistory,
+        boolean fastUpdate) throws IgniteCheckedException, GridCacheEntryRemovedException {
         assert tx != null;
 
         final boolean valid = valid(tx.topologyVersion());
@@ -1074,7 +1075,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             assert val != null;
 
-            res = cctx.offheap().mvccUpdate(tx.local(), this, val, newVer, expireTime, mvccVer, needHistory);
+            res = cctx.offheap().mvccUpdate(
+                tx.local(), this, val, newVer, expireTime, mvccVer, needHistory, fastUpdate);
 
             assert res != null;
 
@@ -1087,6 +1089,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             if (res.resultType() == ResultType.VERSION_MISMATCH)
                 throw new IgniteSQLException("Mvcc version mismatch.", CONCURRENT_UPDATE);
+            else if (op == UPDATE && res.resultType() == ResultType.PREV_NULL)
+                return new GridCacheUpdateTxResult(false);
             else if (res.resultType() == ResultType.LOCKED) {
                 unlockEntry();
 
@@ -1097,7 +1101,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 IgniteInternalFuture<?> lockFut = cctx.kernalContext().coordinators().waitFor(cctx, lockVer);
 
                 lockFut.listen(new MvccUpdateLockListener(tx, this, affNodeId, topVer, val, ttl0, updateCntr, mvccVer,
-                    op, needHistory, resFut));
+                    op, needHistory, fastUpdate, resFut));
 
                 return new GridCacheUpdateTxResult(false, resFut);
             }
@@ -5123,6 +5127,9 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         private final boolean needHistory;
 
         /** */
+        private final boolean fastUpdate;
+
+        /** */
         MvccUpdateLockListener(IgniteInternalTx tx,
             GridCacheMapEntry entry,
             UUID affNodeId,
@@ -5133,6 +5140,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             MvccSnapshot mvccVer,
             GridCacheOperation op,
             boolean needHistory,
+            boolean fastUpdate,
             GridFutureAdapter<GridCacheUpdateTxResult> resFut) {
             this.tx = tx;
             this.entry = entry;
@@ -5145,6 +5153,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             this.op = op;
             this.needHistory = needHistory;
             this.resFut = resFut;
+            this.fastUpdate = fastUpdate;
         }
 
         /** {@inheritDoc} */
@@ -5192,7 +5201,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 cctx.shared().database().checkpointReadLock();
 
                 try {
-                    res = cctx.offheap().mvccUpdate(tx.local(), entry, val, newVer, expireTime, mvccVer, needHistory);
+                    res = cctx.offheap().mvccUpdate(
+                        tx.local(), entry, val, newVer, expireTime, mvccVer, needHistory, fastUpdate);
                 } finally {
                     cctx.shared().database().checkpointReadUnlock();
                 }

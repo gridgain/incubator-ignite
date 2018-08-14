@@ -454,6 +454,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
                                         updCntrs.get(i),
                                         snapshot,
                                         op,
+                                        false,
                                         false);
 
                                     break;

@@ -275,6 +275,7 @@ public interface IgniteCacheOffheapManager {
      * @param expireTime Expire time.
      * @param mvccSnapshot MVCC snapshot.
      * @param needHistory Flag to collect history.
+     * @param fastUpdate Mode when entry is accessed without preliminary visibility check.
      * @return Update result.
      * @throws IgniteCheckedException If failed.
      */
@@ -285,7 +286,8 @@ public interface IgniteCacheOffheapManager {
         GridCacheVersion ver,
         long expireTime,
         MvccSnapshot mvccSnapshot,
-        boolean needHistory) throws IgniteCheckedException;
+        boolean needHistory,
+        boolean fastUpdate) throws IgniteCheckedException;
 
     /**
      * @param primary {@code True} if on primary node.
@@ -778,6 +780,7 @@ public interface IgniteCacheOffheapManager {
          * @param expireTime Expire time.
          * @param mvccSnapshot MVCC snapshot.
          * @param needHistory Flag to collect history.
+         * @param fastUpdate Mode when entry is accessed without preliminary visibility check.
          * @return Update result.
          * @throws IgniteCheckedException If failed.
          */
@@ -789,7 +792,8 @@ public interface IgniteCacheOffheapManager {
             GridCacheVersion ver,
             long expireTime,
             MvccSnapshot mvccSnapshot,
-            boolean needHistory) throws IgniteCheckedException;
+            boolean needHistory,
+            boolean fastUpdate) throws IgniteCheckedException;
 
         /**
          * @param cctx Cache context.

@@ -512,7 +512,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         GridCacheVersion ver,
         long expireTime,
         MvccSnapshot mvccSnapshot,
-        boolean needHistory) throws IgniteCheckedException {
+        boolean needHistory,
+        boolean fastUpdate) throws IgniteCheckedException {
         if (entry.detached() || entry.isNear())
             return null;
 
@@ -525,7 +526,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             ver,
             expireTime,
             mvccSnapshot,
-            needHistory);
+            needHistory,
+            fastUpdate);
     }
 
     /** {@inheritDoc} */
@@ -1847,7 +1849,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             GridCacheVersion ver,
             long expireTime,
             MvccSnapshot mvccSnapshot,
-            boolean needHistory) throws IgniteCheckedException {
+            boolean needHistory,
+            boolean fastUpdate) throws IgniteCheckedException {
             assert mvccSnapshot != null;
 
             if (!busyLock.enterBusy())
@@ -1874,8 +1877,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     false,
                     needHistory,
                     cctx,
-                    // TODO fast UPDATE
-                    false);
+                    fastUpdate);
 
                 assert cctx.shared().database().checkpointLockIsHeldByThread();
 
