@@ -533,7 +533,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         boolean primary,
         GridCacheMapEntry entry,
         MvccSnapshot mvccSnapshot,
-        boolean needHistory) throws IgniteCheckedException {
+        boolean needHistory,
+        boolean fastUpdate) throws IgniteCheckedException {
         if (entry.detached() || entry.isNear())
             return null;
 
@@ -543,7 +544,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             primary,
             entry.key(),
             mvccSnapshot,
-            needHistory);
+            needHistory,
+            fastUpdate);
     }
 
     /** {@inheritDoc} */
@@ -1953,7 +1955,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             boolean primary,
             KeyCacheObject key,
             MvccSnapshot mvccSnapshot,
-            boolean needHistory) throws IgniteCheckedException {
+            boolean needHistory,
+            boolean fastUpdate) throws IgniteCheckedException {
             assert mvccSnapshot != null;
             assert primary || mvccSnapshot.activeTransactions().size() == 0 : mvccSnapshot;
 
@@ -1980,7 +1983,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     false,
                     needHistory,
                     cctx,
-                    true);
+                    fastUpdate);
 
                 assert cctx.shared().database().checkpointLockIsHeldByThread();
 

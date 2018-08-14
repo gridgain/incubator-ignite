@@ -292,6 +292,7 @@ public interface IgniteCacheOffheapManager {
      * @param entry Entry.
      * @param mvccSnapshot MVCC snapshot.
      * @param needHistory Flag to collect history.
+     * @param fastUpdate Mode when entry is accessed without preliminary visibility check.
      * @return Update result.
      * @throws IgniteCheckedException If failed.
      */
@@ -299,7 +300,8 @@ public interface IgniteCacheOffheapManager {
         boolean primary,
         GridCacheMapEntry entry,
         MvccSnapshot mvccSnapshot,
-        boolean needHistory) throws IgniteCheckedException;
+        boolean needHistory,
+        boolean fastUpdate) throws IgniteCheckedException;
 
     /**
      * @param primary {@code True} if on primary node.
@@ -795,6 +797,7 @@ public interface IgniteCacheOffheapManager {
          * @param key Key.
          * @param mvccSnapshot MVCC snapshot.
          * @param needHistory Flag to collect history.
+         * @param fastUpdate Mode when entry is accessed without preliminary visibility check.
          * @return List of transactions to wait for.
          * @throws IgniteCheckedException If failed.
          */
@@ -803,7 +806,8 @@ public interface IgniteCacheOffheapManager {
             boolean primary,
             KeyCacheObject key,
             MvccSnapshot mvccSnapshot,
-            boolean needHistory) throws IgniteCheckedException;
+            boolean needHistory,
+            boolean fastUpdate) throws IgniteCheckedException;
 
         /**
          * @param cctx Cache context.

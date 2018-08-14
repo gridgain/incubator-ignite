@@ -194,8 +194,11 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
     /** Update counters to be sent to the near node in case it is a backup node also. */
     protected GridLongList nearUpdCntrs;
 
+    /** */
+    private final boolean fastUpdate;
+
     /**
-     *  @param nearNodeId Near node ID.
+     * @param nearNodeId Near node ID.
      * @param nearLockVer Near lock version.
      * @param mvccSnapshot Mvcc snapshot.
      * @param threadId Thread ID.
@@ -205,6 +208,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
      * @param tx Transaction.
      * @param timeout Lock acquisition timeout.
      * @param cctx Cache context.
+     * @param fastUpdate True if fast update mode should be used.
      */
     protected GridDhtTxAbstractEnlistFuture(UUID nearNodeId,
         GridCacheVersion nearLockVer,
@@ -215,7 +219,8 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
         @Nullable int[] parts,
         GridDhtTxLocalAdapter tx,
         long timeout,
-        GridCacheContext<?, ?> cctx) {
+        GridCacheContext<?, ?> cctx,
+        boolean fastUpdate) {
         assert tx != null;
         assert timeout >= 0;
         assert nearNodeId != null;
@@ -232,6 +237,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
         this.timeout = timeout;
         this.tx = tx;
         this.parts = parts;
+        this.fastUpdate = fastUpdate;
 
         lockVer = tx.xidVersion();
 
@@ -398,7 +404,8 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
                                         topVer,
                                         null,
                                         mvccSnapshot,
-                                        isMoving(key.partition()));
+                                        isMoving(key.partition()),
+                                        fastUpdate);
 
                                     break;
 

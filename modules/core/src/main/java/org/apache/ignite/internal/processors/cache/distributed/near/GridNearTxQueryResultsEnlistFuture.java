@@ -126,7 +126,8 @@ public class GridNearTxQueryResultsEnlistFuture extends GridNearTxAbstractEnlist
         GridNearTxLocal tx,
         long timeout,
         UpdateSourceIterator<?> it,
-        int batchSize, boolean sequential) {
+        int batchSize,
+        boolean sequential) {
         super(cctx, tx, timeout);
 
         this.it = it;
@@ -419,7 +420,8 @@ public class GridNearTxQueryResultsEnlistFuture extends GridNearTxAbstractEnlist
             tx.remainingTime(),
             tx.taskNameHash(),
             batchFut.rows(),
-            it.operation());
+            it.operation(),
+            it.isDirect());
 
         sendRequest(req, nodeId);
     }
@@ -468,7 +470,8 @@ public class GridNearTxQueryResultsEnlistFuture extends GridNearTxAbstractEnlist
             remainingTime(),
             cctx,
             rows,
-            it.operation());
+            it.operation(),
+            it.isDirect());
 
         updateLocalFuture(fut);
 

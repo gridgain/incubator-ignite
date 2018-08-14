@@ -187,7 +187,8 @@ public class GridNearTxQueryEnlistFuture extends GridNearTxAbstractEnlistFuture 
                     flags,
                     pageSize,
                     remainingTime(),
-                    cctx);
+                    cctx,
+                    false);
 
                 updateLocalFuture(fut);
 

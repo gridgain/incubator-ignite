@@ -55,6 +55,7 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
      * @param cctx Cache context.
      * @param rows Collection of rows.
      * @param op Cache operation.
+     * @param fastUpdate True if fast update mode should be used.
      */
     public GridDhtTxQueryResultsEnlistFuture(UUID nearNodeId,
         GridCacheVersion nearLockVer,
@@ -66,7 +67,8 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
         long timeout,
         GridCacheContext<?, ?> cctx,
         Collection<Object> rows,
-        GridCacheOperation op) {
+        GridCacheOperation op,
+        boolean fastUpdate) {
         super(nearNodeId,
             nearLockVer,
             mvccSnapshot,
@@ -76,7 +78,8 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
             null,
             tx,
             timeout,
-            cctx);
+            cctx,
+            fastUpdate);
 
         this.op = op;
 

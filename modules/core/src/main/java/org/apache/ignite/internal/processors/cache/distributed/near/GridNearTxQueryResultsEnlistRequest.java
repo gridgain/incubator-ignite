@@ -47,7 +47,7 @@ import static org.apache.ignite.internal.processors.cache.GridCacheOperation.REA
 /**
  * Request to enlist into transaction and acquire locks for entries produced
  * with complex DML queries with reducer step.
- * 
+ *
  * One request per batch of entries is used.
  */
 public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
@@ -102,6 +102,9 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
     /** */
     private GridCacheOperation op;
 
+    /** */
+    private boolean fastUpdate;
+
     /**
      * Default constructor.
      */
@@ -137,7 +140,8 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
         long timeout,
         long txTimeout, int taskNameHash,
         Collection<Object> rows,
-        GridCacheOperation op) {
+        GridCacheOperation op,
+        boolean fastUpdate) {
         this.txTimeout = txTimeout;
         this.cacheId = cacheId;
         this.threadId = threadId;
@@ -152,6 +156,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
         this.taskNameHash = taskNameHash;
         this.rows = rows;
         this.op = op;
+        this.fastUpdate = fastUpdate;
     }
 
     /**
@@ -245,6 +250,12 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
         return op;
     }
 
+    /**
+     * @return True if fast update mode should be used.
+     */
+    public boolean fastUpdate() {
+        return fastUpdate;
+    }
 
     /** {@inheritDoc} */
     @Override public void prepareMarshal(GridCacheSharedContext ctx) throws IgniteCheckedException {
@@ -421,6 +432,12 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
 
                 writer.incrementState();
 
+            case 17:
+                if (!writer.writeBoolean("fastUpdate", fastUpdate))
+                    return false;
+
+                writer.incrementState();
+
         }
 
         return true;
@@ -553,6 +570,14 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
 
                 reader.incrementState();
 
+            case 17:
+                fastUpdate = reader.readBoolean("fastUpdate");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
         }
 
         return reader.afterMessageRead(GridNearTxQueryResultsEnlistRequest.class);
@@ -560,7 +585,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 17;
+        return 18;
     }
 
     /** {@inheritDoc} */
