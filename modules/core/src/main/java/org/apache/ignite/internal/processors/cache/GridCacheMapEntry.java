@@ -4922,6 +4922,11 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
                     return;
                 }
+                else if (res.resultType() == ResultType.PREV_NULL) {
+                    resFut.onDone(new GridCacheUpdateTxResult(false));
+
+                    return;
+                }
                 else if (res.resultType() == ResultType.LOCKED) {
                     entry.unlockEntry();
 
