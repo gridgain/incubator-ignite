@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,8 +52,10 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import java.util.stream.Collectors;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.events.Event;
@@ -70,6 +73,8 @@ import org.apache.ignite.internal.managers.deployment.GridDeployment;
 import org.apache.ignite.internal.managers.eventstorage.GridEventStorageManager;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.KeyCacheObjectImpl;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetRequest;
 import org.apache.ignite.internal.processors.platform.message.PlatformMessageFilter;
 import org.apache.ignite.internal.processors.pool.PoolProcessor;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
@@ -83,6 +88,7 @@ import org.apache.ignite.internal.util.lang.GridTuple3;
 import org.apache.ignite.internal.util.lang.IgnitePair;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -128,6 +134,11 @@ import static org.jsr166.ConcurrentLinkedHashMap.QueuePolicy.PER_SEGMENT_Q_OPTIM
  * Grid communication manager.
  */
 public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializable>> {
+    /** */
+    private static final long IGNITE_STRIPE_HOT_KEYS_MAX_SIZE =
+        IgniteSystemProperties.getInteger(
+            IgniteSystemProperties.IGNITE_STRIPE_HOT_KEYS_MAX_SIZE, 10_000);
+
     /** Empty array of message factories. */
     public static final MessageFactory[] EMPTY = {};
 
@@ -1088,12 +1099,16 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         final byte plc,
         final IgniteRunnable msgC
     ) throws IgniteCheckedException {
-        Runnable c = new GridIoRunnable() {
+        Runnable c = new Runnable() {
             @Override public void run() {
                 try {
                     threadProcessingMessage(true, msgC);
 
+                    long t1 = System.nanoTime();
+
                     processRegularMessage0(msg, nodeId);
+
+                    logMessageProcessingTime(msg, System.nanoTime() - t1);
                 }
                 finally {
                     threadProcessingMessage(false, null);
@@ -1104,10 +1119,6 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
             @Override public String toString() {
                 return "Message closure [msg=" + msg + ']';
-            }
-
-            @Override public GridIoMessage message() {
-                return msg;
             }
         };
 
@@ -1172,6 +1183,138 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
             }
             else if (log.isDebugEnabled())
                 log.debug("Failed to process regular message due to execution rejection: " + msg);
+        }
+    }
+
+    /** */
+    private ThreadLocal<Map<Class<? extends Message>, MessageStat>> locStatHolder = new ThreadLocal<>();
+
+    /** */
+    private ConcurrentHashMap<Thread, Map<Class<? extends Message>, MessageStat>> sharedStats = new ConcurrentHashMap<>();
+
+    /** Needed for correct rolling average calculation. */
+    private Map<Class<? extends Message>, Integer> avgCntMap = new HashMap<>();
+
+    /** */
+    private Map<Class<? extends Message>, MessageStat> mergeMap = new HashMap<>();
+
+    /** */
+    public void dumpProcessedMessagesStats() {
+        if (ctx.clientNode())
+            return;
+
+        GridStringBuilder sb = new GridStringBuilder();
+
+        Set<Entry<Thread, Map<Class<? extends Message>, MessageStat>>> entries1 = sharedStats.entrySet();
+
+        for (Entry<Thread, Map<Class<? extends Message>, MessageStat>> entry0 : entries1) {
+            Map<Class<? extends Message>, MessageStat> statMap0 = entry0.getValue();
+
+            synchronized (statMap0) {
+                for (Map.Entry<Class<? extends Message>, MessageStat> entry : statMap0.entrySet()) {
+                    MessageStat res = mergeMap.get(entry.getKey());
+
+                    if (res == null) {
+                        mergeMap.put(entry.getKey(), (res = new MessageStat()));
+
+                        avgCntMap.put(entry.getKey(), 1);
+
+                        entry.getValue().merge(res, 1);
+                    }
+                    else {
+                        Integer cnt = avgCntMap.get(entry.getKey());
+
+                        cnt++;
+
+                        avgCntMap.put(entry.getKey(), cnt);
+
+                        entry.getValue().merge(res, cnt);
+                    }
+                }
+
+                statMap0.clear();
+            }
+        }
+
+        sb.a(">>><DBG> Processed messages statistics: ").a(U.nl());
+
+        List<Map.Entry<Class<? extends Message>, MessageStat>> top = mergeMap.entrySet().stream().sorted((o1,
+            o2) -> Long.compare(o2.getValue().total, o1.getValue().total)).collect(Collectors.toList());
+
+        long total = 0;
+
+        Iterator<Map.Entry<Class<? extends Message>, MessageStat>> it = top.iterator();
+
+        while (it.hasNext()) {
+            Map.Entry<Class<? extends Message>, MessageStat> entry = it.next();
+
+            sb.a(">>><DBG> ").a(entry.getKey().getSimpleName())
+                .a(" [total=").a(entry.getValue().total)
+                .a(", average=").a(entry.getValue().rollingAvg / 1000/ 1000.).a(" ms");
+
+            sb.a(',').a(" buckets=[");
+
+            for (int i = 0; i < entry.getValue().buckets.length; i++) {
+                long t = entry.getValue().buckets[i];
+
+                sb.a(t);
+
+                if (i < entry.getValue().buckets.length - 1)
+                    sb.a(", ");
+            }
+
+            sb.a(']');
+
+            if (entry.getKey().equals(GridNearSingleGetRequest.class)) {
+                sb.a(", hotKeys=").a(entry.getValue().hotKeys.entrySet().stream().sorted((o1,
+                    o2) -> o2.getValue().compareTo(o1.getValue())).limit(20).collect(Collectors.toList()));
+            }
+
+            sb.a(']');
+
+            total += entry.getValue().total;
+
+            sb.a(U.nl());
+        }
+
+        sb.a(">>><DBG> totalMsgs=").a(total);
+
+        U.warn(log, sb.toString());
+    }
+
+    /**
+     * @param msg Message.
+     * @param duration Duration.
+     */
+    private void logMessageProcessingTime(GridIoMessage msg, long duration) {
+        if (ctx.clientNode())
+            return;
+
+        Map<Class<? extends Message>, MessageStat> statMap = locStatHolder.get();
+
+        if (statMap == null) {
+            locStatHolder.set(statMap = new HashMap<>());
+
+            sharedStats.put(Thread.currentThread(), statMap);
+        }
+
+        Message msg0 = msg.message();
+
+        Class<? extends Message> msgCls = msg0.getClass();
+
+        synchronized (statMap) {
+            MessageStat stat = statMap.get(msgCls);
+
+            if (stat == null)
+                statMap.put(msgCls, (stat = new MessageStat()));
+
+            stat.increment(duration);
+
+            if (msg0 instanceof GridNearSingleGetRequest) {
+                GridNearSingleGetRequest req = (GridNearSingleGetRequest)msg0;
+
+                stat.addKey(req.key(), req.cacheId());
+            }
         }
     }
 
@@ -3156,8 +3299,118 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     }
 
     /** */
-    public interface GridIoRunnable extends Runnable {
+    private static class MessageStat {
         /** */
-        GridIoMessage message();
+        final long[] buckets = new long[10];
+
+        /** */
+        final Map<T2<KeyCacheObject, Integer>, Long> hotKeys = new HashMap<>();
+
+        /** */
+        long rollingAvg;
+
+        /** */
+        long total;
+
+        /**
+         * @param duration Duration.
+         */
+        public void increment(long duration) {
+            if (duration <= 50 * 1_000_000)
+                buckets[0]++;
+            else if (duration <= 100 * 1_000_000)
+                buckets[1]++;
+            else if (duration <= 200 * 1_000_000)
+                buckets[2]++;
+            else if (duration <= 400 * 1_000_000)
+                buckets[3]++;
+            else if (duration <= 600 * 1_000_000)
+                buckets[4]++;
+            else if (duration <= 800 * 1_000_000)
+                buckets[5]++;
+            else if (duration <= 1000 * 1_000_000)
+                buckets[6]++;
+            else if (duration <= 1200 * 1_000_000)
+                buckets[7]++;
+            else if (duration <= 1500 * 1_000_000)
+                buckets[8]++;
+            else
+                buckets[9]++;
+
+            rollingAvg = (rollingAvg * total + duration)/(total + 1);
+
+            total++;
+        }
+
+        /** */
+        public void merge(MessageStat dst, int n) {
+            Arrays.setAll(dst.buckets, value -> dst.buckets[value] + buckets[value]);
+
+            dst.rollingAvg = (dst.rollingAvg * (n - 1) + rollingAvg) / n;
+
+            dst.total += total;
+
+            if (hotKeys.isEmpty())
+                return;
+
+            // Collect hottest keys first.
+            hotKeys.entrySet().stream().sorted((o1, o2) -> o2.getValue().compareTo(o1.getValue())).forEach(entry -> {
+                Long cnt = dst.hotKeys.get(entry.getKey());
+
+                if (cnt != null || dst.hotKeys.size() < IGNITE_STRIPE_HOT_KEYS_MAX_SIZE * 5)
+                    dst.hotKeys.put(entry.getKey(), cnt == null ? entry.getValue() : cnt + entry.getValue());
+            });
+        }
+
+        /**
+         * @param key Key.
+         */
+        public void addKey(KeyCacheObject key, int cacheId) {
+            if (hotKeys.size() >= IGNITE_STRIPE_HOT_KEYS_MAX_SIZE)
+                return;
+
+            T2<KeyCacheObject, Integer> k0 = new T2<>(key, cacheId);
+
+            Long cnt = hotKeys.get(k0);
+
+            if (cnt == null)
+                cnt = 0L;
+
+            cnt++;
+
+            hotKeys.put(k0, cnt);
+        }
+
+        public static void main(String[] args) {
+            MessageStat stat1 = new MessageStat();
+
+            for (int i = 0; i < 10; i++)
+                stat1.addKey(new KeyCacheObjectImpl("k" + i, new byte[0], 0), -100000);
+
+            stat1.increment(50);
+            stat1.increment(100);
+            stat1.increment(200);
+
+            MessageStat stat2 = new MessageStat();
+
+            stat2.increment(100);
+            stat2.increment(100);
+            stat2.increment(200);
+
+            System.out.println(stat1.rollingAvg);
+            System.out.println(stat1.total);
+            System.out.println(stat1.hotKeys);
+
+            System.out.println(stat2.rollingAvg);
+            System.out.println(stat2.total);
+
+            MessageStat merge = new MessageStat();
+
+            stat1.merge(merge, 1);
+            stat2.merge(merge, 2);
+
+            System.out.println(merge.rollingAvg);
+            System.out.println(merge.total);
+        }
     }
 }

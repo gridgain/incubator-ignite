@@ -1197,9 +1197,9 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                         stripedExecSvc.checkStarvation();
 
                         stripedExecSvc.checkContention();
-
-                        stripedExecSvc.dumpProcessedMessagesStats();
                     }
+
+                    ctx.io().dumpProcessedMessagesStats();
                 }
 
                 /**

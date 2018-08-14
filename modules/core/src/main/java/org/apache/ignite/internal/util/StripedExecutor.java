@@ -203,15 +203,15 @@ public class StripedExecutor implements ExecutorService {
                                     .a("runnables: ").a(snap.message()).a(U.nl());
                 });
 
-                stripe.taskHist.descendingMap().values().stream().limit(5)
-                        .forEach(snap -> {
-                                sb.a("  ").a(LocalDateTime.ofInstant(
-                                            Instant.ofEpochMilli(snap.timestamp()),
-                                            sysZoneId).format(formatter))
-                                        .a(" ")
-                                        .a("task duration: ").a(TimeUnit.NANOSECONDS.toMillis(snap.duration())).a("ms ")
-                                        .a("runnable: ").a(snap.message()).a(U.nl());
-                });
+//                stripe.taskHist.descendingMap().values().stream().limit(5)
+//                        .forEach(snap -> {
+//                                sb.a("  ").a(LocalDateTime.ofInstant(
+//                                            Instant.ofEpochMilli(snap.timestamp()),
+//                                            sysZoneId).format(formatter))
+//                                        .a(" ")
+//                                        .a("task duration: ").a(TimeUnit.NANOSECONDS.toMillis(snap.duration())).a("ms ")
+//                                        .a("runnable: ").a(snap.message()).a(U.nl());
+//                });
 
                 String msg = sb.toString();
 
@@ -223,7 +223,7 @@ public class StripedExecutor implements ExecutorService {
 
                 stripe.contHist.clear();
 
-                stripe.taskHist.clear();
+                //stripe.taskHist.clear();
             }
         }
     }
@@ -576,18 +576,11 @@ public class StripedExecutor implements ExecutorService {
                 IgniteSystemProperties.getInteger(
                         IgniteSystemProperties.IGNITE_STRIPE_TASK_LONG_EXECUTION_THRESHOLD, 1000) * 1_000_000L;
 
-        private static final long IGNITE_STRIPE_HOT_KEYS_MAX_SIZE =
-            IgniteSystemProperties.getInteger(
-                IgniteSystemProperties.IGNITE_STRIPE_HOT_KEYS_MAX_SIZE, 10_000);
-
         /** */
         ConcurrentNavigableMap<Integer, List<StripeSnap>> contHist = new ConcurrentSkipListMap<>();
 
         /** */
         ConcurrentNavigableMap<Long, StripeTaskSnap> taskHist = new ConcurrentSkipListMap<>();
-
-        /** Stripe stats. */
-        Map<Class<? extends Message>, MessageStat> statMap = new HashMap<>();
 
         /** */
         private final String igniteInstanceName;
@@ -673,44 +666,6 @@ public class StripedExecutor implements ExecutorService {
 //                                if (taskHist.size() > IGNITE_STRIPE_MAX_CONTENTION_HISTORY_SIZE)
 //                                    taskHist.remove(taskHist.firstKey());
 //                            }
-
-                            if (cmd instanceof GridIoManager.GridIoRunnable) {
-                                GridIoManager.GridIoRunnable ioRunnable = (GridIoManager.GridIoRunnable)cmd;
-
-                                GridIoMessage ioMsg = ioRunnable.message();
-
-                                Message msg = ioMsg.message();
-
-                                Class<? extends Message> msgCls = msg.getClass();
-
-                                Map<Class<? extends Message>, MessageStat> statMap0;
-
-                                synchronized (Stripe.this) {
-                                    statMap0 = statMap;
-
-                                    if (statMap0 == null)
-                                        statMap0 = new HashMap<>();
-                                }
-
-                                MessageStat stat = statMap0.get(msgCls);
-
-                                if (stat == null) {
-                                    MessageStat tmp = new MessageStat();
-
-                                    stat = statMap.putIfAbsent(msgCls, tmp);
-
-                                    if (stat == null)
-                                        stat = tmp;
-                                }
-
-                                stat.increment(duration);
-
-                                if (msg instanceof GridNearSingleGetRequest) {
-                                    GridNearSingleGetRequest req = (GridNearSingleGetRequest)msg;
-
-                                    stat.addKey(req.key());
-                                }
-                            }
                         }
                         finally {
                             active = false;
@@ -1069,214 +1024,5 @@ public class StripedExecutor implements ExecutorService {
         @Override public String toString() {
             return S.toString(StripeConcurrentBlockingQueue.class, this, super.toString());
         }
-    }
-
-    /** */
-    private static class MessageStat {
-        /** */
-        final long[] buckets = new long[10];
-
-        /** */
-        final Map<KeyCacheObject, Long> hotKeys = new HashMap<>();
-
-        /** */
-        long rollingAvg;
-
-        /** */
-        long total;
-
-        /**
-         * @param duration Duration.
-         */
-        public void increment(long duration) {
-            if (duration <= 50 * 1_000_000)
-                buckets[0]++;
-            else if (duration <= 100 * 1_000_000)
-                buckets[1]++;
-            else if (duration <= 200 * 1_000_000)
-                buckets[2]++;
-            else if (duration <= 400 * 1_000_000)
-                buckets[3]++;
-            else if (duration <= 600 * 1_000_000)
-                buckets[4]++;
-            else if (duration <= 800 * 1_000_000)
-                buckets[5]++;
-            else if (duration <= 1000 * 1_000_000)
-                buckets[6]++;
-            else if (duration <= 1200 * 1_000_000)
-                buckets[7]++;
-            else if (duration <= 1500 * 1_000_000)
-                buckets[8]++;
-            else
-                buckets[9]++;
-
-            rollingAvg = (rollingAvg * total + duration)/(total + 1);
-
-            total++;
-        }
-
-        /** */
-        public void merge(MessageStat dst, int n) {
-            Arrays.setAll(dst.buckets, value -> dst.buckets[value] + buckets[value]);
-
-            dst.rollingAvg = (dst.rollingAvg * (n - 1) + rollingAvg) / n;
-
-            dst.total += total;
-
-            // Collect hottest keys first.
-            hotKeys.entrySet().stream().sorted((o1, o2) -> o2.getValue().compareTo(o1.getValue())).forEach(entry -> {
-                Long cnt = dst.hotKeys.get(entry.getKey());
-
-                if (cnt == null)
-                    cnt = 0L;
-
-                cnt += entry.getValue();
-
-                if (dst.hotKeys.size() < Stripe.IGNITE_STRIPE_HOT_KEYS_MAX_SIZE * 5)
-                    hotKeys.put(entry.getKey(), cnt);
-            });
-        }
-
-        /**
-         * @param key Key.
-         */
-        public void addKey(KeyCacheObject key) {
-            if (hotKeys.size() >= Stripe.IGNITE_STRIPE_HOT_KEYS_MAX_SIZE)
-                return;
-
-            Long cnt = hotKeys.get(key);
-
-            if (cnt == null)
-                cnt = 0L;
-
-            cnt++;
-
-            hotKeys.put(key, cnt);
-        }
-
-        public static void main(String[] args) {
-            MessageStat stat1 = new MessageStat();
-
-            for (int i = 0; i < 10; i++)
-                stat1.addKey(new KeyCacheObjectImpl("k" + i, new byte[0], 0));
-
-            stat1.increment(50);
-            stat1.increment(100);
-            stat1.increment(200);
-
-            MessageStat stat2 = new MessageStat();
-
-            stat2.increment(100);
-            stat2.increment(100);
-            stat2.increment(200);
-
-            System.out.println(stat1.rollingAvg);
-            System.out.println(stat1.total);
-            System.out.println(stat1.hotKeys);
-
-            System.out.println(stat2.rollingAvg);
-            System.out.println(stat2.total);
-
-            MessageStat merge = new MessageStat();
-
-            stat1.merge(merge, 1);
-            stat2.merge(merge, 2);
-
-            System.out.println(merge.rollingAvg);
-            System.out.println(merge.total);
-        }
-    }
-
-    /** Needed for correct rolling average calculation. */
-    Map<Class<? extends Message>, Integer> avgCntMap = new HashMap<>();
-
-    /** */
-    private Map<Class<? extends Message>, MessageStat> mergeMap = new HashMap<>();
-
-    /** */
-    public void dumpProcessedMessagesStats() {
-        GridStringBuilder sb = new GridStringBuilder();
-
-        sb.a(">>> Processed messages statistics: [");
-
-        for (int i = 0; i < stripes.length; i++) {
-            Stripe stripe = stripes[i];
-
-            Map<Class<? extends Message>, MessageStat> statMap0;
-
-            synchronized (stripes[i]) {
-                statMap0 = stripe.statMap;
-
-                stripe.statMap = null;
-            }
-
-            if (statMap0 == null)
-                continue;
-
-            Set<Map.Entry<Class<? extends Message>, MessageStat>> entries = statMap0.entrySet();
-
-            for (Map.Entry<Class<? extends Message>, MessageStat> entry : entries) {
-                MessageStat res = mergeMap.get(entry.getKey());
-
-                if (res == null) {
-                    mergeMap.put(entry.getKey(), (res = new MessageStat()));
-
-                    avgCntMap.put(entry.getKey(), 1);
-
-                    entry.getValue().merge(res, 1);
-                }
-                else {
-                    Integer cnt = avgCntMap.get(entry.getKey());
-
-                    cnt++;
-
-                    avgCntMap.put(entry.getKey(), cnt);
-
-                    entry.getValue().merge(res, cnt);
-                }
-            }
-        }
-
-        List<Map.Entry<Class<? extends Message>, MessageStat>> top = mergeMap.entrySet().stream().sorted((o1,
-            o2) -> Long.compare(o2.getValue().total, o1.getValue().total)).collect(Collectors.toList());
-
-        long total = 0;
-
-        Iterator<Map.Entry<Class<? extends Message>, MessageStat>> it = top.iterator();
-
-        while (it.hasNext()) {
-            Map.Entry<Class<? extends Message>, MessageStat> entry = it.next();
-
-            sb.a("[msg=").a(entry.getKey().getSimpleName()).a(", total=").a(entry.getValue().total);
-
-            sb.a(',').a(" buckets=[");
-
-            for (int i = 0; i < entry.getValue().buckets.length; i++) {
-                long t = entry.getValue().buckets[i];
-
-                sb.a(t);
-
-                if (i < entry.getValue().buckets.length - 1)
-                    sb.a(", ");
-            }
-
-            sb.a(']');
-
-            if (entry.getKey().equals(GridNearSingleGetRequest.class)) {
-                sb.a(", hotkeys=").a(entry.getValue().hotKeys.entrySet().stream().sorted((o1,
-                    o2) -> o2.getValue().compareTo(o1.getValue())).limit(10).collect(Collectors.toList()));
-            }
-
-            sb.a(']');
-
-            total += entry.getValue().total;
-
-            if (it.hasNext())
-                sb.a(", ");
-        }
-
-        sb.a("], total=").a(total).a("]").a(U.nl());
-
-        U.warn(log, sb.toString());
     }
 }

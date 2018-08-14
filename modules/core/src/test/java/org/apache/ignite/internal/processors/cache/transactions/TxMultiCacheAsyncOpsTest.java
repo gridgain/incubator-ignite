@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.transactions;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -84,12 +85,15 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
         ccfg.setBackups(2);
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
         ccfg.setOnheapCacheEnabled(false);
+        ccfg.setReadFromBackup(false);
 
         return ccfg;
     }
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
+        cleanPersistenceDir();
+
         startGridsMultiThreaded(GRID_COUNT);
     }
 
@@ -98,6 +102,8 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
         super.afterTestsStopped();
 
         stopAllGrids();
+
+        cleanPersistenceDir();
     }
 
     /**
@@ -132,14 +138,29 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
                 // No-op.
             }
 
-            Object val = client.cache(caches[0].getName()).get(0);
+            client.cache(caches[0].getName()).get(keys.get(0));
+
+            grid(0).context().io().dumpProcessedMessagesStats();
+
+            client.cache(caches[0].getName()).get(keys.get(0));
+            client.cache(caches[0].getName()).get(keys.get(1));
+
+            grid(0).context().io().dumpProcessedMessagesStats();
+
+            client.cache(caches[0].getName()).get(keys.get(0));
+            client.cache(caches[1].getName()).get(keys.get(1));
+
+            grid(0).context().io().dumpProcessedMessagesStats();
+
+            for (int i = 0; i < 10_050; i++)
+                client.cache(caches[0].getName()).get(keys.get(0));
+
+            grid(0).context().io().dumpProcessedMessagesStats();
         }
         finally {
             for (int i = 0; i < caches.length; i++)
                 grid(0).cache(caches[i].getName()).removeAll();
         }
-
-        grid(0).context().getStripedExecutorService().dumpProcessedMessagesStats();
     }
 
     /**
