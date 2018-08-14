@@ -559,8 +559,6 @@ public class GridNearTxQueryResultsEnlistFuture extends GridNearTxAbstractEnlist
         if (X.hasCause(err, ClusterTopologyCheckedException.class))
             tx.removeMapping(nodeId);
 
-        assert err != null || res.result() > 0;
-
         if (err != null)
             processFailure(err, null);
 

@@ -572,6 +572,9 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
 
         assert updRes != null && updRes.updateFuture() == null;
 
+        if (!updRes.success())
+            return;
+
         WALPointer ptr0 = updRes.loggedPointer();
 
         if (ptr0 != null)
