@@ -81,7 +81,6 @@ public enum SecurityPermission {
     /** Cache continuous query stop permission. */
     CACHE_CONTINUOUS_QUERY_STOP;
 
-
     /** Enumerated values. */
     private static final SecurityPermission[] VALS = values();
 
