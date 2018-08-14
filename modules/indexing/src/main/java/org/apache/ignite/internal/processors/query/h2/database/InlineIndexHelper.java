@@ -56,24 +56,50 @@ public class InlineIndexHelper {
     private static final ThreadLocal<List<InlineIndexHelper>> currentIndex = new ThreadLocal<>();
 
     /** */
-    public static final List<Integer> AVAILABLE_TYPES = Arrays.asList(
-        Value.BOOLEAN,
-        Value.BYTE,
-        Value.SHORT,
-        Value.INT,
-        Value.LONG,
-        Value.FLOAT,
-        Value.DOUBLE,
-        Value.DATE,
-        Value.TIME,
-        Value.TIMESTAMP,
-        Value.UUID,
-        Value.STRING,
-        Value.STRING_FIXED,
-        Value.STRING_IGNORECASE,
-        Value.BYTES,
-        Value.JAVA_OBJECT
-    );
+    public static final List<Integer> AVAILABLE_TYPES;
+
+    public static final String IGNITE_USE_POJO_INDEX = "IGNITE_USE_POJO_INDEX";
+
+    static {
+        if (Boolean.getBoolean(IGNITE_USE_POJO_INDEX)) {
+            AVAILABLE_TYPES = Arrays.asList(
+                Value.BOOLEAN,
+                Value.BYTE,
+                Value.SHORT,
+                Value.INT,
+                Value.LONG,
+                Value.FLOAT,
+                Value.DOUBLE,
+                Value.DATE,
+                Value.TIME,
+                Value.TIMESTAMP,
+                Value.UUID,
+                Value.STRING,
+                Value.STRING_FIXED,
+                Value.STRING_IGNORECASE,
+                Value.BYTES,
+                Value.JAVA_OBJECT
+            );
+        } else {
+            AVAILABLE_TYPES = Arrays.asList(
+                Value.BOOLEAN,
+                Value.BYTE,
+                Value.SHORT,
+                Value.INT,
+                Value.LONG,
+                Value.FLOAT,
+                Value.DOUBLE,
+                Value.DATE,
+                Value.TIME,
+                Value.TIMESTAMP,
+                Value.UUID,
+                Value.STRING,
+                Value.STRING_FIXED,
+                Value.STRING_IGNORECASE,
+                Value.BYTES
+            );
+        }
+    }
 
     /** */
     private final int type;
