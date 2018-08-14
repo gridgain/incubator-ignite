@@ -45,6 +45,7 @@ import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.MVCC_OP
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.compare;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.isActive;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.isVisible;
+import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.mvccVersionIsValid;
 import static org.apache.ignite.internal.processors.cache.mvcc.MvccUtils.unexpectedStateException;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.MVCC_HINTS_BIT_OFF;
 import static org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO.MVCC_HINTS_MASK;
@@ -58,19 +59,21 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
     /** */
     private static final int CHECK_VERSION = FIRST << 1;
     /** */
-    private static final int LAST_FOUND = CHECK_VERSION << 1;
+    private static final int LAST_COMMITTED_FOUND = CHECK_VERSION << 1;
     /** */
-    private static final int CAN_CLEANUP = LAST_FOUND << 1;
+    private static final int CAN_CLEANUP = LAST_COMMITTED_FOUND << 1;
     /** */
     private static final int PRIMARY = CAN_CLEANUP << 1;
     /** */
     private static final int REMOVE_OR_LOCK = PRIMARY << 1;
     /** */
     private static final int NEED_HISTORY = REMOVE_OR_LOCK << 1;
+    /** Visit mode when row visibility was not checked beforehand */
+    private static final int FAST_UPDATE = NEED_HISTORY << 1;
     /** */
     private static final int BACKUP_FLAGS_SET = FIRST;
     /** */
-    private static final int PRIMARY_FLAGS_SET = FIRST | CHECK_VERSION | PRIMARY | CAN_WRITE;
+    private static final int PRIMARY_FLAGS_SET = FIRST | CHECK_VERSION | PRIMARY;
 
     /** */
     @GridToStringExclude
@@ -115,6 +118,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
      * @param lockOnly Whether no actual update should be done and the only thing to do is to acquire lock.
      * @param needHistory Whether to collect rows created or affected by the current tx.
      * @param cctx Cache context.
+     * @param fastUpdate Fast update visit mode.
      */
     public MvccUpdateDataRow(
         KeyCacheObject key,
@@ -127,7 +131,8 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
         boolean primary,
         boolean lockOnly,
         boolean needHistory,
-        GridCacheContext cctx) {
+        GridCacheContext cctx,
+        boolean fastUpdate) {
         super(key,
             val,
             ver,
@@ -145,10 +150,12 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
         setFlags(primary ? PRIMARY_FLAGS_SET : BACKUP_FLAGS_SET);
 
         if (primary && (lockOnly || val == null))
-            setFlags(REMOVE_OR_LOCK);
+            setFlags(REMOVE_OR_LOCK | CAN_WRITE);
 
         if (needHistory)
             setFlags(NEED_HISTORY);
+        if (fastUpdate)
+            setFlags(FAST_UPDATE);
     }
 
     /** {@inheritDoc} */
@@ -156,46 +163,31 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
         BPlusIO<CacheSearchRow> io,
         long pageAddr,
         int idx, IgniteWriteAheadLogManager wal)
-        throws IgniteCheckedException
-    {
+        throws IgniteCheckedException {
         unsetFlags(DIRTY);
 
         RowLinkIO rowIo = (RowLinkIO)io;
 
-        // Lock entry on primary node
+        // Check if entry is locked on primary node.
         if (isFlagsSet(PRIMARY | FIRST)) {
             long lockCrd = rowIo.getMvccLockCoordinatorVersion(pageAddr, idx);
             long lockCntr = rowIo.getMvccLockCounter(pageAddr, idx);
 
-            // may be already locked
-            if (lockCrd != mvccCrd || lockCntr != mvccCntr) {
-                if (isActive(cctx, lockCrd, lockCntr, mvccSnapshot)) {
-                    resCrd = lockCrd;
-                    resCntr = lockCntr;
+            // We cannot continue while entry is locked by another transaction.
+            if ((lockCrd != mvccCrd || lockCntr != mvccCntr) && isActive(cctx, lockCrd, lockCntr, mvccSnapshot)) {
+                resCrd = lockCrd;
+                resCntr = lockCntr;
 
-                    res = ResultType.LOCKED;
+                res = ResultType.LOCKED;
 
-                    return setFlags(STOP);
-                }
-
-                rowIo.setMvccLockCoordinatorVersion(pageAddr, idx, mvccCrd);
-                rowIo.setMvccLockCounter(pageAddr, idx, mvccCntr);
-
-                // TODO Delta record IGNITE-7991
-
-                setFlags(DIRTY);
+                return setFlags(STOP);
             }
-
-            // In case it is a REMOVE or locked READ operation and the first entry is an aborted one
-            // we have to write lock information to the first committed entry as well
-            // because we about to delete all aborted entries before it
-            if (!isFlagsSet(REMOVE_OR_LOCK))
-                unsetFlags(CAN_WRITE);
         }
 
         MvccDataRow row = (MvccDataRow)tree.getRow(io, pageAddr, idx, RowData.LINK_WITH_HEADER);
 
-        // Check whether the row was updated by current transaction
+        // Check whether the row was updated by current transaction.
+        // In this case the row is already locked by current transaction and visible to it.
         if (isFlagsSet(FIRST)) {
             boolean removed = row.newMvccCoordinatorVersion() != MVCC_CRD_COUNTER_NA;
 
@@ -219,7 +211,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                 if (res == ResultType.PREV_NOT_NULL)
                     oldRow = row;
 
-                setFlags(LAST_FOUND);
+                setFlags(LAST_COMMITTED_FOUND);
             }
         }
 
@@ -237,11 +229,14 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
         // with hint bits
         int rowNewOpCntr = (row.newMvccTxState() << MVCC_HINTS_BIT_OFF) | (row.newMvccOperationCounter() & ~MVCC_HINTS_MASK);
 
-        if (!isFlagsSet(LAST_FOUND)) {
+        // Search for youngest committed by another transaction row.
+        if (!isFlagsSet(LAST_COMMITTED_FOUND)) {
             if (!(resCrd == rowCrd && resCntr == rowCntr)) { // It's possible it is a chain of aborted changes
                 byte txState = MvccUtils.state(cctx, rowCrd, rowCntr, rowOpCntr);
 
                 if (txState == TxState.COMMITTED) {
+                    setFlags(LAST_COMMITTED_FOUND);
+
                     boolean removed = false;
 
                     if (rowNewCrd != MVCC_CRD_COUNTER_NA) {
@@ -269,8 +264,6 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                         oldRow = row;
                     }
 
-                    setFlags(LAST_FOUND);
-
                     if (isFlagsSet(CHECK_VERSION)) {
                         long crdVer, cntr; int opCntr;
 
@@ -285,20 +278,28 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                             opCntr = rowOpCntr;
                         }
 
+                        // If last committed row is not visible it is possible write conflict.
                         if (!isVisible(cctx, mvccSnapshot, crdVer, cntr, opCntr, false)) {
-                            resCrd = crdVer;
-                            resCntr = cntr;
+                            // In case when row is accessed without previous version check (FAST_UPDATE)
+                            // it is possible that we should consider this row non existent for current transaction
+                            // without signalling write conflict.
+                            // To do this we need to find youngest visible version and if it is removed version
+                            // or there is no visible version then there is no conflict.
+                            if (isFlagsSet(FAST_UPDATE)
+                                && !(removed && isVisible(cctx, mvccSnapshot, rowCrd, rowCntr, rowOpCntr, false)))
+                                res = ResultType.PREV_NULL;
+                            else {
+                                resCrd = crdVer;
+                                resCntr = cntr;
 
-                            res = ResultType.VERSION_MISMATCH; // Write conflict.
+                                res = ResultType.VERSION_MISMATCH; // Write conflict.
 
-                            return setFlags(STOP);
+                                return setFlags(STOP);
+                            }
                         }
-
-                        // no need to check further
-                        unsetFlags(CHECK_VERSION);
                     }
 
-                    if (isFlagsSet(PRIMARY | REMOVE_OR_LOCK) && cleanupRows != null) {
+                    if (isFlagsSet(PRIMARY | REMOVE_OR_LOCK) && !isFlagsSet(FAST_UPDATE)) {
                         rowIo.setMvccLockCoordinatorVersion(pageAddr, idx, mvccCrd);
                         rowIo.setMvccLockCounter(pageAddr, idx, mvccCntr);
 
@@ -317,18 +318,38 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                     throw unexpectedStateException(cctx, txState, rowCrd, rowCntr, rowOpCntr, mvccSnapshot);
             }
         }
+        // Search for youngest visible row. If we have not found any visible version then we does not see this row.
+        else if (isFlagsSet(FAST_UPDATE)) {
+            assert !isFlagsSet(CAN_CLEANUP);
+            assert mvccVersionIsValid(rowNewCrd, rowNewCntr, rowNewOpCntr);
+
+            // Update version could be visible only if it is removal version,
+            // previous create versions were already checked in previous step and are definitely invisible.
+            // If we found visible removal version then we does not see this row.
+            if (isVisible(cctx, mvccSnapshot, rowNewCrd, rowNewCntr, rowNewOpCntr, false))
+                unsetFlags(FAST_UPDATE);
+            // If the youngest visible for current transaction version is not removal version then it is write conflict.
+            else if (isVisible(cctx, mvccSnapshot, rowCrd, rowCntr, rowOpCntr, false)) {
+                resCrd = rowCrd;
+                resCntr = rowCntr;
+
+                res = ResultType.VERSION_MISMATCH;
+
+                return setFlags(STOP);
+            }
+        }
 
         long cleanupVer = mvccSnapshot.cleanupVersion();
 
         if (cleanupVer > MVCC_OP_COUNTER_NA // Do not clean if cleanup version is not assigned.
-            && !isFlagsSet(CAN_CLEANUP) && isFlagsSet(LAST_FOUND) && res == ResultType.PREV_NULL) {
+            && !isFlagsSet(CAN_CLEANUP) && isFlagsSet(LAST_COMMITTED_FOUND) && res == ResultType.PREV_NULL) {
             // We can cleanup previous row only if it was deleted by another
             // transaction and delete version is less or equal to cleanup one
             if (rowNewCrd < mvccCrd || Long.compare(cleanupVer, rowNewCntr) >= 0)
                 setFlags(CAN_CLEANUP);
         }
 
-        if (isFlagsSet(CAN_CLEANUP) || !isFlagsSet(LAST_FOUND)) { // can cleanup aborted versions
+        if (isFlagsSet(CAN_CLEANUP) || !isFlagsSet(LAST_COMMITTED_FOUND)) { // can cleanup aborted versions
             if (cleanupRows == null)
                 cleanupRows = new ArrayList<>();
 
@@ -345,7 +366,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
             }
 
             if (cleanupVer > MVCC_OP_COUNTER_NA // Do not clean if cleanup version is not assigned.
-                && !isFlagsSet(CAN_CLEANUP) && isFlagsSet(LAST_FOUND)
+                && !isFlagsSet(CAN_CLEANUP) && isFlagsSet(LAST_COMMITTED_FOUND)
                 && (rowCrd < mvccCrd || Long.compare(cleanupVer, rowCntr) >= 0))
                 // all further versions are guaranteed to be less than cleanup version
                 setFlags(CAN_CLEANUP);

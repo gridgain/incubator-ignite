@@ -1871,7 +1871,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     primary,
                     false,
                     needHistory,
-                    cctx);
+                    cctx,
+                    // TODO fast UPDATE
+                    false);
 
                 assert cctx.shared().database().checkpointLockIsHeldByThread();
 
@@ -1977,7 +1979,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     primary,
                     false,
                     needHistory,
-                    cctx);
+                    cctx,
+                    true);
 
                 assert cctx.shared().database().checkpointLockIsHeldByThread();
 
@@ -2040,7 +2043,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     true,
                     true,
                     false,
-                    cctx);
+                    cctx,
+                    false);
 
                 assert cctx.shared().database().checkpointLockIsHeldByThread();
 
