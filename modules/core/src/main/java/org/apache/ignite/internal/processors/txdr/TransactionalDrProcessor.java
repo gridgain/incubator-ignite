@@ -16,10 +16,17 @@
 */
 package org.apache.ignite.internal.processors.txdr;
 
+import org.apache.ignite.internal.pagemem.wal.WALPointer;
+import org.apache.ignite.internal.pagemem.wal.record.SnapshotRecord;
 import org.apache.ignite.internal.processors.GridProcessor;
 
 /**
  *
  */
 public interface TransactionalDrProcessor extends GridProcessor {
+    /**
+     * @param snapshotId Snapshot id.
+     * @param ptr Pointer to the {@link SnapshotRecord}.
+     */
+    public void onMarkCheckPointBegin(long snapshotId, WALPointer ptr);
 }
