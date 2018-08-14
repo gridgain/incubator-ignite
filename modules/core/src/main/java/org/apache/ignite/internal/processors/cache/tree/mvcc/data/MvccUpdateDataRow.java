@@ -71,6 +71,8 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
     /** Visit mode when row visibility was not checked beforehand */
     private static final int FAST_UPDATE = NEED_HISTORY << 1;
     /** */
+    private static final int INVISIBLE_ROW = FAST_UPDATE << 1;
+    /** */
     private static final int BACKUP_FLAGS_SET = FIRST;
     /** */
     private static final int PRIMARY_FLAGS_SET = FIRST | CHECK_VERSION | PRIMARY;
@@ -286,8 +288,11 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                             // To do this we need to find youngest visible version and if it is removed version
                             // or there is no visible version then there is no conflict.
                             if (isFlagsSet(FAST_UPDATE)
-                                && !(removed && isVisible(cctx, mvccSnapshot, rowCrd, rowCntr, rowOpCntr, false)))
+                                && !(removed && isVisible(cctx, mvccSnapshot, rowCrd, rowCntr, rowOpCntr, false))) {
                                 res = ResultType.PREV_NULL;
+
+                                setFlags(INVISIBLE_ROW);
+                            }
                             else {
                                 resCrd = crdVer;
                                 resCntr = cntr;
@@ -299,7 +304,9 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                         }
                     }
 
-                    if (isFlagsSet(PRIMARY | REMOVE_OR_LOCK) && !isFlagsSet(FAST_UPDATE)) {
+                    // Lock entry for primary partition if needed.
+                    // If invisible row is found for fast FAST_UPDATE case we should not lock row.
+                    if (isFlagsSet(PRIMARY | REMOVE_OR_LOCK) && !isFlagsSet(INVISIBLE_ROW)) {
                         rowIo.setMvccLockCoordinatorVersion(pageAddr, idx, mvccCrd);
                         rowIo.setMvccLockCounter(pageAddr, idx, mvccCntr);
 
@@ -319,7 +326,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
             }
         }
         // Search for youngest visible row. If we have not found any visible version then we does not see this row.
-        else if (isFlagsSet(FAST_UPDATE)) {
+        else if (isFlagsSet(INVISIBLE_ROW)) {
             assert !isFlagsSet(CAN_CLEANUP);
             assert mvccVersionIsValid(rowNewCrd, rowNewCntr, rowNewOpCntr);
 
@@ -327,7 +334,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
             // previous create versions were already checked in previous step and are definitely invisible.
             // If we found visible removal version then we does not see this row.
             if (isVisible(cctx, mvccSnapshot, rowNewCrd, rowNewCntr, rowNewOpCntr, false))
-                unsetFlags(FAST_UPDATE);
+                unsetFlags(INVISIBLE_ROW);
             // If the youngest visible for current transaction version is not removal version then it is write conflict.
             else if (isVisible(cctx, mvccSnapshot, rowCrd, rowCntr, rowOpCntr, false)) {
                 resCrd = rowCrd;
