@@ -292,18 +292,18 @@ public interface IgniteCacheOffheapManager {
         boolean noCreate) throws IgniteCheckedException;
 
     /**
-     * @param primary {@code True} if on primary node.
      * @param entry Entry.
      * @param mvccSnapshot MVCC snapshot.
+     * @param primary {@code True} if on primary node.
      * @param needHistory Flag to collect history.
      * @param fastUpdate Mode when entry is accessed without preliminary visibility check.
      * @return Update result.
      * @throws IgniteCheckedException If failed.
      */
     @Nullable public MvccUpdateResult mvccRemove(
-        boolean primary,
         GridCacheMapEntry entry,
         MvccSnapshot mvccSnapshot,
+        boolean primary,
         boolean needHistory,
         boolean fastUpdate) throws IgniteCheckedException;
 
@@ -799,9 +799,9 @@ public interface IgniteCacheOffheapManager {
 
         /**
          * @param cctx Cache context.
-         * @param primary {@code True} if update is executed on primary node.
          * @param key Key.
          * @param mvccSnapshot MVCC snapshot.
+         * @param primary {@code True} if update is executed on primary node.
          * @param needHistory Flag to collect history.
          * @param fastUpdate Mode when entry is accessed without preliminary visibility check.
          * @return List of transactions to wait for.
@@ -809,9 +809,9 @@ public interface IgniteCacheOffheapManager {
          */
         MvccUpdateResult mvccRemove(
             GridCacheContext cctx,
-            boolean primary,
             KeyCacheObject key,
             MvccSnapshot mvccSnapshot,
+            boolean primary,
             boolean needHistory,
             boolean fastUpdate) throws IgniteCheckedException;
 

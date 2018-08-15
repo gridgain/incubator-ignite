@@ -1753,14 +1753,14 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
         /** {@inheritDoc} */
         @Override public MvccUpdateResult mvccRemove(
             GridCacheContext cctx,
-            boolean primary,
             KeyCacheObject key,
             MvccSnapshot mvccVer,
+            boolean primary,
             boolean needHistory,
             boolean fastUpdate) throws IgniteCheckedException {
             CacheDataStore delegate = init0(false);
 
-            return delegate.mvccRemove(cctx, primary, key, mvccVer, needHistory, fastUpdate);
+            return delegate.mvccRemove(cctx, key, mvccVer, primary, needHistory, fastUpdate);
         }
 
         /** {@inheritDoc} */

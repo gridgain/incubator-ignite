@@ -1180,7 +1180,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             assert newVer != null : "Failed to get write version for tx: " + tx;
 
-            res = cctx.offheap().mvccRemove(tx.local(), this, mvccVer, needHistory, fastUpdate);
+            res = cctx.offheap().mvccRemove(this, mvccVer, tx.local(), needHistory, fastUpdate);
 
             assert res != null;
 
@@ -4916,7 +4916,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 cctx.shared().database().checkpointReadLock();
 
                 try {
-                    res = cctx.offheap().mvccRemove(tx.local(), entry, mvccVer, needHistory, fastUpdate);
+                    res = cctx.offheap().mvccRemove(entry, mvccVer, tx.local(), needHistory, fastUpdate);
                 } finally {
                     cctx.shared().database().checkpointReadUnlock();
                 }

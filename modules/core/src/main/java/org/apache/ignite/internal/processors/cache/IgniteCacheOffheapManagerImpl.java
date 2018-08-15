@@ -534,9 +534,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
     /** {@inheritDoc} */
     @Override public MvccUpdateResult mvccRemove(
-        boolean primary,
         GridCacheMapEntry entry,
         MvccSnapshot mvccSnapshot,
+        boolean primary,
         boolean needHistory,
         boolean fastUpdate) throws IgniteCheckedException {
         if (entry.detached() || entry.isNear())
@@ -545,9 +545,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         assert entry.lockedByCurrentThread();
 
         return dataStore(entry.localPartition()).mvccRemove(entry.context(),
-            primary,
             entry.key(),
             mvccSnapshot,
+            primary,
             needHistory,
             fastUpdate);
     }
@@ -1961,9 +1961,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
         /** {@inheritDoc} */
         @Override public MvccUpdateResult mvccRemove(GridCacheContext cctx,
-            boolean primary,
             KeyCacheObject key,
             MvccSnapshot mvccSnapshot,
+            boolean primary,
             boolean needHistory,
             boolean fastUpdate) throws IgniteCheckedException {
             assert mvccSnapshot != null;
