@@ -704,12 +704,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         long t2 = System.nanoTime();
 
         if (stats != null) {
-            stats[GridCacheAdapter.StatSnap.TOTAL_SEG_READ_LOCK_DURATION] += t2 - t1;
+            long duration = t2 - t1;
 
-            if (t2 - t1 >= SEGMENT_READ_LOCK_DURATION_THRESHOLD) {
-                List<SegmentWriteLockHolder> locks = writeLockHolder.getAndSet(new ArrayList<>());
-                aqReadLock.set(false);
+            stats[GridCacheAdapter.StatSnap.TOTAL_SEG_READ_LOCK_DURATION] += duration;
 
+            List<SegmentWriteLockHolder> locks = writeLockHolder.getAndSet(new ArrayList<>());
+
+            aqReadLock.set(false);
+
+            if (duration >= SEGMENT_READ_LOCK_DURATION_THRESHOLD) {
                 if (!locks.isEmpty())
                     snap.segmentWriteLockHolders.put(snap.currKey, locks);
             }
