@@ -41,6 +41,7 @@ import org.apache.ignite.internal.pagemem.wal.record.TxRecord;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageInsertFragmentRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageInsertRecord;
+import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccMarkUpdatedRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccUpdateNewTxStateHintRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccUpdateTxStateHintRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageRemoveRecord;
@@ -63,7 +64,7 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.MetaPageUpdateLastSuc
 import org.apache.ignite.internal.pagemem.wal.record.delta.MetaPageUpdateLastSuccessfulSnapshotId;
 import org.apache.ignite.internal.pagemem.wal.record.delta.MetaPageUpdateNextSnapshotId;
 import org.apache.ignite.internal.pagemem.wal.record.delta.MetaPageUpdatePartitionDataRecord;
-import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccMarkUpdatedRecord;
+import org.apache.ignite.internal.pagemem.wal.record.delta.MvccTxLockRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.NewRootInitRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.PageListMetaResetCountRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.PagesListAddPageRecord;
@@ -205,6 +206,9 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
 
             case MVCC_DATA_PAGE_NEW_TX_STATE_HINT_UPDATED_RECORD:
                 return 4 + 8 + 4 + 1;
+
+            case MVCC_TX_LOCK_RECORD:
+                return 4 + 8 + 4 + 8 + 8;
 
             case INIT_NEW_PAGE_RECORD:
                 return 4 + 8 + 2 + 2 + 8;
@@ -548,6 +552,18 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
                 byte newTxState = in.readByte();
 
                 res = new DataPageMvccUpdateNewTxStateHintRecord(cacheId, pageId, itemId, newTxState);
+
+                break;
+
+            case MVCC_TX_LOCK_RECORD:
+                cacheId = in.readInt();
+                pageId = in.readLong();
+
+                idx = in.readInt();
+                long crd = in.readLong();
+                long cntr = in.readLong();
+
+                res = new MvccTxLockRecord(cacheId, pageId, idx, crd, cntr);
 
                 break;
 
@@ -1114,6 +1130,18 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
 
                 buf.putInt(newTxStRec.itemId());
                 buf.put(newTxStRec.txState());
+
+                break;
+
+            case MVCC_TX_LOCK_RECORD:
+                MvccTxLockRecord locRec = (MvccTxLockRecord)rec;
+
+                buf.putInt(locRec.groupId());
+                buf.putLong(locRec.pageId());
+
+                buf.putInt(locRec.itemIndex());
+                buf.putLong(locRec.coordinatorVersion());
+                buf.putLong(locRec.counter());
 
                 break;
 

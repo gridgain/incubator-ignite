@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
+import org.apache.ignite.internal.pagemem.wal.record.delta.MvccTxLockRecord;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
@@ -176,7 +177,10 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
     @Override public int visit(BPlusTree<CacheSearchRow, CacheDataRow> tree,
         BPlusIO<CacheSearchRow> io,
         long pageAddr,
-        int idx, IgniteWriteAheadLogManager wal)
+        int idx,
+        IgniteWriteAheadLogManager wal,
+        boolean needWal,
+        long pageId)
         throws IgniteCheckedException {
         unsetFlags(DIRTY);
 
@@ -325,7 +329,8 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                         rowIo.setMvccLockCoordinatorVersion(pageAddr, idx, mvccCrd);
                         rowIo.setMvccLockCounter(pageAddr, idx, mvccCntr);
 
-                        // TODO Delta record IGNITE-7991
+                        if (needWal)
+                            wal.log(new MvccTxLockRecord(cctx.groupId(), pageId, idx, mvccCrd, mvccCntr));
 
                         setFlags(DIRTY);
                     }

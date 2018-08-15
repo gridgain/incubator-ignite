@@ -2921,6 +2921,9 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         /** */
         private boolean writing;
 
+        /** Flag if we need do write delta record to WAL. */
+        private boolean needWal;
+
         /**
          * @param lower Lower bound.
          */
@@ -2965,6 +2968,8 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                     // Check triangle invariant.
                     if (io.getForward(pageAddr) != fwdId)
                         return RETRY;
+
+                    needWal = needWalDeltaRecord(pageId, page, null);
 
                     init(pageAddr, io, -1);
                 } finally {
@@ -3018,7 +3023,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
             cnt = findUpperBound(pageAddr, io, startIdx, cnt);
 
             for (int i = startIdx; i < cnt; i++) {
-                int state = p.visit(BPlusTree.this, io, pageAddr, i, wal);
+                int state = p.visit(BPlusTree.this, io, pageAddr, i, wal, needWal, pageId);
 
                 boolean stop = (state & TreeVisitorClosure.STOP) != 0;
 
@@ -3108,6 +3113,9 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                         break;
 
                     try {
+                        if (writing)
+                            needWal = needWalDeltaRecord(pageId, page, null);
+
                         BPlusIO<L> io = io(pageAddr);
 
                         visit(pageAddr, io, -1, io.getCount(pageAddr));
@@ -3129,6 +3137,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
                 writeUnlock(pageId, page, pageAddr, dirty);
 
                 dirty = false; // reset dirty flag
+                needWal = false;
             }
             else
                 readUnlock(pageId, page, pageAddr);
@@ -5736,11 +5745,19 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
          * @param io Th tree IO object.
          * @param pageAddr The page address.
          * @param idx The item index.
+         * @param wal WAL.
+         * @param needWal Flag if we need to write delta record to log.
+         * @param pageId Page id.
          * @return state bitset.
          * @throws IgniteCheckedException If failed.
          */
-        public int visit(BPlusTree<L, T> tree, BPlusIO<L> io, long pageAddr, int idx, IgniteWriteAheadLogManager wal)
-            throws IgniteCheckedException;
+        public int visit(BPlusTree<L, T> tree,
+            BPlusIO<L> io,
+            long pageAddr,
+            int idx,
+            IgniteWriteAheadLogManager wal,
+            boolean needWal,
+            long pageId) throws IgniteCheckedException;
 
         /**
          * @return state bitset.

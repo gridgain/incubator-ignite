@@ -24,6 +24,7 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
+import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.lang.IgniteInClosure;
 
@@ -197,5 +198,39 @@ public abstract class AbstractDataLeafIO extends BPlusLeafIO<CacheSearchRow> imp
      */
     protected boolean storeMvccVersion() {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void printItem(int idx, long addr, int pageSize, GridStringBuilder sb) {
+        int off = offset(idx);
+
+        sb.a("Item[").a(idx).a("]");
+
+        sb.a(" link=").a(PageUtils.getLong(addr, off)).a("[").a(off).a("]");
+        off += 8;
+
+        sb.a(", hash=").a(PageUtils.getInt(addr, off)).a("[").a(off).a("]");
+        off += 4;
+
+        if (storeCacheId()) {
+            sb.a(", cacheId=").a(PageUtils.getInt(addr, off)).a("[").a(off).a("]");
+            off += 4;
+        }
+
+        if (storeMvccVersion()) {
+            sb.a(" crd=").a(PageUtils.getLong(addr, off)).a("[").a(off).a("]");
+            off += 8;
+
+            sb.a(" cntr=").a(PageUtils.getLong(addr, off)).a("[").a(off).a("]");
+            off += 8;
+
+            sb.a(" opCntr=").a(PageUtils.getInt(addr, off)).a("[").a(off).a("]");
+            off += 4;
+
+            sb.a(" lockCrd=").a(PageUtils.getLong(addr, off)).a("[").a(off).a("]");
+            off += 8;
+
+            sb.a(" lockCntr=").a(PageUtils.getLong(addr, off)).a("[").a(off).a("]");
+        }
     }
 }

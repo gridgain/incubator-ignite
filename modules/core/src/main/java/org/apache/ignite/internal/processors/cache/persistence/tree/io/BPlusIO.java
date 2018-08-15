@@ -404,12 +404,46 @@ public abstract class BPlusIO<L> extends PageIO {
 
     /** {@inheritDoc} */
     @Override protected void printPage(long addr, int pageSize, GridStringBuilder sb) throws IgniteCheckedException {
+        int cnt = getCount(addr);
+
         sb.a("BPlusIO [\n\tcanGetRow=").a(canGetRow)
             .a(",\n\tleaf=").a(leaf)
             .a(",\n\titemSize=").a(itemSize)
-            .a(",\n\tcnt=").a(getCount(addr))
+            .a(",\n\tcnt=").a(cnt)
             .a(",\n\tforward=").appendHex(getForward(addr))
             .a(",\n\tremoveId=").appendHex(getRemoveId(addr))
-            .a("\n]");
+            .a("\n]")
+            .a(",\n\t Items=[");
+
+        for (int i = 0; i < cnt; i++) {
+            if (i != 0)
+                sb.a(", ");
+
+            sb.a("\n\t[");
+
+            printItem(i, addr, pageSize, sb);
+
+            sb.a("]");
+        }
+
+        sb.a("\n]");
+    }
+
+    /**
+     * Prints BPlus item to SB.
+     *
+     * @param idx Item index.
+     * @param addr Page address.
+     * @param pageSize Page size.
+     * @param sb String builder.
+     */
+    protected void printItem(int idx, long addr, int pageSize, GridStringBuilder sb) {
+        sb.a("Item [idx=")
+            .a(idx)
+            .a(", offset=")
+            .a(offset(idx))
+            .a(", size=")
+            .a(itemSize)
+            .a(']');
     }
 }

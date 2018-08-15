@@ -20,6 +20,7 @@ package org.apache.ignite.testsuites;
 import junit.framework.TestSuite;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccClusterRestartTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccConfigurationValidationTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccExplicitWalDeltaConsistencyTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccIteratorWithConcurrentTransactionTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccLocalEntriesWithConcurrentTransactionTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccOperationChecksTest;
@@ -28,9 +29,11 @@ import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccProcessorTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccReplicatedCoordinatorFailoverTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccScanQueryWithConcurrentTransactionTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSizeWithConcurrentTransactionTest;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccSysPropWalDeltaConsistencyTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccTransactionsTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccVacuumTest;
 import org.apache.ignite.internal.processors.datastreamer.DataStreamProcessorMvccSeflTest;
+import org.apache.ignite.internal.processors.datastreamer.DataStreamProcessorSelfTest;
 
 /**
  *
@@ -55,6 +58,9 @@ public class IgniteCacheMvccTestSuite extends TestSuite {
         suite.addTestSuite(CacheMvccPartitionedCoordinatorFailoverTest.class);
         suite.addTestSuite(CacheMvccReplicatedCoordinatorFailoverTest.class);
         suite.addTestSuite(DataStreamProcessorMvccSeflTest.class);
+        suite.addTestSuite(DataStreamProcessorSelfTest.class);
+        suite.addTestSuite(CacheMvccSysPropWalDeltaConsistencyTest.class);
+        suite.addTestSuite(CacheMvccExplicitWalDeltaConsistencyTest.class);
 
         return suite;
     }
