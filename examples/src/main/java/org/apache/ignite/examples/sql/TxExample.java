@@ -21,12 +21,12 @@ import org.apache.ignite.transactions.TransactionIsolation;
 
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IGNITE_INSTANCE_NAME;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
-import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 public class TxExample {
 
     private static final TransactionConcurrency TX_CONC = PESSIMISTIC;
-    private static final TransactionIsolation TX_ISO = READ_COMMITTED;
+    private static final TransactionIsolation TX_ISO = REPEATABLE_READ;
 
     @SuppressWarnings("unused")
     public static void main(String[] args) {
@@ -44,16 +44,39 @@ public class TxExample {
                     .setBackups(1)
             );
 
-            Integer key = 0;
+            Integer primaryKey = 0;
+            Integer backupKey = 0;
 
-            while (!cli.affinity("cache").isPrimary(((IgniteKernal)primary).localNode(), key))
-                key++;
+            while (!cli.affinity("cache").isPrimary(((IgniteKernal)primary).localNode(), primaryKey))
+                primaryKey++;
+
+            while (!cli.affinity("cache").isBackup(((IgniteKernal)primary).localNode(), backupKey))
+                backupKey++;
+
+            System.out.println();
+            System.out.println(">>> CLIENT ONE PHASE");
+
+            try (Transaction tx = cli.transactions().txStart(TX_CONC, TX_ISO)) {
+                cli.cache("cache").put(primaryKey, 1);
+
+                tx.commit();
+            }
 
             System.out.println();
             System.out.println(">>> CLIENT");
 
             try (Transaction tx = cli.transactions().txStart(TX_CONC, TX_ISO)) {
-                cli.cache("cache").put(key, 1);
+                cli.cache("cache").put(primaryKey, 1);
+                cli.cache("cache").put(backupKey, 1);
+
+                tx.commit();
+            }
+
+            System.out.println();
+            System.out.println(">>> PRIMARY ONE PHASE");
+
+            try (Transaction tx = primary.transactions().txStart(TX_CONC, TX_ISO)) {
+                primary.cache("cache").put(primaryKey, 1);
 
                 tx.commit();
             }
@@ -62,16 +85,17 @@ public class TxExample {
             System.out.println(">>> PRIMARY");
 
             try (Transaction tx = primary.transactions().txStart(TX_CONC, TX_ISO)) {
-                primary.cache("cache").put(key, 1);
+                primary.cache("cache").put(primaryKey, 1);
+                primary.cache("cache").put(backupKey, 1);
 
                 tx.commit();
             }
 
             System.out.println();
-            System.out.println(">>> BACKUP");
+            System.out.println(">>> BACKUP ONE PHASE");
 
             try (Transaction tx = backup.transactions().txStart(TX_CONC, TX_ISO)) {
-                backup.cache("cache").put(key, 1);
+                backup.cache("cache").put(primaryKey, 1);
 
                 tx.commit();
             }
