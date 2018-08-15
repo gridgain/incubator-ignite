@@ -1735,17 +1735,19 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
         /** {@inheritDoc} */
         @Override public MvccUpdateResult mvccUpdate(
             GridCacheContext cctx,
-            boolean primary,
             KeyCacheObject key,
             CacheObject val,
             GridCacheVersion ver,
             long expireTime,
             MvccSnapshot mvccVer,
+            boolean primary,
             boolean needHistory,
-            boolean fastUpdate) throws IgniteCheckedException {
+            boolean fastUpdate,
+            boolean noCreate) throws IgniteCheckedException {
             CacheDataStore delegate = init0(false);
 
-            return delegate.mvccUpdate(cctx, primary, key, val, ver, expireTime, mvccVer, needHistory, fastUpdate);
+            return delegate.mvccUpdate(
+                cctx, key, val, ver, expireTime, mvccVer, primary, needHistory, fastUpdate, noCreate);
         }
 
         /** {@inheritDoc} */
@@ -1764,12 +1766,11 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
         /** {@inheritDoc} */
         @Override public MvccUpdateResult mvccLock(
             GridCacheContext cctx,
-            boolean primary,
             KeyCacheObject key,
             MvccSnapshot mvccSnapshot) throws IgniteCheckedException {
             CacheDataStore delegate = init0(false);
 
-            return delegate.mvccLock(cctx, primary, key, mvccSnapshot);
+            return delegate.mvccLock(cctx, key, mvccSnapshot);
         }
 
         /** {@inheritDoc} */

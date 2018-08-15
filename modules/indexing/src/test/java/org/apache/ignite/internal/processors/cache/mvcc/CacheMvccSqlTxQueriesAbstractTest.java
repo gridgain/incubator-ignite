@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ThreadLocalRandom;
@@ -1253,6 +1254,58 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         assertNotNull("Exception has not been thrown.", ex0);
         assertEquals("Mvcc version mismatch.", ex0.getMessage());
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInsertFastDeleteConcurrentWithoutVersionConflict() throws Exception {
+        ccfg = cacheConfiguration(cacheMode(), FULL_SYNC, 2, DFLT_PARTITION_COUNT)
+            .setIndexedTypes(Integer.class, Integer.class);
+
+        startGridsMultiThreaded(2);
+
+        IgniteCache<?, ?> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
+
+        for (int i = 0; i < 100; i++) {
+            int key = i;
+            CompletableFuture.allOf(
+                CompletableFuture.runAsync(() -> {
+                    cache0.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(key, key));
+                }),
+                CompletableFuture.runAsync(() -> {
+                    cache0.query(new SqlFieldsQuery("delete from Integer where _key = ?").setArgs(key));
+                })
+            ).join();
+        }
+
+        // assert that no exception is thrown
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInsertFastUpdateConcurrentWithoutVersionConflict() throws Exception {
+        ccfg = cacheConfiguration(cacheMode(), FULL_SYNC, 2, DFLT_PARTITION_COUNT)
+            .setIndexedTypes(Integer.class, Integer.class);
+
+        startGridsMultiThreaded(2);
+
+        IgniteCache<?, ?> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
+
+        for (int i = 0; i < 100; i++) {
+            int key = i;
+            CompletableFuture.allOf(
+                CompletableFuture.runAsync(() -> {
+                    cache0.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(key, key));
+                }),
+                CompletableFuture.runAsync(() -> {
+                    cache0.query(new SqlFieldsQuery("update Integer set _val = ? where _key = ?").setArgs(key, key));
+                })
+            ).join();
+        }
+
+        // assert that no exception is thrown
     }
 
     /**
