@@ -15,6 +15,8 @@ import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
@@ -24,6 +26,8 @@ import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 public class TxExample {
+
+    public static TcpDiscoveryVmIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
 
     private static final TransactionConcurrency TX_CONC = PESSIMISTIC;
     private static final TransactionIsolation TX_ISO = REPEATABLE_READ;
@@ -109,6 +113,12 @@ public class TxExample {
 
     private static IgniteConfiguration config(final String name, boolean cli) {
         IgniteConfiguration cfg = new IgniteConfiguration().setIgniteInstanceName(name).setClientMode(cli);
+
+        TcpDiscoverySpi discoSpi = new TcpDiscoverySpi();
+
+        discoSpi.setIpFinder(IP_FINDER);
+
+        cfg.setDiscoverySpi(discoSpi);
 
         TcpCommunicationSpi commSpi = new TcpCommunicationSpi() {
             @Override public void sendMessage(ClusterNode node, Message msg) throws IgniteSpiException {
