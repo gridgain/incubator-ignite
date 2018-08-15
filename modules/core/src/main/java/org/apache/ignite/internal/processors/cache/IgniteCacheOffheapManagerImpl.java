@@ -1854,6 +1854,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             boolean fastUpdate,
             boolean noCreate) throws IgniteCheckedException {
             assert mvccSnapshot != null;
+            assert primary || (!needHistory && !fastUpdate);
 
             if (!busyLock.enterBusy())
                 throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
@@ -1968,6 +1969,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             boolean fastUpdate) throws IgniteCheckedException {
             assert mvccSnapshot != null;
             assert primary || mvccSnapshot.activeTransactions().size() == 0 : mvccSnapshot;
+            assert primary || (!needHistory && !fastUpdate);
 
             if (!busyLock.enterBusy())
                 throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
