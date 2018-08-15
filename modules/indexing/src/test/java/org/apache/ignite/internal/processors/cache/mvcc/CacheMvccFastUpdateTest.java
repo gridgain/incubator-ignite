@@ -85,10 +85,34 @@ public class CacheMvccFastUpdateTest extends CacheMvccAbstractTest {
     /**
      * @throws Exception If failed.
      */
+    public void testFastUpdateShouldReportOneIfEntryWasUpdated() throws Exception {
+        cache.query(new SqlFieldsQuery("insert into Person(_key, _val) values(1, ?)").setArgs(new Person(1, "b")));
+
+        Object res = cache.query(new SqlFieldsQuery("update Person set _val = 'a' where _key = 1"))
+            .getAll().get(0).get(0);
+
+        assertEquals("1", res.toString());
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
     public void testFastDeleteShouldReportZeroIfNoEntriesWereUpdated() throws Exception {
         Object res = cache.query(new SqlFieldsQuery("delete from Person where _key = 1"))
             .getAll().get(0).get(0);
 
         assertEquals("0", res.toString());
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testFastDeleteShouldReportOneIfEntryWasUpdated() throws Exception {
+        cache.query(new SqlFieldsQuery("insert into Person(_key, _val) values(1, ?)").setArgs(new Person(1, "b")));
+
+        Object res = cache.query(new SqlFieldsQuery("delete from Person where _key = 1"))
+            .getAll().get(0).get(0);
+
+        assertEquals("1", res.toString());
     }
 }
