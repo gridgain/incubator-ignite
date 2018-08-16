@@ -1259,7 +1259,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
     /**
      * @throws Exception If failed.
      */
-    public void testInsertFastDeleteConcurrentWithoutVersionConflict() throws Exception {
+    public void testInsertAndFastDeleteWithoutVersionConflict() throws Exception {
         ccfg = cacheConfiguration(cacheMode(), FULL_SYNC, 2, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class);
 
@@ -1267,25 +1267,27 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         IgniteCache<?, ?> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
 
-        for (int i = 0; i < 100; i++) {
-            int key = i;
-            CompletableFuture.allOf(
-                CompletableFuture.runAsync(() -> {
-                    cache0.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(key, key));
-                }),
-                CompletableFuture.runAsync(() -> {
-                    cache0.query(new SqlFieldsQuery("delete from Integer where _key = ?").setArgs(key));
-                })
-            ).join();
-        }
+        try (Transaction tx1 = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            // obtain tx version
+            cache0.query(new SqlFieldsQuery("select * from Integer where _key = 1"));
 
-        // assert that no exception is thrown
+            runAsync(() -> {
+                cache0.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(1, 1));
+            }).get();
+
+            cache0.query(new SqlFieldsQuery("delete from Integer where _key = ?").setArgs(1));
+
+            tx1.commit();
+        }
+        catch (Exception e) {
+            fail("Exception is not expected here");
+        }
     }
 
     /**
      * @throws Exception If failed.
      */
-    public void testInsertFastUpdateConcurrentWithoutVersionConflict() throws Exception {
+    public void testInsertFastUpdateWithoutVersionConflict() throws Exception {
         ccfg = cacheConfiguration(cacheMode(), FULL_SYNC, 2, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class);
 
@@ -1293,19 +1295,21 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
 
         IgniteCache<?, ?> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
 
-        for (int i = 0; i < 100; i++) {
-            int key = i;
-            CompletableFuture.allOf(
-                CompletableFuture.runAsync(() -> {
-                    cache0.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(key, key));
-                }),
-                CompletableFuture.runAsync(() -> {
-                    cache0.query(new SqlFieldsQuery("update Integer set _val = ? where _key = ?").setArgs(key, key));
-                })
-            ).join();
-        }
+        try (Transaction tx1 = grid(0).transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            // obtain tx version
+            cache0.query(new SqlFieldsQuery("select * from Integer where _key = 1"));
 
-        // assert that no exception is thrown
+            runAsync(() -> {
+                cache0.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(1, 1));
+            }).get();
+
+            cache0.query(new SqlFieldsQuery("update Integer set _val = ? where _key = ?").setArgs(1, 1));
+
+            tx1.commit();
+        }
+        catch (Exception e) {
+            fail("Exception is not expected here");
+        }
     }
 
     /**
