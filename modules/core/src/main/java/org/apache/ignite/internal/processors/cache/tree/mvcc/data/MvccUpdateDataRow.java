@@ -71,7 +71,9 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
     /** Visit mode when row visibility was not checked beforehand */
     private static final int FAST_UPDATE = NEED_HISTORY << 1;
     /** */
-    private static final int INVISIBLE_ROW = FAST_UPDATE << 1;
+    private static final int FAST_MISMATCH = FAST_UPDATE << 1;
+    /** */
+    private static final int DELETED = FAST_MISMATCH << 1;
     /** */
     private static final int BACKUP_FLAGS_SET = FIRST;
     /** */
@@ -214,6 +216,9 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                     oldRow = row;
 
                 setFlags(LAST_COMMITTED_FOUND);
+
+                if (removed)
+                    setFlags(DELETED);
             }
         }
 
@@ -239,8 +244,6 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                 if (txState == TxState.COMMITTED) {
                     setFlags(LAST_COMMITTED_FOUND);
 
-                    boolean removed = false;
-
                     if (rowNewCrd != MVCC_CRD_COUNTER_NA) {
                         if (rowNewCrd == rowCrd && rowNewCntr == rowCntr)
                             // Row was deleted by the same Tx it was created
@@ -255,10 +258,11 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                         if (!(txState == TxState.COMMITTED || txState == TxState.ABORTED))
                             throw unexpectedStateException(cctx, txState, rowNewCrd, rowNewCntr, rowNewOpCntr, mvccSnapshot);
 
-                        removed = txState == TxState.COMMITTED;
+                        if (txState == TxState.COMMITTED)
+                            setFlags(DELETED);
                     }
 
-                    if (removed)
+                    if (isFlagsSet(DELETED))
                         res = ResultType.PREV_NULL;
                     else {
                         res = ResultType.PREV_NOT_NULL;
@@ -269,7 +273,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                     if (isFlagsSet(CHECK_VERSION)) {
                         long crdVer, cntr; int opCntr;
 
-                        if (removed) {
+                        if (isFlagsSet(DELETED)) {
                             crdVer = rowNewCrd;
                             cntr = rowNewCntr;
                             opCntr = rowNewOpCntr;
@@ -288,10 +292,10 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
                             // To do this we need to find youngest visible version and if it is removed version
                             // or there is no visible version then there is no conflict.
                             if (isFlagsSet(FAST_UPDATE)
-                                && !(removed && isVisible(cctx, mvccSnapshot, rowCrd, rowCntr, rowOpCntr, false))) {
+                                && !(isFlagsSet(DELETED) && isVisible(cctx, mvccSnapshot, rowCrd, rowCntr, rowOpCntr, false))) {
                                 res = ResultType.PREV_NULL;
 
-                                setFlags(INVISIBLE_ROW);
+                                setFlags(FAST_MISMATCH);
                             }
                             else {
                                 resCrd = crdVer;
@@ -306,7 +310,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
 
                     // Lock entry for primary partition if needed.
                     // If invisible row is found for fast FAST_UPDATE case we should not lock row.
-                    if (isFlagsSet(PRIMARY | REMOVE_OR_LOCK) && !isFlagsSet(INVISIBLE_ROW)) {
+                    if (isFlagsSet(PRIMARY | REMOVE_OR_LOCK) && !isFlagsSet(FAST_MISMATCH)) {
                         rowIo.setMvccLockCoordinatorVersion(pageAddr, idx, mvccCrd);
                         rowIo.setMvccLockCounter(pageAddr, idx, mvccCntr);
 
@@ -326,7 +330,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
             }
         }
         // Search for youngest visible row. If we have not found any visible version then we does not see this row.
-        else if (isFlagsSet(INVISIBLE_ROW)) {
+        else if (isFlagsSet(FAST_MISMATCH)) {
             assert !isFlagsSet(CAN_CLEANUP);
             assert mvccVersionIsValid(rowNewCrd, rowNewCntr, rowNewOpCntr);
 
@@ -334,7 +338,7 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
             // previous create versions were already checked in previous step and are definitely invisible.
             // If we found visible removal version then we does not see this row.
             if (isVisible(cctx, mvccSnapshot, rowNewCrd, rowNewCntr, rowNewOpCntr, false))
-                unsetFlags(INVISIBLE_ROW);
+                unsetFlags(FAST_MISMATCH);
             // If the youngest visible for current transaction version is not removal version then it is write conflict.
             else if (isVisible(cctx, mvccSnapshot, rowCrd, rowCntr, rowOpCntr, false)) {
                 resCrd = rowCrd;
@@ -349,7 +353,9 @@ public class MvccUpdateDataRow extends MvccDataRow implements MvccUpdateResult, 
         long cleanupVer = mvccSnapshot.cleanupVersion();
 
         if (cleanupVer > MVCC_OP_COUNTER_NA // Do not clean if cleanup version is not assigned.
-            && !isFlagsSet(CAN_CLEANUP) && isFlagsSet(LAST_COMMITTED_FOUND) && res == ResultType.PREV_NULL) {
+            && !isFlagsSet(CAN_CLEANUP) && isFlagsSet(LAST_COMMITTED_FOUND) && isFlagsSet(DELETED)) {
+            assert mvccVersionIsValid(rowNewCrd, rowNewCntr, rowNewOpCntr);
+
             // We can cleanup previous row only if it was deleted by another
             // transaction and delete version is less or equal to cleanup one
             if (rowNewCrd < mvccCrd || Long.compare(cleanupVer, rowNewCntr) >= 0)
