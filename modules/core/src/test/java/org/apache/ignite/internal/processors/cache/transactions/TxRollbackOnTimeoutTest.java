@@ -757,15 +757,31 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
         // Delay exchange finish on client node.
         TestRecordingCommunicationSpi.spi(crd).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
             @Override public boolean apply(ClusterNode node, Message msg) {
-                return node.equals(client.cluster().localNode()) && msg instanceof GridDhtPartitionsFullMessage;
+                return node.order() < 5 && msg instanceof GridDhtPartitionsFullMessage;
             }
         });
 
         // Delay prepare until exchange is finished.
         TestRecordingCommunicationSpi.spi(client).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
             @Override public boolean apply(ClusterNode node, Message msg) {
-                return concurrency == PESSIMISTIC ?
-                    msg instanceof GridNearLockRequest : msg instanceof GridNearTxPrepareRequest;
+                boolean block = false;
+
+                if (concurrency == PESSIMISTIC) {
+                    if (msg instanceof GridNearLockRequest) {
+                        block = true;
+
+                        assertEquals(GRID_CNT + 1, ((GridNearLockRequest)msg).topologyVersion().topologyVersion());
+                    }
+                }
+                else {
+                    if (msg instanceof GridNearTxPrepareRequest) {
+                        block = true;
+
+                        assertEquals(GRID_CNT + 1, ((GridNearTxPrepareRequest)msg).topologyVersion().topologyVersion());
+                    }
+                }
+
+                return block;
             }
         });
 
@@ -784,14 +800,24 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
             }
         });
 
-        IgniteInternalFuture fut = runAsync(new Runnable() {
+        IgniteInternalFuture fut1 = runAsync(new Runnable() {
             @Override public void run() {
                 try {
+                    TestRecordingCommunicationSpi.spi(client).waitForBlocked(); // TX is trying to prepare on prev top ver.
+
                     startGrid(GRID_CNT);
+                }
+                catch (Exception e) {
+                    fail(e.getMessage());
+                }
+            }
+        });
 
-                    TestRecordingCommunicationSpi.spi(crd).waitForBlocked();
-
-                    TestRecordingCommunicationSpi.spi(client).waitForBlocked();
+        IgniteInternalFuture fut2 = runAsync(new Runnable() {
+            @Override public void run() {
+                try {
+                    // Wait for all full messages to be ready.
+                    TestRecordingCommunicationSpi.spi(crd).waitForBlocked(GRID_CNT + 1);
 
                     // Trigger remap.
                     TestRecordingCommunicationSpi.spi(client).stopBlock();
@@ -802,20 +828,9 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
             }
         });
 
-        // Allow timeout on future wait.
-        try {
-            fut.get(10_000);
-        }
-        catch (IgniteFutureTimeoutCheckedException e) {
-            // Ignored.
-        }
-
-        try {
-            fut0.get(10_000);
-        }
-        catch (IgniteFutureTimeoutCheckedException e) {
-            // Ignored.
-        }
+        fut0.get(30_000);
+        fut1.get(30_000);
+        fut2.get(30_000);
 
         TestRecordingCommunicationSpi.spi(crd).stopBlock();
 
@@ -828,6 +843,10 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
         topFut.get(10_000);
 
         checkFutures();
+    }
+
+    @Override protected long getTestTimeout() {
+        return 1000000000L;
     }
 
     /**

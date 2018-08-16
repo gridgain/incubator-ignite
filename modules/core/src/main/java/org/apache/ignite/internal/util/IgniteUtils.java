@@ -126,6 +126,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
@@ -197,6 +198,8 @@ import org.apache.ignite.internal.processors.cache.GridCacheAttributes;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cluster.BaselineTopology;
+import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
+import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.transactions.IgniteTxHeuristicCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
@@ -204,6 +207,7 @@ import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.future.IgniteFutureImpl;
 import org.apache.ignite.internal.util.io.GridFilenameUtils;
 import org.apache.ignite.internal.util.ipc.shmem.IpcSharedMemoryNativeLoader;
+import org.apache.ignite.internal.util.lang.GridAbsClosureX;
 import org.apache.ignite.internal.util.lang.GridClosureException;
 import org.apache.ignite.internal.util.lang.GridPeerDeployAware;
 import org.apache.ignite.internal.util.lang.GridTuple;
@@ -214,6 +218,7 @@ import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.P1;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.util.worker.GridWorker;
@@ -221,6 +226,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgniteFutureCancelledException;
 import org.apache.ignite.lang.IgniteFutureTimeoutException;
+import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteOutClosure;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.lang.IgniteProductVersion;
@@ -10344,6 +10350,67 @@ public abstract class IgniteUtils {
     }
 
     /**
+     * Listen for a future no longer when timeout.
+     *
+     * @param proc Timeout processor.
+     * @param timeout Timeout.
+     * @param fut Future.
+     * @param doneClo Done closure.
+     * @param errClo Error closure. If argument is null a timeout has occured while waiting.
+     */
+    public static void listen(GridTimeoutProcessor proc, long timeout, final IgniteInternalFuture<?> fut,
+        GridAbsClosureX doneClo,
+        IgniteInClosure<IgniteCheckedException> errClo) {
+        if (timeout == -1) {
+            errClo.apply(null);
+
+            return;
+        }
+
+        if (fut == null || fut.isDone()) {
+            try {
+                doneClo.applyx();
+            }
+            catch (IgniteCheckedException e) {
+                errClo.apply(e);
+            }
+        }
+        else {
+            FutureTimeoutObject timeoutObj = null;
+
+            AtomicBoolean state = new AtomicBoolean();
+
+            if (timeout > 0) {
+                timeoutObj = new FutureTimeoutObject(timeout, fut, state, errClo);
+
+                proc.addTimeoutObject(timeoutObj);
+            }
+
+            final FutureTimeoutObject finalTimeoutObj = timeoutObj;
+
+            fut.listen(new IgniteInClosure<IgniteInternalFuture<?>>() {
+                @Override public void apply(IgniteInternalFuture<?> fut) {
+                    if (!state.compareAndSet(false, true))
+                        return;
+
+                    try {
+                        fut.get();
+
+                        doneClo.applyx();
+                    }
+                    catch (IgniteCheckedException e) {
+                        errClo.apply(e);
+                    }
+                    finally {
+                        if (finalTimeoutObj != null)
+                            proc.removeTimeoutObject(finalTimeoutObj);
+                    }
+                }
+            });
+        }
+    }
+
+    /**
      * @param lock Lock.
      */
     public static ReentrantReadWriteLockTracer lockTracer(ReadWriteLock lock) {
@@ -10573,6 +10640,47 @@ public abstract class IgniteUtils {
          */
         public long getLockUnlockCounter() {
             return cnt.get();
+        }
+    }
+
+    /**
+     *
+     */
+    private static class FutureTimeoutObject extends GridTimeoutObjectAdapter {
+        /** */
+        private final IgniteInternalFuture<?> fut;
+
+        /** */
+        private final AtomicBoolean state;
+
+        /** */
+        private final IgniteInClosure<IgniteCheckedException> timeoutClo;
+
+        /**
+         * @param timeout Timeout.
+         * @param fut Future.
+         * @param state State.
+         */
+        FutureTimeoutObject(long timeout, IgniteInternalFuture<?> fut, AtomicBoolean state,
+            IgniteInClosure<IgniteCheckedException> timeoutClo) {
+            super(timeout);
+
+            this.fut = fut;
+
+            this.state = state;
+
+            this.timeoutClo = timeoutClo;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void onTimeout() {
+            if (!fut.isDone() && state.compareAndSet(false, true))
+                timeoutClo.apply(null);
+        }
+
+        /** {@inheritDoc} */
+        @Override public String toString() {
+            return S.toString(FutureTimeoutObject.class, this);
         }
     }
 }
