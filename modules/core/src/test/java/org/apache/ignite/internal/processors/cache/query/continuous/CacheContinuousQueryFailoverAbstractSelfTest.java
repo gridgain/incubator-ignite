@@ -1903,7 +1903,7 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
         final List<List<T3<Object, Object, Object>>> expEvts = new ArrayList<>(THREAD + 5);
 
         for (int i = 0; i < THREAD; i++)
-            expEvts.add(i, new ArrayList<T3<Object, Object, Object>>());
+            expEvts.add(i, new ArrayList<>());
 
         final AtomicReference<CyclicBarrier> checkBarrier = new AtomicReference<>();
 
@@ -2667,6 +2667,11 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
         /** {@inheritDoc} */
         @Override public void sendMessage(ClusterNode node, Message msg, IgniteInClosure<IgniteException> ackC)
             throws IgniteSpiException {
+            IgniteLogger log = this.log;
+
+            if (this.log == null)
+                System.err.println();
+
             Object msg0 = ((GridIoMessage)msg).message();
 
             if (skipAllMsg)
@@ -2674,8 +2679,8 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
 
             if (msg0 instanceof GridContinuousMessage) {
                 if (skipMsg) {
-                    if (log.isDebugEnabled())
-                        log.debug("Skip continuous message: " + msg0);
+                    if (this.log.isDebugEnabled())
+                        this.log.debug("Skip continuous message: " + msg0);
 
                     return;
                 }
@@ -2683,13 +2688,16 @@ public abstract class CacheContinuousQueryFailoverAbstractSelfTest extends GridC
                     AtomicBoolean sndFirstOnly = this.sndFirstOnly;
 
                     if (sndFirstOnly != null && !sndFirstOnly.compareAndSet(false, true)) {
-                        if (log.isDebugEnabled())
-                            log.debug("Skip continuous message: " + msg0);
+                        if (this.log.isDebugEnabled())
+                            this.log.debug("Skip continuous message: " + msg0);
 
                         return;
                     }
                 }
             }
+
+            if (this.log == null)
+                System.err.println(log);
 
             super.sendMessage(node, msg, ackC);
         }

@@ -83,6 +83,10 @@ public class GridCacheVersionManager extends GridCacheSharedManagerAdapter {
         }
     };
 
+    public GridCacheVersionManager() {
+        System.err.println(Thread.currentThread().getName() + " - order - " + order.get());
+    }
+
     /** {@inheritDoc} */
     @Override public void start0() throws IgniteCheckedException {
         last = new GridCacheVersion(0, order.get(), 0, dataCenterId);
@@ -128,7 +132,7 @@ public class GridCacheVersionManager extends GridCacheSharedManagerAdapter {
                     if (!this.order.compareAndSet(order, ver))
                         // Try again.
                         continue;
-                    else if (log.isDebugEnabled())
+                    else //if (log.isDebugEnabled())
                         log.debug("Updated version from node [nodeId=" + nodeId + ", ver=" + ver + ']');
                 }
                 else if (log.isDebugEnabled()) {

@@ -291,7 +291,7 @@ public class GridResourceProcessor extends GridProcessorAdapter {
         throws IgniteCheckedException {
         assert obj != null;
 
-        if (log.isDebugEnabled())
+//        if (log.isDebugEnabled())
             log.debug("Cleaning up resources: " + obj);
 
         // Unwrap Proxy object.

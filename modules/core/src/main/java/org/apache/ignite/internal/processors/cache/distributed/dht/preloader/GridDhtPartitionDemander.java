@@ -871,8 +871,8 @@ public class GridDhtPartitionDemander {
 
                 cached = cctx.dhtCache().entryEx(entry.key());
 
-                if (log.isDebugEnabled())
-                    log.debug("Rebalancing key [key=" + entry.key() + ", part=" + p + ", node=" + from.id() + ']');
+//                if (log.isDebugEnabled())
+                    log.debug("Rebalancing key [key=" + entry.key() + ", part=" + p + ", node=" + from.id() + ", version="  + entry.version() );
 
                 if (preloadPred == null || preloadPred.apply(entry)) {
                     if (cached.initialValue(

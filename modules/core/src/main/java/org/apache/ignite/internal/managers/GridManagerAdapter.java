@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import javax.cache.expiry.Duration;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.expiry.TouchedExpiryPolicy;
@@ -95,6 +96,8 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
     /** */
     @GridToStringExclude
     private boolean injected;
+
+    private CopyOnWriteArrayList<T> injectedSpis = new CopyOnWriteArrayList<>();
 
     /**
      * @param ctx Kernal context.
@@ -227,6 +230,8 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
 
             // Inject SPI internal objects.
             inject(spi);
+
+            injectedSpis.add(spi);
         }
 
         injected = true;
@@ -255,6 +260,8 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
 
                 // Inject SPI internal objects.
                 inject(spi);
+
+                injectedSpis.add(spi);
             }
 
             try {

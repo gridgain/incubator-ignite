@@ -36,7 +36,10 @@ public class GridResourceLoggerInjector extends GridResourceBasicInjector<Ignite
     /** {@inheritDoc} */
     @Override public void inject(GridResourceField field, Object target, Class<?> depCls, GridDeployment dep)
         throws IgniteCheckedException {
-        GridResourceUtils.inject(field.getField(), target, resource((LoggerResource)field.getAnnotation(), target));
+        IgniteLogger resource = resource((LoggerResource) field.getAnnotation(), target);
+        System.err.println(target.toString() + " !!! SET " + resource);
+
+        GridResourceUtils.inject(field.getField(), target, resource);
     }
 
     /** {@inheritDoc} */

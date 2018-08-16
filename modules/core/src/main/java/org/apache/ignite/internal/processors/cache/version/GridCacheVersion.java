@@ -53,11 +53,15 @@ public class GridCacheVersion implements Message, Comparable<GridCacheVersion>, 
     /** Order. */
     private long order;
 
+    private final Throwable th ;
+
     /**
      * Empty constructor required by {@link Externalizable}.
      */
     public GridCacheVersion() {
         /* No-op. */
+
+        th = new Throwable();
     }
 
     /**
@@ -79,6 +83,8 @@ public class GridCacheVersion implements Message, Comparable<GridCacheVersion>, 
         this.order = order;
 
         nodeOrderDrId = nodeOrder | (dataCenterId << DR_ID_SHIFT);
+
+        th = new Throwable();
     }
 
 
@@ -91,6 +97,8 @@ public class GridCacheVersion implements Message, Comparable<GridCacheVersion>, 
         this.topVer = topVer;
         this.nodeOrderDrId = nodeOrderDrId;
         this.order = order;
+
+        th = new Throwable(System.currentTimeMillis() + "");
     }
 
     /**

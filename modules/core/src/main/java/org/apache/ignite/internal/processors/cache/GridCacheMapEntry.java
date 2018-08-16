@@ -5392,9 +5392,11 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                         false);
                 }
             }
-            else
+            else {
+                if (!(entry.isStartVersion() || ATOMIC_VER_COMPARATOR.compare(entry.ver, newVer) <= 0 ))
                 assert entry.isStartVersion() || ATOMIC_VER_COMPARATOR.compare(entry.ver, newVer) <= 0 :
-                    "Invalid version for inner update [isNew=" + entry.isStartVersion() + ", entry=" + entry + ", newVer=" + newVer + ']';
+                        "Invalid version for inner update [isNew=" + entry.isStartVersion() + ", entry=" + entry + ", newVer=" + newVer + ']';
+            }
         }
 
         /**

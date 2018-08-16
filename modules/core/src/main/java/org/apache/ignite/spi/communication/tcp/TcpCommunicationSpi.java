@@ -1049,7 +1049,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
     /** Logger. */
     @LoggerResource
-    private IgniteLogger log;
+    protected volatile IgniteLogger log;
 
     /** Logger. */
     @LoggerResource(categoryName = "org.apache.ignite.internal.diagnostic")
@@ -2665,6 +2665,9 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
         assert node != null;
         assert msg != null;
 
+        if (log == null)
+            System.err.println();
+
         if (log.isTraceEnabled())
             log.trace("Sending message with ack to node [node=" + node + ", msg=" + msg + ']');
 
@@ -2716,7 +2719,12 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 while (retry);
             }
             catch (Throwable t) {
-                log.error("Failed to send message to remote node [node=" + node + ", msg=" + msg + ']', t);
+                try {
+                    log.error("Failed to send message to remote node [node=" + node + ", msg=" + msg + ']', t);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
 
                 if (t instanceof Error)
                     throw (Error)t;
