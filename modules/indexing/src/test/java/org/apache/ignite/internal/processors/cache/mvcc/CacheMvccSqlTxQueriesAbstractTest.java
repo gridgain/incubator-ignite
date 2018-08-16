@@ -1287,7 +1287,7 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
     /**
      * @throws Exception If failed.
      */
-    public void testInsertFastUpdateWithoutVersionConflict() throws Exception {
+    public void testInsertAndFastUpdateWithoutVersionConflict() throws Exception {
         ccfg = cacheConfiguration(cacheMode(), FULL_SYNC, 2, DFLT_PARTITION_COUNT)
             .setIndexedTypes(Integer.class, Integer.class);
 
