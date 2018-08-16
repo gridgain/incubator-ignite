@@ -1280,6 +1280,8 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
             tx1.commit();
         }
         catch (Exception e) {
+            e.printStackTrace();
+
             fail("Exception is not expected here");
         }
     }
@@ -1308,6 +1310,41 @@ public abstract class CacheMvccSqlTxQueriesAbstractTest extends CacheMvccAbstrac
             tx1.commit();
         }
         catch (Exception e) {
+            e.printStackTrace();
+
+            fail("Exception is not expected here");
+        }
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    public void testInsertFastUpdateConcurrent() throws Exception {
+        fail("https://issues.apache.org/jira/browse/IGNITE-9292");
+
+        ccfg = cacheConfiguration(cacheMode(), FULL_SYNC, 2, DFLT_PARTITION_COUNT)
+            .setIndexedTypes(Integer.class, Integer.class);
+
+        startGridsMultiThreaded(2);
+
+        IgniteCache<?, ?> cache0 = grid(0).cache(DEFAULT_CACHE_NAME);
+
+        try {
+            for (int i = 0; i < 100; i++) {
+                int key = i;
+                CompletableFuture.allOf(
+                    CompletableFuture.runAsync(() -> {
+                        cache0.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, ?)").setArgs(key, key));
+                    }),
+                    CompletableFuture.runAsync(() -> {
+                        cache0.query(new SqlFieldsQuery("update Integer set _val = ? where _key = ?").setArgs(key, key));
+                    })
+                ).get();
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+
             fail("Exception is not expected here");
         }
     }
