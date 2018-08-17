@@ -325,8 +325,12 @@ public class IgniteClusterImpl extends ClusterGroupAdapter implements IgniteClus
         }
     }
 
-    /** Check permission*/
-    private void checkPermissions(SecurityPermission perm){
+    /**
+     * Check security permission.
+     *
+     * @param perm Required security permission.
+     */
+    private void checkPermissions(SecurityPermission perm) {
         ctx.security().authorize(null, perm, null);
     }
 

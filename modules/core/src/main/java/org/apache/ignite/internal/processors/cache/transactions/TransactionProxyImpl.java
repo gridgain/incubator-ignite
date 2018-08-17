@@ -392,7 +392,11 @@ public class TransactionProxyImpl<K, V> implements TransactionProxy, Externaliza
         }
     }
 
-    /** Check permission */
+    /**
+     * Check security permission.
+     *
+     * @param perm Required security permission.
+     */
     private void checkPermissions(SecurityPermission perm) {
         cctx.kernalContext().security().authorize(null, perm, null);
     }
