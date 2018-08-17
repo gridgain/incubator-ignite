@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.processors.query.h2.opt;
 
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
+import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.h2.value.Value;
 
 /**
@@ -26,6 +28,9 @@ import org.h2.value.Value;
 public class GridH2KeyRowOnheap extends GridH2Row {
     /** */
     private Value key;
+
+    /** */
+    private String stackTrace;
 
     /**
      * @param row Row.
@@ -59,5 +64,23 @@ public class GridH2KeyRowOnheap extends GridH2Row {
     /** {@inheritDoc} */
     @Override public long expireTime() {
         return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        SB sb = new SB("KeyRow@");
+
+        sb.a(Integer.toHexString(System.identityHashCode(this)));
+
+        Value v = key;
+
+        sb.a("[ key: ").a(v == null ? "nil" : v.getString());
+
+        if (key() == null)
+            sb.a(" row: ").a(row());
+
+        sb.a("]");
+
+        return sb.toString();
     }
 }

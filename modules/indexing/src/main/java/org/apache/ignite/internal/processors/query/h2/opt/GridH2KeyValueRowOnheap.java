@@ -20,7 +20,11 @@ package org.apache.ignite.internal.processors.query.h2.opt;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
+import org.apache.ignite.internal.util.GridStringBuilder;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.h2.message.DbException;
 import org.h2.value.Value;
 import org.h2.value.ValueNull;
@@ -55,6 +59,9 @@ public class GridH2KeyValueRowOnheap extends GridH2Row {
 
     /** */
     private Value ver;
+
+    /** */
+    private String stackTrace;
 
     /**
      * Constructor.
@@ -186,6 +193,9 @@ public class GridH2KeyValueRowOnheap extends GridH2Row {
 
         v = ver;
         sb.a(", ver: ").a(v == null ? "nil" : v.getString());
+
+        if (key() == null)
+            sb.a(", row: ").a(row());
 
         sb.a(" ][ ");
 

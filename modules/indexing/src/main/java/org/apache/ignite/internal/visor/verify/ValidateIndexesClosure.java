@@ -405,7 +405,10 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
                             IndexValidationIssue is = new IndexValidationIssue(
                                 o.toString(), cacheCtx.name(), idx.getName(), t);
 
-                            log.error("Failed to lookup key: " + is.toString());
+                            log.error("Failed to lookup key (process partition): " + is.toString());
+
+                            if (t instanceof NullPointerException)
+                                log.error("Null key in row:" + row.key().toString());
 
                             enoughIssues |= partRes.reportIssue(is);
                         }
@@ -510,6 +513,8 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
         while (!enoughIssues) {
             KeyCacheObject h2key = null;
 
+            GridH2Row h2Row = null;
+
             try {
                 try {
                     if (!cursor.next())
@@ -521,7 +526,7 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
                         CacheObjectUtils.unwrapBinaryIfNeeded(ctx.cacheObjectContext(), previousKey, true, true), e);
                 }
 
-                GridH2Row h2Row = (GridH2Row)cursor.get();
+                h2Row = (GridH2Row)cursor.get();
 
                 if (skipConditions) {
                     if (bothSkipConditions) {
@@ -560,7 +565,10 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
                 IndexValidationIssue is = new IndexValidationIssue(
                     String.valueOf(o), ctx.name(), idx.getName(), t);
 
-                log.error("Failed to lookup key: " + is.toString());
+                log.error("Failed to lookup key (process index): " + is.toString());
+
+                if (t instanceof NullPointerException)
+                    log.error("Null key in row:" + h2Row);
 
                 enoughIssues |= idxValidationRes.reportIssue(is);
             }

@@ -21,6 +21,7 @@ import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 
 /**
  * Row with locking support needed for unique key conflicts resolution.
@@ -84,5 +85,9 @@ public abstract class GridH2Row extends GridH2SearchRowAdapter implements CacheD
     /** {@inheritDoc} */
     @Override public int cacheId() {
         return row.cacheId();
+    }
+
+    public CacheDataRow row() {
+        return row;
     }
 }

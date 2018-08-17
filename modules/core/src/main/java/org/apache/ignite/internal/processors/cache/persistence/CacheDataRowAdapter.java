@@ -34,6 +34,7 @@ import org.apache.ignite.internal.processors.cache.persistence.tree.io.CacheVers
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -70,12 +71,25 @@ public class CacheDataRowAdapter implements CacheDataRow {
     @GridToStringInclude
     protected int cacheId;
 
+    /** */
+    @GridToStringInclude
+    protected String constrArgs;
+
+    /** */
+    @GridToStringInclude
+    protected volatile String initFromLinkArgs;
+
+
+    @GridToStringExclude
+    protected volatile String stackTrace;
+
     /**
      * @param link Link.
      */
     public CacheDataRowAdapter(long link) {
         // Link can be 0 here.
         this.link = link;
+        this.constrArgs = ("[type=constr1, link = " + link + "]");
     }
 
     /**
@@ -89,6 +103,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
         this.val = val;
         this.ver = ver;
         this.expireTime = expireTime;
+        this.constrArgs = ("[type=constr2, key=" + key + ", val=" + val + ", ver=" + ver + ", expireTime=" + expireTime + "]");
     }
 
     /**
@@ -120,6 +135,12 @@ public class CacheDataRowAdapter implements CacheDataRow {
         throws IgniteCheckedException {
         assert link != 0 : "link";
         assert key == null : "key";
+
+        this.initFromLinkArgs = ("[grp=" + grp + ", rowData=" + rowData + "]");
+
+        if (rowData == RowData.NO_KEY) {
+            this.stackTrace = U.printStackTrace();
+        }
 
         CacheObjectContext coctx = grp != null ?  grp.cacheObjectContext() : null;
 
@@ -589,6 +610,15 @@ public class CacheDataRowAdapter implements CacheDataRow {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(CacheDataRowAdapter.class, this, "link", U.hexLong(link));
+        String ret = S.toString(CacheDataRowAdapter.class, this, "link", U.hexLong(link));
+
+        if (this.stackTrace == null)
+            return ret;
+        else {
+            GridStringBuilder sb = new GridStringBuilder();
+
+            return sb.a(ret).a(this.stackTrace).toString();
+        }
     }
+
 }

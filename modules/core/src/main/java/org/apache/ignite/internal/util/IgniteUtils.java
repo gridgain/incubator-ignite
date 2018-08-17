@@ -10575,4 +10575,27 @@ public abstract class IgniteUtils {
             return cnt.get();
         }
     }
+
+    /**
+     *
+     */
+    public static String printStackTrace() {
+        GridStringBuilder sb = new GridStringBuilder();
+
+        Thread currThread = Thread.currentThread();
+
+        StackTraceElement[] stackTrace = currThread.getStackTrace();
+
+        sb.a(">>>>").a(currThread.getName()).a(U.nl());
+
+        for (int i = 0; i < stackTrace.length; i++) {
+            StackTraceElement e = stackTrace[i];
+            sb.a("        at ").a(e.toString());
+            sb.a(U.nl());
+        }
+
+        sb.a(U.nl());
+
+        return sb.toString();
+    }
 }
