@@ -18,24 +18,14 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.configuration.DataRegionConfiguration;
-import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.configuration.WALMode;
-import org.apache.ignite.internal.IgniteEx;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteFuture;
-import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
-import org.apache.ignite.transactions.TransactionConcurrency;
-import org.apache.ignite.transactions.TransactionIsolation;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
@@ -50,21 +40,11 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
     /** Caches count. */
     public static final int CACHES_CNT = 3;
 
-    /** MB. */
-    public static final long MB = 1024L * 1024;
-
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
         cfg.setCacheConfiguration(cacheConfigurations());
-
-        DataStorageConfiguration memCfg = new DataStorageConfiguration()
-            .setDefaultDataRegionConfiguration(
-                new DataRegionConfiguration().setPersistenceEnabled(true).setInitialSize(50 * MB).setMaxSize(50 * MB))
-            .setWalMode(WALMode.LOG_ONLY);
-
-        cfg.setDataStorageConfiguration(memCfg);
 
         return cfg;
     }
@@ -85,77 +65,37 @@ public class TxMultiCacheAsyncOpsTest extends GridCommonAbstractTest {
         ccfg.setBackups(2);
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
         ccfg.setOnheapCacheEnabled(false);
-        ccfg.setReadFromBackup(false);
 
         return ccfg;
     }
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        cleanPersistenceDir();
-
         startGridsMultiThreaded(GRID_COUNT);
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void afterTestsStopped() throws Exception {
-        super.afterTestsStopped();
-
-        stopAllGrids();
-
-        cleanPersistenceDir();
     }
 
     /**
      *
      */
-    public void testCommitAfterAsyncPut() throws Exception {
+    public void testCommitAfterAsyncPut() {
         CacheConfiguration[] caches = cacheConfigurations();
 
-        IgniteEx client = startGrid(getConfiguration("Client").setClientMode(true));
-
         try {
-            for (int i = 0; i < 10; i++)
-                grid(0).cache(caches[0].getName()).put(i, i);
+            for (int i = 0; i < caches.length; i++)
+                grid(0).cache(caches[i].getName()).put(1, i + 1);
 
-            List<Integer> keys = primaryKeys(grid(0).cache(caches[0].getName()), 4);
-
-            try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.READ_COMMITTED)) {
-                client.cache(caches[0].getName()).getAll(new HashSet<>(keys.subList(0, 2)));
-
-                tx.commit();
-            }
-            catch (Exception e) {
-                // No-op.
-            }
-
-            try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
-                client.cache(caches[0].getName()).getAll(new HashSet<>(keys.subList(2, 4)));
+            try (Transaction tx = grid(0).transactions().txStart()) {
+                for (int i = 0; i < caches.length; i++)
+                    grid(0).cache(caches[i].getName()).putAsync(1, (i + 1) * 10);
 
                 tx.commit();
             }
             catch (Exception e) {
-                // No-op.
+                System.out.println();
             }
 
-            client.cache(caches[0].getName()).get(keys.get(0));
-
-            grid(0).context().io().dumpProcessedMessagesStats();
-
-            client.cache(caches[0].getName()).get(keys.get(0));
-            client.cache(caches[0].getName()).get(keys.get(1));
-
-            grid(0).context().io().dumpProcessedMessagesStats();
-
-            client.cache(caches[0].getName()).get(keys.get(0));
-            client.cache(caches[1].getName()).get(keys.get(1));
-
-            grid(0).context().io().dumpProcessedMessagesStats();
-
-            for (int i = 0; i < 10_050; i++)
-                client.cache(caches[0].getName()).get(keys.get(0));
-
-            grid(0).context().io().dumpProcessedMessagesStats();
+            for (int i = 0; i < caches.length; i++)
+                assertEquals((i + 1) * 10, grid(0).cache(caches[i].getName()).get(1));
         }
         finally {
             for (int i = 0; i < caches.length; i++)
