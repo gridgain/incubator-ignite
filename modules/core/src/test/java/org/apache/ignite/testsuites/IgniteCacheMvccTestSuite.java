@@ -44,6 +44,7 @@ public class IgniteCacheMvccTestSuite extends TestSuite {
         suite.addTestSuite(CacheMvccPartitionedCoordinatorFailoverTest.class);
         suite.addTestSuite(CacheMvccReplicatedCoordinatorFailoverTest.class);
         suite.addTestSuite(DataStreamProcessorSelfTest.class);
+        suite.addTestSuite(CacheMvccPartitionCountersTest.class);
 
         return suite;
     }

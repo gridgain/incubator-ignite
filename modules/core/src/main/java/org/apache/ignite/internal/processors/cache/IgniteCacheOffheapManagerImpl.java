@@ -1522,6 +1522,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
         /** {@inheritDoc} */
         @Override public long nextUpdateCounter() {
+            assert !grp.mvccEnabled();
+
             return cntr.incrementAndGet();
         }
 
@@ -1532,7 +1534,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
         /** {@inheritDoc} */
         @Override public void updateCounter(long val) {
-            if (MvccUtils.mvccEnabled(ctx.kernalContext()) && val > mvccUpdCntr.get())
+            if (grp.mvccEnabled() && val > mvccUpdCntr.get())
                 updateMvccCounter(val);
 
             while (true) {
@@ -2809,6 +2811,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             storageSize.set(size);
 
             cntr.set(updCntr);
+
+            if (grp.mvccEnabled())
+                mvccUpdCntr.set(updCntr);
 
             if (cacheSizes != null) {
                 for (Map.Entry<Integer, Long> e : cacheSizes.entrySet())

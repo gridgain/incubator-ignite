@@ -1457,10 +1457,17 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             if (cctx.deferredDelete() && deletedUnlocked() && !isInternal() && !detached())
                 deletedUnlocked(false);
 
-            updateCntr0 = nextPartitionCounter(topVer, tx == null || tx.local(), updateCntr);
+            if (cctx.mvccEnabled()) {
+                assert tx.local() && updateCntr == null || !tx.local() && updateCntr != null && updateCntr > 0;
 
-            if (updateCntr != null && updateCntr != 0)
-                updateCntr0 = updateCntr;
+                updateCntr0 = tx.local() ? nextMvccPartitionCounter() : updateCntr;
+            }
+            else {
+                updateCntr0 = nextPartitionCounter(topVer, tx == null || tx.local(), updateCntr);
+
+                if (updateCntr != null && updateCntr != 0)
+                    updateCntr0 = updateCntr;
+            }
 
             if (tx != null && cctx.group().persistenceEnabled() && cctx.group().walEnabled())
                 logPtr = logTxUpdate(tx, val, expireTime, updateCntr0);
@@ -1661,10 +1668,17 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 }
             }
 
-            updateCntr0 = nextPartitionCounter(topVer, tx == null || tx.local(), updateCntr);
+            if (cctx.mvccEnabled()) {
+                assert tx.local() && updateCntr == null || !tx.local() && updateCntr != null && updateCntr > 0;
 
-            if (updateCntr != null && updateCntr != 0)
-                updateCntr0 = updateCntr;
+                updateCntr0 = tx.local() ? nextMvccPartitionCounter() : updateCntr;
+            }
+            else {
+                updateCntr0 = nextPartitionCounter(topVer, tx == null || tx.local(), updateCntr);
+
+                if (updateCntr != null && updateCntr != 0)
+                    updateCntr0 = updateCntr;
+            }
 
             if (tx != null && cctx.group().persistenceEnabled() && cctx.group().walEnabled())
                 logPtr = logTxUpdate(tx, null, 0, updateCntr0);

@@ -65,11 +65,13 @@ import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.util.future.GridCompoundIdentityFuture;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.lang.GridInClosure3;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
+import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -1494,6 +1496,8 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
             checkActiveQueriesCleanup(node);
         }
+
+        verifyPartitionCounters();
     }
 
     /**
@@ -1550,6 +1554,40 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
         }
 
         return true;
+    }
+
+    /**
+     * Checks update counters on different nodes.
+     * @throws Exception If failed.
+     */
+    protected void verifyPartitionCounters() throws Exception {
+        Map<T2<Integer, Integer>, T2<Long, Long>> partsCntrs = new HashMap<>();
+
+        for (Ignite node : G.allGrids()) {
+            for (IgniteCacheProxy cache : ((IgniteKernal)node).caches()) {
+                GridCacheContext cctx = cache.context();
+
+                if (!cctx.userCache() || !cctx.group().mvccEnabled())
+                    continue;
+
+                for (GridDhtLocalPartition part : cctx.dhtCache().topology().localPartitions()) {
+                    long mvccPartCntr = part.mvccUpdateCounter();
+                    long partCntr = part.updateCounter();
+
+                    assertTrue("node=" + node.name() + ", mvccPartCntr="+ mvccPartCntr + ", partCntr=" + partCntr, mvccPartCntr >= partCntr);
+
+                    T2<Integer, Integer> k = new T2<>(cctx.cacheId(), part.id());
+                    T2<Long, Long> cntrs = partsCntrs.get(k);
+
+                    if (cntrs == null)
+                        partsCntrs.put(k, new T2<>(partCntr, mvccPartCntr));
+                    else {
+                        assertTrue("remote partCntr="+ cntrs.get1() + ", partCntr=" + partCntr, cntrs.get1() == partCntr);
+                        assertTrue("remote mvccPartCntr="+ cntrs.get2() + ", partCntr=" + partCntr, cntrs.get2() >= partCntr);
+                    }
+                }
+            }
+        }
     }
 
     /**
