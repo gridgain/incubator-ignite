@@ -1368,7 +1368,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                     clo.apply(stat, msg0, duration);
                 }
                 catch (Throwable e) {
-                    e.printStackTrace();
+                    log.error("Failed to apply stat closure", e);
                 }
         }
     }
