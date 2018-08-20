@@ -90,6 +90,11 @@ public enum SecurityPermission {
     /** Cancel (rollback) transaction permission. */
     ADMIN_CANCEL_TX;
 
+    /** Cache continuous query start permission. */
+    CACHE_CONTINUOUS_QUERY_START,
+
+    /** Cache continuous query stop permission. */
+    CACHE_CONTINUOUS_QUERY_STOP;
 
     /** Enumerated values. */
     private static final SecurityPermission[] VALS = values();
