@@ -88,7 +88,7 @@ public enum SecurityPermission {
     COMPUTE_DEPLOY,
 
     /** Cancel (rollback) transaction permission. */
-    ADMIN_CANCEL_TX;
+    ADMIN_CANCEL_TX,
 
     /** Cache continuous query start permission. */
     CACHE_CONTINUOUS_QUERY_START,
