@@ -49,6 +49,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.Ign
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteHistoricalIterator;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteRebalanceIteratorImpl;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersion;
 import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
@@ -1531,6 +1532,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
         /** {@inheritDoc} */
         @Override public void updateCounter(long val) {
+            if (MvccUtils.mvccEnabled(ctx.kernalContext()) && val > mvccUpdCntr.get())
+                updateMvccCounter(val);
+
             while (true) {
                 long val0 = cntr.get();
 
@@ -1538,6 +1542,23 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     break;
 
                 if (cntr.compareAndSet(val0, val))
+                    break;
+            }
+        }
+
+        /**
+         * Updates mvcc counter if needed.
+         *
+         * @param val New value.
+         */
+        private void updateMvccCounter(long val) {
+            while (true) {
+                long val0 = mvccUpdCntr.get();
+
+                if (val0 >= val)
+                    break;
+
+                if (mvccUpdCntr.compareAndSet(val0, val))
                     break;
             }
         }
