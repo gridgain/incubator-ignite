@@ -1522,8 +1522,6 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
         /** {@inheritDoc} */
         @Override public long nextUpdateCounter() {
-            assert !grp.mvccEnabled();
-
             return cntr.incrementAndGet();
         }
 

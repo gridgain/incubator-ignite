@@ -1574,17 +1574,13 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                     long mvccPartCntr = part.mvccUpdateCounter();
                     long partCntr = part.updateCounter();
 
-                    assertTrue("node=" + node.name() + ", mvccPartCntr="+ mvccPartCntr + ", partCntr=" + partCntr, mvccPartCntr >= partCntr);
-
                     T2<Integer, Integer> k = new T2<>(cctx.cacheId(), part.id());
                     T2<Long, Long> cntrs = partsCntrs.get(k);
 
                     if (cntrs == null)
                         partsCntrs.put(k, new T2<>(partCntr, mvccPartCntr));
-                    else {
-                        assertTrue("remote partCntr="+ cntrs.get1() + ", partCntr=" + partCntr, cntrs.get1() == partCntr);
-                        assertTrue("remote mvccPartCntr="+ cntrs.get2() + ", partCntr=" + partCntr, cntrs.get2() >= partCntr);
-                    }
+                    else
+                        assertEquals((long)cntrs.get1(), partCntr);
                 }
             }
         }
