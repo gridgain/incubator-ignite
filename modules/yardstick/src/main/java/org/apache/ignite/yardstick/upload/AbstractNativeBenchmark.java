@@ -35,8 +35,11 @@ public abstract class AbstractNativeBenchmark extends IgniteAbstractBenchmark {
     /** Name of the {@link #cache} */
     private String cacheName;
 
+//    /** Cache method {@link test(Map)} uploads data to */
+//    private IgniteCache<Long, Values10> cache;
+
     /** Cache method {@link test(Map)} uploads data to */
-    private IgniteCache<Long, Values10> cache;
+    private IgniteCache<Integer, Integer> cache;
 
     /**
      * Sets up benchmark: performs warmup on one cache and creates another for {@link #test(Map)} method.
@@ -58,7 +61,7 @@ public abstract class AbstractNativeBenchmark extends IgniteAbstractBenchmark {
         BenchmarkUtils.println(cfg, "Starting custom warmup.");
         String warmupCacheName = cacheName + "Warmup";
 
-        try (IgniteCache<Long, Values10> warmupCache = ignite().createCache(warmupCacheName)) {
+        try (IgniteCache<Integer, Integer> warmupCache = ignite().createCache(warmupCacheName)) {
             upload(warmupCacheName, warmupRowsCnt);
         }
         finally {
