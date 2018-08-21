@@ -17,10 +17,9 @@
 
 package org.apache.ignite.yardstick.upload;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import org.apache.ignite.IgniteDataStreamer;
-import org.apache.ignite.yardstick.upload.model.Values10;
 
 /**
  * Benchmark that performs single upload of number of entries using {@link IgniteDataStreamer}.
@@ -33,31 +32,27 @@ public class IntegerStreamerBenchmark extends AbstractNativeBenchmark {
      * @param insertsCnt - how many entries should be uploaded.
      */
     @Override protected void upload(String cacheName, long insertsCnt) {
-        try (IgniteDataStreamer<Integer, Integer> streamer = ignite().dataStreamer(cacheName)) {
-            if (args.upload.streamerPerNodeBufferSize() != null)
-                streamer.perNodeBufferSize(args.upload.streamerPerNodeBufferSize());
-
-            if (args.upload.streamerPerNodeParallelOperations() != null)
-                streamer.perNodeParallelOperations(args.upload.streamerPerNodeParallelOperations());
-
-            if (args.upload.streamerAllowOverwrite() != null)
-                streamer.allowOverwrite(args.upload.streamerAllowOverwrite());
-
+        try (IgniteDataStreamer<Integer, Integer> streamer = getStreamer(cacheName)) {
             Integer batchSize = args.upload.streamerLocalBatchSize();
 
             // IgniteDataStreamer.addData(Object, Object) has known performance issue,
             // so we have an option to work it around.
             if (batchSize == null) {
-                for (int i = 1; i <= insertsCnt; i++)
-                    streamer.addData(i, i);
+                for (int i = 1; i <= insertsCnt; i++) {
+                    int key = nextRandom(args.range());
+
+                    streamer.addData(key, key);
+                }
             }
             else {
-                Map<Integer, Integer> buf = new HashMap<>(batchSize);
+                Map<Integer, Integer> buf = new TreeMap<>();
 
                 for (int i = 1; i <= insertsCnt; i++) {
-                    buf.put(i, i);
+                    int key = nextRandom(args.range());
 
-                    if (i % batchSize == 0 || i == insertsCnt) {
+                    buf.put(key, key);
+
+                    if (i > 0 && i % batchSize == 0 || i == insertsCnt) {
                         streamer.addData(buf);
 
                         buf.clear();
@@ -65,5 +60,26 @@ public class IntegerStreamerBenchmark extends AbstractNativeBenchmark {
                 }
             }
         }
+    }
+
+    /**
+     * @param cacheName Cache name.
+     * @param <K> Key type.
+     * @param <V> Value type.
+     * @return {@link IgniteDataStreamer} instance for the specified cache.
+     */
+    private <K, V> IgniteDataStreamer<K, V> getStreamer(String cacheName) {
+        IgniteDataStreamer<K, V> streamer = ignite().dataStreamer(cacheName);
+
+        if (args.upload.streamerPerNodeBufferSize() != null)
+            streamer.perNodeBufferSize(args.upload.streamerPerNodeBufferSize());
+
+        if (args.upload.streamerPerNodeParallelOperations() != null)
+            streamer.perNodeParallelOperations(args.upload.streamerPerNodeParallelOperations());
+
+        if (args.upload.streamerAllowOverwrite() != null)
+            streamer.allowOverwrite(args.upload.streamerAllowOverwrite());
+
+        return streamer;
     }
 }
