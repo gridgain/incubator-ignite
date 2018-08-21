@@ -26,42 +26,63 @@ import org.apache.ignite.transactions.TransactionIsolation;
 
 import javax.cache.Cache;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.sun.corba.se.impl.util.RepositoryId.cache;
 
 /**
  * Starts up an empty node with example compute configuration.
  */
 public class AnutaApp {
+    private static final int TX_CNT = 100;
+    private static final int ENTRY_CNT = 1000;
+
     /**
      * Start up an empty node with example compute configuration.
      *
      * @param args Command line arguments, none required.
      * @throws IgniteException If failed.
      */
-    public static void main(String[] args) throws IgniteException {
+    public static void main(String[] args) throws IgniteException, InterruptedException {
         try (Ignite ignite = Ignition.start("examples/config/anuta-ignite-simple.xml")) {
             Cache<String, String> cache = ignite.cache("task_execution_data");
-
-            final int TX_CNT = 100;
-            final int ENTRY_CNT = 10_000;
+            ExecutorService executorSvc = Executors.newFixedThreadPool(10);
 
             for (int t = 0; t < TX_CNT; t++) {
-                BiFunction<Integer, Integer, String> getKey = (n1, n2) -> String.format("%s-%s", n1, n2);
+                executorSvc.execute(() -> {
+                    try (Transaction tx = ignite.transactions().txStart(TransactionConcurrency.OPTIMISTIC, TransactionIsolation.SERIALIZABLE)) {
+                        for (int e = 0; e < ENTRY_CNT; e++) {
+                            String key = Integer.toString(e);
+                            if (!cache.containsKey(key))
+                                cache.put(key, UUID.randomUUID().toString());
+                        }
 
-                try (Transaction ignored = ignite.transactions().txStart(TransactionConcurrency.OPTIMISTIC, TransactionIsolation.SERIALIZABLE)) {
-                    for (int e = 0; e < ENTRY_CNT; e++)
-                        cache.put(getKey.apply(t, e), UUID.randomUUID().toString());
-                }
+                        tx.commit();
+                    }
+                });
 
-                try (Transaction ignored = ignite.transactions().txStart(TransactionConcurrency.OPTIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
-                    for (int e = 0; e < ENTRY_CNT; e++)
-                        cache.get(getKey.apply(t, e));
-                }
+                executorSvc.execute(() -> {
+                    try (Transaction tx = ignite.transactions().txStart(TransactionConcurrency.OPTIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
+                        for (int e = 0; e < ENTRY_CNT; e++) {
+                            String key = Integer.toString(e);
+                            if (cache.containsKey(key))
+                                cache.remove(key);
+                        }
+
+                        tx.commit();
+                    }
+                });
 
                 System.out.format("TX %s\n", t);
             }
+
+            executorSvc.awaitTermination(10, TimeUnit.MINUTES);
         }
     }
 }
