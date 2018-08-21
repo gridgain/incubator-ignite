@@ -46,6 +46,7 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteReducer;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.plugin.security.SecurityPermission;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -316,7 +317,7 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
 
     /**
      * Affinity call implementation.
-
+     *
      * @param cacheName Cache name.
      * @param affKey Affinity key.
      * @param job Job.
@@ -370,7 +371,7 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
 
     /**
      * Affinity call implementation.
-
+     *
      * @param cacheNames Cache names collection.
      * @param affKey Affinity key.
      * @param job Job.
@@ -427,7 +428,7 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
 
     /**
      * Affinity call implementation.
-
+     *
      * @param cacheNames Cache names collection.
      * @param partId Partition ID.
      * @param job Job.
@@ -1045,6 +1046,8 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
         guard();
 
         try {
+            checkPermissions(taskCls.getName(), SecurityPermission.COMPUTE_DEPLOY);
+
             GridDeployment dep = ctx.deploy().deploy(taskCls, clsLdr);
 
             if (dep == null)
@@ -1056,6 +1059,16 @@ public class IgniteComputeImpl extends AsyncSupportAdapter<IgniteCompute>
         finally {
             unguard();
         }
+    }
+
+    /**
+     * Check security permission.
+     *
+     * @param name Resource name which require check access.
+     * @param perm Required security permission.
+     */
+    private void checkPermissions(String name, SecurityPermission perm) {
+        ctx.security().authorize(name, perm, null);
     }
 
     /** {@inheritDoc} */

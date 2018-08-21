@@ -75,6 +75,21 @@ public enum SecurityPermission {
     /** Join as server node permission. */
     JOIN_AS_SERVER,
 
+    /** Cluster activation permission. */
+    ADMIN_CLUSTER_ACTIVATE,
+
+    /** Cluster deactivation permission. */
+    ADMIN_CLUSTER_DEACTIVATE,
+
+    /** Baseline change permission. */
+    BASELINE_CHANGE,
+
+    /** Compute deploy permission. */
+    COMPUTE_DEPLOY,
+
+    /** Cancel (rollback) transaction permission. */
+    ADMIN_CANCEL_TX,
+
     /** Cache continuous query start permission. */
     CACHE_CONTINUOUS_QUERY_START,
 
