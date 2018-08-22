@@ -60,6 +60,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.StaticMvccQueryTracker;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.cache.query.SqlFieldsQueryEx;
 import org.apache.ignite.internal.processors.odbc.SqlStateCode;
+import org.apache.ignite.internal.processors.query.EnlistOperation;
 import org.apache.ignite.internal.processors.query.GridQueryCacheObjectsIterator;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.GridQueryFieldsResult;
@@ -525,15 +526,15 @@ public class DmlStatementsProcessor {
 
                     UpdateSourceIterator<?> it;
 
-                    GridCacheOperation op = cacheOperation(plan.mode());
-
                     if (plan.fastResult()) {
                         IgniteBiTuple row = plan.getFastRow(fieldsQry.getArgs());
 
-                        it = new DmlUpdateSingleEntryIterator<>(op, op == GridCacheOperation.DELETE ? row.getKey() : row);
+                        EnlistOperation op = UpdatePlan.enlistOperation(plan.mode());
+
+                        it = new DmlUpdateSingleEntryIterator<>(op, op == EnlistOperation.DELETE ? row.getKey() : row);
                     }
                     else if (plan.hasRows())
-                        it = new DmlUpdateResultsIterator(op, plan, plan.createRows(fieldsQry.getArgs()));
+                        it = new DmlUpdateResultsIterator(UpdatePlan.enlistOperation(plan.mode()), plan, plan.createRows(fieldsQry.getArgs()));
                     else {
                         // TODO IGNITE-8865 if there is no ORDER BY statement it's no use to retain entries order on locking (sequential = false).
                         SqlFieldsQuery newFieldsQry = new SqlFieldsQuery(plan.selectQuery(), fieldsQry.isCollocated())
@@ -547,7 +548,7 @@ public class DmlStatementsProcessor {
                         FieldsQueryCursor<List<?>> cur = idx.querySqlFields(schemaName, newFieldsQry, null,
                             true, true, mvccTracker(cctx, tx), cancel).get(0);
 
-                        it = plan.iteratorForTransaction(idx, cur, op);
+                        it = plan.iteratorForTransaction(idx, cur);
                     }
 
                     IgniteInternalFuture<Long> fut = tx.updateAsync(cctx, it,
@@ -1176,7 +1177,7 @@ public class DmlStatementsProcessor {
             }, cancel);
         }
 
-        return plan.iteratorForTransaction(idx, cur, cacheOperation(plan.mode()));
+        return plan.iteratorForTransaction(idx, cur);
     }
 
     /**
@@ -1357,25 +1358,6 @@ public class DmlStatementsProcessor {
     }
 
     /**
-     * @param mode Update mode.
-     * @return Cache operation.
-     */
-    private static GridCacheOperation cacheOperation(UpdateMode mode) {
-        switch (mode) {
-            case INSERT:
-                return GridCacheOperation.CREATE;
-            case MERGE:
-            case UPDATE:
-                return GridCacheOperation.UPDATE;
-            case DELETE:
-                return GridCacheOperation.DELETE;
-
-            default:
-                throw new UnsupportedOperationException(String.valueOf(mode));
-        }
-    }
-
-    /**
      * Check update result for erroneous keys and throws concurrent update exception if necessary.
      *
      * @param r Update result.
@@ -1426,7 +1408,7 @@ public class DmlStatementsProcessor {
         private static final long serialVersionUID = 0L;
 
         /** */
-        private GridCacheOperation op;
+        private EnlistOperation op;
 
         /** */
         private UpdatePlan plan;
@@ -1435,14 +1417,14 @@ public class DmlStatementsProcessor {
         private Iterator<List<?>> it;
 
         /** */
-        DmlUpdateResultsIterator(GridCacheOperation op, UpdatePlan plan, Iterable<List<?>> rows) {
+        DmlUpdateResultsIterator(EnlistOperation op, UpdatePlan plan, Iterable<List<?>> rows) {
             this.op = op;
             this.plan = plan;
             this.it = rows.iterator();
         }
 
         /** {@inheritDoc} */
-        @Override public GridCacheOperation operation() {
+        @Override public EnlistOperation operation() {
             return op;
         }
 
@@ -1463,7 +1445,7 @@ public class DmlStatementsProcessor {
         private static final long serialVersionUID = 0L;
 
         /** */
-        private GridCacheOperation op;
+        private EnlistOperation op;
 
         /** */
         private boolean first = true;
@@ -1472,13 +1454,13 @@ public class DmlStatementsProcessor {
         private T entry;
 
         /** */
-        DmlUpdateSingleEntryIterator(GridCacheOperation op, T entry) {
+        DmlUpdateSingleEntryIterator(EnlistOperation op, T entry) {
             this.op = op;
             this.entry = entry;
         }
 
         /** {@inheritDoc} */
-        @Override public GridCacheOperation operation() {
+        @Override public EnlistOperation operation() {
             return op;
         }
 

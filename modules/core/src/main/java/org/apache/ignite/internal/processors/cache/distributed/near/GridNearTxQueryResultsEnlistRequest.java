@@ -28,11 +28,11 @@ import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheIdMessage;
-import org.apache.ignite.internal.processors.cache.GridCacheOperation;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.query.EnlistOperation;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -40,9 +40,6 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
-
-import static org.apache.ignite.internal.processors.cache.GridCacheOperation.DELETE;
-import static org.apache.ignite.internal.processors.cache.GridCacheOperation.READ;
 
 /**
  * Request to enlist into transaction and acquire locks for entries produced
@@ -100,7 +97,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
     private CacheObject[] values;
 
     /** */
-    private GridCacheOperation op;
+    private EnlistOperation op;
 
     /** */
     private boolean fastUpdate;
@@ -126,7 +123,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
      * @param txTimeout Tx timeout.
      * @param taskNameHash Task name hash.
      * @param rows Rows.
-     * @param op Cache operation.
+     * @param op Operation.
      */
     GridNearTxQueryResultsEnlistRequest(int cacheId,
         long threadId,
@@ -140,7 +137,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
         long timeout,
         long txTimeout, int taskNameHash,
         Collection<Object> rows,
-        GridCacheOperation op,
+        EnlistOperation op,
         boolean fastUpdate) {
         this.txTimeout = txTimeout;
         this.cacheId = cacheId;
@@ -244,9 +241,9 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
     }
 
     /**
-     * @return Cache operation.
+     * @return Operation.
      */
-    public GridCacheOperation operation() {
+    public EnlistOperation operation() {
         return op;
     }
 
@@ -269,7 +266,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
 
             int i = 0;
 
-            values = (op == DELETE || op == READ) ? null : new CacheObject[keys.length];
+            values = op.modifiesValue() ? new CacheObject[keys.length] : null;
 
             for (Object row : rows) {
                 Object key, val = null;
@@ -281,7 +278,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
                 else
                     key = row;
 
-                assert key != null && (op == DELETE || op == READ || val != null): "key=" + key + ", val=" + val;
+                assert key != null && (!op.modifiesValue() || val != null): "key=" + key + ", val=" + val;
 
                 KeyCacheObject key0 = cctx.toCacheKeyObject(key);
 
@@ -318,7 +315,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
             for (int i = 0; i < keys.length; i++) {
                 keys[i].finishUnmarshal(objCtx, ldr);
 
-                if (op == DELETE || op == READ)
+                if (!op.modifiesValue())
                     rows.add(keys[i]);
                 else {
                     if (values[i] != null)
@@ -518,7 +515,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
                 if (!reader.isLastRead())
                     return false;
 
-                op = GridCacheOperation.fromOrdinal(opOrd);
+                op = EnlistOperation.fromOrdinal(opOrd);
 
                 reader.incrementState();
 

@@ -1037,7 +1037,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         MvccSnapshot mvccVer,
         GridCacheOperation op,
         boolean needHistory,
-        boolean fastUpdate) throws IgniteCheckedException, GridCacheEntryRemovedException {
+        boolean fastUpdate,
+        boolean noCreate) throws IgniteCheckedException, GridCacheEntryRemovedException {
         assert tx != null;
 
         final boolean valid = valid(tx.topologyVersion());
@@ -1078,7 +1079,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             assert val != null;
 
             res = cctx.offheap().mvccUpdate(
-                this, val, newVer, expireTime, mvccVer, tx.local(), needHistory, fastUpdate, op == UPDATE);
+                this, val, newVer, expireTime, mvccVer, tx.local(), needHistory, fastUpdate, noCreate);
 
             assert res != null;
 
@@ -1091,7 +1092,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             if (res.resultType() == ResultType.VERSION_MISMATCH)
                 throw new IgniteSQLException("Mvcc version mismatch.", CONCURRENT_UPDATE);
-            else if (op == UPDATE && res.resultType() == ResultType.PREV_NULL)
+            else if (noCreate && res.resultType() == ResultType.PREV_NULL)
                 return new GridCacheUpdateTxResult(false);
             else if (res.resultType() == ResultType.LOCKED) {
                 unlockEntry();
@@ -1103,7 +1104,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 IgniteInternalFuture<?> lockFut = cctx.kernalContext().coordinators().waitFor(cctx, lockVer);
 
                 lockFut.listen(new MvccUpdateLockListener(tx, this, affNodeId, topVer, val, ttl0, updateCntr, mvccVer,
-                    op, needHistory, fastUpdate, op == UPDATE, resFut));
+                    op, needHistory, fastUpdate, noCreate, resFut));
 
                 return new GridCacheUpdateTxResult(false, resFut);
             }
