@@ -49,7 +49,6 @@
     <None Include="..\..\config\cache-query-continuous-32.xml" />
     <None Include="..\..\config\cache-query-continuous-default.xml" />
     <None Include="..\..\config\isolated.xml" />
-    <None Include="..\..\config\isolated.xml" />
     <None Include="..\..\config\isolated-32.xml" />
     <None Include="..\..\config\isolated-default.xml" />
     <None Include="..\..\config\persistence-store.xml" />
