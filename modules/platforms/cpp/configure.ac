@@ -19,7 +19,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([Apache Ignite C++], [2.5.0.26265], [dev@ignite.apache.org], [ignite], [ignite.apache.org])
+AC_INIT([Apache Ignite C++], [2.7.0.30114], [dev@ignite.apache.org], [ignite], [ignite.apache.org])
 
 AC_CANONICAL_HOST
 AC_CONFIG_MACRO_DIR([m4])
@@ -114,8 +114,10 @@ AC_CONFIG_FILES([ \
     core/ignite.pc \
     jni/include/Makefile \
     jni/Makefile \
-    thin_client/include/Makefile \
-    thin_client/Makefile \
+    thin-client/include/Makefile \
+    thin-client/Makefile \
+    thin-client-test/include/Makefile \
+    thin-client-test/Makefile \
     ignite/Makefile \
 ])
 

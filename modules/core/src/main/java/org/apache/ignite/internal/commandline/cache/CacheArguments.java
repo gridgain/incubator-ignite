@@ -46,8 +46,20 @@ public class CacheArguments {
     /** Max print. */
     private int maxPrint;
 
+    /** validate_indexes 'checkFirst' argument */
+    private int checkFirst = -1;
+
+    /** validate_indexes 'checkThrough' argument */
+    private int checkThrough = -1;
+
     /** Cache view command. */
     private @Nullable VisorViewCacheCmd cacheCmd;
+
+    /** Calculate partition hash and print into standard output. */
+    private boolean dump;
+
+    /** Skip zeros partitions. */
+    private boolean skipZeros;
 
     /**
      * @return Command.
@@ -159,5 +171,61 @@ public class CacheArguments {
      */
     public void maxPrint(int maxPrint) {
         this.maxPrint = maxPrint;
+    }
+
+    /**
+     *  @return Max number of entries to be checked.
+     */
+    public int checkFirst() {
+        return checkFirst;
+    }
+
+    /**
+     * @param checkFirst Max number of entries to be checked.
+     */
+    public void checkFirst(int checkFirst) {
+        this.checkFirst = checkFirst;
+    }
+
+    /**
+     * @return Number of entries to check through.
+     */
+    public int checkThrough() {
+        return checkThrough;
+    }
+
+    /**
+     * @param checkThrough Number of entries to check through.
+     */
+    public void checkThrough(int checkThrough) {
+        this.checkThrough = checkThrough;
+    }
+
+    /**
+     * @return Calculate partition hash and print into standard output.
+     */
+    public boolean dump() {
+        return dump;
+    }
+
+    /**
+     * @param dump Calculate partition hash and print into standard output.
+     */
+    public void dump(boolean dump) {
+        this.dump = dump;
+    }
+
+    /**
+     * @return Skip zeros partitions(size == 0) in result.
+     */
+    public boolean isSkipZeros() {
+        return skipZeros;
+    }
+
+    /**
+     * @param skipZeros Skip zeros partitions.
+     */
+    public void skipZeros(boolean skipZeros) {
+        this.skipZeros = skipZeros;
     }
 }

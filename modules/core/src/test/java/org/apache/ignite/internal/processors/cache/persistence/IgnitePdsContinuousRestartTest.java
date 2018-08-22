@@ -80,10 +80,12 @@ public class IgnitePdsContinuousRestartTest extends GridCommonAbstractTest {
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
 
+        cfg.setConsistentId(gridName);
+
         DataStorageConfiguration memCfg = new DataStorageConfiguration()
             .setDefaultDataRegionConfiguration(
                 new DataRegionConfiguration()
-                    .setMaxSize(400 * 1024 * 1024)
+                    .setMaxSize(400L * 1024 * 1024)
                     .setPersistenceEnabled(true))
             .setWalMode(WALMode.LOG_ONLY)
             .setCheckpointFrequency(checkpointDelay);

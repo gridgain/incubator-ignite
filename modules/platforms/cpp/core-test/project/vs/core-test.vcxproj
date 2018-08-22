@@ -40,21 +40,22 @@
     <None Include="..\..\config\cache-query-32.xml" />
     <None Include="..\..\config\cache-query-default.xml" />
     <None Include="..\..\config\cache-store.xml" />
-    <None Include="..\..\config\cache-test-32.xml" />
+    <None Include="..\..\config\cache-store-32.xml" />
     <None Include="..\..\config\cache-store-default.xml" />
     <None Include="..\..\config\cache-test.xml" />
-    <None Include="..\..\config\cache-store-32.xml" />
+    <None Include="..\..\config\cache-test-32.xml" />
     <None Include="..\..\config\cache-test-default.xml" />
     <None Include="..\..\config\cache-query-continuous.xml" />
     <None Include="..\..\config\cache-query-continuous-32.xml" />
     <None Include="..\..\config\cache-query-continuous-default.xml" />
-    <None Include="..\..\config\invalid.xml" />
+    <None Include="..\..\config\isolated.xml" />
     <None Include="..\..\config\isolated.xml" />
     <None Include="..\..\config\isolated-32.xml" />
     <None Include="..\..\config\isolated-default.xml" />
     <None Include="..\..\config\persistence-store.xml" />
     <None Include="..\..\config\persistence-store-32.xml" />
     <None Include="..\..\config\persistence-store-default.xml" />
+    <None Include="..\..\config\invalid.xml" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\binary_object_test.cpp" />
