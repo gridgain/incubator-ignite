@@ -43,9 +43,6 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
     /** */
     private Iterator<Object> it;
 
-    /** */
-    private final boolean fastUpdate;
-
     /**
      * @param nearNodeId Near node ID.
      * @param nearLockVer Near lock version.
@@ -58,7 +55,6 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
      * @param cctx Cache context.
      * @param rows Collection of rows.
      * @param op Operation.
-     * @param fastUpdate True if fast update mode should be used.
      */
     public GridDhtTxQueryResultsEnlistFuture(UUID nearNodeId,
         GridCacheVersion nearLockVer,
@@ -70,8 +66,7 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
         long timeout,
         GridCacheContext<?, ?> cctx,
         Collection<Object> rows,
-        EnlistOperation op,
-        boolean fastUpdate) {
+        EnlistOperation op) {
         super(nearNodeId,
             nearLockVer,
             mvccSnapshot,
@@ -84,7 +79,6 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
             cctx);
 
         this.op = op;
-        this.fastUpdate = fastUpdate;
 
         it = rows.iterator();
 
@@ -132,10 +126,5 @@ public final class GridDhtTxQueryResultsEnlistFuture extends GridDhtTxAbstractEn
     /** {@inheritDoc} */
     public Object nextX() {
         return it.next();
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean isDirect() {
-        return fastUpdate;
     }
 }

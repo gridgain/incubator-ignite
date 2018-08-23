@@ -1476,10 +1476,5 @@ public class DmlStatementsProcessor {
 
             return res;
         }
-
-        /** {@inheritDoc} */
-        @Override public boolean isDirect() {
-            return true;
-        }
     }
 }

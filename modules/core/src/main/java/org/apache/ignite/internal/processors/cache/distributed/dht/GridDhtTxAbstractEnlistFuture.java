@@ -391,7 +391,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
                                         null,
                                         mvccSnapshot,
                                         isMoving(key.partition()),
-                                        it.isDirect());
+                                        op.isFastUpdate());
 
                                     break;
 
@@ -408,7 +408,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
                                         mvccSnapshot,
                                         op.cacheOperation(),
                                         isMoving(key.partition()),
-                                        op != EnlistOperation.INSERT && it.isDirect(),
+                                        op.isFastUpdate(),
                                         op == EnlistOperation.UPDATE);
 
                                     break;

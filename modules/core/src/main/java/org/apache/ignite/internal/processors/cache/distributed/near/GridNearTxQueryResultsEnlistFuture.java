@@ -418,8 +418,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridNearTxAbstractEnlist
             tx.remainingTime(),
             tx.taskNameHash(),
             batchFut.rows(),
-            it.operation(),
-            it.isDirect());
+            it.operation());
 
         sendRequest(req, nodeId);
     }
@@ -468,8 +467,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridNearTxAbstractEnlist
             remainingTime(),
             cctx,
             rows,
-            it.operation(),
-            it.isDirect());
+            it.operation());
 
         updateLocalFuture(fut);
 

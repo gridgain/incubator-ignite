@@ -68,6 +68,17 @@ public enum EnlistOperation {
         return this == DELETE || this == LOCK;
     }
 
+    /**
+     * During mvcc transaction processing confliction row version could be met in storage.
+     * Not all such cases should lead to transaction abort.
+     * E.g. if UPDATE for a row meets concurrent INSERT for the same row
+     * (and row did not exist before both operations) then it means that UPDATE does not see the row at all
+     * and can proceed.
+     */
+    public boolean isFastUpdate() {
+        return this == UPDATE || this == DELETE;
+    }
+
     /** Enum values. */
     private static final EnlistOperation[] VALS = values();
 
