@@ -1163,8 +1163,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         AffinityTopologyVersion topVer,
         @Nullable Long updateCntr,
         MvccSnapshot mvccVer,
-        boolean needHistory,
-        boolean fastUpdate) throws IgniteCheckedException, GridCacheEntryRemovedException {
+        boolean needHistory) throws IgniteCheckedException, GridCacheEntryRemovedException {
         assert tx != null;
         assert mvccVer != null;
 
@@ -1185,7 +1184,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             assert newVer != null : "Failed to get write version for tx: " + tx;
 
-            res = cctx.offheap().mvccRemove(this, mvccVer, tx.local(), needHistory, fastUpdate);
+            res = cctx.offheap().mvccRemove(this, mvccVer, tx.local(), needHistory);
 
             assert res != null;
 
@@ -1203,7 +1202,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 IgniteInternalFuture<?> lockFut = cctx.kernalContext().coordinators().waitFor(cctx, lockVer);
 
                 lockFut.listen(new MvccRemoveLockListener(tx, this, affNodeId, topVer, updateCntr, mvccVer, needHistory,
-                    fastUpdate, resFut));
+                    resFut));
 
                 return new GridCacheUpdateTxResult(false, resFut);
             }
@@ -4889,9 +4888,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         private GridCacheMapEntry entry;
 
         /** */
-        private final boolean fastUpdate;
-
-        /** */
         MvccRemoveLockListener(IgniteInternalTx tx,
             GridCacheMapEntry entry,
             UUID affNodeId,
@@ -4899,7 +4895,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             Long updateCntr,
             MvccSnapshot mvccVer,
             boolean needHistory,
-            boolean fastUpdate,
             GridFutureAdapter<GridCacheUpdateTxResult> resFut) {
             this.tx = tx;
             this.entry = entry;
@@ -4909,7 +4904,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             this.updateCntr = updateCntr;
             this.needHistory = needHistory;
             this.resFut = resFut;
-            this.fastUpdate = fastUpdate;
         }
 
         /** {@inheritDoc} */
@@ -4942,7 +4936,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 cctx.shared().database().checkpointReadLock();
 
                 try {
-                    res = cctx.offheap().mvccRemove(entry, mvccVer, tx.local(), needHistory, fastUpdate);
+                    res = cctx.offheap().mvccRemove(entry, mvccVer, tx.local(), needHistory);
                 } finally {
                     cctx.shared().database().checkpointReadUnlock();
                 }
