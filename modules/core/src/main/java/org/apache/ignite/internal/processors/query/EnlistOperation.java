@@ -79,6 +79,16 @@ public enum EnlistOperation {
         return this == UPDATE || this == DELETE;
     }
 
+    /**
+     * Indicates that an operation does not create new rows.
+     */
+    public boolean doesNotCreate() {
+        // has no meaning for LOCK
+        assert this != LOCK;
+
+        return this == UPDATE || this == DELETE;
+    }
+
     /** Enum values. */
     private static final EnlistOperation[] VALS = values();
 
