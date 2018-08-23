@@ -19,7 +19,8 @@ package org.apache.ignite.yardstick;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParametersDelegate;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -27,9 +28,6 @@ import org.apache.ignite.internal.util.tostring.GridToStringBuilder;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
-
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.ignite.yardstick.cache.IgniteStreamerBenchmark;
 import org.apache.ignite.yardstick.upload.UploadBenchmarkArguments;
 import org.jetbrains.annotations.Nullable;
@@ -239,16 +237,12 @@ public class IgniteBenchmarkArguments {
     private boolean persistentStoreEnabled;
 
     /** */
-    @Parameter(names = {"-stcp", "--streamerCachesPrefix"}, description = "Cache name prefix for streamer benchmark")
-    private String streamerCachesPrefix = "streamer";
+    @Parameter(names = {"-stcn", "--streamerCacheName"}, description = "Cache name for streamer benchmark")
+    private String streamerCacheName = "atomic";
 
     /** */
-    @Parameter(names = {"-stci", "--streamerCachesIndex"}, description = "First cache index for streamer benchmark")
-    private int streamerCacheIndex;
-
-    /** */
-    @Parameter(names = {"-stcc", "--streamerConcCaches"}, description = "Number of concurrently loaded caches for streamer benchmark")
-    private int streamerConcurrentCaches = 1;
+    @Parameter(names = {"-stth", "--streamerThreads"}, description = "Number of threads, performing streaming")
+    private int streamerThreadsNum = 1;
 
     /** */
     @Parameter(names = {"-stbs", "--streamerBufSize"}, description = "Data streamer buffer size")
@@ -623,22 +617,15 @@ public class IgniteBenchmarkArguments {
     /**
      * @return Cache name prefix for caches to be used in {@link IgniteStreamerBenchmark}.
      */
-    public String streamerCachesPrefix() {
-        return streamerCachesPrefix;
-    }
-
-    /**
-     * @return First cache index for {@link IgniteStreamerBenchmark}.
-     */
-    public int streamerCacheIndex() {
-        return streamerCacheIndex;
+    public String streamerCacheName() {
+        return streamerCacheName;
     }
 
     /**
      * @return Number of concurrently loaded caches for {@link IgniteStreamerBenchmark}.
      */
-    public int streamerConcurrentCaches() {
-        return streamerConcurrentCaches;
+    public int streamerThreadsNumber() {
+        return streamerThreadsNum;
     }
 
     /**
