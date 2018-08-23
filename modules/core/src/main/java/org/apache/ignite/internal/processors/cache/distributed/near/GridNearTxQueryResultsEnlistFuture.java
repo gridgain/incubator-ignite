@@ -199,7 +199,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridNearTxAbstractEnlist
 
                 Object cur = next0();
 
-                KeyCacheObject key = cctx.toCacheKeyObject(op.modifiesValue() ? ((IgniteBiTuple)cur).getKey() : cur);
+                KeyCacheObject key = cctx.toCacheKeyObject(op.isDeleteOrLock() ? cur : ((IgniteBiTuple)cur).getKey());
 
                 List<ClusterNode> nodes = cctx.affinity().nodesByKey(key, topVer);
 
@@ -230,7 +230,7 @@ public class GridNearTxQueryResultsEnlistFuture extends GridNearTxAbstractEnlist
                     break;
                 }
 
-                batch.add(op.modifiesValue() ? cur : key,
+                batch.add(op.isDeleteOrLock() ? key : cur,
                     op != EnlistOperation.LOCK && cctx.affinityNode() && (cctx.isReplicated() || nodes.indexOf(cctx.localNode()) > 0));
 
                 if (batch.size() == batchSize)
@@ -319,10 +319,10 @@ public class GridNearTxQueryResultsEnlistFuture extends GridNearTxAbstractEnlist
         assert op != EnlistOperation.LOCK;
 
         final ArrayList<KeyCacheObject> keys = new ArrayList<>(rows.size());
-        final ArrayList<Message> vals = op.modifiesValue() ? new ArrayList<>(rows.size()) : null;
+        final ArrayList<Message> vals = op.isDeleteOrLock() ? null : new ArrayList<>(rows.size());
 
         for (Object row : rows) {
-            if (!op.modifiesValue())
+            if (op.isDeleteOrLock())
                 keys.add(cctx.toCacheKeyObject(row));
             else {
                 keys.add(cctx.toCacheKeyObject(((IgniteBiTuple)row).getKey()));

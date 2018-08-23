@@ -422,7 +422,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
                 CacheEntryInfoCollection entries =
                     val0 instanceof CacheEntryInfoCollection ? (CacheEntryInfoCollection)val0 : null;
 
-                if (entries == null && op.modifiesValue())
+                if (entries == null && !op.isDeleteOrLock())
                     val = (val0 instanceof CacheObject) ? (CacheObject)val0 : null;
 
                 GridDhtCacheEntry entry = dht.entryExx(key, topologyVersion());

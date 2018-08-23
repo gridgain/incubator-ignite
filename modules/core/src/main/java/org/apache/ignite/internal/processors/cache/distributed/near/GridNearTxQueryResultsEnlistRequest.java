@@ -266,7 +266,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
 
             int i = 0;
 
-            values = op.modifiesValue() ? new CacheObject[keys.length] : null;
+            values = op.isDeleteOrLock() ? null : new CacheObject[keys.length];
 
             for (Object row : rows) {
                 Object key, val = null;
@@ -278,7 +278,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
                 else
                     key = row;
 
-                assert key != null && (!op.modifiesValue() || val != null): "key=" + key + ", val=" + val;
+                assert key != null && (op.isDeleteOrLock() || val != null): "key=" + key + ", val=" + val;
 
                 KeyCacheObject key0 = cctx.toCacheKeyObject(key);
 
@@ -315,7 +315,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
             for (int i = 0; i < keys.length; i++) {
                 keys[i].finishUnmarshal(objCtx, ldr);
 
-                if (!op.modifiesValue())
+                if (op.isDeleteOrLock())
                     rows.add(keys[i]);
                 else {
                     if (values[i] != null)

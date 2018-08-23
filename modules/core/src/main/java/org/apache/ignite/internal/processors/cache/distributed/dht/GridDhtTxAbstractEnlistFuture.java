@@ -354,7 +354,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
                 while (hasNext0()) {
                     Object cur = next0();
 
-                    KeyCacheObject key = cctx.toCacheKeyObject(op.modifiesValue() ? ((IgniteBiTuple)cur).getKey() : cur);
+                    KeyCacheObject key = cctx.toCacheKeyObject(op.isDeleteOrLock() ? cur : ((IgniteBiTuple)cur).getKey());
 
                     if (!ensureFreeSlot(key)) {
                         // Can't advance further at the moment.
@@ -372,7 +372,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
 
                     assert !entry.detached();
 
-                    CacheObject val = op.modifiesValue() ? cctx.toCacheObject(((IgniteBiTuple)cur).getValue()) : null;
+                    CacheObject val = op.isDeleteOrLock() ? null : cctx.toCacheObject(((IgniteBiTuple)cur).getValue());
 
                     tx.markQueryEnlisted(mvccSnapshot);
 

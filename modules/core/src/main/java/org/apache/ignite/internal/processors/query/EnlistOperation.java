@@ -29,35 +29,31 @@ public enum EnlistOperation {
     /**
      * This operation creates entry if it does not exist or raises visible failure otherwise.
      */
-    INSERT(GridCacheOperation.CREATE, true),
+    INSERT(GridCacheOperation.CREATE),
     /**
      * This operation creates entry if it does not exist or modifies existing one otherwise.
      */
-    UPSERT(GridCacheOperation.UPDATE, true),
+    UPSERT(GridCacheOperation.UPDATE),
     /**
      * This operation modifies existing entry or does nothing if entry does not exist.
      */
-    UPDATE(GridCacheOperation.UPDATE, true),
+    UPDATE(GridCacheOperation.UPDATE),
     /**
      * This operation deletes existing entry or does nothing if entry does not exist.
      */
-    DELETE(GridCacheOperation.DELETE, false),
+    DELETE(GridCacheOperation.DELETE),
     /**
      * This operation locks existing entry protecting it from updates by other transactions
      * or does notrhing if entry does not exist.
      */
-    LOCK(null, false);
+    LOCK(null);
 
     /** */
     private final GridCacheOperation cacheOp;
 
     /** */
-    private final boolean modsVal;
-
-    /** */
-    EnlistOperation(GridCacheOperation cacheOp, boolean modsVal) {
+    EnlistOperation(GridCacheOperation cacheOp) {
         this.cacheOp = cacheOp;
-        this.modsVal = modsVal;
     }
 
     /**
@@ -67,11 +63,9 @@ public enum EnlistOperation {
         return cacheOp;
     }
 
-    /**
-     * @return True only if the operation can create or modify entry value.
-     */
-    public boolean modifiesValue() {
-        return modsVal;
+    /** */
+    public boolean isDeleteOrLock() {
+        return this == DELETE || this == LOCK;
     }
 
     /** Enum values. */
