@@ -73,7 +73,7 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
         executor = Executors.newFixedThreadPool(threadsNum);
 
         BenchmarkUtils.println("IgniteStreamerBenchmark start [cacheName=" + cacheName +
-            ", concurrentCaches=" + threadsNum +
+            ", threadsNum=" + threadsNum +
             ", entries=" + entries +
             ", bufferSize=" + args.streamerBufferSize() + "]");
 
