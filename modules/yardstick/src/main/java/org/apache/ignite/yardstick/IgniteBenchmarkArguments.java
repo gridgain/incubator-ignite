@@ -237,17 +237,18 @@ public class IgniteBenchmarkArguments {
     private boolean persistentStoreEnabled;
 
     /** */
-    @Parameter(names = {"-stcn", "--streamerCacheName"}, description = "Cache name for streamer benchmark")
-    private String streamerCacheName = "atomic";
+    @Parameter(names = {"-ldcn", "--loadCacheName"}, description = "Cache name for data loading benchmark")
+    private String loadCacheName = "atomic";
 
     /** */
-    @Parameter(names = {"-stth", "--streamerThreads"}, description = "Number of threads, performing streaming")
-    private int streamerThreadsNum = 1;
+    @Parameter(names = {"-ldth", "--loadThreads"}, description = "Number of threads, performing data loading")
+    private int loadThreadsNum = 1;
 
     /** */
     @Parameter(names = {"-stbs", "--streamerBufSize"}, description = "Data streamer buffer size")
     private int streamerBufSize = IgniteDataStreamer.DFLT_PER_NODE_BUFFER_SIZE;
 
+    /** */
     @Parameter(names = {"-stao", "--streamerAllowOverwrite"}, description = "Data streamer allowOverwrite flag")
     private boolean streamerAllowOverwrite;
 
@@ -620,15 +621,15 @@ public class IgniteBenchmarkArguments {
     /**
      * @return Cache name prefix for caches to be used in {@link IgniteStreamerBenchmark}.
      */
-    public String streamerCacheName() {
-        return streamerCacheName;
+    public String loadCacheName() {
+        return loadCacheName;
     }
 
     /**
-     * @return Number of concurrently loaded caches for {@link IgniteStreamerBenchmark}.
+     * @return Number of concurrently running threads, performing data loading.
      */
-    public int streamerThreadsNumber() {
-        return streamerThreadsNum;
+    public int loadThreadsNumber() {
+        return loadThreadsNum;
     }
 
     /**

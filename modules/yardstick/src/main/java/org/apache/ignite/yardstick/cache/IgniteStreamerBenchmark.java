@@ -54,9 +54,9 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
 
         entries = args.range();
 
-        cacheName = args.streamerCacheName();
+        cacheName = args.loadCacheName();
 
-        threadsNum = args.streamerThreadsNumber();
+        threadsNum = args.loadThreadsNumber();
 
         if (entries <= 0)
             throw new IllegalArgumentException("Invalid number of entries: " + entries);
