@@ -46,7 +46,7 @@
                 <property name="dataRegionConfigurations">
                     <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
                         <property name="name" value="streamer_data_region"/>
-                        <property name="maxSize" value="#{20L * 1024 * 1024 * 1024}"/>
+                        <property name="maxSize" value="#{50L * 1024 * 1024 * 1024}"/>
                     </bean>
                 </property>
             </bean>
