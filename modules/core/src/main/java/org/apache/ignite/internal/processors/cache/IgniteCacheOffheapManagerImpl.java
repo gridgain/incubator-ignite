@@ -1873,6 +1873,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     primary,
                     false,
                     needHistory,
+                    // we follow fast update visit flow here if row cannot be created by current operation
                     noCreate);
 
                 assert cctx.shared().database().checkpointLockIsHeldByThread();

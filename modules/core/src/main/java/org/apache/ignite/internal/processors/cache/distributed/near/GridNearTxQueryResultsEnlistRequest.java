@@ -303,7 +303,7 @@ public class GridNearTxQueryResultsEnlistRequest extends GridCacheIdMessage {
             for (int i = 0; i < keys.length; i++) {
                 keys[i].finishUnmarshal(objCtx, ldr);
 
-                if (!!op.isDeleteOrLock())
+                if (op.isDeleteOrLock())
                     rows.add(keys[i]);
                 else {
                     if (values[i] != null)

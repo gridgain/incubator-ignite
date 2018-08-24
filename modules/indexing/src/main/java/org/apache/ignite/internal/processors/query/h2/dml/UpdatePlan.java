@@ -678,7 +678,7 @@ public final class UpdatePlan {
     }
 
     /** */
-    private final static class UpdateIterator extends AbstractIterator {
+    private static final class UpdateIterator extends AbstractIterator {
         /** */
         private static final long serialVersionUID = -4949035950470324961L;
 
@@ -701,7 +701,7 @@ public final class UpdatePlan {
     }
 
     /** */
-    private final static class DeleteIterator extends AbstractIterator {
+    private static final class DeleteIterator extends AbstractIterator {
         /** */
         private static final long serialVersionUID = -4949035950470324961L;
 
@@ -722,7 +722,7 @@ public final class UpdatePlan {
     }
 
     /** */
-    private final static class InsertIterator extends AbstractIterator {
+    private static final class InsertIterator extends AbstractIterator {
         /** */
         private static final long serialVersionUID = -4949035950470324961L;
 

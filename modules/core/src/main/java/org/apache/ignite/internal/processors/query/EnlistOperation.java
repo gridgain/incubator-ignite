@@ -71,7 +71,7 @@ public enum EnlistOperation {
     /**
      * Indicates that an operation cannot create new row.
      */
-    public boolean doesNotCreate() {
+    public boolean noCreate() {
         // has no meaning for LOCK
         assert this != LOCK;
 

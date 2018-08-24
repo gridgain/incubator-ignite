@@ -530,7 +530,7 @@ public class DmlStatementsProcessor {
 
                         EnlistOperation op = UpdatePlan.enlistOperation(plan.mode());
 
-                        it = new DmlUpdateSingleEntryIterator<>(op, op == EnlistOperation.DELETE ? row.getKey() : row);
+                        it = new DmlUpdateSingleEntryIterator<>(op, op.isDeleteOrLock() ? row.getKey() : row);
                     }
                     else if (plan.hasRows())
                         it = new DmlUpdateResultsIterator(UpdatePlan.enlistOperation(plan.mode()), plan, plan.createRows(fieldsQry.getArgs()));
