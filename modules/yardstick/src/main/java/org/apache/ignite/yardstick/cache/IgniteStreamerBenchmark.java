@@ -77,61 +77,6 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
             ", threadsNum=" + threadsNum +
             ", entries=" + entries +
             ", bufferSize=" + args.streamerBufferSize() + "]");
-
-        if (cfg.warmup() > 0) {
-            BenchmarkUtils.println("IgniteStreamerBenchmark start warmup [warmupTimeMillis=" + cfg.warmup() + ']');
-
-            final long warmupEnd = System.currentTimeMillis() + cfg.warmup();
-
-            final AtomicBoolean stop = new AtomicBoolean();
-
-            try (IgniteDataStreamer<Integer, SampleValue> streamer = streamer()) {
-                List<Future<Void>> futs = new ArrayList<>();
-
-                for (int i = 0; i < threadsNum; i++) {
-                    int threadIdx = i;
-
-                    futs.add(executor.submit(new Callable<Void>() {
-                        @Override public Void call() throws Exception {
-                            Thread.currentThread().setName("streamer-" + cacheName + "-" + threadIdx);
-
-                            BenchmarkUtils.println("IgniteStreamerBenchmark start warmup for cache " +
-                                "[name=" + cacheName + ']');
-
-                            final int KEYS = Math.min(100_000, entries);
-
-                            int startKey = threadIdx * KEYS + 1;
-
-                            int key = startKey;
-
-                            while (System.currentTimeMillis() < warmupEnd && !stop.get()) {
-                                for (int i1 = 0; i1 < 10; i1++) {
-                                    streamer.addData(-key++, new SampleValue(key));
-
-                                    if (key - startKey >= KEYS)
-                                        key = startKey;
-                                }
-
-                                streamer.flush();
-                            }
-
-                            BenchmarkUtils.println("IgniteStreamerBenchmark finished warmup for cache " +
-                                "[name=" + cacheName + ']');
-
-                            return null;
-                        }
-                    }));
-                }
-
-                for (Future<Void> fut : futs)
-                    fut.get();
-            }
-            finally {
-                cache.clear();
-
-                stop.set(true);
-            }
-        }
     }
 
     /** {@inheritDoc} */

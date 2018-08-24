@@ -82,59 +82,6 @@ public class IgnitePutAllMultithreadedBenchmark extends IgniteAbstractBenchmark 
             ", threadsNum=" + threadsNum +
             ", entries=" + entries +
             ", batchSize=" + batchSize + "]");
-
-        if (cfg.warmup() > 0) {
-            BenchmarkUtils.println("IgnitePutAllMultithreadedBenchmark start warmup [warmupTimeMillis=" + cfg.warmup() + ']');
-
-            final long warmupEnd = System.currentTimeMillis() + cfg.warmup();
-
-            final AtomicBoolean stop = new AtomicBoolean();
-
-            try {
-                List<Future<Void>> futs = new ArrayList<>();
-
-                for (int i = 0; i < threadsNum; i++) {
-                    int threadIdx = i;
-
-                    futs.add(executor.submit(new Callable<Void>() {
-                        @Override public Void call() throws Exception {
-                            Thread.currentThread().setName("putAll-" + cacheName + "-" + threadIdx);
-
-                            BenchmarkUtils.println("IgnitePutAllMultithreadedBenchmark start warmup for cache " +
-                                "[name=" + cacheName + ']');
-
-                            final int KEYS = Math.min(100_000, entries);
-
-                            int key = threadIdx * KEYS + 1;
-
-                            Map<Integer, SampleValue> batch = new TreeMap<>();
-
-                            while (System.currentTimeMillis() < warmupEnd && !stop.get()) {
-                                for (int i1 = 0; i1 < batchSize; i1++)
-                                    batch.put(-key++, new SampleValue(key));
-
-                                cache.putAll(batch);
-
-                                batch.clear();
-                            }
-
-                            BenchmarkUtils.println("IgnitePutAllMultithreadedBenchmark finished warmup for cache " +
-                                "[name=" + cacheName + ']');
-
-                            return null;
-                        }
-                    }));
-                }
-
-                for (Future<Void> fut : futs)
-                    fut.get();
-            }
-            finally {
-                cache.clear();
-
-                stop.set(true);
-            }
-        }
     }
 
     /** {@inheritDoc} */
