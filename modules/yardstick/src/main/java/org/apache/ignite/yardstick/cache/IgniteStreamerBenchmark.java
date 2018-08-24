@@ -24,6 +24,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteDataStreamer;
@@ -155,10 +156,8 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
 
                         long start1 = System.currentTimeMillis();
 
-                        int startKey = entries * threadIdx;
-
                         for (int i1 = 0; i1 < entries; i1++) {
-                            int key = startKey + i1;
+                            int key = ThreadLocalRandom.current().nextInt();
 
                             streamer.addData(key, new SampleValue(key));
 
