@@ -84,9 +84,7 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
 
             final AtomicBoolean stop = new AtomicBoolean();
 
-            try (IgniteDataStreamer<Integer, SampleValue> streamer = ignite().dataStreamer(cacheName)) {
-                streamer.perNodeBufferSize(args.streamerBufferSize());
-
+            try (IgniteDataStreamer<Integer, SampleValue> streamer = streamer()) {
                 List<Future<Void>> futs = new ArrayList<>();
 
                 for (int i = 0; i < threadsNum; i++) {
@@ -143,7 +141,7 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
 
         final AtomicBoolean stop = new AtomicBoolean();
 
-        try (IgniteDataStreamer<Integer, SampleValue> streamer = ignite().dataStreamer(cacheName)) {
+        try (IgniteDataStreamer<Integer, SampleValue> streamer = streamer()) {
             List<Future<Void>> futs = new ArrayList<>();
 
             BenchmarkUtils.println("IgniteStreamerBenchmark start load cache [name=" + cacheName + ']');
@@ -207,6 +205,19 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
             ", size=" + ignite().cache(cacheName).size() + ']');
 
         return false;
+    }
+
+    /**
+     * @return Data streamer instance.
+     */
+    private IgniteDataStreamer<Integer, SampleValue> streamer() {
+       IgniteDataStreamer<Integer, SampleValue> streamer = ignite().dataStreamer(cacheName);
+
+       streamer.allowOverwrite(args.streamerAllowOverwrite());
+
+       streamer.perNodeBufferSize(args.streamerBufferSize());
+
+       return streamer;
     }
 
     /** {@inheritDoc} */
