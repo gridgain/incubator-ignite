@@ -36,7 +36,11 @@
                         <property name="addresses">
                             <list>
                                 <!-- In distributed environment, replace with actual hosts IP addresses. -->
-                                <value>127.0.0.1:47500..47509</value>
+                                <value>lab11:47500..47509</value>
+                                <value>lab18:47500..47509</value>
+                                <value>lab19:47500..47509</value>
+                                <value>lab20:47500..47509</value>
+                                <value>lab34:47500..47509</value>
                             </list>
                         </property>
                     </bean>

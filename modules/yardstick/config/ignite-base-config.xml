@@ -30,116 +30,25 @@
         <property name="metricsLogFrequency" value="5000"/>
 
         <property name="cacheConfiguration">
-            <list>
-                <bean class="org.apache.ignite.configuration.CacheConfiguration">
-                    <property name="name" value="atomic"/>
+            <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                <property name="name" value="atomic"/>
 
-                    <property name="cacheMode" value="PARTITIONED"/>
+                <property name="cacheMode" value="PARTITIONED"/>
 
-                    <property name="atomicityMode" value="ATOMIC"/>
-                </bean>
+                <property name="atomicityMode" value="ATOMIC"/>
 
-                <bean class="org.apache.ignite.configuration.CacheConfiguration">
-                    <property name="name" value="tx"/>
-
-                    <property name="cacheMode" value="PARTITIONED"/>
-
-                    <property name="atomicityMode" value="TRANSACTIONAL"/>
-
-                </bean>
-
-                <bean class="org.apache.ignite.configuration.CacheConfiguration">
-                    <property name="name" value="atomic-index"/>
-
-                    <property name="cacheMode" value="PARTITIONED"/>
-
-                    <property name="atomicityMode" value="ATOMIC"/>
-
-                    <property name="indexedTypes">
-                        <list>
-                            <value>java.lang.Integer</value>
-                            <value>org.apache.ignite.yardstick.cache.model.Person1</value>
-
-                            <value>java.lang.Integer</value>
-                            <value>org.apache.ignite.yardstick.cache.model.Person2</value>
-
-                            <value>java.lang.Integer</value>
-                            <value>org.apache.ignite.yardstick.cache.model.Person8</value>
-                        </list>
-                    </property>
-                </bean>
-
-                <bean class="org.apache.ignite.configuration.CacheConfiguration">
-                    <property name="name" value="atomic-index-with-eviction"/>
-
-                    <property name="onheapCacheEnabled" value="true"/>
-
-                    <property name="evictionPolicy">
-                        <bean class="org.apache.ignite.cache.eviction.fifo.FifoEvictionPolicy">
-                            <!-- default range (1000000) x (1 + default backups number (1)) / default nodes number (4) -->
-                            <constructor-arg value="500000"/>
-                        </bean>
-                    </property>
-
-                    <property name="cacheMode" value="PARTITIONED"/>
-
-                    <property name="atomicityMode" value="ATOMIC"/>
-
-                    <property name="indexedTypes">
-                        <list>
-                            <value>java.lang.Integer</value>
-                            <value>org.apache.ignite.yardstick.cache.model.Person1</value>
-
-                            <value>java.lang.Integer</value>
-                            <value>org.apache.ignite.yardstick.cache.model.Person2</value>
-
-                            <value>java.lang.Integer</value>
-                            <value>org.apache.ignite.yardstick.cache.model.Person8</value>
-                        </list>
-                    </property>
-                </bean>
-
-                <bean class="org.apache.ignite.configuration.CacheConfiguration">
-                    <property name="name" value="query"/>
-
-                    <property name="cacheMode" value="PARTITIONED"/>
-
-                    <property name="atomicityMode" value="ATOMIC"/>
-
-                    <property name="indexedTypes">
-                        <list>
-                            <value>java.lang.Integer</value>
-                            <value>org.apache.ignite.yardstick.cache.model.Organization</value>
-
-                            <value>java.lang.Integer</value>
-                            <value>org.apache.ignite.yardstick.cache.model.Person</value>
-
-                            <value>java.lang.Integer</value>
-                            <value>org.apache.ignite.yardstick.cache.model.SampleValue</value>
-
-                            <value>java.lang.Integer</value>
-                            <value>java.lang.Integer</value>
-                        </list>
-                    </property>
-                </bean>
-
-                <bean class="org.apache.ignite.configuration.CacheConfiguration">
-                    <property name="name" value="compute"/>
-
-                    <property name="cacheMode" value="PARTITIONED"/>
-
-                    <property name="atomicityMode" value="TRANSACTIONAL"/>
-                </bean>
-            </list>
+                <property name="dataRegionName" value="streamer_data_region"/>
+            </bean>
         </property>
 
-        <property name="includeEventTypes">
-            <list/>
-        </property>
-
-        <property name="loadBalancingSpi">
-            <bean class="org.apache.ignite.spi.loadbalancing.roundrobin.RoundRobinLoadBalancingSpi">
-                <property name="perTask" value="false"/>
+        <property name="dataStorageConfiguration">
+            <bean class="org.apache.ignite.configuration.DataStorageConfiguration">
+                <property name="dataRegionConfigurations">
+                    <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                        <property name="name" value="streamer_data_region"/>
+                        <property name="maxSize" value="#{20L * 1024 * 1024 * 1024}"/>
+                    </bean>
+                </property>
             </bean>
         </property>
     </bean>
