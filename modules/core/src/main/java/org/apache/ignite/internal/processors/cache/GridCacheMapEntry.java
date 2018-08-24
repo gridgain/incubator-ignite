@@ -1037,7 +1037,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         MvccSnapshot mvccVer,
         GridCacheOperation op,
         boolean needHistory,
-        boolean fastUpdate,
         boolean noCreate) throws IgniteCheckedException, GridCacheEntryRemovedException {
         assert tx != null;
 
@@ -1079,7 +1078,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             assert val != null;
 
             res = cctx.offheap().mvccUpdate(
-                this, val, newVer, expireTime, mvccVer, tx.local(), needHistory, fastUpdate, noCreate);
+                this, val, newVer, expireTime, mvccVer, tx.local(), needHistory, noCreate);
 
             assert res != null;
 
@@ -1104,7 +1103,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 IgniteInternalFuture<?> lockFut = cctx.kernalContext().coordinators().waitFor(cctx, lockVer);
 
                 lockFut.listen(new MvccUpdateLockListener(tx, this, affNodeId, topVer, val, ttl0, updateCntr, mvccVer,
-                    op, needHistory, fastUpdate, noCreate, resFut));
+                    op, needHistory, noCreate, resFut));
 
                 return new GridCacheUpdateTxResult(false, resFut);
             }
@@ -5151,9 +5150,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         private final boolean needHistory;
 
         /** */
-        private final boolean fastUpdate;
-
-        /** */
         private final boolean noCreate;
 
         /** */
@@ -5167,7 +5163,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             MvccSnapshot mvccVer,
             GridCacheOperation op,
             boolean needHistory,
-            boolean fastUpdate,
             boolean noCreate,
             GridFutureAdapter<GridCacheUpdateTxResult> resFut) {
             this.tx = tx;
@@ -5180,7 +5175,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             this.mvccVer = mvccVer;
             this.op = op;
             this.needHistory = needHistory;
-            this.fastUpdate = fastUpdate;
             this.noCreate = noCreate;
             this.resFut = resFut;
         }
@@ -5231,7 +5225,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
                 try {
                     res = cctx.offheap().mvccUpdate(
-                        entry, val, newVer, expireTime, mvccVer, tx.local(), needHistory, fastUpdate, noCreate);
+                        entry, val, newVer, expireTime, mvccVer, tx.local(), needHistory, noCreate);
                 } finally {
                     cctx.shared().database().checkpointReadUnlock();
                 }

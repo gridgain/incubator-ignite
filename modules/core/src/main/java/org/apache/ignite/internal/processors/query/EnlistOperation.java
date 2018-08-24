@@ -69,18 +69,7 @@ public enum EnlistOperation {
     }
 
     /**
-     * During mvcc transaction processing confliction row version could be met in storage.
-     * Not all such cases should lead to transaction abort.
-     * E.g. if UPDATE for a row meets concurrent INSERT for the same row
-     * (and row did not exist before both operations) then it means that UPDATE does not see the row at all
-     * and can proceed.
-     */
-    public boolean isFastUpdate() {
-        return this == UPDATE || this == DELETE;
-    }
-
-    /**
-     * Indicates that an operation does not create new rows.
+     * Indicates that an operation cannot create new row.
      */
     public boolean doesNotCreate() {
         // has no meaning for LOCK

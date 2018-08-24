@@ -436,7 +436,8 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
                         if (entries == null) {
                             switch (op) {
                                 case DELETE:
-                                    updRes = entry.mvccRemove(this,
+                                    updRes = entry.mvccRemove(
+                                        this,
                                         ctx.localNodeId(),
                                         topologyVersion(),
                                         updCntrs.get(i),
@@ -448,7 +449,8 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
                                 case INSERT:
                                 case UPSERT:
                                 case UPDATE:
-                                    updRes = entry.mvccSet(this,
+                                    updRes = entry.mvccSet(
+                                        this,
                                         ctx.localNodeId(),
                                         val,
                                         0,
@@ -456,7 +458,6 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
                                         updCntrs.get(i),
                                         snapshot,
                                         op.cacheOperation(),
-                                        false,
                                         false,
                                         false);
 

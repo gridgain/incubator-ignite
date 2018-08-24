@@ -513,7 +513,6 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         MvccSnapshot mvccSnapshot,
         boolean primary,
         boolean needHistory,
-        boolean fastUpdate,
         boolean noCreate) throws IgniteCheckedException {
         if (entry.detached() || entry.isNear())
             return null;
@@ -528,7 +527,6 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             mvccSnapshot,
             primary,
             needHistory,
-            fastUpdate,
             noCreate);
     }
 
@@ -1847,10 +1845,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             MvccSnapshot mvccSnapshot,
             boolean primary,
             boolean needHistory,
-            boolean fastUpdate,
             boolean noCreate) throws IgniteCheckedException {
             assert mvccSnapshot != null;
-            assert primary || (!needHistory && !fastUpdate);
+            assert primary || !needHistory;
 
             if (!busyLock.enterBusy())
                 throw new NodeStoppingException("Operation has been cancelled (node is stopping).");
@@ -1876,7 +1873,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     primary,
                     false,
                     needHistory,
-                    fastUpdate);
+                    noCreate);
 
                 assert cctx.shared().database().checkpointLockIsHeldByThread();
 

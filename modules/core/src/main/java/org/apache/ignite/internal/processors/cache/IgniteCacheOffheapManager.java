@@ -275,7 +275,6 @@ public interface IgniteCacheOffheapManager {
      * @param mvccSnapshot MVCC snapshot.
      * @param primary {@code True} if on primary node.
      * @param needHistory Flag to collect history.
-     * @param fastUpdate Mode when entry is accessed without preliminary visibility check.
      * @param noCreate Flag indicating that row should not be created if absent.
      * @return Update result.
      * @throws IgniteCheckedException If failed.
@@ -288,7 +287,6 @@ public interface IgniteCacheOffheapManager {
         MvccSnapshot mvccSnapshot,
         boolean primary,
         boolean needHistory,
-        boolean fastUpdate,
         boolean noCreate) throws IgniteCheckedException;
 
     /**
@@ -778,7 +776,6 @@ public interface IgniteCacheOffheapManager {
          * @param mvccSnapshot MVCC snapshot.
          * @param primary {@code True} if update is executed on primary node.
          * @param needHistory Flag to collect history.
-         * @param fastUpdate Mode when entry is accessed without preliminary visibility check.
          * @param noCreate Flag indicating that row should not be created if absent.
          * @return Update result.
          * @throws IgniteCheckedException If failed.
@@ -792,7 +789,6 @@ public interface IgniteCacheOffheapManager {
             MvccSnapshot mvccSnapshot,
             boolean primary,
             boolean needHistory,
-            boolean fastUpdate,
             boolean noCreate) throws IgniteCheckedException;
 
         /**

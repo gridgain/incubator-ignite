@@ -352,7 +352,6 @@ public interface GridCacheEntryEx {
      * @param mvccVer Mvcc version.
      * @param op Cache operation.
      * @param needHistory Whether to collect rows created or affected by the current tx.
-     * @param fastUpdate Mode when entry is accessed without preliminary visibility check.
      * @param noCreate Entry should not be created when enabled, e.g. SQL INSERT.
      * @return Tuple containing success flag and old value. If success is {@code false},
      *      then value is {@code null}.
@@ -369,7 +368,6 @@ public interface GridCacheEntryEx {
         MvccSnapshot mvccVer,
         GridCacheOperation op,
         boolean needHistory,
-        boolean fastUpdate,
         boolean noCreate) throws IgniteCheckedException, GridCacheEntryRemovedException;
 
     /**

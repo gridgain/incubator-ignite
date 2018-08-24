@@ -1743,12 +1743,11 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
             MvccSnapshot mvccVer,
             boolean primary,
             boolean needHistory,
-            boolean fastUpdate,
             boolean noCreate) throws IgniteCheckedException {
             CacheDataStore delegate = init0(false);
 
             return delegate.mvccUpdate(
-                cctx, key, val, ver, expireTime, mvccVer, primary, needHistory, fastUpdate, noCreate);
+                cctx, key, val, ver, expireTime, mvccVer, primary, needHistory, noCreate);
         }
 
         /** {@inheritDoc} */
