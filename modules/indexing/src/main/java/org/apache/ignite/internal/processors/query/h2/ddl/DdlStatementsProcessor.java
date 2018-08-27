@@ -25,8 +25,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteCluster;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.QueryIndex;
 import org.apache.ignite.cache.QueryIndexType;
@@ -34,8 +36,6 @@ import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteInternalFuture;
-import org.apache.ignite.internal.processors.authentication.AuthorizationContext;
-import org.apache.ignite.internal.processors.authentication.UserManagementOperation;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.QueryCursorImpl;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
@@ -58,7 +58,6 @@ import org.apache.ignite.internal.processors.query.h2.sql.GridSqlDropTable;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlStatement;
 import org.apache.ignite.internal.processors.query.schema.SchemaOperationException;
-import org.apache.ignite.internal.processors.security.SecurityContext;
 import org.apache.ignite.internal.processors.security.SecurityContextHolder;
 import org.apache.ignite.internal.sql.command.SqlAlterTableCommand;
 import org.apache.ignite.internal.sql.command.SqlAlterUserCommand;
@@ -80,6 +79,7 @@ import org.h2.command.ddl.DropIndex;
 import org.h2.command.ddl.DropTable;
 import org.h2.table.Column;
 import org.h2.value.DataType;
+import org.h2.value.Value;
 
 import static org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing.UPDATE_RESULT_META;
 import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser.PARAM_WRAP_VALUE;
@@ -94,6 +94,10 @@ public class DdlStatementsProcessor {
 
     /** Indexing. */
     IgniteH2Indexing idx;
+
+    /** Is backward compatible handling of UUID through DDL enabled. */
+    private static final boolean handleUuidAsByte =
+            IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SQL_UUID_DDL_BYTE_FORMAT, false);
 
     /**
      * Initialize message handlers and this' fields needed for further operation.
@@ -419,7 +423,7 @@ public class DdlStatementsProcessor {
                         }
 
                         QueryField field = new QueryField(col.columnName(),
-                            DataType.getTypeClassName(col.column().getType()),
+                            getTypeClassName(col),
                             col.column().isNullable(), col.defaultValue());
 
                         cols.add(field);
@@ -600,7 +604,7 @@ public class DdlStatementsProcessor {
 
             Column col = gridCol.column();
 
-            res.addQueryField(e.getKey(), DataType.getTypeClassName(col.getType()), null);
+            res.addQueryField(e.getKey(), getTypeClassName(gridCol), null);
 
             if (!col.isNullable()) {
                 if (notNullFields == null)
@@ -633,7 +637,7 @@ public class DdlStatementsProcessor {
         if (!createTbl.wrapKey()) {
             GridSqlColumn pkCol = createTbl.columns().get(createTbl.primaryKeyColumns().iterator().next());
 
-            keyTypeName = DataType.getTypeClassName(pkCol.column().getType());
+            keyTypeName = getTypeClassName(pkCol);
 
             res.setKeyFieldName(pkCol.columnName());
         }
@@ -653,7 +657,7 @@ public class DdlStatementsProcessor {
 
             assert valCol != null;
 
-            valTypeName = DataType.getTypeClassName(valCol.column().getType());
+            valTypeName = getTypeClassName(valCol);
 
             res.setValueFieldName(valCol.columnName());
         }
@@ -679,5 +683,24 @@ public class DdlStatementsProcessor {
     public static boolean isDdlStatement(Prepared cmd) {
         return cmd instanceof CreateIndex || cmd instanceof DropIndex || cmd instanceof CreateTable ||
             cmd instanceof DropTable || cmd instanceof AlterTableAlterColumn;
+    }
+
+    /**
+     * Helper function for obtaining type class name for H2.
+     *
+     * @param col Column.
+     * @return Type class name.
+     */
+    private static String getTypeClassName(GridSqlColumn col) {
+        int type = col.column().getType();
+
+        switch (type) {
+            case Value.UUID :
+                if (!handleUuidAsByte)
+                    return UUID.class.getName();
+
+            default:
+                return DataType.getTypeClassName(type);
+        }
     }
 }
