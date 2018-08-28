@@ -70,6 +70,7 @@ import org.apache.ignite.internal.GridComponent;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteClientDisconnectedCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.cluster.NodeOrderComparator;
 import org.apache.ignite.internal.events.DiscoveryCustomEvent;
@@ -216,6 +217,9 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
     /** Discovery event worker. */
     private final DiscoveryWorker discoWrk = new DiscoveryWorker();
+
+    /** Discovery custom event worker. */
+    private final DiscoveryCustomMessageWorker customDiscoWrk = new DiscoveryCustomMessageWorker();
 
     /** Network segment check worker. */
     private SegmentCheckWorker segChkWrk;
@@ -585,10 +589,13 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 final ClusterNode node,
                 final Collection<ClusterNode> topSnapshot,
                 final Map<Long, Collection<ClusterNode>> snapshots,
-                @Nullable DiscoverySpiCustomMessage spiCustomMsg) {
-                synchronized (discoEvtMux) {
-                    onDiscovery0(type, topVer, node, topSnapshot, snapshots, spiCustomMsg);
-                }
+                @Nullable DiscoverySpiCustomMessage spiCustomMsg
+            ) {
+                customDiscoWrk.submit(() -> {
+                    synchronized (discoEvtMux) {
+                        onDiscovery0(type, topVer, node, topSnapshot, snapshots, spiCustomMsg);
+                    }
+                });
             }
 
             /**
@@ -971,6 +978,8 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 log.info("Total time of processing discovery data bag: " + (U.currentTimeMillis() - start) + "ms");
             }
         });
+
+        new IgniteThread(customDiscoWrk).start();
 
         startSpi();
 
@@ -1738,6 +1747,10 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
         U.cancel(discoWrk);
 
         U.join(discoWrk, log);
+
+        U.cancel(customDiscoWrk);
+
+        U.join(customDiscoWrk, log);
 
         // Stop SPI itself.
         stopSpi();
@@ -2695,6 +2708,59 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
         /** {@inheritDoc} */
         @Override public String toString() {
             return S.toString(SegmentCheckWorker.class, this);
+        }
+    }
+
+    private class DiscoveryCustomMessageWorker extends GridWorker {
+        /** Queue. */
+        private final BlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
+
+        /**
+         * Default constructor.
+         */
+        protected DiscoveryCustomMessageWorker() {
+            super(ctx.igniteInstanceName(), "disco-event-worker", GridDiscoveryManager.this.log, ctx.workersRegistry());
+        }
+
+        /**
+         *
+         */
+        private void body0() throws InterruptedException {
+            Runnable cmd = queue.take();
+
+            cmd.run();
+        }
+
+        /**
+         * @param cmd Command.
+         */
+        public void submit(Runnable cmd) {
+            queue.add(cmd);
+        }
+
+        @Override protected void body() throws InterruptedException, IgniteInterruptedCheckedException {
+            while (!isCancelled()) {
+                try {
+                    body0();
+                }
+                catch (InterruptedException e) {
+                    if (!isCancelled)
+                        ctx.failure().process(new FailureContext(SYSTEM_WORKER_TERMINATION, e));
+
+                    throw e;
+                }
+                catch (Throwable t) {
+                    U.error(log, "Exception in discovery worker thread.", t);
+
+                    if (t instanceof Error) {
+                        FailureType type = t instanceof OutOfMemoryError ? CRITICAL_ERROR : SYSTEM_WORKER_TERMINATION;
+
+                        ctx.failure().process(new FailureContext(type, t));
+
+                        throw t;
+                    }
+                }
+            }
         }
     }
 
