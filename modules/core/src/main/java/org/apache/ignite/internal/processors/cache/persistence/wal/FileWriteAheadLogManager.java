@@ -1585,7 +1585,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
          */
         private FileArchiver(long lastAbsArchivedIdx, IgniteLogger log) {
             super(cctx.igniteInstanceName(), "wal-file-archiver%" + cctx.igniteInstanceName(), log,
-                cctx.kernalContext().workersRegistry(), cctx.kernalContext().workersRegistry());
+                cctx.kernalContext().workersRegistry());
 
             this.lastAbsArchivedIdx = lastAbsArchivedIdx;
         }
@@ -1647,7 +1647,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             try {
                 synchronized (this) {
                     while (curAbsWalIdx == -1 && !stopped) {
-                        setHeartbeat(Long.MAX_VALUE);
+                        heartbeatTs(Long.MAX_VALUE);
 
                         try {
                             wait();
@@ -1672,7 +1672,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                             ", current=" + curAbsWalIdx;
 
                         while (lastAbsArchivedIdx >= curAbsWalIdx - 1 && !stopped) {
-                            setHeartbeat(Long.MAX_VALUE);
+                            heartbeatTs(Long.MAX_VALUE);
 
                             try {
                                 wait();
@@ -1698,7 +1698,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
                     synchronized (this) {
                         while (locked.containsKey(toArchive) && !stopped) {
-                            setHeartbeat(Long.MAX_VALUE);
+                            heartbeatTs(Long.MAX_VALUE);
 
                             try {
                                 wait();
@@ -3320,7 +3320,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
          */
         WALWriter(IgniteLogger log) {
             super(cctx.igniteInstanceName(), "wal-write-worker%" + cctx.igniteInstanceName(), log,
-                cctx.kernalContext().workersRegistry(), cctx.kernalContext().workersRegistry());
+                cctx.kernalContext().workersRegistry());
         }
 
         /** {@inheritDoc} */
@@ -3333,7 +3333,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                 while (!isCancelled()) {
                     while (waiters.isEmpty()) {
                         if (!isCancelled()) {
-                            setHeartbeat(Long.MAX_VALUE);
+                            heartbeatTs(Long.MAX_VALUE);
 
                             try {
                                 LockSupport.park();
@@ -3505,8 +3505,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             waiters.put(t, expPos);
 
-            if (walWriter != null)
-                LockSupport.unpark(walWriter.runner());
+            LockSupport.unpark(walWriter.runner());
 
             while (true) {
                 Long val = waiters.get(t);

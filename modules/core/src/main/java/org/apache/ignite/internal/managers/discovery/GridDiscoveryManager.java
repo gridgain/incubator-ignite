@@ -2669,8 +2669,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
          *
          */
         private DiscoveryWorker() {
-            super(ctx.igniteInstanceName(), "disco-event-worker", GridDiscoveryManager.this.log,
-                ctx.workersRegistry(), ctx.workersRegistry());
+            super(ctx.igniteInstanceName(), "disco-event-worker", GridDiscoveryManager.this.log, ctx.workersRegistry());
         }
 
         /**
@@ -2775,7 +2774,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
             GridTuple6<Integer, AffinityTopologyVersion, ClusterNode, DiscoCache, Collection<ClusterNode>,
                 DiscoveryCustomMessage> evt;
 
-            setHeartbeat(Long.MAX_VALUE);
+            heartbeatTs(Long.MAX_VALUE);
 
             try {
                 evt = evts.take();
