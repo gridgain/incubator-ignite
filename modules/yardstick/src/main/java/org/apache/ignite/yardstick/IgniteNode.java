@@ -103,7 +103,9 @@ public class IgniteNode implements BenchmarkServer {
 
         CacheConfiguration[] ccfgs = c.getCacheConfiguration();
 
-        c.setMvccEnabled(args.mvccEnabled());
+        //c.setMvccEnabled(args.mvccEnabled());
+        // temporary set mvcc always true.
+        c.setMvccEnabled(true);
 
         if (ccfgs != null) {
             for (CacheConfiguration cc : ccfgs) {
