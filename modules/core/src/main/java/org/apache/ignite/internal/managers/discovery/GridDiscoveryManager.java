@@ -591,11 +591,18 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 final Map<Long, Collection<ClusterNode>> snapshots,
                 @Nullable DiscoverySpiCustomMessage spiCustomMsg
             ) {
-                customDiscoWrk.submit(() -> {
+                if (type == EVT_DISCOVERY_CUSTOM_EVT) {
+                    customDiscoWrk.submit(() -> {
+                        synchronized (discoEvtMux) {
+                            onDiscovery0(type, topVer, node, topSnapshot, snapshots, spiCustomMsg);
+                        }
+                    });
+                }
+                else {
                     synchronized (discoEvtMux) {
                         onDiscovery0(type, topVer, node, topSnapshot, snapshots, spiCustomMsg);
                     }
-                });
+                }
             }
 
             /**
