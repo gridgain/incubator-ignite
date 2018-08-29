@@ -5565,7 +5565,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                             hist,
                             msgObj);
 
-                        if (waitForNotification)
+                        if (waitForNotification || (msgObj != null && msgObj.isMutable()))
                             fut.get();
 
                         if (msgObj.isMutable())
