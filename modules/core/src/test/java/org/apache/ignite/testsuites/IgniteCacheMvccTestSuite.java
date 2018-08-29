@@ -18,6 +18,7 @@
 package org.apache.ignite.testsuites;
 
 import junit.framework.TestSuite;
+import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccLocalRecoveryTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccClusterRestartTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccConfigurationValidationTest;
 import org.apache.ignite.internal.processors.cache.mvcc.CacheMvccExplicitWalDeltaConsistencyTest;
@@ -61,6 +62,7 @@ public class IgniteCacheMvccTestSuite extends TestSuite {
         suite.addTestSuite(DataStreamProcessorSelfTest.class);
         suite.addTestSuite(CacheMvccSysPropWalDeltaConsistencyTest.class);
         suite.addTestSuite(CacheMvccExplicitWalDeltaConsistencyTest.class);
+        suite.addTestSuite(CacheMvccLocalRecoveryTest.class);
 
         return suite;
     }

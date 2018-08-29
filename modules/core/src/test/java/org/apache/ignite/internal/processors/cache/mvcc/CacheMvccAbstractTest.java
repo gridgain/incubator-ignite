@@ -65,8 +65,11 @@ import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
+import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
 import org.apache.ignite.internal.util.future.GridCompoundIdentityFuture;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
+import org.apache.ignite.internal.util.lang.GridCursor;
 import org.apache.ignite.internal.util.lang.GridInClosure3;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
@@ -98,6 +101,7 @@ import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstract
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.WriteMode.DML;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
+import static org.junit.Assert.assertArrayEquals;
 
 /**
  *
@@ -1665,6 +1669,134 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
         ccfgs.add(cacheConfiguration(REPLICATED, FULL_SYNC, 0, RendezvousAffinityFunction.DFLT_PARTITION_COUNT));
 
         return ccfgs;
+    }
+
+
+    /**
+     * Retrieves all versions of all keys from cache.
+     *
+     * @param cache Cache.
+     * @return {@link Map} of keys to its versions.
+     * @throws IgniteCheckedException If failed.
+     */
+    protected Map<KeyCacheObject, List<CacheDataRow>> allVersions(IgniteCache cache) throws IgniteCheckedException {
+        IgniteCacheProxy cache0 = (IgniteCacheProxy)cache;
+        GridCacheContext cctx = cache0.context();
+
+        assert cctx.mvccEnabled();
+
+        Map<KeyCacheObject, List<CacheDataRow>> vers = new HashMap<>();
+
+        for (Object e : cache) {
+            IgniteBiTuple entry = (IgniteBiTuple)e;
+
+            KeyCacheObject key = cctx.toCacheKeyObject(entry.getKey());
+
+            GridCursor<CacheDataRow> cur = cctx.offheap().mvccAllVersionsCursor(cctx, key, null);
+
+            List<CacheDataRow> rows = new ArrayList<>();
+
+            while (cur.next()) {
+                CacheDataRow row = cur.get();
+
+                rows.add(row);
+            }
+
+            vers.put(key, rows);
+        }
+
+        return vers;
+    }
+
+    /**
+     * @param cache Cache.
+     * @param key Key.
+     * @return Collection of versioned rows.
+     * @throws IgniteCheckedException if failed.
+     */
+    protected List<CacheDataRow> allKeyVersions(IgniteCache cache, Object key) throws IgniteCheckedException {
+        IgniteCacheProxy cache0 = (IgniteCacheProxy)cache;
+        GridCacheContext cctx = cache0.context();
+
+        KeyCacheObject key0 = cctx.toCacheKeyObject(key);
+
+        GridCursor<CacheDataRow> cur = cctx.offheap().mvccAllVersionsCursor(cctx, key0, null);
+
+        List<CacheDataRow> rows = new ArrayList<>();
+
+        while (cur.next()) {
+            CacheDataRow row = cur.get();
+
+            rows.add(row);
+        }
+
+        return rows;
+    }
+
+    /**
+     * Checks stored versions equality.
+     *
+     * @param left Keys versions to compare.
+     * @param right Keys versions to compare.
+     * @throws IgniteCheckedException If failed.
+     */
+    protected void assertVersionsEquals(Map<KeyCacheObject, List<CacheDataRow>> left,
+        Map<KeyCacheObject, List<CacheDataRow>> right) throws IgniteCheckedException {
+        assertNotNull(left);
+        assertNotNull(right);
+
+        assertTrue(!left.isEmpty());
+        assertTrue(!right.isEmpty());
+
+        assertEqualsCollections(left.keySet(), right.keySet());
+
+        for (KeyCacheObject key : right.keySet()) {
+            List<CacheDataRow> leftRows = left.get(key);
+            List<CacheDataRow> rightRows = right.get(key);
+
+            assertKeyVersionsEquals(leftRows, rightRows);
+        }
+    }
+
+    /**
+     *
+     * @param leftRows Left rows.
+     * @param rightRows Right rows.
+     * @throws IgniteCheckedException If failed.
+     */
+    protected void assertKeyVersionsEquals(List<CacheDataRow> leftRows, List<CacheDataRow> rightRows)
+        throws IgniteCheckedException {
+
+        assertNotNull(leftRows);
+        assertNotNull(rightRows);
+
+        assertEquals("leftRows=" + leftRows + ", rightRows=" + rightRows, leftRows.size(), rightRows.size());
+
+        for (int i = 0; i < leftRows.size(); i++) {
+            CacheDataRow leftRow = leftRows.get(i);
+            CacheDataRow rightRow = rightRows.get(i);
+
+            assertNotNull(leftRow);
+            assertNotNull(rightRow);
+
+            assertTrue(leftRow instanceof MvccDataRow);
+            assertTrue(rightRow instanceof MvccDataRow);
+
+            leftRow.key().valueBytes(null);
+
+            assertEquals(leftRow.expireTime(), rightRow.expireTime());
+            assertEquals(leftRow.partition(), rightRow.partition());
+            assertArrayEquals(leftRow.value().valueBytes(null), rightRow.value().valueBytes(null));
+            assertEquals(leftRow.version(), rightRow.version());
+            assertEquals(leftRow.cacheId(), rightRow.cacheId());
+            assertEquals(leftRow.hash(), rightRow.hash());
+            assertEquals(leftRow.key(), rightRow.key());
+            assertEquals(0, MvccUtils.compare(leftRow, rightRow.mvccVersion()));
+            assertEquals(0, MvccUtils.compareNewVersion(leftRow, rightRow.newMvccVersion()));
+            assertEquals(leftRow.newMvccCoordinatorVersion(), rightRow.newMvccCoordinatorVersion());
+            assertEquals(leftRow.newMvccCounter(), rightRow.newMvccCounter());
+            assertEquals(leftRow.newMvccOperationCounter(), rightRow.newMvccOperationCounter());
+        }
     }
 
     /**

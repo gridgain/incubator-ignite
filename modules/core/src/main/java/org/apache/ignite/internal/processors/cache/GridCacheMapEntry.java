@@ -38,6 +38,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.UnregisteredBinaryTypeException;
 import org.apache.ignite.internal.UnregisteredClassException;
+import org.apache.ignite.internal.pagemem.wal.record.MvccDataEntry;
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.DataEntry;
@@ -4207,16 +4208,39 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             else
                 op = this.val == null ? GridCacheOperation.CREATE : GridCacheOperation.UPDATE;
 
-            return cctx.shared().wal().log(new DataRecord(new DataEntry(
-                cctx.cacheId(),
-                key,
-                val,
-                op,
-                tx.nearXidVersion(),
-                tx.writeVersion(),
-                expireTime,
-                key.partition(),
-                updCntr)));
+            DataEntry dataEntry;
+
+            if (cctx.mvccEnabled()){
+                MvccVersion mvccVer = tx.mvccSnapshot();
+
+                assert mvccVer != null;
+
+                dataEntry = new MvccDataEntry(
+                    cctx.cacheId(),
+                    key,
+                    val,
+                    op,
+                    tx.nearXidVersion(),
+                    tx.writeVersion(),
+                    expireTime,
+                    key.partition(),
+                    updCntr,
+                    mvccVer);
+            }
+            else {
+                dataEntry = new DataEntry(
+                    cctx.cacheId(),
+                    key,
+                    val,
+                    op,
+                    tx.nearXidVersion(),
+                    tx.writeVersion(),
+                    expireTime,
+                    key.partition(),
+                    updCntr);
+            }
+
+            return cctx.shared().wal().log(new DataRecord(dataEntry));
         }
         else
             return null;
