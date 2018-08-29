@@ -825,8 +825,11 @@ public class PageMemoryImpl implements PageMemoryEx {
      * @param t1 T 1.
      */
     private void reportLockWait(Segment seg, int grpId, long pageId, int queue, long t1) {
-        if (System.nanoTime() - t1 > 1_000_000)
+        long duration = System.nanoTime() - t1;
+
+        if (duration > 1_000_000)
             log.info(">><DBG> Holding segment write lock longer when 1 second: [seg=" + seg.pool.idx +
+                ", holdLockDuration=" + duration / 1000 / 1000. +
                 ", grpId=" + grpId +
                 ", pageId=" + pageId +
                 ", waiters=" + queue +
@@ -1121,6 +1124,8 @@ public class PageMemoryImpl implements PageMemoryEx {
         }
 
         if (relPtr == OUTDATED_REL_PTR) {
+            long t1 = System.nanoTime();
+
             seg.writeLock().lock();
 
             try {
@@ -1153,7 +1158,11 @@ public class PageMemoryImpl implements PageMemoryEx {
                 return null;
             }
             finally {
+                int queue = seg.getQueueLength();
+
                 seg.writeLock().unlock();
+
+                reportLockWait(seg, fullId.groupId(), fullId.pageId(), queue, t1);
             }
         }
         else
