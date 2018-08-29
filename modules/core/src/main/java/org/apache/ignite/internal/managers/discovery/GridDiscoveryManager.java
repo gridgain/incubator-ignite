@@ -583,7 +583,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 }
             }
 
-            @Override public void onDiscovery(
+            @Override public IgniteInternalFuture onDiscovery(
                 final int type,
                 final long topVer,
                 final ClusterNode node,
@@ -591,18 +591,20 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 final Map<Long, Collection<ClusterNode>> snapshots,
                 @Nullable DiscoverySpiCustomMessage spiCustomMsg
             ) {
-                if (type == EVT_DISCOVERY_CUSTOM_EVT) {
-                    customDiscoWrk.submit(() -> {
+                GridFutureAdapter fut = new GridFutureAdapter();
+
+                customDiscoWrk.submit(() -> {
+                    try {
                         synchronized (discoEvtMux) {
                             onDiscovery0(type, topVer, node, topSnapshot, snapshots, spiCustomMsg);
                         }
-                    });
-                }
-                else {
-                    synchronized (discoEvtMux) {
-                        onDiscovery0(type, topVer, node, topSnapshot, snapshots, spiCustomMsg);
                     }
-                }
+                    finally {
+                        fut.onDone();
+                    }
+                });
+
+                return fut;
             }
 
             /**
@@ -621,6 +623,9 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 final Map<Long, Collection<ClusterNode>> snapshots,
                 @Nullable DiscoverySpiCustomMessage spiCustomMsg
             ) {
+                if (log.isInfoEnabled())
+                    log.info("Invoked on discovery for " + type + " " + topVer + " " + node.consistentId() + " " + spiCustomMsg);
+
                 DiscoveryCustomMessage customMsg = spiCustomMsg == null ? null
                     : ((CustomMessageWrapper)spiCustomMsg).delegate();
 

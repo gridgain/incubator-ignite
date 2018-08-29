@@ -1080,8 +1080,12 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
                 active = transitionWaitFut.get();
             }
-            else
+            else {
                 active = joinData.active();
+
+                if (log.isInfoEnabled())
+                    log.info("Join to " + active + " cluster.");
+            }
 
             // Notify discovery manager the first to make sure that topology is discovered.
             ctx.discovery().onKernalStart(active);
