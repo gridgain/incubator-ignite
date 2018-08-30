@@ -824,12 +824,17 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         checkpointReadLock();
 
         try {
+            long time = System.currentTimeMillis();
+
             if (!F.isEmpty(cachesToStart)) {
                 for (DynamicCacheDescriptor desc : cachesToStart) {
                     if (CU.affinityNode(cctx.localNode(), desc.cacheConfiguration().getNodeFilter()))
                         storeMgr.initializeForCache(desc.groupDescriptor(), new StoredCacheData(desc.cacheConfiguration()));
                 }
             }
+
+            if (log.isInfoEnabled())
+                log.info("Initialize store manager caches finished in " + (System.currentTimeMillis() - time) + " ms.");
 
             CheckpointStatus status = readCheckpointStatus();
 
@@ -841,7 +846,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                 (DataRegionMetricsImpl)memMetricsMap.get(METASTORE_DATA_REGION_NAME)
             );
 
-            long time = System.currentTimeMillis();
+            time = System.currentTimeMillis();
 
             WALPointer restore = restoreMemory(status);
 

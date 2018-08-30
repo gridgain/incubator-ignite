@@ -267,6 +267,8 @@ public class GridCacheSharedContext<K, V> {
      * @throws IgniteCheckedException If failed.
      */
     public void activate() throws IgniteCheckedException {
+        long ttime = System.currentTimeMillis();
+
         if (!kernalCtx.clientNode())
             dbMgr.lock();
 
@@ -289,6 +291,9 @@ public class GridCacheSharedContext<K, V> {
                 if (!kernalCtx.clientNode())
                     dbMgr.unLock();
             }
+
+            if (msgLog.isInfoEnabled())
+                msgLog.info("Activation took " + (System.currentTimeMillis() - ttime) + " ms.");
         }
     }
 
