@@ -17,16 +17,14 @@
 
 package org.apache.ignite.internal.processors.cache.persistence.wal;
 
-import java.io.File;
-import java.io.IOException;
-import org.apache.ignite.internal.processors.cache.persistence.file.FileIO;
-import org.apache.ignite.internal.processors.cache.persistence.file.FileIOFactory;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager;
-import org.apache.ignite.internal.processors.cache.persistence.file.UnzipFileIO;
-import org.apache.ignite.internal.processors.cache.persistence.wal.io.SegmentIO;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.io.File;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * WAL file descriptor.
@@ -135,12 +133,5 @@ public class FileDescriptor implements Comparable<FileDescriptor>, AbstractWalRe
     /** {@inheritDoc} */
     @Override public long idx() {
         return idx;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SegmentIO toIO(FileIOFactory fileIOFactory) throws IOException {
-        FileIO fileIO = isCompressed() ? new UnzipFileIO(file()) : fileIOFactory.create(file());
-
-        return new SegmentIO(idx, fileIO);
     }
 }
