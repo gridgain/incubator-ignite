@@ -1,5 +1,6 @@
 package org.apache.ignite.internal.binary.compress;
 
+import com.github.luben.zstd.Zstd;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
@@ -56,7 +57,7 @@ public class LZWBytes {
     public byte[] handle(byte[] message) {
         BinaryLookup<int[]> lookup = this.lookup;
 
-        if (lookup != null) {
+        if (true || lookup != null) {
             if (!enabled)
                 return null;
 
@@ -177,6 +178,9 @@ public class LZWBytes {
     }*/
 
     private static byte[] compress(byte[] s, BinaryLookup<int[]> trie, boolean b) {
+        if (true)
+            return Zstd.compress(s);
+
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         BitOutputStream bos = new BitOutputStream(out);
         int pos = 0;

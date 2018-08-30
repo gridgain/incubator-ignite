@@ -6,6 +6,7 @@ package org.apache.ignite.internal.binary.compress;/*
  * https://github.com/nayuki/Reference-Huffman-coding
  */
 
+import com.github.luben.zstd.Zstd;
 import org.apache.ignite.internal.binary.BinaryPrimitives;
 import org.apache.ignite.internal.binary.GridBinaryMarshaller;
 
@@ -45,7 +46,10 @@ public final class FastHuffmanDecoder<T> {
 	}
 
 	public byte[] decodeBinaryObject(byte[] input) {
-	    int buff = 0;
+        if (true)
+            Zstd.decompress(input, input.length * 16);
+
+        int buff = 0;
 	    int bpos = 32;
 	    int inpos = 0;
 	    int outpos = 0;
