@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
-import org.apache.ignite.yardstick.cache.model.SampleValue;
+import org.apache.ignite.yardstick.cache.model.WorkdayValue;
 import org.yardstickframework.BenchmarkConfiguration;
 import org.yardstickframework.BenchmarkUtils;
 
@@ -37,6 +37,21 @@ import org.yardstickframework.BenchmarkUtils;
  *
  */
 public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
+    /** */
+    private static final int AVG_VAL_SIZE = 200;
+
+    /** */
+    private static final int MIN_VAL_SIZE = 100;
+
+    /** */
+    private static final int VAL_SIZE_DEVIATION = 100;
+
+    /** */
+    private static final int BIG_VAL_SIZE = 12_000;
+
+    /** */
+    private static final double BIG_VAL_FRAC = 0.05;
+
     /** */
     private String cacheName;
 
@@ -66,7 +81,7 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
             throw new IllegalArgumentException("IgniteStreamerBenchmark should be run with single thread. " +
                 "Internally it starts multiple threads.");
 
-        IgniteCache<Integer, SampleValue> cache = ignite().cache(cacheName);
+        IgniteCache<Integer, WorkdayValue> cache = ignite().cache(cacheName);
 
         if (cache == null)
             throw new IllegalArgumentException("Cache \"" + cacheName + "\" was not found.");
@@ -87,7 +102,7 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
 
         final AtomicBoolean stop = new AtomicBoolean();
 
-        try (IgniteDataStreamer<Integer, SampleValue> streamer = streamer()) {
+        try (IgniteDataStreamer<Integer, WorkdayValue> streamer = streamer()) {
             List<Future<Void>> futs = new ArrayList<>();
 
             BenchmarkUtils.println("IgniteStreamerBenchmark start load cache [name=" + cacheName + ']');
@@ -104,7 +119,7 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
                         for (int i1 = 0; i1 < entries; i1++) {
                             int key = ThreadLocalRandom.current().nextInt();
 
-                            streamer.addData(key, new SampleValue(key));
+                            streamer.addData(key, generateValue());
 
                             if (i1 > 0 && i1 % 1000 == 0) {
                                 if (stop.get())
@@ -154,14 +169,35 @@ public class IgniteStreamerBenchmark extends IgniteAbstractBenchmark {
     /**
      * @return Data streamer instance.
      */
-    private IgniteDataStreamer<Integer, SampleValue> streamer() {
-       IgniteDataStreamer<Integer, SampleValue> streamer = ignite().dataStreamer(cacheName);
+    private IgniteDataStreamer<Integer, WorkdayValue> streamer() {
+        IgniteDataStreamer<Integer, WorkdayValue> streamer = ignite().dataStreamer(cacheName);
 
-       streamer.allowOverwrite(args.streamerAllowOverwrite());
+        streamer.allowOverwrite(args.streamerAllowOverwrite());
 
-       streamer.perNodeBufferSize(args.streamerBufferSize());
+        streamer.perNodeBufferSize(args.streamerBufferSize());
 
-       return streamer;
+        return streamer;
+    }
+
+    /**
+     * @return Generated value.
+     */
+    private static WorkdayValue generateValue() {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+
+        int len;
+        if (random.nextDouble() < BIG_VAL_FRAC)
+            len = BIG_VAL_SIZE;
+        else {
+            double std = random.nextGaussian();
+
+            len = Math.max(MIN_VAL_SIZE, (int)(std * VAL_SIZE_DEVIATION + AVG_VAL_SIZE));
+        }
+
+        byte[] data = new byte[len];
+        ThreadLocalRandom.current().nextBytes(data);
+
+        return new WorkdayValue(data);
     }
 
     /** {@inheritDoc} */
