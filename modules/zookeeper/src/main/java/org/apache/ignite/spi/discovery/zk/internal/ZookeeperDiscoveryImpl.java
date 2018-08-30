@@ -3418,7 +3418,7 @@ public class ZookeeperDiscoveryImpl {
      * @param msg Custom message.
      */
     @SuppressWarnings("unchecked")
-    private void notifyCustomEvent(final ZkDiscoveryCustomEventData evtData, final DiscoverySpiCustomMessage msg) {
+    private void notifyCustomEvent(final ZkDiscoveryCustomEventData evtData, final DiscoverySpiCustomMessage msg) throws IgniteCheckedException {
         assert !(msg instanceof ZkInternalMessage) : msg;
 
         if (log.isDebugEnabled())
@@ -3430,13 +3430,17 @@ public class ZookeeperDiscoveryImpl {
 
         final List<ClusterNode> topSnapshot = rtState.top.topologySnapshot();
 
-        lsnr.onDiscovery(
+        IgniteInternalFuture fut = lsnr.onDiscovery(
             DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT,
             evtData.topologyVersion(),
             sndNode,
             topSnapshot,
             Collections.<Long, Collection<ClusterNode>>emptyMap(),
-            msg);
+            msg
+        );
+
+        if (msg != null && msg.isMutable())
+            fut.get();
     }
 
     /**
