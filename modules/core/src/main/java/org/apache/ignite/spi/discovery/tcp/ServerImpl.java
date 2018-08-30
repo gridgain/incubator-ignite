@@ -2669,19 +2669,24 @@ class ServerImpl extends TcpDiscoveryImpl {
                     + "\n msg = " + msg);
             }
 
+            long time = (System.currentTimeMillis() - startQueuedTime);
 
-            this.log.info("Queueing message type = " + msg.getClass().getSimpleName()
-                + " id = " + msg.id()
-                + " time = " + (System.currentTimeMillis() - startQueuedTime));
+            if (time >= 100)
+                this.log.info("Queueing message type = " + msg.getClass().getSimpleName()
+                    + " id = " + msg.id()
+                    + " time = " + time);
 
             if (msg.highPriority())
                 queue.addFirst(msg);
             else
                 queue.add(msg);
 
-            this.log.info("Queued message type = " + msg.getClass().getSimpleName()
-                + " id = " + msg.id()
-                + " time = " + (System.currentTimeMillis() - startQueuedTime));
+            time = (System.currentTimeMillis() - startQueuedTime);
+
+            if (time >= 100)
+                this.log.info("Queued message type = " + msg.getClass().getSimpleName()
+                    + " id = " + msg.id()
+                    + " time = " + time);
 
             if (log.isDebugEnabled())
                 log.debug("Message has been added to queue: " + msg);
@@ -6114,19 +6119,25 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                             timeTrackerMap.put(msg.id(), startMessageRidding);
 
-                            log.info("New message unmarshalled type = " + msg.getClass().getSimpleName()
-                                + " id = " + msg.id()
-                                + " size = " + FileUtils.byteCountToDisplaySize(cis.getCount())
-                                + " unmarshal = " + (System.currentTimeMillis() - start)
-                                + "\n msg = " + msg);
+                            long time = (System.currentTimeMillis() - start);
+
+                            if (time >= 100)
+                                log.info("New message unmarshalled type = " + msg.getClass().getSimpleName()
+                                    + " id = " + msg.id()
+                                    + " size = " + FileUtils.byteCountToDisplaySize(cis.getCount())
+                                    + " unmarshalTime = " + time
+                                    + "\n msg = " + msg);
                         }
                         else {
-                            log.info("Unmarshalled message type = " + msg.getClass().getSimpleName()
-                                + " id = " + msg.id()
-                                + " size = " + FileUtils.byteCountToDisplaySize(cis.getCount())
-                                + " unmarshal = " + (System.currentTimeMillis() - start)
-                                + " time = " + (System.currentTimeMillis() - startMessageRidding)
-                                + "\n msg = " + msg);
+                            long time = (System.currentTimeMillis() - startMessageRidding);
+
+                            if (time >= 100)
+                                log.info("Unmarshalled message type = " + msg.getClass().getSimpleName()
+                                    + " id = " + msg.id()
+                                    + " size = " + FileUtils.byteCountToDisplaySize(cis.getCount())
+                                    + " unmarshalTime = " + (System.currentTimeMillis() - start)
+                                    + " time = " + time
+                                    + "\n msg = " + msg);
                         }
 
                         msg.senderNodeId(nodeId);
@@ -7038,15 +7049,21 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                     long start = timeTrackerMap.getOrDefault((discoMsg).id(), Long.MAX_VALUE);
 
-                    log.info("Enqueued message type = " + discoMsg.getClass().getSimpleName()
-                            + " id = " + discoMsg.id()
-                            + " time = " + (System.currentTimeMillis() - start));
+                    long time = (System.currentTimeMillis() - start);
+
+                    if (time >= 100)
+                        log.info("Enqueued message type = " + discoMsg.getClass().getSimpleName()
+                                + " id = " + discoMsg.id()
+                                + " time = " + time);
 
                     processMessage(msg);
 
-                    log.info("Processed message type = " + discoMsg.getClass().getSimpleName()
-                            + " id = " + discoMsg.id()
-                            + " time = " + (System.currentTimeMillis() - start));
+                    time = (System.currentTimeMillis() - start);
+
+                    if (time >= 100)
+                        log.info("Processed message type = " + discoMsg.getClass().getSimpleName()
+                                + " id = " + discoMsg.id()
+                                + " time = " + time);
                 }
             }
         }
