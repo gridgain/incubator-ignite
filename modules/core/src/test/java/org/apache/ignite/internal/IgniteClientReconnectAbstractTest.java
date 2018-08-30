@@ -70,7 +70,7 @@ public abstract class IgniteClientReconnectAbstractTest extends GridCommonAbstra
     private static TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
 
     /** */
-    private static final long RECONNECT_TIMEOUT = 10_000;
+    private static final long RECONNECT_TIMEOUT = 50_000;
 
     /** */
     protected boolean clientMode;

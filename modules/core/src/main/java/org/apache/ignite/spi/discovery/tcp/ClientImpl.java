@@ -465,7 +465,12 @@ class ClientImpl extends TcpDiscoveryImpl {
 
                 Collection<ClusterNode> top = updateTopologyHistory(topVer + 1, null);
 
-                lsnr.onDiscovery(EVT_NODE_FAILED, topVer, n, top, new TreeMap<>(topHist), null);
+                try {
+                    lsnr.onDiscovery(EVT_NODE_FAILED, topVer, n, top, new TreeMap<>(topHist), null).get();
+                }
+                catch (IgniteCheckedException e) {
+                    U.error(log, "Failed to wait for listener notification", e);
+                }
             }
         }
 
@@ -2484,7 +2489,12 @@ class ClientImpl extends TcpDiscoveryImpl {
                     log.debug("Discovery notification [node=" + node + ", type=" + U.gridEventName(type) +
                         ", topVer=" + topVer + ']');
 
-                lsnr.onDiscovery(type, topVer, node, top, new TreeMap<>(topHist), data);
+                try {
+                    lsnr.onDiscovery(type, topVer, node, top, new TreeMap<>(topHist), data).get();
+                }
+                catch (IgniteCheckedException e) {
+                    e.printStackTrace();
+                }
             }
             else if (log.isDebugEnabled())
                 log.debug("Skipped discovery notification [node=" + node + ", type=" + U.gridEventName(type) +
