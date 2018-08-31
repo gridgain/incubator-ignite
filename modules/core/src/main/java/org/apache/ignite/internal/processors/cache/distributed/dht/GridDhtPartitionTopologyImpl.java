@@ -1345,6 +1345,12 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         + ", exchVer=" + exchangeVer + ", states=" + dumpPartitionStates() + ']');
                 }
 
+                if (exchangeVer != null)
+                    log.info("exchangeVer != null");
+                else
+                    log.info("exchangeVer == null");
+
+
                 if (stopping || !lastTopChangeVer.initialized() ||
                     // Ignore message not-related to exchange if exchange is in progress.
                     (exchangeVer == null && !lastTopChangeVer.equals(readyTopVer)))
@@ -1578,6 +1584,26 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
         finally {
             ctx.database().checkpointReadUnlock();
         }
+    }
+
+    private boolean checkPartState(GridDhtPartitionFullMap partMap){
+        for (Map.Entry<UUID, GridDhtPartitionMap> e : partMap.entrySet()) {
+
+            if(!e.getKey().equals(ctx.kernalContext().localNodeId()))
+                continue;
+
+            for (Map.Entry<Integer, GridDhtPartitionState> e0 : e.getValue().entrySet()) {
+                int p = e0.getKey();
+
+                if (e0.getValue() == MOVING){
+                    log.info(String.format("Part %d in MOVING state", p));
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /** {@inheritDoc} */
