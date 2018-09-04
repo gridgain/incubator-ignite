@@ -55,6 +55,9 @@ public class GDBLearningStrategy {
     /** External label to internal mapping. */
     protected IgniteFunction<Double, Double> externalLbToInternalMapping;
 
+    /** Internal label to external mapping. */
+    protected IgniteFunction<Double, Double> internalLbToExternalMapping;
+
     /** Base model trainer builder. */
     protected IgniteSupplier<DatasetTrainer<? extends Model<Vector, Double>, Double>> baseMdlTrainerBuilder;
 
@@ -90,7 +93,7 @@ public class GDBLearningStrategy {
         ConvergenceCheckStrategy<K, V> convCheck = checkConvergenceStgyFactory.create(sampleSize,
             externalLbToInternalMapping, lossGradient, datasetBuilder, featureExtractor, lbExtractor);
         LearningRateOptimizer<K,V> rateOptimizer = learningRateOptimizerFactory.create(sampleSize,
-            externalLbToInternalMapping, lossGradient, featureExtractor, lbExtractor);
+            externalLbToInternalMapping, internalLbToExternalMapping, lossGradient, featureExtractor, lbExtractor);
 
         DatasetTrainer<? extends Model<Vector, Double>, Double> trainer = baseMdlTrainerBuilder.get();
         for (int i = 0; i < cntOfIterations; i++) {
@@ -156,6 +159,16 @@ public class GDBLearningStrategy {
      */
     public GDBLearningStrategy withExternalLabelToInternal(IgniteFunction<Double, Double> externalLbToInternal) {
         this.externalLbToInternalMapping = externalLbToInternal;
+        return this;
+    }
+
+    /**
+     * Sets internal to external label representation mapping.
+     *
+     * @param mapping External label to internal.
+     */
+    public GDBLearningStrategy withInternalLabelToExternal(IgniteFunction<Double, Double> mapping) {
+        this.internalLbToExternalMapping = mapping;
         return this;
     }
 

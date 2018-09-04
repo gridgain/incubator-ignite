@@ -24,6 +24,8 @@ import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.ml.composition.ModelsComposition;
 import org.apache.ignite.ml.composition.boosting.convergence.mean.MeanAbsValueCheckConvergenceStgyFactory;
+import org.apache.ignite.ml.composition.boosting.learningrate.histogram.OnHistogramLearningOptimizerFactory;
+import org.apache.ignite.ml.composition.boosting.learningrate.stub.LearningRateOptimizerStubFactory;
 import org.apache.ignite.ml.math.primitives.vector.VectorUtils;
 import org.apache.ignite.ml.trainers.DatasetTrainer;
 import org.apache.ignite.ml.tree.boosting.GDBBinaryClassifierOnTreesTrainer;
@@ -59,6 +61,8 @@ public class GDBOnTreesClassificationTrainerExample {
 
                 // Create regression trainer.
                 DatasetTrainer<ModelsComposition, Double> trainer = new GDBBinaryClassifierOnTreesTrainer(1.0, 300, 2, 0.)
+                    .withLearningRateOptimizerFactory(new LearningRateOptimizerStubFactory(1.0))
+                    .withLearningRateOptimizerFactory(new OnHistogramLearningOptimizerFactory(5.0, .2))
                     .withCheckConvergenceStgyFactory(new MeanAbsValueCheckConvergenceStgyFactory(0.1));
 
                 // Train decision tree model.

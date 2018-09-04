@@ -46,10 +46,11 @@ public class OnHistogramLearningOptimizerFactory implements LearningRateOptimize
     /** {@inheritDoc} */
     @Override public <K, V> LearningRateOptimizer<K, V> create(long sampleSize,
         IgniteFunction<Double, Double> externalLbToInternalMapping,
+        IgniteFunction<Double, Double> internalLbToExternalMapping,
         IgniteTriFunction<Long, Double, Double, Double> lossGradient, IgniteBiFunction<K, V, Vector> featureExtractor,
         IgniteBiFunction<K, V, Double> lbExtractor) {
 
-        return new OnHistogramLearningOptimizer(sampleSize, externalLbToInternalMapping, lossGradient,
-            featureExtractor, lbExtractor, precision, maxRateVal);
+        return new OnHistogramLearningOptimizer<>(sampleSize, externalLbToInternalMapping, lossGradient,
+            featureExtractor, lbExtractor, internalLbToExternalMapping, precision, maxRateVal);
     }
 }

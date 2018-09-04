@@ -38,6 +38,7 @@ public interface LearningRateOptimizerFactory {
      */
     public abstract <K,V> LearningRateOptimizer<K,V> create(long sampleSize,
         IgniteFunction<Double, Double> externalLbToInternalMapping,
+        IgniteFunction<Double, Double> internalLbToExternalMapping,
         IgniteTriFunction<Long, Double, Double, Double> lossGradient,
         IgniteBiFunction<K, V, Vector> featureExtractor,
         IgniteBiFunction<K, V, Double> lbExtractor);

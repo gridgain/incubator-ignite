@@ -34,10 +34,10 @@ import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.math.primitives.vector.VectorUtils;
 
 /**
- * Implementation of learning rate optimizer using histogram to calculate learning rate optimum.
- * This algorithm estimate sum of absolute errors on dataset partitions, merge them and select learning rate
- * corresponding to minimum of aggregated sum.
- * */
+ * Implementation of learning rate optimizer using histogram to calculate learning rate optimum. This algorithm estimate
+ * sum of absolute errors on dataset partitions, merge them and select learning rate corresponding to minimum of
+ * aggregated sum.
+ */
 public class OnHistogramLearningOptimizer<K, V> extends LearningRateOptimizer<K, V> {
     /** Serial version uid. */
     private static final long serialVersionUID = -893322637324001504L;
@@ -47,6 +47,9 @@ public class OnHistogramLearningOptimizer<K, V> extends LearningRateOptimizer<K,
 
     /** External label to internal mapping. */
     private final IgniteFunction<Double, Double> externalLbToInternalMapping;
+
+    /** Internal label to external mapping. */
+    private final IgniteFunction<Double, Double> internalLbToExternalMapping;
 
     /** Loss gradient. */
     private final IgniteTriFunction<Long, Double, Double, Double> lossGradient;
@@ -65,17 +68,21 @@ public class OnHistogramLearningOptimizer<K, V> extends LearningRateOptimizer<K,
      * @param lossGradient Loss gradient.
      * @param featureExtractor Feature extractor.
      * @param lblExtractor Lbl extractor.
+     * @param internalLbToExternalMapping
      * @param precision Precision.
      * @param maxRateVal Max rate value.
      */
     public OnHistogramLearningOptimizer(long sampleSize, IgniteFunction<Double, Double> externalLbToInternalMapping,
         IgniteTriFunction<Long, Double, Double, Double> lossGradient, IgniteBiFunction<K, V, Vector> featureExtractor,
-        IgniteBiFunction<K, V, Double> lblExtractor, double precision, double maxRateVal) {
+        IgniteBiFunction<K, V, Double> lblExtractor,
+        IgniteFunction<Double, Double> internalLbToExternalMapping,
+        double precision, double maxRateVal) {
 
         super(featureExtractor, lblExtractor);
 
         this.sampleSize = sampleSize;
         this.externalLbToInternalMapping = externalLbToInternalMapping;
+        this.internalLbToExternalMapping = internalLbToExternalMapping;
         this.lossGradient = lossGradient;
         this.bucketSize = precision;
         this.maxRateVal = maxRateVal;
@@ -87,16 +94,19 @@ public class OnHistogramLearningOptimizer<K, V> extends LearningRateOptimizer<K,
 
         ObjectHistogram<HistogramTuple> learningRateHist = dataset.compute(
             data -> computeErrorsOnPartitions(data, currComposition, newMdl),
-            ObjectHistogram::plus
+            this::mergeHistograms
         );
+
+        if (learningRateHist == null)
+            return bucketSize;
 
         return learnRate(learningRateHist);
     }
 
     /**
-     * @param data Partition data.
+     * @param data Data.
      * @param currComposition Current composition.
-     * @param newMdl New model for composition.
+     * @param newMdl New model.
      */
     private ObjectHistogram<HistogramTuple> computeErrorsOnPartitions(FeatureMatrixWithLabelsOnHeapData data,
         ModelsComposition currComposition, Model<Vector, Double> newMdl) {
@@ -108,12 +118,30 @@ public class OnHistogramLearningOptimizer<K, V> extends LearningRateOptimizer<K,
                 Double lbl = externalLbToInternalMapping.apply(data.getLabels()[i]);
                 Double currMdlAnswer = currComposition.apply(features);
                 Double newMdlAnswer = newMdl.apply(features);
-                Double error = Math.abs(lossGradient.apply(sampleSize, lbl,
-                    currMdlAnswer + rateVal * newMdlAnswer));
+
+//                Double error = Math.pow(lbl - (currMdlAnswer + rateVal * newMdlAnswer), 2); //TODO: we need valid loss function
+                Double externalLbl = internalLbToExternalMapping.apply(currMdlAnswer + rateVal * newMdlAnswer);
+                Double error = !lbl.equals(externalLbl) ? 1.0 : 0.0; //TODO: we need valid loss function
                 res.addElement(new HistogramTuple(rateVal, error));
             }
         }
         return res;
+    }
+
+    /**
+     * @param left Left.
+     * @param right Right.
+     * @return merged histograms.
+     */
+    private ObjectHistogram<HistogramTuple> mergeHistograms(ObjectHistogram<HistogramTuple> left,
+        ObjectHistogram<HistogramTuple> right) {
+
+        if (left == null)
+            return right;
+        if (right == null)
+            return left;
+
+        return left.plus(right);
     }
 
     /**

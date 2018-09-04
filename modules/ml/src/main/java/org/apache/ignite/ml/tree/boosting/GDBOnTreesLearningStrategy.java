@@ -67,7 +67,7 @@ public class GDBOnTreesLearningStrategy  extends GDBLearningStrategy {
         ConvergenceCheckStrategy<K,V> convCheck = checkConvergenceStgyFactory.create(sampleSize,
             externalLbToInternalMapping, lossGradient, datasetBuilder, featureExtractor, lbExtractor);
         LearningRateOptimizer<K,V> rateOptimizer = learningRateOptimizerFactory.create(sampleSize,
-            externalLbToInternalMapping, lossGradient, featureExtractor, lbExtractor);
+            externalLbToInternalMapping, internalLbToExternalMapping, lossGradient, featureExtractor, lbExtractor);
 
         List<Model<Vector, Double>> models = new ArrayList<>();
 

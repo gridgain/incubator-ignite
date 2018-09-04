@@ -22,10 +22,9 @@ import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.ml.Model;
 import org.apache.ignite.ml.composition.ModelsComposition;
 import org.apache.ignite.ml.composition.boosting.convergence.mean.MeanAbsValueCheckConvergenceStgyFactory;
-import org.apache.ignite.ml.math.primitives.vector.Vector;
+import org.apache.ignite.ml.composition.boosting.learningrate.histogram.OnHistogramLearningOptimizerFactory;
 import org.apache.ignite.ml.math.primitives.vector.VectorUtils;
 import org.apache.ignite.ml.trainers.DatasetTrainer;
 import org.apache.ignite.ml.tree.boosting.GDBRegressionOnTreesTrainer;
@@ -61,10 +60,13 @@ public class GDBOnTreesRegressionTrainerExample {
 
                 // Create regression trainer.
                 DatasetTrainer<ModelsComposition, Double> trainer = new GDBRegressionOnTreesTrainer(1.0, 2000, 1, 0.)
-                    .withCheckConvergenceStgyFactory(new MeanAbsValueCheckConvergenceStgyFactory(0.001));
+                    .withCheckConvergenceStgyFactory(new MeanAbsValueCheckConvergenceStgyFactory(0.001))
+                    .withLearningRateOptimizerFactory(new OnHistogramLearningOptimizerFactory(10.0, 1.0))
+//                    .withLearningRateOptimizerFactory(new LearningRateOptimizerStubFactory(1.0))
+                    ;
 
                 // Train decision tree model.
-                Model<Vector, Double> mdl = trainer.fit(
+                ModelsComposition mdl = trainer.fit(
                     ignite,
                     trainingSet,
                     (k, v) -> VectorUtils.of(v[0]),
@@ -82,6 +84,8 @@ public class GDBOnTreesRegressionTrainerExample {
                     System.out.printf(">>> | %.4f\t\t| %.4f\t\t|\n", predicted, Math.pow(x, 2));
                 }
 
+                System.out.println(">>> ---------------------------------");
+                System.out.println(">>> count of trees = " + mdl.getModels().size());
                 System.out.println(">>> ---------------------------------");
 
                 System.out.println(">>> GDB regression trainer example completed.");

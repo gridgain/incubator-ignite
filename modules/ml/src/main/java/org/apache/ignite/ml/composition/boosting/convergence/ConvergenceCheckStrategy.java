@@ -114,6 +114,7 @@ public abstract class ConvergenceCheckStrategy<K, V> implements Serializable {
      */
     public boolean isConverged(Dataset<EmptyContext, ? extends FeatureMatrixWithLabelsOnHeapData> dataset, ModelsComposition currMdl) {
         Double error = computeMeanErrorOnDataset(dataset, currMdl);
+        System.out.println(error);
         return error < precision || error.isNaN();
     }
 

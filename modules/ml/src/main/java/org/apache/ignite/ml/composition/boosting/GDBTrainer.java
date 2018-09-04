@@ -112,6 +112,7 @@ public abstract class GDBTrainer extends DatasetTrainer<ModelsComposition, Doubl
         List<Model<Vector, Double>> models = getLearningStrategy()
             .withBaseModelTrainerBuilder(this::buildBaseModelTrainer)
             .withExternalLabelToInternal(this::externalLabelToInternal)
+            .withInternalLabelToExternal(this::internalLabelToExternal)
             .withCntOfIterations(cntOfIterations)
             .withCompositionWeights(compositionWeights)
             .withEnvironment(environment)
