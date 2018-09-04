@@ -44,7 +44,7 @@ object IgniteSparkStreamingExample {
     })
 
     private def addMarketData(symbol: String, price: Double): Unit = withIgniteClient(igniteClient => {
-        
+
     })
 
     private def withIgniteClient(body: IgniteClient => Unit): Unit = {
