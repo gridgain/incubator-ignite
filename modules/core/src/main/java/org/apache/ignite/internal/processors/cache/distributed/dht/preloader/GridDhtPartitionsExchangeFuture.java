@@ -2450,8 +2450,13 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
                 CounterWithNodes maxCntr = maxCntrs.get(p);
 
-                if (maxCntr == null || cntr > maxCntr.cnt)
+                if (maxCntr == null || cntr > maxCntr.cnt) {
+                    if (maxCntr != null)
+                        log.info("Partition " + p + " should rebalase from nodes " + maxCntr.nodes
+                            + ", because have counter " + maxCntr.cnt + " less then " + cntr + " on node " + uuid);
+
                     maxCntrs.put(p, new CounterWithNodes(cntr, e.getValue().partitionSizes(top.groupId()).get(p), uuid));
+                }
                 else if (cntr == maxCntr.cnt)
                     maxCntr.nodes.add(uuid);
             }
@@ -2486,8 +2491,13 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
                 maxCntrs.put(part.id(), cntrObj);
             }
-            else if (maxCntr == null || cntr > maxCntr.cnt)
+            else if (maxCntr == null || cntr > maxCntr.cnt) {
+                if (maxCntr != null)
+                    log.info("Partition " + part.id() + " should rebalase from nodes "
+                        + maxCntr.nodes + ", because have counter " + maxCntr.cnt + " less then " + cntr + " on node " + cctx.localNodeId());
+
                 maxCntrs.put(part.id(), new CounterWithNodes(cntr, part.fullSize(), cctx.localNodeId()));
+            }
             else if (cntr == maxCntr.cnt)
                 maxCntr.nodes.add(cctx.localNodeId());
         }
