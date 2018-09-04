@@ -24,6 +24,8 @@ import org.apache.ignite.ml.Model;
 import org.apache.ignite.ml.composition.ModelsComposition;
 import org.apache.ignite.ml.composition.boosting.convergence.ConvergenceCheckStrategyFactory;
 import org.apache.ignite.ml.composition.boosting.convergence.mean.MeanAbsValueCheckConvergenceStgyFactory;
+import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizerFactory;
+import org.apache.ignite.ml.composition.boosting.learningrate.stub.LearningRateOptimizerStubFactory;
 import org.apache.ignite.ml.composition.predictionsaggregator.WeightedPredictionsAggregator;
 import org.apache.ignite.ml.dataset.Dataset;
 import org.apache.ignite.ml.dataset.DatasetBuilder;
@@ -55,8 +57,11 @@ import org.jetbrains.annotations.NotNull;
  * But in practice Decision Trees is most used regressors (see: {@link DecisionTreeRegressionTrainer}).
  */
 public abstract class GDBTrainer extends DatasetTrainer<ModelsComposition, Double> {
-    /** Gradient step. */
-    private final double gradientStep;
+    /** Default learning rate. */
+    public static final double DEFAULT_LEARNING_RATE = 0.1;
+
+    /** Default convergence precision. */
+    public static final double DEFAULT_CONVERGENCE_PRECISION = 0.001;
 
     /** Count of iterations. */
     private final int cntOfIterations;
@@ -68,7 +73,10 @@ public abstract class GDBTrainer extends DatasetTrainer<ModelsComposition, Doubl
     protected final IgniteTriFunction<Long, Double, Double, Double> lossGradient;
 
     /** Check convergence strategy factory. */
-    protected ConvergenceCheckStrategyFactory checkConvergenceStgyFactory = new MeanAbsValueCheckConvergenceStgyFactory(0.001);
+    protected ConvergenceCheckStrategyFactory checkConvergenceStgyFactory = new MeanAbsValueCheckConvergenceStgyFactory(DEFAULT_CONVERGENCE_PRECISION);
+
+    /** Learning rate optimizer factory. */
+    protected LearningRateOptimizerFactory learningRateOptimizerFactory = new LearningRateOptimizerStubFactory(DEFAULT_LEARNING_RATE);
 
     /**
      * Constructs GDBTrainer instance.
@@ -80,7 +88,6 @@ public abstract class GDBTrainer extends DatasetTrainer<ModelsComposition, Doubl
      */
     public GDBTrainer(double gradStepSize, Integer cntOfIterations,
         IgniteTriFunction<Long, Double, Double, Double> lossGradient) {
-        gradientStep = gradStepSize;
         this.cntOfIterations = cntOfIterations;
         this.lossGradient = lossGradient;
     }
@@ -98,7 +105,7 @@ public abstract class GDBTrainer extends DatasetTrainer<ModelsComposition, Doubl
         Long sampleSize = initAndSampleSize.get2();
 
         double[] compositionWeights = new double[cntOfIterations];
-        Arrays.fill(compositionWeights, gradientStep);
+        Arrays.fill(compositionWeights, 0.1);
 
         long learningStartTs = System.currentTimeMillis();
 
@@ -112,6 +119,7 @@ public abstract class GDBTrainer extends DatasetTrainer<ModelsComposition, Doubl
             .withSampleSize(sampleSize)
             .withMeanLabelValue(mean)
             .withCheckConvergenceStgyFactory(checkConvergenceStgyFactory)
+            .withLearningRateOptimizerFactory(learningRateOptimizerFactory)
             .learnModels(datasetBuilder, featureExtractor, lbExtractor);
 
         double learningTime = (double)(System.currentTimeMillis() - learningStartTs) / 1000.0;
@@ -204,6 +212,17 @@ public abstract class GDBTrainer extends DatasetTrainer<ModelsComposition, Doubl
      */
     public GDBTrainer withCheckConvergenceStgyFactory(ConvergenceCheckStrategyFactory factory) {
         this.checkConvergenceStgyFactory = factory;
+        return this;
+    }
+
+    /**
+     * Sets LearningRateOptimizerFactory.
+     *
+     * @param factory
+     * @return trainer.
+     */
+    public GDBTrainer withLearningRateOptimizerFactory(LearningRateOptimizerFactory factory) {
+        this.learningRateOptimizerFactory = factory;
         return this;
     }
 

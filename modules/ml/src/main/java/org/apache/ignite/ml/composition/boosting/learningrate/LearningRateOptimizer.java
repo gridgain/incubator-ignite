@@ -27,8 +27,6 @@ import org.apache.ignite.ml.dataset.primitive.FeatureMatrixWithLabelsOnHeapDataB
 import org.apache.ignite.ml.dataset.primitive.builder.context.EmptyContextBuilder;
 import org.apache.ignite.ml.dataset.primitive.context.EmptyContext;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
-import org.apache.ignite.ml.math.functions.IgniteFunction;
-import org.apache.ignite.ml.math.functions.IgniteTriFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 
 /**
@@ -41,15 +39,6 @@ public abstract class LearningRateOptimizer<K,V> implements Serializable {
     /** Serial version uid. */
     private static final long serialVersionUID = -5396003172766116232L;
 
-    /** Sample size. */
-    protected long sampleSize;
-
-    /** External label to internal mapping. */
-    protected IgniteFunction<Double, Double> externalLbToInternalMapping;
-
-    /** Loss of gradient. */
-    protected IgniteTriFunction<Long, Double, Double, Double> lossGradient;
-
     /** Feature extractor. */
     protected IgniteBiFunction<K, V, Vector> fExtractor;
 
@@ -59,19 +48,12 @@ public abstract class LearningRateOptimizer<K,V> implements Serializable {
     /**
      * Creates an instance of LearningRateOptimizer.
      *
-     * @param sampleSize Sample size.
-     * @param externalLbToInternalMapping External label to internal mapping.
-     * @param lossGradient Loss gradient.
      * @param fExtractor F extractor.
      * @param lbExtractor Label extractor.
      */
-    public LearningRateOptimizer(long sampleSize, IgniteFunction<Double, Double> externalLbToInternalMapping,
-        IgniteTriFunction<Long, Double, Double, Double> lossGradient, IgniteBiFunction<K, V, Vector> fExtractor,
+    public LearningRateOptimizer(IgniteBiFunction<K, V, Vector> fExtractor,
         IgniteBiFunction<K, V, Double> lbExtractor) {
 
-        this.sampleSize = sampleSize;
-        this.externalLbToInternalMapping = externalLbToInternalMapping;
-        this.lossGradient = lossGradient;
         this.fExtractor = fExtractor;
         this.lbExtractor = lbExtractor;
     }
@@ -80,18 +62,18 @@ public abstract class LearningRateOptimizer<K,V> implements Serializable {
      * Computes weight of new model for composition.
      *
      * @param builder Builder.
-     * @param currentComposition Current composition.
-     * @param newModel New model.
+     * @param currComposition Current composition.
+     * @param newMdl New model.
      * @return weight of new model of composition.
      */
-    public double learnRate(DatasetBuilder<K,V> builder, ModelsComposition currentComposition,
-        Model<Vector, Double> newModel) {
+    public double learnRate(DatasetBuilder<K,V> builder, ModelsComposition currComposition,
+        Model<Vector, Double> newMdl) {
 
         try(Dataset<EmptyContext, ? extends FeatureMatrixWithLabelsOnHeapData> dataset = builder.build(
             new EmptyContextBuilder<>(),
             new FeatureMatrixWithLabelsOnHeapDataBuilder<>(fExtractor, lbExtractor))) {
 
-            return learnRate(dataset, currentComposition, newModel);
+            return learnRate(dataset, currComposition, newMdl);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

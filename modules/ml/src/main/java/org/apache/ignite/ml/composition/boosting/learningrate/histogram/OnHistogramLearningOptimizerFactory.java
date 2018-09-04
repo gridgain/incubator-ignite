@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.ml.composition.boosting.learningrate.stub;
+package org.apache.ignite.ml.composition.boosting.learningrate.histogram;
 
 import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizer;
 import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizerFactory;
@@ -24,20 +24,23 @@ import org.apache.ignite.ml.math.functions.IgniteFunction;
 import org.apache.ignite.ml.math.functions.IgniteTriFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 
-/**
- * Factory for LearningRateOptimizerStub.
- */
-public class LearningRateOptimizerStubFactory implements LearningRateOptimizerFactory {
-    /** Constant weight. */
-    private final double constantWeight;
+/** Factory for OnHistogramLearningOptimizer. */
+public class OnHistogramLearningOptimizerFactory implements LearningRateOptimizerFactory {
+    /** Maximum of rate value. */
+    private final double maxRateVal;
+
+    /** Precision of histogram. */
+    private final double precision;
 
     /**
-     * Creates an instance of LearningRateOptimizerStubFactory.
+     * Create an instance of OnHistogramLearningOptimizerFactory.
      *
-     * @param constantWeight Constant weight.
+     * @param maxRateVal Maximum of rate value.
+     * @param precision Precision.
      */
-    public LearningRateOptimizerStubFactory(double constantWeight) {
-        this.constantWeight = constantWeight;
+    public OnHistogramLearningOptimizerFactory(double maxRateVal, double precision) {
+        this.maxRateVal = maxRateVal;
+        this.precision = precision;
     }
 
     /** {@inheritDoc} */
@@ -46,6 +49,7 @@ public class LearningRateOptimizerStubFactory implements LearningRateOptimizerFa
         IgniteTriFunction<Long, Double, Double, Double> lossGradient, IgniteBiFunction<K, V, Vector> featureExtractor,
         IgniteBiFunction<K, V, Double> lbExtractor) {
 
-        return new LearningRateOptimizerStub<>(featureExtractor, lbExtractor, constantWeight);
+        return new OnHistogramLearningOptimizer(sampleSize, externalLbToInternalMapping, lossGradient,
+            featureExtractor, lbExtractor, precision, maxRateVal);
     }
 }

@@ -25,8 +25,6 @@ import org.apache.ignite.ml.dataset.DatasetBuilder;
 import org.apache.ignite.ml.dataset.primitive.FeatureMatrixWithLabelsOnHeapData;
 import org.apache.ignite.ml.dataset.primitive.context.EmptyContext;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
-import org.apache.ignite.ml.math.functions.IgniteFunction;
-import org.apache.ignite.ml.math.functions.IgniteTriFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 
 /** Stub implementation of {@link LearningRateOptimizer} returning constant weight. */
@@ -40,33 +38,27 @@ public class LearningRateOptimizerStub<K,V> extends LearningRateOptimizer<K, V> 
     /**
      * Creates an instance of LearningRateOptimizerStub.
      *
-     * @param sampleSize Sample size.
-     * @param externalLbToInternalMapping External label to internal mapping.
-     * @param lossGradient Loss gradient.
      * @param fExtractor F extractor.
      * @param lbExtractor Label extractor.
      * @param constantWeight Constant weight.
      */
-    public LearningRateOptimizerStub(long sampleSize,
-        IgniteFunction<Double, Double> externalLbToInternalMapping,
-        IgniteTriFunction<Long, Double, Double, Double> lossGradient,
-        IgniteBiFunction<K, V, Vector> fExtractor,
+    public LearningRateOptimizerStub(IgniteBiFunction<K, V, Vector> fExtractor,
         IgniteBiFunction<K, V, Double> lbExtractor, double constantWeight) {
 
-        super(sampleSize, externalLbToInternalMapping, lossGradient, fExtractor, lbExtractor);
+        super(fExtractor, lbExtractor);
         this.weight = constantWeight;
     }
 
     /** {@inheritDoc} */
-    @Override public double learnRate(DatasetBuilder<K, V> builder, ModelsComposition currentComposition,
-        Model<Vector, Double> newModel) {
+    @Override public double learnRate(DatasetBuilder<K, V> builder, ModelsComposition currComposition,
+        Model<Vector, Double> newMdl) {
 
         return weight;
     }
 
     /** {@inheritDoc} */
     @Override public double learnRate(Dataset<EmptyContext, ? extends FeatureMatrixWithLabelsOnHeapData> dataset,
-        ModelsComposition currentComposition, Model<Vector, Double> newModel) {
+        ModelsComposition currComposition, Model<Vector, Double> newMdl) {
 
         return weight;
     }
