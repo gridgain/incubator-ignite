@@ -25,6 +25,9 @@ import org.apache.ignite.ml.composition.ModelsComposition;
 import org.apache.ignite.ml.composition.boosting.convergence.ConvergenceCheckStrategy;
 import org.apache.ignite.ml.composition.boosting.convergence.ConvergenceCheckStrategyFactory;
 import org.apache.ignite.ml.composition.boosting.convergence.mean.MeanAbsValueCheckConvergenceStgyFactory;
+import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizer;
+import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizerFactory;
+import org.apache.ignite.ml.composition.boosting.learningrate.stub.LearningRateOptimizerStubFactory;
 import org.apache.ignite.ml.composition.predictionsaggregator.WeightedPredictionsAggregator;
 import org.apache.ignite.ml.dataset.DatasetBuilder;
 import org.apache.ignite.ml.environment.LearningEnvironment;
@@ -67,6 +70,9 @@ public class GDBLearningStrategy {
     /** Check convergence strategy factory. */
     protected ConvergenceCheckStrategyFactory checkConvergenceStgyFactory = new MeanAbsValueCheckConvergenceStgyFactory(0.001);
 
+    /** Learning rate optimizer factory. */
+    protected LearningRateOptimizerFactory learningRateOptimizerFactory = new LearningRateOptimizerStubFactory(0.1);
+
     /**
      * Implementation of gradient boosting iterations. At each step of iterations this algorithm build a regression
      * model based on gradient of loss-function for current models composition.
@@ -83,6 +89,8 @@ public class GDBLearningStrategy {
 
         ConvergenceCheckStrategy<K, V> convCheck = checkConvergenceStgyFactory.create(sampleSize,
             externalLbToInternalMapping, lossGradient, datasetBuilder, featureExtractor, lbExtractor);
+        LearningRateOptimizer<K,V> rateOptimizer = learningRateOptimizerFactory.create(sampleSize,
+            externalLbToInternalMapping, lossGradient, featureExtractor, lbExtractor);
 
         DatasetTrainer<? extends Model<Vector, Double>, Double> trainer = baseMdlTrainerBuilder.get();
         for (int i = 0; i < cntOfIterations; i++) {
@@ -100,7 +108,10 @@ public class GDBLearningStrategy {
             };
 
             long startTs = System.currentTimeMillis();
-            models.add(trainer.fit(datasetBuilder, featureExtractor, lbExtractorWrap));
+
+            Model<Vector, Double> newMdl = trainer.fit(datasetBuilder, featureExtractor, lbExtractorWrap);
+            compositionWeights[i] = rateOptimizer.learnRate(datasetBuilder, currComposition, newMdl);
+            models.add(newMdl);
             double learningTime = (double)(System.currentTimeMillis() - startTs) / 1000.0;
             environment.logger(getClass()).log(MLLogger.VerboseLevel.LOW, "One model training time was %.2fs", learningTime);
         }
@@ -196,6 +207,16 @@ public class GDBLearningStrategy {
      */
     public GDBLearningStrategy withCheckConvergenceStgyFactory(ConvergenceCheckStrategyFactory factory) {
         this.checkConvergenceStgyFactory = factory;
+        return this;
+    }
+
+    /**
+     * Sets LearningRateOptimizerFactory.
+     *
+     * @param factory Factory.
+     */
+    public GDBLearningStrategy withLearningRateOptimizerFactory(LearningRateOptimizerFactory factory) {
+        this.learningRateOptimizerFactory = factory;
         return this;
     }
 }
