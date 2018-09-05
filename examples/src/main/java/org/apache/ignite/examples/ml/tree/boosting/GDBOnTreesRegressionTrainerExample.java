@@ -60,8 +60,8 @@ public class GDBOnTreesRegressionTrainerExample {
 
                 // Create regression trainer.
                 DatasetTrainer<ModelsComposition, Double> trainer = new GDBRegressionOnTreesTrainer(1.0, 2000, 1, 0.)
-                    .withCheckConvergenceStgyFactory(new MeanAbsValueConvergenceCheckerFactory(0.001))
-                    .withLearningRateOptimizerFactory(new OnHistogramLearningOptimizerFactory(10.0, 1.0))
+                    .withCheckConvergenceStgyFactory(new MeanAbsValueConvergenceCheckerFactory(0.1))
+                    .withLearningRateOptimizerFactory(new OnHistogramLearningOptimizerFactory(1.0, 0.1))
 //                    .withLearningRateOptimizerFactory(new LearningRateOptimizerStubFactory(1.0))
                     ;
 
@@ -102,7 +102,7 @@ public class GDBOnTreesRegressionTrainerExample {
     @NotNull private static CacheConfiguration<Integer, double[]> createCacheConfiguration() {
         CacheConfiguration<Integer, double[]> trainingSetCfg = new CacheConfiguration<>();
         trainingSetCfg.setName("TRAINING_SET");
-        trainingSetCfg.setAffinity(new RendezvousAffinityFunction(false, 10));
+        trainingSetCfg.setAffinity(new RendezvousAffinityFunction(false, 1));
         return trainingSetCfg;
     }
 

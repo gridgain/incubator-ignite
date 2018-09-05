@@ -111,16 +111,16 @@ public class OnHistogramLearningOptimizer<K, V> extends LearningRateOptimizer<K,
         ModelsComposition currComposition, Model<Vector, Double> newMdl) {
 
         ObjectHistogram<HistogramTuple> res = new ObjectHistogram<>(x -> (int)(x.rate / bucketSize), x -> x.error);
-        for (double rateVal = bucketSize; rateVal <= maxRateVal; rateVal += bucketSize) {
-            for (int i = 0; i < data.getLabels().length; i++) {
+        for (int i = 0; i < data.getLabels().length; i++) {
+            for (double rateVal = bucketSize; rateVal <= maxRateVal; rateVal += bucketSize) {
                 Vector features = VectorUtils.of(data.getFeatures()[i]);
-                Double lbl = externalLbToInternalMapping.apply(data.getLabels()[i]);
+
                 Double currMdlAnswer = currComposition.apply(features);
                 Double newMdlAnswer = newMdl.apply(features);
+                Double mdlAnswer = internalLbToExternalMapping.apply(currMdlAnswer + rateVal * newMdlAnswer);
 
-//                Double error = Math.pow(lbl - (currMdlAnswer + rateVal * newMdlAnswer), 2); //TODO: we need valid loss function
-                Double externalLbl = internalLbToExternalMapping.apply(currMdlAnswer + rateVal * newMdlAnswer);
-                Double error = !lbl.equals(externalLbl) ? 1.0 : 0.0; //TODO: we need valid loss function
+                Double lbl = data.getLabels()[i];
+                Double error = loss.error(sampleSize, lbl, mdlAnswer);
                 res.addElement(new HistogramTuple(rateVal, error));
             }
         }

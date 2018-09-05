@@ -19,6 +19,7 @@ package org.apache.ignite.ml.tree.boosting;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import org.apache.ignite.ml.Model;
 import org.apache.ignite.ml.composition.ModelsComposition;
 import org.apache.ignite.ml.composition.boosting.GDBLearningStrategy;
@@ -72,6 +73,7 @@ public class GDBOnTreesLearningStrategy  extends GDBLearningStrategy {
         LearningRateOptimizer<K,V> rateOptimizer = learningRateOptimizerFactory.create(sampleSize,
             externalLbToInternalMapping, internalLbToExternalMapping, loss, featureExtractor, lbExtractor);
 
+        Random random = new Random();
         try (Dataset<EmptyContext, DecisionTreeData> dataset = datasetBuilder.build(
             new EmptyContextBuilder<>(),
             new DecisionTreeDataBuilder<>(featureExtractor, lbExtractor, useIndex)
@@ -97,7 +99,8 @@ public class GDBOnTreesLearningStrategy  extends GDBLearningStrategy {
 
                 long startTs = System.currentTimeMillis();
                 DecisionTreeNode newMdl = decisionTreeTrainer.fit(dataset);
-//                compositionWeights[i] = rateOptimizer.learnRate(dataset, currComposition, newMdl);
+//                compositionWeights[i] = random.nextDouble();
+                compositionWeights[i] = rateOptimizer.learnRate(dataset, currComposition, newMdl);
                 models.add(newMdl);
                 double learningTime = (double)(System.currentTimeMillis() - startTs) / 1000.0;
                 environment.logger(getClass()).log(MLLogger.VerboseLevel.LOW, "One model training time was %.2fs", learningTime);

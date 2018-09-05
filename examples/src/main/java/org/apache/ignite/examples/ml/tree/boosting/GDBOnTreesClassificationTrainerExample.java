@@ -63,7 +63,8 @@ public class GDBOnTreesClassificationTrainerExample {
                 DatasetTrainer<ModelsComposition, Double> trainer = new GDBBinaryClassifierOnTreesTrainer(1.0, 300, 2, 0.)
                     .withCheckConvergenceStgyFactory(new MeanAbsValueConvergenceCheckerFactory(0.1))
                     .withLearningRateOptimizerFactory(new LearningRateOptimizerStubFactory(1.0))
-                    .withLearningRateOptimizerFactory(new OnHistogramLearningOptimizerFactory(5.0, .2));
+                    .withLearningRateOptimizerFactory(new OnHistogramLearningOptimizerFactory(1.0, 0.5))
+                    ;
 
                 // Train decision tree model.
                 ModelsComposition mdl = trainer.fit(

@@ -26,11 +26,11 @@ public class SquaredError implements Loss {
 
     /** {@inheritDoc} */
     @Override public double error(long sampleSize, double lb, double prediction) {
-        return Math.pow(lb - prediction, 2) / sampleSize;
+        return Math.pow(lb - prediction, 2);
     }
 
     /** {@inheritDoc} */
     @Override public double gradient(long sampleSize, double lb, double prediction) {
-        return (2.0 / sampleSize) * (prediction - lb);
+        return 2.0 * (prediction - lb);
     }
 }
