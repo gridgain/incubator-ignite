@@ -68,9 +68,9 @@ public class GDBOnTreesLearningStrategy  extends GDBLearningStrategy {
         List<Model<Vector, Double>> models = initLearningState(mdlToUpdate);
 
         ConvergenceChecker<K,V> convCheck = checkConvergenceStgyFactory.create(sampleSize,
-            externalLbToInternalMapping, lossGradient, datasetBuilder, featureExtractor, lbExtractor);
+            externalLbToInternalMapping, loss, datasetBuilder, featureExtractor, lbExtractor);
         LearningRateOptimizer<K,V> rateOptimizer = learningRateOptimizerFactory.create(sampleSize,
-            externalLbToInternalMapping, internalLbToExternalMapping, lossGradient, featureExtractor, lbExtractor);
+            externalLbToInternalMapping, internalLbToExternalMapping, loss, featureExtractor, lbExtractor);
 
         try (Dataset<EmptyContext, DecisionTreeData> dataset = datasetBuilder.build(
             new EmptyContextBuilder<>(),
@@ -91,7 +91,7 @@ public class GDBOnTreesLearningStrategy  extends GDBLearningStrategy {
                     for(int j = 0; j < part.getLabels().length; j++) {
                         double mdlAnswer = currComposition.apply(VectorUtils.of(part.getFeatures()[j]));
                         double originalLbVal = externalLbToInternalMapping.apply(part.getCopyOfOriginalLabels()[j]);
-                        part.getLabels()[j] = -lossGradient.apply(sampleSize, originalLbVal, mdlAnswer);
+                        part.getLabels()[j] = -loss.gradient(sampleSize, originalLbVal, mdlAnswer);
                     }
                 });
 
