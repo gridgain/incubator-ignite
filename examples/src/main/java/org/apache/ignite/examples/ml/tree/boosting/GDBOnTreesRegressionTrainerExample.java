@@ -25,6 +25,9 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.ml.composition.ModelsComposition;
 import org.apache.ignite.ml.composition.boosting.convergence.mean.MeanAbsValueCheckConvergenceStgyFactory;
 import org.apache.ignite.ml.composition.boosting.learningrate.histogram.OnHistogramLearningOptimizerFactory;
+import org.apache.ignite.ml.composition.boosting.convergence.mean.MeanAbsValueConvergenceCheckerFactory;
+import org.apache.ignite.ml.composition.ModelsComposition;
+import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.math.primitives.vector.VectorUtils;
 import org.apache.ignite.ml.trainers.DatasetTrainer;
 import org.apache.ignite.ml.tree.boosting.GDBRegressionOnTreesTrainer;
@@ -60,7 +63,7 @@ public class GDBOnTreesRegressionTrainerExample {
 
                 // Create regression trainer.
                 DatasetTrainer<ModelsComposition, Double> trainer = new GDBRegressionOnTreesTrainer(1.0, 2000, 1, 0.)
-                    .withCheckConvergenceStgyFactory(new MeanAbsValueCheckConvergenceStgyFactory(0.001))
+                    .withCheckConvergenceStgyFactory(new MeanAbsValueConvergenceCheckerFactory(0.001))
                     .withLearningRateOptimizerFactory(new OnHistogramLearningOptimizerFactory(10.0, 1.0))
 //                    .withLearningRateOptimizerFactory(new LearningRateOptimizerStubFactory(1.0))
                     ;

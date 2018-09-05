@@ -28,6 +28,9 @@ import org.apache.ignite.ml.composition.boosting.convergence.mean.MeanAbsValueCh
 import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizer;
 import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizerFactory;
 import org.apache.ignite.ml.composition.boosting.learningrate.stub.LearningRateOptimizerStubFactory;
+import org.apache.ignite.ml.composition.boosting.convergence.ConvergenceChecker;
+import org.apache.ignite.ml.composition.boosting.convergence.ConvergenceCheckerFactory;
+import org.apache.ignite.ml.composition.boosting.convergence.mean.MeanAbsValueConvergenceCheckerFactory;
 import org.apache.ignite.ml.composition.predictionsaggregator.WeightedPredictionsAggregator;
 import org.apache.ignite.ml.dataset.DatasetBuilder;
 import org.apache.ignite.ml.environment.LearningEnvironment;
@@ -38,6 +41,8 @@ import org.apache.ignite.ml.math.functions.IgniteSupplier;
 import org.apache.ignite.ml.math.functions.IgniteTriFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.trainers.DatasetTrainer;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Learning strategy for gradient boosting.
@@ -71,7 +76,10 @@ public class GDBLearningStrategy {
     protected double[] compositionWeights;
 
     /** Check convergence strategy factory. */
-    protected ConvergenceCheckStrategyFactory checkConvergenceStgyFactory = new MeanAbsValueCheckConvergenceStgyFactory(0.001);
+    protected ConvergenceCheckerFactory checkConvergenceStgyFactory = new MeanAbsValueConvergenceCheckerFactory(0.001);
+
+    /** Default gradient step size. */
+    private double defaultGradStepSize;
 
     /** Learning rate optimizer factory. */
     protected LearningRateOptimizerFactory learningRateOptimizerFactory = new LearningRateOptimizerStubFactory(0.1);
@@ -88,16 +96,35 @@ public class GDBLearningStrategy {
     public <K, V> List<Model<Vector, Double>> learnModels(DatasetBuilder<K, V> datasetBuilder,
         IgniteBiFunction<K, V, Vector> featureExtractor, IgniteBiFunction<K, V, Double> lbExtractor) {
 
-        List<Model<Vector, Double>> models = new ArrayList<>();
+        return update(null, datasetBuilder, featureExtractor, lbExtractor);
+    }
 
-        ConvergenceCheckStrategy<K, V> convCheck = checkConvergenceStgyFactory.create(sampleSize,
+    /**
+     * Gets state of model in arguments, compare it with training parameters of trainer and if they are fit then
+     * trainer updates model in according to new data and return new model. In other case trains new model.
+     *
+     * @param mdlToUpdate Learned model.
+     * @param datasetBuilder Dataset builder.
+     * @param featureExtractor Feature extractor.
+     * @param lbExtractor Label extractor.
+     * @param <K> Type of a key in {@code upstream} data.
+     * @param <V> Type of a value in {@code upstream} data.
+     * @return Updated models list.
+     */
+    public <K,V> List<Model<Vector, Double>> update(GDBTrainer.GDBModel mdlToUpdate,
+        DatasetBuilder<K, V> datasetBuilder, IgniteBiFunction<K, V, Vector> featureExtractor,
+        IgniteBiFunction<K, V, Double> lbExtractor) {
+
+        List<Model<Vector, Double>> models = initLearningState(mdlToUpdate);
+
+        ConvergenceChecker<K, V> convCheck = checkConvergenceStgyFactory.create(sampleSize,
             externalLbToInternalMapping, lossGradient, datasetBuilder, featureExtractor, lbExtractor);
         LearningRateOptimizer<K,V> rateOptimizer = learningRateOptimizerFactory.create(sampleSize,
             externalLbToInternalMapping, internalLbToExternalMapping, lossGradient, featureExtractor, lbExtractor);
 
         DatasetTrainer<? extends Model<Vector, Double>, Double> trainer = baseMdlTrainerBuilder.get();
         for (int i = 0; i < cntOfIterations; i++) {
-            double[] weights = Arrays.copyOf(compositionWeights, i);
+            double[] weights = Arrays.copyOf(compositionWeights, models.size());
 
             WeightedPredictionsAggregator aggregator = new WeightedPredictionsAggregator(weights, meanLabelValue);
             ModelsComposition currComposition = new ModelsComposition(models, aggregator);
@@ -119,6 +146,29 @@ public class GDBLearningStrategy {
             environment.logger(getClass()).log(MLLogger.VerboseLevel.LOW, "One model training time was %.2fs", learningTime);
         }
 
+        return models;
+    }
+
+    /**
+     * Restores state of already learned model if can and sets learning parameters according to this state.
+     *
+     * @param mdlToUpdate Model to update.
+     * @return list of already learned models.
+     */
+    @NotNull protected List<Model<Vector, Double>> initLearningState(GDBTrainer.GDBModel mdlToUpdate) {
+        List<Model<Vector, Double>> models = new ArrayList<>();
+        if(mdlToUpdate != null) {
+            models.addAll(mdlToUpdate.getModels());
+            WeightedPredictionsAggregator aggregator = (WeightedPredictionsAggregator) mdlToUpdate.getPredictionsAggregator();
+            meanLabelValue = aggregator.getBias();
+            compositionWeights = new double[models.size() + cntOfIterations];
+            for(int i = 0; i < models.size(); i++)
+                compositionWeights[i] = aggregator.getWeights()[i];
+        } else {
+            compositionWeights = new double[cntOfIterations];
+        }
+
+        Arrays.fill(compositionWeights, models.size(), compositionWeights.length, defaultGradStepSize);
         return models;
     }
 
@@ -218,9 +268,29 @@ public class GDBLearningStrategy {
      *
      * @param factory Factory.
      */
-    public GDBLearningStrategy withCheckConvergenceStgyFactory(ConvergenceCheckStrategyFactory factory) {
+    public GDBLearningStrategy withCheckConvergenceStgyFactory(ConvergenceCheckerFactory factory) {
         this.checkConvergenceStgyFactory = factory;
         return this;
+    }
+
+    /**
+     * Sets default gradient step size.
+     *
+     * @param defaultGradStepSize Default gradient step size.
+     */
+    public GDBLearningStrategy withDefaultGradStepSize(double defaultGradStepSize) {
+        this.defaultGradStepSize = defaultGradStepSize;
+        return this;
+    }
+
+    /** */
+    public double[] getCompositionWeights() {
+        return compositionWeights;
+    }
+
+    /** */
+    public double getMeanValue() {
+        return meanLabelValue;
     }
 
     /**

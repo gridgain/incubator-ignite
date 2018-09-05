@@ -27,8 +27,8 @@ import org.apache.ignite.ml.dataset.primitive.context.EmptyContext;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.trainers.DatasetTrainer;
-import org.apache.ignite.ml.tree.data.DecisionTreeDataWithIndex;
-import org.apache.ignite.ml.tree.data.DecisionTreeDataWithIndexBuilder;
+import org.apache.ignite.ml.tree.data.DecisionTreeData;
+import org.apache.ignite.ml.tree.data.DecisionTreeDataBuilder;
 import org.apache.ignite.ml.tree.impurity.ImpurityMeasure;
 import org.apache.ignite.ml.tree.impurity.ImpurityMeasureCalculator;
 import org.apache.ignite.ml.tree.impurity.util.StepFunction;
@@ -75,9 +75,9 @@ public abstract class DecisionTree<T extends ImpurityMeasure<T>> extends Dataset
     /** {@inheritDoc} */
     @Override public <K, V> DecisionTreeNode fit(DatasetBuilder<K, V> datasetBuilder,
         IgniteBiFunction<K, V, Vector> featureExtractor, IgniteBiFunction<K, V, Double> lbExtractor) {
-        try (Dataset<EmptyContext, DecisionTreeDataWithIndex> dataset = datasetBuilder.build(
+        try (Dataset<EmptyContext, DecisionTreeData> dataset = datasetBuilder.build(
             new EmptyContextBuilder<>(),
-            new DecisionTreeDataWithIndexBuilder<>(featureExtractor, lbExtractor, useIndex)
+            new DecisionTreeDataBuilder<>(featureExtractor, lbExtractor, useIndex)
         )) {
             return fit(dataset);
         }
@@ -86,7 +86,30 @@ public abstract class DecisionTree<T extends ImpurityMeasure<T>> extends Dataset
         }
     }
 
-    public <K,V> DecisionTreeNode fit(Dataset<EmptyContext, DecisionTreeDataWithIndex> dataset) {
+    /**
+     * Trains new model based on dataset because there is no valid approach to update decision trees.
+     *
+     * @param mdl Learned model.
+     * @param datasetBuilder Dataset builder.
+     * @param featureExtractor Feature extractor.
+     * @param lbExtractor Label extractor.
+     * @param <K> Type of a key in {@code upstream} data.
+     * @param <V> Type of a value in {@code upstream} data.
+     * @return New model based on new dataset.
+     */
+    @Override public <K, V> DecisionTreeNode updateModel(DecisionTreeNode mdl, DatasetBuilder<K, V> datasetBuilder,
+        IgniteBiFunction<K, V, Vector> featureExtractor, IgniteBiFunction<K, V, Double> lbExtractor) {
+
+        return fit(datasetBuilder, featureExtractor, lbExtractor);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected boolean checkState(DecisionTreeNode mdl) {
+        return true;
+    }
+
+    /** */
+    public <K,V> DecisionTreeNode fit(Dataset<EmptyContext, DecisionTreeData> dataset) {
         return split(dataset, e -> true, 0, getImpurityMeasureCalculator(dataset));
     }
 
@@ -96,7 +119,7 @@ public abstract class DecisionTree<T extends ImpurityMeasure<T>> extends Dataset
      * @param dataset Dataset.
      * @return Impurity measure calculator.
      */
-    protected abstract ImpurityMeasureCalculator<T> getImpurityMeasureCalculator(Dataset<EmptyContext, DecisionTreeDataWithIndex> dataset);
+    protected abstract ImpurityMeasureCalculator<T> getImpurityMeasureCalculator(Dataset<EmptyContext, DecisionTreeData> dataset);
 
     /**
      * Splits the node specified by the given dataset and predicate and returns decision tree node.
@@ -107,7 +130,7 @@ public abstract class DecisionTree<T extends ImpurityMeasure<T>> extends Dataset
      * @param impurityCalc Impurity measure calculator.
      * @return Decision tree node.
      */
-    private DecisionTreeNode split(Dataset<EmptyContext, DecisionTreeDataWithIndex> dataset, TreeFilter filter, int deep,
+    private DecisionTreeNode split(Dataset<EmptyContext, DecisionTreeData> dataset, TreeFilter filter, int deep,
         ImpurityMeasureCalculator<T> impurityCalc) {
         if (deep >= maxDeep)
             return decisionTreeLeafBuilder.createLeafNode(dataset, filter);
@@ -138,7 +161,7 @@ public abstract class DecisionTree<T extends ImpurityMeasure<T>> extends Dataset
      * @param impurityCalc Impurity measure calculator.
      * @return Array of impurity measure functions for all columns.
      */
-    private StepFunction<T>[] calculateImpurityForAllColumns(Dataset<EmptyContext, DecisionTreeDataWithIndex> dataset,
+    private StepFunction<T>[] calculateImpurityForAllColumns(Dataset<EmptyContext, DecisionTreeData> dataset,
         TreeFilter filter, ImpurityMeasureCalculator<T> impurityCalc, int depth) {
 
         StepFunction<T>[] result = dataset.compute(
