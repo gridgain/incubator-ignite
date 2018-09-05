@@ -22,15 +22,12 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.ml.Model;
 import org.apache.ignite.ml.composition.ModelsComposition;
-import org.apache.ignite.ml.composition.boosting.convergence.ConvergenceCheckStrategy;
-import org.apache.ignite.ml.composition.boosting.convergence.ConvergenceCheckStrategyFactory;
-import org.apache.ignite.ml.composition.boosting.convergence.mean.MeanAbsValueCheckConvergenceStgyFactory;
-import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizer;
-import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizerFactory;
-import org.apache.ignite.ml.composition.boosting.learningrate.stub.LearningRateOptimizerStubFactory;
 import org.apache.ignite.ml.composition.boosting.convergence.ConvergenceChecker;
 import org.apache.ignite.ml.composition.boosting.convergence.ConvergenceCheckerFactory;
 import org.apache.ignite.ml.composition.boosting.convergence.mean.MeanAbsValueConvergenceCheckerFactory;
+import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizer;
+import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizerFactory;
+import org.apache.ignite.ml.composition.boosting.learningrate.stub.LearningRateOptimizerStubFactory;
 import org.apache.ignite.ml.composition.predictionsaggregator.WeightedPredictionsAggregator;
 import org.apache.ignite.ml.dataset.DatasetBuilder;
 import org.apache.ignite.ml.environment.LearningEnvironment;
@@ -41,7 +38,6 @@ import org.apache.ignite.ml.math.functions.IgniteSupplier;
 import org.apache.ignite.ml.math.functions.IgniteTriFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.trainers.DatasetTrainer;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.NotNull;
 
 /**

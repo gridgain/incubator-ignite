@@ -97,7 +97,7 @@ public class GDBOnTreesLearningStrategy  extends GDBLearningStrategy {
 
                 long startTs = System.currentTimeMillis();
                 DecisionTreeNode newMdl = decisionTreeTrainer.fit(dataset);
-                compositionWeights[i] = rateOptimizer.learnRate(dataset, currComposition, newMdl);
+//                compositionWeights[i] = rateOptimizer.learnRate(dataset, currComposition, newMdl);
                 models.add(newMdl);
                 double learningTime = (double)(System.currentTimeMillis() - startTs) / 1000.0;
                 environment.logger(getClass()).log(MLLogger.VerboseLevel.LOW, "One model training time was %.2fs", learningTime);
