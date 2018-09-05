@@ -17,9 +17,9 @@
 
 package org.apache.ignite.ml.composition.boosting.learningrate;
 
+import org.apache.ignite.ml.composition.boosting.loss.Loss;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.functions.IgniteFunction;
-import org.apache.ignite.ml.math.functions.IgniteTriFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 
 /**
@@ -31,7 +31,7 @@ public interface LearningRateOptimizerFactory {
      *
      * @param sampleSize Sample size.
      * @param externalLbToInternalMapping External label to internal mapping.
-     * @param lossGradient Loss gradient.
+     * @param loss Loss function.
      * @param featureExtractor Feature extractor.
      * @param lbExtractor Label extractor.
      * @return LearningRateOptimizer instance.
@@ -39,7 +39,6 @@ public interface LearningRateOptimizerFactory {
     public abstract <K,V> LearningRateOptimizer<K,V> create(long sampleSize,
         IgniteFunction<Double, Double> externalLbToInternalMapping,
         IgniteFunction<Double, Double> internalLbToExternalMapping,
-        IgniteTriFunction<Long, Double, Double, Double> lossGradient,
-        IgniteBiFunction<K, V, Vector> featureExtractor,
+        Loss loss, IgniteBiFunction<K, V, Vector> featureExtractor,
         IgniteBiFunction<K, V, Double> lbExtractor);
 }

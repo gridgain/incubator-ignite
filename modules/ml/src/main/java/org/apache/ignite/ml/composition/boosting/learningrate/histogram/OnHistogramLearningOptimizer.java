@@ -23,13 +23,13 @@ import java.util.Optional;
 import org.apache.ignite.ml.Model;
 import org.apache.ignite.ml.composition.ModelsComposition;
 import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizer;
+import org.apache.ignite.ml.composition.boosting.loss.Loss;
 import org.apache.ignite.ml.dataset.Dataset;
 import org.apache.ignite.ml.dataset.feature.ObjectHistogram;
 import org.apache.ignite.ml.dataset.primitive.FeatureMatrixWithLabelsOnHeapData;
 import org.apache.ignite.ml.dataset.primitive.context.EmptyContext;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.functions.IgniteFunction;
-import org.apache.ignite.ml.math.functions.IgniteTriFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.math.primitives.vector.VectorUtils;
 
@@ -51,8 +51,8 @@ public class OnHistogramLearningOptimizer<K, V> extends LearningRateOptimizer<K,
     /** Internal label to external mapping. */
     private final IgniteFunction<Double, Double> internalLbToExternalMapping;
 
-    /** Loss gradient. */
-    private final IgniteTriFunction<Long, Double, Double, Double> lossGradient;
+    /** Loss function. */
+    private final Loss loss;
 
     /** Precision. */
     private final double maxRateVal;
@@ -65,7 +65,7 @@ public class OnHistogramLearningOptimizer<K, V> extends LearningRateOptimizer<K,
      *
      * @param sampleSize Sample size.
      * @param externalLbToInternalMapping External label to internal mapping.
-     * @param lossGradient Loss gradient.
+     * @param loss Loss function.
      * @param featureExtractor Feature extractor.
      * @param lblExtractor Lbl extractor.
      * @param internalLbToExternalMapping
@@ -73,8 +73,7 @@ public class OnHistogramLearningOptimizer<K, V> extends LearningRateOptimizer<K,
      * @param maxRateVal Max rate value.
      */
     public OnHistogramLearningOptimizer(long sampleSize, IgniteFunction<Double, Double> externalLbToInternalMapping,
-        IgniteTriFunction<Long, Double, Double, Double> lossGradient, IgniteBiFunction<K, V, Vector> featureExtractor,
-        IgniteBiFunction<K, V, Double> lblExtractor,
+        Loss loss, IgniteBiFunction<K, V, Vector> featureExtractor, IgniteBiFunction<K, V, Double> lblExtractor,
         IgniteFunction<Double, Double> internalLbToExternalMapping,
         double precision, double maxRateVal) {
 
@@ -83,7 +82,7 @@ public class OnHistogramLearningOptimizer<K, V> extends LearningRateOptimizer<K,
         this.sampleSize = sampleSize;
         this.externalLbToInternalMapping = externalLbToInternalMapping;
         this.internalLbToExternalMapping = internalLbToExternalMapping;
-        this.lossGradient = lossGradient;
+        this.loss = loss;
         this.bucketSize = precision;
         this.maxRateVal = maxRateVal;
     }

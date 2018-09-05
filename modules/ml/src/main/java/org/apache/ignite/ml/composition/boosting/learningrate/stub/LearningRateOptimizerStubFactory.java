@@ -19,9 +19,9 @@ package org.apache.ignite.ml.composition.boosting.learningrate.stub;
 
 import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizer;
 import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizerFactory;
+import org.apache.ignite.ml.composition.boosting.loss.Loss;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.functions.IgniteFunction;
-import org.apache.ignite.ml.math.functions.IgniteTriFunction;
 import org.apache.ignite.ml.math.primitives.vector.Vector;
 
 /**
@@ -44,7 +44,7 @@ public class LearningRateOptimizerStubFactory implements LearningRateOptimizerFa
     @Override public <K, V> LearningRateOptimizer<K, V> create(long sampleSize,
         IgniteFunction<Double, Double> externalLbToInternalMapping,
         IgniteFunction<Double, Double> internalLbToExternalMapping,
-        IgniteTriFunction<Long, Double, Double, Double> lossGradient, IgniteBiFunction<K, V, Vector> featureExtractor,
+        Loss loss, IgniteBiFunction<K, V, Vector> featureExtractor,
         IgniteBiFunction<K, V, Double> lbExtractor) {
 
         return new LearningRateOptimizerStub<>(featureExtractor, lbExtractor, constantWeight);

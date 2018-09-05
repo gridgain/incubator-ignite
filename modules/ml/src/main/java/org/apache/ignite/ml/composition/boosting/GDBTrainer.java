@@ -76,7 +76,7 @@ public abstract class GDBTrainer extends DatasetTrainer<ModelsComposition, Doubl
     protected final Loss loss;
 
     /** Check convergence strategy factory. */
-    protected ConvergenceCheckerFactory checkConvergenceStgyFactory = new MeanAbsValueConvergenceCheckerFactory(0.001);
+    protected ConvergenceCheckerFactory checkConvergenceStgyFactory = new MeanAbsValueConvergenceCheckerFactory(DEFAULT_CONVERGENCE_PRECISION);
 
     /** Learning rate optimizer factory. */
     protected LearningRateOptimizerFactory learningRateOptimizerFactory = new LearningRateOptimizerStubFactory(DEFAULT_LEARNING_RATE);

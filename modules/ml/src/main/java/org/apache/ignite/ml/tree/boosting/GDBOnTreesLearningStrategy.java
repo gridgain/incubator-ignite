@@ -22,9 +22,9 @@ import java.util.List;
 import org.apache.ignite.ml.Model;
 import org.apache.ignite.ml.composition.ModelsComposition;
 import org.apache.ignite.ml.composition.boosting.GDBLearningStrategy;
-import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizer;
 import org.apache.ignite.ml.composition.boosting.GDBTrainer;
 import org.apache.ignite.ml.composition.boosting.convergence.ConvergenceChecker;
+import org.apache.ignite.ml.composition.boosting.learningrate.LearningRateOptimizer;
 import org.apache.ignite.ml.composition.predictionsaggregator.WeightedPredictionsAggregator;
 import org.apache.ignite.ml.dataset.Dataset;
 import org.apache.ignite.ml.dataset.DatasetBuilder;
@@ -36,9 +36,9 @@ import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.math.primitives.vector.VectorUtils;
 import org.apache.ignite.ml.trainers.DatasetTrainer;
 import org.apache.ignite.ml.tree.DecisionTree;
+import org.apache.ignite.ml.tree.DecisionTreeNode;
 import org.apache.ignite.ml.tree.data.DecisionTreeData;
 import org.apache.ignite.ml.tree.data.DecisionTreeDataBuilder;
-import org.apache.ignite.ml.tree.DecisionTreeNode;
 
 /**
  * Gradient boosting on trees specific learning strategy reusing learning dataset with index between
