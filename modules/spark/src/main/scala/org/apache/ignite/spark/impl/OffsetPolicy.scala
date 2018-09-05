@@ -71,15 +71,16 @@ private object IncrementalOffset {
     }
 
     private def fromJson(json: String): IncrementalOffset = {
-        val kv = json.replaceAll("[\\s{}']", "").split(":")
+        val regex = """^\{(.*):\s*'?(\d+|\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.?\d*)'?\}""".r
+        val (offsetType, offsetValue) = json match {
+            case regex(a, b) => (a, b)
+            case _ => throw new IllegalArgumentException(s"Malformed incremental offset JSON: $json")
+        }
 
-        if (kv.size != 2)
-            throw new IllegalArgumentException(s"Malformed incremental offset JSON: $json")
-
-        kv(0) match {
-            case INC_NAME => new IncrementalOffset(kv(1).toLong)
-            case TS_NAME => new IncrementalOffset(Timestamp.valueOf(kv(1)))
-            case _ => throw new IllegalArgumentException(s"Incremental offset type ${kv(0)} is not supported.")
+        offsetType match {
+            case INC_NAME => new IncrementalOffset(offsetValue.toLong)
+            case TS_NAME => new IncrementalOffset(Timestamp.valueOf(offsetValue))
+            case _ => throw new IllegalArgumentException(s"Incremental offset type ${offsetType} is not supported.")
         }
     }
 }
