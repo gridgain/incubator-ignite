@@ -268,7 +268,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     private DataRegionMetricsImpl memMetrics;
 
     /** */
-    private AtomicReference<StackTraceElement[]> waiterCtx = new AtomicReference<>();
+    private AtomicReference<Exception> waiterCtx = new AtomicReference<>();
 
     /**
      * @param directMemoryProvider Memory allocator to use.
@@ -409,7 +409,7 @@ public class PageMemoryImpl implements PageMemoryEx {
      * @param seg Seg.
      */
     private void segReadLock(Segment seg) {
-        boolean ok = waiterCtx.compareAndSet(null, new Exception().getStackTrace());
+        boolean ok = waiterCtx.compareAndSet(null, new Exception());
 
         seg.readLock().lock();
 
@@ -421,7 +421,7 @@ public class PageMemoryImpl implements PageMemoryEx {
      * @param seg Seg.
      */
     private void segWriteLock(Segment seg) {
-        boolean ok = waiterCtx.compareAndSet(null, new Exception().getStackTrace());
+        boolean ok = waiterCtx.compareAndSet(null, new Exception());
 
         seg.writeLock().lock();
 
@@ -876,8 +876,10 @@ public class PageMemoryImpl implements PageMemoryEx {
         long pageReadDuration) {
         long duration = System.nanoTime() - t1;
 
-        if (duration > 1_000_000)
-            log.info(">><DBG> Holding segment write lock longer when 1 ms: [seg=" + seg.pool.idx +
+        if (queue > 0 || duration > 10_000_000) {
+            Exception ex = waiterCtx.get();
+
+            log.info(">><DBG> [seg=" + seg.pool.idx +
                 ", holdLockDuration=" + duration / 1000 / 1000. + "ms" +
                 ", grpId=" + grpId +
                 ", pageId=" + pageId +
@@ -885,24 +887,25 @@ public class PageMemoryImpl implements PageMemoryEx {
                 ", pinned=" + seg.acquiredPages() +
                 ", allocated=" + GridUnsafe.getLong(seg.pool.lastAllocatedIdxPtr) +
                 ", total=" + seg.pages() +
-                ", replDuration=" + (replDuration == 0 ? "N/A" : (replDuration / 1000 / 1000. + "ms")) +
-                ", pageReadDuration=" + (pageReadDuration == 0 ? "N/A" : (pageReadDuration / 1000 / 1000. + "ms")) +
+                ", rmvPageForReplDuration=" + (replDuration == 0 ? "N/A" : (replDuration / 1000 / 1000. + "ms")) +
+                ", coldPageReadDuration=" + (pageReadDuration == 0 ? "N/A" : (pageReadDuration / 1000 / 1000. + "ms")) +
                 ", pool=" + seg.pool.region.size() +
-                ", waiter=" + getStackTrace(waiterCtx.get()) +
-                ", ctx=" + getStackTrace(new Exception().getStackTrace()) +
+                ", firstWaiter=" + getStackTrace(ex) +
+                ", ctx=" + getStackTrace(new Exception()) +
                 ']');
+        }
     }
 
     /**
      *
      */
-    private String getStackTrace(StackTraceElement[] trace) {
-        if (trace == null)
+    private String getStackTrace(Exception ex) {
+        if (ex == null)
             return "N/A";
 
         StringBuilder b = new StringBuilder();
 
-        for (StackTraceElement element : trace)
+        for (StackTraceElement element : ex.getStackTrace())
             b.append(element).append(U.nl());
 
         return b.toString();
