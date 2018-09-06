@@ -199,7 +199,7 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
         boolean updateMetrics = req.type() ==
             QRY_EXEC && ((JdbcQueryExecuteRequest)req).sqlQuery().contains("SELECT");
 
-        long start = updateMetrics ? System.nanoTime() : 0L;
+        long start = updateMetrics ? System.currentTimeMillis() : 0L;
 
         try {
             switch (req.type()) {
@@ -244,9 +244,7 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
             }
 
             if (updateMetrics) {
-                long end = System.nanoTime();
-
-                long dur = end - start;
+                long dur = System.currentTimeMillis() - start;
 
                 ctx.sqlListener().metrics().onQueryExecuted(dur);
             }
