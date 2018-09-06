@@ -141,13 +141,13 @@ public class CacheWarmupTest extends GridCommonAbstractTest {
     }
 
     /** {@inheritDoc} */
-    @Override protected long getTestTimeout() {
-        return 1000000000000L;
+    @Override protected void beforeTest() throws Exception {
+        cleanPersistenceDir();
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        //cleanPersistenceDir();
+        cleanPersistenceDir();
     }
 
     /**
