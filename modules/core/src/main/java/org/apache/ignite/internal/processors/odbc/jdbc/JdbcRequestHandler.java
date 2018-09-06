@@ -196,15 +196,23 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
         if (actx != null)
             AuthorizationContext.context(actx);
 
-        boolean updateMetrics = req.type() ==
-            QRY_EXEC && ((JdbcQueryExecuteRequest)req).sqlQuery().contains("SELECT");
-
-        long start = updateMetrics ? System.currentTimeMillis() : 0L;
-
         try {
             switch (req.type()) {
-                case QRY_EXEC:
-                    return executeQuery((JdbcQueryExecuteRequest)req);
+                case QRY_EXEC: {
+                    boolean updateMetrics = ((JdbcQueryExecuteRequest)req).sqlQuery().contains("SELECT");
+
+                    long start = updateMetrics ? System.currentTimeMillis() : 0L;
+
+                    ClientListenerResponse resp = executeQuery((JdbcQueryExecuteRequest)req);
+
+                    if (updateMetrics) {
+                        long dur = System.currentTimeMillis() - start;
+
+                        ctx.sqlListener().metrics().onQueryExecuted(dur);
+                    }
+
+                    return resp;
+                }
 
                 case QRY_FETCH:
                     return fetchQuery((JdbcQueryFetchRequest)req);
@@ -241,12 +249,6 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
 
                 case BULK_LOAD_BATCH:
                     return processBulkLoadFileBatch((JdbcBulkLoadBatchRequest)req);
-            }
-
-            if (updateMetrics) {
-                long dur = System.currentTimeMillis() - start;
-
-                ctx.sqlListener().metrics().onQueryExecuted(dur);
             }
 
             return new JdbcResponse(IgniteQueryErrorCode.UNSUPPORTED_OPERATION,

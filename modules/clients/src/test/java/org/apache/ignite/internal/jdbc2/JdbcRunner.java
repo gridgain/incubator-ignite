@@ -12,6 +12,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -113,8 +114,6 @@ public class JdbcRunner {
                     executeUpdate(conn, "CREATE INDEX accid_index ON TRAN_HISTORY(ACCT_ID)");
 
                     generateData(conn);
-
-                    System.out.println(">>> QUERY: " + query(conn));
                 }
 
                 runLoad(LOAD_THREADS, LOAD_WARMUP_DUR, LOAD_DUR,
@@ -256,9 +255,11 @@ public class JdbcRunner {
 
         String acctId = ACCT_IDS.get(ThreadLocalRandom.current().nextInt(ACCT_ID_CNT));
 
-        try (ResultSet rs = conn.prepareStatement("SELECT * FROM TRAN_HISTORY WHERE ACCT_ID='" + acctId + "' ORDER BY POSTING_DATE LIMIT 50 OFFSET 0").executeQuery()) {
-            while (rs.next()) {
-                // No-op.
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM TRAN_HISTORY WHERE ACCT_ID='" + acctId + "' ORDER BY POSTING_DATE LIMIT 50 OFFSET 0")) {
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    // No-op.
+                }
             }
         }
 
