@@ -482,8 +482,6 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         FullPageId fullId = new FullPageId(pageId, grpId);
 
-        long t1 = System.nanoTime();
-
         seg.writeLock().lock();
 
         boolean isTrackingPage = changeTracker != null && trackingIO.trackingPageFor(pageId, pageSize()) == pageId;
@@ -567,11 +565,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             throw e;
         }
         finally {
-            int queue = seg.getQueueLength();
-
             seg.writeLock().unlock();
-
-            reportLockWait(seg, grpId, pageId, queue, t1);
 
             if (delayedWriter != null)
                 delayedWriter.finishReplacement();
@@ -667,8 +661,6 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         DelayedDirtyPageWrite delayedWriter = delayedPageReplacementTracker != null
             ? delayedPageReplacementTracker.delayedPageWrite() : null;
-
-        long t1 = System.nanoTime();
 
         seg.writeLock().lock();
 
@@ -771,11 +763,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             throw oom;
         }
         finally {
-            int queue = seg.getQueueLength();
-
             seg.writeLock().unlock();
-
-            reportLockWait(seg, grpId, pageId, queue, t1);
 
             if (delayedWriter != null)
                 delayedWriter.finishReplacement();
@@ -815,25 +803,6 @@ public class PageMemoryImpl implements PageMemoryEx {
                 }
             }
         }
-    }
-
-    /**
-     * @param seg Seg.
-     * @param grpId Group id.
-     * @param pageId Page id.
-     * @param queue Queue.
-     * @param t1 T 1.
-     */
-    private void reportLockWait(Segment seg, int grpId, long pageId, int queue, long t1) {
-        if (System.nanoTime() - t1 > 1_000_000)
-            log.info(">><DBG> Holding segment write lock longer when 1 second: [seg=" + seg.pool.idx +
-                ", grpId=" + grpId +
-                ", pageId=" + pageId +
-                ", waiters=" + queue +
-                ", pinned=" + seg.acquiredPages() +
-                ", allocated=" + GridUnsafe.getLong(seg.pool.lastAllocatedIdxPtr) +
-                ", total=" + seg.pages() +
-                ", pool=" + seg.pool.region.size() + ']');
     }
 
     /**
