@@ -4264,7 +4264,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     }
 
     /** {@inheritDoc} */
-    @Override public String jdbcFormatted() {
+    @Override public String getJdbcFormatted() {
         return ctx.sqlListener().metrics().toString();
     }
 

@@ -81,6 +81,8 @@ public class ClientListenerMetrics {
          * @param dur Duration.
          */
         private void onQueryExecuted(long dur) {
+            qryCtr.increment();
+
             if (dur < 0) {
                 durCtrs[0].increment();
 
@@ -105,19 +107,20 @@ public class ClientListenerMetrics {
         /** {@inheritDoc} */
         @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
         @Override public String toString() {
-            StringBuilder sb = new StringBuilder("[conn=" + connCtr.longValue() + ", ");
+            StringBuilder sb =
+                new StringBuilder("[connections=" + connCtr.longValue() + ", queries=" + qryCtr.longValue());
 
             for (int i = 0; i < INTERVALS; i++) {
                 long durVal = durCtrs[i].longValue();
 
                 if (durVal != 0)
-                    sb.append("" + (i * 100) + "=" + durVal + ", ");
+                    sb.append(", " + (i * 100) + "=" + durVal);
             }
 
             long durLongVal = durLongCtr.longValue();
 
             if (durLongVal != 0)
-                sb.append("" + (INTERVALS * 100) + "+=" + durLongVal);
+                sb.append("," + (INTERVALS * 100) + "+=" + durLongVal);
 
             sb.append("]");
 

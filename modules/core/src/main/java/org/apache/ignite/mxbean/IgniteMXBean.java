@@ -489,7 +489,7 @@ public interface IgniteMXBean {
     void clearNodeLocalMap();
 
     @MXBeanDescription("JDBC metrics as formatted string.")
-    String jdbcFormatted();
+    String getJdbcFormatted();
 
     @MXBeanDescription("Reset JDBC metrics.")
     void jdbcReset() ;
