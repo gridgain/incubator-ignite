@@ -487,4 +487,10 @@ public interface IgniteMXBean {
      */
     @MXBeanDescription("Clears local node map.")
     void clearNodeLocalMap();
+
+    @MXBeanDescription("JDBC metrics as formatted string.")
+    String jdbcFormatted();
+
+    @MXBeanDescription("Reset JDBC metrics.")
+    void jdbcReset() ;
 }

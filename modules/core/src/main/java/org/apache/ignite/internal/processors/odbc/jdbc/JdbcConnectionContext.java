@@ -175,6 +175,8 @@ public class JdbcConnectionContext implements ClientListenerConnectionContext {
 
         handler = new JdbcRequestHandler(ctx, busyLock, sender, maxCursors, distributedJoins, enforceJoinOrder,
             collocated, replicatedOnly, autoCloseCursors, lazyExec, skipReducerOnUpdate, actx, ver);
+
+        ctx.sqlListener().metrics().onConnected();
     }
 
     /** {@inheritDoc} */

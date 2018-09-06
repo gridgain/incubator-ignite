@@ -32,7 +32,6 @@ import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.LockSupport;
 import javax.cache.configuration.Factory;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cache.query.BulkLoadContextCursor;
@@ -197,6 +196,11 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
         if (actx != null)
             AuthorizationContext.context(actx);
 
+        boolean updateMetrics = req.type() ==
+            QRY_EXEC && ((JdbcQueryExecuteRequest)req).sqlQuery().contains("SELECT");
+
+        long start = updateMetrics ? System.nanoTime() : 0L;
+
         try {
             switch (req.type()) {
                 case QRY_EXEC:
@@ -237,6 +241,14 @@ public class JdbcRequestHandler implements ClientListenerRequestHandler {
 
                 case BULK_LOAD_BATCH:
                     return processBulkLoadFileBatch((JdbcBulkLoadBatchRequest)req);
+            }
+
+            if (updateMetrics) {
+                long end = System.nanoTime();
+
+                long dur = end - start;
+
+                ctx.sqlListener().metrics().onQueryExecuted(dur);
             }
 
             return new JdbcResponse(IgniteQueryErrorCode.UNSUPPORTED_OPERATION,

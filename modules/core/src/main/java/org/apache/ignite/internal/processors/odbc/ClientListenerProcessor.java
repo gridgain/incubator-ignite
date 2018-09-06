@@ -67,6 +67,9 @@ public class ClientListenerProcessor extends GridProcessorAdapter {
     /** Executor service. */
     private ExecutorService execSvc;
 
+    /** Metrics. */
+    private final ClientListenerMetrics metrics = new ClientListenerMetrics();
+
     /**
      * @param ctx Kernal context.
      */
@@ -375,5 +378,12 @@ public class ClientListenerProcessor extends GridProcessorAdapter {
      */
     private static boolean isNotDefault(ClientConnectorConfiguration cliConnCfg) {
         return cliConnCfg != null && !(cliConnCfg instanceof ClientConnectorConfigurationEx);
+    }
+
+    /**
+     * @return Metrics.
+     */
+    public ClientListenerMetrics metrics() {
+        return metrics;
     }
 }
