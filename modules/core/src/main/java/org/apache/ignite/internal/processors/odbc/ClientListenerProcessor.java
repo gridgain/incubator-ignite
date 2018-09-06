@@ -183,7 +183,7 @@ public class ClientListenerProcessor extends GridProcessorAdapter {
             @Override public void run() {
                 while (true) {
                     try {
-                        Thread.sleep(5000L);
+                        Thread.sleep(60_000L);
                     }
                     catch (Exception e) {
                         return;

@@ -107,10 +107,19 @@ public class ClientListenerMetrics {
         @Override public String toString() {
             StringBuilder sb = new StringBuilder("[conn=" + connCtr.longValue() + ", ");
 
-            for (int i = 0; i < INTERVALS; i++)
-                sb.append("" + (i * 100) + "=" + durCtrs[i].longValue() + ", ");
+            for (int i = 0; i < INTERVALS; i++) {
+                long durVal = durCtrs[i].longValue();
 
-            sb.append("" + (INTERVALS * 100) + "+=" + durLongCtr.longValue() + "]");
+                if (durVal != 0)
+                    sb.append("" + (i * 100) + "=" + durVal + ", ");
+            }
+
+            long durLongVal = durLongCtr.longValue();
+
+            if (durLongVal != 0)
+                sb.append("" + (INTERVALS * 100) + "+=" + durLongVal);
+
+            sb.append("]");
 
             return sb.toString();
         }

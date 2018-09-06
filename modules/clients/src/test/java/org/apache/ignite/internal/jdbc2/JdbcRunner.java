@@ -16,8 +16,10 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 public class JdbcRunner {
     /** IP finder. */
@@ -38,6 +40,34 @@ public class JdbcRunner {
     /** Path to work directory. */
     private static final String WORK_DIR_PATH = "C:\\Personal\\code\\incubator-ignite\\work";
 
+    /** Number of load threads. */
+    private static final int LOAD_THREADS = 16;
+
+    /** Load duration. */
+    private static final long LOAD_DUR = 120_000L;
+
+    /** Warmup duration. */
+    private static final long LOAD_WARMUP_DUR = 10_000L;
+
+    /** Number of load counters. */
+    private static final int LOAD_CTR_CNT = 50;
+
+    /** Load counters. */
+    private static volatile LongAdder[] loadCtrs;
+
+    /** Warmup flag. */
+    private static volatile boolean warmup = true;
+
+    /** Stop flag. */
+    private static volatile boolean stop;
+
+    static {
+        loadCtrs = new LongAdder[LOAD_CTR_CNT];
+
+        for (int i = 0; i < LOAD_CTR_CNT; i++)
+            loadCtrs[i] = new LongAdder();
+    }
+
     /**
      * Entry point.
      */
@@ -45,49 +75,172 @@ public class JdbcRunner {
     public static void main(String[] args) throws Exception {
         U.delete(new File(WORK_DIR_PATH));
 
-        try (Ignite srv = Ignition.start(config("srv", false))) {
-            srv.cluster().active(true);
+        try (Ignite srv1 = Ignition.start(config("srv1", false))) {
+            try (Ignite srv2 = Ignition.start(config("srv2", false))) {
+                srv1.cluster().active(true);
 
-            try (Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1")) {
-                executeUpdate(conn, "create table TRAN_HISTORY\n" +
-                    "(TRAN_ID  varchar(50) PRIMARY KEY,\n" +
-                    "ACCT_ID varchar(16) null,\n" +
-                    "ACCT_CURR varchar(3) null,\n" +
-                    "TRAN_CURR varchar(3) null,\n" +
-                    "LEDGER_BAL decimal(20, 4) null,\n" +
-                    "AVAIL_BAL decimal(20, 4) null,\n" +
-                    "VALUE_DATE date null,\n" +
-                    "POSTING_DATE date null,\n" +
-                    "TRAN_DATE date not null,\n" +
-                    "PART_TRAN_SERL_NUM varchar(4) not null,\n" +
-                    "TRAN_PARTICLR_CODE varchar(5) null,\n" +
-                    "TRAN_PARTICLRS varchar(50) null,\n" +
-                    "TRAN_PARTICLRS2 varchar(50) null,\n" +
-                    "TRAN_AMOUNT decimal(20, 4) null,\n" +
-                    "TXN_TYPE varchar(1) null,\n" +
-                    "PART_TXN_TYPE varchar(1) null,\n" +
-                    "TRAN_STATUS varchar(1) null,\n" +
-                    "TRAN_REF_NUM varchar(32) null,\n" +
-                    "TRAN_REMARKS varchar(50) null,\n" +
-                    "CHANNEL_ID varchar(10) null,\n" +
-                    "LST_TRAN_DATE date null,\n" +
-                    " SCHEME_CODE varchar(5) null,\n" +
-                    "REF_CURR_CODE varchar(3) null,\n" +
-                    "EXCHANGE_RATE_CODE varchar(5) null,\n" +
-                    " EXCHANGE_RATE decimal(21, 10) null,\n" +
-                    "DEAL_REF_NUM varchar(16) null,\n" +
-                    "LST_UPDT_SYS_ID varchar(255) null,\n" +
-                    "LST_UPDT_DTTM date null)");
+                try (Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1")) {
+                    executeUpdate(conn, "create table TRAN_HISTORY\n" +
+                        "(TRAN_ID  varchar(50) PRIMARY KEY,\n" +
+                        "ACCT_ID varchar(16) null,\n" +
+                        "ACCT_CURR varchar(3) null,\n" +
+                        "TRAN_CURR varchar(3) null,\n" +
+                        "LEDGER_BAL decimal(20, 4) null,\n" +
+                        "AVAIL_BAL decimal(20, 4) null,\n" +
+                        "VALUE_DATE date null,\n" +
+                        "POSTING_DATE date null,\n" +
+                        "TRAN_DATE date not null,\n" +
+                        "PART_TRAN_SERL_NUM varchar(4) not null,\n" +
+                        "TRAN_PARTICLR_CODE varchar(5) null,\n" +
+                        "TRAN_PARTICLRS varchar(50) null,\n" +
+                        "TRAN_PARTICLRS2 varchar(50) null,\n" +
+                        "TRAN_AMOUNT decimal(20, 4) null,\n" +
+                        "TXN_TYPE varchar(1) null,\n" +
+                        "PART_TXN_TYPE varchar(1) null,\n" +
+                        "TRAN_STATUS varchar(1) null,\n" +
+                        "TRAN_REF_NUM varchar(32) null,\n" +
+                        "TRAN_REMARKS varchar(50) null,\n" +
+                        "CHANNEL_ID varchar(10) null,\n" +
+                        "LST_TRAN_DATE date null,\n" +
+                        " SCHEME_CODE varchar(5) null,\n" +
+                        "REF_CURR_CODE varchar(3) null,\n" +
+                        "EXCHANGE_RATE_CODE varchar(5) null,\n" +
+                        " EXCHANGE_RATE decimal(21, 10) null,\n" +
+                        "DEAL_REF_NUM varchar(16) null,\n" +
+                        "LST_UPDT_SYS_ID varchar(255) null,\n" +
+                        "LST_UPDT_DTTM date null)");
 
-                executeUpdate(conn, "CREATE INDEX accid_index ON TRAN_HISTORY(ACCT_ID)");
+                    executeUpdate(conn, "CREATE INDEX accid_index ON TRAN_HISTORY(ACCT_ID)");
 
-                generateData(conn);
+                    generateData(conn);
 
-                System.out.println(">>> QUERY: " + query(conn));
+                    System.out.println(">>> QUERY: " + query(conn));
+                }
+
+                runLoad(LOAD_THREADS, LOAD_WARMUP_DUR, LOAD_DUR,
+                    "jdbc:ignite:thin://127.0.0.1:10800",
+                    "jdbc:ignite:thin://127.0.0.1:10801"
+                );
             }
         }
+    }
 
-        Thread.sleep(Long.MAX_VALUE);
+    /**
+     * Run load.
+     *
+     * @param threads Threads.
+     * @param warmupDur Warmup duration.
+     * @param dur Duration.
+     * @param connStrs Connection strings.
+     * @throws Exception If failed.
+     */
+    private static void runLoad(int threads, long warmupDur, long dur, String... connStrs) throws Exception {
+        ThreadLocalRunner[] runners = new ThreadLocalRunner[threads];
+
+        for (int i = 0; i < threads; i++) {
+            ThreadLocalRunner runner = new ThreadLocalRunner(connStrs);
+
+            Thread thread = new Thread(runner);
+
+            thread.setName("load-runner-" + i);
+
+            thread.start();
+
+            runners[i] = runner;
+        }
+
+        Thread.sleep(warmupDur);
+
+        warmup = false;
+
+        System.out.println(">>> WARMUP finished.");
+
+        Thread printThread = new Thread(new Runnable() {
+            @Override public void run() {
+                while (!stop) {
+                    try {
+                        Thread.sleep(5000L);
+
+                        printResults();
+
+                        LongAdder[] newCtrs = new LongAdder[LOAD_CTR_CNT];
+
+                        for (int i = 0; i < LOAD_CTR_CNT; i++)
+                            newCtrs[i] = new LongAdder();
+
+                        loadCtrs = newCtrs;
+                    }
+                    catch (Exception e) {
+                        return;
+                    }
+                }
+            }
+        });
+
+        printThread.setName("load-result-printer");
+        printThread.start();
+
+        Thread.sleep(dur);
+
+        stop = true;
+
+        for (ThreadLocalRunner runner : runners)
+            runner.stop();
+
+        for (ThreadLocalRunner runner : runners)
+            runner.awaitStop();
+
+        System.out.println(">>> LOAD finished.");
+    }
+
+    /**
+     * Print current results.
+     */
+    @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
+    private static void printResults() {
+        StringBuilder sb = new StringBuilder("[\n");
+
+        LongAdder[] ctrs = loadCtrs;
+
+        for (int i = 0; i < LOAD_CTR_CNT; i++) {
+            long val = ctrs[i].longValue();
+
+            if (val != 0L)
+                sb.append("\t" + (i * 100) + "=" + val + "\n");
+        }
+
+        sb.append("]");
+
+        System.out.println(">>> RESULTS " + sb.toString());
+    }
+
+    /**
+     * Log query duration.
+     *
+     * @param dur Duration.
+     */
+    private static void logQueryDuration(long dur) {
+        if (warmup)
+            return;
+
+        if (dur < 0) {
+            loadCtrs[0].increment();
+
+            return;
+        }
+
+        int dur0 = (int)dur;
+
+        if ((long)dur0 == dur) {
+            int slot = dur0 / 100;
+
+            if (slot < LOAD_CTR_CNT)
+                loadCtrs[slot].increment();
+
+            return;
+        }
+
+        loadCtrs[LOAD_CTR_CNT - 1].increment();
     }
 
     /**
@@ -130,8 +283,10 @@ public class JdbcRunner {
             cfg.setClientMode(true);
 
         cfg.setDataStorageConfiguration(new DataStorageConfiguration().setDefaultDataRegionConfiguration(
-            new DataRegionConfiguration().setPersistenceEnabled(true).setMaxSize(4L * 1024 * 1024 * 1024))
+            new DataRegionConfiguration().setPersistenceEnabled(true).setMaxSize(2L * 1024 * 1024 * 1024))
         );
+
+        cfg.setLongQueryWarningTimeout(Long.MAX_VALUE);
 
         return cfg;
     }
@@ -214,5 +369,93 @@ public class JdbcRunner {
      */
     private static String generateAccountId() {
         return String.format("%016d", ACCT_ID_CTR.incrementAndGet());
+    }
+
+    /**
+     * Thread-local runner.
+     */
+    private static class ThreadLocalRunner implements Runnable {
+        /** Connection strings. */
+        private final String[] connStrs;
+
+        /** Connections. */
+        private ArrayList<Connection> conns;
+
+        /** Stop latch. */
+        private final CountDownLatch stopLatch = new CountDownLatch(1);
+
+        /** Stop flag. */
+        private volatile boolean stopped;
+
+        /**
+         * Constructor.
+         *
+         * @param connStrs Connection strings.
+         */
+        private ThreadLocalRunner(String... connStrs) {
+            this.connStrs = connStrs;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void run() {
+            try {
+                conns = new ArrayList<>(connStrs.length);
+
+                for (String connStr : connStrs) {
+                    Connection conn = DriverManager.getConnection(connStr);
+
+                    conns.add(conn);
+                }
+
+                while (!stopped)
+                    runSingle();
+            }
+            catch (Exception e) {
+                throw new RuntimeException("Thread local runner failed.", e);
+            }
+            finally {
+                try{
+                    for (Connection conn : conns)
+                        U.closeQuiet(conn);
+                }
+                finally {
+                    stopLatch.countDown();
+                }
+            }
+        }
+
+        /**
+         * Run single iteration.
+         *
+         * @throws Exception If failed.
+         */
+        private void runSingle() throws Exception {
+            Connection conn = conns.get(ThreadLocalRandom.current().nextInt(conns.size()));
+
+            long dur = query(conn);
+
+            logQueryDuration(dur);
+        }
+
+        /**
+         * Stop runner.
+         */
+        private void stop() {
+            stopped = true;
+        }
+
+        /**
+         * Await runner stop.
+         */
+        private void awaitStop() {
+            try {
+                stopLatch.await();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new RuntimeException("Interrupted while waiting on thread local worker stop.", e);
+            }
+        }
     }
 }
