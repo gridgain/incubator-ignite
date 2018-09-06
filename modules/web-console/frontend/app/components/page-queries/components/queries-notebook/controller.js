@@ -1522,9 +1522,14 @@ export class NotebookCtrl {
                                 collocated
                             };
 
-                            ActivitiesData.post({ action: '/queries/execute' });
+                            if (paragraph.maxPages && query.indexOf(';') >= 0) {
+                                throw Error('Only single select query is available to execute with page limit.\n' +
+                                    'Please remove any ";" symbols and execute query again.');
+                            }
 
                             const qry = args.maxPages ? addLimit(args.query, args.pageSize * args.maxPages) : query;
+
+                            ActivitiesData.post({ action: '/queries/execute' });
 
                             return agentMgr.querySql(nid, args.cacheName, qry, nonCollocatedJoins, enforceJoinOrder, false, local, args.pageSize, lazy, collocated);
                         })
