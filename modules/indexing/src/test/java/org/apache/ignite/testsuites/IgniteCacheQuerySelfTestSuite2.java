@@ -49,6 +49,7 @@ import org.apache.ignite.internal.processors.query.IgniteCacheGroupsCompareQuery
 import org.apache.ignite.internal.processors.query.IgniteCacheGroupsSqlDistributedJoinSelfTest;
 import org.apache.ignite.internal.processors.query.IgniteCacheGroupsSqlSegmentedIndexMultiNodeSelfTest;
 import org.apache.ignite.internal.processors.query.IgniteCacheGroupsSqlSegmentedIndexSelfTest;
+import org.apache.ignite.internal.processors.query.h2.twostep.CreateTableWithDateKeySelfTest;
 import org.apache.ignite.testframework.IgniteTestSuite;
 
 /**
@@ -103,6 +104,8 @@ public class IgniteCacheQuerySelfTestSuite2 extends TestSuite {
         suite.addTestSuite(IgniteCacheGroupsSqlSegmentedIndexSelfTest.class);
         suite.addTestSuite(IgniteCacheGroupsSqlSegmentedIndexMultiNodeSelfTest.class);
         suite.addTestSuite(IgniteCacheGroupsSqlDistributedJoinSelfTest.class);
+
+        suite.addTestSuite(CreateTableWithDateKeySelfTest.class);
 
         return suite;
     }
