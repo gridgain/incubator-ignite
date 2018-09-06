@@ -42,7 +42,7 @@ public class JdbcRunner {
     private static final String WORK_DIR_PATH = "C:\\Personal\\code\\incubator-ignite\\work";
 
     /** Number of load threads. */
-    private static final int LOAD_THREADS = 16;
+    private static final int LOAD_THREADS = 64;
 
     /** Load duration. */
     private static final long LOAD_DUR = 120_000L;
