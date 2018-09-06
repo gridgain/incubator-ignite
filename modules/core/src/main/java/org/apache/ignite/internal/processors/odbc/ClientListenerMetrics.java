@@ -114,7 +114,7 @@ public class ClientListenerMetrics {
                 long durVal = durCtrs[i].longValue();
 
                 if (durVal != 0)
-                    sb.append(", " + (i * 100) + "=" + durVal);
+                    sb.append(", " + ((i + 1) * 100) + "=" + durVal);
             }
 
             long durLongVal = durLongCtr.longValue();
