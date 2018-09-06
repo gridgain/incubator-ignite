@@ -33,7 +33,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
@@ -267,9 +266,6 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Memory metrics to track dirty pages count and page replace rate. */
     private DataRegionMetricsImpl memMetrics;
 
-    /** */
-    private AtomicReference<Exception> waiterCtx = new AtomicReference<>();
-
     /**
      * @param directMemoryProvider Memory allocator to use.
      * @param sizes segments sizes, last is checkpoint pool size.
@@ -405,35 +401,11 @@ public class PageMemoryImpl implements PageMemoryEx {
         directMemoryProvider.shutdown();
     }
 
-    /**
-     * @param seg Seg.
-     */
-    private void segReadLock(Segment seg) {
-        boolean ok = waiterCtx.compareAndSet(null, new Exception());
-
-        seg.readLock().lock();
-
-        if (ok)
-            waiterCtx.set(null);
-    }
-
-    /**
-     * @param seg Seg.
-     */
-    private void segWriteLock(Segment seg) {
-        boolean ok = waiterCtx.compareAndSet(null, new Exception());
-
-        seg.writeLock().lock();
-
-        if (ok)
-            waiterCtx.set(null);
-    }
-
     /** {@inheritDoc} */
     @Override public void releasePage(int grpId, long pageId, long page) {
         Segment seg = segment(grpId, pageId);
 
-        segReadLock(seg);
+        seg.readLock().lock();
 
         try {
             seg.releasePage(page);
@@ -512,11 +484,9 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         long t1 = System.nanoTime();
 
-        segWriteLock(seg);
+        seg.writeLock().lock();
 
         boolean isTrackingPage = changeTracker != null && trackingIO.trackingPageFor(pageId, pageSize()) == pageId;
-
-        long r1 = 0, r2 = 0;
 
         try {
             long relPtr = seg.loadedPages.get(
@@ -533,13 +503,8 @@ public class PageMemoryImpl implements PageMemoryEx {
             if (relPtr == INVALID_REL_PTR)
                 relPtr = seg.borrowOrAllocateFreePage(pageId);
 
-            r1 = System.nanoTime();
-
-            if (relPtr == INVALID_REL_PTR) {
+            if (relPtr == INVALID_REL_PTR)
                 relPtr = seg.removePageForReplacement(delayedWriter == null ? flushDirtyPage : delayedWriter);
-
-                r2 = System.nanoTime();
-            }
 
             long absPtr = seg.absolute(relPtr);
 
@@ -606,7 +571,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             seg.writeLock().unlock();
 
-            reportLockWait(seg, grpId, pageId, queue, t1, r2 - r1, 0);
+            reportLockWait(seg, grpId, pageId, queue, t1);
 
             if (delayedWriter != null)
                 delayedWriter.finishReplacement();
@@ -676,7 +641,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         Segment seg = segment(grpId, pageId);
 
-        segReadLock(seg);
+        seg.readLock().lock();
 
         try {
             long relPtr = seg.loadedPages.get(
@@ -705,9 +670,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         long t1 = System.nanoTime();
 
-        long r1 = 0, r2 = 0, r3 = 0, r4 = 0;
-
-        segWriteLock(seg);
+        seg.writeLock().lock();
 
         long lockedPageAbsPtr = -1;
         boolean readPageFromStore = false;
@@ -727,13 +690,8 @@ public class PageMemoryImpl implements PageMemoryEx {
             if (relPtr == INVALID_REL_PTR) {
                 relPtr = seg.borrowOrAllocateFreePage(pageId);
 
-                r1 = System.nanoTime();
-
-                if (relPtr == INVALID_REL_PTR) {
+                if (relPtr == INVALID_REL_PTR)
                     relPtr = seg.removePageForReplacement(delayedWriter == null ? flushDirtyPage : delayedWriter);
-
-                    r2 = System.nanoTime();
-                }
 
                 absPtr = seg.absolute(relPtr);
 
@@ -772,8 +730,6 @@ public class PageMemoryImpl implements PageMemoryEx {
                 rwLock.init(absPtr + PAGE_LOCK_OFFSET, PageIdUtils.tag(pageId));
 
                 if (readPageFromStore) {
-                    r3 = System.nanoTime();
-
                     boolean locked = rwLock.writeLock(absPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
 
                     assert locked: "Page ID " + fullId + " expected to be locked";
@@ -819,6 +775,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             seg.writeLock().unlock();
 
+            reportLockWait(seg, grpId, pageId, queue, t1);
+
             if (delayedWriter != null)
                 delayedWriter.finishReplacement();
 
@@ -854,12 +812,8 @@ public class PageMemoryImpl implements PageMemoryEx {
                 finally {
                     rwLock.writeUnlock(lockedPageAbsPtr + PAGE_LOCK_OFFSET,
                         actualPageId == 0 ? OffheapReadWriteLock.TAG_LOCK_ALWAYS : PageIdUtils.tag(actualPageId));
-
-                    r4 = System.nanoTime();
                 }
             }
-
-            reportLockWait(seg, grpId, pageId, queue, t1, r2 - r1, r4 - r3);
         }
     }
 
@@ -868,47 +822,18 @@ public class PageMemoryImpl implements PageMemoryEx {
      * @param grpId Group id.
      * @param pageId Page id.
      * @param queue Queue.
-     * @param t1 Seg write unlock timestamp.
-     * @param replDuration Page replacement duration.
-     * @param pageReadDuration Cold page lock + read +unlock duration.
+     * @param t1 T 1.
      */
-    private void reportLockWait(Segment seg, int grpId, long pageId, int queue, long t1, long replDuration,
-        long pageReadDuration) {
-        long duration = System.nanoTime() - t1;
-
-        if (queue > 0 || duration > 10_000_000) {
-            Exception ex = waiterCtx.get();
-
-            log.info(">><DBG> [seg=" + seg.pool.idx +
-                ", holdLockDuration=" + duration / 1000 / 1000. + "ms" +
+    private void reportLockWait(Segment seg, int grpId, long pageId, int queue, long t1) {
+        if (System.nanoTime() - t1 > 1_000_000)
+            log.info(">><DBG> Holding segment write lock longer when 1 second: [seg=" + seg.pool.idx +
                 ", grpId=" + grpId +
                 ", pageId=" + pageId +
                 ", waiters=" + queue +
                 ", pinned=" + seg.acquiredPages() +
                 ", allocated=" + GridUnsafe.getLong(seg.pool.lastAllocatedIdxPtr) +
                 ", total=" + seg.pages() +
-                ", rmvPageForReplDuration=" + (replDuration == 0 ? "N/A" : (replDuration / 1000 / 1000. + "ms")) +
-                ", coldPageReadDuration=" + (pageReadDuration == 0 ? "N/A" : (pageReadDuration / 1000 / 1000. + "ms")) +
-                ", pool=" + seg.pool.region.size() +
-                ", firstWaiter=" + getStackTrace(ex) +
-                ", ctx=" + getStackTrace(new Exception()) +
-                ']');
-        }
-    }
-
-    /**
-     *
-     */
-    private String getStackTrace(Exception ex) {
-        if (ex == null)
-            return "N/A";
-
-        StringBuilder b = new StringBuilder();
-
-        for (StackTraceElement element : ex.getStackTrace())
-            b.append(element).append(U.nl());
-
-        return b.toString();
+                ", pool=" + seg.pool.region.size() + ']');
     }
 
     /**
@@ -1161,7 +1086,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         boolean pageSingleAcquire = false;
 
-        segReadLock(seg);
+        seg.readLock().lock();
 
         try {
             if (!isInCheckpoint(fullId))
@@ -1196,9 +1121,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         }
 
         if (relPtr == OUTDATED_REL_PTR) {
-            long t1 = System.nanoTime();
-
-            segWriteLock(seg);
+            seg.writeLock().lock();
 
             try {
                 // Double-check.
@@ -1230,11 +1153,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 return null;
             }
             finally {
-                int queue = seg.getQueueLength();
-
                 seg.writeLock().unlock();
-
-                reportLockWait(seg, fullId.groupId(), fullId.pageId(), queue, t1, 0, 0);
             }
         }
         else
@@ -1349,7 +1268,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         int tag = 0;
 
         for (Segment seg : segments) {
-            segWriteLock(seg);
+            seg.writeLock().lock();
 
             try {
                 int newTag = seg.incrementPartGeneration(grpId, partId);
@@ -1370,7 +1289,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** {@inheritDoc} */
     @Override public void onCacheGroupDestroyed(int grpId) {
         for (Segment seg : segments) {
-            segWriteLock(seg);
+            seg.writeLock().lock();
 
             try {
                 seg.resetGroupPartitionsGeneration(grpId);
@@ -1413,7 +1332,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 if (seg == null)
                     break;
 
-                segReadLock(seg);
+                seg.readLock().lock();
 
                 try {
                     if (seg.closed)
@@ -1437,7 +1356,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         long total = 0;
 
         for (Segment seg : segments) {
-            segReadLock(seg);
+            seg.readLock().lock();
 
             try {
                 if (seg.closed)
