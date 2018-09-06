@@ -178,6 +178,26 @@ public class ClientListenerProcessor extends GridProcessorAdapter {
                 throw new IgniteCheckedException("Failed to start client connector processor.", e);
             }
         }
+
+        Thread metricsPrinter = new Thread(new Runnable() {
+            @Override public void run() {
+                while (true) {
+                    try {
+                        Thread.sleep(5000L);
+                    }
+                    catch (Exception e) {
+                        return;
+                    }
+
+                    System.out.println(">>> JDBC METRICS: " + ctx.sqlListener().metrics().toString());
+                }
+            }
+        });
+
+        metricsPrinter.setName("jdbc-metrics-printer");
+        metricsPrinter.setDaemon(true);
+
+        metricsPrinter.start();
     }
 
      /**
