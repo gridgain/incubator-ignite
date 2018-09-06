@@ -490,7 +490,7 @@ export default ['IgniteLegacyUtils', ['IgniteErrorPopover', function(ErrorPopove
                 };
             }
 
-            return {};
+            return null;
         },
         randomString(len) {
             const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

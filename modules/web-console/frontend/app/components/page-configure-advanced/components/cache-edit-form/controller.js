@@ -17,6 +17,7 @@
 
 import cloneDeep from 'lodash/cloneDeep';
 import get from 'lodash/get';
+import isEqual from 'lodash/isEqual';
 
 export default class CacheEditFormController {
     /** @type {ig.menu<string>} */
@@ -79,7 +80,7 @@ export default class CacheEditFormController {
     }
     $onChanges(changes) {
         if (
-            'cache' in changes && get(this.clonedCache, '_id') !== get(this.cache, '_id')
+            'cache' in changes && this.shouldOverwriteValue(this.clonedCache, this.cache)
         ) {
             this.clonedCache = cloneDeep(changes.cache.currentValue);
             if (this.$scope.ui && this.$scope.ui.inputForm) {
@@ -93,6 +94,17 @@ export default class CacheEditFormController {
             this.igfssMenu = (changes.igfss.currentValue || []).map((i) => ({value: i._id, label: i.name}));
             this.igfsIDs = (changes.igfss.currentValue || []).map((i) => i._id);
         }
+    }
+    /**
+     * The form should accept incoming cache value if:
+     * 1. It has different _id ("new" to real id).
+     * 2. Different store for cache (imported from DB).
+     * @param {Object} a Incoming value.
+     * @param {Object} b Current value.
+     */
+    shouldOverwriteValue(a, b) {
+        return get(a, '_id') !== get(b, '_id') ||
+            !isEqual(get(a, 'cacheStoreFactory.kind'), get(b, 'cacheStoreFactory.kind'));
     }
     getValuesToCompare() {
         return [this.cache, this.clonedCache].map(this.Caches.normalize);

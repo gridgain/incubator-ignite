@@ -95,7 +95,8 @@ export default class ConfigEffects {
         'IgniteMessages',
         'IgniteConfirm',
         Confirm.name,
-        ConfigurationDownload.name
+        ConfigurationDownload.name,
+        'IgniteLegacyUtils'
     ];
     /**
      * @param {ConfigureState} ConfigureState
@@ -110,7 +111,7 @@ export default class ConfigEffects {
      * @param {Confirm} Confirm
      * @param {ConfigurationDownload} ConfigurationDownload
      */
-    constructor(ConfigureState, Caches, IGFSs, Models, ConfigSelectors, Clusters, $state, IgniteMessages, IgniteConfirm, Confirm, ConfigurationDownload) {
+    constructor(ConfigureState, Caches, IGFSs, Models, ConfigSelectors, Clusters, $state, IgniteMessages, IgniteConfirm, Confirm, ConfigurationDownload, LegacyUtils) {
         this.ConfigureState = ConfigureState;
         this.ConfigSelectors = ConfigSelectors;
         this.IGFSs = IGFSs;
@@ -122,6 +123,7 @@ export default class ConfigEffects {
         this.IgniteConfirm = IgniteConfirm;
         this.Confirm = Confirm;
         this.configurationDownload = ConfigurationDownload;
+        this.LegacyUtils = LegacyUtils;
 
         this.loadConfigurationEffect$ = this.ConfigureState.actions$
             .let(ofType('LOAD_COMPLETE_CONFIGURATION'))
@@ -152,64 +154,114 @@ export default class ConfigEffects {
         this.saveCompleteConfigurationEffect$ = this.ConfigureState.actions$
             .let(ofType(ADVANCED_SAVE_COMPLETE_CONFIGURATION))
             .switchMap((action) => {
-                const actions = [
-                    {
-                        type: modelsActionTypes.UPSERT,
-                        items: action.changedItems.models
-                    },
-                    {
-                        type: shortModelsActionTypes.UPSERT,
-                        items: action.changedItems.models.map((m) => this.Models.toShortModel(m))
-                    },
-                    {
-                        type: igfssActionTypes.UPSERT,
-                        items: action.changedItems.igfss
-                    },
-                    {
-                        type: shortIGFSsActionTypes.UPSERT,
-                        items: action.changedItems.igfss
-                    },
-                    {
-                        type: cachesActionTypes.UPSERT,
-                        items: action.changedItems.caches
-                    },
-                    {
-                        type: shortCachesActionTypes.UPSERT,
-                        items: action.changedItems.caches.map(Caches.toShortCache)
-                    },
-                    {
-                        type: clustersActionTypes.UPSERT,
-                        items: [action.changedItems.cluster]
-                    },
-                    {
-                        type: shortClustersActionTypes.UPSERT,
-                        items: [Clusters.toShortCluster(action.changedItems.cluster)]
-                    }
-                ].filter((a) => a.items.length);
+                const changes = _.cloneDeep(action.changedItems);
 
-                return of(...actions)
-                .merge(
-                    fromPromise(Clusters.saveAdvanced(action.changedItems))
+                return Observable.merge(
+                    Observable
+                        .timer(1)
+                        .take(1)
+                        .do(() => this.ConfigureState.dispatchAction({type: 'LOAD_COMPLETE_CONFIGURATION', clusterID: changes.cluster._id, isDemo: false}))
+                        .ignoreElements(),
+                    this.ConfigureState.actions$.let(ofType('LOAD_COMPLETE_CONFIGURATION_ERR')).take(1).map((e) => {throw e;}),
+                    this.ConfigureState.state$
+                        .let(this.ConfigSelectors.selectCompleteClusterConfiguration({clusterID: changes.cluster._id, isDemo: false}))
+                        .filter((c) => c.__isComplete)
+                        .take(1)
+                        .map((data) => ({...data, clusters: [_.cloneDeep(data.cluster)]}))
+                )
                     .switchMap((res) => {
-                        return of(
-                            {type: 'EDIT_CLUSTER', cluster: action.changedItems.cluster},
-                            {type: 'ADVANCED_SAVE_COMPLETE_CONFIGURATION_OK', changedItems: action.changedItems}
-                        );
-                    })
-                    .catch((res) => {
-                        return of({
-                            type: 'ADVANCED_SAVE_COMPLETE_CONFIGURATION_ERR',
-                            changedItems: action.changedItems,
-                            action,
-                            error: {
-                                message: `Failed to save cluster "${action.changedItems.cluster.name}": ${res.data}.`
+                        // Check caches. Add a store configuration when a model with a configured store is assigned.
+                        _.forEach(changes.caches, (cache) => {
+                            if (!_.get(cache, 'cacheStoreFactory.kind') && !_.isEmpty(cache.domains)) {
+                                _.forEach(cache.domains, (_id) => {
+                                    const model = _.find(res.domains, { _id });
+
+                                    if (model && this.LegacyUtils.domainForStoreConfigured(model))
+                                        _.merge(cache, this.LegacyUtils.autoCacheStoreConfiguration(cache, [model]));
+                                });
                             }
-                        }, {
-                            type: 'UNDO_ACTIONS',
-                            actions
                         });
-                    })
-                );
+
+                        // Check models. Add a store configuration to a cache when the cache without the store is assigned.
+                        _.forEach(changes.models, (model) => {
+                            if (this.LegacyUtils.domainForStoreConfigured(model)) {
+                                _.forEach(model.caches, (_id) => {
+                                    let cacheChange = _.find(changes.caches, { _id });
+                                    const cache = _.find(res.caches, {_id});
+
+                                    if ((cacheChange && !_.get(cacheChange, 'cacheStoreFactory.kind'))
+                                        || (!cacheChange && !_.get(cache, 'cacheStoreFactory.kind'))) {
+                                        if (!cacheChange) {
+                                            cacheChange = _.cloneDeep(cache);
+
+                                            changes.caches.push(cacheChange);
+                                        }
+
+                                        _.merge(cacheChange, this.LegacyUtils.autoCacheStoreConfiguration(cache, [model]));
+                                    }
+                                });
+                            }
+                        });
+
+                        const actions = [
+                            {
+                                type: modelsActionTypes.UPSERT,
+                                items: changes.models
+                            },
+                            {
+                                type: shortModelsActionTypes.UPSERT,
+                                items: changes.models.map((m) => this.Models.toShortModel(m))
+                            },
+                            {
+                                type: igfssActionTypes.UPSERT,
+                                items: changes.igfss
+                            },
+                            {
+                                type: shortIGFSsActionTypes.UPSERT,
+                                items: changes.igfss
+                            },
+                            {
+                                type: cachesActionTypes.UPSERT,
+                                items: changes.caches
+                            },
+                            {
+                                type: shortCachesActionTypes.UPSERT,
+                                items: changes.caches.map(Caches.toShortCache)
+                            },
+                            {
+                                type: clustersActionTypes.UPSERT,
+                                items: [changes.cluster]
+                            },
+                            {
+                                type: shortClustersActionTypes.UPSERT,
+                                items: [Clusters.toShortCluster(changes.cluster)]
+                            }
+                        ].filter((a) => a.items.length);
+
+                        return of(...actions)
+                        .merge(
+                            fromPromise(Clusters.saveAdvanced(changes))
+                            .switchMap((res) => {
+                                return of(
+                                    {type: 'EDIT_CLUSTER', cluster: changes.cluster},
+                                    {type: 'ADVANCED_SAVE_COMPLETE_CONFIGURATION_OK', changedItems: changes}
+                                );
+                            })
+                            .catch((res) => {
+                                return of({
+                                    type: 'ADVANCED_SAVE_COMPLETE_CONFIGURATION_ERR',
+                                    changedItems: changes,
+                                    action,
+                                    error: {
+                                        message: `Failed to save cluster "${changes.cluster.name}": ${res.data}.`
+                                    }
+                                }, {
+                                    type: 'UNDO_ACTIONS',
+                                    actions
+                                });
+                            })
+                        );
+                    });
             });
 
         this.addCacheToEditEffect$ = this.ConfigureState.actions$
