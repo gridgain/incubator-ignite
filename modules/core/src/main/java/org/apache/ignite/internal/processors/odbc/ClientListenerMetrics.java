@@ -81,6 +81,12 @@ public class ClientListenerMetrics {
          * @param dur Duration.
          */
         private void onQueryExecuted(long dur) {
+            if (dur < 0) {
+                durCtrs[0].increment();
+
+                return;
+            }
+
             int dur0 = (int)dur;
 
             if ((long)dur0 == dur) {
@@ -102,9 +108,9 @@ public class ClientListenerMetrics {
             StringBuilder sb = new StringBuilder("[conn=" + connCtr.longValue() + ", ");
 
             for (int i = 0; i < INTERVALS; i++)
-                sb.append("dur" + (i * 100) + "=" + durCtrs[i].longValue() + ", ");
+                sb.append("" + (i * 100) + "=" + durCtrs[i].longValue() + ", ");
 
-            sb.append("dur" + (INTERVALS * 100) + "+=" + durLongCtr.longValue() + "]");
+            sb.append("" + (INTERVALS * 100) + "+=" + durLongCtr.longValue() + "]");
 
             return sb.toString();
         }

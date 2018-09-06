@@ -5,15 +5,18 @@ import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
+import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class JdbcRunner {
@@ -21,7 +24,7 @@ public class JdbcRunner {
     private static TcpDiscoveryVmIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
 
     /** Number of account IDs. */
-    private static final int ACCT_ID_CNT = 1000;
+    private static final int ACCT_ID_CNT = 5000;
 
     /** Number of records per account ID. */
     private static final int RECORDS_PER_ACCT_ID = 500;
@@ -32,11 +35,16 @@ public class JdbcRunner {
     /** Generated account IDs. */
     private static final ArrayList<String> ACCT_IDS = new ArrayList<>(ACCT_ID_CNT);
 
+    /** Path to work directory. */
+    private static final String WORK_DIR_PATH = "C:\\Personal\\code\\incubator-ignite\\work";
+
     /**
      * Entry point.
      */
     @SuppressWarnings("unused")
     public static void main(String[] args) throws Exception {
+        U.delete(new File(WORK_DIR_PATH));
+
         try (Ignite srv = Ignition.start(config("srv", false))) {
             srv.cluster().active(true);
 
@@ -75,15 +83,33 @@ public class JdbcRunner {
 
                 generateData(conn);
 
-//                executeUpdate(conn, "INSERT INTO TRAN_HISTORY VALUES ('TRAN2260c7fe-708d-470d-a49a-c255f6b9f934','ACT96bc2b25-f50','TWD','TWD',0.0000,906.0000,'2018-04-19', '2018-04-19','2018-04-19','25','CHQ03','982668','',26500.0000, 'L','D','','50000000','Zone Serial [ 25]','','2018-09-09','RQODA','TWD','', 1.0000000000,'','','2018-09-09')");
-//                executeUpdate(conn, "INSERT INTO TRAN_HISTORY VALUES ('TRAN2260c7fe-708d-470d-a49a-c255f6b9f935','ACT96bc2b25-f50','TWD','TWD',0.0000,906.0000,'2018-04-19', '2018-04-19','2018-04-19','25','CHQ03','982668','',26500.0000, 'L','D','','50000000','Zone Serial [ 25]','','2018-09-09','RQODA','TWD','', 1.0000000000,'','','2018-09-09')");
-
-                ResultSet rs = conn.prepareStatement("SELECT * FROM TRAN_HISTORY WHERE ACCT_ID='ACT96bc2b25-f50' ORDER BY POSTING_DATE LIMIT 50 OFFSET 0").executeQuery();
-
-                while (rs.next())
-                    System.out.println(rs.getString(1) + "\n");
+                System.out.println(">>> QUERY: " + query(conn));
             }
         }
+
+        Thread.sleep(Long.MAX_VALUE);
+    }
+
+    /**
+     * Query Ignite through the given connection.
+     *
+     * @param conn Connection.
+     * @return Duration in milliseconds.
+     * @throws Exception if failed.
+     */
+    @SuppressWarnings("StatementWithEmptyBody")
+    private static long query(Connection conn) throws Exception {
+        long start = System.currentTimeMillis();
+
+        String acctId = ACCT_IDS.get(ThreadLocalRandom.current().nextInt(ACCT_ID_CNT));
+
+        try (ResultSet rs = conn.prepareStatement("SELECT * FROM TRAN_HISTORY WHERE ACCT_ID='" + acctId + "' ORDER BY POSTING_DATE LIMIT 50 OFFSET 0").executeQuery()) {
+            while (rs.next()) {
+                // No-op.
+            }
+        }
+
+        return System.currentTimeMillis() - start;
     }
 
     /**
