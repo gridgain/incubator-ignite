@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagemem.wal;
 
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
-import org.apache.ignite.internal.pagemem.wal.record.RollOverRecordingType;
+import org.apache.ignite.internal.pagemem.wal.record.RolloverType;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedManager;
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
@@ -65,14 +65,13 @@ public interface IgniteWriteAheadLogManager extends GridCacheSharedManager, Igni
      * Appends the given log entry to the write-ahead log.
      *
      * @param entry Entry to log.
-     * @param rolloverType Way of writing rollover-related records, has no effect for entries having
-     *      {@link WALRecord#rollOver()} value of {@code false}.
+     * @param rolloverType Rollover type.
      * @return WALPointer that may be passed to {@link #flush(WALPointer, boolean)} method to make sure the record is
      *      written to the log.
      * @throws IgniteCheckedException If failed to construct log entry.
      * @throws StorageException If IO error occurred while writing log entry.
      */
-    public WALPointer log(WALRecord entry, RollOverRecordingType rolloverType)
+    public WALPointer log(WALRecord entry, RolloverType rolloverType)
         throws IgniteCheckedException, StorageException;
 
     /**

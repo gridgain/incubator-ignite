@@ -77,7 +77,7 @@ import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.pagemem.wal.WALIterator;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.MarshalledRecord;
-import org.apache.ignite.internal.pagemem.wal.record.RollOverRecordingType;
+import org.apache.ignite.internal.pagemem.wal.record.RolloverType;
 import org.apache.ignite.internal.pagemem.wal.record.SwitchSegmentRecord;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
@@ -680,8 +680,12 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("TooBroadScope")
-    @Override public WALPointer log(WALRecord record) throws IgniteCheckedException, StorageException {
+    @Override public WALPointer log(WALRecord record) throws IgniteCheckedException {
+        return log(record, RolloverType.NONE);
+    }
+
+    /** {@inheritDoc} */
+    @Override public WALPointer log(WALRecord record, RolloverType rolloverType) throws IgniteCheckedException {
         if (serializer == null || mode == WALMode.NONE)
             return null;
 
@@ -697,13 +701,33 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
         record.size(serializer.size(record));
 
         while (true) {
-            if (record.rollOver()){
+            WALPointer ptr;
+
+            if (rolloverType == RolloverType.NONE)
+                ptr = currWrHandle.addRecord(record);
+            else {
                 assert cctx.database().checkpointLockIsHeldByThread();
 
-                currWrHandle = rollOver(currWrHandle);
-            }
+                if (rolloverType == RolloverType.NEXT_SEGMENT) {
+                    rollOver(currWrHandle);
 
-            WALPointer ptr = currWrHandle.addRecord(record);
+                    ptr = currWrHandle.addRecord(record);
+                }
+                else {
+                    assert rolloverType == RolloverType.CURRENT_SEGMENT;
+
+                    currWrHandle.lock.lock();
+
+                    try {
+                        ptr = currWrHandle.addRecord(record);
+
+                        rollOver(currWrHandle);
+                    }
+                    finally {
+                        currWrHandle.lock.unlock();
+                    }
+                }
+            }
 
             if (ptr != null) {
                 metrics.onWalRecordLogged();
@@ -723,13 +747,6 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
             if (isStopping())
                 throw new IgniteCheckedException("Stopping.");
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override public WALPointer log(WALRecord record, RollOverRecordingType rollOverRecordingType)
-        throws IgniteCheckedException {
-        // TODO TDR-48
-        throw new RuntimeException("Unimplemented!");
     }
 
     /** {@inheritDoc} */

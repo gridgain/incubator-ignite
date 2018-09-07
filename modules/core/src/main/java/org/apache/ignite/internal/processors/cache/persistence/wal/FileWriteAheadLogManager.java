@@ -82,7 +82,7 @@ import org.apache.ignite.internal.pagemem.wal.WALIterator;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.CheckpointRecord;
 import org.apache.ignite.internal.pagemem.wal.record.MarshalledRecord;
-import org.apache.ignite.internal.pagemem.wal.record.RollOverRecordingType;
+import org.apache.ignite.internal.pagemem.wal.record.RolloverType;
 import org.apache.ignite.internal.pagemem.wal.record.SwitchSegmentRecord;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
@@ -772,11 +772,11 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
     /** {@inheritDoc} */
     @Override public WALPointer log(WALRecord rec) throws IgniteCheckedException {
-        return log(rec, RollOverRecordingType.NORMAL);
+        return log(rec, RolloverType.NONE);
     }
 
     /** {@inheritDoc} */
-    @Override public WALPointer log(WALRecord rec, RollOverRecordingType rolloverType) throws IgniteCheckedException {
+    @Override public WALPointer log(WALRecord rec, RolloverType rolloverType) throws IgniteCheckedException {
         if (serializer == null || mode == WALMode.NONE)
             return null;
 
@@ -794,16 +794,18 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
         while (true) {
             WALPointer ptr;
 
-            if (rec.rollOver()) {
+            if (rolloverType == RolloverType.NONE)
+                ptr = currWrHandle.addRecord(rec);
+            else {
                 assert cctx.database().checkpointLockIsHeldByThread();
 
-                if (rec.rollOverRecordingType() == RollOverRecordingType.NORMAL) {
+                if (rolloverType == RolloverType.NEXT_SEGMENT) {
                     closeBufAndRollover(currWrHandle, rec.type());
 
                     ptr = currWrHandle.addRecord(rec);
                 }
                 else {
-                    assert rec.rollOverRecordingType() == RollOverRecordingType.EAGER;
+                    assert rolloverType == RolloverType.CURRENT_SEGMENT;
 
                     currWrHandle.lock.lock();
 
@@ -816,8 +818,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                         currWrHandle.lock.unlock();
                     }
                 }
-            } else
-                ptr = currWrHandle.addRecord(rec);
+            }
 
             if (ptr != null) {
                 metrics.onWalRecordLogged();

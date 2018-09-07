@@ -18,17 +18,19 @@
 package org.apache.ignite.internal.pagemem.wal.record;
 
 /**
- * Defines destination segment for rollover-related WAL records,
- * i.e. records with {@link WALRecord#rollOver()} returning {@code true}.
+ * Defines WAL logging type with regard to segment rollover.
  */
-public enum RollOverRecordingType {
-    /**
-     * Write WAL record at the beginning of the next segment.
-     */
-    NORMAL,
+public enum RolloverType {
+    /** Record being logged is not a rollover record. */
+    NONE,
 
     /**
-     * Write WAL record at the end of the current segment.
+     * Record being logged is a rollover record and it should become the last record in the current segment.
      */
-    EAGER;
+    CURRENT_SEGMENT,
+
+    /**
+     * Record being logged is a rollover record and it should get to the next segment.
+     */
+    NEXT_SEGMENT;
 }
