@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
+import java.util.Iterator;
+import javax.cache.Cache;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -24,23 +28,38 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.WALMode;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.pagemem.store.IgnitePageStoreManager;
+import org.apache.ignite.internal.pagemem.store.PageStore;
+import org.apache.ignite.internal.processors.cache.CacheGroupContext;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStoreManager;
-import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryEx;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+
+import static org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState.OWNING;
 
 /**
  *
  */
 public class CachePageWriteLockUnlockTest extends GridCommonAbstractTest {
+    /** */
+    public static final String CACHE_1 = "cache1";
+
+    /** */
+    public static final int PARTITION = 0;
+
+    /** */
+    public static final String CACHE_2 = "cache2";
+
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        CacheConfiguration ccfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
-
-        ccfg.setAffinity(new RendezvousAffinityFunction(false, 32));
-
-        cfg.setCacheConfiguration(ccfg);
+        cfg.setCacheConfiguration(
+            new CacheConfiguration(CACHE_1).setGroupName(DEFAULT_CACHE_NAME).setAffinity(new RendezvousAffinityFunction(false, 32)),
+            new CacheConfiguration(CACHE_2).setGroupName(DEFAULT_CACHE_NAME).setAffinity(new RendezvousAffinityFunction(false, 32)));
 
         cfg.setActiveOnStart(false);
 
@@ -74,20 +93,11 @@ public class CachePageWriteLockUnlockTest extends GridCommonAbstractTest {
 
             grid0.cluster().active(true);
 
-            grid0.cache(DEFAULT_CACHE_NAME).put(0, 0);
+            int total = 256 * 256;
 
-            grid0.cache(DEFAULT_CACHE_NAME).remove(0);
+            putData(grid0, total, PARTITION);
 
-            grid0.cache(DEFAULT_CACHE_NAME).put(0, 0);
-
-            // Second iteration ensures what page is taken from reuse bucket.
-//            grid0.cache(DEFAULT_CACHE_NAME).remove(0);
-//
-//            grid0.cache(DEFAULT_CACHE_NAME).put(0, 0);
-//
-//            grid0.cache(DEFAULT_CACHE_NAME).remove(0);
-//
-//            grid0.cache(DEFAULT_CACHE_NAME).put(0, 0);
+            grid0.cache(CACHE_1).removeAll();
 
             forceCheckpoint();
 
@@ -97,12 +107,101 @@ public class CachePageWriteLockUnlockTest extends GridCommonAbstractTest {
 
             grid0.cluster().active(true);
 
-            grid0.cache(DEFAULT_CACHE_NAME).put(0, 0);
+            putData(grid0, total, PARTITION); // Will use pages from reuse pool.
 
-            grid0.cache(DEFAULT_CACHE_NAME).put(0, 0);
+            forceCheckpoint();
+
+            stopGrid(0);
+
+            grid0 = startGrid(0);
+
+            preloadPartition(grid0, CACHE_1, PARTITION);
+
+            Iterator<Cache.Entry<Object, Object>> it = grid0.cache(CACHE_1).iterator();
+
+            int c0 = 0;
+
+            while (it.hasNext()) {
+                Cache.Entry<Object, Object> entry = it.next();
+
+                c0++;
+            }
+
+            assertEquals(total, c0);
         }
         finally {
             stopAllGrids();
+        }
+    }
+
+    /**
+     * @param grid Grid.
+     * @param total Total.
+     * @param part Partition.
+     */
+    private void putData(Ignite grid, int total, int part) {
+        int c = 0, k = 0;
+
+        while(c < total) {
+            if (grid(0).affinity(CACHE_1).partition(k) == part) {
+                grid.cache(CACHE_1).put(k, k);
+
+                c++;
+            }
+
+            k++;
+        }
+    }
+
+    /**
+     * @param grid Grid.
+     * @param cacheName Cache name.
+     * @param p P.
+     */
+    private void preloadPartition(Ignite grid, String cacheName, int p) throws IgniteCheckedException {
+        GridDhtCacheAdapter<Object, Object> dht = ((IgniteKernal)grid).internalCache(cacheName).context().dht();
+
+        GridDhtLocalPartition part = dht.topology().localPartition(p);
+
+        assertNotNull(part);
+
+        assertTrue(part.state() == OWNING);
+
+        CacheGroupContext grpCtx = dht.context().group();
+
+        if (part.state() != OWNING)
+            return;
+
+        if (!part.reserve())
+            throw new IgniteCheckedException("Reservation failed: [partId=" + part + ']');
+
+        try {
+            IgnitePageStoreManager pageStoreMgr = grpCtx.shared().pageStore();
+
+            if (pageStoreMgr instanceof FilePageStoreManager) {
+                FilePageStoreManager filePageStoreMgr = (FilePageStoreManager)pageStoreMgr;
+
+                PageStore pageStore = filePageStoreMgr.getStore(grpCtx.groupId(), part.id());
+
+                PageMemoryEx pageMemory = (PageMemoryEx)grpCtx.dataRegion().pageMemory();
+
+                long pageId = pageMemory.partitionMetaPageId(grpCtx.groupId(), part.id());
+
+                for (int pageNo = 0; pageNo < pageStore.pages(); pageId++, pageNo++) {
+                    long pagePointer = -1;
+
+                    try {
+                        pagePointer = pageMemory.acquirePage(grpCtx.groupId(), pageId);
+                    }
+                    finally {
+                        if (pagePointer != -1)
+                            pageMemory.releasePage(grpCtx.groupId(), pageId, pagePointer);
+                    }
+                }
+            }
+        }
+        finally {
+            part.release();
         }
     }
 
