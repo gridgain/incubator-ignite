@@ -22,6 +22,10 @@ package org.apache.ignite.internal.pagemem.wal.record;
 public class ConsistentCutRecord extends WALRecord {
     /** Roll over. */
     private final boolean rollOver;
+
+    /** Rollover recording type. */
+    private final RollOverRecordingType rollOverRecordingType;
+
     // todo GG-13416 maybe save exchangeless snapshot ID
     /** {@inheritDoc} */
     @Override public RecordType type() {
@@ -40,10 +44,24 @@ public class ConsistentCutRecord extends WALRecord {
      */
     public ConsistentCutRecord(boolean rollOver) {
         this.rollOver = rollOver;
+        this.rollOverRecordingType = RollOverRecordingType.NORMAL;
+    }
+
+    /**
+     * @param rollOverRecordingType Rollover recording type.
+     */
+    public ConsistentCutRecord(RollOverRecordingType rollOverRecordingType) {
+        this.rollOver = true;
+        this.rollOverRecordingType = rollOverRecordingType;
     }
 
     /** {@inheritDoc} */
     @Override public boolean rollOver() {
         return rollOver;
+    }
+
+    /** {@inheritDoc} */
+    @Override public RollOverRecordingType rollOverRecordingType() {
+        return rollOverRecordingType;
     }
 }

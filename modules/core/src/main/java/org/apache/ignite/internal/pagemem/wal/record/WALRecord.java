@@ -295,6 +295,13 @@ public abstract class WALRecord {
     }
 
     /**
+     * @return Rollover recording type.
+     */
+    public RollOverRecordingType rollOverRecordingType() {
+        return RollOverRecordingType.NORMAL;
+    }
+
+    /**
      * @return Entry type.
      */
     public abstract RecordType type();

@@ -82,6 +82,7 @@ import org.apache.ignite.internal.pagemem.wal.WALIterator;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.CheckpointRecord;
 import org.apache.ignite.internal.pagemem.wal.record.MarshalledRecord;
+import org.apache.ignite.internal.pagemem.wal.record.RollOverRecordingType;
 import org.apache.ignite.internal.pagemem.wal.record.SwitchSegmentRecord;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
@@ -770,8 +771,12 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("TooBroadScope")
-    @Override public WALPointer log(WALRecord rec) throws IgniteCheckedException, StorageException {
+    @Override public WALPointer log(WALRecord rec) throws IgniteCheckedException {
+        return log(rec, RollOverRecordingType.NORMAL);
+    }
+
+    /** {@inheritDoc} */
+    @Override public WALPointer log(WALRecord rec, RollOverRecordingType rolloverType) throws IgniteCheckedException {
         if (serializer == null || mode == WALMode.NONE)
             return null;
 
@@ -787,20 +792,32 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
         rec.size(serializer.size(rec));
 
         while (true) {
+            WALPointer ptr;
+
             if (rec.rollOver()) {
                 assert cctx.database().checkpointLockIsHeldByThread();
 
-                long idx = currWrHandle.idx;
+                if (rec.rollOverRecordingType() == RollOverRecordingType.NORMAL) {
+                    closeBufAndRollover(currWrHandle, rec.type());
 
-                currWrHandle.buf.close();
+                    ptr = currWrHandle.addRecord(rec);
+                }
+                else {
+                    assert rec.rollOverRecordingType() == RollOverRecordingType.EAGER;
 
-                currWrHandle = rollOver(currWrHandle);
+                    currWrHandle.lock.lock();
 
-                if (log != null && log.isInfoEnabled())
-                    log.info("Rollover segment [" + idx + " to " + currWrHandle.idx + "], recordType=" + rec.type());
-            }
+                    try {
+                        ptr = currWrHandle.addRecord(rec);
 
-            WALPointer ptr = currWrHandle.addRecord(rec);
+                        closeBufAndRollover(currWrHandle, rec.type());
+                    }
+                    finally {
+                        currWrHandle.lock.unlock();
+                    }
+                }
+            } else
+                ptr = currWrHandle.addRecord(rec);
 
             if (ptr != null) {
                 metrics.onWalRecordLogged();
@@ -820,6 +837,19 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             if (isStopping())
                 throw new IgniteCheckedException("Stopping.");
         }
+    }
+
+    /** */
+    private void closeBufAndRollover(FileWriteHandle currWriteHandle, WALRecord.RecordType recordType)
+        throws IgniteCheckedException {
+        long idx = currWriteHandle.idx;
+
+        currWriteHandle.buf.close();
+
+        currWriteHandle = rollOver(currWriteHandle);
+
+        if (log != null && log.isInfoEnabled())
+            log.info("Rollover segment [" + idx + " to " + currWriteHandle.idx + "], recordType=" + recordType);
     }
 
     /** {@inheritDoc} */
