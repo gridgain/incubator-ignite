@@ -310,6 +310,8 @@ list-editable .pc-form-group__text-title {
 }
 
 .config-changes-guard__details {
+    cursor: pointer;
+
     summary {
         list-style: none;
     }
