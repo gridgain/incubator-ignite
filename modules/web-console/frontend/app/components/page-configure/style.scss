@@ -313,12 +313,15 @@ list-editable .pc-form-group__text-title {
     summary {
         list-style: none;
     }
+
     summary::-webkit-details-marker {
         display: none;
     }
+
     summary:before {
         content: '▶ ';
     }
+
     &[open] summary:before {
         content: '▼ ';
     }
