@@ -92,7 +92,7 @@ public class ClientListenerMetrics {
             int dur0 = (int)dur;
 
             if ((long)dur0 == dur) {
-                int slot = dur0 / INTERVALS;
+                int slot = dur0 / 100;
 
                 if (slot < durCtrs.length) {
                     durCtrs[slot].increment();
