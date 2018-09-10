@@ -52,7 +52,7 @@ import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.pagemem.store.IgnitePageStoreManager;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
-import org.apache.ignite.internal.pagemem.wal.StorageException;
+import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.pagemem.wal.WALIterator;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.CheckpointRecord;
@@ -176,6 +176,9 @@ public class PageMemoryImpl implements PageMemoryEx {
 
     /** Number of random pages that will be picked for eviction. */
     public static final int RANDOM_PAGES_EVICT_NUM = 5;
+
+    /** Try again tag. */
+    public static final int TRY_AGAIN_TAG = -1;
 
     /** Tracking io. */
     private static final TrackingPageIO trackingIO = TrackingPageIO.VERSIONS.latest();
@@ -377,9 +380,9 @@ public class PageMemoryImpl implements PageMemoryEx {
         if (throttlingPlc == ThrottlingPolicy.SPEED_BASED)
             writeThrottle = new PagesWriteSpeedBasedThrottle(this, cpProgressProvider, stateChecker, log);
         else if (throttlingPlc == ThrottlingPolicy.TARGET_RATIO_BASED)
-            writeThrottle = new PagesWriteThrottle(this, cpProgressProvider, stateChecker, false);
+            writeThrottle = new PagesWriteThrottle(this, cpProgressProvider, stateChecker, false, log);
         else if (throttlingPlc == ThrottlingPolicy.CHECKPOINT_BUFFER_ONLY)
-            writeThrottle = new PagesWriteThrottle(this, null, stateChecker, true);
+            writeThrottle = new PagesWriteThrottle(this, null, stateChecker, true, log);
     }
 
     /** {@inheritDoc} */
@@ -777,6 +780,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                 try {
                     storeMgr.read(grpId, pageId, buf);
+
+                    memMetrics.onPageRead();
                 }
                 catch (IgniteDataIntegrityViolationException ignore) {
                     U.warn(log, "Failed to read page (data integrity violation encountered, will try to " +
@@ -785,6 +790,8 @@ public class PageMemoryImpl implements PageMemoryEx {
                     buf.rewind();
 
                     tryToRestorePage(fullId, buf);
+
+                    memMetrics.onPageRead();
                 }
                 finally {
                     rwLock.writeUnlock(lockedPageAbsPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
@@ -1114,7 +1121,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             }
         }
         else
-            return copyPageForCheckpoint(absPtr, fullId, outBuf, pageSingleAcquire, tracker) ? tag : null;
+            return copyPageForCheckpoint(absPtr, fullId, outBuf, pageSingleAcquire, tracker) ? tag : TRY_AGAIN_TAG;
     }
 
     /**
@@ -1124,6 +1131,8 @@ public class PageMemoryImpl implements PageMemoryEx {
      * @param pageSingleAcquire Page is acquired only once. We don't pin the page second time (until page will not be
      * copied) in case checkpoint temporary buffer is used.
      * @param tracker Checkpoint statistics tracker.
+     *
+     * @return False if someone else holds lock on page.
      */
     private boolean copyPageForCheckpoint(
         long absPtr,
@@ -1135,7 +1144,16 @@ public class PageMemoryImpl implements PageMemoryEx {
         assert absPtr != 0;
         assert PageHeader.isAcquired(absPtr);
 
-        rwLock.writeLock(absPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
+        boolean locked = rwLock.tryWriteLock(absPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
+
+        if (!locked) {
+            // We release the page only once here because this page will be copied sometime later and
+            // will be released properly then.
+            if (!pageSingleAcquire)
+                PageHeader.releasePage(absPtr);
+
+            return false;
+        }
 
         try {
             long tmpRelPtr = PageHeader.tempBufferPointer(absPtr);
@@ -1144,7 +1162,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             assert success : "Page was pin when we resolve abs pointer, it can not be evicted";
 
-            if (tmpRelPtr != INVALID_REL_PTR){
+            if (tmpRelPtr != INVALID_REL_PTR) {
                 PageHeader.tempBufferPointer(absPtr, INVALID_REL_PTR);
 
                 long tmpAbsPtr = checkpointPool.absolute(tmpRelPtr);
@@ -1158,9 +1176,6 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                 checkpointPool.releaseFreePage(tmpRelPtr);
 
-                // We pinned the page when allocated the temp buffer, release it now.
-                PageHeader.releasePage(absPtr);
-
                 // Need release again because we pin page when resolve abs pointer,
                 // and page did not have tmp buffer page.
                 if (!pageSingleAcquire)
@@ -1171,18 +1186,21 @@ public class PageMemoryImpl implements PageMemoryEx {
                 copyInBuffer(absPtr, outBuf);
 
                 PageHeader.dirty(absPtr, false);
-
-                // We pinned the page when resolve abs pointer.
-                PageHeader.releasePage(absPtr);
             }
 
             assert PageIO.getType(outBuf) != 0 : "Invalid state. Type is 0! pageId = " + U.hexLong(fullId.pageId());
             assert PageIO.getVersion(outBuf) != 0 : "Invalid state. Version is 0! pageId = " + U.hexLong(fullId.pageId());
 
+            memMetrics.onPageWritten();
+
             return true;
         }
         finally {
             rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
+
+            // We pinned the page either when allocated the temp buffer, or when resolved abs pointer.
+            // Must release the page only after write unlock.
+            PageHeader.releasePage(absPtr);
         }
     }
 
@@ -2195,7 +2213,8 @@ public class PageMemoryImpl implements PageMemoryEx {
                         relRmvAddr = metaAddr;
                 }
 
-                assert relRmvAddr != INVALID_REL_PTR;
+                if (relRmvAddr == INVALID_REL_PTR)
+                    return tryToFindSequentially(cap, saveDirtyPage);
 
                 final long absRmvAddr = absolute(relRmvAddr);
 
@@ -2340,6 +2359,8 @@ public class PageMemoryImpl implements PageMemoryEx {
             assert getReadHoldCount() > 0 || getWriteHoldCount() > 0;
 
             Integer tag = partGenerationMap.get(new GroupPartitionId(grpId, partId));
+
+            assert tag == null || tag >= 0 : "Negative tag=" + tag;
 
             return tag == null ? INIT_PART_GENERATION : tag;
         }

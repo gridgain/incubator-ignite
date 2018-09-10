@@ -17,20 +17,16 @@
 
 package org.apache.ignite.ml.knn.classification;
 
-import org.apache.ignite.ml.dataset.Dataset;
 import org.apache.ignite.ml.dataset.DatasetBuilder;
-import org.apache.ignite.ml.dataset.PartitionDataBuilder;
-import org.apache.ignite.ml.knn.partitions.KNNPartitionContext;
+import org.apache.ignite.ml.knn.KNNUtils;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
-import org.apache.ignite.ml.structures.LabeledDataset;
-import org.apache.ignite.ml.structures.partition.LabeledDatasetPartitionDataBuilderOnHeap;
-import org.apache.ignite.ml.structures.LabeledVector;
+import org.apache.ignite.ml.math.primitives.vector.Vector;
 import org.apache.ignite.ml.trainers.SingleLabelDatasetTrainer;
 
 /**
  * kNN algorithm trainer to solve multi-class classification task.
  */
-public class KNNClassificationTrainer implements SingleLabelDatasetTrainer<KNNClassificationModel> {
+public class KNNClassificationTrainer extends SingleLabelDatasetTrainer<KNNClassificationModel> {
     /**
      * Trains model based on the specified data.
      *
@@ -40,21 +36,25 @@ public class KNNClassificationTrainer implements SingleLabelDatasetTrainer<KNNCl
      * @return Model.
      */
     @Override public <K, V> KNNClassificationModel fit(DatasetBuilder<K, V> datasetBuilder,
-        IgniteBiFunction<K, V, double[]> featureExtractor, IgniteBiFunction<K, V, Double> lbExtractor) {
-        PartitionDataBuilder<K, V, KNNPartitionContext, LabeledDataset<Double, LabeledVector>> partDataBuilder
-            = new LabeledDatasetPartitionDataBuilderOnHeap<>(
-            featureExtractor,
-            lbExtractor
-        );
+        IgniteBiFunction<K, V, Vector> featureExtractor, IgniteBiFunction<K, V, Double> lbExtractor) {
 
-        Dataset<KNNPartitionContext, LabeledDataset<Double, LabeledVector>> dataset = null;
+        return updateModel(null, datasetBuilder, featureExtractor, lbExtractor);
+    }
 
-        if (datasetBuilder != null) {
-            dataset = datasetBuilder.build(
-                (upstream, upstreamSize) -> new KNNPartitionContext(),
-                partDataBuilder
-            );
-        }
-        return new KNNClassificationModel<>(dataset);
+    /** {@inheritDoc} */
+    @Override public <K, V> KNNClassificationModel updateModel(KNNClassificationModel mdl,
+        DatasetBuilder<K, V> datasetBuilder, IgniteBiFunction<K, V, Vector> featureExtractor,
+        IgniteBiFunction<K, V, Double> lbExtractor) {
+
+        KNNClassificationModel res = new KNNClassificationModel(KNNUtils.buildDataset(datasetBuilder,
+            featureExtractor, lbExtractor));
+        if (mdl != null)
+            res.copyStateFrom(mdl);
+        return res;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected boolean checkState(KNNClassificationModel mdl) {
+        return true;
     }
 }

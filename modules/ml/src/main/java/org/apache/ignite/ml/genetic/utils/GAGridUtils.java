@@ -18,16 +18,12 @@
 package org.apache.ignite.ml.genetic.utils;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-
 import javax.cache.Cache.Entry;
-
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlQuery;
-
 import org.apache.ignite.ml.genetic.Chromosome;
 import org.apache.ignite.ml.genetic.Gene;
 import org.apache.ignite.ml.genetic.cache.PopulationCacheConfig;
@@ -41,15 +37,15 @@ public class GAGridUtils {
      * Retrieve chromosomes
      *
      * @param ignite Ignite
-     * @param query Sql
+     * @param qry Sql
      * @return List of Chromosomes
      */
-    public static List<Chromosome> getChromosomes(Ignite ignite, String query) {
+    public static List<Chromosome> getChromosomes(Ignite ignite, String qry) {
         List<Chromosome> chromosomes = new ArrayList<Chromosome>();
 
         IgniteCache<Long, Chromosome> populationCache = ignite.getOrCreateCache(PopulationCacheConfig.populationCache());
 
-        SqlQuery sql = new SqlQuery(Chromosome.class, query);
+        SqlQuery sql = new SqlQuery(Chromosome.class, qry);
 
         try (QueryCursor<Entry<Long, Chromosome>> cursor = populationCache.query(sql)) {
             for (Entry<Long, Chromosome> e : cursor)
@@ -57,33 +53,6 @@ public class GAGridUtils {
         }
 
         return chromosomes;
-    }
-
-    /**
-     * @param ignite Ignite
-     * @param chromosome Chromosome
-     * @return List of Genes
-     */
-    public static List<Gene> getGenesForChromosome(Ignite ignite, Chromosome chromosome) {
-        List<Gene> genes = new ArrayList<Gene>();
-        IgniteCache<Long, Gene> cache = ignite.cache(GAGridConstants.GENE_CACHE);
-        StringBuffer sbSqlClause = new StringBuffer();
-        sbSqlClause.append("_key IN ");
-        String sqlInClause = Arrays.toString(chromosome.getGenes());
-
-        sqlInClause = sqlInClause.replace("[", "(");
-        sqlInClause = sqlInClause.replace("]", ")");
-
-        sbSqlClause.append(sqlInClause);
-
-        SqlQuery sql = new SqlQuery(Gene.class, sbSqlClause.toString());
-
-        try (QueryCursor<Entry<Long, Gene>> cursor = cache.query(sql)) {
-            for (Entry<Long, Gene> e : cursor)
-                genes.add(e.getValue());
-        }
-
-        return genes;
     }
 
     /**

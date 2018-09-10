@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+import _ from 'lodash';
+
 export default class PageProfileController {
     static $inject = [
         '$rootScope', '$scope', '$http', 'IgniteLegacyUtils', 'IgniteMessages', 'IgniteFocus', 'IgniteConfirm', 'IgniteCountries', 'User'
@@ -28,7 +30,7 @@ export default class PageProfileController {
         this.ui = {};
 
         this.User.read()
-            .then((user) => this.ui.user = angular.copy(user));
+            .then((user) => this.ui.user = _.cloneDeep(user));
 
         this.ui.countries = this.Countries.getAll();
     }
@@ -38,7 +40,7 @@ export default class PageProfileController {
     }
 
     generateToken() {
-        this.Confirm.confirm('Are you sure you want to change security token?')
+        this.Confirm.confirm('Are you sure you want to change security token?<br>If you change the token you will need to restart the agent.')
             .then(() => this.ui.user.token = this.LegacyUtils.randomString(20));
     }
 

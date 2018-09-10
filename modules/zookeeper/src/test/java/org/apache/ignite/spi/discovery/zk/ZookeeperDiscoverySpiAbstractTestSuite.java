@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import junit.framework.TestSuite;
 import org.apache.curator.test.InstanceSpec;
-import org.apache.curator.test.TestingCluster;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.zk.curator.TestingCluster;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.spi.discovery.DiscoverySpi;
@@ -76,7 +76,12 @@ public abstract class ZookeeperDiscoverySpiAbstractTestSuite extends TestSuite {
      * @return Test cluster.
      */
     public static TestingCluster createTestingCluster(int instances) {
-        String tmpDir = System.getProperty("java.io.tmpdir");
+        String tmpDir;
+
+        if (System.getenv("TMPFS_ROOT") != null)
+            tmpDir = System.getenv("TMPFS_ROOT");
+        else
+            tmpDir = System.getProperty("java.io.tmpdir");
 
         List<InstanceSpec> specs = new ArrayList<>();
 

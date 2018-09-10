@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import _ from 'lodash';
 
-export default ['IgniteFormUtils', ['$window', 'IgniteFocus', ($window, Focus) => {
+export default ['IgniteFormUtils', ['$window', 'IgniteFocus', '$rootScope', function($window, Focus, $rootScope) {
     function ensureActivePanel(ui, pnl, focusId) {
         if (ui && ui.loadPanel) {
             const collapses = $('[bs-collapse-target]');
@@ -41,7 +42,7 @@ export default ['IgniteFormUtils', ['$window', 'IgniteFocus', ($window, Focus) =
                 if (!activePanels || activePanels.length < 1)
                     ui.activePanels = [idx];
                 else if (!_.includes(activePanels, idx)) {
-                    const newActivePanels = angular.copy(activePanels);
+                    const newActivePanels = _.cloneDeep(activePanels);
 
                     newActivePanels.push(idx);
 
@@ -325,19 +326,26 @@ export default ['IgniteFormUtils', ['$window', 'IgniteFocus', ($window, Focus) =
     }
 
     // TODO: move somewhere else
-    function triggerValidation(form, $scope) {
+    function triggerValidation(form) {
         const fe = (m) => Object.keys(m.$error)[0];
         const em = (e) => (m) => {
-            if (!e) return;
+            if (!e)
+                return;
+
             const walk = (m) => {
-                if (!m.$error[e]) return;
-                if (m.$error[e] === true) return m;
+                if (!m.$error[e])
+                    return;
+
+                if (m.$error[e] === true)
+                    return m;
+
                 return walk(m.$error[e][0]);
             };
+
             return walk(m);
         };
 
-        $scope.$broadcast('$showValidationError', em(fe(form))(form));
+        $rootScope.$broadcast('$showValidationError', em(fe(form))(form));
     }
 
     return {
