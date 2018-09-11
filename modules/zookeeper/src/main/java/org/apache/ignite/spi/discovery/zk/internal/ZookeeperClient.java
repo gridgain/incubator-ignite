@@ -93,6 +93,9 @@ public class ZookeeperClient implements Watcher {
     /** */
     private volatile boolean closing;
 
+    /** */
+    private volatile ZkPinger pinger;
+
     /**
      * @param log Logger.
      * @param connectString ZK connection string.
@@ -557,7 +560,6 @@ public class ZookeeperClient implements Watcher {
     }
 
     /**
-     * @param parent Parent path.
      * @param paths Children paths.
      * @param ver Version.
      * @throws KeeperException.NoNodeException If at least one of nodes does not exist.
@@ -764,6 +766,11 @@ public class ZookeeperClient implements Watcher {
      *
      */
     public void close() {
+        ZkPinger pinger0 = pinger;
+
+        if (pinger0 != null)
+            pinger0.stop();
+
         closeClient();
     }
 
@@ -891,6 +898,14 @@ public class ZookeeperClient implements Watcher {
 
         connTimer.schedule(new ConnectionTimeoutTask(connStartTime), connLossTimeout);
     }
+
+    /**
+     * @param pinger Pinger.
+     */
+    void attachPinger(ZkPinger pinger) {
+        this.pinger = pinger;
+    }
+
 
     /**
      *
