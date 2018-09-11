@@ -399,12 +399,27 @@ editReducer2.getDefaults = () => ({
     changes: ['caches', 'models', 'igfss'].reduce((a, t) => ({...a, [t]: {ids: [], changedItems: []}}), {cluster: null})
 });
 
+/**
+ * @typedef {Object} RefsReducerRef
+ * @prop {string} at Store path of sources
+ * @prop {string} store Store path of targets
+ * @prop {string} internal Property name where source keeps target ids
+ */
+
+/**
+ * @param {{[key: string]: RefsReducerRef}} refs
+ * Syncs ids between entities bound to cluster.
+ * 
+ * Cluster may reference multiple entities, and those entities might reference each other too.
+ * When entities are added/removed, ids have to be synced up. Entity that's referenced by cluster
+ * is called source, entities referenced by source are called targets.
+ */
 export const refsReducer = (refs) => (state, action) => {
     switch (action.type) {
         case 'ADVANCED_SAVE_COMPLETE_CONFIGURATION': {
             const newCluster = action.changedItems.cluster;
             const oldCluster = state.clusters.get(newCluster._id) || {};
-            const val = Object.keys(refs).reduce((state, ref) => {
+            const val = Object.keys(refs).reduce(/** @param ref Cluster property where source ids are kept */ (state, ref) => {
                 if (!state || !state[refs[ref].store].size)
                     return state;
 
