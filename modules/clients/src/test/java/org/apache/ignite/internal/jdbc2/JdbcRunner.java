@@ -117,8 +117,7 @@ public class JdbcRunner {
                 }
 
                 runLoad(LOAD_THREADS, LOAD_WARMUP_DUR, LOAD_DUR,
-                    "jdbc:ignite:thin://127.0.0.1:10800",
-                    "jdbc:ignite:thin://127.0.0.1:10801"
+                    "jdbc:ignite:thin://127.0.0.1:10800,127.0.0.1:10801"
                 );
             }
         }
