@@ -196,20 +196,28 @@ public class JdbcRunner {
      */
     @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
     private static void printResults() {
-        StringBuilder sb = new StringBuilder("[\n");
+        StringBuilder sb = new StringBuilder(">>> RESULTS [");
+
+        boolean first = true;
 
         LongAdder[] ctrs = loadCtrs;
 
         for (int i = 0; i < LOAD_CTR_CNT; i++) {
             long val = ctrs[i].longValue();
 
-            if (val != 0L)
-                sb.append("\t" + (i * 100) + "=" + val + "\n");
+            if (val != 0L) {
+                if (first)
+                    first = false;
+                else
+                    sb.append(", ");
+
+                sb.append((i * 100) + "=" + val);
+            }
         }
 
         sb.append("]");
 
-        System.out.println(">>> RESULTS " + sb.toString());
+        System.out.println(sb.toString());
     }
 
     /**

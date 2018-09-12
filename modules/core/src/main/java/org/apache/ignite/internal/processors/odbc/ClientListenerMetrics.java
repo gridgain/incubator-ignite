@@ -120,7 +120,7 @@ public class ClientListenerMetrics {
             long durLongVal = durLongCtr.longValue();
 
             if (durLongVal != 0)
-                sb.append("," + (INTERVALS * 100) + "+=" + durLongVal);
+                sb.append(", " + (INTERVALS * 100) + "+=" + durLongVal);
 
             sb.append("]");
 
