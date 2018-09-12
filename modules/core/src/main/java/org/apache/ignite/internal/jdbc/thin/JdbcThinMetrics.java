@@ -26,6 +26,7 @@ public class JdbcThinMetrics {
      * @param dur Duration.
      */
     public void onQueryExecuted(long dur) {
+        totalHolder.onQueryExecuted(dur);
         holder.onQueryExecuted(dur);
     }
 
@@ -39,7 +40,7 @@ public class JdbcThinMetrics {
 
         holder = new Holder();
 
-        String total = ">>> JDBC TOTAL: " + holder.toString();
+        String total = ">>> JDBC TOTAL: " + totalHolder.toString();
         String delta = ">>> JDBC DELTA: " + deltaHolder.toString();
 
         try {
@@ -50,7 +51,7 @@ public class JdbcThinMetrics {
             writer.flush();
         }
         catch (IOException e) {
-            System.err.println("JDBC metrics writer failed: " + e);
+            System.err.println(">>> JDBC metrics writer failed: " + e);
         }
     }
 

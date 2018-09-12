@@ -45,7 +45,7 @@ public class JdbcRunner {
     private static final int LOAD_THREADS = 64;
 
     /** Load duration. */
-    private static final long LOAD_DUR = 120_000L;
+    private static final long LOAD_DUR = 300_000L;
 
     /** Warmup duration. */
     private static final long LOAD_WARMUP_DUR = 10_000L;

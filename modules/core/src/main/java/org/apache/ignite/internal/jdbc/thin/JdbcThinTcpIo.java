@@ -695,12 +695,12 @@ public class JdbcThinTcpIo {
      */
     @SuppressWarnings("InfiniteLoopStatement")
     private static void doWriteMetrics() {
-        String dirStr = System.getProperty("java.io.tmpdir"); // TODO: Externalize!
+        String dirStr = System.getProperty("IGNITE_JDBC_METRICS_DIR", System.getProperty("java.io.tmpdir"));
         String fileStr = metricsFilename();
 
         File file = new File(dirStr, fileStr);
 
-        System.out.println(">>> " + file); // TODO: Remove
+        System.out.println(">>> JDBC metrics are written to file: " + file);
 
         try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file)))) {
             while (true) {
@@ -710,7 +710,7 @@ public class JdbcThinTcpIo {
             }
         }
         catch (Exception e) {
-            System.err.println("JDBC metrics writer cannot be created: " + e);
+            System.err.println(">>> JDBC metrics writer cannot be created: " + e);
         }
     }
 
@@ -720,6 +720,6 @@ public class JdbcThinTcpIo {
     private static String metricsFilename() {
         String dateStr = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date());
 
-        return "ignite-jdbc-metrics-" + dateStr + UUID.randomUUID();
+        return "ignite-jdbc-metrics-" + dateStr + "-" + UUID.randomUUID() + ".log";
     }
 }
