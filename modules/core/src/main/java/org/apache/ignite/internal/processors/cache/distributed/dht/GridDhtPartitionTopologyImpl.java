@@ -1356,10 +1356,12 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         + ", exchVer=" + exchangeVer + ", states=" + dumpPartitionStates() + ']');
                 }
 
-                if (exchangeVer != null)
-                    log.info("exchangeVer != null");
-                else
-                    log.info("exchangeVer == null");
+//                if (exchangeVer != null)
+//                    log.info(String.format("grp = %s... exchangeVer != null", grp.cacheOrGroupName()));
+//                else
+//                    log.info(String.format("grp = %s... exchangeVer == null", grp.cacheOrGroupName()));
+//
+//                checkPartState(partMap);
 
 
                 if (stopping || !lastTopChangeVer.initialized() ||
@@ -1471,6 +1473,16 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         updateSeq.setIfGreater(locNodeMap.updateSequence());
                 }
 
+                if (exchangeVer != null) {
+                    assert exchangeVer.compareTo(readyTopVer) >= 0 && exchangeVer.compareTo(lastTopChangeVer) >= 0;
+
+                    lastTopChangeVer = readyTopVer = exchangeVer;
+                }
+
+                GridDhtPartitionMap nodeMap = partMap.get(ctx.localNodeId());
+
+                boolean changed = false;
+
                 if (!fullMapUpdated) {
                     if (log.isDebugEnabled()) {
                         log.debug("No updates for full partition map (will ignore) [" +
@@ -1481,13 +1493,18 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                             ", newMap=" + partMap + ']');
                     }
 
-                    return false;
-                }
+                    if (exchangeVer != null &&
+                        nodeMap != null &&
+                        grp.persistenceEnabled() &&
+                        readyTopVer.initialized()) {
+//                        log.info(String.format("Grp = %s; fullMapUpdated = false but starting rebalance anyway",
+//                            grp.cacheOrGroupName()));
 
-                if (exchangeVer != null) {
-                    assert exchangeVer.compareTo(readyTopVer) >= 0 && exchangeVer.compareTo(lastTopChangeVer) >= 0;
+                        changed = rebalance(nodeMap, partsToReload);
 
-                    lastTopChangeVer = readyTopVer = exchangeVer;
+                    }
+
+                    return changed;
                 }
 
                 node2part = partMap;
@@ -1522,9 +1539,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     diffFromAffinityVer = readyTopVer;
                 }
 
-                boolean changed = false;
 
-                GridDhtPartitionMap nodeMap = partMap.get(ctx.localNodeId());
 
                 // Only in real exchange occurred.
                 if (exchangeVer != null &&
@@ -1597,6 +1612,38 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
         }
     }
 
+    private boolean rebalance(GridDhtPartitionMap nodeMap, Set<Integer> partsToReload){
+        boolean res = false;
+
+        for (Map.Entry<Integer, GridDhtPartitionState> e : nodeMap.entrySet()) {
+            int p = e.getKey();
+            GridDhtPartitionState state = e.getValue();
+
+            if (state == OWNING) {
+                GridDhtLocalPartition locPart = locParts.get(p);
+
+                assert locPart != null : grp.cacheOrGroupName();
+
+                if (locPart.state() == MOVING) {
+                    boolean success = locPart.own();
+
+                    assert success : locPart;
+
+                    res |= success;
+                }
+            }
+            else if (state == MOVING) {
+                boolean haveHistory = !partsToReload.contains(p);
+
+                rebalancePartition(p, haveHistory);
+
+                res = true;
+            }
+        }
+
+        return res;
+    }
+
     private boolean checkPartState(GridDhtPartitionFullMap partMap){
         for (Map.Entry<UUID, GridDhtPartitionMap> e : partMap.entrySet()) {
 
@@ -1607,12 +1654,14 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                 int p = e0.getKey();
 
                 if (e0.getValue() == MOVING){
-                    log.info(String.format("Part %d in MOVING state", p));
+                    log.info(String.format("Grp = %s; Part %d is in MOVING state", grp.cacheOrGroupName(), p));
 
                     return true;
                 }
             }
         }
+
+        log.info(String.format("Grp = %s; No partitions in MOVING state", grp.cacheOrGroupName()));
 
         return false;
     }
