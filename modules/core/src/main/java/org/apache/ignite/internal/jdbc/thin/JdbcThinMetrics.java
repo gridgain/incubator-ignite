@@ -1,26 +1,24 @@
-package org.apache.ignite.internal.processors.odbc;
+package org.apache.ignite.internal.jdbc.thin;
 
+import java.io.IOException;
+import java.io.Writer;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Client listener metrics.
+ * Metrics for thin driver.
  */
-public class ClientListenerMetrics {
+public class JdbcThinMetrics {
     /** Intervals. */
     private static final int INTERVALS = 50;
 
     /** Interval size (in milliseconds). */
     private static final int INTERVAL_SIZE = 100;
 
-    /** Holder. */
-    private volatile Holder holder = new Holder();
+    /** Total metrics. */
+    private volatile Holder totalHolder = new Holder();
 
-    /**
-     * Handle client connected.
-     */
-    public void onConnected() {
-        holder.onConnected();
-    }
+    /** Metrics since last printout. */
+    private volatile Holder holder = new Holder();
 
     /**
      * Handle query executed.
@@ -32,10 +30,28 @@ public class ClientListenerMetrics {
     }
 
     /**
-     * Reset counters.
+     * Print metrics and reset them.
+     *
+     * @param writer Writer to write data to.
      */
-    public void reset() {
+    public void printAndReset(Writer writer) {
+        Holder deltaHolder = holder;
+
         holder = new Holder();
+
+        String total = ">>> JDBC TOTAL: " + holder.toString();
+        String delta = ">>> JDBC DELTA: " + deltaHolder.toString();
+
+        try {
+            writer.write(total + "\n");
+            writer.write(delta + "\n");
+            writer.write("\n");
+
+            writer.flush();
+        }
+        catch (IOException e) {
+            System.err.println("JDBC metrics writer failed: " + e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -47,9 +63,6 @@ public class ClientListenerMetrics {
      * Holder object.
      */
     private final class Holder {
-        /** Connection counter. */
-        private final LongAdder connCtr = new LongAdder();
-
         /** Query counter. */
         private final LongAdder qryCtr = new LongAdder();
 
@@ -69,13 +82,6 @@ public class ClientListenerMetrics {
                 durCtrs0[i] = new LongAdder();
 
             durCtrs = durCtrs0;
-        }
-
-        /**
-         * Handle client connected.
-         */
-        private void onConnected() {
-            connCtr.increment();
         }
 
         /**
@@ -111,7 +117,7 @@ public class ClientListenerMetrics {
         @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
         @Override public String toString() {
             StringBuilder sb =
-                new StringBuilder("[connections=" + connCtr.longValue() + ", queries=" + qryCtr.longValue());
+                new StringBuilder("[queries=" + qryCtr.longValue());
 
             for (int i = 0; i < INTERVALS; i++) {
                 long durVal = durCtrs[i].longValue();

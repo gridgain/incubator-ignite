@@ -19,14 +19,21 @@ package org.apache.ignite.internal.jdbc.thin;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.ignite.IgniteCheckedException;
@@ -42,6 +49,7 @@ import org.apache.ignite.internal.processors.odbc.jdbc.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcOrderedBatchExecuteRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQuery;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQueryCloseRequest;
+import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcRequest;
@@ -121,6 +129,13 @@ public class JdbcThinTcpIo {
 
     /** Current protocol version used to connection to Ignite. */
     private ClientListenerProtocolVersion srvProtocolVer;
+
+    /** Metrics. */
+    private static final JdbcThinMetrics METRICS = new JdbcThinMetrics();
+
+    static {
+        startMetricsWriter();
+    }
 
     /**
      * Constructor.
@@ -477,6 +492,11 @@ public class JdbcThinTcpIo {
             ownThread = Thread.currentThread();
         }
 
+        boolean log =
+            (req instanceof JdbcQueryExecuteRequest) && ((JdbcQueryExecuteRequest)req).sqlQuery().contains("SELECT");
+
+        long start = log ? System.currentTimeMillis() : 0L;
+
         try {
             int cap = guessCapacity(req);
 
@@ -491,6 +511,12 @@ public class JdbcThinTcpIo {
         finally {
             synchronized (mux) {
                 ownThread = null;
+            }
+
+            if (log) {
+                long dur = System.currentTimeMillis() - start;
+
+                METRICS.onQueryExecuted(dur);
             }
         }
     }
@@ -646,5 +672,54 @@ public class JdbcThinTcpIo {
 
             return (int)(nextIdx % len);
         }
+    }
+
+    /**
+     * Start metrics writer thread.
+     */
+    private static void startMetricsWriter() {
+        Thread t = new Thread(new Runnable() {
+            @Override public void run() {
+                doWriteMetrics();
+            }
+        });
+
+        t.setName("jdbc-metrics-writer");
+        t.setDaemon(true);
+
+        t.start();
+    }
+
+    /**
+     * Do write metrics.
+     */
+    @SuppressWarnings("InfiniteLoopStatement")
+    private static void doWriteMetrics() {
+        String dirStr = System.getProperty("java.io.tmpdir"); // TODO: Externalize!
+        String fileStr = metricsFilename();
+
+        File file = new File(dirStr, fileStr);
+
+        System.out.println(">>> " + file); // TODO: Remove
+
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file)))) {
+            while (true) {
+                Thread.sleep(60_000L);
+
+                METRICS.printAndReset(writer);
+            }
+        }
+        catch (Exception e) {
+            System.err.println("JDBC metrics writer cannot be created: " + e);
+        }
+    }
+
+    /**
+     * @return Metrics file name.
+     */
+    private static String metricsFilename() {
+        String dateStr = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date());
+
+        return "ignite-jdbc-metrics-" + dateStr + UUID.randomUUID();
     }
 }
