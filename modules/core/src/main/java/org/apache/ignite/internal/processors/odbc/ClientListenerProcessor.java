@@ -189,7 +189,7 @@ public class ClientListenerProcessor extends GridProcessorAdapter {
                         return;
                     }
 
-                    log.info(">>> JDBC METRICS: " + ctx.sqlListener().metrics().toString());
+                    log.info(">>> JDBC SERVER METRICS: " + ctx.sqlListener().metrics().toString());
                 }
             }
         });
