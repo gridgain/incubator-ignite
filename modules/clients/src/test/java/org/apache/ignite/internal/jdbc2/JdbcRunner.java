@@ -211,7 +211,7 @@ public class JdbcRunner {
                 else
                     sb.append(", ");
 
-                sb.append((i * 100) + "=" + val);
+                sb.append(((i + 1) * 100) + "=" + val);
             }
         }
 
