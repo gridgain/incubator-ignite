@@ -709,22 +709,24 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
                 assert cctx.database().checkpointLockIsHeldByThread();
 
                 if (rolloverType == RolloverType.NEXT_SEGMENT) {
-                    rollOver(currWrHandle);
+                    currWrHandle = rollOver(currWrHandle);
 
                     ptr = currWrHandle.addRecord(record);
                 }
                 else {
                     assert rolloverType == RolloverType.CURRENT_SEGMENT;
 
-                    currWrHandle.lock.lock();
+                    FileWriteHandle h = currWrHandle;
+
+                    h.lock.lock();
 
                     try {
-                        ptr = currWrHandle.addRecord(record);
+                        ptr = h.addRecord(record);
 
-                        rollOver(currWrHandle);
+                        currWrHandle = rollOver(h);
                     }
                     finally {
-                        currWrHandle.lock.unlock();
+                        h.lock.unlock();
                     }
                 }
             }

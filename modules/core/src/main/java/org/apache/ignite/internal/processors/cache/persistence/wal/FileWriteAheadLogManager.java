@@ -800,22 +800,24 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                 assert cctx.database().checkpointLockIsHeldByThread();
 
                 if (rolloverType == RolloverType.NEXT_SEGMENT) {
-                    closeBufAndRollover(currWrHandle, rec.type());
+                    currWrHandle = closeBufAndRollover(currWrHandle, rec.type());
 
                     ptr = currWrHandle.addRecord(rec);
                 }
                 else {
                     assert rolloverType == RolloverType.CURRENT_SEGMENT;
 
-                    currWrHandle.lock.lock();
+                    FileWriteHandle h = currWrHandle;
+
+                    h.lock.lock();
 
                     try {
-                        ptr = currWrHandle.addRecord(rec);
+                        ptr = h.addRecord(rec);
 
-                        closeBufAndRollover(currWrHandle, rec.type());
+                        currWrHandle = closeBufAndRollover(h, rec.type());
                     }
                     finally {
-                        currWrHandle.lock.unlock();
+                        h.lock.unlock();
                     }
                 }
             }
@@ -841,16 +843,18 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
     }
 
     /** */
-    private void closeBufAndRollover(FileWriteHandle currWriteHandle, WALRecord.RecordType recordType)
+    private FileWriteHandle closeBufAndRollover(FileWriteHandle currWriteHandle, WALRecord.RecordType recordType)
         throws IgniteCheckedException {
         long idx = currWriteHandle.idx;
 
         currWriteHandle.buf.close();
 
-        currWriteHandle = rollOver(currWriteHandle);
+        FileWriteHandle res = rollOver(currWriteHandle);
 
         if (log != null && log.isInfoEnabled())
             log.info("Rollover segment [" + idx + " to " + currWriteHandle.idx + "], recordType=" + recordType);
+
+        return res;
     }
 
     /** {@inheritDoc} */
