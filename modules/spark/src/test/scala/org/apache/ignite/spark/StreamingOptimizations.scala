@@ -41,7 +41,12 @@ class StreamingOptimizations extends StreamingSpec {
                 .option(OPTION_OFFSET_FIELD, "id")
                 .load()
 
-            val df = spark.sql(s"SELECT in1.id, in1.ch, in2.id, in2.ch FROM $IN_TBL_NAME in1 JOIN in1 as in2 ON in1.ch = in2.ch")
+            stream.createOrReplaceTempView("input")
+
+            var qry = s"SELECT input.ID, input.CH, input2.ID, input2.CH " +
+                s"FROM input JOIN input as input2 ON input.CH = input2.CH"
+
+            val df = spark.sql(qry)
         }
     }
 
@@ -55,10 +60,13 @@ class StreamingOptimizations extends StreamingSpec {
         dropTable(IN_TBL_NAME)
     }
 
-    private def createTable(name: String): Unit =
-        ignite.cache(DFLT_CACHE_NAME).query(new SqlFieldsQuery(
+    private def createTable(name: String): Unit = {
+        val cache = ignite.cache(DFLT_CACHE_NAME)
+        cache.query(new SqlFieldsQuery(
             s"CREATE TABLE $name(id LONG, ts TIMESTAMP, ch VARCHAR, PRIMARY KEY(id))"
         )).getAll
+        cache.query(new SqlFieldsQuery(s"CREATE INDEX idx_ch ON $name(ch)")).getAll
+    }
 
     private def dropTable(name: String): Unit = scala.util.control.Exception.ignoring(classOf[CacheException]) {
         ignite.cache(DFLT_CACHE_NAME).query(new SqlFieldsQuery(
