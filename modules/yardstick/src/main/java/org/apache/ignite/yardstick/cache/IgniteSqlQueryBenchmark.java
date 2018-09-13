@@ -61,7 +61,7 @@ public class IgniteSqlQueryBenchmark extends IgniteCacheAbstractBenchmark<Intege
             }
         }
 
-        ignite().compute().broadcast(new EnableCheatRunnable());
+        ignite().compute(ignite().cluster().forServers()).broadcast(new EnableCheatRunnable());
     }
 
     /** {@inheritDoc} */
