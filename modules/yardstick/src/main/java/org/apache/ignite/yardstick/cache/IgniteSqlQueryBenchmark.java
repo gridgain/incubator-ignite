@@ -21,9 +21,16 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.cache.Cache;
+
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.cache.query.SqlQuery;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl;
+import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.yardstick.cache.model.Person;
 import org.yardstickframework.BenchmarkConfiguration;
 
@@ -53,6 +60,8 @@ public class IgniteSqlQueryBenchmark extends IgniteCacheAbstractBenchmark<Intege
                     println(cfg, "Populated persons: " + i);
             }
         }
+
+        ignite().compute().broadcast(new EnableCheatRunnable());
     }
 
     /** {@inheritDoc} */
@@ -93,5 +102,25 @@ public class IgniteSqlQueryBenchmark extends IgniteCacheAbstractBenchmark<Intege
     /** {@inheritDoc} */
     @Override protected IgniteCache<Integer, Object> cache() {
         return ignite().cache("query");
+    }
+
+    private static class EnableCheatRunnable implements IgniteRunnable {
+        @IgniteInstanceResource
+        private Ignite ignite;
+
+        @Override public void run() {
+            ignite.log().info("Forcing local checkpoint");
+
+            try {
+                ((IgniteEx)ignite).context().cache().context().database().waitForCheckpoint("benchmark");
+            }
+            catch (IgniteCheckedException e) {
+                ignite.log().error("Failed to wait for checkpoint", e);
+            }
+
+            ignite.log().info("Enabling cheat mode for PageMemory");
+
+            PageMemoryImpl.cheat = true;
+        }
     }
 }

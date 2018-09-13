@@ -266,6 +266,8 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Memory metrics to track dirty pages count and page replace rate. */
     private DataRegionMetricsImpl memMetrics;
 
+    public static volatile boolean cheat;
+
     /**
      * @param directMemoryProvider Memory allocator to use.
      * @param sizes segments sizes, last is checkpoint pool size.
@@ -405,7 +407,8 @@ public class PageMemoryImpl implements PageMemoryEx {
     @Override public void releasePage(int grpId, long pageId, long page) {
         Segment seg = segment(grpId, pageId);
 
-        seg.readLock().lock();
+        if (cheat)
+            return;
 
         try {
             seg.releasePage(page);
@@ -635,13 +638,18 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         Segment seg = segment(grpId, pageId);
 
-        seg.readLock().lock();
+        boolean cheat = PageMemoryImpl.cheat;
+
+        if (!cheat)
+            seg.readLock().lock();
 
         try {
+            int gen = cheat ? 0 : seg.partGeneration(grpId, partId);
+
             long relPtr = seg.loadedPages.get(
                 grpId,
                 PageIdUtils.effectivePageId(pageId),
-                seg.partGeneration(grpId, partId),
+                gen,
                 INVALID_REL_PTR,
                 INVALID_REL_PTR
             );
@@ -650,13 +658,15 @@ public class PageMemoryImpl implements PageMemoryEx {
             if (relPtr != INVALID_REL_PTR) {
                 long absPtr = seg.absolute(relPtr);
 
-                seg.acquirePage(absPtr);
+                if (!cheat)
+                    seg.acquirePage(absPtr);
 
                 return absPtr;
             }
         }
         finally {
-            seg.readLock().unlock();
+            if (!cheat)
+                seg.readLock().unlock();
         }
 
         DelayedDirtyPageWrite delayedWriter = delayedPageReplacementTracker != null
