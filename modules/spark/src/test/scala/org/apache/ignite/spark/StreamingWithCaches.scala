@@ -64,7 +64,7 @@ class StreamingWithCaches extends StreamingSpec {
 
     private val exeSvc = Executors.newScheduledThreadPool(4)
 
-    private val sampleData = Seq(
+    private val input = Seq(
         Value(1L, Timestamp.valueOf("2017-01-01 00:00:00"), "s1"),
         Value(2L, Timestamp.valueOf("2017-01-02 00:00:00"), "s2"),
         Value(3L, Timestamp.valueOf("2017-01-03 00:00:00"), "s3")
@@ -74,7 +74,7 @@ class StreamingWithCaches extends StreamingSpec {
 
     describe("Spark Streaming with Ignite Caches") {
         it("reads and writes historical incremental data") {
-            inCache.putAll(sampleData.map(i => i.id -> i).toMap.asJava)
+            inCache.putAll(input.map(i => i.id -> i).toMap.asJava)
 
             startOutput(
                 loadInput(Map(
@@ -87,7 +87,7 @@ class StreamingWithCaches extends StreamingSpec {
                 Map(OPTION_TABLE -> OUT_CACHE_NAME, OPTION_CREATE_TABLE_PRIMARY_KEY_FIELDS -> "ID")
             ).awaitTermination()
 
-            getOutput should contain theSameElementsAs sampleData
+            output should contain theSameElementsAs input
         }
 
         it("reads and writes live incremental data") {
@@ -104,7 +104,7 @@ class StreamingWithCaches extends StreamingSpec {
 
             exeSvc.submit(new Runnable {
                 override def run(): Unit = {
-                    sampleData.foreach(i => {
+                    input.foreach(i => {
                         inCache.put(i.id, i)
                         Thread.sleep(INJECT_RATE)
                     })
@@ -115,7 +115,7 @@ class StreamingWithCaches extends StreamingSpec {
 
             qry.awaitTermination()
 
-            getOutput should contain theSameElementsAs sampleData
+            output should contain theSameElementsAs input
         }
     }
 
@@ -136,7 +136,7 @@ class StreamingWithCaches extends StreamingSpec {
 
     private def destroyCache(): Unit = ignite.destroyCache(IN_CACHE_NAME)
 
-    private def getOutput: Seq[Value] =
-        inCache.getAll(new java.util.HashSet(sampleData.map(i => i.id).asJava))
+    private def output: Seq[Value] =
+        inCache.getAll(new java.util.HashSet(input.map(i => i.id).asJava))
             .asScala.map(i => i._2.asInstanceOf[Value]).toSeq
 }

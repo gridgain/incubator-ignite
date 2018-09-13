@@ -39,7 +39,7 @@ class StreamingWithTablesSpec extends StreamingSpec {
 
     private val exeSvc = Executors.newScheduledThreadPool(4)
 
-    private val sampleData = Seq(
+    private val input = Seq(
         Seq(1L, Timestamp.valueOf("2017-01-01 00:00:00"), "s1"),
         Seq(2L, Timestamp.valueOf("2017-01-02 00:00:00"), "s2"),
         Seq(3L, Timestamp.valueOf("2017-01-03 00:00:00"), "s3")
@@ -47,7 +47,7 @@ class StreamingWithTablesSpec extends StreamingSpec {
 
     describe("Spark Streaming with Ignite Tables") {
         it("reads and writes historical incremental data") {
-            sampleData.foreach(i => input(
+            input.foreach(i => insertIntoTable(
                 i.head.asInstanceOf[JLong],
                 i(1).asInstanceOf[Timestamp],
                 i(2).asInstanceOf[String]
@@ -64,7 +64,7 @@ class StreamingWithTablesSpec extends StreamingSpec {
                 Map(OPTION_TABLE -> OUT_TBL_NAME, OPTION_CREATE_TABLE_PRIMARY_KEY_FIELDS -> "ID")
             ).awaitTermination()
 
-            output should contain theSameElementsAs sampleData
+            output should contain theSameElementsAs input
         }
 
         it("reads and writes live incremental data") {
@@ -81,8 +81,8 @@ class StreamingWithTablesSpec extends StreamingSpec {
 
             exeSvc.submit(new Runnable {
                 override def run(): Unit = {
-                    sampleData.foreach(i => {
-                        input(
+                    input.foreach(i => {
+                        insertIntoTable(
                             i.head.asInstanceOf[JLong],
                             i(1).asInstanceOf[Timestamp],
                             i(2).asInstanceOf[String]
@@ -96,11 +96,11 @@ class StreamingWithTablesSpec extends StreamingSpec {
 
             qry.awaitTermination()
 
-            output should contain theSameElementsAs sampleData
+            output should contain theSameElementsAs input
         }
 
         it("reads and writes historical timestamped data") {
-            sampleData.foreach(i => input(
+            input.foreach(i => insertIntoTable(
                 i.head.asInstanceOf[JLong],
                 i(1).asInstanceOf[Timestamp],
                 i(2).asInstanceOf[String]
@@ -117,7 +117,7 @@ class StreamingWithTablesSpec extends StreamingSpec {
                 Map(OPTION_TABLE -> OUT_TBL_NAME, OPTION_CREATE_TABLE_PRIMARY_KEY_FIELDS -> "ID")
             ).awaitTermination()
 
-            output should contain theSameElementsAs sampleData
+            output should contain theSameElementsAs input
         }
 
         it("reads and writes live timestamped data") {
@@ -134,8 +134,8 @@ class StreamingWithTablesSpec extends StreamingSpec {
 
             exeSvc.submit(new Runnable {
                 override def run(): Unit = {
-                    sampleData.foreach(i => {
-                        input(
+                    input.foreach(i => {
+                        insertIntoTable(
                             i.head.asInstanceOf[JLong],
                             i(1).asInstanceOf[Timestamp],
                             i(2).asInstanceOf[String]
@@ -149,7 +149,7 @@ class StreamingWithTablesSpec extends StreamingSpec {
 
             qry.awaitTermination()
 
-            output should contain theSameElementsAs sampleData
+            output should contain theSameElementsAs input
         }
 
         it("does not create output when there is no input") {
@@ -190,7 +190,7 @@ class StreamingWithTablesSpec extends StreamingSpec {
         )).getAll
     }
 
-    private def input(id: JLong, ts: Timestamp, ch: String): Unit =
+    private def insertIntoTable(id: JLong, ts: Timestamp, ch: String): Unit =
         ignite.cache(DFLT_CACHE_NAME).query(new SqlFieldsQuery(
             s"INSERT INTO $IN_TBL_NAME(id, ts, ch) VALUES(?, ?, ?)"
         ).setArgs(id, ts, ch)).getAll
