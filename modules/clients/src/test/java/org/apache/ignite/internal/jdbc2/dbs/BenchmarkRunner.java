@@ -16,7 +16,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
  */
 public class BenchmarkRunner {
     /** Number of load threads. */
-    private static final int LOAD_THREADS = 64;
+    private static final int LOAD_THREADS = 100;
 
     /** Load duration. */
     private static final long LOAD_DUR = 300_000L;
@@ -25,7 +25,7 @@ public class BenchmarkRunner {
     private static final long LOAD_WARMUP_DUR = 10_000L;
 
     /** Number of load counters. */
-    private static final int LOAD_CTR_CNT = 50;
+    private static final int LOAD_CTR_CNT = 100;
 
     /** */
     private static final List<String> accIds = new ArrayList<>();
@@ -159,7 +159,7 @@ public class BenchmarkRunner {
                 else
                     sb.append(", ");
 
-                sb.append(((i + 1) * 100) + "=" + val);
+                sb.append(((i + 1) * 50) + "=" + val);
             }
         }
 
@@ -186,7 +186,7 @@ public class BenchmarkRunner {
         int dur0 = (int)dur;
 
         if ((long)dur0 == dur) {
-            int slot = dur0 / 100;
+            int slot = dur0 / 50;
 
             if (slot < LOAD_CTR_CNT)
                 loadCtrs[slot].increment();

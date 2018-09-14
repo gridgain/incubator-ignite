@@ -9,10 +9,10 @@ import java.util.concurrent.atomic.LongAdder;
  */
 public class JdbcThinMetrics {
     /** Intervals. */
-    private static final int INTERVALS = 50;
+    private static final int INTERVALS = 100;
 
     /** Interval size (in milliseconds). */
-    private static final int INTERVAL_SIZE = 100;
+    private static final int INTERVAL_SIZE = 50;
 
     /** Total metrics. */
     private volatile Holder totalHolder = new Holder();
