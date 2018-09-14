@@ -75,6 +75,7 @@ import org.apache.ignite.transactions.TransactionDeadlockException;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionTimeoutException;
 
+import static java.lang.Thread.interrupted;
 import static java.lang.Thread.sleep;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
@@ -594,6 +595,9 @@ public class TxRollbackOnTimeoutTest extends GridCommonAbstractTest {
         testEnlistMany(true);
     }
 
+    /**
+     *
+     */
     public void testRollbackOnTopologyLockPessimistic() throws Exception {
         final Ignite client = startClient();
 

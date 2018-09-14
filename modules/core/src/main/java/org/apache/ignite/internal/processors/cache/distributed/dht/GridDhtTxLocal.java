@@ -421,6 +421,8 @@ public class GridDhtTxLocal extends GridDhtTxLocalAdapter implements GridCacheMa
         IgniteCheckedException err = null;
 
         if (!commit) {
+            log.info("PIZDA2:" + nearXidVersion());
+
             final IgniteInternalFuture<?> lockFut = tryRollbackAsync();
 
             if (lockFut != null) {

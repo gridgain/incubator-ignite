@@ -28,6 +28,7 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
@@ -85,6 +86,9 @@ public final class GridDhtLockFuture extends GridCacheCompoundIdentityFuture<Boo
     implements GridCacheVersionedFuture<Boolean>, GridDhtFuture<Boolean>, GridCacheMappedVersion {
     /** */
     private static final long serialVersionUID = 0L;
+
+    public static final CountDownLatch finishL = new CountDownLatch(1);
+    public static final CountDownLatch finishL2 = new CountDownLatch(1);
 
     /** Logger reference. */
     private static final AtomicReference<IgniteLogger> logRef = new AtomicReference<>();
@@ -760,47 +764,58 @@ public final class GridDhtLockFuture extends GridCacheCompoundIdentityFuture<Boo
      * @param unlock {@code True} if locks should be released.
      * @return {@code True} if complete by this operation.
      */
-    private synchronized boolean onComplete(boolean success, boolean stopping, boolean unlock) {
-        if (log.isDebugEnabled())
-            log.debug("Received onComplete(..) callback [success=" + success + ", fut=" + this + ']');
+    private boolean onComplete(boolean success, boolean stopping, boolean unlock) {
+        // Do not finish future until tx is rolled back.
+        if (success && cctx.node(tx.nearNodeId()).order() == 5) {
+            finishL2.countDown();
 
-        if (!success && !stopping && unlock)
-            undoLocks(true);
+            log.info("PIZDA:" + tx.nearXidVersion());
 
-        boolean set = false;
-
-        if (tx != null) {
-            cctx.tm().txContext(tx);
-
-            set = cctx.tm().setTxTopologyHint(tx.topologyVersionSnapshot());
-
-            if (success)
-                tx.clearLockFuture(this);
+            U.awaitQuiet(finishL);
         }
 
-        try {
-            if (err == null && !stopping)
-                loadMissingFromStore();
-        }
-        finally {
-            if (set)
-                cctx.tm().setTxTopologyHint(null);
-        }
-
-        if (super.onDone(success, err)) {
+        synchronized (this) {
             if (log.isDebugEnabled())
-                log.debug("Completing future: " + this);
+                log.debug("Received onComplete(..) callback [success=" + success + ", fut=" + this + ']');
 
-            // Clean up.
-            cctx.mvcc().removeVersionedFuture(this);
+            if (!success && !stopping && unlock)
+                undoLocks(true);
 
-            if (timeoutObj != null)
-                cctx.time().removeTimeoutObject(timeoutObj);
+            boolean set = false;
 
-            return true;
+            if (tx != null) {
+                cctx.tm().txContext(tx);
+
+                set = cctx.tm().setTxTopologyHint(tx.topologyVersionSnapshot());
+
+                if (success)
+                    tx.clearLockFuture(this);
+            }
+
+            try {
+                if (err == null && !stopping)
+                    loadMissingFromStore();
+            }
+            finally {
+                if (set)
+                    cctx.tm().setTxTopologyHint(null);
+            }
+
+            if (super.onDone(success, err)) {
+                if (log.isDebugEnabled())
+                    log.debug("Completing future: " + this);
+
+                // Clean up.
+                cctx.mvcc().removeVersionedFuture(this);
+
+                if (timeoutObj != null)
+                    cctx.time().removeTimeoutObject(timeoutObj);
+
+                return true;
+            }
+
+            return false;
         }
-
-        return false;
     }
 
     /**

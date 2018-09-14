@@ -219,7 +219,7 @@ public class GridNearTxFinishRequest extends GridDistributedTxFinishRequest {
 
     /** {@inheritDoc} */
     @Override public int partition() {
-        return U.safeAbs(version().hashCode());
+        return commit() ? 2 : 3;
     }
 
     /** {@inheritDoc} */

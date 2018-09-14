@@ -525,4 +525,8 @@ public class GridNearLockRequest extends GridDistributedLockRequest {
         return S.toString(GridNearLockRequest.class, this, "filter", Arrays.toString(filter),
             "super", super.toString());
     }
+
+    @Override public int partition() {
+        return 1;
+    }
 }

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
@@ -1289,6 +1290,11 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                         try {
                             // Don't return anything for invalid partitions.
                             if (tx == null || !tx.isRollbackOnly()) {
+                                ClusterNode node = ctx.node(tx.nearNodeId());
+                                if (node.order() == 6) {
+                                    System.out.println();
+                                }
+
                                 GridCacheVersion dhtVer = req.dhtVersion(i);
 
                                 GridCacheVersion ver = e.version();
@@ -1310,7 +1316,12 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                                         null,
                                         req.keepBinary());
 
+                                //assert e.lockedBy(mappedVer) || ctx.mvcc().isRemoved(e.context(), mappedVer) :
+
+                                //ClusterNode node = ctx.node(tx.nearNodeId());
+
                                 assert e.lockedBy(mappedVer) || ctx.mvcc().isRemoved(e.context(), mappedVer) :
+                                //assert node.order() != 6 :
                                     "Entry does not own lock for tx [locNodeId=" + ctx.localNodeId() +
                                         ", entry=" + e +
                                         ", mappedVer=" + mappedVer + ", ver=" + ver +
