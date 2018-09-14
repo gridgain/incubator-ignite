@@ -701,7 +701,7 @@ public abstract class AbstractNodeJoinTemplate extends GridCommonAbstractTest {
         private AffinityTopologyVersion nextMinorVersion(IgniteEx ig){
             AffinityTopologyVersion cur = ig.context().discovery().topologyVersionEx();
 
-           return cur.nextMinorVersion();
+           return cur.nextMinorAffinityVersion();
         }
 
         /**

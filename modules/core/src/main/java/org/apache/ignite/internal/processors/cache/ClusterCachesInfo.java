@@ -733,7 +733,7 @@ class ClusterCachesInfo {
         }
 
         if (!F.isEmpty(res.addedDescs)) {
-            AffinityTopologyVersion startTopVer = res.needExchange ? topVer.nextMinorVersion() : topVer;
+            AffinityTopologyVersion startTopVer = res.needExchange ? topVer.nextMinorAffinityVersion() : topVer;
 
             for (DynamicCacheDescriptor desc : res.addedDescs) {
                 assert desc.template() || res.needExchange;
@@ -1787,7 +1787,7 @@ class ClusterCachesInfo {
             startedCacheCfg.getGroupName(),
             grpId,
             rcvdFrom,
-            curTopVer != null ? curTopVer.nextMinorVersion() : null,
+            curTopVer != null ? curTopVer.nextMinorAffinityVersion() : null,
             deploymentId,
             caches,
             persistent,

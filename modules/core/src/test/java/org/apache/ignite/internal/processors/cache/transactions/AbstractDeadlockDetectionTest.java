@@ -195,7 +195,7 @@ public abstract class AbstractDeadlockDetectionTest extends GridCommonAbstractTe
     void waitForLateAffinityAssignment(int minorTopVer) throws IgniteInterruptedCheckedException {
         assertTrue("Failed to wait for late affinity assignment",
             GridTestUtils.waitForCondition(() ->
-                    grid(0).context().discovery().topologyVersionEx().minorTopologyVersion() == minorTopVer + 1,
+                    grid(0).context().discovery().topologyVersionEx().minorAffinityVersion() == minorTopVer + 1,
                 10_000));
     }
 

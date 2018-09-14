@@ -42,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class GridCacheAffinityManager extends GridCacheManagerAdapter {
     /** */
-    private static final AffinityTopologyVersion LOC_CACHE_TOP_VER = new AffinityTopologyVersion(1);
+    private static final AffinityTopologyVersion LOC_CACHE_TOP_VER = new AffinityTopologyVersion(1, 1, 0);
 
     /** */
     private static final String FAILED_TO_FIND_CACHE_ERR_MSG = "Failed to find cache (cache was not started " +
@@ -81,11 +81,11 @@ public class GridCacheAffinityManager extends GridCacheManagerAdapter {
      * Gets affinity ready future, a future that will be completed after affinity with given
      * topology version is calculated.
      *
-     * @param topVer Topology version to wait.
+     * @param affVer Topology version to wait.
      * @return Affinity ready future.
      */
-    public IgniteInternalFuture<AffinityTopologyVersion> affinityReadyFuture(long topVer) {
-        return affinityReadyFuture(new AffinityTopologyVersion(topVer));
+    public IgniteInternalFuture<AffinityTopologyVersion> affinityReadyFuture(long affVer) {
+        return affinityReadyFuture(new AffinityTopologyVersion(affVer));
     }
 
     /**
@@ -96,6 +96,8 @@ public class GridCacheAffinityManager extends GridCacheManagerAdapter {
      * @return Affinity ready future.
      */
     public IgniteInternalFuture<AffinityTopologyVersion> affinityReadyFuture(AffinityTopologyVersion topVer) {
+        // TODO: use only affVer here.
+
         assert !cctx.isLocal();
 
         IgniteInternalFuture<AffinityTopologyVersion> fut = aff.readyFuture(topVer);

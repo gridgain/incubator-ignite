@@ -895,6 +895,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
      * @return Future or {@code null} is future is already completed.
      */
     @Nullable public IgniteInternalFuture<AffinityTopologyVersion> affinityReadyFuture(AffinityTopologyVersion ver) {
+        // TODO : use only affinityVersion
         GridDhtPartitionsExchangeFuture lastInitializedFut0 = lastInitializedFut;
 
         if (lastInitializedFut0 != null && lastInitializedFut0.initialVersion().compareTo(ver) == 0) {
@@ -974,6 +975,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
      * @return Affinity topology version.
      */
     private AffinityTopologyVersion affinityTopologyVersion(DiscoveryEvent evt) {
+        // TODO: make decision which parts of ATV this event should increment
         if (evt.type() == DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT)
             return ((DiscoveryCustomEvent)evt).affinityTopologyVersion();
 

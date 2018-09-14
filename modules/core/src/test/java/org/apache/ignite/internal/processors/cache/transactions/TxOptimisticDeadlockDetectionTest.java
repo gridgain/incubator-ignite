@@ -179,7 +179,7 @@ public class TxOptimisticDeadlockDetectionTest extends AbstractDeadlockDetection
         throws IgniteInterruptedCheckedException, InterruptedException {
         awaitPartitionMapExchange();
 
-        int minorTopVer = grid(0).context().discovery().topologyVersionEx().minorTopologyVersion();
+        int minorTopVer = grid(0).context().discovery().topologyVersionEx().minorAffinityVersion();
 
         CacheConfiguration ccfg = defaultCacheConfiguration();
 

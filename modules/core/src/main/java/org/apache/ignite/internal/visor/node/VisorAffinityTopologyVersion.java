@@ -51,7 +51,7 @@ public class VisorAffinityTopologyVersion extends VisorDataTransferObject {
      */
     public VisorAffinityTopologyVersion(AffinityTopologyVersion affTopVer) {
         topVer = affTopVer.topologyVersion();
-        minorTopVer = affTopVer.minorTopologyVersion();
+        minorTopVer = affTopVer.minorAffinityVersion();
     }
 
     /**

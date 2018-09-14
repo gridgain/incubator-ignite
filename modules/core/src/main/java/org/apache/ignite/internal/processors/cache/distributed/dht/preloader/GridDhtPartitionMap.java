@@ -279,7 +279,7 @@ public class GridDhtPartitionMap implements Comparable<GridDhtPartitionMap>, Ext
 
         if (top != null) {
             out.writeLong(topologyVersion().topologyVersion());
-            out.writeInt(topologyVersion().minorTopologyVersion());
+            out.writeInt(topologyVersion().minorAffinityVersion());
         }
         else {
             out.writeLong(0);

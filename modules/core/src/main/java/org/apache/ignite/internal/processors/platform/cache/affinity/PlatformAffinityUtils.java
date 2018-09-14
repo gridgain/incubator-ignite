@@ -50,7 +50,7 @@ public class PlatformAffinityUtils {
 
         writer.writeInt(affCtx.backups());
         writer.writeLong(affCtx.currentTopologyVersion().topologyVersion());
-        writer.writeInt(affCtx.currentTopologyVersion().minorTopologyVersion());
+        writer.writeInt(affCtx.currentTopologyVersion().minorAffinityVersion());
 
         ctx.writeEvent(writer, affCtx.discoveryEvent());
 

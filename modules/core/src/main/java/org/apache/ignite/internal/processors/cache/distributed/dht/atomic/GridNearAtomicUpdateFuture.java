@@ -168,7 +168,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
     @Override public boolean onNodeLeft(UUID nodeId) {
         GridCacheReturn opRes0 = null;
         CachePartialUpdateCheckedException err0 = null;
-        AffinityTopologyVersion remapTopVer0 = null;
+        long remapAffVer0 = 0;
 
         boolean rcvAll = false;
 
@@ -208,7 +208,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
                 if (rcvAll) {
                     opRes0 = opRes;
                     err0 = err;
-                    remapTopVer0 = onAllReceived();
+                    remapAffVer0 = onAllReceived();
                 }
             }
             else {
@@ -258,7 +258,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
 
                             opRes0 = opRes;
                             err0 = err;
-                            remapTopVer0 = onAllReceived();
+                            remapAffVer0 = onAllReceived();
 
                             break;
                         }
@@ -274,7 +274,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
                 sendCheckUpdateRequest(checkReqs.get(i));
         }
         else if (rcvAll)
-            finishUpdateFuture(opRes0, err0, remapTopVer0, futId);
+            finishUpdateFuture(opRes0, err0, remapAffVer0, futId);
 
         return false;
     }
@@ -283,7 +283,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
     @Override public void onDhtResponse(UUID nodeId, GridDhtAtomicNearResponse res) {
         GridCacheReturn opRes0;
         CachePartialUpdateCheckedException err0;
-        AffinityTopologyVersion remapTopVer0;
+        long remapAffVer0;
 
         synchronized (this) {
             if (!checkFutureId(res.futureId()))
@@ -300,7 +300,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
                 if (singleReq.onDhtResponse(nodeId, res)) {
                     opRes0 = opRes;
                     err0 = err;
-                    remapTopVer0 = onAllReceived();
+                    remapAffVer0 = onAllReceived();
                 }
                 else
                     return;
@@ -320,7 +320,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
                         if (mappings.size() == resCnt) {
                             opRes0 = opRes;
                             err0 = err;
-                            remapTopVer0 = onAllReceived();
+                            remapAffVer0 = onAllReceived();
                         }
                         else
                             return;
@@ -343,7 +343,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
             return;
         }
 
-        finishUpdateFuture(opRes0, err0, remapTopVer0, res.futureId());
+        finishUpdateFuture(opRes0, err0, remapAffVer0, res.futureId());
     }
 
     /** {@inheritDoc} */
@@ -351,7 +351,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
     @Override public void onPrimaryResponse(UUID nodeId, GridNearAtomicUpdateResponse res, boolean nodeErr) {
         GridNearAtomicAbstractUpdateRequest req;
 
-        AffinityTopologyVersion remapTopVer0 = null;
+        long remapAffVer0 = 0;
 
         GridCacheReturn opRes0 = null;
         CachePartialUpdateCheckedException err0 = null;
@@ -409,8 +409,8 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
 
                 remapKeys.addAll(req.keys());
 
-                if (remapTopVer == null || remapTopVer.compareTo(res.remapTopologyVersion()) < 0)
-                    remapTopVer = req.topologyVersion();
+                if (remapAffVer == 0 || remapAffVer < res.remapTopologyVersion().affinityVersion())
+                    remapAffVer = req.topologyVersion().affinityVersion();
             }
             else if (res.error() != null)
                 onPrimaryError(req, res);
@@ -434,9 +434,9 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
             }
 
             if (rcvAll) {
-                remapTopVer0 = onAllReceived();
+                remapAffVer0 = onAllReceived();
 
-                if (remapTopVer0 == null) {
+                if (remapAffVer0 == 0) {
                     err0 = err;
                     opRes0 = opRes;
                 }
@@ -463,8 +463,8 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
                 updateNear(req, res);
         }
 
-        if (remapTopVer0 != null) {
-            waitAndRemap(remapTopVer0);
+        if (remapAffVer0 != 0) {
+            waitAndRemap(remapAffVer0);
 
             return;
         }
@@ -473,8 +473,8 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
             completeFuture(opRes0, err0, res.futureId());
     }
 
-    private void waitAndRemap(AffinityTopologyVersion remapTopVer) {
-        assert remapTopVer != null;
+    private void waitAndRemap(long remapAffVer) {
+        assert remapAffVer != 0;
 
         if (topLocked) {
             assert !F.isEmpty(remapKeys) : remapKeys;
@@ -485,7 +485,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
             ClusterTopologyCheckedException cause = new ClusterTopologyCheckedException(
                 "Failed to update keys, topology changed while execute atomic update inside transaction.");
 
-            cause.retryReadyFuture(cctx.affinity().affinityReadyFuture(remapTopVer));
+            cause.retryReadyFuture(cctx.affinity().affinityReadyFuture(remapAffVer));
 
             e.add(remapKeys, cause);
 
@@ -494,35 +494,29 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
             return;
         }
 
-        IgniteInternalFuture<AffinityTopologyVersion> fut = cctx.shared().exchange().affinityReadyFuture(remapTopVer);
+        IgniteInternalFuture<Long> fut = cctx.shared().exchange().affinityReadyFuture(remapAffVer);
 
         if (fut == null)
-            fut = new GridFinishedFuture<>(remapTopVer);
+            fut = new GridFinishedFuture<>(remapAffVer);
 
-        fut.listen(new CI1<IgniteInternalFuture<AffinityTopologyVersion>>() {
-            @Override public void apply(final IgniteInternalFuture<AffinityTopologyVersion> fut) {
-                cctx.kernalContext().closure().runLocalSafe(new Runnable() {
-                    @Override public void run() {
-                        mapOnTopology();
-                    }
-                });
-            }
-        });
+        fut.listen((CI1<IgniteInternalFuture<Long>>)fut1 ->
+            cctx.kernalContext().closure().runLocalSafe(this::mapOnTopology)
+        );
     }
 
     /**
      * @return Non null topology version if update should be remapped.
      */
-    @Nullable private AffinityTopologyVersion onAllReceived() {
+    @Nullable private long onAllReceived() {
         assert Thread.holdsLock(this);
         assert futureMapped() : this;
 
-        AffinityTopologyVersion remapTopVer0 = null;
+        long remapAffVer0 = 0;
 
         if (remapKeys != null) {
-            assert remapTopVer != null;
+            assert remapAffVer != 0;
 
-            remapTopVer0 = remapTopVer;
+            remapAffVer0 = remapAffVer;
         }
         else {
             if (err != null &&
@@ -538,10 +532,9 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
 
                     assert cause != null && cause.topologyVersion() != null : err;
                     assert remapKeys == null;
-                    assert remapTopVer == null;
+                    assert remapAffVer == 0;
 
-                    remapTopVer = remapTopVer0 =
-                        new AffinityTopologyVersion(cause.topologyVersion().topologyVersion() + 1);
+                    remapAffVer = remapAffVer0 = cause.topologyVersion().affinityVersion() + 1;
 
                     err = null;
 
@@ -555,16 +548,16 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
             }
         }
 
-        if (remapTopVer0 != null) {
+        if (remapAffVer0 != 0) {
             cctx.mvcc().removeAtomicFuture(futId);
 
             topVer = AffinityTopologyVersion.ZERO;
             futId = 0;
 
-            remapTopVer = null;
+            remapAffVer = 0;
         }
 
-        return remapTopVer0;
+        return remapAffVer0;
     }
 
     /**
@@ -575,7 +568,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
      */
     private void finishUpdateFuture(GridCacheReturn opRes,
         CachePartialUpdateCheckedException err,
-        @Nullable AffinityTopologyVersion remapTopVer,
+        long remapTopVer,
         long futId) {
         if (nearEnabled) {
             if (mappings != null) {
@@ -594,7 +587,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
             }
         }
 
-        if (remapTopVer != null) {
+        if (remapTopVer != 0) {
             assert !F.isEmpty(remapKeys);
 
             waitAndRemap(remapTopVer);
@@ -835,7 +828,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
     private void checkDhtNodes(long futId) {
         GridCacheReturn opRes0 = null;
         CachePartialUpdateCheckedException err0 = null;
-        AffinityTopologyVersion remapTopVer0 = null;
+        long remapAffVer0 = 0;
 
         List<GridNearAtomicCheckUpdateRequest> checkReqs = null;
 
@@ -854,7 +847,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
                 if (res == DhtLeftResult.DONE) {
                     opRes0 = opRes;
                     err0 = err;
-                    remapTopVer0 = onAllReceived();
+                    remapAffVer0 = onAllReceived();
                 }
                 else if (res == DhtLeftResult.ALL_RCVD_CHECK_PRIMARY)
                     checkReqs = Collections.singletonList(new GridNearAtomicCheckUpdateRequest(singleReq.req));
@@ -879,7 +872,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
 
                                 opRes0 = opRes;
                                 err0 = err;
-                                remapTopVer0 = onAllReceived();
+                                remapAffVer0 = onAllReceived();
 
                                 break;
                             }
@@ -904,7 +897,7 @@ public class GridNearAtomicUpdateFuture extends GridNearAtomicAbstractUpdateFutu
                 sendCheckUpdateRequest(checkReqs.get(i));
         }
         else if (rcvAll)
-            finishUpdateFuture(opRes0, err0, remapTopVer0, futId);
+            finishUpdateFuture(opRes0, err0, remapAffVer0, futId);
     }
 
     /**

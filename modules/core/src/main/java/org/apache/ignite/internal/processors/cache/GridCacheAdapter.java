@@ -4257,9 +4257,9 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                         if (!(topErr instanceof ClusterTopologyServerNotFoundException)) {
                             AffinityTopologyVersion topVer = tx.topologyVersion();
 
-                            assert topVer != null && topVer.topologyVersion() > 0 : tx;
+                            assert topVer != null && topVer.affinityVersion() > 0 : tx;
 
-                            ctx.affinity().affinityReadyFuture(topVer.topologyVersion() + 1).get();
+                            ctx.affinity().affinityReadyFuture(topVer.affinityVersion() + 1).get();
 
                             continue;
                         }
@@ -5008,10 +5008,10 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
 
                                 AffinityTopologyVersion topVer = tx.topologyVersion();
 
-                                assert topVer != null && topVer.topologyVersion() > 0 : tx;
+                                assert topVer != null && topVer.affinityVersion() > 0 : tx;
 
                                 IgniteInternalFuture<?> topFut =
-                                    ctx.affinity().affinityReadyFuture(topVer.topologyVersion() + 1);
+                                    ctx.affinity().affinityReadyFuture(topVer.affinityVersion() + 1);
 
                                 topFut.listen(new IgniteInClosure<IgniteInternalFuture<?>>() {
                                     @Override public void apply(IgniteInternalFuture<?> topFut) {

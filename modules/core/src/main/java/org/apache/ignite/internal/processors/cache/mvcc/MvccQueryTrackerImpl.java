@@ -257,7 +257,7 @@ public class MvccQueryTrackerImpl implements MvccQueryTracker {
         }
 
         IgniteInternalFuture<AffinityTopologyVersion> waitFut =
-            cctx.shared().exchange().affinityReadyFuture(topVer.nextMinorVersion());
+            cctx.shared().exchange().affinityReadyFuture(topVer.nextMinorAffinityVersion());
 
         if (waitFut == null)
             requestSnapshot(cctx.shared().exchange().readyAffinityVersion(), lsnr);

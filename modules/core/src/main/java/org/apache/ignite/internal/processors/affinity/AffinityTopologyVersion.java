@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
@@ -35,16 +36,19 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
     private static final long serialVersionUID = 0L;
 
     /** */
-    public static final AffinityTopologyVersion NONE = new AffinityTopologyVersion(-1, 0);
+    public static final AffinityTopologyVersion NONE = new AffinityTopologyVersion(-1, 0, 0);
 
     /** */
-    public static final AffinityTopologyVersion ZERO = new AffinityTopologyVersion(0, 0);
+    public static final AffinityTopologyVersion ZERO = new AffinityTopologyVersion(0, 0, 0);
 
     /** */
     private long topVer;
 
     /** */
-    private int minorTopVer;
+    private long majorAffVer;
+
+    /** */
+    private int minorAffVer;
 
     /**
      * Empty constructor required by {@link Externalizable}.
@@ -52,24 +56,38 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
     public AffinityTopologyVersion() {
         // No-op.
     }
+//
+//    /**
+//     * @param topVer Topology version.
+//     */
+//    public AffinityTopologyVersion(long topVer) {
+//        this.topVer = topVer;
+//    }
+//
+//    /**
+//     * @param topVer Topology version.
+//     * @param minorAffVer Minor topology version.
+//     */
+//    public AffinityTopologyVersion(
+//        long topVer,
+//        int minorAffVer
+//    ) {
+//        this.topVer = topVer;
+//        this.minorAffVer = minorAffVer;
+//    }
 
     /**
      * @param topVer Topology version.
-     */
-    public AffinityTopologyVersion(long topVer) {
-        this.topVer = topVer;
-    }
-
-    /**
-     * @param topVer Topology version.
-     * @param minorTopVer Minor topology version.
+     * @param minorAffVer Minor topology version.
      */
     public AffinityTopologyVersion(
         long topVer,
-        int minorTopVer
+        long majorAffVer,
+        int minorAffVer
     ) {
         this.topVer = topVer;
-        this.minorTopVer = minorTopVer;
+        this.majorAffVer = majorAffVer;
+        this.minorAffVer = minorAffVer;
     }
 
     /**
@@ -79,13 +97,34 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
         return topVer > 0;
     }
 
+    public AffinityTopologyVersion nextTopologyAffinityVersion() {
+        assert topVer > 0;
+
+        return majorAffVer > 0 ?
+            new AffinityTopologyVersion(topVer + 1, majorAffVer + 1, 0) :
+            new AffinityTopologyVersion(topVer + 1, 0, 0);
+    }
+
+    public AffinityTopologyVersion nextTopologyVersion() {
+        assert topVer > 0;
+
+        return new AffinityTopologyVersion(topVer + 1, majorAffVer, minorAffVer);
+    }
+
+    public AffinityTopologyVersion nextMajorAffinityVersion() {
+        assert topVer > 0;
+        assert majorAffVer > 0;
+
+        return new AffinityTopologyVersion(topVer, majorAffVer + 1, 0);
+    }
+
     /**
      * @return Topology version with incremented minor version.
      */
-    public AffinityTopologyVersion nextMinorVersion() {
+    public AffinityTopologyVersion nextMinorAffinityVersion() {
         assert topVer > 0;
 
-        return new AffinityTopologyVersion(topVer, minorTopVer + 1);
+        return new AffinityTopologyVersion(topVer, majorAffVer, minorAffVer + 1);
     }
 
     /**
@@ -95,11 +134,15 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
         return topVer;
     }
 
+    public long affinityVersion() {
+        return majorAffVer;
+    }
+
     /**
      * @return Minor topology version.
      */
-    public int minorTopologyVersion() {
-        return minorTopVer;
+    public int minorAffinityVersion() {
+        return minorAffVer;
     }
 
     /** {@inheritDoc} */
@@ -107,7 +150,7 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
         int cmp = Long.compare(topVer, o.topVer);
 
         if (cmp == 0)
-            return Integer.compare(minorTopVer, o.minorTopVer);
+            return Integer.compare(minorAffVer, o.minorAffVer);
 
         return cmp;
     }
@@ -127,12 +170,11 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
 
         AffinityTopologyVersion that = (AffinityTopologyVersion)o;
 
-        return minorTopVer == that.minorTopVer && topVer == that.topVer;
+        return minorAffVer == that.minorAffVer && topVer == that.topVer && majorAffVer == that.majorAffVer;
     }
 
-    /** {@inheritDoc} */
     @Override public int hashCode() {
-        return 31 * (int)topVer + minorTopVer;
+        return Objects.hash(topVer, majorAffVer, minorAffVer);
     }
 
     /** {@inheritDoc} */
@@ -140,7 +182,7 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
         assert false : "???";
 
         out.writeLong(topVer);
-        out.writeInt(minorTopVer);
+        out.writeInt(minorAffVer);
     }
 
     /** {@inheritDoc} */
@@ -148,7 +190,7 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
         assert false : "???";
 
         topVer = in.readLong();
-        minorTopVer = in.readInt();
+        minorAffVer = in.readInt();
     }
 
     /** {@inheritDoc} */
@@ -164,12 +206,18 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
 
         switch (writer.state()) {
             case 0:
-                if (!writer.writeInt("minorTopVer", minorTopVer))
+                if (!writer.writeLong("majorAffVer", majorAffVer))
                     return false;
 
                 writer.incrementState();
 
             case 1:
+                if (!writer.writeInt("minorAffVer", minorAffVer))
+                    return false;
+
+                writer.incrementState();
+
+            case 2:
                 if (!writer.writeLong("topVer", topVer))
                     return false;
 
@@ -189,7 +237,7 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
 
         switch (reader.state()) {
             case 0:
-                minorTopVer = reader.readInt("minorTopVer");
+                majorAffVer = reader.readLong("majorAffVer");
 
                 if (!reader.isLastRead())
                     return false;
@@ -197,6 +245,14 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
                 reader.incrementState();
 
             case 1:
+                minorAffVer = reader.readInt("minorAffVer");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
+            case 2:
                 topVer = reader.readLong("topVer");
 
                 if (!reader.isLastRead())
@@ -216,7 +272,7 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 2;
+        return 3;
     }
 
     /** {@inheritDoc} */

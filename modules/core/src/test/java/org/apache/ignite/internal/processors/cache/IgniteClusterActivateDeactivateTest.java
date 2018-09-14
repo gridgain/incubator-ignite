@@ -1191,7 +1191,7 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
 
         AffinityTopologyVersion deactivationTopVer = new AffinityTopologyVersion(
             curTopVer.topologyVersion(),
-            curTopVer.minorTopologyVersion() + 1
+            curTopVer.minorAffinityVersion() + 1
         );
 
         for (int gridIdx = 0; gridIdx < nodes; gridIdx++) {

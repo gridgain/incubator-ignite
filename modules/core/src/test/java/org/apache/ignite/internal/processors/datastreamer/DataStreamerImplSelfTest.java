@@ -581,7 +581,7 @@ public class DataStreamerImplSelfTest extends GridCommonAbstractTest {
                         // topology mismatch
                         AffinityTopologyVersion staleTop = new AffinityTopologyVersion(
                             validTop.topologyVersion() - 1,
-                            validTop.minorTopologyVersion());
+                            validTop.minorAffinityVersion());
 
                         appMsg = new DataStreamerRequest(
                             req.requestId(),

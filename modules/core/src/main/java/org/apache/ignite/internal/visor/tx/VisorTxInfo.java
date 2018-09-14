@@ -215,7 +215,7 @@ public class VisorTxInfo extends VisorDataTransferObject {
         U.writeCollection(out, masterNodeIds);
         out.writeLong(startTime);
         out.writeLong(topVer == null ? -1 : topVer.topologyVersion());
-        out.writeInt(topVer == null ? -1 : topVer.minorTopologyVersion());
+        out.writeInt(topVer == null ? -1 : topVer.minorAffinityVersion());
     }
 
     /** {@inheritDoc} */

@@ -562,6 +562,7 @@ public class GridAffinityAssignmentCache {
      * @return Future that will be completed after affinity for topology version {@code topVer} is calculated.
      */
     @Nullable public IgniteInternalFuture<AffinityTopologyVersion> readyFuture(AffinityTopologyVersion topVer) {
+        // TODO: use only affVer here.
         GridAffinityAssignment aff = head.get();
 
         if (aff.topologyVersion().compareTo(topVer) >= 0) {

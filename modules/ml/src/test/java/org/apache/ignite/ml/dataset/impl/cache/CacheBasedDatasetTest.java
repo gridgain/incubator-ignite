@@ -279,7 +279,7 @@ public class CacheBasedDatasetTest extends GridCommonAbstractTest {
                     .append(" with topology version [")
                     .append(instanceState.topVer.topologyVersion())
                     .append(", ")
-                    .append(instanceState.topVer.minorTopologyVersion())
+                    .append(instanceState.topVer.minorAffinityVersion())
                     .append("] contains following partitions:")
                     .append("\n\n");
                 builder.append("\t\t---------------------------------------------------------------------------------");

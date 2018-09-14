@@ -501,7 +501,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
                 GridChangeGlobalStateFuture fut = changeStateFuture(msg);
 
                 if (fut != null)
-                    fut.setRemaining(nodeIds, topVer.nextMinorVersion());
+                    fut.setRemaining(nodeIds, topVer.nextMinorAffinityVersion());
 
                 if (log.isInfoEnabled())
                     log.info("Started state transition: " + msg.activate());
@@ -522,7 +522,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
                 if (msg.forceChangeBaselineTopology())
                     globalState.setTransitionResult(msg.requestId(), msg.activate());
 
-                AffinityTopologyVersion stateChangeTopVer = topVer.nextMinorVersion();
+                AffinityTopologyVersion stateChangeTopVer = topVer.nextMinorAffinityVersion();
 
                 StateChangeRequest req = new StateChangeRequest(msg, bltHistItem, msg.activate() != state.active(), stateChangeTopVer);
 

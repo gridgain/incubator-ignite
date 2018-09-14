@@ -129,7 +129,7 @@ public abstract class GridNearAtomicAbstractUpdateFuture extends GridCacheFuture
 
     /** */
     @GridToStringInclude
-    protected AffinityTopologyVersion remapTopVer;
+    protected long remapAffVer;
 
     /** Error. */
     @GridToStringInclude

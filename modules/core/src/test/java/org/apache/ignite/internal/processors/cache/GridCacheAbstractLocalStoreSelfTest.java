@@ -49,7 +49,6 @@ import org.apache.ignite.events.Event;
 import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.IgniteEx;
-import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.store.CacheLocalStore;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.typedef.G;
@@ -306,7 +305,7 @@ public abstract class GridCacheAbstractLocalStoreSelfTest extends GridCommonAbst
                 AffinityTopologyVersion topVer = ignite1.context().cache().context().cacheContext(CU.cacheId(name))
                     .affinity().affinityTopologyVersion();
 
-                return topVer.topologyVersion() == 2 && topVer.minorTopologyVersion() == 1;
+                return topVer.topologyVersion() == 2 && topVer.minorAffinityVersion() == 1;
 
 //                return ignite1.affinity(name).primaryPartitions(ignite1.cluster().localNode()).length <
 //                    ignite1.affinity(name).partitions();

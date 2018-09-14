@@ -1468,7 +1468,7 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
 
         for (CacheGroupContext grpCtx : node0.context().cache().cacheGroups()) {
             for (AffinityTopologyVersion ver : grpCtx.affinity().cachedVersions()) {
-                if (ver.minorTopologyVersion() > 0)
+                if (ver.minorAffinityVersion() > 0)
                     continue;
 
                 assertTrue("Unexpected version [ver=" + ver + ", exp=" + expVers + ']',

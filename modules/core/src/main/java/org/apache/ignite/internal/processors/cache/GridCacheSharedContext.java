@@ -905,7 +905,7 @@ public class GridCacheSharedContext<K, V> {
         if (curVer == null)
             return null;
 
-        AffinityTopologyVersion nextVer = new AffinityTopologyVersion(curVer.topologyVersion() + 1);
+        AffinityTopologyVersion nextVer = curVer.nextTopologyAffinityVersion();
 
         IgniteInternalFuture<?> fut = exchMgr.affinityReadyFuture(nextVer);
 
