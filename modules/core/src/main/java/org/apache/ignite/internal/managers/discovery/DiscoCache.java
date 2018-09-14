@@ -95,7 +95,7 @@ public class DiscoCache {
     private final IgniteProductVersion minSrvNodeVer;
 
     /** */
-    private final AffinityTopologyVersion topVer;
+    private final long topVer;
 
     /** */
     final Map<UUID, Short> nodeIdToConsIdx;
@@ -132,7 +132,7 @@ public class DiscoCache {
      * @param minNodeVer Minimum node version.
      */
     DiscoCache(
-        AffinityTopologyVersion topVer,
+        long topVer,
         DiscoveryDataClusterState state,
         ClusterNode loc,
         MvccCoordinator mvccCrd,
@@ -193,7 +193,7 @@ public class DiscoCache {
     /**
      * @return Topology version.
      */
-    public AffinityTopologyVersion version() {
+    public long version() {
         return topVer;
     }
 
@@ -470,7 +470,7 @@ public class DiscoCache {
      * @param state Not {@code null} state if need override state, otherwise current state is used.
      * @return Copy of discovery cache with new version.
      */
-    public DiscoCache copy(AffinityTopologyVersion ver, @Nullable DiscoveryDataClusterState state) {
+    public DiscoCache copy(long ver, @Nullable DiscoveryDataClusterState state) {
         return new DiscoCache(
             ver,
             state == null ? this.state : state,
