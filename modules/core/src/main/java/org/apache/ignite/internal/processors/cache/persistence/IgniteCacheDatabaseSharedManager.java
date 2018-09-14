@@ -118,7 +118,7 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
 
         pageSize = memCfg.getPageSize();
 
-        initDataRegions(memCfg);
+        //initDataRegions(memCfg);
     }
 
     /**
@@ -1055,18 +1055,20 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
 
         assert memCfg != null;
 
-        initDataRegions(memCfg);
+        if (!dataRegionsInitialized) {
+            initDataRegions(memCfg);
 
-        registerMetricsMBeans();
+            registerMetricsMBeans();
 
-        startMemoryPolicies();
+            startMemoryPolicies();
 
-        initPageMemoryDataStructures(memCfg);
+            initPageMemoryDataStructures(memCfg);
+        }
     }
 
     /** {@inheritDoc} */
     @Override public void onDeActivate(GridKernalContext kctx) {
-        stop0(false);
+        //stop0(false);
     }
 
     /**

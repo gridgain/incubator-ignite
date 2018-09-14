@@ -710,7 +710,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
         onKernalStop0(false);
 
-        stop0(false);
+        //stop0(false);
 
         /* Must be here, because after deactivate we can invoke activate and file lock must be already configured */
         stopping = false;
