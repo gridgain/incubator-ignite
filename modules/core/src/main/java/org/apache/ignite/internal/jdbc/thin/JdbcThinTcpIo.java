@@ -131,7 +131,7 @@ public class JdbcThinTcpIo {
     private ClientListenerProtocolVersion srvProtocolVer;
 
     /** Metrics. */
-    private static final JdbcThinMetrics METRICS = new JdbcThinMetrics();
+    private static final JdbcMetrics METRICS = new JdbcMetrics();
 
     static {
         startMetricsWriter();

@@ -1,5 +1,8 @@
 package org.apache.ignite.internal.jdbc2.dbs;
 
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -8,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.LongAdder;
+import org.apache.ignite.internal.jdbc.thin.JdbcMetrics;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
@@ -24,14 +27,8 @@ public class BenchmarkRunner {
     /** Warmup duration. */
     private static final long LOAD_WARMUP_DUR = 10_000L;
 
-    /** Number of load counters. */
-    private static final int LOAD_CTR_CNT = 100;
-
     /** */
     private static final List<String> accIds = new ArrayList<>();
-
-    /** Load counters. */
-    private static volatile LongAdder[] loadCtrs;
 
     /** Warmup flag. */
     private static volatile boolean warmup = true;
@@ -42,12 +39,8 @@ public class BenchmarkRunner {
     /** */
     private static final String[] connectionStrings = System.getProperty("JDBC_CONN_STRING").split(";");
 
-    static {
-        loadCtrs = new LongAdder[LOAD_CTR_CNT];
-
-        for (int i = 0; i < LOAD_CTR_CNT; i++)
-            loadCtrs[i] = new LongAdder();
-    }
+    /** */
+    private static JdbcMetrics metrics = new JdbcMetrics();
 
     /**
      * Entry point.
@@ -108,13 +101,6 @@ public class BenchmarkRunner {
                         Thread.sleep(5000L);
 
                         printResults();
-
-                        LongAdder[] newCtrs = new LongAdder[LOAD_CTR_CNT];
-
-                        for (int i = 0; i < LOAD_CTR_CNT; i++)
-                            newCtrs[i] = new LongAdder();
-
-                        loadCtrs = newCtrs;
                     }
                     catch (Exception e) {
                         return;
@@ -144,28 +130,12 @@ public class BenchmarkRunner {
      */
     @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
     private static void printResults() {
-        StringBuilder sb = new StringBuilder(">>> RESULTS [");
-
-        boolean first = true;
-
-        LongAdder[] ctrs = loadCtrs;
-
-        for (int i = 0; i < LOAD_CTR_CNT; i++) {
-            long val = ctrs[i].longValue();
-
-            if (val != 0L) {
-                if (first)
-                    first = false;
-                else
-                    sb.append(", ");
-
-                sb.append(((i + 1) * 50) + "=" + val);
-            }
+        try (Writer writer = new OutputStreamWriter(System.out)) {
+            metrics.printAndReset(writer);
         }
-
-        sb.append("]");
-
-        System.out.println(sb.toString());
+        catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -177,24 +147,7 @@ public class BenchmarkRunner {
         if (warmup)
             return;
 
-        if (dur < 0) {
-            loadCtrs[0].increment();
-
-            return;
-        }
-
-        int dur0 = (int)dur;
-
-        if ((long)dur0 == dur) {
-            int slot = dur0 / 50;
-
-            if (slot < LOAD_CTR_CNT)
-                loadCtrs[slot].increment();
-
-            return;
-        }
-
-        loadCtrs[LOAD_CTR_CNT - 1].increment();
+        metrics.onQueryExecuted(dur);
     }
 
     /**

@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.LongAdder;
 /**
  * Metrics for thin driver.
  */
-public class JdbcThinMetrics {
+public class JdbcMetrics {
     /** Intervals. */
     private static final int INTERVALS = 100;
 
