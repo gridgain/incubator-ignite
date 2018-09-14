@@ -410,6 +410,8 @@ public class PageMemoryImpl implements PageMemoryEx {
         if (cheat)
             return;
 
+        seg.readLock().lock();
+
         try {
             seg.releasePage(page);
         }
