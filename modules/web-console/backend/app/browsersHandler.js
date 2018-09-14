@@ -204,8 +204,13 @@ module.exports = {
 
             nodeListeners(sock) {
                 // Return command result from grid to browser.
-                sock.on('node:rest', ({clusterId, params, credentials} = {}, cb) => {
-                    const demo = sock.request._query.IgniteDemoMode === 'true';
+                sock.on('node:rest', (arg, cb) => {
+                    const {clusterId, params, credentials} = arg || {};
+
+                    if (!_.isFunction(cb))
+                        cb = console.log;
+
+                    const demo = _.get(sock, 'request._query.IgniteDemoMode') === 'true';
 
                     if ((_.isNil(clusterId) && !demo) || _.isNil(params))
                         return cb('Invalid format of message: "node:rest"');
@@ -237,8 +242,13 @@ module.exports = {
                 this.registerVisorTask('toggleClusterState', internalVisor('misc.VisorChangeGridActiveStateTask'), internalVisor('misc.VisorChangeGridActiveStateTaskArg'));
 
                 // Return command result from grid to browser.
-                sock.on('node:visor', ({clusterId, params, credentials} = {}, cb) => {
-                    const demo = sock.request._query.IgniteDemoMode === 'true';
+                sock.on('node:visor', (arg, cb) => {
+                    const {clusterId, params, credentials} = arg || {};
+
+                    if (!_.isFunction(cb))
+                        cb = console.log;
+
+                    const demo = _.get(sock, 'request._query.IgniteDemoMode') === 'true';
 
                     if ((_.isNil(clusterId) && !demo) || _.isNil(params))
                         return cb('Invalid format of message: "node:visor"');
