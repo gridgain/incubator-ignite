@@ -130,8 +130,10 @@ public class BenchmarkRunner {
      */
     @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
     private static void printResults() {
-        try (Writer writer = new OutputStreamWriter(System.out)) {
+        try {
+            Writer writer = new OutputStreamWriter(System.out);
             metrics.printAndReset(writer);
+            writer.flush();
         }
         catch (IOException e) {
             e.printStackTrace();
