@@ -38,7 +38,7 @@ abstract class StreamingSpec extends FunSpec with Matchers with BeforeAndAfterAl
         spark = SparkSession.builder()
             .appName("StreamingSpec")
             .master("local")
-            .config("spark.executor.instances", "2")
+            .config("spark.executor.instances", "1")
             .getOrCreate()
     }
 

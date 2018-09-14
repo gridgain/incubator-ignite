@@ -34,7 +34,7 @@ import scala.collection.JavaConverters._
 import scala.annotation.meta.field
 
 @RunWith(classOf[JUnitRunner])
-class StreamingWithCaches extends StreamingSpec {
+class StreamingWithCachesSpec extends StreamingSpec {
     case class Value(
         @(QuerySqlField@field) id: JLong,
         @(QuerySqlField@field) ts: Timestamp,

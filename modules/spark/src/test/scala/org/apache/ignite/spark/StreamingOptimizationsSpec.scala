@@ -18,22 +18,36 @@
 package org.apache.ignite.spark
 
 import java.sql.Timestamp
+import java.lang.{Long => JLong}
 
 import javax.cache.CacheException
 import org.apache.ignite.cache.query.SqlFieldsQuery
 import org.apache.ignite.spark.AbstractDataFrameSpec.TEST_CONFIG_FILE
 import org.apache.ignite.spark.IgniteDataFrameSettings._
+import org.apache.spark.sql.streaming.Trigger
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 
 @RunWith(classOf[JUnitRunner])
-class StreamingOptimizations extends StreamingSpec {
+class StreamingOptimizationsSpec extends StreamingSpec {
     private val IN_TBL_NAME = "INPUT"
     private val DFLT_CACHE_NAME = "default"
 
+    private val input = Seq(
+        Seq(1L, Timestamp.valueOf("2017-01-01 00:00:00"), "s1"),
+        Seq(2L, Timestamp.valueOf("2017-01-02 00:00:00"), "s2"),
+        Seq(3L, Timestamp.valueOf("2017-01-03 00:00:00"), "s3")
+    )
+
     describe("Spark Streaming with Ignite Optimizations") {
         it("applies Ignite optimizations") {
-            val stream = spark.readStream
+            input.foreach(i => insertIntoTable(
+                i.head.asInstanceOf[JLong],
+                i(1).asInstanceOf[Timestamp],
+                i(2).asInstanceOf[String]
+            ))
+
+            val stream = spark.read//Stream
                 .format(FORMAT_IGNITE)
                 .option(OPTION_CONFIG_FILE, TEST_CONFIG_FILE)
                 .option(OPTION_TABLE, IN_TBL_NAME)
@@ -43,10 +57,15 @@ class StreamingOptimizations extends StreamingSpec {
 
             stream.createOrReplaceTempView("input")
 
-            var qry = s"SELECT input.ID, input.CH, input2.ID, input2.CH " +
-                s"FROM input JOIN input as input2 ON input.CH = input2.CH"
+            val sqlStream = spark.sql("SELECT input.ID, input.CH FROM input")
 
-            val df = spark.sql(qry)
+            //val qry = sqlStream.writeStream.format("console").trigger(Trigger.Once()).start()
+
+            sqlStream.explain(true)
+
+            //qry.awaitTermination()
+
+            sqlStream
         }
     }
 
@@ -60,17 +79,19 @@ class StreamingOptimizations extends StreamingSpec {
         dropTable(IN_TBL_NAME)
     }
 
-    private def createTable(name: String): Unit = {
-        val cache = ignite.cache(DFLT_CACHE_NAME)
-        cache.query(new SqlFieldsQuery(
+    private def createTable(name: String): Unit =
+        ignite.cache(DFLT_CACHE_NAME).query(new SqlFieldsQuery(
             s"CREATE TABLE $name(id LONG, ts TIMESTAMP, ch VARCHAR, PRIMARY KEY(id))"
         )).getAll
-        cache.query(new SqlFieldsQuery(s"CREATE INDEX idx_ch ON $name(ch)")).getAll
-    }
 
     private def dropTable(name: String): Unit = scala.util.control.Exception.ignoring(classOf[CacheException]) {
         ignite.cache(DFLT_CACHE_NAME).query(new SqlFieldsQuery(
             s"DROP TABLE $name"
         )).getAll
     }
+
+    private def insertIntoTable(id: JLong, ts: Timestamp, ch: String): Unit =
+        ignite.cache(DFLT_CACHE_NAME).query(new SqlFieldsQuery(
+            s"INSERT INTO $IN_TBL_NAME(id, ts, ch) VALUES(?, ?, ?)"
+        ).setArgs(id, ts, ch)).getAll
 }
