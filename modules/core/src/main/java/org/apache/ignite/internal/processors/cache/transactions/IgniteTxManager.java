@@ -1340,10 +1340,10 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
                 GridDhtLockFuture.finishL4.countDown();
 
                 try {
-                    Thread.sleep(100000);
+                    Thread.sleep(5000);
                 }
                 catch (InterruptedException e) {
-                    e.printStackTrace();
+                    // No-op.
                 }
             }
 

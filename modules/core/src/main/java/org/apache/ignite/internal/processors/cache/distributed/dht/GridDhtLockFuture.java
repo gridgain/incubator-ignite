@@ -771,8 +771,6 @@ public final class GridDhtLockFuture extends GridCacheCompoundIdentityFuture<Boo
         if (success && cctx.node(tx.nearNodeId()).order() == 5) {
             finishL2.countDown();
 
-            log.info("PIZDA:" + tx.nearXidVersion());
-
             U.awaitQuiet(finishL);
         }
 

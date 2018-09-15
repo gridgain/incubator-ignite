@@ -75,7 +75,7 @@ public class TxKeyContentionTest extends GridCommonAbstractTest {
         boolean client = igniteInstanceName.startsWith("client");
 
         cfg.setClientMode(client);
-        cfg.setStripedPoolSize(Runtime.getRuntime().availableProcessors() * 2);
+        cfg.setStripedPoolSize(Runtime.getRuntime().availableProcessors() * 4);
 
 //        cfg.setDataStorageConfiguration(new DataStorageConfiguration().setWalMode(LOG_ONLY).setPageSize(1024).
 //            setDefaultDataRegionConfiguration(new DataRegionConfiguration().setPersistenceEnabled(true).
