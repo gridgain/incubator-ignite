@@ -89,6 +89,8 @@ public final class GridDhtLockFuture extends GridCacheCompoundIdentityFuture<Boo
 
     public static final CountDownLatch finishL = new CountDownLatch(1);
     public static final CountDownLatch finishL2 = new CountDownLatch(1);
+    public static final CountDownLatch finishL3 = new CountDownLatch(1);
+    public static final CountDownLatch finishL4 = new CountDownLatch(1);
 
     /** Logger reference. */
     private static final AtomicReference<IgniteLogger> logRef = new AtomicReference<>();

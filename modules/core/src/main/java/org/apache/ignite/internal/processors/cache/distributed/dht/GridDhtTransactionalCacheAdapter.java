@@ -1290,11 +1290,6 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                         try {
                             // Don't return anything for invalid partitions.
                             if (tx == null || !tx.isRollbackOnly()) {
-                                ClusterNode node = ctx.node(tx.nearNodeId());
-                                if (node.order() == 6) {
-                                    System.out.println();
-                                }
-
                                 GridCacheVersion dhtVer = req.dhtVersion(i);
 
                                 GridCacheVersion ver = e.version();
@@ -1315,6 +1310,14 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                                         tx != null ? tx.resolveTaskName() : null,
                                         null,
                                         req.keepBinary());
+
+                                ClusterNode node = ctx.node(tx.nearNodeId());
+                                if (node.order() == 6) {
+                                    GridDhtLockFuture.finishL3.countDown();
+                                    U.awaitQuiet(GridDhtLockFuture.finishL4);
+                                    System.out.println();
+                                }
+
 
                                 //assert e.lockedBy(mappedVer) || ctx.mvcc().isRemoved(e.context(), mappedVer) :
 

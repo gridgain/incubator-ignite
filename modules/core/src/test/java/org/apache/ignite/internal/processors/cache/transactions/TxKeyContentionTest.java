@@ -159,14 +159,13 @@ public class TxKeyContentionTest extends GridCommonAbstractTest {
         Ignite client2 = startClient(1);
         Ignite client3 = startClient(2);
 
-
-
         AtomicInteger inc = new AtomicInteger();
 
         CountDownLatch lockLatch = new CountDownLatch(1);
         CountDownLatch commitLatch = new CountDownLatch(1);
 
         AtomicReference<Transaction> ref = new AtomicReference<>();
+        AtomicReference<Transaction> ref2 = new AtomicReference<>();
 
         int key = 0;
 
@@ -213,6 +212,8 @@ public class TxKeyContentionTest extends GridCommonAbstractTest {
                         break;
                     case 2:
                         try (Transaction tx = client3.transactions().txStart(PESSIMISTIC, REPEATABLE_READ, 0, 1)) {
+                            ref2.set(tx);
+
                             U.awaitQuiet(lockLatch);
 
                             // Put lock in candidate queue.
@@ -266,11 +267,22 @@ public class TxKeyContentionTest extends GridCommonAbstractTest {
             fail("Unexpected interruption");
         }
 
-        ref.get().rollback();
+        IgniteInternalFuture fut2 = GridTestUtils.runAsync(new Runnable() {
+            @Override public void run() {
+                ref.get().rollback();
+            }
+        });
 
-        //GridDhtLockFuture.finishL.countDown();
+        U.awaitQuiet(GridDhtLockFuture.finishL3);
+
+        GridDhtLockFuture.finishL.countDown();
+
+        ref2.get().rollback();
+
+        //GridDhtLockFuture.finishL4.countDown();
 
         fut.get();
+        fut2.get();
 
         checkFutures();
     }

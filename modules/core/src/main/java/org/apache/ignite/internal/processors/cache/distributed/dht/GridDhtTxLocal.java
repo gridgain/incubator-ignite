@@ -423,6 +423,10 @@ public class GridDhtTxLocal extends GridDhtTxLocalAdapter implements GridCacheMa
         if (!commit) {
             log.info("PIZDA2:" + nearXidVersion());
 
+            if (GridDhtLockFuture.finishL3.getCount() == 0) {
+                System.out.println();
+            }
+
             final IgniteInternalFuture<?> lockFut = tryRollbackAsync();
 
             if (lockFut != null) {

@@ -60,6 +60,7 @@ import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxFinish
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheTxRecoveryFuture;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtInvalidPartitionException;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLockFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxOnePhaseCommitAckRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxRemote;
@@ -1333,6 +1334,18 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
             // 3. Unlock read resources if required.
             if (unlockReadEntries(tx))
                 unlockMultiple(tx, tx.readEntries());
+
+            ClusterNode n = cctx.node(tx.masterNodeIds().iterator().next());
+            if (n.order() == 6 && !tx.near()) {
+                GridDhtLockFuture.finishL4.countDown();
+
+                try {
+                    Thread.sleep(100000);
+                }
+                catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
 
             // 4. Notify evictions.
             notifyEvictions(tx);
