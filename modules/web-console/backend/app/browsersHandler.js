@@ -212,8 +212,11 @@ module.exports = {
 
                     const demo = _.get(sock, 'request._query.IgniteDemoMode') === 'true';
 
-                    if ((_.isNil(clusterId) && !demo) || _.isNil(params))
+                    if ((_.isNil(clusterId) && !demo) || _.isNil(params)) {
+                        console.log('Received invalid message: "node:rest" on socket:', JSON.stringify(sock.handshake));
+
                         return cb('Invalid format of message: "node:rest"');
+                    }
 
                     const token = sock.request.user.token;
 
@@ -250,8 +253,11 @@ module.exports = {
 
                     const demo = _.get(sock, 'request._query.IgniteDemoMode') === 'true';
 
-                    if ((_.isNil(clusterId) && !demo) || _.isNil(params))
+                    if ((_.isNil(clusterId) && !demo) || _.isNil(params)) {
+                        console.log('Received invalid message: "node:visor" on socket:', JSON.stringify(sock.handshake));
+
                         return cb('Invalid format of message: "node:visor"');
+                    }
 
                     const token = sock.request.user.token;
 
