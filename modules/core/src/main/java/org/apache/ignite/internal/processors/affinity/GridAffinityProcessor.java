@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.IgniteCheckedException;
@@ -109,8 +110,9 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
             final Collection<AffinityAssignmentKey> rmv = new HashSet<>();
 
+            // TODO: obsolete
             for (AffinityAssignmentKey key : affMap.keySet()) {
-                if (!caches.contains(key.cacheName) || key.topVer.topologyVersion() < discoEvt.topologyVersion() - 10)
+                if (!caches.contains(key.cacheName) || key.affVer.topologyVersion() < discoEvt.topologyVersion() - 10)
                     rmv.add(key);
             }
 
@@ -192,7 +194,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         assert cacheName != null;
 
         if (aff == null) {
-            aff = affinityCache(cacheName, ctx.cache().context().exchange().readyAffinityVersion());
+            aff = affinityCache(cacheName, ctx.cache().context().exchange().readyAffinityVersion().affinityVersion());
 
             if (aff == null)
                 throw new IgniteCheckedException("Failed to get cache affinity (cache was not started " +
@@ -221,17 +223,17 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
     }
 
     /**
-     * Removes cached affinity instances with affinity topology versions less than {@code topVer}.
+     * Removes cached affinity instances with affinity topology versions less than {@code affVer}.
      *
-     * @param topVer topology version.
+     * @param affVer Affinity version.
      */
-    public void removeCachedAffinity(AffinityTopologyVersion topVer) {
-        assert topVer != null;
+    public void removeCachedAffinity(long affVer) {
+        assert affVer != 0;
 
         int oldSize = affMap.size();
 
         Iterator<Map.Entry<AffinityAssignmentKey, IgniteInternalFuture<AffinityInfo>>> it =
-            affMap.headMap(new AffinityAssignmentKey(topVer)).entrySet().iterator();
+            affMap.headMap(new AffinityAssignmentKey(affVer)).entrySet().iterator();
 
         while (it.hasNext()) {
             Map.Entry<AffinityAssignmentKey, IgniteInternalFuture<AffinityInfo>> entry = it.next();
@@ -387,17 +389,17 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
     /**
      * @param cacheName Cache name.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @return Affinity cache.
      * @throws IgniteCheckedException In case of error.
      */
     @SuppressWarnings("ErrorNotRethrown")
-    @Nullable private AffinityInfo affinityCache(final String cacheName, AffinityTopologyVersion topVer)
+    @Nullable private AffinityInfo affinityCache(final String cacheName, long affVer)
         throws IgniteCheckedException {
 
         assert cacheName != null;
 
-        AffinityAssignmentKey key = new AffinityAssignmentKey(cacheName, topVer);
+        AffinityAssignmentKey key = new AffinityAssignmentKey(cacheName, affVer);
 
         IgniteInternalFuture<AffinityInfo> fut = affMap.get(key);
 
@@ -411,7 +413,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
             cctx.awaitStarted();
 
-            AffinityAssignment assign0 = cctx.affinity().assignment(topVer);
+            AffinityAssignment assign0 = cctx.affinity().assignment(affVer);
 
             try {
                 cctx.gate().enter();
@@ -423,7 +425,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             try {
                 GridAffinityAssignment assign = assign0 instanceof GridAffinityAssignment ?
                     (GridAffinityAssignment)assign0 :
-                    new GridAffinityAssignment(topVer, assign0.assignment(), assign0.idealAssignment(), assign0.mvccCoordinator());
+                    new GridAffinityAssignment(affVer, assign0.assignment(), assign0.idealAssignment(), assign0.mvccCoordinator());
 
                 AffinityInfo info = new AffinityInfo(
                     cctx.config().getAffinity(),
@@ -443,7 +445,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             }
         }
 
-        Collection<ClusterNode> cacheNodes = ctx.discovery().cacheNodes(cacheName, topVer);
+        Collection<ClusterNode> cacheNodes = ctx.discovery().cacheNodes(cacheName, affVer);
 
         if (F.isEmpty(cacheNodes))
             return null;
@@ -495,7 +497,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             try {
                 // Resolve cache context for remote node.
                 // Set affinity function before counting down on latch.
-                fut0.onDone(affinityInfoFromNode(cacheName, topVer, n));
+                fut0.onDone(affinityInfoFromNode(cacheName, affVer, n));
 
                 break;
             }
@@ -702,24 +704,24 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         private String cacheName;
 
         /** */
-        private AffinityTopologyVersion topVer;
+        private long affVer;
 
         /**
          * @param cacheName Cache name.
-         * @param topVer Topology version.
+         * @param affVer Topology version.
          */
-        private AffinityAssignmentKey(@NotNull String cacheName, @NotNull AffinityTopologyVersion topVer) {
+        private AffinityAssignmentKey(@NotNull String cacheName, long affVer) {
             this.cacheName = cacheName;
-            this.topVer = topVer;
+            this.affVer = affVer;
         }
 
         /**
          * Current constructor should be used only in removeCachedAffinity for creating of the special keys for removing.
          *
-         * @param topVer Topology version.
+         * @param affVer Topology version.
          */
-        private AffinityAssignmentKey(@NotNull AffinityTopologyVersion topVer) {
-            this.topVer = topVer;
+        private AffinityAssignmentKey(long affVer) {
+            this.affVer = affVer;
         }
 
         /** {@inheritDoc} */
@@ -732,14 +734,14 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
             AffinityAssignmentKey that = (AffinityAssignmentKey)o;
 
-            return topVer.equals(that.topVer) && F.eq(cacheName, that.cacheName);
+            return affVer == that.affVer && F.eq(cacheName, that.cacheName);
         }
 
         /** {@inheritDoc} */
         @Override public int hashCode() {
             int res = cacheName != null ? cacheName.hashCode() : 0;
 
-            res = 31 * res + topVer.hashCode();
+            res = 31 * res + Objects.hashCode(affVer);
 
             return res;
         }
@@ -756,10 +758,8 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             if (this == o)
                 return 0;
 
-            int res = this.topVer.compareTo(o.topVer);
-
             // Key with null cache name must be less than any key with not null cache name for the same topVer.
-            if (res == 0) {
+            if (affVer == o.affVer) {
                 if (cacheName == null && o.cacheName != null)
                     return -1;
 
@@ -772,7 +772,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
                 return cacheName.compareTo(o.cacheName);
             }
 
-            return res;
+            return affVer < o.affVer ? -1 : 1;
         }
     }
 

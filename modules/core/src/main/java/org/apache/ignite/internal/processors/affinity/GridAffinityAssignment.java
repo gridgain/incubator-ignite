@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.cluster.ClusterNode;
@@ -39,7 +40,7 @@ public class GridAffinityAssignment implements AffinityAssignment, Serializable 
     private static final long serialVersionUID = 0L;
 
     /** Topology version. */
-    private final AffinityTopologyVersion topVer;
+    private final long affVer;
 
     /** */
     private final MvccCoordinator mvccCrd;
@@ -68,29 +69,29 @@ public class GridAffinityAssignment implements AffinityAssignment, Serializable 
     /**
      * Constructs cached affinity calculations item.
      *
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      */
-    GridAffinityAssignment(AffinityTopologyVersion topVer) {
-        this.topVer = topVer;
+    GridAffinityAssignment(long affVer) {
+        this.affVer = affVer;
         primary = new HashMap<>();
         backup = new HashMap<>();
         mvccCrd = null;
     }
 
     /**
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @param assignment Assignment.
      * @param idealAssignment Ideal assignment.
      */
-    GridAffinityAssignment(AffinityTopologyVersion topVer,
+    GridAffinityAssignment(long affVer,
         List<List<ClusterNode>> assignment,
         List<List<ClusterNode>> idealAssignment,
         MvccCoordinator mvccCrd) {
-        assert topVer != null;
+        assert affVer > 0;
         assert assignment != null;
         assert idealAssignment != null;
 
-        this.topVer = topVer;
+        this.affVer = affVer;
         this.assignment = assignment;
         this.idealAssignment = idealAssignment.equals(assignment) ? assignment : idealAssignment;
         this.mvccCrd = mvccCrd;
@@ -102,11 +103,11 @@ public class GridAffinityAssignment implements AffinityAssignment, Serializable 
     }
 
     /**
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @param aff Assignment to copy from.
      */
-    GridAffinityAssignment(AffinityTopologyVersion topVer, GridAffinityAssignment aff) {
-        this.topVer = topVer;
+    GridAffinityAssignment(long affVer, GridAffinityAssignment aff) {
+        this.affVer = affVer;
 
         assignment = aff.assignment;
         idealAssignment = aff.idealAssignment;
@@ -132,8 +133,8 @@ public class GridAffinityAssignment implements AffinityAssignment, Serializable 
     /**
      * @return Topology version.
      */
-    @Override public AffinityTopologyVersion topologyVersion() {
-        return topVer;
+    @Override public long affinityVersion() {
+        return affVer;
     }
 
     /**
@@ -282,19 +283,18 @@ public class GridAffinityAssignment implements AffinityAssignment, Serializable 
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return topVer.hashCode();
+        return Objects.hash(affVer);
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("SimplifiableIfStatement")
     @Override public boolean equals(Object o) {
         if (o == this)
             return true;
 
-        if (o == null || !(o instanceof AffinityAssignment))
+        if (!(o instanceof AffinityAssignment))
             return false;
 
-        return topVer.equals(((AffinityAssignment)o).topologyVersion());
+        return affVer == ((AffinityAssignment)o).affinityVersion();
     }
 
     /** {@inheritDoc} */

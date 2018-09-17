@@ -41,7 +41,7 @@ public interface AffinityAssignment {
     /**
      * @return Topology version.
      */
-    public AffinityTopologyVersion topologyVersion();
+    public long affinityVersion();
 
     /**
      * Get affinity nodes for partition.

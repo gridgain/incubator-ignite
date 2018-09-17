@@ -59,7 +59,6 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.Gri
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsFullMessage;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccCoordinator;
-import org.apache.ignite.internal.processors.cluster.ChangeGlobalStateFinishMessage;
 import org.apache.ignite.internal.processors.cluster.DiscoveryDataClusterState;
 import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.GridPartitionStateMap;
@@ -705,28 +704,6 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
     }
 
     /**
-     * @param fut Exchange future.
-     * @param crd Coordinator flag.
-     * @param exchActions Exchange actions.
-     */
-    public void onCustomMessageNoAffinityChange(
-        GridDhtPartitionsExchangeFuture fut,
-        boolean crd,
-        @Nullable final ExchangeActions exchActions
-    ) {
-        final ExchangeDiscoveryEvents evts = fut.context().events();
-
-        forAllCacheGroups(crd, new IgniteInClosureX<GridAffinityAssignmentCache>() {
-            @Override public void applyx(GridAffinityAssignmentCache aff) {
-                if (exchActions != null && exchActions.cacheGroupStopping(aff.groupId()))
-                    return;
-
-                aff.clientEventTopologyChange(evts.lastEvent(), evts.topologyVersion());
-            }
-        });
-    }
-
-    /**
      * @param cctx Stopped cache context.
      */
     public void stopCacheOnReconnect(GridCacheContext cctx) {
@@ -778,9 +755,6 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
         assert exchActions != null && !exchActions.empty() : exchActions;
 
         caches.updateCachesInfo(exchActions);
-
-        // Affinity did not change for existing caches.
-        onCustomMessageNoAffinityChange(fut, crd, exchActions);
 
         processCacheStartRequests(fut, crd, exchActions);
 
@@ -1067,11 +1041,8 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
 
                 IgniteUuid deploymentId = desc.deploymentId();
 
-                if (!deploymentId.equals(deploymentIds.get(aff.groupId()))) {
-                    aff.clientEventTopologyChange(exchFut.firstEvent(), topVer);
-
+                if (!deploymentId.equals(deploymentIds.get(aff.groupId())))
                     return;
-                }
 
                 Map<Integer, List<UUID>> change = affChange.get(aff.groupId());
 
@@ -1101,8 +1072,6 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
 
                     aff.initialize(topVer, cachedAssignment(aff, assignment, affCache));
                 }
-                else
-                    aff.clientEventTopologyChange(exchFut.firstEvent(), topVer);
             }
         });
     }
@@ -1117,16 +1086,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
     public void onClientEvent(final GridDhtPartitionsExchangeFuture fut, boolean crd) throws IgniteCheckedException {
         boolean locJoin = fut.firstEvent().eventNode().isLocal();
 
-        if (!locJoin) {
-            forAllCacheGroups(crd, new IgniteInClosureX<GridAffinityAssignmentCache>() {
-                @Override public void applyx(GridAffinityAssignmentCache aff) throws IgniteCheckedException {
-                    AffinityTopologyVersion topVer = fut.initialVersion();
-
-                    aff.clientEventTopologyChange(fut.firstEvent(), topVer);
-                }
-            });
-        }
-        else
+        if (locJoin)
             fetchAffinityOnJoin(fut);
     }
 
@@ -2001,7 +1961,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                     if (grpAdded) {
                         AffinityAssignment aff = cache.aff.cachedAffinity(cache.aff.lastVersion());
 
-                        assert evts.topologyVersion().equals(aff.topologyVersion()) : "Unexpected version [" +
+                        assert evts.topologyVersion().equals(aff.affinityVersion()) : "Unexpected version [" +
                             "grp=" + cache.aff.cacheOrGroupName() +
                             ", evts=" + evts.topologyVersion() +
                             ", aff=" + cache.aff.lastVersion() + ']';
@@ -2030,7 +1990,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                 if (partMap == null) {
                     partMap = new GridDhtPartitionMap(nodeId,
                         1L,
-                        aff.topologyVersion(),
+                        aff.affinityVersion(),
                         new GridPartitionStateMap(),
                         false);
 

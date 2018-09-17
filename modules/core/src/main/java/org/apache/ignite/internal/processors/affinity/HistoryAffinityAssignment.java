@@ -25,6 +25,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -34,7 +35,7 @@ import java.util.UUID;
 @SuppressWarnings("ForLoopReplaceableByForEach")
 public class HistoryAffinityAssignment implements AffinityAssignment {
     /** */
-    private final AffinityTopologyVersion topVer;
+    private final long affVer;
 
     /** */
     private final List<List<ClusterNode>> assignment;
@@ -48,8 +49,8 @@ public class HistoryAffinityAssignment implements AffinityAssignment {
     /**
      * @param assign Assignment.
      */
-    HistoryAffinityAssignment(GridAffinityAssignment assign) {
-        this.topVer = assign.topologyVersion();
+    HistoryAffinityAssignment(AffinityAssignment assign) {
+        this.affVer = assign.affinityVersion();
         this.assignment = assign.assignment();
         this.idealAssignment = assign.idealAssignment();
         this.mvccCrd = assign.mvccCoordinator();
@@ -71,8 +72,8 @@ public class HistoryAffinityAssignment implements AffinityAssignment {
     }
 
     /** {@inheritDoc} */
-    @Override public AffinityTopologyVersion topologyVersion() {
-        return topVer;
+    @Override public long affinityVersion() {
+        return affVer;
     }
 
     /** {@inheritDoc} */
@@ -163,19 +164,18 @@ public class HistoryAffinityAssignment implements AffinityAssignment {
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
-        return topVer.hashCode();
+        return Objects.hash(affVer);
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("SimplifiableIfStatement")
     @Override public boolean equals(Object o) {
         if (o == this)
             return true;
 
-        if (o == null || !(o instanceof AffinityAssignment))
+        if (!(o instanceof AffinityAssignment))
             return false;
 
-        return topVer.equals(((AffinityAssignment)o).topologyVersion());
+        return affVer == ((AffinityAssignment)o).affinityVersion();
     }
 
     /** {@inheritDoc} */

@@ -69,7 +69,7 @@ public class GridCacheAffinityManager extends GridCacheManagerAdapter {
     @Override protected void onKernalStart0() throws IgniteCheckedException {
         if (cctx.isLocal())
             // No discovery event needed for local affinity.
-            aff.calculate(LOC_CACHE_TOP_VER, null, null);
+            aff.calculate(LOC_CACHE_TOP_VER.affinityVersion(), null, null);
     }
 
     /** {@inheritDoc} */
@@ -85,7 +85,11 @@ public class GridCacheAffinityManager extends GridCacheManagerAdapter {
      * @return Affinity ready future.
      */
     public IgniteInternalFuture<AffinityTopologyVersion> affinityReadyFuture(long affVer) {
-        return affinityReadyFuture(new AffinityTopologyVersion(affVer));
+        assert !cctx.isLocal();
+
+        IgniteInternalFuture<AffinityTopologyVersion> fut = aff.readyFuture(affVer);
+
+        return fut != null ? fut : new GridFinishedFuture<>(aff.lastVersion());
     }
 
     /**
@@ -96,26 +100,7 @@ public class GridCacheAffinityManager extends GridCacheManagerAdapter {
      * @return Affinity ready future.
      */
     public IgniteInternalFuture<AffinityTopologyVersion> affinityReadyFuture(AffinityTopologyVersion topVer) {
-        // TODO: use only affVer here.
-
-        assert !cctx.isLocal();
-
-        IgniteInternalFuture<AffinityTopologyVersion> fut = aff.readyFuture(topVer);
-
-        return fut != null ? fut : new GridFinishedFuture<>(aff.lastVersion());
-    }
-
-    /**
-     * Gets affinity ready future that will be completed after affinity with given topology version is calculated.
-     * Will return {@code null} if topology with given version is ready by the moment method is invoked.
-     *
-     * @param topVer Topology version to wait.
-     * @return Affinity ready future or {@code null}.
-     */
-    @Nullable public IgniteInternalFuture<AffinityTopologyVersion> affinityReadyFuturex(AffinityTopologyVersion topVer) {
-        assert !cctx.isLocal();
-
-        return aff.readyFuture(topVer);
+        return affinityReadyFuture(topVer.affinityVersion());
     }
 
     /**
