@@ -1356,11 +1356,11 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         + ", exchVer=" + exchangeVer + ", states=" + dumpPartitionStates() + ']');
                 }
 
-//                if (exchangeVer != null)
-//                    log.info(String.format("grp = %s... exchangeVer != null", grp.cacheOrGroupName()));
-//                else
-//                    log.info(String.format("grp = %s... exchangeVer == null", grp.cacheOrGroupName()));
-//
+                if (exchangeVer != null)
+                    log.info(String.format("grp = %s... exchangeVer != null", grp.cacheOrGroupName()));
+                else
+                    log.info(String.format("grp = %s... exchangeVer == null", grp.cacheOrGroupName()));
+
 //                checkPartState(partMap);
 
 
@@ -1497,8 +1497,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         nodeMap != null &&
                         grp.persistenceEnabled() &&
                         readyTopVer.initialized()) {
-//                        log.info(String.format("Grp = %s; fullMapUpdated = false but starting rebalance anyway",
-//                            grp.cacheOrGroupName()));
+                        log.info(String.format("Grp = %s; fullMapUpdated = false but starting rebalance anyway",
+                            grp.cacheOrGroupName()));
 
                         changed = rebalance(nodeMap, partsToReload);
 

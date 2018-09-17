@@ -3464,6 +3464,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
                                 AffinityTopologyVersion resVer = msg.resultTopologyVersion() != null ? msg.resultTopologyVersion() : initialVersion();
 
+//                                log.info(String.format("msgClass = %s", msg.getClass()));
+
                                 if (log.isInfoEnabled()) {
                                     log.info("Received full message, will finish exchange [node=" + node.id() +
                                         ", resVer=" + resVer + ']');
@@ -3576,6 +3578,19 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             Integer grpId = entry.getKey();
 
             CacheGroupContext grp = cctx.cache().cacheGroup(grpId);
+//
+//            boolean res = msg.topologyVersion().topologyVersion() == 5
+//                && msg.topologyVersion().minorTopologyVersion() == 3;
+//
+//            if(res) {
+//
+//                try {
+//                    U.sleep(1000L);
+//                }
+//                catch (IgniteInterruptedCheckedException e) {
+//                    e.printStackTrace();
+//                }
+//            }
 
             if (grp != null) {
                 CachePartitionFullCountersMap cntrMap = msg.partitionUpdateCounters(grpId,

@@ -372,6 +372,12 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         cctx.io().addCacheHandler(0, GridDhtPartitionsFullMessage.class,
             new MessageHandler<GridDhtPartitionsFullMessage>() {
                 @Override public void onMessage(ClusterNode node, GridDhtPartitionsFullMessage msg) {
+//                    boolean res = msg.topologyVersion().topologyVersion() == 5
+//                        && msg.topologyVersion().minorTopologyVersion() == 3;
+//
+//                    if(res)
+//                        System.out.println("breakpoint. setSize = " + msg.partitions().entrySet().size());
+
                     processFullPartitionUpdate(node, msg);
                 }
             });
@@ -1510,6 +1516,12 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                 boolean updated = false;
 
+//                boolean res = msg.topologyVersion().topologyVersion() == 5
+//                    && msg.topologyVersion().minorTopologyVersion() == 3;
+//
+//                if(res)
+//                    System.out.println("process breakpoint. setSize = " + msg.partitions().entrySet().size());
+
                 for (Map.Entry<Integer, GridDhtPartitionFullMap> entry : msg.partitions().entrySet()) {
                     Integer grpId = entry.getKey();
 
@@ -1521,6 +1533,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                         top = clientTops.get(grpId);
                     else if (!grp.isLocal())
                         top = grp.topology();
+
+                    System.out.println("top = " + top);
 
                     if (top != null) {
                         updated |= top.update(null,
