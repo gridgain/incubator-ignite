@@ -47,7 +47,7 @@ class StreamingOptimizationsSpec extends StreamingSpec {
                 i(2).asInstanceOf[String]
             ))
 
-            val stream = spark.read//Stream
+            val stream = spark.readStream
                 .format(FORMAT_IGNITE)
                 .option(OPTION_CONFIG_FILE, TEST_CONFIG_FILE)
                 .option(OPTION_TABLE, IN_TBL_NAME)
@@ -59,11 +59,11 @@ class StreamingOptimizationsSpec extends StreamingSpec {
 
             val sqlStream = spark.sql("SELECT input.ID, input.CH FROM input")
 
-            //val qry = sqlStream.writeStream.format("console").trigger(Trigger.Once()).start()
+            val qry = sqlStream.writeStream.format("console").trigger(Trigger.Once()).start()
 
             sqlStream.explain(true)
 
-            //qry.awaitTermination()
+            qry.awaitTermination()
 
             sqlStream
         }
