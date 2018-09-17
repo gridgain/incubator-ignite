@@ -3579,18 +3579,18 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
             CacheGroupContext grp = cctx.cache().cacheGroup(grpId);
 //
-//            boolean res = msg.topologyVersion().topologyVersion() == 5
-//                && msg.topologyVersion().minorTopologyVersion() == 3;
-//
-//            if(res) {
+            boolean res = msg.topologyVersion().topologyVersion() == 5
+                && msg.topologyVersion().minorTopologyVersion() == 3;
+
+            if(res) {
 //
 //                try {
-//                    U.sleep(1000L);
+//                    U.sleep(500L);
 //                }
 //                catch (IgniteInterruptedCheckedException e) {
 //                    e.printStackTrace();
 //                }
-//            }
+            }
 
             if (grp != null) {
                 CachePartitionFullCountersMap cntrMap = msg.partitionUpdateCounters(grpId,

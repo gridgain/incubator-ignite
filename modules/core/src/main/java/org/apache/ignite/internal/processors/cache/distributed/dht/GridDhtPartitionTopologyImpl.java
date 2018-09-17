@@ -1356,10 +1356,24 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         + ", exchVer=" + exchangeVer + ", states=" + dumpPartitionStates() + ']');
                 }
 
+                Long tv = null;
+
+                Integer mv = null;
+
+                if(msgTopVer != null && exchangeVer != null){
+                    tv=msgTopVer.topologyVersion();
+                    mv=msgTopVer.minorTopologyVersion();
+                }
+//                else
+//                    node2part = null;
+
+
+
+
                 if (exchangeVer != null)
-                    log.info(String.format("grp = %s... exchangeVer != null", grp.cacheOrGroupName()));
+                    log.info(String.format("grp = %s... exchangeVer != null topVer = %d minVer = %d ", grp.cacheOrGroupName(), tv, mv));
                 else
-                    log.info(String.format("grp = %s... exchangeVer == null", grp.cacheOrGroupName()));
+                    log.info(String.format("grp = %s... exchangeVer == null topVer = %d minVer = %d ", grp.cacheOrGroupName(), tv, mv));
 
 //                checkPartState(partMap);
 
@@ -1411,7 +1425,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     return false;
                 }
 
-                boolean fullMapUpdated = (node2part == null);
+                boolean fullMapUpdated = (node2part == null || exchangeVer != null);
+//                boolean fullMapUpdated = (node2part == null);
 
                 if (node2part != null) {
                     for (GridDhtPartitionMap part : node2part.values()) {
@@ -1493,18 +1508,18 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                             ", newMap=" + partMap + ']');
                     }
 
-                    if (exchangeVer != null &&
-                        nodeMap != null &&
-                        grp.persistenceEnabled() &&
-                        readyTopVer.initialized()) {
-                        log.info(String.format("Grp = %s; fullMapUpdated = false but starting rebalance anyway",
-                            grp.cacheOrGroupName()));
+//                    if (exchangeVer != null &&
+//                        nodeMap != null &&
+//                        grp.persistenceEnabled() &&
+//                        readyTopVer.initialized()) {
+//                        log.info(String.format("Grp = %s; fullMapUpdated = false but starting rebalance anyway",
+//                            grp.cacheOrGroupName()));
+//
+//                        changed = rebalance(nodeMap, partsToReload);
+//
+//                    }
 
-                        changed = rebalance(nodeMap, partsToReload);
-
-                    }
-
-                    return changed;
+                    return false;
                 }
 
                 node2part = partMap;
@@ -1615,9 +1630,27 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
     private boolean rebalance(GridDhtPartitionMap nodeMap, Set<Integer> partsToReload){
         boolean res = false;
 
+        boolean rebCalled = false;
+
+        boolean moving = false;
+
+        for (Map.Entry<Integer, GridDhtPartitionState> e0 : nodeMap.entrySet()) {
+            int p0 = e0.getKey();
+
+            if (e0.getValue() == MOVING){
+                log.info(String.format("Grp = %s; Part %d is in MOVING state", grp.cacheOrGroupName(), p0));
+
+                moving = true;
+
+                break;
+            }
+        }
+
         for (Map.Entry<Integer, GridDhtPartitionState> e : nodeMap.entrySet()) {
             int p = e.getKey();
             GridDhtPartitionState state = e.getValue();
+
+
 
             if (state == OWNING) {
                 GridDhtLocalPartition locPart = locParts.get(p);
@@ -1637,9 +1670,17 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
                 rebalancePartition(p, haveHistory);
 
+                rebCalled = true;
+
                 res = true;
             }
         }
+
+        if (!moving)
+            log.info(String.format("grp = %s. No parts in moving state", grp.cacheOrGroupName()));
+
+        if(rebCalled)
+            log.info(String.format("Rebalancing actually called for cache group %s", grp.cacheOrGroupName()));
 
         return res;
     }
