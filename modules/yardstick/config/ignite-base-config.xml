@@ -29,6 +29,28 @@
 
         <property name="metricsLogFrequency" value="5000"/>
 
+        <property name="dataStorageConfiguration">
+            <bean class="org.apache.ignite.configuration.DataStorageConfiguration">
+                <property name="defaultDataRegionConfiguration">
+                    <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                        <property name="persistenceEnabled" value="true"/>
+                    </bean>
+                </property>
+                <property name="dataRegions">
+                    <list>
+                        <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                            <property name="name" value="query"/>
+                            <property name="hacked" value="true"/>
+                            <property name="persistenceEnabled" value="true"/>
+                            <property name="maxSize" value="#{20L * 1024 * 1024 * 1024}"/>
+                        </bean>
+                    </list>
+                </property>
+                <property name="walMode" value="DEFAULT"/>
+                <property name="walCompactionEnabled" value="false"/>
+            </bean>
+        </property>
+
         <property name="cacheConfiguration">
             <list>
                 <bean class="org.apache.ignite.configuration.CacheConfiguration">
@@ -101,6 +123,8 @@
 
                 <bean class="org.apache.ignite.configuration.CacheConfiguration">
                     <property name="name" value="query"/>
+
+                    <property name="dataRegionName" value="query"/>
 
                     <property name="cacheMode" value="PARTITIONED"/>
 

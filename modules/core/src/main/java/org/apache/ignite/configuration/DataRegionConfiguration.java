@@ -133,6 +133,19 @@ public final class DataRegionConfiguration implements Serializable {
     /** Temporary buffer size for checkpoints in bytes. */
     private long checkpointPageBufSize;
 
+    private boolean hacked;
+
+    public boolean isHacked() {
+        return hacked;
+    }
+
+    /**
+     * @param hacked
+     */
+    public void setHacked(boolean hacked) {
+        this.hacked = hacked;
+    }
+
     /**
      * Gets data region name.
      *

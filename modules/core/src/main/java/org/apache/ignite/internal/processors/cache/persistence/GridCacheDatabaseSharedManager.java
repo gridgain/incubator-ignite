@@ -61,6 +61,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.CheckpointWriteOrder;
@@ -123,6 +124,7 @@ import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaS
 import org.apache.ignite.internal.processors.cache.persistence.metastorage.MetastorageLifecycleListener;
 import org.apache.ignite.internal.processors.cache.persistence.pagemem.CheckpointMetricsTracker;
 import org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryEx;
+import org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryHacked;
 import org.apache.ignite.internal.processors.cache.persistence.pagemem.PageMemoryImpl;
 import org.apache.ignite.internal.processors.cache.persistence.partstate.PartitionAllocationMap;
 import org.apache.ignite.internal.processors.cache.persistence.snapshot.IgniteCacheSnapshotManager;
@@ -1047,51 +1049,77 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             chpBufSize = cacheSize;
         }
 
-        GridInClosure3X<Long, FullPageId, PageMemoryEx> changeTracker;
+        PageMemory pageMem;
 
-        if (trackable)
-            changeTracker = new GridInClosure3X<Long, FullPageId, PageMemoryEx>() {
-                @Override public void applyx(
-                    Long page,
-                    FullPageId fullId,
-                    PageMemoryEx pageMem
-                ) throws IgniteCheckedException {
-                    if (trackable)
-                        snapshotMgr.onChangeTrackerPage(page, fullId, pageMem);
-                }
-            };
-        else
-            changeTracker = null;
+        if (!plcCfg.isHacked()) {
+            GridInClosure3X<Long, FullPageId, PageMemoryEx> changeTracker;
 
-        PageMemoryImpl pageMem = new PageMemoryImpl(
-            wrapMetricsMemoryProvider(memProvider, memMetrics),
-            calculateFragmentSizes(
-                memCfg.getConcurrencyLevel(),
-                cacheSize,
-                chpBufSize
-            ),
-            cctx,
-            memCfg.getPageSize(),
-            (fullId, pageBuf, tag) -> {
-                memMetrics.onPageWritten();
+            if (trackable)
+                changeTracker = new GridInClosure3X<Long, FullPageId, PageMemoryEx>() {
+                    @Override
+                    public void applyx(
+                        Long page,
+                        FullPageId fullId,
+                        PageMemoryEx pageMem
+                    ) throws IgniteCheckedException {
+                        if (trackable)
+                            snapshotMgr.onChangeTrackerPage(page, fullId, pageMem);
+                    }
+                };
+            else
+                changeTracker = null;
 
-                // First of all, write page to disk.
-                storeMgr.write(fullId.groupId(), fullId.pageId(), pageBuf, tag);
+            pageMem = new PageMemoryImpl(
+                wrapMetricsMemoryProvider(memProvider, memMetrics),
+                calculateFragmentSizes(
+                    memCfg.getConcurrencyLevel(),
+                    cacheSize,
+                    chpBufSize
+                ),
+                cctx,
+                memCfg.getPageSize(),
+                (fullId, pageBuf, tag) -> {
+                    memMetrics.onPageWritten();
 
-                // Only after write we can write page into snapshot.
-                snapshotMgr.flushDirtyPageHandler(fullId, pageBuf, tag);
+                    // First of all, write page to disk.
+                    storeMgr.write(fullId.groupId(), fullId.pageId(), pageBuf, tag);
 
-                AtomicInteger cntr = evictedPagesCntr;
+                    // Only after write we can write page into snapshot.
+                    snapshotMgr.flushDirtyPageHandler(fullId, pageBuf, tag);
 
-                if (cntr != null)
-                    cntr.incrementAndGet();
-            },
-            changeTracker,
-            this,
-            memMetrics,
-            resolveThrottlingPolicy(),
-            this
-        );
+                    AtomicInteger cntr = evictedPagesCntr;
+
+                    if (cntr != null)
+                        cntr.incrementAndGet();
+                },
+                changeTracker,
+                this,
+                memMetrics,
+                resolveThrottlingPolicy(),
+                this
+            );
+        }
+        else {
+            long[] cheatSizes = new long[RendezvousAffinityFunction.DFLT_PARTITION_COUNT + 1];
+
+            long partSize = (cacheSize - chpBufSize) / RendezvousAffinityFunction.DFLT_PARTITION_COUNT;
+            Arrays.fill(cheatSizes, partSize);
+
+            cheatSizes[cheatSizes.length - 1] = chpBufSize;
+
+            log.info("Starting hacked data region [name=" + plcCfg.getName() + ", partSize=" + U.readableSize(partSize, true) + ']');
+
+            pageMem = new PageMemoryHacked(
+                wrapMetricsMemoryProvider(memProvider, memMetrics),
+                cheatSizes,
+                cctx,
+                memCfg.getPageSize(),
+                null,
+                this,
+                memMetrics,
+                null
+            );
+        }
 
         memMetrics.pageMemory(pageMem);
 
