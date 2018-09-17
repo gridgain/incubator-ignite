@@ -202,25 +202,21 @@ class IgniteRelationProvider extends RelationProvider
         metadataPath: String,
         schema: Option[StructType],
         providerName: String,
-        parameters: Map[String, String]): Source = {
-        addIgniteOptimizations(sqlCtx)
+        parameters: Map[String, String]): Source =
         new IgniteStreamingSource(
             sqlCtx,
             schema,
             tableName(parameters),
             igniteContext(parameters, sqlCtx),
             parameters)
-    }
 
     /** @inheritdoc */
     override def createSink(
         sqlCtx: SQLContext,
         parameters: Map[String, String],
         partitionColumns: Seq[String],
-        outputMode: OutputMode): Sink = {
-        addIgniteOptimizations(sqlCtx)
+        outputMode: OutputMode): Sink =
         new IgniteStreamingSink(tableName(parameters), igniteContext(parameters, sqlCtx), parameters)
-    }
 
     /**
       * @param igniteCtx Ignite context.
@@ -229,14 +225,6 @@ class IgniteRelationProvider extends RelationProvider
       * @return Ignite SQL relation.
       */
     private def createRelation(igniteCtx: IgniteContext, tblName: String, sqlCtx: SQLContext): BaseRelation = {
-        addIgniteOptimizations(sqlCtx)
-        IgniteSQLRelation(
-            igniteCtx,
-            tblName,
-            sqlCtx)
-    }
-
-    private def addIgniteOptimizations(sqlCtx: SQLContext): Unit = {
         val optimizationDisabled =
             sqlCtx.sparkSession.conf.get(OPTION_DISABLE_SPARK_SQL_OPTIMIZATION, "false").toBoolean
 
@@ -252,6 +240,11 @@ class IgniteRelationProvider extends RelationProvider
             if (!optimizationExists)
                 experimentalMethods.extraOptimizations = experimentalMethods.extraOptimizations :+ IgniteOptimization
         }
+
+        IgniteSQLRelation(
+            igniteCtx,
+            tblName,
+            sqlCtx)
     }
 
     /**
