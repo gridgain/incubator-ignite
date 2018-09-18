@@ -819,9 +819,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     }
 
     /**
-     * @return Last finished topology future. Should be used for
+     * @return Last finishing topology future. Should be used for
      * {@link GridDhtTopologyFuture#validateCache(GridCacheContext, boolean, boolean, Object, Collection)} method
-     * invocation. Future might not be finished, but in this case it is in latest stages of finishing.
+     * invocation. Future might not be finished yet, but in this case it is in latest stages of finishing.
      */
     @Nullable public GridDhtTopologyFuture lastFinishedFuture() {
         IgniteBiTuple<GridDhtTopologyFuture, AffinityTopologyVersion> tpl = lastFinishedFut.get();
