@@ -79,25 +79,22 @@ public class GridCacheRebalancingFullMessageTest extends GridCommonAbstractTest 
     /**
      * {@inheritDoc}
      */
-    @Override
-    protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration dfltCfg = super
             .getConfiguration(igniteInstanceName)
             .setWorkDirectory(U.defaultWorkDirectory() + "/" + igniteInstanceName)
             .setNetworkTimeout(30_000L)
             .setCommunicationSpi(new TestRecordingCommunicationSpi());
 
-        CacheConfiguration[] cCfgs = new CacheConfiguration[10];
+        CacheConfiguration[] cCfgs = new CacheConfiguration[20];
 
-        for(int i = 0; i < 10; i++) {
+        for(int i = 0; i < 20; i++) {
 
             CacheConfiguration cCfgi = new CacheConfiguration<Integer, Integer>("cache_group_" + i)
                 .setCacheMode(CacheMode.PARTITIONED)
                 .setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC)
                 .setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL)
-                .setBackups(1)
-                .setOnheapCacheEnabled(true)
-                .setEvictionPolicyFactory(new FifoEvictionPolicyFactory<>(1000));
+                .setBackups(2);
 
 
             cCfgs[i] = cCfgi;
@@ -111,9 +108,9 @@ public class GridCacheRebalancingFullMessageTest extends GridCommonAbstractTest 
             .setDefaultDataRegionConfiguration(
                 new DataRegionConfiguration()
                     .setPersistenceEnabled(true)
-            )
-            .setWalSegments(5)
-            .setWalSegmentSize(1000000);
+            );
+//            .setWalSegments(5)
+//            .setWalSegmentSize(1000000);
 
         dfltCfg.setDataStorageConfiguration(dbCfg);
 
@@ -139,7 +136,7 @@ public class GridCacheRebalancingFullMessageTest extends GridCommonAbstractTest 
         final IgniteEx ignite0 = startGrid(0);
         startGrid(1);
         final IgniteEx ignite2 =  startGrid(2);
-//        startGrid(3);
+        startGrid(3);
 
         log.info(String.format("Coordinator order = %d", ignite0.cluster().node().order()));
 
@@ -148,47 +145,59 @@ public class GridCacheRebalancingFullMessageTest extends GridCommonAbstractTest 
         ignite0.cluster().active(true);
 
 
-        for(int i = 0; i < 10; i++) {
+        for(int i = 0; i < 20; i++) {
             IgniteCache<Integer, Integer> cache = ignite0.getOrCreateCache("cache_group_" + i);
 
-            for (int j = 0; j < 2048; j++)
+            for (int j = 0; j < 512; j++)
                 cache.put(j, j);
         }
 
         stopGrid(2);
+        stopGrid(3);
 
         TestRecordingCommunicationSpi.spi(ignite(0)).blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
             @Override public boolean apply(ClusterNode clusterNode, Message msg) {
-                return msg instanceof GridDhtPartitionsFullMessage &&
-                    ((GridDhtPartitionsFullMessage)msg).exchangeId() != null && clusterNode.order() == 5;// && checkPartState(ignite2, (GridDhtPartitionsFullMessage)msg);
+                boolean res = msg instanceof GridDhtPartitionsFullMessage &&
+                    ((GridDhtPartitionsFullMessage)msg).exchangeId() != null
+                    && ((GridDhtPartitionsFullMessage)msg).topologyVersion().topologyVersion() == 8
+                    && ((GridDhtPartitionsFullMessage)msg).topologyVersion().minorTopologyVersion() == 0
+                    && clusterNode.order() == 8;
+
+                if(res)
+                    log.info("Message should be blocked");
+
+                return res;
             }
         });
 
         U.sleep(1000L);
 
-//        ignite0.cluster().setBaselineTopology(ignite0.cluster().topologyVersion());
-
         U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), getTestIgniteInstanceName(2), false));
+        U.delete(U.resolveWorkDirectory(U.defaultWorkDirectory(), getTestIgniteInstanceName(3), false));
 
-        for(int i = 0; i < 10; i++) {
+        for(int i = 0; i < 20; i++) {
             IgniteCache<Integer, Integer> cache = ignite0.getOrCreateCache("cache_group_" + i);
 
-            for (int j = 2048; j < 4096; j++)
+            for (int j = 512; j < 1024; j++)
                 cache.put(j, j);
         }
 
-        log.info("Starting killed node");
+        log.info("Starting node 2");
 
         IgniteInternalFuture<IgniteEx> fut = GridTestUtils.runAsync(() -> startGrid(2));
 
         U.sleep(1_000L);
+
+        log.info("Starting node 3");
+
+        IgniteInternalFuture<IgniteEx> fut0 = GridTestUtils.runAsync(() -> startGrid(3));
 
         ExecutorService unblocker = Executors.newSingleThreadExecutor();
 
         unblocker.submit(new Runnable() {
             @Override public void run() {
                 try {
-                    U.sleep(20_000L);
+                    U.sleep(40_000L);
 
                     TestRecordingCommunicationSpi.spi(ignite(0)).stopBlock();
 
@@ -201,10 +210,7 @@ public class GridCacheRebalancingFullMessageTest extends GridCommonAbstractTest 
             }
         });
 
-//        log.info("Starting node 3");
 
-
-//        startGrid(3);
 
 //        U.sleep(10_000L);
 //
@@ -216,13 +222,15 @@ public class GridCacheRebalancingFullMessageTest extends GridCommonAbstractTest 
 //        startGrid(getTestIgniteInstanceName(3), optimize(getConfiguration(igniteClntName).setClientMode(true)));
 //        stopGrid(3);
 
-        IgniteEx ignite2a = fut.get();
+        IgniteEx ignite3a = fut0.get();
+        fut.get();
 
-        log.info("creating ex cache");
+        for(ClusterNode node : ignite3a.cluster().forServers().nodes())
+            System.out.println("Node order = " + node.order());
 
-        IgniteCache<Integer, Integer> newCache = ignite2a.getOrCreateCache("for_ex");
+        System.out.println(ignite3a.cluster().localNode().order());
 
-        log.info(String.format("loc UUID after restart = %s", ignite2a.context().localNodeId()));
+        log.info(String.format("loc UUID after restart = %s", ignite3a.context().localNodeId()));
 
 
 //        ignite0.cluster().setBaselineTopology(ignite0.cluster().topologyVersion());
@@ -232,16 +240,16 @@ public class GridCacheRebalancingFullMessageTest extends GridCommonAbstractTest 
 
         unblocker.shutdown();
 
-        boolean ok = true;
+        boolean correct = true;
 
-        for(int i = 0; i < 10; i++) {
+        for(int i = 0; i < 20; i++) {
             IgniteCache<Integer, Integer> cache = ignite0.getOrCreateCache("cache_group_" + i);
 
-            for(int j = 0; j < 4096; j++){
+            for(int j = 0; j < 1024; j++){
                 if(cache.get(j) == null || cache.get(j) != j) {
                     log.error(String.format("j = %d; val = %s", j, cache.get(j)));
 
-                    ok = false;
+                    correct = false;
 
                     break;
                 }
@@ -253,7 +261,7 @@ public class GridCacheRebalancingFullMessageTest extends GridCommonAbstractTest 
 //        CacheGroupMetricsMXBean mxBean1Grp1 = mxBean(2, "cache_group_4_118");
 
 //        assertTrue(mxBean1Grp1.getLocalNodeMovingPartitionsCount() != 0);
-        assertTrue(ok);
+        assertTrue(correct);
 
 //        String igniteClntName = getTestIgniteInstanceName(4);
 //        startGrid(getTestIgniteInstanceName(4), optimize(getConfiguration(igniteClntName).setClientMode(true)));

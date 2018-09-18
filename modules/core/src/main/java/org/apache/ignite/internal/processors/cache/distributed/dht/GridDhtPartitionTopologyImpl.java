@@ -1425,8 +1425,11 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     return false;
                 }
 
-                boolean fullMapUpdated = (node2part == null || exchangeVer != null);
-//                boolean fullMapUpdated = (node2part == null);
+//                if(exchangeVer != null)
+//                    node2part = null;
+
+//                boolean fullMapUpdated = (node2part == null || exchangeVer != null);
+                boolean fullMapUpdated = (node2part == null);
 
                 if (node2part != null) {
                     for (GridDhtPartitionMap part : node2part.values()) {
@@ -1561,6 +1564,11 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     nodeMap != null &&
                     grp.persistenceEnabled() &&
                     readyTopVer.initialized()) {
+
+                    boolean moving = false;
+
+                    boolean reb = false;
+
                     for (Map.Entry<Integer, GridDhtPartitionState> e : nodeMap.entrySet()) {
                         int p = e.getKey();
                         GridDhtPartitionState state = e.getValue();
@@ -1581,11 +1589,21 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                         else if (state == MOVING) {
                             boolean haveHistory = !partsToReload.contains(p);
 
+                            moving = true;
+
+                            reb = true;
+
                             rebalancePartition(p, haveHistory);
 
                             changed = true;
                         }
                     }
+
+                    if(reb)
+                        log.info(String.format("rebalancing started for group %s", grp.cacheOrGroupName()));
+
+                    if(!moving)
+                        log.info(String.format("cgn = %s; no parts in moving state", grp.cacheOrGroupName()));
                 }
 
                 long updateSeq = this.updateSeq.incrementAndGet();

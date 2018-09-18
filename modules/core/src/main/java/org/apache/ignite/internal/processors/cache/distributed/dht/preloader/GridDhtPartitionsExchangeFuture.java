@@ -3139,7 +3139,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 validator.validatePartitionCountersAndSizes(this, top, msgs);
             }
             catch (IgniteCheckedException ex) {
-                log.warning("Partition states validation has failed for group: " + grpDesc.cacheOrGroupName() + ". " + ex.getMessage());
+//                log.warning("Partition states validation has failed for group: " + grpDesc.cacheOrGroupName() + ". " + ex.getMessage());
+                log.warning("Partition states validation has failed for group: " + grpDesc.cacheOrGroupName());
                 // TODO: Handle such errors https://issues.apache.org/jira/browse/IGNITE-7833
             }
         }
@@ -3577,17 +3578,16 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
             CacheGroupContext grp = cctx.cache().cacheGroup(grpId);
 //
-            boolean res = msg.topologyVersion().topologyVersion() == 5
-                && msg.topologyVersion().minorTopologyVersion() == 3;
+            boolean res = msg.topologyVersion().topologyVersion() == 8;
 
             if(res) {
-//
-//                try {
-//                    U.sleep(500L);
-//                }
-//                catch (IgniteInterruptedCheckedException e) {
-//                    e.printStackTrace();
-//                }
+
+                try {
+                    U.sleep(2000L);
+                }
+                catch (IgniteInterruptedCheckedException e) {
+                    e.printStackTrace();
+                }
             }
 
             if (grp != null) {
