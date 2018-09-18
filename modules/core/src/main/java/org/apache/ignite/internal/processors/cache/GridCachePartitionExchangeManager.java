@@ -111,7 +111,6 @@ import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.lang.IgniteBiInClosure;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.thread.IgniteThread;
@@ -171,7 +170,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     @Nullable private volatile GridDhtPartitionsExchangeFuture lastInitializedFut;
 
     /** */
-    private final AtomicReference<IgniteBiTuple<GridDhtTopologyFuture, AffinityTopologyVersion>> lastFinishedFut = new AtomicReference<>();
+    private final AtomicReference<GridDhtTopologyFuture> lastFinishedFut = new AtomicReference<>();
 
     /** */
     private final ConcurrentMap<AffinityTopologyVersion, AffinityReadyFuture> readyFuts =
@@ -807,8 +806,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
      * @return Topology version of latest completed partition exchange.
      */
     public AffinityTopologyVersion readyAffinityVersion() {
-        IgniteBiTuple<GridDhtTopologyFuture, AffinityTopologyVersion> tpl = lastFinishedFut.get();
-        return tpl == null ? AffinityTopologyVersion.NONE : tpl.get2();
+        GridDhtTopologyFuture fut = lastFinishedFut.get();
+        return fut == null ? AffinityTopologyVersion.NONE : fut.topologyVersion();
     }
 
     /**
@@ -824,23 +823,18 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
      * invocation. Future might not be finished yet, but in this case it is in latest stages of finishing.
      */
     @Nullable public GridDhtTopologyFuture lastFinishedFuture() {
-        IgniteBiTuple<GridDhtTopologyFuture, AffinityTopologyVersion> tpl = lastFinishedFut.get();
-
-        return tpl == null ? null : tpl.get1();
+        return lastFinishedFut.get();
     }
 
     /**
      * @param fut Finished future. Might not be in the actual done state, but already in finishing process anyway.
-     * @param ver Version that is expected to be value of {@code fut} when it's done.
      */
-    public void lastFinishedFuture(GridDhtTopologyFuture fut, AffinityTopologyVersion ver) {
-        IgniteBiTuple<GridDhtTopologyFuture, AffinityTopologyVersion> tpl = new IgniteBiTuple<>(fut, ver);
-
+    public void lastFinishedFuture(GridDhtTopologyFuture fut) {
         while (true) {
-            IgniteBiTuple<GridDhtTopologyFuture, AffinityTopologyVersion> cur = lastFinishedFut.get();
+            GridDhtTopologyFuture cur = lastFinishedFut.get();
 
-            if (cur == null || ver.compareTo(cur.get2()) > 0) {
-                if (lastFinishedFut.compareAndSet(cur, tpl))
+            if (cur == null || fut.topologyVersion().compareTo(cur.topologyVersion()) > 0) {
+                if (lastFinishedFut.compareAndSet(cur, fut))
                     break;
             }
             else

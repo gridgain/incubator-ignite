@@ -26,8 +26,10 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
 /**
@@ -69,6 +71,8 @@ public class CacheResultIsNotNullOnPartitionLossTest extends GridCommonAbstractT
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
+        stopAllGrids();
+
         cleanPersistenceDir();
 
         startGrids(SERVERS);
@@ -102,28 +106,20 @@ public class CacheResultIsNotNullOnPartitionLossTest extends GridCommonAbstractT
         for (int i = 0; i < cacheEntriesCnt; i++)
             cache.put(i, i);
 
-        AtomicBoolean nullCacheValueFound = new AtomicBoolean(false);
+        AtomicBoolean stopReading = new AtomicBoolean();
 
-        // Read cache entries while servers are stopped one by one in separate thread.
-        Thread readerThread = new Thread() {
-            /** {@inheritDoc} */
-            @Override public void run() {
-                while (!isInterrupted())
-                    for (int i = 0; i < cacheEntriesCnt; i++) {
-                        try {
-                            if (cache.get(i) == null) {
-                                nullCacheValueFound.set(true);
-
-                                break;
-                            }
-                        }
-                        catch (Exception ignored) {
-                        }
+        IgniteInternalFuture<Boolean> nullCacheValFoundFut = GridTestUtils.runAsync(() -> {
+            while (!stopReading.get())
+                for (int i = 0; i < cacheEntriesCnt && !stopReading.get(); i++) {
+                    try {
+                        if (cache.get(i) == null)
+                            return true;
                     }
-            }
-        };
-
-        readerThread.start();
+                    catch (Exception ignored) {
+                    }
+                }
+            return false;
+        });
 
         for (int i = 0; i < SERVERS - 1; i++) {
             grid(i).close();
@@ -131,10 +127,9 @@ public class CacheResultIsNotNullOnPartitionLossTest extends GridCommonAbstractT
             Thread.sleep(50L);
         }
 
-        // Wait for reader thread to finish its execution.
-        readerThread.interrupt();
-        readerThread.join();
+        // Ask reader thread to finish its execution.
+        stopReading.set(true);
 
-        assertFalse("Null value was returned by cache.get instead of exception.", nullCacheValueFound.get());
+        assertFalse("Null value was returned by cache.get instead of exception.", nullCacheValFoundFut.get());
     }
 }

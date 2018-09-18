@@ -1620,7 +1620,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             exchActions.completeRequestFutures(cctx);
 
         if (err == null)
-            cctx.exchange().lastFinishedFuture(this, res);
+            cctx.exchange().lastFinishedFuture(this);
 
         if (stateChangeExchange() && err == null)
             cctx.kernalContext().state().onStateChangeExchangeDone(exchActions.stateChangeRequest());
