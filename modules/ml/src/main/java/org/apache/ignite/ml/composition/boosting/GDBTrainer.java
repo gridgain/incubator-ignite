@@ -232,7 +232,9 @@ public abstract class GDBTrainer extends DatasetTrainer<ModelsComposition, Doubl
         return new GDBLearningStrategy();
     }
 
-    /** */
+    /**
+     * GDB model.
+     */
     public static class GDBModel extends ModelsComposition {
         /** Serial version uid. */
         private static final long serialVersionUID = 3476661240155508004L;
