@@ -25,6 +25,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.mem.DirectMemoryRegion;
+import org.apache.ignite.internal.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagemem.FullPageId;
 import org.apache.ignite.internal.pagemem.PageIdAllocator;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
@@ -373,7 +374,7 @@ public class PageMemoryHacked implements PageMemoryEx {
 
         assert stateChecker.checkpointLockIsHeldByThread();
 
-        if (partId >= segments.length)
+        if (partId >= segments.length && partId != PageIdAllocator.INDEX_PARTITION)
             throw new IllegalArgumentException("Unexpected [part=" + partId +
                 ", parts=" + segments.length + ']');
 
@@ -493,7 +494,7 @@ public class PageMemoryHacked implements PageMemoryEx {
 
         int partId = PageIdUtils.partId(pageId);
 
-        if (partId >= segments.length)
+        if (partId >= segments.length && partId != PageIdAllocator.INDEX_PARTITION)
             throw new IllegalArgumentException("Unexpected [part=" + partId +
                 ", parts=" + segments.length + ']');
 
@@ -531,6 +532,10 @@ public class PageMemoryHacked implements PageMemoryEx {
 
                     memMetrics.onPageRead();
                 }
+
+                PageIO.setPageId(absPtr + PAGE_OVERHEAD, pageId);
+
+                actualPageId = pageId;
 
                 seg.setInitialized(absPtr);
             }
@@ -739,7 +744,7 @@ public class PageMemoryHacked implements PageMemoryEx {
         rwLock.readLock(absPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
 
         try {
-            copyInBuffer(absPtr + PAGE_OVERHEAD, outBuf);
+            copyInBuffer(absPtr, outBuf);
         }
         finally {
             rwLock.readUnlock(absPtr + PAGE_LOCK_OFFSET);
@@ -921,7 +926,7 @@ public class PageMemoryHacked implements PageMemoryEx {
 
         boolean locked = rwLock.writeLock(absPtr + PAGE_LOCK_OFFSET, tag);
 
-        return locked ? postWriteLockPage(absPtr, fullId) : 0;
+        return locked ? absPtr + PAGE_OVERHEAD : 0;
     }
 
     /**
@@ -1139,7 +1144,7 @@ public class PageMemoryHacked implements PageMemoryEx {
      * @return Segment.
      */
     private Segment segment(int grpId, long pageId) {
-        int idx = segmentIndex(grpId, pageId, segments.length);
+        int idx = segmentIndex(pageId, segments.length);
 
         return segments[idx];
     }
@@ -1148,13 +1153,13 @@ public class PageMemoryHacked implements PageMemoryEx {
      * @param pageId Page ID.
      * @return Segment index.
      */
-    public static int segmentIndex(int grpId, long pageId, int segments) {
-        pageId = PageIdUtils.effectivePageId(pageId);
+    public static int segmentIndex(long pageId, int segments) {
+        int partId = PageIdUtils.partId(pageId);
 
-        // Take a prime number larger than total number of partitions.
-        int hash = U.hash(pageId * 65537 + grpId);
+        if (partId == PageIdAllocator.INDEX_PARTITION)
+            return segments - 1;
 
-        return U.safeAbs(hash) % segments;
+        return partId;
     }
 
     /**
@@ -1406,7 +1411,7 @@ public class PageMemoryHacked implements PageMemoryEx {
 
                 GridUnsafe.setMemory(absPtr, sysPageSize, (byte)0);
 
-                rwLock.init(absPtr + PAGE_LOCK_OFFSET, 0);
+                rwLock.init(absPtr + PAGE_LOCK_OFFSET, 1);
             }
         }
 
@@ -1595,6 +1600,9 @@ public class PageMemoryHacked implements PageMemoryEx {
          * @return Absolute pointer.
          */
         private long absolute(long pageId) {
+            if (PageIdUtils.pageIndex(pageId) >= pages)
+                throw new IgniteOutOfMemoryException("No more pages available: " + U.hexLong(pageId));
+
             return pool.absolute(PageIdUtils.pageIndex(pageId));
         }
 

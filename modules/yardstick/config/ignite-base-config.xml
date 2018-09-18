@@ -36,13 +36,13 @@
                         <property name="persistenceEnabled" value="true"/>
                     </bean>
                 </property>
-                <property name="dataRegions">
+                <property name="dataRegionConfigurations">
                     <list>
                         <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
                             <property name="name" value="query"/>
                             <property name="hacked" value="true"/>
                             <property name="persistenceEnabled" value="true"/>
-                            <property name="maxSize" value="#{20L * 1024 * 1024 * 1024}"/>
+                            <property name="maxSize" value="#{25L * 1024 * 1024 * 1024}"/>
                         </bean>
                     </list>
                 </property>

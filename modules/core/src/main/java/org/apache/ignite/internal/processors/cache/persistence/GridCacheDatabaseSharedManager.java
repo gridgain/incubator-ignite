@@ -1100,14 +1100,15 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             );
         }
         else {
-            long[] cheatSizes = new long[RendezvousAffinityFunction.DFLT_PARTITION_COUNT + 1];
+            long[] cheatSizes = new long[RendezvousAffinityFunction.DFLT_PARTITION_COUNT + 2];
 
-            long partSize = (cacheSize - chpBufSize) / RendezvousAffinityFunction.DFLT_PARTITION_COUNT;
+            long idxPartSize = (cacheSize - chpBufSize) / 10;
+
+            long partSize = (cacheSize - chpBufSize - idxPartSize) / RendezvousAffinityFunction.DFLT_PARTITION_COUNT;
             Arrays.fill(cheatSizes, partSize);
 
+            cheatSizes[cheatSizes.length - 2] = idxPartSize;
             cheatSizes[cheatSizes.length - 1] = chpBufSize;
-
-            log.info("Starting hacked data region [name=" + plcCfg.getName() + ", partSize=" + U.readableSize(partSize, true) + ']');
 
             pageMem = new PageMemoryHacked(
                 wrapMetricsMemoryProvider(memProvider, memMetrics),
@@ -1119,6 +1120,13 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                 memMetrics,
                 null
             );
+
+            log.info("Starting hacked data region [name=" + plcCfg.getName() +
+                ", partSize=" + U.readableSize(partSize, true) +
+                ", partPages=" + (partSize / pageMem.systemPageSize()) +
+                ", idxPartSize=" + U.readableSize(idxPartSize, true) +
+                ", idxPartPages=" + (idxPartSize / pageMem.systemPageSize()) +
+                ']');
         }
 
         memMetrics.pageMemory(pageMem);

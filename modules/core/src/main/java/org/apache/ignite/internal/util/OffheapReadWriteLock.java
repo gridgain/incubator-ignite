@@ -97,7 +97,7 @@ public class OffheapReadWriteLock {
     public void init(long lock, int tag) {
         tag &= 0xFFFF;
 
-        assert tag != 0;
+        assert tag != 0 : tag;
 
         GridUnsafe.putLong(lock, (long)tag << 16);
     }

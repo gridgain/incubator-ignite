@@ -33,6 +33,7 @@ import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.yardstick.cache.model.Person;
 import org.yardstickframework.BenchmarkConfiguration;
+import org.yardstickframework.BenchmarkUtils;
 
 import static org.yardstickframework.BenchmarkUtils.println;
 
@@ -101,7 +102,12 @@ public class IgniteSqlQueryBenchmark extends IgniteCacheAbstractBenchmark<Intege
 
     /** {@inheritDoc} */
     @Override protected IgniteCache<Integer, Object> cache() {
-        return ignite().cache("query");
+        IgniteCache<Integer, Object> qryCache = ignite().getOrCreateCache("query");
+
+        BenchmarkUtils.println("Cache query: " + qryCache);
+        BenchmarkUtils.println("All caches: " + ignite().cacheNames());
+
+        return qryCache;
     }
 
     private static class EnableCheatRunnable implements IgniteRunnable {

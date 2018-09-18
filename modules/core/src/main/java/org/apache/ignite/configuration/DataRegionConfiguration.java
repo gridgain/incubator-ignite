@@ -142,8 +142,10 @@ public final class DataRegionConfiguration implements Serializable {
     /**
      * @param hacked
      */
-    public void setHacked(boolean hacked) {
+    public DataRegionConfiguration setHacked(boolean hacked) {
         this.hacked = hacked;
+
+        return this;
     }
 
     /**

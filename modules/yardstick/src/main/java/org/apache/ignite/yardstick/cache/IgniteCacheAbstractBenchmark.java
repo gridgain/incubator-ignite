@@ -28,16 +28,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.IgniteCache;
-import org.apache.ignite.IgniteCompute;
-import org.apache.ignite.IgniteDataStreamer;
-import org.apache.ignite.IgniteSemaphore;
+import java.util.concurrent.locks.LockSupport;
+
+import org.apache.ignite.*;
 import org.apache.ignite.cache.affinity.Affinity;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
+import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
 import org.apache.ignite.yardstick.cache.model.SampleValue;
 import org.yardstickframework.BenchmarkConfiguration;
@@ -107,7 +108,25 @@ public abstract class IgniteCacheAbstractBenchmark<K, V> extends IgniteAbstractB
     @Override public void setUp(BenchmarkConfiguration cfg) throws Exception {
         super.setUp(cfg);
 
+        BenchmarkUtils.println("Before activation");
+
         ignite().cluster().active(true);
+
+        ignite().compute(ignite().cluster().forServers()).broadcast(new IgniteRunnable() {
+            @IgniteInstanceResource
+            private Ignite ignite;
+
+            @Override
+            public void run() {
+                while (!ignite.cluster().active()) {
+                    LockSupport.parkNanos(500000);
+                }
+
+                ignite.log().error("Cluster is now active");
+            }
+        });
+
+        BenchmarkUtils.println("After activation: " + ignite().cluster().active());
 
         cache = cache();
 
