@@ -3583,7 +3583,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             if(res) {
 
                 try {
-                    U.sleep(2000L);
+                    U.sleep(500L);
                 }
                 catch (IgniteInterruptedCheckedException e) {
                     e.printStackTrace();

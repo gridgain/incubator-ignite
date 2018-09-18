@@ -1915,9 +1915,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             File dstFile = new File(walArchiveDir, name);
 
-//            if (log.isInfoEnabled())
-//                log.info("Starting to copy WAL segment [absIdx=" + absIdx + ", segIdx=" + segIdx +
-//                    ", origFile=" + origFile.getAbsolutePath() + ", dstFile=" + dstFile.getAbsolutePath() + ']');
+            if (log.isInfoEnabled())
+                log.info("Starting to copy WAL segment [absIdx=" + absIdx + ", segIdx=" + segIdx +
+                    ", origFile=" + origFile.getAbsolutePath() + ", dstFile=" + dstFile.getAbsolutePath() + ']');
 
             try {
                 Files.deleteIfExists(dstTmpFile.toPath());
@@ -1938,9 +1938,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                     ", dstFile=" + dstTmpFile.getAbsolutePath() + ']', e);
             }
 
-//            if (log.isInfoEnabled())
-//                log.info("Copied file [src=" + origFile.getAbsolutePath() +
-//                    ", dst=" + dstFile.getAbsolutePath() + ']');
+            if (log.isInfoEnabled())
+                log.info("Copied file [src=" + origFile.getAbsolutePath() +
+                    ", dst=" + dstFile.getAbsolutePath() + ']');
 
             return new SegmentArchiveResult(absIdx, origFile, dstFile);
         }
