@@ -73,7 +73,7 @@ public abstract class GridDhtTopologyFutureAdapter extends GridFutureAdapter<Aff
         @Nullable Object key,
         @Nullable Collection<?> keys
     ) {
-        assert isDone() : this;
+//        assert isDone() : this; // questionable
 
         Throwable err = error();
 

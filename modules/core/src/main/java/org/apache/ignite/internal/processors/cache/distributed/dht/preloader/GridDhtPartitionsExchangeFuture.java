@@ -1619,6 +1619,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         if (exchActions != null && err == null)
             exchActions.completeRequestFutures(cctx);
 
+        if (err == null)
+            cctx.exchange().lastFinishedFuture(this, res);
+
         if (stateChangeExchange() && err == null)
             cctx.kernalContext().state().onStateChangeExchangeDone(exchActions.stateChangeRequest());
 
@@ -1673,8 +1676,6 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 ((DiscoveryCustomEvent)firstDiscoEvt).customMessage(null);
 
             if (err == null) {
-                cctx.exchange().lastFinishedFuture(this);
-
                 if (exchCtx != null && (exchCtx.events().hasServerLeft() || exchCtx.events().hasServerJoin())) {
                     ExchangeDiscoveryEvents evts = exchCtx.events();
 
