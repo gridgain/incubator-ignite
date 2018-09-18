@@ -61,7 +61,7 @@ public abstract class CacheMvccAbstractFeatureTest extends CacheMvccAbstractTest
     private Ignite node;
 
     /** {@inheritDoc} */
-    protected CacheMode cacheMode() {
+    @Override protected CacheMode cacheMode() {
         return PARTITIONED;
     }
 
@@ -69,18 +69,25 @@ public abstract class CacheMvccAbstractFeatureTest extends CacheMvccAbstractTest
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
+        cleanPersistenceDir();
+
         startGrids(4);
 
         node = grid(0);
     }
 
     /** {@inheritDoc} */
-    @Override protected void beforeTest() throws Exception {
-        super.beforeTest();
+    @Override protected void afterTestsStopped() throws Exception {
+        stopAllGrids();
 
+        super.afterTestsStopped();
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void beforeTest() throws Exception {
         CacheConfiguration<Integer, Person> ccfg = new CacheConfiguration<>(CACHE_NAME);
 
-        ccfg.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+        ccfg.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT);
 
         ccfg.setIndexedTypes(Integer.class, Person.class);
 
@@ -93,8 +100,6 @@ public abstract class CacheMvccAbstractFeatureTest extends CacheMvccAbstractTest
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         node.destroyCache(CACHE_NAME);
-
-        super.afterTest();
     }
 
     /**

@@ -71,7 +71,6 @@ import org.apache.ignite.internal.util.lang.GridInClosure3;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.X;
-import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -89,13 +88,15 @@ import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.ReadMode.SCAN;
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.ReadMode.SQL;
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.ReadMode.SQL_SUM;
 import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.WriteMode.DML;
+import static org.apache.ignite.internal.processors.cache.mvcc.CacheMvccAbstractTest.WriteMode.PUT;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
@@ -160,10 +161,8 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
 
-        cfg.setMvccEnabled(true);
-
         if (disableScheduledVacuum)
-            cfg.setMvccVacuumTimeInterval(Integer.MAX_VALUE);
+            cfg.setMvccVacuumFrequency(Integer.MAX_VALUE);
 
         ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(IP_FINDER);
 
@@ -868,6 +867,9 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
         ReadMode readMode,
         WriteMode writeMode
     ) throws Exception {
+        if(readMode == SCAN && writeMode == PUT)
+            fail("https://issues.apache.org/jira/browse/IGNITE-7764");
+
         final int RANGE = 20;
 
         final int writers = 4;
@@ -1052,6 +1054,9 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
     )
         throws Exception
     {
+        if(readMode == SCAN && writeMode == PUT)
+            fail("https://issues.apache.org/jira/browse/IGNITE-7764");
+
         final int TOTAL = 20;
 
         assert N <= TOTAL;
@@ -1430,7 +1435,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
         CacheConfiguration<Object, Object> ccfg = new CacheConfiguration<>(DEFAULT_CACHE_NAME);
 
         ccfg.setCacheMode(cacheMode);
-        ccfg.setAtomicityMode(TRANSACTIONAL);
+        ccfg.setAtomicityMode(TRANSACTIONAL_SNAPSHOT);
         ccfg.setWriteSynchronizationMode(syncMode);
         ccfg.setAffinity(new RendezvousAffinityFunction(false, parts));
 
@@ -1456,7 +1461,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
         for (Ignite node : G.allGrids()) {
             final MvccProcessorImpl crd = mvccProcessor(node);
 
-            if (crd == null)
+            if (!crd.mvccEnabled())
                 continue;
 
             crd.stopVacuumWorkers(); // to prevent new futures creation.
@@ -1501,7 +1506,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
      *
      * @throws Exception If failed.
      */
-    private void verifyOldVersionsCleaned() throws Exception {
+    protected void verifyOldVersionsCleaned() throws Exception {
         runVacuumSync();
 
         // Check versions.
@@ -1531,8 +1536,8 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
                 if (!cctx.userCache() || !cctx.group().mvccEnabled())
                     continue;
 
-                for (Object e : cache.withKeepBinary()) {
-                    IgniteBiTuple entry = (IgniteBiTuple)e;
+                for (Iterator it = cache.withKeepBinary().iterator(); it.hasNext(); ) {
+                    IgniteBiTuple entry = (IgniteBiTuple)it.next();
 
                     KeyCacheObject key = cctx.toCacheKeyObject(entry.getKey());
 
@@ -1541,9 +1546,12 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
 
                     if (vers.size() > 1) {
                         if (failIfNotCleaned)
-                            fail("[key="  + key.value(null, false) + "; vers=" + vers + ']');
-                        else
+                            fail("[key=" + key.value(null, false) + "; vers=" + vers + ']');
+                        else {
+                            U.closeQuiet((AutoCloseable)it);
+
                             return false;
+                        }
                     }
                 }
             }
@@ -1565,8 +1573,10 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
             if (!node.configuration().isClientMode()) {
                 MvccProcessorImpl crd = mvccProcessor(node);
 
-                if (crd == null)
+                if (!crd.mvccEnabled() || GridTestUtils.getFieldValue(crd, "vacuumWorkers") == null)
                     continue;
+
+                assert GridTestUtils.getFieldValue(crd, "txLog") != null;
 
                 Throwable vacuumError = crd.vacuumError();
 
@@ -1579,7 +1589,7 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
         fut.markInitialized();
 
         // Wait vacuum finished.
-        fut.get();
+        fut.get(getTestTimeout());
     }
 
     /**
@@ -1592,12 +1602,6 @@ public abstract class CacheMvccAbstractTest extends GridCommonAbstractTest {
         MvccProcessor crd = ctx.coordinators();
 
         assertNotNull(crd);
-
-        if (crd instanceof NoOpMvccProcessor) {
-            assertFalse(MvccUtils.mvccEnabled(ctx));
-
-            return null;
-        }
 
         return (MvccProcessorImpl)crd;
     }

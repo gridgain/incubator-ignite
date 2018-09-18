@@ -33,7 +33,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
@@ -50,8 +50,6 @@ public class CacheMvccClusterRestartTest extends GridCommonAbstractTest {
         IgniteConfiguration cfg = super.getConfiguration(gridName);
 
         cfg.setConsistentId(gridName);
-
-        cfg.setMvccEnabled(true);
 
         ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(IP_FINDER);
 
@@ -74,25 +72,29 @@ public class CacheMvccClusterRestartTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTestsStopped() throws Exception {
-        cleanPersistenceDir();
-
         super.afterTestsStopped();
+
+        stopAllGrids();
+
+        cleanPersistenceDir();
     }
 
     /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
-        super.beforeTest();
+        fail("https://issues.apache.org/jira/browse/IGNITE-9394");
 
         cleanPersistenceDir();
+
+        super.beforeTest();
     }
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
-        cleanPersistenceDir();
+        super.afterTest();
 
         stopAllGrids();
 
-        super.afterTest();
+        cleanPersistenceDir();
     }
 
     /**
@@ -124,8 +126,6 @@ public class CacheMvccClusterRestartTest extends GridCommonAbstractTest {
     private void restart1(int srvBefore, int srvAfter) throws Exception {
         Ignite srv0 = startGridsMultiThreaded(srvBefore);
 
-        srv0.active(true);
-
         IgniteCache<Object, Object> cache = srv0.createCache(cacheConfiguration());
 
         Set<Integer> keys = new HashSet<>(primaryKeys(cache, 1, 0));
@@ -140,8 +140,6 @@ public class CacheMvccClusterRestartTest extends GridCommonAbstractTest {
         stopAllGrids();
 
         srv0 = startGridsMultiThreaded(srvAfter);
-
-        srv0.active(true);
 
         cache = srv0.cache(DEFAULT_CACHE_NAME);
 
@@ -170,7 +168,7 @@ public class CacheMvccClusterRestartTest extends GridCommonAbstractTest {
         CacheConfiguration<Object, Object> ccfg = new CacheConfiguration<>(DEFAULT_CACHE_NAME);
 
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
-        ccfg.setAtomicityMode(TRANSACTIONAL);
+        ccfg.setAtomicityMode(TRANSACTIONAL_SNAPSHOT);
         ccfg.setBackups(2);
 
         return ccfg;
