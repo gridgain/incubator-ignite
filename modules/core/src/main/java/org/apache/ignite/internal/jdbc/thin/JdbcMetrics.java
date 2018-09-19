@@ -5,7 +5,7 @@ import java.io.Writer;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Metrics for thin driver.
+ * JDBC query metrics.
  */
 public class JdbcMetrics {
     /** Intervals. */
@@ -73,6 +73,9 @@ public class JdbcMetrics {
         /** Counter for long requests. */
         private final LongAdder durLongCtr = new LongAdder();
 
+        /** Total duration. */
+        private final LongAdder totalDur = new LongAdder();
+
         /**
          * Constructor.
          */
@@ -92,6 +95,8 @@ public class JdbcMetrics {
          */
         private void onQueryExecuted(long dur) {
             qryCtr.increment();
+
+            totalDur.add(dur);
 
             if (dur < 0) {
                 durCtrs[0].increment();
@@ -117,8 +122,18 @@ public class JdbcMetrics {
         /** {@inheritDoc} */
         @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
         @Override public String toString() {
-            StringBuilder sb =
-                new StringBuilder("[queries=" + qryCtr.longValue());
+            long qryCtrVal = qryCtr.longValue();
+
+            StringBuilder sb = new StringBuilder("[queries=" + qryCtrVal);
+
+            double meanLat;
+
+            if (qryCtrVal != 0)
+                meanLat = (double)totalDur.longValue() / qryCtr.longValue();
+            else
+                meanLat = 0;
+
+            sb.append(", " + "meanLat=" + meanLat);
 
             for (int i = 0; i < INTERVALS; i++) {
                 long durVal = durCtrs[i].longValue();

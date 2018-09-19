@@ -59,6 +59,9 @@ public class ClientListenerMetrics {
         /** Counter for long requests. */
         private final LongAdder durLongCtr = new LongAdder();
 
+        /** Total duration. */
+        private final LongAdder totalDur = new LongAdder();
+
         /**
          * Constructor.
          */
@@ -86,6 +89,8 @@ public class ClientListenerMetrics {
         private void onQueryExecuted(long dur) {
             qryCtr.increment();
 
+            totalDur.add(dur);
+
             if (dur < 0) {
                 durCtrs[0].increment();
 
@@ -110,8 +115,18 @@ public class ClientListenerMetrics {
         /** {@inheritDoc} */
         @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
         @Override public String toString() {
-            StringBuilder sb =
-                new StringBuilder("[connections=" + connCtr.longValue() + ", queries=" + qryCtr.longValue());
+            long qryCtrVal = qryCtr.longValue();
+
+            StringBuilder sb = new StringBuilder("[connections=" + connCtr.longValue() + ", queries=" + qryCtrVal);
+
+            double meanLat;
+
+            if (qryCtrVal != 0)
+                meanLat = (double)totalDur.longValue() / qryCtr.longValue();
+            else
+                meanLat = 0;
+
+            sb.append(", " + "meanLat=" + meanLat);
 
             for (int i = 0; i < INTERVALS; i++) {
                 long durVal = durCtrs[i].longValue();
