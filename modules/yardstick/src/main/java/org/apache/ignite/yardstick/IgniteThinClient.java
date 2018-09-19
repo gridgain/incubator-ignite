@@ -79,7 +79,7 @@ public class IgniteThinClient {
         String hostPort = host + ":10800";
 
         if(host == null)
-            System.out.println("Expecting to find connection string in property file.");
+            BenchmarkUtils.println("Expecting to find connection string in property file.");
 
         if(cfg.customProperties().get("CONN_STR") != null)
             hostPort=cfg.customProperties().get("CONN_STR");

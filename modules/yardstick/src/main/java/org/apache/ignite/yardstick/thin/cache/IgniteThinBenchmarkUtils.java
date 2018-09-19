@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import org.yardstickframework.BenchmarkConfiguration;
+import org.yardstickframework.BenchmarkUtils;
 
 /**
  * Thin client benchmark utils.
@@ -88,7 +89,7 @@ public class IgniteThinBenchmarkUtils {
      */
     public static String[] servHostArr(BenchmarkConfiguration cfg){
         if(cfg.customProperties().get("SERVER_HOSTS") == null) {
-            System.out.println("Server hosts is not defined. Returning empty array.");
+            BenchmarkUtils.println("Server hosts is not defined. Returning empty array.");
 
             return new String[] {};
         }
