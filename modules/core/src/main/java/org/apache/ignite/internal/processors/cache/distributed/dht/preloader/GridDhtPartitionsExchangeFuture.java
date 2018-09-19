@@ -1614,13 +1614,13 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
         cctx.exchange().onExchangeDone(res, initialVersion(), err);
 
+        if (err == null)
+            cctx.exchange().lastFinishedFuture(this);
+
         cctx.kernalContext().authentication().onActivate();
 
         if (exchActions != null && err == null)
             exchActions.completeRequestFutures(cctx);
-
-        if (err == null)
-            cctx.exchange().lastFinishedFuture(this);
 
         if (stateChangeExchange() && err == null)
             cctx.kernalContext().state().onStateChangeExchangeDone(exchActions.stateChangeRequest());
