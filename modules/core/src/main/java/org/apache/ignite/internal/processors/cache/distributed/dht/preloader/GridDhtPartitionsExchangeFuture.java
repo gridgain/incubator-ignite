@@ -1612,10 +1612,10 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
         cctx.cache().onExchangeDone(initialVersion(), exchActions, err);
 
-        cctx.exchange().onExchangeDone(res, initialVersion(), err);
-
         if (err == null)
             cctx.exchange().lastFinishedFuture(this);
+
+        cctx.exchange().onExchangeDone(res, initialVersion(), err);
 
         cctx.kernalContext().authentication().onActivate();
 
