@@ -230,6 +230,10 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     /** Distributed latch manager. */
     private ExchangeLatchManager latchMgr;
 
+    private AtomicBoolean exchangeInProgress = new AtomicBoolean();
+
+    private AffinityTopologyVersion lastUpdatedTopVer;
+
     /** Discovery listener. */
     private final DiscoveryEventListener discoLsnr = new DiscoveryEventListener() {
         @Override public void onEvent(DiscoveryEvent evt, DiscoCache cache) {
@@ -372,11 +376,16 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         cctx.io().addCacheHandler(0, GridDhtPartitionsFullMessage.class,
             new MessageHandler<GridDhtPartitionsFullMessage>() {
                 @Override public void onMessage(ClusterNode node, GridDhtPartitionsFullMessage msg) {
-                    boolean res = msg.topologyVersion().topologyVersion() == 5
-                        && msg.topologyVersion().minorTopologyVersion() == 3;
+                    boolean res = msg.topologyVersion().topologyVersion() == 8
+                        && msg.topologyVersion().minorTopologyVersion() == 3
+                        && cctx.localNode().order() == 7;
 
-                    if(res)
+                    GridDhtPartitionExchangeId id = msg.exchangeId();
+
+                    if(res) {
                         log.info("breakpoint. setSize = " + msg.partitions().entrySet().size());
+                        log.info("breakpoint. setSize = " + msg.partitions().entrySet().size());
+                    }
 
                     processFullPartitionUpdate(node, msg);
                 }
@@ -1516,11 +1525,31 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                 boolean updated = false;
 
-                boolean res = msg.topologyVersion().topologyVersion() == 5
-                    && msg.topologyVersion().minorTopologyVersion() == 3;
+                AffinityTopologyVersion msgVer = msg.topologyVersion();
+
+                while (exchangeInProgress.get()
+                    && lastUpdatedTopVer.topologyVersion() <= msgVer.topologyVersion()
+                    && lastUpdatedTopVer.minorTopologyVersion() <= msgVer.minorTopologyVersion()){
+                    try {
+                        U.sleep(100L);
+                    }
+                    catch (Exception e0){
+                        log.error("", e0);
+                    }
+
+                    log.info("exchangeInProgress");
+
+                }
+
+
+
+                boolean res = msg.topologyVersion().topologyVersion() == 8
+                    && msg.topologyVersion().minorTopologyVersion() == 3
+                    && cctx.localNode().order() == 7;
 
                 if(res)
                     log.info("process breakpoint. setSize = " + msg.partitions().entrySet().size());
+
 
                 for (Map.Entry<Integer, GridDhtPartitionFullMap> entry : msg.partitions().entrySet()) {
                     Integer grpId = entry.getKey();
@@ -1535,6 +1564,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                         top = grp.topology();
 
 //                    log.info("top = " + top);
+
+                    log.info(String.format("Starting update. exchangeInProgress = %b", exchangeInProgress.get()));
 
                     if (top != null) {
                         updated |= top.update(null,
@@ -1562,9 +1593,22 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 if (!hasMovingParts)
                     cctx.database().releaseHistoryForPreloading();
             }
-            else
+            else {
+                exchangeInProgress.set(true);
+
+                lastUpdatedTopVer = msg.topologyVersion();
+
+                log.info("++++++++++++++++++++++++++++++++++");
+
                 exchangeFuture(msg.exchangeId(), null, null, null, null).onReceiveFullMessage(node, msg);
+
+                log.info("----------------------------------");
+
+                exchangeInProgress.set(false);
+            }
+
         }
+
         finally {
             leaveBusy();
         }

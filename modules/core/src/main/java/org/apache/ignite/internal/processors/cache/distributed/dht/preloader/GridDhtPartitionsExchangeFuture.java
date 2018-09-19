@@ -3543,7 +3543,24 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 return;
             }
 
-            updatePartitionFullMap(resTopVer, msg);
+            boolean res = msg.topologyVersion().topologyVersion() == 8
+                && msg.topologyVersion().minorTopologyVersion() == 3
+                && cctx.localNode().order() == 7;
+
+            if(res) {
+                log.info("res");
+
+                try {
+                    Thread.sleep(5000L);
+                }
+                catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                updatePartitionFullMap(resTopVer, msg);
+            }
+            else
+                updatePartitionFullMap(resTopVer, msg);
 
             IgniteCheckedException err = null;
 
@@ -3583,7 +3600,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             if(res) {
 
                 try {
-                    U.sleep(500L);
+                    U.sleep(1000L);
                 }
                 catch (IgniteInterruptedCheckedException e) {
                     e.printStackTrace();

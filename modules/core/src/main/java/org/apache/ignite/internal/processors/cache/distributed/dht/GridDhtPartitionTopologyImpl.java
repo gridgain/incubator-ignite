@@ -1375,8 +1375,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                 else
                     log.info(String.format("grp = %s... exchangeVer == null topVer = %d minVer = %d ", grp.cacheOrGroupName(), tv, mv));
 
-                if(node2part != null && partMap != null)
-                    log.info(String.format("grp = %s... node2part.updateSequence() = %d; partMap.updateSequence() = %d", grp.cacheOrGroupName(), node2part.updateSequence(), partMap.updateSequence()));
+//                if(node2part != null && partMap != null)
+//                    log.info(String.format("grp = %s... node2part.updateSequence() = %d; partMap.updateSequence() = %d", grp.cacheOrGroupName(), node2part.updateSequence(), partMap.updateSequence()));
 
 
                 if (stopping || !lastTopChangeVer.initialized() ||
@@ -1426,8 +1426,8 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     return false;
                 }
 
-                if(exchangeVer != null)
-                    node2part = null;
+//                if(exchangeVer != null)
+//                    node2part = null;
 
 //                boolean fullMapUpdated = (node2part == null || exchangeVer != null);
                 boolean fullMapUpdated = (node2part == null);
