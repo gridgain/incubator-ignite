@@ -87,6 +87,12 @@ public class IgniteThinBenchmarkUtils {
      * @return {@code Array} of server host addresses.
      */
     public static String[] servHostArr(BenchmarkConfiguration cfg){
+        if(cfg.customProperties().get("SERVER_HOSTS") == null) {
+            System.out.println("Server hosts is not defined. Returning empty array.");
+
+            return new String[] {};
+        }
+
         String servHosts = cfg.customProperties().get("SERVER_HOSTS");
 
         return servHosts.split(",");

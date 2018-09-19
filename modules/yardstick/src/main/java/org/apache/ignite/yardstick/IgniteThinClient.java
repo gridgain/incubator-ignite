@@ -24,6 +24,8 @@ import java.util.Map;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.SslMode;
+import org.apache.ignite.client.SslProtocol;
 import org.apache.ignite.configuration.ClientConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -76,9 +78,52 @@ public class IgniteThinClient {
 
         String hostPort = host + ":10800";
 
+        if(host == null)
+            System.out.println("Expecting to find connection string in property file.");
+
+        if(cfg.customProperties().get("CONN_STR") != null)
+            hostPort=cfg.customProperties().get("CONN_STR");
+
         BenchmarkUtils.println(String.format("Using for connection address: %s", hostPort));
 
         clCfg.setAddresses(hostPort);
+
+        if(cfg.customProperties().get("SSL_MODE") != null
+            && cfg.customProperties().get("SSL_MODE").toLowerCase().equals("true")) {
+
+            String username = "ignite"; // This is a pre-defined username provided by GG Cloud.
+
+            String pwd = "myclusterpassword"; // Provide actual cluster password from the "Cluster Info" dialog.
+
+            String sslPwd = "****************"; // Provide actual SSL password from the "Cluster Info" dialog.
+
+            String keyStore = "/path/to/SSL/keyStore.jks"; // Provide the path where the file is stored after downloading from GG Cloud.
+
+            if (cfg.customProperties().get("USER_NAME") != null)
+                username = cfg.customProperties().get("USER_NAME");
+
+            if (cfg.customProperties().get("CLUSTER_PWD") != null)
+                pwd = cfg.customProperties().get("CLUSTER_PWD");
+
+            if (cfg.customProperties().get("SSL_PWD") != null)
+                sslPwd = cfg.customProperties().get("SSL_PWD");
+
+            if (cfg.customProperties().get("KEY_STORE") != null)
+                keyStore = cfg.customProperties().get("KEY_STORE");
+
+            clCfg.setUserName(username)
+                .setUserPassword(pwd)
+                .setSslMode(SslMode.REQUIRED)
+                .setSslClientCertificateKeyStorePath(keyStore)
+                .setSslClientCertificateKeyStoreType("JKS")
+                .setSslClientCertificateKeyStorePassword(sslPwd)
+                .setSslTrustCertificateKeyStorePath(keyStore)
+                .setSslTrustCertificateKeyStoreType("JKS")
+                .setSslTrustCertificateKeyStorePassword(sslPwd)
+                .setSslKeyAlgorithm("SunX509")
+                .setSslTrustAll(false)
+                .setSslProtocol(SslProtocol.TLS);
+        }
 
         client = Ignition.startClient(clCfg);
 

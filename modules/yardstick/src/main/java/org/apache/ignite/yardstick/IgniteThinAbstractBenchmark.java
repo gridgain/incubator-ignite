@@ -59,6 +59,9 @@ public abstract class IgniteThinAbstractBenchmark extends BenchmarkDriverAdapter
                         if (servHosts == null || servHosts.isEmpty())
                             setServHosts(cfg);
 
+                        if(servHosts.isEmpty())
+                            return new IgniteThinClient().start(cfg, null);
+
                         return new IgniteThinClient().start(cfg, servHosts.poll());
                     }
                     catch (Exception e) {
