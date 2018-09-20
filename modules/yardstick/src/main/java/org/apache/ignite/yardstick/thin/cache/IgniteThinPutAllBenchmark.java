@@ -29,7 +29,7 @@ public class IgniteThinPutAllBenchmark extends IgniteThinCacheAbstractBenchmark<
     @Override public boolean test(Map<Object, Object> ctx) throws Exception {
         Map<Integer, Integer> vals = new HashMap<>();
 
-        for (int i = 0; i < 500; i++ )
+        for (int i = 0; i < args.batch(); i++ )
             vals.put(i, nextRandom(1000));
 
         cache().putAll(vals);
