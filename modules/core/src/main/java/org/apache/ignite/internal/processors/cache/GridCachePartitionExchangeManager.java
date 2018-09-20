@@ -1528,7 +1528,6 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         ExecutorService excServ = Executors.newSingleThreadExecutor();
 
         try {
-
             if (msg.exchangeId() != null){
                 updFut = excServ.submit(new Runnable() {
                     @Override public void run() {
