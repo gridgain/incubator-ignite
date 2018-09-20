@@ -125,7 +125,7 @@ public class GridNearOptimisticTxPrepareFuture extends GridNearOptimisticTxPrepa
                     ClusterTopologyCheckedException e = new ClusterTopologyCheckedException("Remote node left grid: " +
                         nodeId);
 
-                    e.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.topologyVersion()));
+                    e.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.affinityVersion()));
 
                     f.onNodeLeft(e, true);
 
@@ -360,7 +360,7 @@ public class GridNearOptimisticTxPrepareFuture extends GridNearOptimisticTxPrepa
     private void prepareSingle(IgniteTxEntry write, boolean topLocked, boolean remap) {
         write.clearEntryReadVersion();
 
-        AffinityTopologyVersion topVer = tx.topologyVersion();
+        AffinityTopologyVersion topVer = tx.affinityVersion();
 
         assert topVer.topologyVersion() > 0;
 
@@ -423,7 +423,7 @@ public class GridNearOptimisticTxPrepareFuture extends GridNearOptimisticTxPrepa
         boolean topLocked,
         boolean remap
     ) {
-        AffinityTopologyVersion topVer = tx.topologyVersion();
+        AffinityTopologyVersion topVer = tx.affinityVersion();
 
         assert topVer.topologyVersion() > 0;
 
@@ -546,7 +546,7 @@ public class GridNearOptimisticTxPrepareFuture extends GridNearOptimisticTxPrepa
         if (isDone())
             return;
 
-        boolean set = cctx.tm().setTxTopologyHint(tx.topologyVersionSnapshot());
+        boolean set = cctx.tm().setTxTopologyHint(tx.affinityVersionSnapshot());
 
         try {
             assert !m.empty();
@@ -558,7 +558,7 @@ public class GridNearOptimisticTxPrepareFuture extends GridNearOptimisticTxPrepa
             if (timeout != -1) {
                 GridNearTxPrepareRequest req = new GridNearTxPrepareRequest(
                     futId,
-                    tx.topologyVersion(),
+                    tx.affinityVersion(),
                     tx,
                     timeout,
                     null,
@@ -627,7 +627,7 @@ public class GridNearOptimisticTxPrepareFuture extends GridNearOptimisticTxPrepa
                         }
                     }
                     catch (ClusterTopologyCheckedException e) {
-                        e.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.topologyVersion()));
+                        e.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.affinityVersion()));
 
                         fut.onNodeLeft(e, false);
                     }
@@ -838,7 +838,7 @@ public class GridNearOptimisticTxPrepareFuture extends GridNearOptimisticTxPrepa
                                 nearVer,
                                 "GridNearOptimisticTxPrepareFuture waiting for remote node response [" +
                                     "nodeId=" + nodeId +
-                                    ", topVer=" + tx.topologyVersion() +
+                                    ", topVer=" + tx.affinityVersion() +
                                     ", dhtVer=" + dhtVer +
                                     ", nearVer=" + nearVer +
                                     ", futId=" + futId +
@@ -850,7 +850,7 @@ public class GridNearOptimisticTxPrepareFuture extends GridNearOptimisticTxPrepa
                                 cctx.localNodeId(),
                                 "GridNearOptimisticTxPrepareFuture waiting for remote node response [" +
                                     "nodeId=" + nodeId +
-                                    ", topVer=" + tx.topologyVersion() +
+                                    ", topVer=" + tx.affinityVersion() +
                                     ", dhtVer=" + dhtVer +
                                     ", nearVer=" + nearVer +
                                     ", futId=" + futId +
@@ -865,7 +865,7 @@ public class GridNearOptimisticTxPrepareFuture extends GridNearOptimisticTxPrepa
                             cctx.localNodeId(),
                             "GridNearOptimisticTxPrepareFuture waiting for local keys lock [" +
                                 "node=" + cctx.localNodeId() +
-                                ", topVer=" + tx.topologyVersion() +
+                                ", topVer=" + tx.affinityVersion() +
                                 ", allKeysAdded=" + keyFut.allKeysAdded +
                                 ", keys=" + keyFut.lockKeys + ']');
                     }

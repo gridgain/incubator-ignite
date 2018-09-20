@@ -164,7 +164,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
         assert key != null;
         assert mvccSnapshot == null || cctx.mvccEnabled();
 
-        AffinityTopologyVersion lockedTopVer = cctx.shared().lockedTopologyVersion(null);
+        AffinityTopologyVersion lockedTopVer = cctx.shared().lockedAffinityVersion(null);
 
         if (lockedTopVer != null) {
             topVer = lockedTopVer;
@@ -200,7 +200,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
      */
     public void init() {
         AffinityTopologyVersion topVer = this.topVer.topologyVersion() > 0 ? this.topVer :
-            canRemap ? cctx.affinity().affinityTopologyVersion() : cctx.shared().exchange().readyAffinityVersion();
+            canRemap ? cctx.affinity().affinityVersion() : cctx.shared().exchange().readyAffinityVersion();
 
         GridDhtTopologyFuture topFut = cctx.shared().exchange().lastFinishedFuture();
 

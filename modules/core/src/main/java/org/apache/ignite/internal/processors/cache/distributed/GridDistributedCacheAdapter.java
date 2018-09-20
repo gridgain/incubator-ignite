@@ -177,7 +177,7 @@ public abstract class GridDistributedCacheAdapter<K, V> extends GridCacheAdapter
             do {
                 retry = false;
 
-                topVer = ctx.affinity().affinityTopologyVersion();
+                topVer = ctx.affinity().affinityVersion();
 
                 // Send job to all data nodes.
                 Collection<ClusterNode> nodes = ctx.grid().cluster().forDataNodes(name()).nodes();
@@ -189,7 +189,7 @@ public abstract class GridDistributedCacheAdapter<K, V> extends GridCacheAdapter
                         new RemoveAllTask(ctx.name(), topVer, skipStore, keepBinary), null).get();
                 }
             }
-            while (ctx.affinity().affinityTopologyVersion().compareTo(topVer) != 0 || retry);
+            while (ctx.affinity().affinityVersion().compareTo(topVer) != 0 || retry);
         }
         catch (ClusterGroupEmptyCheckedException ignore) {
             if (log.isDebugEnabled())
@@ -201,7 +201,7 @@ public abstract class GridDistributedCacheAdapter<K, V> extends GridCacheAdapter
     @Override public IgniteInternalFuture<?> removeAllAsync() {
         GridFutureAdapter<Void> opFut = new GridFutureAdapter<>();
 
-        AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
+        AffinityTopologyVersion topVer = ctx.affinity().affinityVersion();
 
         CacheOperationContext opCtx = ctx.operationContextPerCall();
 
@@ -234,7 +234,7 @@ public abstract class GridDistributedCacheAdapter<K, V> extends GridCacheAdapter
                     try {
                         boolean retry = !fut.get();
 
-                        AffinityTopologyVersion topVer0 = ctx.affinity().affinityTopologyVersion();
+                        AffinityTopologyVersion topVer0 = ctx.affinity().affinityVersion();
 
                         if (topVer0.equals(topVer) && !retry)
                             opFut.onDone();
@@ -273,7 +273,7 @@ public abstract class GridDistributedCacheAdapter<K, V> extends GridCacheAdapter
 
         // Swap and offheap are disabled for near cache.
         if (modes.primary || modes.backup) {
-            AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
+            AffinityTopologyVersion topVer = ctx.affinity().affinityVersion();
 
             IgniteCacheOffheapManager offheap = ctx.offheap();
 
@@ -301,7 +301,7 @@ public abstract class GridDistributedCacheAdapter<K, V> extends GridCacheAdapter
 
         // Swap and offheap are disabled for near cache.
         if (modes.offheap) {
-            AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
+            AffinityTopologyVersion topVer = ctx.affinity().affinityVersion();
 
             IgniteCacheOffheapManager offheap = ctx.offheap();
 
@@ -430,7 +430,7 @@ public abstract class GridDistributedCacheAdapter<K, V> extends GridCacheAdapter
             ctx.gate().enter();
 
             try {
-                if (!ctx.affinity().affinityTopologyVersion().equals(topVer))
+                if (!ctx.affinity().affinityVersion().equals(topVer))
                     return false; // Ignore this remove request because remove request will be sent again.
 
                 GridDhtCacheAdapter<K, V> dht;

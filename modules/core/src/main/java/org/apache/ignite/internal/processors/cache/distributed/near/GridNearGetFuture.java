@@ -143,7 +143,7 @@ public final class GridNearGetFuture<K, V> extends CacheDistributedGetFutureAdap
      * @param topVer Topology version.
      */
     public void init(@Nullable AffinityTopologyVersion topVer) {
-        AffinityTopologyVersion lockedTopVer = cctx.shared().lockedTopologyVersion(null);
+        AffinityTopologyVersion lockedTopVer = cctx.shared().lockedAffinityVersion(null);
 
         if (lockedTopVer != null) {
             canRemap = false;
@@ -155,8 +155,8 @@ public final class GridNearGetFuture<K, V> extends CacheDistributedGetFutureAdap
 
             if (mapTopVer == null) {
                 mapTopVer = tx == null ?
-                    (canRemap ? cctx.affinity().affinityTopologyVersion() : cctx.shared().exchange().readyAffinityVersion()) :
-                    tx.topologyVersion();
+                    (canRemap ? cctx.affinity().affinityVersion() : cctx.shared().exchange().readyAffinityVersion()) :
+                    tx.affinityVersion();
             }
 
             map(keys, Collections.<ClusterNode, LinkedHashMap<KeyCacheObject, Boolean>>emptyMap(), mapTopVer);
@@ -738,7 +738,7 @@ public final class GridNearGetFuture<K, V> extends CacheDistributedGetFutureAdap
                     info.unmarshalValue(cctx, cctx.deploy().globalLoader());
 
                     // Entries available locally in DHT should not be loaded into near cache for reading.
-                    if (!cctx.affinity().keyLocalNode(info.key(), cctx.affinity().affinityTopologyVersion())) {
+                    if (!cctx.affinity().keyLocalNode(info.key(), cctx.affinity().affinityVersion())) {
                         GridNearCacheEntry entry = savedEntries.get(info.key());
 
                         if (entry == null)

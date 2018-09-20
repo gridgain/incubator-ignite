@@ -516,7 +516,7 @@ public class GridLocalAtomicCache<K, V> extends GridLocalCache<K, V> {
                     }
                     finally {
                         if (entry != null)
-                            entry.touch(ctx.affinity().affinityTopologyVersion());
+                            entry.touch(ctx.affinity().affinityVersion());
                     }
 
                     if (!success && storeEnabled)
@@ -982,7 +982,7 @@ public class GridLocalAtomicCache<K, V> extends GridLocalCache<K, V> {
                     }
                     finally {
                         if (entry != null)
-                            entry.touch(ctx.affinity().affinityTopologyVersion());
+                            entry.touch(ctx.affinity().affinityVersion());
                     }
                 }
             }
@@ -1510,7 +1510,7 @@ public class GridLocalAtomicCache<K, V> extends GridLocalCache<K, V> {
 
         assert nullKeys;
 
-        AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
+        AffinityTopologyVersion topVer = ctx.affinity().affinityVersion();
 
         for (GridCacheEntryEx entry : locked)
             entry.touch(topVer);
@@ -1527,7 +1527,7 @@ public class GridLocalAtomicCache<K, V> extends GridLocalCache<K, V> {
         for (GridCacheEntryEx entry : locked)
             entry.unlockEntry();
 
-        AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
+        AffinityTopologyVersion topVer = ctx.affinity().affinityVersion();
 
         for (GridCacheEntryEx entry : locked)
             entry.touch(topVer);

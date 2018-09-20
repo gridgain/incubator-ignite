@@ -26,6 +26,7 @@ import javax.cache.processor.EntryProcessorResult;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.eviction.EvictableEntry;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
@@ -698,7 +699,7 @@ public interface GridCacheEntryEx {
      *
      * @param heap Read from heap flag.
      * @param offheap Read from offheap flag.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @param plc Expiry policy if TTL should be updated.
      * @return Value.
      * @throws GridCacheEntryRemovedException If entry has been removed.
@@ -706,7 +707,7 @@ public interface GridCacheEntryEx {
      */
     @Nullable public CacheObject peek(boolean heap,
         boolean offheap,
-        AffinityTopologyVersion topVer,
+        AffinityVersion affVer,
         @Nullable IgniteCacheExpiryPolicy plc)
         throws GridCacheEntryRemovedException, IgniteCheckedException;
 

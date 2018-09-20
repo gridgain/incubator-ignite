@@ -308,7 +308,7 @@ public class GridDhtCacheEntry extends GridDistributedCacheEntry {
             return addDhtLocal(
                 dhtTx.nearNodeId(),
                 dhtTx.nearXidVersion(),
-                tx.topologyVersion(),
+                tx.affinityVersion(),
                 tx.threadId(),
                 tx.xidVersion(),
                 serOrder,

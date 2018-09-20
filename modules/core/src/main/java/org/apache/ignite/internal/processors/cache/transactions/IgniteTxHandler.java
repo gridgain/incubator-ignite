@@ -483,7 +483,7 @@ public class IgniteTxHandler {
                 tx = ctx.tm().onCreated(null, tx);
 
                 if (tx != null)
-                    tx.topologyVersion(req.topologyVersion());
+                    tx.affinityVersion(req.topologyVersion());
                 else
                     U.warn(log, "Failed to create local transaction (was transaction rolled back?) [xid=" +
                         req.version() + ", req=" + req + ']');
@@ -666,7 +666,7 @@ public class IgniteTxHandler {
             Collection<ClusterNode> cacheNodes0 = ctx.discovery().cacheGroupAffinityNodes(ctx.groupId(), expVer);
             Collection<ClusterNode> cacheNodes1 = ctx.discovery().cacheGroupAffinityNodes(ctx.groupId(), curVer);
 
-            if (!cacheNodes0.equals(cacheNodes1) || ctx.affinity().affinityTopologyVersion().compareTo(curVer) < 0)
+            if (!cacheNodes0.equals(cacheNodes1) || ctx.affinity().affinityVersion().compareTo(curVer) < 0)
                 return true;
 
             try {

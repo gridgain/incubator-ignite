@@ -677,7 +677,7 @@ public class GridDistributedCacheEntry extends GridCacheMapEntry {
             return addLocal(
                 tx.threadId(),
                 tx.xidVersion(),
-                tx.topologyVersion(),
+                tx.affinityVersion(),
                 timeout,
                 /*reenter*/false,
                 /*tx*/true,

@@ -223,7 +223,7 @@ public class GridNearTransactionalCache<K, V> extends GridNearCacheAdapter<K, V>
         List<KeyCacheObject> keys = req.nearKeys();
 
         if (keys != null) {
-            AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
+            AffinityTopologyVersion topVer = ctx.affinity().affinityVersion();
 
             for (KeyCacheObject key : keys) {
                 while (true) {
@@ -594,7 +594,7 @@ public class GridNearTransactionalCache<K, V> extends GridNearCacheAdapter<K, V>
                         assert !topVer.equals(AffinityTopologyVersion.NONE) || cand == null;
 
                         if (topVer.equals(AffinityTopologyVersion.NONE))
-                            topVer = ctx.affinity().affinityTopologyVersion();
+                            topVer = ctx.affinity().affinityVersion();
 
                         entry.touch(topVer);
 

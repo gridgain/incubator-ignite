@@ -38,7 +38,7 @@ public class GridAffinityFunctionContextImpl implements AffinityFunctionContext 
     private final DiscoveryEvent discoEvt;
 
     /** Topology version. */
-    private final long affVer;
+    private final AffinityVersion affVer;
 
     /** Number of backups to assign. */
     private final int backups;
@@ -48,7 +48,7 @@ public class GridAffinityFunctionContextImpl implements AffinityFunctionContext 
      * @param affVer Topology version.
      */
     public GridAffinityFunctionContextImpl(List<ClusterNode> topSnapshot, List<List<ClusterNode>> prevAssignment,
-        DiscoveryEvent discoEvt, long affVer, int backups) {
+        DiscoveryEvent discoEvt, AffinityVersion affVer, int backups) {
         this.topSnapshot = topSnapshot;
         this.prevAssignment = prevAssignment;
         this.discoEvt = discoEvt;

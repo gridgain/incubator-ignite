@@ -42,6 +42,7 @@ import org.apache.ignite.internal.managers.eventstorage.GridEventStorageManager;
 import org.apache.ignite.internal.pagemem.store.IgnitePageStoreManager;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionTopology;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTopologyFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionsEvictManager;
@@ -957,9 +958,9 @@ public class GridCacheSharedContext<K, V> {
 
     /**
      * @param ignore Transaction to ignore.
-     * @return Not null topology version if current thread holds lock preventing topology change.
+     * @return Not null affinity version if current thread holds lock preventing topology change.
      */
-    @Nullable public AffinityTopologyVersion lockedTopologyVersion(IgniteInternalTx ignore) {
+    @Nullable public AffinityVersion lockedAffinityVersion(IgniteInternalTx ignore) {
         long threadId = Thread.currentThread().getId();
 
         AffinityTopologyVersion topVer = txMgr.lockedTopologyVersion(threadId, ignore);
@@ -967,7 +968,7 @@ public class GridCacheSharedContext<K, V> {
         if (topVer == null)
             topVer = mvccMgr.lastExplicitLockTopologyVersion(threadId);
 
-        return topVer;
+        return topVer.affinityVersion();
     }
 
     /**

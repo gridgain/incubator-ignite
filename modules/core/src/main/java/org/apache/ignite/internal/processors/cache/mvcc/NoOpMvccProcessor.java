@@ -47,7 +47,7 @@ class NoOpMvccProcessor extends GridProcessorAdapter implements MvccProcessor {
     }
 
     /** {@inheritDoc} */
-    @Override public void onDiscoveryEvent(int evtType, Collection<ClusterNode> nodes, long topVer) {
+    @Override public void onDiscoveryEvent(int evtType, Collection<ClusterNode> nodes, long majorAffVer) {
         // No-op.
     }
 

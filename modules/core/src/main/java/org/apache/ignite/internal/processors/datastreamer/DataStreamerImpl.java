@@ -2198,7 +2198,7 @@ public class DataStreamerImpl<K, V> implements IgniteDataStreamer<K, V>, Delayed
             GridCacheContext cctx = internalCache.context();
 
             AffinityTopologyVersion topVer = cctx.isLocal() ?
-                cctx.affinity().affinityTopologyVersion() :
+                cctx.affinity().affinityVersion() :
                 cctx.shared().exchange().readyAffinityVersion();
 
             GridCacheVersion ver = cctx.versions().isolatedStreamerVersion();

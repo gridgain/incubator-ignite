@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
@@ -239,12 +240,12 @@ public interface IgniteInternalTx {
     /**
      * @return Last recorded topology version.
      */
-    public AffinityTopologyVersion topologyVersion();
+    public AffinityVersion affinityVersion();
 
     /**
      * @return Topology version snapshot.
      */
-    public AffinityTopologyVersion topologyVersionSnapshot();
+    public AffinityVersion affinityVersionSnapshot();
 
     /**
      * @return Flag indicating whether transaction is implicit with only one key.
@@ -275,7 +276,7 @@ public interface IgniteInternalTx {
      * @param topVer Topology version.
      * @return Recorded topology version.
      */
-    public AffinityTopologyVersion topologyVersion(AffinityTopologyVersion topVer);
+    public AffinityTopologyVersion affinityVersion(AffinityTopologyVersion topVer);
 
     /**
      * @return {@code True} if transaction is empty.

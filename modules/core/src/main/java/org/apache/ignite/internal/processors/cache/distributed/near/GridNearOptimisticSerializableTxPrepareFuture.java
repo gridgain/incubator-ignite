@@ -122,7 +122,7 @@ public class GridNearOptimisticSerializableTxPrepareFuture extends GridNearOptim
                                 break;
                             }
                             catch (GridCacheEntryRemovedException ignored) {
-                                entry = ctx.cache().entryEx(entry.key(), tx.topologyVersion());
+                                entry = ctx.cache().entryEx(entry.key(), tx.affinityVersion());
 
                                 txEntry.cached(entry);
                             }
@@ -153,7 +153,7 @@ public class GridNearOptimisticSerializableTxPrepareFuture extends GridNearOptim
                     ClusterTopologyCheckedException e = new ClusterTopologyCheckedException("Remote node left grid: " +
                         nodeId);
 
-                    e.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.topologyVersion()));
+                    e.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.affinityVersion()));
 
                     f.onNodeLeft(e);
 
@@ -313,7 +313,7 @@ public class GridNearOptimisticSerializableTxPrepareFuture extends GridNearOptim
             return;
         }
 
-        boolean set = cctx.tm().setTxTopologyHint(tx.topologyVersionSnapshot());
+        boolean set = cctx.tm().setTxTopologyHint(tx.affinityVersionSnapshot());
 
         try {
             prepare(tx.readEntries(), tx.writeEntries(), remap, topLocked);
@@ -339,7 +339,7 @@ public class GridNearOptimisticSerializableTxPrepareFuture extends GridNearOptim
         boolean remap,
         boolean topLocked
     ) {
-        AffinityTopologyVersion topVer = tx.topologyVersion();
+        AffinityTopologyVersion topVer = tx.affinityVersion();
 
         assert topVer.topologyVersion() > 0;
 
@@ -534,7 +534,7 @@ public class GridNearOptimisticSerializableTxPrepareFuture extends GridNearOptim
                 cctx.io().send(primary, req, tx.ioPolicy());
             }
             catch (ClusterTopologyCheckedException e) {
-                e.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.topologyVersion()));
+                e.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.affinityVersion()));
 
                 fut.onNodeLeft(e);
 
@@ -568,7 +568,7 @@ public class GridNearOptimisticSerializableTxPrepareFuture extends GridNearOptim
 
         GridNearTxPrepareRequest req = new GridNearTxPrepareRequest(
             futId,
-            tx.topologyVersion(),
+            tx.affinityVersion(),
             tx,
             timeout,
             reads,

@@ -159,7 +159,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
 
         assert topVer != null && topVer.topologyVersion() > 0 : topVer;
 
-        topologyVersion(topVer);
+        affinityVersion(topVer);
     }
 
     /**
@@ -230,7 +230,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
 
         assert topVer != null && topVer.topologyVersion() > 0 : topVer;
 
-        topologyVersion(topVer);
+        affinityVersion(topVer);
     }
 
     /**
@@ -324,7 +324,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
         GridCacheContext cacheCtx = entry.context();
 
         try {
-            GridDhtCacheEntry cached = cacheCtx.dht().entryExx(entry.key(), topologyVersion());
+            GridDhtCacheEntry cached = cacheCtx.dht().entryExx(entry.key(), affinityVersion());
 
             checkInternal(entry.txKey());
 
@@ -362,7 +362,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
         if (isSystemInvalidate())
             return;
 
-        GridDhtCacheEntry cached = cacheCtx.dht().entryExx(key.key(), topologyVersion());
+        GridDhtCacheEntry cached = cacheCtx.dht().entryExx(key.key(), affinityVersion());
 
         IgniteTxEntry txEntry = new IgniteTxEntry(cacheCtx,
             this,
@@ -407,7 +407,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
 
             int part = ctx.affinity().partition(key);
 
-            GridDhtLocalPartition locPart = ctx.topology().localPartition(part, topologyVersion(), false);
+            GridDhtLocalPartition locPart = ctx.topology().localPartition(part, affinityVersion(), false);
 
             if (locPart == null || !locPart.reserve())
                 throw new ClusterTopologyException("Can not reserve partition. Please retry on stable topology.");
@@ -423,7 +423,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
                 if (entries == null && !op.isDeleteOrLock())
                     val = (val0 instanceof CacheObject) ? (CacheObject)val0 : null;
 
-                GridDhtCacheEntry entry = dht.entryExx(key, topologyVersion());
+                GridDhtCacheEntry entry = dht.entryExx(key, affinityVersion());
 
                 GridCacheUpdateTxResult updRes;
 
@@ -437,7 +437,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
                                     updRes = entry.mvccRemove(
                                         this,
                                         ctx.localNodeId(),
-                                        topologyVersion(),
+                                        affinityVersion(),
                                         updCntrs.get(i),
                                         snapshot,
                                         false);
@@ -452,7 +452,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
                                         ctx.localNodeId(),
                                         val,
                                         0,
-                                        topologyVersion(),
+                                        affinityVersion(),
                                         updCntrs.get(i),
                                         snapshot,
                                         op.cacheOperation(),
@@ -470,7 +470,7 @@ public class GridDhtTxRemote extends GridDistributedTxRemoteAdapter {
                         else {
                             updRes = entry.mvccUpdateRowsWithPreloadInfo(this,
                                 ctx.localNodeId(),
-                                topologyVersion(),
+                                affinityVersion(),
                                 updCntrs.get(i),
                                 entries.infos(),
                                 op.cacheOperation(),

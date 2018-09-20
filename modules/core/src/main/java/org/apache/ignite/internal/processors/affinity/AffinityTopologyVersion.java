@@ -27,6 +27,7 @@ import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.NotNull;
 
 /**
  *
@@ -56,25 +57,6 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
     public AffinityTopologyVersion() {
         // No-op.
     }
-//
-//    /**
-//     * @param topVer Topology version.
-//     */
-//    public AffinityTopologyVersion(long topVer) {
-//        this.topVer = topVer;
-//    }
-//
-//    /**
-//     * @param topVer Topology version.
-//     * @param minorAffVer Minor topology version.
-//     */
-//    public AffinityTopologyVersion(
-//        long topVer,
-//        int minorAffVer
-//    ) {
-//        this.topVer = topVer;
-//        this.minorAffVer = minorAffVer;
-//    }
 
     /**
      * @param topVer Topology version.
@@ -88,6 +70,12 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
         this.topVer = topVer;
         this.majorAffVer = majorAffVer;
         this.minorAffVer = minorAffVer;
+    }
+
+    public AffinityTopologyVersion(long topVer, AffinityVersion affVer) {
+        this.topVer = topVer;
+        this.majorAffVer = affVer.majorVer();
+        this.minorAffVer = affVer.minorVer();
     }
 
     /**
@@ -134,7 +122,11 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
         return topVer;
     }
 
-    public long affinityVersion() {
+    public AffinityVersion affinityVersion() {
+        return new AffinityVersion(majorAffVer, minorAffVer);
+    }
+
+    public long majorAffinityVersion() {
         return majorAffVer;
     }
 
@@ -150,7 +142,10 @@ public class AffinityTopologyVersion implements Comparable<AffinityTopologyVersi
         int cmp = Long.compare(topVer, o.topVer);
 
         if (cmp == 0)
-            return Integer.compare(minorAffVer, o.minorAffVer);
+            cmp = Long.compare(majorAffVer, o.majorAffVer);
+
+        if (cmp == 0)
+            cmp = Integer.compare(minorAffVer, o.minorAffVer);
 
         return cmp;
     }

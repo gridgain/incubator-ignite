@@ -644,7 +644,7 @@ public class GridReduceQueryExecutor {
                 topVer = h2.readyTopologyVersion();
 
                 // Check if topology has changed while retrying on locked topology.
-                if (h2.serverTopologyChanged(topVer) && ctx.cache().context().lockedTopologyVersion(null) != null) {
+                if (h2.serverTopologyChanged(topVer) && ctx.cache().context().lockedAffinityVersion(null) != null) {
                     throw new CacheException(new TransactionException("Server topology is changed during query " +
                         "execution inside a transaction. It's recommended to rollback and retry transaction."));
                 }

@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,7 +42,7 @@ public interface GridCacheConcurrentMap {
 
     /**
      * @param ctx Cache context.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @param key Key.
      * @param create Create flag.
      * @return Existing or new GridCacheMapEntry. Will return {@code null} if entry is obsolete or absent and create
@@ -50,7 +51,7 @@ public interface GridCacheConcurrentMap {
      */
     @Nullable public GridCacheMapEntry putEntryIfObsoleteOrAbsent(
         GridCacheContext ctx,
-        AffinityTopologyVersion topVer,
+        AffinityVersion affVer,
         KeyCacheObject key,
         boolean create,
         boolean touch);

@@ -1735,7 +1735,7 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
      */
     private class TopologyListener implements DiscoveryEventListener {
         /** */
-        private volatile AffinityTopologyVersion currTopVer = null;
+        private volatile long currTopVer = null;
 
         /**
          * Check that listening-in topology version is the latest and wait until exchange is finished.
@@ -1743,11 +1743,11 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
          * @param initTopVer listening-in topology version.
          * @return {@code True} if current event is not last and should be skipped.
          */
-        private boolean skipExchange(final AffinityTopologyVersion initTopVer) {
-            AffinityTopologyVersion pendingTopVer = null;
-            AffinityTopologyVersion newTopVer;
+        private boolean skipExchange(final long initTopVer) {
+            long pendingTopVer = 0;
+            long newTopVer;
 
-            if (!initTopVer.equals(newTopVer = currTopVer))
+            if (initTopVer != (newTopVer = currTopVer))
                 pendingTopVer = newTopVer;
             else {
                 IgniteInternalFuture<?> affReadyFut = ctx.cache().context().exchange().affinityReadyFuture(initTopVer);
@@ -1763,11 +1763,11 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
                 }
 
                 // If exchange already moved forward - skip current version.
-                if (!initTopVer.equals(newTopVer = currTopVer))
+                if (initTopVer != (newTopVer = currTopVer))
                     pendingTopVer = newTopVer;
             }
 
-            boolean skipExchange = pendingTopVer != null;
+            boolean skipExchange = pendingTopVer != 0;
 
             if (skipExchange && log.isInfoEnabled()) {
                 log.info("Service processor detected a topology change during " +
@@ -1787,7 +1787,7 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
                 return;
 
             try {
-                final AffinityTopologyVersion topVer;
+                final long topVer;
 
                 if (evt instanceof DiscoveryCustomEvent) {
                     DiscoveryCustomMessage msg = ((DiscoveryCustomEvent)evt).customMessage();
@@ -1806,10 +1806,10 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
                     if (msg instanceof MetadataUpdateProposedMessage || msg instanceof MetadataUpdateAcceptedMessage)
                         return;
 
-                    topVer = ((DiscoveryCustomEvent)evt).affinityTopologyVersion();
+                    topVer = ((DiscoveryCustomEvent)evt).affinityTopologyVersion().topologyVersion();
                 }
                 else
-                    topVer = new AffinityTopologyVersion((evt).topologyVersion(), 0);
+                    topVer = (evt).topologyVersion();
 
                 currTopVer = topVer;
 

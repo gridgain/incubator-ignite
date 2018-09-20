@@ -25,6 +25,7 @@ import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.events.Event;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedManagerAdapter;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
@@ -232,8 +233,8 @@ public class GridCacheVersionManager extends GridCacheSharedManagerAdapter {
      *
      * @return Next version for cache store operations.
      */
-    public GridCacheVersion nextForLoad(AffinityTopologyVersion topVer) {
-        return next(topVer.topologyVersion(), true, true, dataCenterId);
+    public GridCacheVersion nextForLoad(AffinityVersion affVer) {
+        return next(affVer.majorVer(), true, true, dataCenterId);
     }
 
     /**

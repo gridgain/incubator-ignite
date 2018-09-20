@@ -260,7 +260,7 @@ public class ClusterMetricsImpl implements ClusterMetrics {
 
         for (GridCacheAdapter<?, ?> cache : caches)
             if (cache.context().statisticsEnabled() && cache.context().started()
-                && cache.context().affinity().affinityTopologyVersion().topologyVersion() > 0)
+                && cache.context().affinity().affinityVersion().topologyVersion() > 0)
                 nonHeapUsed += cache.metrics0().getOffHeapAllocatedSize();
 
         return nonHeapUsed;

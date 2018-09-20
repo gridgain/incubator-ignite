@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
@@ -41,21 +42,21 @@ public class MvccCoordinator implements Serializable {
 
     /** */
     @GridToStringInclude
-    private final AffinityTopologyVersion topVer;
+    private final AffinityVersion affVer;
 
     /**
      * @param nodeId Coordinator node ID.
      * @param crdVer Coordinator version.
-     * @param topVer Topology version when coordinator was assigned.
+     * @param affVer Topology version when coordinator was assigned.
      */
-    public MvccCoordinator(UUID nodeId, long crdVer, AffinityTopologyVersion topVer) {
+    public MvccCoordinator(UUID nodeId, long crdVer, AffinityVersion affVer) {
         assert nodeId != null;
         assert crdVer > 0 : crdVer;
-        assert topVer != null;
+        assert affVer != null;
 
         this.nodeId = nodeId;
         this.crdVer = crdVer;
-        this.topVer = topVer;
+        this.affVer = affVer;
     }
 
     /**
@@ -75,8 +76,8 @@ public class MvccCoordinator implements Serializable {
     /**
      * @return Topology version when coordinator was assigned.
      */
-    public AffinityTopologyVersion topologyVersion() {
-        return topVer;
+    public AffinityVersion topologyVersion() {
+        return affVer;
     }
 
     /** {@inheritDoc} */

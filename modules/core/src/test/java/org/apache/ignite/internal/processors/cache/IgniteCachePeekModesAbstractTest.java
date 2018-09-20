@@ -1025,7 +1025,7 @@ public abstract class IgniteCachePeekModesAbstractTest extends IgniteCacheAbstra
         int cnt = (int)offheapManager.cacheEntriesCount(ctx.cacheId(), part);
 
         GridCacheAffinityManager affinity = ctx.affinity();
-        AffinityTopologyVersion topVer = affinity.affinityTopologyVersion();
+        AffinityTopologyVersion topVer = affinity.affinityVersion();
 
         //And then find out whether they are primary or backup ones.
         int primaryCnt = 0;

@@ -61,6 +61,7 @@ import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheEntryImpl;
 import org.apache.ignite.internal.processors.cache.CacheMetricsImpl;
 import org.apache.ignite.internal.processors.cache.CacheObject;
@@ -824,10 +825,14 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
                     }
                 };
 
-            AffinityTopologyVersion topVer = GridQueryProcessor.getRequestAffinityTopologyVersion();
+            AffinityVersion affVer;
 
-            if (topVer == null)
-                topVer = cctx.affinity().affinityTopologyVersion();
+            AffinityTopologyVersion affTopVer = GridQueryProcessor.getRequestAffinityTopologyVersion();
+
+            if (affTopVer != null)
+                affVer = affTopVer.affinityVersion();
+            else
+                affVer = cctx.affinity().affinityVersion();
 
             final boolean backups = qry.includeBackups() || cctx.isReplicated();
 
@@ -838,10 +843,10 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
             if (part != null) {
                 final GridDhtCacheAdapter dht = cctx.isNear() ? cctx.near().dht() : cctx.dht();
 
-                GridDhtLocalPartition locPart0 = dht.topology().localPartition(part, topVer, false);
+                GridDhtLocalPartition locPart0 = dht.topology().localPartition(part, affVer, false);
 
                 if (locPart0 == null || locPart0.state() != OWNING || !locPart0.reserve())
-                    throw new GridDhtUnreservedPartitionException(part, cctx.affinity().affinityTopologyVersion(),
+                    throw new GridDhtUnreservedPartitionException(part, cctx.affinity().affinityVersion(),
                         "Partition can not be reserved");
 
                 locPart = locPart0;
@@ -851,10 +856,10 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
             else {
                 locPart = null;
 
-                it = cctx.offheap().cacheIterator(cctx.cacheId(), true, backups, topVer, qry.mvccSnapshot());
+                it = cctx.offheap().cacheIterator(cctx.cacheId(), true, backups, affVer, qry.mvccSnapshot());
             }
 
-            return new ScanQueryIterator(it, qry, topVer, locPart, keyValFilter, transformer, locNode, cctx, log);
+            return new ScanQueryIterator(it, qry, affVer, locPart, keyValFilter, transformer, locNode, cctx, log);
         }
         catch (IgniteCheckedException | RuntimeException e) {
             if (intFilter != null)
@@ -1144,7 +1149,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
 
                 Collection<Object> data = new ArrayList<>(pageSize);
 
-                AffinityTopologyVersion topVer = cctx.affinity().affinityTopologyVersion();
+                AffinityVersion affVer = cctx.affinity().affinityVersion();
 
                 final boolean statsEnabled = cctx.statisticsEnabled();
 
@@ -1181,7 +1186,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
 
                         if (log.isDebugEnabled()) {
                             ClusterNode primaryNode = cctx.affinity().primaryByKey(key,
-                                cctx.affinity().affinityTopologyVersion());
+                                cctx.affinity().affinityVersion());
 
                             log.debug(S.toString("Record",
                                 "key", key, true,
@@ -2862,7 +2867,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
         private final GridCacheAdapter cache;
 
         /** */
-        private final AffinityTopologyVersion topVer;
+        private final AffinityVersion affVer;
 
         /** */
         private final boolean keepBinary;
@@ -2909,7 +2914,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
         /**
          * @param it Iterator.
          * @param qry Query.
-         * @param topVer Topology version.
+         * @param affVer Topology version.
          * @param locPart Local partition.
          * @param scanFilter Scan filter.
          * @param transformer Transformer.
@@ -2920,7 +2925,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
         ScanQueryIterator(
             GridIterator<CacheDataRow> it,
             GridCacheQueryAdapter qry,
-            AffinityTopologyVersion topVer,
+            AffinityVersion affVer,
             GridDhtLocalPartition locPart,
             IgniteBiPredicate<K, V> scanFilter,
             IgniteClosure transformer,
@@ -2929,7 +2934,7 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
             IgniteLogger log) {
 
             this.it = it;
-            this.topVer = topVer;
+            this.affVer = affVer;
             this.locPart = locPart;
             this.intScanFilter = scanFilter != null ? new InternalScanFilter<>(scanFilter) : null;
             this.cctx = cctx;
@@ -3028,9 +3033,9 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
 
                                 entry.unswap(tmp);
 
-                                val = entry.peek(true, true, topVer, expiryPlc);
+                                val = entry.peek(true, true, affVer, expiryPlc);
 
-                                entry.touch(topVer);
+                                entry.touch(affVer);
 
                                 break;
                             }
@@ -3056,18 +3061,18 @@ public abstract class GridCacheQueryManager<K, V> extends GridCacheManagerAdapte
                 // Other types are filtered in indexing manager.
                 if (!cctx.isReplicated() && /*qry.partition()*/this.locPart == null &&
                     cctx.config().getCacheMode() != LOCAL && !incBackups &&
-                    !cctx.affinity().primaryByKey(cctx.localNode(), key, topVer)) {
+                    !cctx.affinity().primaryByKey(cctx.localNode(), key, affVer)) {
                     if (log.isDebugEnabled())
                         log.debug("Ignoring backup element [row=" + row +
                             ", cacheMode=" + cctx.config().getCacheMode() + ", incBackups=" + incBackups +
-                            ", primary=" + cctx.affinity().primaryByKey(cctx.localNode(), key, topVer) + ']');
+                            ", primary=" + cctx.affinity().primaryByKey(cctx.localNode(), key, affVer) + ']');
 
                     continue;
                 }
 
                 if (log.isDebugEnabled()) {
                     ClusterNode primaryNode = cctx.affinity().primaryByKey(key,
-                        cctx.affinity().affinityTopologyVersion());
+                        cctx.affinity().affinityVersion());
 
                     log.debug(S.toString("Record",
                         "key", key, true,

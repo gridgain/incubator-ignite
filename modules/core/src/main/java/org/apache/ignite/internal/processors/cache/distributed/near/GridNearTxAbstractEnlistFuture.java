@@ -218,10 +218,10 @@ public abstract class GridNearTxAbstractEnlistFuture extends GridCacheCompoundId
             topVer = cctx.tm().lockedTopologyVersion(threadId, tx);
 
         if (topVer != null)
-            tx.topologyVersion(topVer);
+            tx.affinityVersion(topVer);
 
         if (topVer == null)
-            topVer = tx.topologyVersionSnapshot();
+            topVer = tx.affinityVersionSnapshot();
 
         if (topVer != null) {
             for (GridDhtTopologyFuture fut : cctx.shared().exchange().exchangeFutures()) {
@@ -328,7 +328,7 @@ public abstract class GridNearTxAbstractEnlistFuture extends GridCacheCompoundId
                 AffinityTopologyVersion topVer = fut.topologyVersion();
 
                 if (tx != null)
-                    tx.topologyVersion(topVer);
+                    tx.affinityVersion(topVer);
 
                 if (this.topVer == null)
                     this.topVer = topVer;

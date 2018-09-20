@@ -959,7 +959,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             ctx,
             tx.nearNodeId(),
             tx.nearXidVersion(),
-            tx.topologyVersion(),
+            tx.affinityVersion(),
             keys.size(),
             isRead,
             retval,
@@ -978,7 +978,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
         for (KeyCacheObject key : keys) {
             try {
                 while (true) {
-                    GridDhtCacheEntry entry = entryExx(key, tx.topologyVersion());
+                    GridDhtCacheEntry entry = entryExx(key, tx.affinityVersion());
 
                     try {
                         fut.addEntry(entry);
@@ -1131,7 +1131,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                             return new GridDhtFinishedFuture<>(new IgniteTxRollbackCheckedException(msg));
                         }
 
-                        tx.topologyVersion(req.topologyVersion());
+                        tx.affinityVersion(req.topologyVersion());
                     }
                 }
                 else {
@@ -1637,7 +1637,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                                     "(added to cancelled locks set): " + req);
                         }
 
-                        entry.touch(ctx.affinity().affinityTopologyVersion());
+                        entry.touch(ctx.affinity().affinityVersion());
 
                         break;
                     }
@@ -2105,7 +2105,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                     throw new IgniteCheckedException(msg);
                 }
 
-                tx.topologyVersion(topVer);
+                tx.affinityVersion(topVer);
             }
             finally {
                 if (top != null)

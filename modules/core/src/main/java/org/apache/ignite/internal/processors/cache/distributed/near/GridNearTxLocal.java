@@ -945,13 +945,13 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                 recovery);
 
             if (loadMissed) {
-                AffinityTopologyVersion topVer = topologyVersionSnapshot();
+                AffinityTopologyVersion topVer = affinityVersionSnapshot();
 
                 if (topVer == null)
                     topVer = entryTopVer;
 
                 IgniteInternalFuture<Void> loadFut = loadMissing(cacheCtx,
-                    topVer != null ? topVer : topologyVersion(),
+                    topVer != null ? topVer : affinityVersion(),
                     Collections.singleton(cacheKey),
                     filter,
                     ret,
@@ -1144,13 +1144,13 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             }
 
             if (missedForLoad != null) {
-                AffinityTopologyVersion topVer = topologyVersionSnapshot();
+                AffinityTopologyVersion topVer = affinityVersionSnapshot();
 
                 if (topVer == null)
                     topVer = entryTopVer;
 
                 IgniteInternalFuture<Void> loadFut = loadMissing(cacheCtx,
-                    topVer != null ? topVer : topologyVersion(),
+                    topVer != null ? topVer : affinityVersion(),
                     missedForLoad,
                     filter,
                     ret,
@@ -1243,7 +1243,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         // First time access.
         if (txEntry == null) {
             while (true) {
-                GridCacheEntryEx entry = entryEx(cacheCtx, txKey, entryTopVer != null ? entryTopVer : topologyVersion());
+                GridCacheEntryEx entry = entryEx(cacheCtx, txKey, entryTopVer != null ? entryTopVer : affinityVersion());
 
                 try {
                     entry.unswap(false);
@@ -1300,7 +1300,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                             }
                         }
                         catch (ClusterTopologyCheckedException e) {
-                            entry.touch(topologyVersion());
+                            entry.touch(affinityVersion());
 
                             throw e;
                         }
@@ -1358,7 +1358,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                         }
 
                         if (readCommitted())
-                            entry.touch(topologyVersion());
+                            entry.touch(affinityVersion());
 
                         break; // While.
                     }
@@ -1900,11 +1900,11 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
         if (cacheCtx.mvccEnabled() && (optimistic() && !readCommitted()) && mvccTracker == null) {
             // TODO IGNITE-7388: support async tx rollback (e.g. on timeout).
-            boolean canRemap = cctx.lockedTopologyVersion(null) == null;
+            boolean canRemap = cctx.lockedAffinityVersion(null) == null;
 
             mvccTracker = new MvccQueryTrackerImpl(cacheCtx, canRemap);
 
-            return new GridEmbeddedFuture<>(mvccTracker.requestSnapshot(topologyVersion()),
+            return new GridEmbeddedFuture<>(mvccTracker.requestSnapshot(affinityVersion()),
                 new IgniteBiClosure<MvccSnapshot, Exception, IgniteInternalFuture<Map<K, V>>>() {
                 @Override public IgniteInternalFuture<Map<K, V>> apply(MvccSnapshot snapshot, Exception e) {
                     if (e != null)
@@ -2105,19 +2105,19 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                                         log.debug("Got removed exception in get postLock (will retry): " +
                                             cached);
 
-                                    txEntry.cached(entryEx(cacheCtx, txKey, topologyVersion()));
+                                    txEntry.cached(entryEx(cacheCtx, txKey, affinityVersion()));
                                 }
                             }
                         }
 
                         if (!missed.isEmpty() && cacheCtx.isLocal()) {
-                            AffinityTopologyVersion topVer = topologyVersionSnapshot();
+                            AffinityTopologyVersion topVer = affinityVersionSnapshot();
 
                             if (topVer == null)
                                 topVer = entryTopVer;
 
                             return checkMissed(cacheCtx,
-                                topVer != null ? topVer : topologyVersion(),
+                                topVer != null ? topVer : affinityVersion(),
                                 retMap,
                                 missed,
                                 deserializeBinary,
@@ -2187,13 +2187,13 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                     if (missed.isEmpty())
                         return new GridFinishedFuture<>(retMap);
 
-                    AffinityTopologyVersion topVer = topologyVersionSnapshot();
+                    AffinityTopologyVersion topVer = affinityVersionSnapshot();
 
                     if (topVer == null)
                         topVer = entryTopVer;
 
                     return checkMissed(cacheCtx,
-                        topVer != null ? topVer : topologyVersion(),
+                        topVer != null ? topVer : affinityVersion(),
                         retMap,
                         missed,
                         deserializeBinary,
@@ -2255,7 +2255,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
 
         Collection<KeyCacheObject> lockKeys = null;
 
-        AffinityTopologyVersion topVer = entryTopVer != null ? entryTopVer : topologyVersion();
+        AffinityTopologyVersion topVer = entryTopVer != null ? entryTopVer : affinityVersion();
 
         boolean needReadVer = (serializable() && optimistic()) || needVer;
 
@@ -2710,7 +2710,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             GridCacheEntryEx cached0 = txEntry.cached();
 
             if (cached0 != null)
-                cached0.touch(topologyVersion());
+                cached0.touch(affinityVersion());
         }
     }
 
@@ -2940,7 +2940,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                             log.debug("Got removed entry, will retry: " + key);
 
                         if (txEntry != null)
-                            txEntry.cached(cacheCtx.cache().entryEx(key, topologyVersion()));
+                            txEntry.cached(cacheCtx.cache().entryEx(key, affinityVersion()));
                     }
                 }
             }
@@ -3324,7 +3324,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                         ", tx=" + this + ']');
 
                 // Replace the entry.
-                txEntry.cached(txEntry.context().cache().entryEx(txEntry.key(), topologyVersion()));
+                txEntry.cached(txEntry.context().cache().entryEx(txEntry.key(), affinityVersion()));
             }
         }
     }
@@ -3977,7 +3977,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             IgniteTxEntry txEntry = entry(key);
 
             if (txEntry == null)
-                return cacheCtx.colocated().entryExx(key.key(), topologyVersion(), true);
+                return cacheCtx.colocated().entryExx(key.key(), affinityVersion(), true);
 
             GridCacheEntryEx cached = txEntry.cached();
 
@@ -3987,7 +3987,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                 return cached;
 
             if (cached.obsoleteVersion() != null) {
-                cached = cacheCtx.colocated().entryExx(key.key(), topologyVersion(), true);
+                cached = cacheCtx.colocated().entryExx(key.key(), affinityVersion(), true);
 
                 txEntry.cached(cached);
             }
@@ -4282,7 +4282,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                         GridCacheEntryEx e = txEntry == null ? entryEx(cacheCtx, txKey, topVer) : txEntry.cached();
 
                         if (readCommitted() || skipVals) {
-                            e.touch(topologyVersion());
+                            e.touch(affinityVersion());
 
                             if (visibleVal != null) {
                                 cacheCtx.addResult(map,

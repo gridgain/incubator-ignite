@@ -95,7 +95,7 @@ public class GridNearPessimisticTxPrepareFuture extends GridNearTxPrepareFutureA
                     ClusterTopologyCheckedException e = new ClusterTopologyCheckedException("Remote node left grid: " +
                         nodeId);
 
-                    e.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.topologyVersion()));
+                    e.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.affinityVersion()));
 
                     f.onNodeLeft(e);
 
@@ -213,7 +213,7 @@ public class GridNearPessimisticTxPrepareFuture extends GridNearTxPrepareFutureA
         Collection<IgniteTxEntry> writes) {
         GridNearTxPrepareRequest req = new GridNearTxPrepareRequest(
             futId,
-            tx.topologyVersion(),
+            tx.affinityVersion(),
             tx,
             timeout,
             reads,
@@ -281,7 +281,7 @@ public class GridNearPessimisticTxPrepareFuture extends GridNearTxPrepareFutureA
     private void preparePessimistic() {
         Map<UUID, GridDistributedTxMapping> mappings = new HashMap<>();
 
-        AffinityTopologyVersion topVer = tx.topologyVersion();
+        AffinityTopologyVersion topVer = tx.affinityVersion();
 
         GridDhtTxMapping txMapping = new GridDhtTxMapping();
 

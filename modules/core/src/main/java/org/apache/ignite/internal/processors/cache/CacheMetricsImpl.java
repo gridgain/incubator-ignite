@@ -983,7 +983,7 @@ public class CacheMetricsImpl implements CacheMetrics {
                 }
             }
             else {
-                AffinityTopologyVersion topVer = cctx.affinity().affinityTopologyVersion();
+                AffinityTopologyVersion topVer = cctx.affinity().affinityVersion();
 
                 Set<Integer> primaries = cctx.affinity().primaryPartitions(cctx.localNodeId(), topVer);
                 Set<Integer> backups = cctx.affinity().backupPartitions(cctx.localNodeId(), topVer);

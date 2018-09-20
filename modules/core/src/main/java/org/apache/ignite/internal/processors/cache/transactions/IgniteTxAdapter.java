@@ -51,6 +51,7 @@ import org.apache.ignite.internal.managers.eventstorage.GridEventStorageManager;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.TxRecord;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheInvokeEntry;
 import org.apache.ignite.internal.processors.cache.CacheLazyEntry;
 import org.apache.ignite.internal.processors.cache.CacheObject;
@@ -521,7 +522,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
     }
 
     /** {@inheritDoc} */
-    @Override public AffinityTopologyVersion topologyVersion() {
+    @Override public AffinityVersion affinityVersion() {
         AffinityTopologyVersion res = topVer;
 
         if (res == null || res.equals(AffinityTopologyVersion.NONE)) {
@@ -529,24 +530,24 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
                 AffinityTopologyVersion topVer = cctx.tm().lockedTopologyVersion(Thread.currentThread().getId(), this);
 
                 if (topVer != null)
-                    return topVer;
+                    return topVer.affinityVersion();
             }
 
             return cctx.exchange().readyAffinityVersion();
         }
 
-        return res;
+        return res.affinityVersion();
     }
 
     /** {@inheritDoc} */
-    @Override public final AffinityTopologyVersion topologyVersionSnapshot() {
+    @Override public final AffinityVersion affinityVersionSnapshot() {
         AffinityTopologyVersion ret = topVer;
 
-        return AffinityTopologyVersion.NONE.equals(ret) ? null : ret;
+        return AffinityTopologyVersion.NONE.equals(ret) ? null : ret.affinityVersion();
     }
 
     /** {@inheritDoc} */
-    @Override public final AffinityTopologyVersion topologyVersion(AffinityTopologyVersion topVer) {
+    @Override public final AffinityTopologyVersion affinityVersion(AffinityTopologyVersion topVer) {
         AffinityTopologyVersion topVer0 = this.topVer;
 
         if (!AffinityTopologyVersion.NONE.equals(topVer0))
@@ -1444,7 +1445,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
                         if (!skip && skipNonPrimary) {
                             skip = e.cached().isNear() ||
                                 e.cached().detached() ||
-                                !e.context().affinity().primaryByPartition(e.cached().partition(), topologyVersion()).isLocal();
+                                !e.context().affinity().primaryByPartition(e.cached().partition(), affinityVersion()).isLocal();
                         }
 
                         if (!skip && !local() && // Update local store at backups only if needed.
@@ -1880,7 +1881,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
             GridCacheContext ctx0 = cctx.cacheContext(cacheId);
 
             if (ctx0.isDrEnabled())
-                ctx0.dr().onTxFinished(mvccSnapshot, commit, topologyVersionSnapshot());
+                ctx0.dr().onTxFinished(mvccSnapshot, commit, affinityVersionSnapshot());
         }
     }
 
@@ -1906,7 +1907,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
 
         int part = cached != null ? cached.partition() : cacheCtx.affinity().partition(e.key());
 
-        List<ClusterNode> affNodes = cacheCtx.affinity().nodesByPartition(part, topologyVersion());
+        List<ClusterNode> affNodes = cacheCtx.affinity().nodesByPartition(part, affinityVersion());
 
         e.locallyMapped(F.contains(affNodes, cctx.localNode()));
 
@@ -2272,12 +2273,12 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
         }
 
         /** {@inheritDoc} */
-        @Override public AffinityTopologyVersion topologyVersion() {
+        @Override public AffinityVersion affinityVersion() {
             throw new IllegalStateException("Deserialized transaction can only be used as read-only.");
         }
 
         /** {@inheritDoc} */
-        @Override public AffinityTopologyVersion topologyVersionSnapshot() {
+        @Override public AffinityVersion affinityVersionSnapshot() {
             throw new IllegalStateException("Deserialized transaction can only be used as read-only.");
         }
 
@@ -2287,7 +2288,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
         }
 
         /** {@inheritDoc} */
-        @Override public AffinityTopologyVersion topologyVersion(AffinityTopologyVersion topVer) {
+        @Override public AffinityTopologyVersion affinityVersion(AffinityTopologyVersion topVer) {
             throw new IllegalStateException("Deserialized transaction can only be used as read-only.");
         }
 

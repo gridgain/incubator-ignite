@@ -636,7 +636,7 @@ public class GridCacheQueryAdapter<T> implements CacheQuery<T> {
         @Nullable final ClusterGroup prj, @Nullable final Integer part) throws IgniteCheckedException {
         assert cctx != null;
 
-        final AffinityTopologyVersion topVer = cctx.affinity().affinityTopologyVersion();
+        final AffinityTopologyVersion topVer = cctx.affinity().affinityVersion();
 
         Collection<ClusterNode> affNodes = CU.affinityNodes(cctx, topVer);
 

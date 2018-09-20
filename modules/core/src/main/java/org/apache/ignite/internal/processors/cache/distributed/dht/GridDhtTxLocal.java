@@ -176,7 +176,7 @@ public class GridDhtTxLocal extends GridDhtTxLocalAdapter implements GridCacheMa
 
         assert topVer != null && topVer.topologyVersion() > 0 : topVer;
 
-        topologyVersion(topVer);
+        affinityVersion(topVer);
     }
 
     /** {@inheritDoc} */

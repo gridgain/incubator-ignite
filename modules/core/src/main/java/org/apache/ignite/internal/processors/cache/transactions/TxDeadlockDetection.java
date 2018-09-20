@@ -86,7 +86,7 @@ public class TxDeadlockDetection {
                 "[nodeId=" + cctx.localNodeId() + ", xidVersion=" + txId + ", keys=" + keys + ']');
         }
 
-        TxDeadlockFuture fut = new TxDeadlockFuture(cctx, txId, tx.topologyVersion(), keys);
+        TxDeadlockFuture fut = new TxDeadlockFuture(cctx, txId, tx.affinityVersion(), keys);
 
         fut.init();
 

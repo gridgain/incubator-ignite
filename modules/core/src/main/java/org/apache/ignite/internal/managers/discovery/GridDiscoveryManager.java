@@ -1105,7 +1105,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                         for (GridCacheAdapter<?, ?> cache : caches) {
                             if (cache.context().statisticsEnabled() &&
                                 cache.context().started() &&
-                                cache.context().affinity().affinityTopologyVersion().topologyVersion() > 0)
+                                cache.context().affinity().affinityVersion().topologyVersion() > 0)
                                 metrics.put(cache.context().cacheId(), cache.localMetrics());
                         }
 

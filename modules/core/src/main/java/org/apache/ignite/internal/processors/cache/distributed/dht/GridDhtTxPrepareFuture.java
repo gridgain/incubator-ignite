@@ -61,7 +61,6 @@ import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTx
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearCacheAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareResponse;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccCoordinator;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccUpdateVersionAware;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionAware;
@@ -505,7 +504,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
 
                 // Send old value in case if rebalancing is not finished.
                 final boolean sndOldVal = !cacheCtx.isLocal() &&
-                    !cacheCtx.topology().rebalanceFinished(tx.topologyVersion());
+                    !cacheCtx.topology().rebalanceFinished(tx.affinityVersion());
 
                 if (sndOldVal) {
                     if (oldVal == null && !readOld) {
@@ -645,7 +644,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
             GridDistributedCacheEntry entry = (GridDistributedCacheEntry)txEntry.cached();
 
             if (entry == null) {
-                entry = (GridDistributedCacheEntry)cacheCtx.cache().entryEx(txEntry.key(), tx.topologyVersion());
+                entry = (GridDistributedCacheEntry)cacheCtx.cache().entryEx(txEntry.key(), tx.affinityVersion());
 
                 txEntry.cached(entry);
             }
@@ -672,7 +671,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
                     if (log.isDebugEnabled())
                         log.debug("Got removed entry in future onAllReplies method (will retry): " + txEntry);
 
-                    entry = (GridDistributedCacheEntry)cacheCtx.cache().entryEx(txEntry.key(), tx.topologyVersion());
+                    entry = (GridDistributedCacheEntry)cacheCtx.cache().entryEx(txEntry.key(), tx.affinityVersion());
 
                     txEntry.cached(entry);
                 }
@@ -951,7 +950,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
                     }
                     catch (GridCacheEntryRemovedException ignored) {
                         // Retry.
-                        txEntry.cached(cacheCtx.cache().entryEx(txEntry.key(), tx.topologyVersion()));
+                        txEntry.cached(cacheCtx.cache().entryEx(txEntry.key(), tx.affinityVersion()));
                     }
                 }
             }
@@ -983,7 +982,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
                 }
                 catch (GridCacheEntryRemovedException ignored) {
                     // Retry.
-                    txEntry.cached(cacheCtx.cache().entryEx(txEntry.key(), tx.topologyVersion()));
+                    txEntry.cached(cacheCtx.cache().entryEx(txEntry.key(), tx.affinityVersion()));
                 }
             }
         }
@@ -1131,7 +1130,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
 
             GridCacheContext ctx = cctx.cacheContext(cacheId);
 
-            lastForceFut = ctx.group().preloader().request(ctx, keys, tx.topologyVersion());
+            lastForceFut = ctx.group().preloader().request(ctx, keys, tx.affinityVersion());
 
             if (compFut != null && lastForceFut != null)
                 compFut.add(lastForceFut);
@@ -1268,7 +1267,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
                     // Mvcc Coordinator is expected to be local.
                     MvccSnapshot snapshot = cctx.coordinators().tryRequestSnapshotLocal(tx);
 
-                    assert snapshot != null : tx.topologyVersion();
+                    assert snapshot != null : tx.affinityVersion();
 
                     tx.mvccSnapshot(snapshot);
                 }
@@ -1282,7 +1281,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
             onEntriesLocked();
 
             // We are holding transaction-level locks for entries here, so we can get next write version.
-            tx.writeVersion(cctx.versions().next(tx.topologyVersion()));
+            tx.writeVersion(cctx.versions().next(tx.affinityVersion()));
 
             // Assign keys to primary nodes.
             if (!F.isEmpty(req.writes())) {
@@ -1386,7 +1385,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
             GridDhtTxPrepareRequest req = new GridDhtTxPrepareRequest(
                 futId,
                 fut.futureId(),
-                tx.topologyVersion(),
+                tx.affinityVersion(),
                 tx,
                 timeout,
                 dhtWrites,
@@ -1418,7 +1417,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
 
                     if (cached.isNewLocked()) {
                         List<ClusterNode> owners = cacheCtx.topology().owners(cached.partition(),
-                            tx != null ? tx.topologyVersion() : cacheCtx.affinity().affinityTopologyVersion());
+                            tx != null ? tx.affinityVersion() : cacheCtx.affinity().affinityVersion());
 
                         // Do not preload if local node is a partition owner.
                         if (!owners.contains(cctx.localNode()))
@@ -1492,7 +1491,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
                 GridDhtTxPrepareRequest req = new GridDhtTxPrepareRequest(
                     futId,
                     fut.futureId(),
-                    tx.topologyVersion(),
+                    tx.affinityVersion(),
                     tx,
                     timeout,
                     null,
@@ -1590,7 +1589,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
 
         while (true) {
             try {
-                List<ClusterNode> dhtNodes = dht.topology().nodes(cached.partition(), tx.topologyVersion());
+                List<ClusterNode> dhtNodes = dht.topology().nodes(cached.partition(), tx.affinityVersion());
 
                 assert !dhtNodes.isEmpty() && dhtNodes.get(0).id().equals(cctx.localNodeId()) :
                     "localNode = " + cctx.localNodeId() + ", dhtNodes = " + dhtNodes;
@@ -1629,7 +1628,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
                 break;
             }
             catch (GridCacheEntryRemovedException ignore) {
-                cached = dht.entryExx(entry.key(), tx.topologyVersion());
+                cached = dht.entryExx(entry.key(), tx.affinityVersion());
 
                 entry.cached(cached);
             }
@@ -1714,7 +1713,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
 
                         req.remoteTxInfo(f.nodeId, dhtVer, nearVer, "GridDhtTxPrepareFuture " +
                             "waiting for response [node=" + f.nodeId +
-                            ", topVer=" + tx.topologyVersion() +
+                            ", topVer=" + tx.affinityVersion() +
                             ", dhtVer=" + dhtVer +
                             ", nearVer=" + nearVer +
                             ", futId=" + futId +
@@ -1886,7 +1885,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
                     }
                 }
 
-                AffinityTopologyVersion topVer = tx.topologyVersion();
+                AffinityTopologyVersion topVer = tx.affinityVersion();
 
                 boolean rec = cctx.gridEvents().isRecordable(EVT_CACHE_REBALANCE_OBJECT_LOADED);
 

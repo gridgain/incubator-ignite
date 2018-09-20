@@ -26,7 +26,6 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.managers.communication.GridIoMessageFactory;
@@ -417,7 +416,7 @@ public class IgniteDiagnosticMessage implements Message {
                         .append(tx.getClass().getSimpleName())
                         .append(" [ver=").append(tx.xidVersion())
                         .append(", nearVer=").append(tx.nearXidVersion())
-                        .append(", topVer=").append(tx.topologyVersion())
+                        .append(", topVer=").append(tx.affinityVersion())
                         .append(", state=").append(tx.state())
                         .append(", fullTx=").append(tx).append(']');
 

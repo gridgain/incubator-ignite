@@ -35,7 +35,7 @@ import java.util.UUID;
 @SuppressWarnings("ForLoopReplaceableByForEach")
 public class HistoryAffinityAssignment implements AffinityAssignment {
     /** */
-    private final long affVer;
+    private final AffinityVersion affVer;
 
     /** */
     private final List<List<ClusterNode>> assignment;
@@ -72,7 +72,7 @@ public class HistoryAffinityAssignment implements AffinityAssignment {
     }
 
     /** {@inheritDoc} */
-    @Override public long affinityVersion() {
+    @Override public AffinityVersion affinityVersion() {
         return affVer;
     }
 
@@ -175,7 +175,7 @@ public class HistoryAffinityAssignment implements AffinityAssignment {
         if (!(o instanceof AffinityAssignment))
             return false;
 
-        return affVer == ((AffinityAssignment)o).affinityVersion();
+        return affVer.equals(((AffinityAssignment)o).affinityVersion());
     }
 
     /** {@inheritDoc} */

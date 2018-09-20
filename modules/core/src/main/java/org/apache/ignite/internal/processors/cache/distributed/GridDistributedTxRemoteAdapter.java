@@ -339,7 +339,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                     log.debug("Replacing obsolete entry in remote transaction [entry=" + entry + ", tx=" + this + ']');
 
                 // Replace the entry.
-                txEntry.cached(txEntry.context().cache().entryEx(txEntry.key(), topologyVersion()));
+                txEntry.cached(txEntry.context().cache().entryEx(txEntry.key(), affinityVersion()));
             }
         }
     }
@@ -461,7 +461,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                         if (log.isDebugEnabled())
                             log.debug("Got removed entry while committing (will retry): " + txEntry);
 
-                        txEntry.cached(txEntry.context().cache().entryEx(txEntry.key(), topologyVersion()));
+                        txEntry.cached(txEntry.context().cache().entryEx(txEntry.key(), affinityVersion()));
                     }
                 }
             }
@@ -495,7 +495,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                     // ensure proper lock ordering for removed entries.
                     cctx.tm().addCommittedTx(this);
 
-                    AffinityTopologyVersion topVer = topologyVersion();
+                    AffinityTopologyVersion topVer = affinityVersion();
 
                     WALPointer ptr = null;
 
@@ -524,7 +524,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                                             GridCacheEntryEx cached = txEntry.cached();
 
                                             if (cached == null)
-                                                txEntry.cached(cached = cacheCtx.cache().entryEx(txEntry.key(), topologyVersion()));
+                                                txEntry.cached(cached = cacheCtx.cache().entryEx(txEntry.key(), affinityVersion()));
 
                                             if (near() && cacheCtx.dr().receiveEnabled()) {
                                                 cached.markObsolete(xidVer);
@@ -761,7 +761,7 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                                                 log.debug("Attempting to commit a removed entry (will retry): " + txEntry);
 
                                             // Renew cached entry.
-                                            txEntry.cached(cacheCtx.cache().entryEx(txEntry.key(), topologyVersion()));
+                                            txEntry.cached(cacheCtx.cache().entryEx(txEntry.key(), affinityVersion()));
                                         }
                                     }
                                 }

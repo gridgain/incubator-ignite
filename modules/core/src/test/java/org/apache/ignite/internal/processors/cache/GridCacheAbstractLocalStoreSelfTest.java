@@ -303,7 +303,7 @@ public abstract class GridCacheAbstractLocalStoreSelfTest extends GridCommonAbst
         assertTrue(GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
                 AffinityTopologyVersion topVer = ignite1.context().cache().context().cacheContext(CU.cacheId(name))
-                    .affinity().affinityTopologyVersion();
+                    .affinity().affinityVersion();
 
                 return topVer.topologyVersion() == 2 && topVer.minorAffinityVersion() == 1;
 

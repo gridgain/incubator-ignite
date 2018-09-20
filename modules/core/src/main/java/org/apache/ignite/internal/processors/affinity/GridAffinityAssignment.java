@@ -40,7 +40,7 @@ public class GridAffinityAssignment implements AffinityAssignment, Serializable 
     private static final long serialVersionUID = 0L;
 
     /** Topology version. */
-    private final long affVer;
+    private final AffinityVersion affVer;
 
     /** */
     private final MvccCoordinator mvccCrd;
@@ -71,7 +71,7 @@ public class GridAffinityAssignment implements AffinityAssignment, Serializable 
      *
      * @param affVer Topology version.
      */
-    GridAffinityAssignment(long affVer) {
+    GridAffinityAssignment(AffinityVersion affVer) {
         this.affVer = affVer;
         primary = new HashMap<>();
         backup = new HashMap<>();
@@ -83,11 +83,11 @@ public class GridAffinityAssignment implements AffinityAssignment, Serializable 
      * @param assignment Assignment.
      * @param idealAssignment Ideal assignment.
      */
-    GridAffinityAssignment(long affVer,
+    GridAffinityAssignment(AffinityVersion affVer,
         List<List<ClusterNode>> assignment,
         List<List<ClusterNode>> idealAssignment,
         MvccCoordinator mvccCrd) {
-        assert affVer > 0;
+        assert affVer.majorVer() > 0;
         assert assignment != null;
         assert idealAssignment != null;
 
@@ -106,7 +106,7 @@ public class GridAffinityAssignment implements AffinityAssignment, Serializable 
      * @param affVer Topology version.
      * @param aff Assignment to copy from.
      */
-    GridAffinityAssignment(long affVer, GridAffinityAssignment aff) {
+    GridAffinityAssignment(AffinityVersion affVer, GridAffinityAssignment aff) {
         this.affVer = affVer;
 
         assignment = aff.assignment;
@@ -133,7 +133,7 @@ public class GridAffinityAssignment implements AffinityAssignment, Serializable 
     /**
      * @return Topology version.
      */
-    @Override public long affinityVersion() {
+    @Override public AffinityVersion affinityVersion() {
         return affVer;
     }
 

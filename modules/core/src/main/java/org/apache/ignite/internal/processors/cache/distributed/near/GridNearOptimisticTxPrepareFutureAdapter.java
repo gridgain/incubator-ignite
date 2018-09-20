@@ -111,11 +111,11 @@ public abstract class GridNearOptimisticTxPrepareFutureAdapter extends GridNearT
             topVer = cctx.tm().lockedTopologyVersion(threadId, tx);
 
             if (topVer == null)
-                topVer = tx.topologyVersionSnapshot();
+                topVer = tx.affinityVersionSnapshot();
         }
 
         if (topVer != null) {
-            tx.topologyVersion(topVer);
+            tx.affinityVersion(topVer);
 
             cctx.mvcc().addFuture(this);
 
@@ -165,7 +165,7 @@ public abstract class GridNearOptimisticTxPrepareFutureAdapter extends GridNearT
                 if (remap)
                     tx.onRemap(topVer);
                 else
-                    tx.topologyVersion(topVer);
+                    tx.affinityVersion(topVer);
 
                 if (!remap)
                     cctx.mvcc().addFuture(this);
@@ -380,7 +380,7 @@ public abstract class GridNearOptimisticTxPrepareFutureAdapter extends GridNearT
         /** {@inheritDoc} */
         @Override public void onError(IgniteCheckedException e) {
             if (e instanceof ClusterTopologyCheckedException)
-                ((ClusterTopologyCheckedException)e).retryReadyFuture(cctx.nextAffinityReadyFuture(tx.topologyVersion()));
+                ((ClusterTopologyCheckedException)e).retryReadyFuture(cctx.nextAffinityReadyFuture(tx.affinityVersion()));
 
             ERR_UPD.compareAndSet(GridNearOptimisticTxPrepareFutureAdapter.this, null, e);
 

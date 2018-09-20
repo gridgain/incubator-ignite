@@ -839,10 +839,10 @@ public final class GridNearLockFuture extends GridCacheCompoundIdentityFuture<Bo
             topVer = cctx.tm().lockedTopologyVersion(threadId, tx);
 
         if (topVer != null && tx != null)
-            tx.topologyVersion(topVer);
+            tx.affinityVersion(topVer);
 
         if (topVer == null && tx != null)
-            topVer = tx.topologyVersionSnapshot();
+            topVer = tx.affinityVersionSnapshot();
 
         if (topVer != null) {
             for (GridDhtTopologyFuture fut : cctx.shared().exchange().exchangeFutures()) {
@@ -912,7 +912,7 @@ public final class GridNearLockFuture extends GridCacheCompoundIdentityFuture<Bo
                 }
                 else {
                     if (tx != null)
-                        tx.topologyVersion(topVer);
+                        tx.affinityVersion(topVer);
 
                     if (this.topVer == null)
                         this.topVer = topVer;
@@ -1196,7 +1196,7 @@ public final class GridNearLockFuture extends GridCacheCompoundIdentityFuture<Bo
      * @throws IgniteCheckedException If failed.
      */
     private void proceedMapping() throws IgniteCheckedException {
-        boolean set = tx != null && cctx.shared().tm().setTxTopologyHint(tx.topologyVersionSnapshot());
+        boolean set = tx != null && cctx.shared().tm().setTxTopologyHint(tx.affinityVersionSnapshot());
 
         try {
             proceedMapping0();

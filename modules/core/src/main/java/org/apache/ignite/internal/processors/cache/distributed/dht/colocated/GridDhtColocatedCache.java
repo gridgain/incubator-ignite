@@ -29,6 +29,7 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheEntryPredicate;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheOperationContext;
@@ -141,7 +142,7 @@ public class GridDhtColocatedCache<K, V> extends GridDhtTransactionalCacheAdapte
      * Gets or creates entry for given key and given topology version.
      *
      * @param key Key for entry.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @param allowDetached Whether to allow detached entries. If {@code true} and node is not primary
      *      for given key, a new detached entry will be created. Otherwise, entry will be obtained from
      *      dht cache map.
@@ -151,11 +152,11 @@ public class GridDhtColocatedCache<K, V> extends GridDhtTransactionalCacheAdapte
      */
     public GridDistributedCacheEntry entryExx(
         KeyCacheObject key,
-        AffinityTopologyVersion topVer,
+        AffinityVersion affVer,
         boolean allowDetached
     ) {
-        return allowDetached && !ctx.affinity().primaryByKey(ctx.localNode(), key, topVer) ?
-            createEntry(key) : entryExx(key, topVer);
+        return allowDetached && !ctx.affinity().primaryByKey(ctx.localNode(), key, affVer) ?
+            createEntry(key) : entryExx(key, affVer);
     }
 
     /** {@inheritDoc} */
@@ -226,7 +227,7 @@ public class GridDhtColocatedCache<K, V> extends GridDhtTransactionalCacheAdapte
             }, opCtx, /*retry*/false);
         }
 
-        AffinityTopologyVersion topVer = tx == null ? ctx.affinity().affinityTopologyVersion() : tx.topologyVersion();
+        AffinityTopologyVersion topVer = tx == null ? ctx.affinity().affinityVersion() : tx.affinityVersion();
 
         subjId = ctx.subjectIdPerCall(subjId, opCtx);
 
@@ -290,7 +291,7 @@ public class GridDhtColocatedCache<K, V> extends GridDhtTransactionalCacheAdapte
             }, opCtx, /*retry*/false);
         }
 
-        AffinityTopologyVersion topVer = tx == null ? ctx.affinity().affinityTopologyVersion() : tx.topologyVersion();
+        AffinityTopologyVersion topVer = tx == null ? ctx.affinity().affinityVersion() : tx.affinityVersion();
 
         subjId = ctx.subjectIdPerCall(subjId, opCtx);
 

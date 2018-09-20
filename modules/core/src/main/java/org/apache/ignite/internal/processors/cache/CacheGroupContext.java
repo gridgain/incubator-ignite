@@ -37,6 +37,7 @@ import org.apache.ignite.internal.IgniteClientDisconnectedCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.affinity.AffinityAssignment;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentCache;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtAffinityAssignmentRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtAffinityAssignmentResponse;
@@ -964,11 +965,11 @@ public class CacheGroupContext {
         if (log.isDebugEnabled())
             log.debug("Processing affinity assignment request [node=" + nodeId + ", req=" + req + ']');
 
-        IgniteInternalFuture<AffinityTopologyVersion> fut = aff.readyFuture(req.topologyVersion());
+        IgniteInternalFuture<AffinityVersion> fut = aff.readyFuture(req.topologyVersion().affinityVersion());
 
         if (fut != null) {
-            fut.listen(new CI1<IgniteInternalFuture<AffinityTopologyVersion>>() {
-                @Override public void apply(IgniteInternalFuture<AffinityTopologyVersion> fut) {
+            fut.listen(new CI1<IgniteInternalFuture<AffinityVersion>>() {
+                @Override public void apply(IgniteInternalFuture<AffinityVersion> fut) {
                     processAffinityAssignmentRequest0(nodeId, req);
                 }
             });
@@ -988,7 +989,7 @@ public class CacheGroupContext {
             log.debug("Affinity is ready for topology version, will send response [topVer=" + topVer +
                 ", node=" + nodeId + ']');
 
-        AffinityAssignment assignment = aff.cachedAffinity(topVer);
+        AffinityAssignment assignment = aff.cachedAffinity(topVer.affinityVersion());
 
         GridDhtAffinityAssignmentResponse res = new GridDhtAffinityAssignmentResponse(
             req.futureId(),

@@ -159,7 +159,7 @@ public class GridPartitionedGetFuture<K, V> extends CacheDistributedGetFutureAda
      * @param topVer Topology version.
      */
     public void init(AffinityTopologyVersion topVer) {
-        AffinityTopologyVersion lockedTopVer = cctx.shared().lockedTopologyVersion(null);
+        AffinityTopologyVersion lockedTopVer = cctx.shared().lockedAffinityVersion(null);
 
         if (lockedTopVer != null) {
             topVer = lockedTopVer;
@@ -168,7 +168,7 @@ public class GridPartitionedGetFuture<K, V> extends CacheDistributedGetFutureAda
         }
         else {
             topVer = topVer.topologyVersion() > 0 ? topVer :
-                canRemap ? cctx.affinity().affinityTopologyVersion() : cctx.shared().exchange().readyAffinityVersion();
+                canRemap ? cctx.affinity().affinityVersion() : cctx.shared().exchange().readyAffinityVersion();
         }
 
         if (!cctx.mvccEnabled() || mvccSnapshot != null)

@@ -1145,7 +1145,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                         GridCacheContext cctx = mvccTracker.context();
 
                         try {
-                            if (tx.topologyVersionSnapshot() == null)
+                            if (tx.affinityVersionSnapshot() == null)
                                 new TxTopologyVersionFuture(tx, cctx).get();
                         }
                         catch (Exception e) {

@@ -29,6 +29,7 @@ import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.processors.GridProcessor;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.ExchangeContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
@@ -42,9 +43,9 @@ public interface MvccProcessor extends GridProcessor {
     /**
      * @param evtType Event type.
      * @param nodes Current nodes.
-     * @param topVer Topology version.
+     * @param majorAffVer Affinity version.
      */
-    void onDiscoveryEvent(int evtType, Collection<ClusterNode> nodes, long topVer);
+    void onDiscoveryEvent(int evtType, Collection<ClusterNode> nodes, long majorAffVer);
 
     /**
      * Exchange start callback.
@@ -77,10 +78,10 @@ public interface MvccProcessor extends GridProcessor {
 
     /**
      * Check that the given topology is greater or equals to coordinator's one and returns current coordinator.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @return Mvcc coordinator.
      */
-    @Nullable MvccCoordinator currentCoordinator(AffinityTopologyVersion topVer);
+    @Nullable MvccCoordinator currentCoordinator(AffinityVersion affVer);
 
     /**
      * @return Mvcc coordinator received from discovery event.

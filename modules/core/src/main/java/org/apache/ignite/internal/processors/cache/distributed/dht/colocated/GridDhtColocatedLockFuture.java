@@ -770,10 +770,10 @@ public final class GridDhtColocatedLockFuture extends GridCacheCompoundIdentityF
             topVer = cctx.tm().lockedTopologyVersion(Thread.currentThread().getId(), tx);
 
         if (topVer != null && tx != null)
-            tx.topologyVersion(topVer);
+            tx.affinityVersion(topVer);
 
         if (topVer == null && tx != null)
-            topVer = tx.topologyVersionSnapshot();
+            topVer = tx.affinityVersionSnapshot();
 
         if (topVer != null) {
             for (GridDhtTopologyFuture fut : cctx.shared().exchange().exchangeFutures()) {
@@ -848,7 +848,7 @@ public final class GridDhtColocatedLockFuture extends GridCacheCompoundIdentityF
                 }
                 else {
                     if (tx != null)
-                        tx.topologyVersion(topVer);
+                        tx.affinityVersion(topVer);
 
                     synchronized (this) {
                         if (this.topVer == null)
@@ -1150,7 +1150,7 @@ public final class GridDhtColocatedLockFuture extends GridCacheCompoundIdentityF
      * @throws IgniteCheckedException If failed.
      */
     private void proceedMapping() throws IgniteCheckedException {
-        boolean set = tx != null && cctx.shared().tm().setTxTopologyHint(tx.topologyVersionSnapshot());
+        boolean set = tx != null && cctx.shared().tm().setTxTopologyHint(tx.affinityVersionSnapshot());
 
         try {
             proceedMapping0();

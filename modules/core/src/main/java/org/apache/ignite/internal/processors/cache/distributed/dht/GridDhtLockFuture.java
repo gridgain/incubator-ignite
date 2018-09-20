@@ -240,7 +240,7 @@ public final class GridDhtLockFuture extends GridCacheCompoundIdentityFuture<Boo
         this.keepBinary = keepBinary;
 
         if (tx != null)
-            tx.topologyVersion(topVer);
+            tx.affinityVersion(topVer);
 
         assert tx == null || threadId == tx.threadId();
 
@@ -775,7 +775,7 @@ public final class GridDhtLockFuture extends GridCacheCompoundIdentityFuture<Boo
         if (tx != null) {
             cctx.tm().txContext(tx);
 
-            set = cctx.tm().setTxTopologyHint(tx.topologyVersionSnapshot());
+            set = cctx.tm().setTxTopologyHint(tx.affinityVersionSnapshot());
 
             if (success)
                 tx.clearLockFuture(this);
@@ -961,7 +961,7 @@ public final class GridDhtLockFuture extends GridCacheCompoundIdentityFuture<Boo
 
                                     if (needVal) {
                                         List<ClusterNode> owners = cctx.topology().owners(e.partition(),
-                                            tx != null ? tx.topologyVersion() : cctx.affinity().affinityTopologyVersion());
+                                            tx != null ? tx.affinityVersion() : cctx.affinity().affinityVersion());
 
                                         // Do not preload if local node is partition owner.
                                         if (owners.contains(cctx.localNode()))

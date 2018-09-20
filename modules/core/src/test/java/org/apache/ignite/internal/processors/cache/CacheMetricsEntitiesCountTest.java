@@ -134,12 +134,12 @@ public class CacheMetricsEntitiesCountTest extends GridCommonAbstractTest {
         long offHeapPrimaryEntriesCnt = cctx.offheap().cacheEntriesCount(cctx.cacheId(),
             true,
             false,
-            cctx.affinity().affinityTopologyVersion());
+            cctx.affinity().affinityVersion());
 
         long offHeapBackupEntriesCnt = cctx.offheap().cacheEntriesCount(cctx.cacheId(),
             false,
             true,
-            cctx.affinity().affinityTopologyVersion());
+            cctx.affinity().affinityVersion());
 
         long heapEntriesCnt = cache.localSizeLong(ONHEAP_PEEK_MODES);
 

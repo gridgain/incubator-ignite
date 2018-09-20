@@ -58,8 +58,8 @@ class GridAffinityUtils {
      * @return Affinity job.
      */
     static Callable<GridTuple3<GridAffinityMessage, GridAffinityMessage, GridAffinityAssignment>> affinityJob(
-        String cacheName, AffinityTopologyVersion topVer) {
-        return new AffinityJob(cacheName, topVer);
+        String cacheName, AffinityVersion affVer) {
+        return new AffinityJob(cacheName, affVer);
     }
 
     /**
@@ -146,15 +146,15 @@ class GridAffinityUtils {
         private String cacheName;
 
         /** */
-        private AffinityTopologyVersion topVer;
+        private AffinityVersion affVer;
 
         /**
          * @param cacheName Cache name.
-         * @param topVer Topology version.
+         * @param affVer Topology version.
          */
-        private AffinityJob(@Nullable String cacheName, @NotNull AffinityTopologyVersion topVer) {
+        private AffinityJob(@Nullable String cacheName, @NotNull AffinityVersion affVer) {
             this.cacheName = cacheName;
-            this.topVer = topVer;
+            this.affVer = affVer;
         }
 
         /**
@@ -178,13 +178,13 @@ class GridAffinityUtils {
 
             GridKernalContext ctx = kernal.context();
 
-            cctx.affinity().affinityReadyFuture(topVer).get();
+            cctx.affinity().affinityReadyFuture(affVer).get();
 
-            AffinityAssignment assign0 = cctx.affinity().assignment(topVer);
+            AffinityAssignment assign0 = cctx.affinity().assignment(affVer);
 
             GridAffinityAssignment assign = assign0 instanceof GridAffinityAssignment ?
                 (GridAffinityAssignment)assign0 :
-                new GridAffinityAssignment(topVer, assign0.assignment(), assign0.idealAssignment(), assign0.mvccCoordinator());
+                new GridAffinityAssignment(affVer, assign0.assignment(), assign0.idealAssignment(), assign0.mvccCoordinator());
 
             return F.t(
                 affinityMessage(ctx, cctx.config().getAffinity()),
@@ -195,13 +195,13 @@ class GridAffinityUtils {
         /** {@inheritDoc} */
         @Override public void writeExternal(ObjectOutput out) throws IOException {
             U.writeString(out, cacheName);
-            out.writeObject(topVer);
+            out.writeObject(affVer);
         }
 
         /** {@inheritDoc} */
         @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
             cacheName = U.readString(in);
-            topVer = (AffinityTopologyVersion)in.readObject();
+            affVer = ((AffinityTopologyVersion)in.readObject()).affinityVersion();
         }
     }
 }

@@ -829,7 +829,7 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
             return fut;
         }
 
-        if (cacheProc.transactions().tx() != null || sharedCtx.lockedTopologyVersion(null) != null) {
+        if (cacheProc.transactions().tx() != null || sharedCtx.lockedAffinityVersion(null) != null) {
             return new GridFinishedFuture<>(new IgniteCheckedException("Failed to " + prettyStr(activate) +
                 " cluster (must invoke the method outside of an active transaction)."));
         }

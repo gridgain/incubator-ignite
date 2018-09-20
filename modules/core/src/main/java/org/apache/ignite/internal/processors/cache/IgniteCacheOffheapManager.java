@@ -22,6 +22,7 @@ import java.util.Map;
 import javax.cache.Cache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteDhtDemandedPartitionsMap;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
@@ -478,7 +479,7 @@ public interface IgniteCacheOffheapManager {
      * @param cctx Cache context.
      * @param primary Primary entries flag.
      * @param backup Backup entries flag.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @param keepBinary Keep binary flag.
      * @return Entries iterator.
      * @throws IgniteCheckedException If failed.
@@ -488,7 +489,7 @@ public interface IgniteCacheOffheapManager {
         GridCacheContext cctx,
         final boolean primary,
         final boolean backup,
-        final AffinityTopologyVersion topVer,
+        final AffinityVersion affVer,
         final boolean keepBinary) throws IgniteCheckedException;
 
     /**

@@ -174,7 +174,7 @@ public class GridLocalCache<K, V> extends GridCacheAdapter<K, V> {
     @Override public void unlockAll(
         Collection<? extends K> keys
     ) throws IgniteCheckedException {
-        AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
+        AffinityTopologyVersion topVer = ctx.affinity().affinityVersion();
 
         for (K key : keys) {
             GridLocalCacheEntry entry = peekExx(ctx.toCacheKeyObject(key));

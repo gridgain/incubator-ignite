@@ -203,7 +203,7 @@ public final class GridCacheAtomicSequenceImpl extends AtomicDataStructureProxy<
             localUpdate.unlock();
         }
 
-        AffinityTopologyVersion lockedVer = ctx.shared().lockedTopologyVersion(null);
+        AffinityTopologyVersion lockedVer = ctx.shared().lockedAffinityVersion(null);
 
         // We need two separate locks here because two independent thread may attempt to update the sequence
         // simultaneously, one thread with locked topology and other with unlocked.

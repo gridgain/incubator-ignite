@@ -193,11 +193,11 @@ public class IgniteClientAffinityAssignmentSelfTest extends GridCommonAbstractTe
 
             GridTestUtils.waitForCondition(new GridAbsPredicate() {
                 @Override public boolean apply() {
-                    return cache.context().affinity().affinityTopologyVersion().topologyVersion() == topVer;
+                    return cache.context().affinity().affinityVersion().topologyVersion() == topVer;
                 }
             }, 5000);
 
-            assertEquals(topVer, cache.context().affinity().affinityTopologyVersion().topologyVersion());
+            assertEquals(topVer, cache.context().affinity().affinityVersion().topologyVersion());
         }
     }
 }

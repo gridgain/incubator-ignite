@@ -347,7 +347,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
 
         GridDhtCacheAdapter cache = cctx.dhtCache();
         EnlistOperation op = it.operation();
-        AffinityTopologyVersion topVer = tx.topologyVersionSnapshot();
+        AffinityTopologyVersion topVer = tx.affinityVersionSnapshot();
 
         try {
             while (true) {
@@ -758,7 +758,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
             req = new GridDhtTxQueryFirstEnlistRequest(cctx.cacheId(),
                 futId,
                 cctx.localNodeId(),
-                tx.topologyVersionSnapshot(),
+                tx.affinityVersionSnapshot(),
                 lockVer,
                 mvccSnapshot,
                 tx.remainingTime(),
@@ -820,7 +820,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
      * @return Backup nodes for the given key.
      */
     @NotNull private List<ClusterNode> backupNodes(KeyCacheObject key) {
-        List<ClusterNode> dhtNodes = cctx.affinity().nodesByKey(key, tx.topologyVersion());
+        List<ClusterNode> dhtNodes = cctx.affinity().nodesByKey(key, tx.affinityVersion());
 
         assert !dhtNodes.isEmpty() && dhtNodes.get(0).id().equals(cctx.localNodeId()) :
             "localNode = " + cctx.localNodeId() + ", dhtNodes = " + dhtNodes;
@@ -845,7 +845,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
         if (parts == null)
             parts = U.toIntArray(
                 cctx.affinity()
-                    .primaryPartitions(cctx.localNodeId(), tx.topologyVersionSnapshot()));
+                    .primaryPartitions(cctx.localNodeId(), tx.affinityVersionSnapshot()));
 
         GridDhtPartitionTopology top = cctx.topology();
 
@@ -878,7 +878,7 @@ public abstract class GridDhtTxAbstractEnlistFuture extends GridCacheFutureAdapt
         if (res != null)
             return res;
 
-        List<ClusterNode> dhtNodes = cctx.affinity().nodesByPartition(part, tx.topologyVersion());
+        List<ClusterNode> dhtNodes = cctx.affinity().nodesByPartition(part, tx.affinityVersion());
 
         for (int i = 1; i < dhtNodes.size(); i++) {
             ClusterNode node = dhtNodes.get(i);

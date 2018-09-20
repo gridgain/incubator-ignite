@@ -65,6 +65,7 @@ import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
 import org.apache.ignite.internal.managers.discovery.DiscoveryLocalJoinData;
 import org.apache.ignite.internal.managers.eventstorage.DiscoveryEventListener;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentCache;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridClientPartitionTopology;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionTopology;
@@ -845,10 +846,10 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     }
 
     /**
-     * @return Topology version of latest completed partition exchange.
+     * @return Affinity version of latest completed partition exchange.
      */
-    public AffinityTopologyVersion readyAffinityVersion() {
-        return exchFuts.readyTopVer();
+    public AffinityVersion readyAffinityVersion() {
+        return exchFuts.readyTopVer().affinityVersion();
     }
 
     /**
@@ -1885,12 +1886,12 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 }
 
                 if (exchTopVer != null) {
-                    U.warn(diagnosticLog, ">>> [txVer=" + tx.topologyVersionSnapshot() +
+                    U.warn(diagnosticLog, ">>> [txVer=" + tx.affinityVersionSnapshot() +
                         ", exchWait=" + tm.needWaitTransaction(tx, exchTopVer) +
                         ", tx=" + tx + ']');
                 }
                 else
-                    U.warn(diagnosticLog, ">>> [txVer=" + tx.topologyVersionSnapshot() + ", tx=" + tx + ']');
+                    U.warn(diagnosticLog, ">>> [txVer=" + tx.affinityVersionSnapshot() + ", tx=" + tx + ']');
             }
         }
 

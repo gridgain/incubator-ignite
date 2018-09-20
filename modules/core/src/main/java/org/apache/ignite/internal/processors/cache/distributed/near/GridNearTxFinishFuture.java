@@ -358,7 +358,7 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
 
                 if (super.onDone(tx0, err)) {
                     if (error() instanceof IgniteTxHeuristicCheckedException && !nodeStop) {
-                        AffinityTopologyVersion topVer = tx.topologyVersion();
+                        AffinityTopologyVersion topVer = tx.affinityVersion();
 
                         for (IgniteTxEntry e : tx.writeMap().values()) {
                             GridCacheContext cacheCtx = e.context();
@@ -597,7 +597,7 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
                     ClusterTopologyCheckedException cause =
                         new ClusterTopologyCheckedException("Backup node left grid: " + backupId);
 
-                    cause.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.topologyVersion()));
+                    cause.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.affinityVersion()));
 
                     onDone(new IgniteTxRollbackCheckedException("Failed to commit transaction " +
                         "(backup has left grid): " + tx.xidVersion(), cause));
@@ -660,7 +660,7 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
                             ClusterTopologyCheckedException cause =
                                 new ClusterTopologyCheckedException("Primary node left grid: " + nodeId);
 
-                            cause.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.topologyVersion()));
+                            cause.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.affinityVersion()));
 
                             mini.onDone(new IgniteTxRollbackCheckedException("Failed to commit transaction " +
                                 "(transaction has been rolled back on backup node): " + tx.xidVersion(), cause));
@@ -799,7 +799,7 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
             syncMode,
             m.explicitLock(),
             tx.storeEnabled(),
-            tx.topologyVersion(),
+            tx.affinityVersion(),
             null,
             null,
             null,
@@ -926,7 +926,7 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
             cctx.localNodeId(),
             futureId(),
             miniId,
-            tx.topologyVersion(),
+            tx.affinityVersion(),
             tx.xidVersion(),
             tx.commitVersion(),
             tx.threadId(),
@@ -1163,7 +1163,7 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
                         ((IgniteCheckedException)err).getCause(ClusterTopologyCheckedException.class);
 
                     if (cause != null)
-                        cause.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.topologyVersion()));
+                        cause.retryReadyFuture(cctx.nextAffinityReadyFuture(tx.affinityVersion()));
                 }
 
                 onDone(err);

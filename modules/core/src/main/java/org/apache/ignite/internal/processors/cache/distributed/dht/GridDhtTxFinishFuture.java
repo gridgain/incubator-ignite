@@ -350,7 +350,7 @@ public final class GridDhtTxFinishFuture<K, V> extends GridCacheCompoundIdentity
                 tx.nearNodeId(),
                 futId,
                 fut.futureId(),
-                tx.topologyVersion(),
+                tx.affinityVersion(),
                 tx.xidVersion(),
                 tx.commitVersion(),
                 tx.threadId(),
@@ -466,7 +466,7 @@ public final class GridDhtTxFinishFuture<K, V> extends GridCacheCompoundIdentity
                 tx.nearNodeId(),
                 futId,
                 fut.futureId(),
-                tx.topologyVersion(),
+                tx.affinityVersion(),
                 tx.xidVersion(),
                 tx.commitVersion(),
                 tx.threadId(),
@@ -538,7 +538,7 @@ public final class GridDhtTxFinishFuture<K, V> extends GridCacheCompoundIdentity
                     tx.nearNodeId(),
                     futId,
                     fut.futureId(),
-                    tx.topologyVersion(),
+                    tx.affinityVersion(),
                     tx.xidVersion(),
                     tx.commitVersion(),
                     tx.threadId(),
@@ -613,7 +613,7 @@ public final class GridDhtTxFinishFuture<K, V> extends GridCacheCompoundIdentity
 
                             ctx.remoteTxInfo(f.node().id(), dhtVer, nearVer, "GridDhtTxFinishFuture " +
                                 "waiting for response [node=" + f.node().id() +
-                                ", topVer=" + tx.topologyVersion() +
+                                ", topVer=" + tx.affinityVersion() +
                                 ", dhtVer=" + dhtVer +
                                 ", nearVer=" + nearVer +
                                 ", futId=" + futId +

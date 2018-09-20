@@ -242,7 +242,7 @@ public abstract class GridNearAtomicAbstractUpdateFuture extends GridCacheFuture
      * Performs future mapping.
      */
     public final void map() {
-        AffinityTopologyVersion topVer = cctx.shared().lockedTopologyVersion(null);
+        AffinityTopologyVersion topVer = cctx.shared().lockedAffinityVersion(null);
 
         if (topVer == null)
             mapOnTopology();

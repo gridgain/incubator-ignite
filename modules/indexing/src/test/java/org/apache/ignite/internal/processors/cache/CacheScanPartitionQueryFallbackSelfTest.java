@@ -490,7 +490,7 @@ public class CacheScanPartitionQueryFallbackSelfTest extends GridCommonAbstractT
 
         GridCacheAffinityManager affMgr = cctx.affinity();
 
-        AffinityTopologyVersion topVer = affMgr.affinityTopologyVersion();
+        AffinityTopologyVersion topVer = affMgr.affinityVersion();
 
         Set<Integer> parts = affMgr.primaryPartitions(node.id(), topVer);
 

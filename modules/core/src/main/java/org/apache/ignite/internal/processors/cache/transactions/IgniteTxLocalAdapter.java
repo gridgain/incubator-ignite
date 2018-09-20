@@ -530,7 +530,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
             try {
                 cctx.tm().txContext(this);
 
-                AffinityTopologyVersion topVer = topologyVersion();
+                AffinityTopologyVersion topVer = affinityVersion();
 
                 /*
                  * Commit to cache. Note that for 'near' transaction we loop through all the entries.
@@ -860,7 +860,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                 if (log.isDebugEnabled())
                                     log.debug("Got removed entry during transaction commit (will retry): " + txEntry);
 
-                                txEntry.cached(entryEx(cacheCtx, txEntry.txKey(), topologyVersion()));
+                                txEntry.cached(entryEx(cacheCtx, txEntry.txKey(), affinityVersion()));
                             }
                         }
                     }
@@ -1272,7 +1272,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                     if (log.isDebugEnabled())
                         log.debug("Got removed entry in putAllAsync method (will retry): " + cached);
 
-                    txEntry.cached(entryEx(cached.context(), txEntry.txKey(), topologyVersion()));
+                    txEntry.cached(entryEx(cached.context(), txEntry.txKey(), affinityVersion()));
                 }
             }
         }
@@ -1506,7 +1506,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                 if (log.isDebugEnabled())
                     log.debug("Got removed entry in transaction newEntry method (will retry): " + entry);
 
-                entry = entryEx(entry.context(), txEntry.txKey(), topologyVersion());
+                entry = entryEx(entry.context(), txEntry.txKey(), affinityVersion());
 
                 txEntry.cached(entry);
             }

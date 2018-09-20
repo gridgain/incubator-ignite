@@ -91,7 +91,7 @@ public class GridAffinityAssignmentCache {
     private final int partsCnt;
 
     /** Affinity calculation results cache: topology version => partition => nodes. */
-    private final ConcurrentNavigableMap<Long, HistoryAffinityAssignment> affCache;
+    private final ConcurrentNavigableMap<AffinityVersion, HistoryAffinityAssignment> affCache;
 
     /** */
     private List<List<ClusterNode>> idealAssignment;
@@ -106,7 +106,7 @@ public class GridAffinityAssignmentCache {
     private final AtomicReference<GridAffinityAssignment> head;
 
     /** Ready futures. */
-    private final ConcurrentMap<Long, AffinityReadyFuture> readyFuts = new ConcurrentSkipListMap<>();
+    private final ConcurrentMap<AffinityVersion, AffinityReadyFuture> readyFuts = new ConcurrentSkipListMap<>();
 
     /** Log. */
     private final IgniteLogger log;
@@ -202,7 +202,7 @@ public class GridAffinityAssignmentCache {
      * @param affVer Topology version.
      * @param affAssignment Affinity assignment for topology version.
      */
-    public void initialize(long affVer, List<List<ClusterNode>> affAssignment) {
+    public void initialize(AffinityVersion affVer, List<List<ClusterNode>> affAssignment) {
         MvccCoordinator mvccCrd = ctx.cache().context().coordinators().currentCoordinator(affVer);
 
         initialize(affVer, affAssignment, mvccCrd);
@@ -215,11 +215,11 @@ public class GridAffinityAssignmentCache {
      * @param affAssignment Affinity assignment for topology version.
      * @param mvccCrd Mvcc coordinator.
      */
-    public void initialize(long affVer, List<List<ClusterNode>> affAssignment, MvccCoordinator mvccCrd) {
-        assert affVer >= lastVersion().affinityVersion() : "[affVer = " + affVer + ", last=" + lastVersion().affinityVersion() + ']';
+    public void initialize(AffinityVersion affVer, List<List<ClusterNode>> affAssignment, MvccCoordinator mvccCrd) {
+        assert affVer.compareTo(lastVersion()) >= 0 : "[affVer = " + affVer + ", last=" + lastVersion() + ']';
 
         assert idealAssignment != null;
-        assert mvccCrd == null || affVer >= mvccCrd.topologyVersion().affinityVersion() : "[mvccCrd=" + mvccCrd + ", affVer=" + affVer + ']';
+        assert mvccCrd == null || affVer.compareTo(mvccCrd.topologyVersion().affinityVersion()) >= 0 : "[mvccCrd=" + mvccCrd + ", affVer=" + affVer + ']';
 
         GridAffinityAssignment assignment = new GridAffinityAssignment(affVer, affAssignment, idealAssignment, mvccCrd);
 
@@ -227,8 +227,8 @@ public class GridAffinityAssignmentCache {
 
         head.set(assignment);
 
-        for (Map.Entry<Long, AffinityReadyFuture> entry : readyFuts.entrySet()) {
-            if (entry.getKey() <= affVer) {
+        for (Map.Entry<AffinityVersion, AffinityReadyFuture> entry : readyFuts.entrySet()) {
+            if (entry.getKey().compareTo(affVer) <= 0) {
                 if (log.isDebugEnabled())
                     log.debug("Completing topology ready future (initialized affinity) " +
                         "[locNodeId=" + ctx.localNodeId() + ", futVer=" + entry.getKey() + ", affVer=" + affVer + ']');
@@ -299,19 +299,19 @@ public class GridAffinityAssignmentCache {
     /**
      * Calculates affinity cache for given topology version.
      *
-     * @param affTopVer Topology version to calculate affinity cache for.
+     * @param affVer Topology version to calculate affinity cache for.
      * @param events Discovery events that caused this topology version change.
      * @param discoCache Discovery cache.
      * @return Affinity assignments.
      */
     @SuppressWarnings("IfMayBeConditional")
     public List<List<ClusterNode>> calculate(
-        AffinityTopologyVersion affTopVer,
+        AffinityTopologyVersion affVer,
         @Nullable ExchangeDiscoveryEvents events,
         @Nullable DiscoCache discoCache
     ) {
         if (log.isDebugEnabled())
-            log.debug("Calculating affinity [affTopVer=" + affTopVer + ", locNodeId=" + ctx.localNodeId() +
+            log.debug("Calculating affinity [affVer=" + affVer + ", locNodeId=" + ctx.localNodeId() +
                 ", discoEvts=" + events + ']');
 
         List<List<ClusterNode>> prevAssignment = idealAssignment;
@@ -360,20 +360,20 @@ public class GridAffinityAssignmentCache {
                 if (baselineAssignment == null)
                     baselineAssignment = aff.assignPartitions(new GridAffinityFunctionContextImpl(
                         discoCache.state().baselineTopology().createBaselineView(sorted, nodeFilter),
-                        prevAssignment, events.lastEvent(), affTopVer.affinityVersion(), backups));
+                        prevAssignment, events.lastEvent(), affVer.affinityVersion(), backups));
 
-                assignment = currentBaselineAssignment(affTopVer);
+                assignment = currentBaselineAssignment(affVer);
             }
             else if (hasBaseline && changedBaseline) {
                 baselineAssignment = aff.assignPartitions(new GridAffinityFunctionContextImpl(
                     discoCache.state().baselineTopology().createBaselineView(sorted, nodeFilter),
-                    prevAssignment, events.lastEvent(), affTopVer.affinityVersion(), backups));
+                    prevAssignment, events.lastEvent(), affVer.affinityVersion(), backups));
 
-                assignment = currentBaselineAssignment(affTopVer);
+                assignment = currentBaselineAssignment(affVer);
             }
             else {
                 assignment = aff.assignPartitions(new GridAffinityFunctionContextImpl(sorted, prevAssignment,
-                    events.lastEvent(), affTopVer.affinityVersion(), backups));
+                    events.lastEvent(), affVer.affinityVersion(), backups));
             }
         }
         else {
@@ -385,13 +385,13 @@ public class GridAffinityAssignmentCache {
             if (hasBaseline) {
                 baselineAssignment = aff.assignPartitions(new GridAffinityFunctionContextImpl(
                     discoCache.state().baselineTopology().createBaselineView(sorted, nodeFilter),
-                    prevAssignment, event, affTopVer.affinityVersion(), backups));
+                    prevAssignment, event, affVer.affinityVersion(), backups));
 
-                assignment = currentBaselineAssignment(affTopVer);
+                assignment = currentBaselineAssignment(affVer);
             }
             else {
                 assignment = aff.assignPartitions(new GridAffinityFunctionContextImpl(sorted, prevAssignment,
-                    event, affTopVer.affinityVersion(), backups));
+                    event, affVer.affinityVersion(), backups));
             }
         }
 
@@ -412,7 +412,7 @@ public class GridAffinityAssignmentCache {
         }
 
         if (locCache)
-            initialize(affTopVer.affinityVersion(), assignment);
+            initialize(affVer.affinityVersion(), assignment);
 
         return assignment;
     }
@@ -493,7 +493,7 @@ public class GridAffinityAssignmentCache {
     /**
      * @return Last calculated affinity version.
      */
-    public AffinityTopologyVersion lastVersion() {
+    public AffinityVersion lastVersion() {
         return head.get().affinityVersion();
     }
 
@@ -501,7 +501,7 @@ public class GridAffinityAssignmentCache {
      * @param affVer Topology version.
      * @return Affinity assignment.
      */
-    public List<List<ClusterNode>> assignments(long affVer) {
+    public List<List<ClusterNode>> assignments(AffinityVersion affVer) {
         AffinityAssignment aff = cachedAffinity(affVer);
 
         return aff.assignment();
@@ -524,11 +524,10 @@ public class GridAffinityAssignmentCache {
      * @param affVer Topology version to await for.
      * @return Future that will be completed after affinity for topology version {@code affVer} is calculated.
      */
-    @Nullable public IgniteInternalFuture<Long> readyFuture(long affVer) {
-        // TODO: use only affVer here.
+    @Nullable public IgniteInternalFuture<AffinityVersion> readyFuture(AffinityVersion affVer) {
         GridAffinityAssignment aff = head.get();
 
-        if (aff.affinityVersion() >= affVer) {
+        if (aff.affinityVersion().compareTo(affVer) >= 0) {
             if (log.isDebugEnabled())
                 log.debug("Returning finished future for readyFuture [head=" + aff.affinityVersion() +
                     ", affVer=" + affVer + ']');
@@ -536,11 +535,11 @@ public class GridAffinityAssignmentCache {
             return null;
         }
 
-        GridFutureAdapter<Long> fut = F.addIfAbsent(readyFuts, affVer, new AffinityReadyFuture(affVer));
+        GridFutureAdapter<AffinityVersion> fut = F.addIfAbsent(readyFuts, affVer, new AffinityReadyFuture(affVer));
 
         aff = head.get();
 
-        if (aff.affinityVersion() >= affVer) {
+        if (aff.affinityVersion().compareTo(affVer) >= 0) {
             if (log.isDebugEnabled())
                 log.debug("Completing topology ready future right away [head=" + aff.affinityVersion() +
                     ", affVer=" + affVer + ']');
@@ -567,7 +566,7 @@ public class GridAffinityAssignmentCache {
      * @param affVer Topology version.
      * @return Affinity nodes.
      */
-    public List<ClusterNode> nodes(int part, long affVer) {
+    public List<ClusterNode> nodes(int part, AffinityVersion affVer) {
         // Resolve cached affinity nodes.
         return cachedAffinity(affVer).get(part);
     }
@@ -579,7 +578,7 @@ public class GridAffinityAssignmentCache {
      * @param affVer Topology version.
      * @return Primary partitions for specified node ID.
      */
-    public Set<Integer> primaryPartitions(UUID nodeId, long affVer) {
+    public Set<Integer> primaryPartitions(UUID nodeId, AffinityVersion affVer) {
         return cachedAffinity(affVer).primaryPartitions(nodeId);
     }
 
@@ -590,7 +589,7 @@ public class GridAffinityAssignmentCache {
      * @param affVer Topology version.
      * @return Backup partitions for specified node ID.
      */
-    public Set<Integer> backupPartitions(UUID nodeId, long affVer) {
+    public Set<Integer> backupPartitions(UUID nodeId, AffinityVersion affVer) {
         return cachedAffinity(affVer).backupPartitions(nodeId);
     }
 
@@ -627,7 +626,7 @@ public class GridAffinityAssignmentCache {
     public AffinityAssignment readyAffinity(long affVer) {
         AffinityAssignment cache = head.get();
 
-        if (cache.affinityVersion() != affVer) {
+        if (!cache.affinityVersion().equals(affVer)) {
             cache = affCache.get(affVer);
 
             if (cache == null) {
@@ -650,13 +649,13 @@ public class GridAffinityAssignmentCache {
      * @param affVer Topology version.
      * @return Cached affinity.
      */
-    public AffinityAssignment cachedAffinity(long affVer) {
-        if (affVer == AffinityTopologyVersion.NONE.affinityVersion())
-            affVer = lastVersion().affinityVersion();
+    public AffinityAssignment cachedAffinity(AffinityVersion affVer) {
+        if (affVer.equals(AffinityTopologyVersion.NONE.affinityVersion()))
+            affVer = lastVersion();
         else
             awaitAffinityVersion(affVer);
 
-        assert affVer >= 0 : affVer;
+        assert affVer.majorVer() >= 0 : affVer;
 
         AffinityAssignment cache = head.get();
 
@@ -685,7 +684,7 @@ public class GridAffinityAssignmentCache {
      * @param endVer End version.
      * @return {@code True} if primary changed or required affinity version not found in history.
      */
-    public boolean primaryChanged(int part, long startVer, long endVer) {
+    public boolean primaryChanged(int part, AffinityVersion startVer, AffinityVersion endVer) {
         AffinityAssignment aff = affCache.get(startVer);
 
         if (aff == null)
@@ -723,18 +722,18 @@ public class GridAffinityAssignmentCache {
 
         idealAssignment(aff.idealAssignment());
 
-        AffinityAssignment assign = aff.cachedAffinity(aff.lastVersion().affinityVersion());
+        AffinityAssignment assign = aff.cachedAffinity(aff.lastVersion());
 
-        initialize(aff.lastVersion().affinityVersion(), assign.assignment(), assign.mvccCoordinator());
+        initialize(aff.lastVersion(), assign.assignment());
     }
 
     /**
      * @param affVer Affinity version to wait.
      */
-    private void awaitAffinityVersion(long affVer) {
+    private void awaitAffinityVersion(AffinityVersion affVer) {
         GridAffinityAssignment aff = head.get();
 
-        if (aff.affinityVersion() >= affVer)
+        if (aff.affinityVersion().compareTo(affVer) >= 0)
             return;
 
         try {
@@ -742,7 +741,7 @@ public class GridAffinityAssignmentCache {
                 log.debug("Will wait for topology version [locNodeId=" + ctx.localNodeId() +
                 ", affVer=" + affVer + ']');
 
-            IgniteInternalFuture<Long> fut = readyFuture(affVer);
+            IgniteInternalFuture<AffinityVersion> fut = readyFuture(affVer);
 
             if (fut != null) {
                 Thread curTh = Thread.currentThread();
@@ -773,7 +772,7 @@ public class GridAffinityAssignmentCache {
 
             int rmvCnt = MAX_HIST_SIZE / 2;
 
-            long affVerRmv = 0;
+            AffinityVersion affVerRmv = AffinityTopologyVersion.NONE.affinityVersion();
 
             while (it.hasNext() && rmvCnt > 0) {
                 AffinityAssignment aff0 = it.next();
@@ -796,7 +795,7 @@ public class GridAffinityAssignmentCache {
     /**
      * @return All initialized versions.
      */
-    public Collection<Long> cachedVersions() {
+    public Collection<AffinityVersion> cachedVersions() {
         return affCache.keySet();
     }
 
@@ -833,20 +832,20 @@ public class GridAffinityAssignmentCache {
     /**
      * Affinity ready future. Will remove itself from ready futures map.
      */
-    private class AffinityReadyFuture extends GridFutureAdapter<Long> {
+    private class AffinityReadyFuture extends GridFutureAdapter<AffinityVersion> {
         /** */
-        private long reqAffVer;
+        private AffinityVersion reqAffVer;
 
         /**
          *
          * @param reqAffVer Required topology version.
          */
-        private AffinityReadyFuture(long reqAffVer) {
+        private AffinityReadyFuture(AffinityVersion reqAffVer) {
             this.reqAffVer = reqAffVer;
         }
 
         /** {@inheritDoc} */
-        @Override public boolean onDone(Long res, @Nullable Throwable err) {
+        @Override public boolean onDone(AffinityVersion res, @Nullable Throwable err) {
             assert res != null || err != null;
 
             boolean done = super.onDone(res, err);

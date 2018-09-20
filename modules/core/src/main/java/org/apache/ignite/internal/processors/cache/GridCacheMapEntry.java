@@ -715,7 +715,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                     val = null;
             }
             else {
-                boolean valid = valid(tx != null ? tx.topologyVersion() : cctx.affinity().affinityTopologyVersion());
+                boolean valid = valid(tx != null ? tx.affinityVersion() : cctx.affinity().affinityVersion());
 
                 if (valid) {
                     val = this.val;
@@ -1024,7 +1024,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         }
         finally {
             if (touch)
-                touch(cctx.affinity().affinityTopologyVersion());
+                touch(cctx.affinity().affinityVersion());
         }
     }
 
@@ -1049,7 +1049,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         boolean noCreate) throws IgniteCheckedException, GridCacheEntryRemovedException {
         assert tx != null;
 
-        final boolean valid = valid(tx.topologyVersion());
+        final boolean valid = valid(tx.affinityVersion());
 
         final GridCacheVersion newVer;
 
@@ -1178,7 +1178,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         assert tx != null;
         assert mvccVer != null;
 
-        final boolean valid = valid(tx.topologyVersion());
+        final boolean valid = valid(tx.affinityVersion());
 
         final GridCacheVersion newVer;
 
@@ -1262,7 +1262,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         assert tx != null;
         assert mvccVer != null;
 
-        final boolean valid = valid(tx.topologyVersion());
+        final boolean valid = valid(tx.affinityVersion());
 
         final GridCacheVersion newVer;
 
@@ -1357,7 +1357,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
     ) throws IgniteCheckedException, GridCacheEntryRemovedException {
         CacheObject old;
 
-        final boolean valid = valid(tx != null ? tx.topologyVersion() : topVer);
+        final boolean valid = valid(tx != null ? tx.affinityVersion() : topVer);
 
         // Lock should be held by now.
         if (!cctx.isAll(this, filter))
@@ -1586,7 +1586,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
         GridCacheVersion newVer;
 
-        final boolean valid = valid(tx != null ? tx.topologyVersion() : topVer);
+        final boolean valid = valid(tx != null ? tx.affinityVersion() : topVer);
 
         // Lock should be held by now.
         if (!cctx.isAll(this, filter))
@@ -3105,7 +3105,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         throws GridCacheEntryRemovedException, IgniteCheckedException {
         IgniteInternalTx tx = cctx.tm().localTx();
 
-        AffinityTopologyVersion topVer = tx != null ? tx.topologyVersion() : cctx.affinity().affinityTopologyVersion();
+        AffinityTopologyVersion topVer = tx != null ? tx.affinityVersion() : cctx.affinity().affinityVersion();
 
         return peek(true, false, topVer, plc);
     }
@@ -4994,7 +4994,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                     entry = (GridCacheMapEntry)cctx.cache().entryEx(entry.key());
                 }
 
-                valid = entry.valid(tx.topologyVersion());
+                valid = entry.valid(tx.affinityVersion());
 
                 cctx.shared().database().checkpointReadLock();
 
@@ -5131,7 +5131,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                     entry = (GridCacheMapEntry)cctx.cache().entryEx(entry.key());
                 }
 
-                valid = entry.valid(tx.topologyVersion());
+                valid = entry.valid(tx.affinityVersion());
 
                 cctx.shared().database().checkpointReadLock();
 
@@ -5273,7 +5273,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                     entry = (GridCacheMapEntry)cctx.cache().entryEx(entry.key());
                 }
 
-                valid = entry.valid(tx.topologyVersion());
+                valid = entry.valid(tx.affinityVersion());
 
                 // Determine new ttl and expire time.
                 long expireTime, ttl = this.ttl;

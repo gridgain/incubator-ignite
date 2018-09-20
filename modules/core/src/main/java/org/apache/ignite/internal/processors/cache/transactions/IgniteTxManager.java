@@ -510,7 +510,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
 
             // If there is another system transaction in progress, use it's topology version to prevent deadlock.
             if (topVer != null)
-                tx.topologyVersion(topVer);
+                tx.affinityVersion(topVer);
         }
 
         return onCreated(sysCacheCtx, tx);
@@ -646,7 +646,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
      * @return {@code True} if need wait transaction for exchange.
      */
     public boolean needWaitTransaction(IgniteInternalTx tx, AffinityTopologyVersion topVer) {
-        AffinityTopologyVersion txTopVer = tx.topologyVersionSnapshot();
+        AffinityTopologyVersion txTopVer = tx.affinityVersionSnapshot();
 
         return txTopVer != null && txTopVer.compareTo(topVer) < 0;
     }
@@ -747,7 +747,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
         IgniteInternalTx tx = threadMap.get(threadId);
 
         if (tx != null) {
-            AffinityTopologyVersion topVer = tx.topologyVersionSnapshot();
+            AffinityTopologyVersion topVer = tx.affinityVersionSnapshot();
 
             if (topVer != null)
                 return topVer;
@@ -761,7 +761,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
                 tx = sysThreadMap.get(new TxThreadKey(threadId, cacheCtx.cacheId()));
 
                 if (tx != null && tx != ignore) {
-                    AffinityTopologyVersion topVer = tx.topologyVersionSnapshot();
+                    AffinityTopologyVersion topVer = tx.affinityVersionSnapshot();
 
                     if (topVer != null)
                         return topVer;
@@ -1285,7 +1285,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
             removeObsolete(tx);
 
             // 7. Assign transaction number at the end of transaction.
-            tx.endVersion(cctx.versions().next(tx.topologyVersion()));
+            tx.endVersion(cctx.versions().next(tx.affinityVersion()));
 
             // 8. Remove from per-thread storage.
             clearThreadMap(tx);
@@ -1692,7 +1692,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
 
                     try {
                         // Renew cache entry.
-                        txEntry1.cached(cacheCtx.cache().entryEx(txEntry1.key(), tx.topologyVersion()));
+                        txEntry1.cached(cacheCtx.cache().entryEx(txEntry1.key(), tx.affinityVersion()));
                     }
                     catch (GridDhtInvalidPartitionException e) {
                         assert tx.dht() : "Received invalid partition for non DHT transaction [tx=" +
@@ -1740,7 +1740,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
                 if (log.isDebugEnabled())
                     log.debug("Got removed entry in TM txUnlock(..) method (will retry): " + txEntry);
 
-                txEntry.cached(txEntry.context().cache().entryEx(txEntry.key(), tx.topologyVersion()));
+                txEntry.cached(txEntry.context().cache().entryEx(txEntry.key(), tx.affinityVersion()));
             }
         }
     }

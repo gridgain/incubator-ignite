@@ -247,7 +247,7 @@ public class GridNearAtomicSingleUpdateFuture extends GridNearAtomicAbstractUpda
 
                 assert remapAffVer == 0 : remapAffVer;
 
-                remapAffVer = res.remapTopologyVersion().affinityVersion();
+                remapAffVer = res.remapTopologyVersion().majorAffinityVersion();
             }
             else if (res.error() != null)
                 onPrimaryError(req, res);
@@ -324,7 +324,7 @@ public class GridNearAtomicSingleUpdateFuture extends GridNearAtomicAbstractUpda
 
                     assert cause != null && cause.topologyVersion() != null : err;
 
-                    remapAffVer0 = cause.topologyVersion().affinityVersion() + 1;
+                    remapAffVer0 = cause.topologyVersion().majorAffinityVersion() + 1;
 
                     err = null;
                 }

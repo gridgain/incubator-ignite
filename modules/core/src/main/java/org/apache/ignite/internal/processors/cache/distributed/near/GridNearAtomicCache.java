@@ -233,7 +233,7 @@ public class GridNearAtomicCache<K, V> extends GridNearCacheAdapter<K, V> {
             while (true) {
                 GridCacheEntryEx entry = null;
 
-                AffinityTopologyVersion topVer = ctx.affinity().affinityTopologyVersion();
+                AffinityTopologyVersion topVer = ctx.affinity().affinityVersion();
 
                 try {
                     entry = entryEx(key, topVer);

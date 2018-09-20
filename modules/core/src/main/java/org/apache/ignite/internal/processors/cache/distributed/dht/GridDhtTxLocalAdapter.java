@@ -298,7 +298,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
                     continue;
 
                 if (e.cached().obsolete()) {
-                    GridCacheEntryEx cached = cacheCtx.cache().entryEx(e.key(), topologyVersion());
+                    GridCacheEntryEx cached = cacheCtx.cache().entryEx(e.key(), affinityVersion());
 
                     e.cached(cached);
                 }
@@ -327,7 +327,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
                         break;
                     }
                     catch (GridCacheEntryRemovedException ignore) {
-                        GridCacheEntryEx cached = cacheCtx.cache().entryEx(e.key(), topologyVersion());
+                        GridCacheEntryEx cached = cacheCtx.cache().entryEx(e.key(), affinityVersion());
 
                         e.cached(cached);
                     }
@@ -507,7 +507,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
 
                 addActiveCache(dhtCache.context(), false);
 
-                GridDhtCacheEntry cached = dhtCache.entryExx(existing.key(), topologyVersion());
+                GridDhtCacheEntry cached = dhtCache.entryExx(existing.key(), affinityVersion());
 
                 existing.cached(cached);
 
@@ -528,7 +528,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
                     log.debug("Added entry to transaction: " + existing);
             }
 
-            return addReader(msgId, dhtCache.entryExx(existing.key()), existing, topologyVersion());
+            return addReader(msgId, dhtCache.entryExx(existing.key()), existing, affinityVersion());
         }
         catch (GridDhtInvalidPartitionException ex) {
             throw new IgniteCheckedException(ex);
@@ -586,7 +586,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
             Set<KeyCacheObject> skipped = null;
 
             try {
-                AffinityTopologyVersion topVer = topologyVersion();
+                AffinityTopologyVersion topVer = affinityVersion();
 
                 GridDhtCacheAdapter dhtCache = cacheCtx.isNear() ? cacheCtx.near().dht() : cacheCtx.dht();
 
@@ -954,7 +954,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
 
         Map<Integer, PartitionUpdateCounters> res = new HashMap<>();
 
-        AffinityTopologyVersion top = topologyVersionSnapshot();
+        AffinityTopologyVersion top = affinityVersionSnapshot();
 
         for (Map.Entry<Integer, PartitionUpdateCounters> entry : updCntrs.entrySet()) {
             Integer cacheId = entry.getKey();

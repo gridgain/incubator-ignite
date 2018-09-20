@@ -48,6 +48,7 @@ import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.ExchangeContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
@@ -318,7 +319,7 @@ class MvccProcessorImpl extends GridProcessorAdapter implements MvccProcessor, D
     }
 
     /** {@inheritDoc} */
-    @Override public void onDiscoveryEvent(int evtType, Collection<ClusterNode> nodes, long topVer) {
+    @Override public void onDiscoveryEvent(int evtType, Collection<ClusterNode> nodes, long majorAffVer) {
         if (evtType == EVT_NODE_METRICS_UPDATED || evtType == EVT_DISCOVERY_CUSTOM_EVT)
             return;
 
@@ -350,14 +351,14 @@ class MvccProcessorImpl extends GridProcessorAdapter implements MvccProcessor, D
                     }
                 }
 
-                crd = crdNode != null ? new MvccCoordinator(crdNode.id(), coordinatorVersion(topVer), new AffinityTopologyVersion(topVer, 0)) : null;
+                crd = crdNode != null ? new MvccCoordinator(crdNode.id(), coordinatorVersion(majorAffVer), new AffinityVersion(majorAffVer, 0)) : null;
 
                 if (crd != null) {
                     if (log.isInfoEnabled())
                         log.info("Assigned mvcc coordinator [crd=" + crd + ", crdNode=" + crdNode + ']');
                 }
                 else
-                    U.warn(log, "New mvcc coordinator was not assigned [topVer=" + topVer + ']');
+                    U.warn(log, "New mvcc coordinator was not assigned [majorAffVer=" + majorAffVer + ']');
             }
         }
 
@@ -419,17 +420,17 @@ class MvccProcessorImpl extends GridProcessorAdapter implements MvccProcessor, D
 
     /** {@inheritDoc} */
     @Override @Nullable public MvccCoordinator currentCoordinator() {
-        return currentCoordinator(AffinityTopologyVersion.NONE);
+        return currentCoordinator(AffinityTopologyVersion.NONE.affinityVersion());
     }
 
     /** {@inheritDoc} */
-    @Override @Nullable public MvccCoordinator currentCoordinator(AffinityTopologyVersion topVer) {
+    @Override @Nullable public MvccCoordinator currentCoordinator(AffinityVersion affVer) {
         MvccCoordinator crd = curCrd;
 
         // Assert coordinator did not already change.
         assert crd == null
-            || topVer == AffinityTopologyVersion.NONE
-            || crd.topologyVersion().compareTo(topVer) <= 0 : "Invalid coordinator [crd=" + crd + ", topVer=" + topVer + ']';
+            || affVer.equals(AffinityTopologyVersion.NONE.affinityVersion())
+            || crd.topologyVersion().compareTo(affVer) <= 0 : "Invalid coordinator [crd=" + crd + ", affVer=" + affVer + ']';
 
         return crd;
     }
@@ -537,9 +538,9 @@ class MvccProcessorImpl extends GridProcessorAdapter implements MvccProcessor, D
             throw noCoordinatorError();
 
         if (tx != null) {
-            AffinityTopologyVersion topVer = ctx.cache().context().lockedTopologyVersion(null);
+            AffinityVersion affVer = ctx.cache().context().lockedAffinityVersion(null);
 
-            if (topVer != null && topVer.compareTo(crd.topologyVersion()) < 0)
+            if (affVer != null && affVer.compareTo(crd.topologyVersion()) < 0)
                 throw new ClusterTopologyCheckedException("Mvcc coordinator is outdated " +
                     "for the locked topology version. [crd=" + crd + ", tx=" + tx + ']');
         }
@@ -582,9 +583,9 @@ class MvccProcessorImpl extends GridProcessorAdapter implements MvccProcessor, D
         }
 
         if (tx != null) {
-            AffinityTopologyVersion topVer = ctx.cache().context().lockedTopologyVersion(null);
+            AffinityVersion affVer = ctx.cache().context().lockedAffinityVersion(null);
 
-            if (topVer != null && topVer.compareTo(crd.topologyVersion()) < 0) {
+            if (affVer != null && affVer.compareTo(crd.topologyVersion()) < 0) {
                 lsnr.onError(new ClusterTopologyCheckedException("Mvcc coordinator is outdated " +
                     "for the locked topology version. [crd=" + crd + ", tx=" + tx + ']'));
 

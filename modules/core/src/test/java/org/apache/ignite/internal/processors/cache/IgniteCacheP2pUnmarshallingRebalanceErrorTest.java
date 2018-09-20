@@ -65,7 +65,7 @@ public class IgniteCacheP2pUnmarshallingRebalanceErrorTest extends IgniteCacheP2
         GridCacheContext cctx = grid(10).context().cache().cache(DEFAULT_CACHE_NAME).context();
 
         List<List<ClusterNode>> affAssign =
-            cctx.affinity().assignment(cctx.affinity().affinityTopologyVersion()).idealAssignment();
+            cctx.affinity().assignment(cctx.affinity().affinityVersion()).idealAssignment();
 
         Integer part = null;
 

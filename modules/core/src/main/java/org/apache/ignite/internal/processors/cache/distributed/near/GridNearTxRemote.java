@@ -146,7 +146,7 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
 
         assert topVer != null && topVer.topologyVersion() > 0 : topVer;
 
-        topologyVersion(topVer);
+        affinityVersion(topVer);
     }
 
     /**
@@ -213,7 +213,7 @@ public class GridNearTxRemote extends GridDistributedTxRemoteAdapter {
 
         assert topVer != null && topVer.topologyVersion() > 0 : topVer;
 
-        topologyVersion(topVer);
+        affinityVersion(topVer);
     }
 
     /** {@inheritDoc} */

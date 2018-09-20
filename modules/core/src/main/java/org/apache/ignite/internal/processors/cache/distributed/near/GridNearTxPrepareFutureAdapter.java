@@ -219,7 +219,7 @@ public abstract class GridNearTxPrepareFutureAdapter extends
                             tx.xidVersion(),
                             tup.version(),
                             nodeId,
-                            tx.topologyVersion());
+                            tx.affinityVersion());
                     }
                     else if (txEntry.cached().detached()) {
                         GridDhtDetachedCacheEntry detachedEntry = (GridDhtDetachedCacheEntry)txEntry.cached();
@@ -233,7 +233,7 @@ public abstract class GridNearTxPrepareFutureAdapter extends
                 }
                 catch (GridCacheEntryRemovedException ignored) {
                     // Retry.
-                    txEntry.cached(cacheCtx.cache().entryEx(txEntry.key(), tx.topologyVersion()));
+                    txEntry.cached(cacheCtx.cache().entryEx(txEntry.key(), tx.affinityVersion()));
                 }
             }
         }
