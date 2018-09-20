@@ -1527,19 +1527,19 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                 AffinityTopologyVersion msgVer = msg.topologyVersion();
 
-                while (exchangeInProgress.get()
-                    && lastUpdatedTopVer.topologyVersion() <= msgVer.topologyVersion()
-                    && lastUpdatedTopVer.minorTopologyVersion() <= msgVer.minorTopologyVersion()){
-                    try {
-                        U.sleep(100L);
-                    }
-                    catch (Exception e0){
-                        log.error("", e0);
-                    }
-
-                    log.info("exchangeInProgress");
-
-                }
+//                while (exchangeInProgress.get()
+//                    && lastUpdatedTopVer.topologyVersion() <= msgVer.topologyVersion()
+//                    && lastUpdatedTopVer.minorTopologyVersion() <= msgVer.minorTopologyVersion()){
+//                    try {
+//                        U.sleep(100L);
+//                    }
+//                    catch (Exception e0){
+//                        log.error("", e0);
+//                    }
+//
+//                    log.info("exchangeInProgress");
+//
+//                }
 
 
 
