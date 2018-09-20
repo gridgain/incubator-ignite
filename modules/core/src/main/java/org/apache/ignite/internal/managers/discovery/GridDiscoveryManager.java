@@ -77,6 +77,7 @@ import org.apache.ignite.internal.events.DiscoveryCustomEvent;
 import org.apache.ignite.internal.managers.GridManagerAdapter;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheGroupDescriptor;
 import org.apache.ignite.internal.processors.cache.ClientCacheChangeDummyDiscoveryMessage;
 import org.apache.ignite.internal.processors.cache.DynamicCacheChangeBatch;
@@ -2566,6 +2567,11 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
             DiscoverySpiMutableCustomMessageSupport.class);
 
         return ann != null && ann.value();
+    }
+
+    public AffinityTopologyVersion toCompatibleAffinityTopologyVersion(AffinityVersion affVer) {
+        // TODO
+        return new AffinityTopologyVersion(affVer.majorVer(), affVer);
     }
 
     /**
