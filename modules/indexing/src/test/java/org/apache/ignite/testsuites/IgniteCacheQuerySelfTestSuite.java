@@ -104,6 +104,7 @@ import org.apache.ignite.internal.processors.cache.distributed.replicated.Ignite
 import org.apache.ignite.internal.processors.cache.distributed.replicated.IgniteCacheReplicatedQueryEvtsDisabledSelfTest;
 import org.apache.ignite.internal.processors.cache.distributed.replicated.IgniteCacheReplicatedQueryP2PDisabledSelfTest;
 import org.apache.ignite.internal.processors.cache.distributed.replicated.IgniteCacheReplicatedQuerySelfTest;
+import org.apache.ignite.internal.processors.cache.index.BasicIndexTest;
 import org.apache.ignite.internal.processors.cache.index.DuplicateKeyValueClassesSelfTest;
 import org.apache.ignite.internal.processors.cache.index.DynamicIndexClientBasicSelfTest;
 import org.apache.ignite.internal.processors.cache.index.DynamicIndexServerBasicSelfTest;
@@ -152,6 +153,8 @@ import org.apache.ignite.internal.processors.query.IgniteQueryDedicatedPoolTest;
 import org.apache.ignite.internal.processors.query.IgniteSqlDefaultValueTest;
 import org.apache.ignite.internal.processors.query.IgniteSqlDistributedJoinSelfTest;
 import org.apache.ignite.internal.processors.query.IgniteSqlEntryCacheModeAgnosticTest;
+import org.apache.ignite.internal.processors.query.IgniteSqlGroupConcatCollocatedTest;
+import org.apache.ignite.internal.processors.query.IgniteSqlGroupConcatNotCollocatedTest;
 import org.apache.ignite.internal.processors.query.IgniteSqlKeyValueFieldsTest;
 import org.apache.ignite.internal.processors.query.IgniteSqlNotNullConstraintTest;
 import org.apache.ignite.internal.processors.query.IgniteSqlParameterizedQueryTest;
@@ -224,6 +227,8 @@ public class IgniteCacheQuerySelfTestSuite extends TestSuite {
         suite.addTestSuite(SqlSchemaSelfTest.class);
         suite.addTestSuite(SqlIllegalSchemaSelfTest.class);
         suite.addTestSuite(MultipleStatementsSqlQuerySelfTest.class);
+
+        suite.addTestSuite(BasicIndexTest.class);
 
         // Misc tests.
         // TODO: Enable when IGNITE-1094 is fixed.
@@ -472,6 +477,10 @@ public class IgniteCacheQuerySelfTestSuite extends TestSuite {
 
         // Partition loss.
         suite.addTestSuite(IndexingCachePartitionLossPolicySelfTest.class);
+
+        // GROUP_CONCAT
+        suite.addTestSuite(IgniteSqlGroupConcatCollocatedTest.class);
+        suite.addTestSuite(IgniteSqlGroupConcatNotCollocatedTest.class);
 
         return suite;
     }
