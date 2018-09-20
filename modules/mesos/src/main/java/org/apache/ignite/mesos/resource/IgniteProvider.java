@@ -52,13 +52,13 @@ public class IgniteProvider {
     private static final String DOWNLOAD_URL_PATTERN = "https://archive.apache.org/dist/ignite/%s/apache-ignite-fabric-%s-bin.zip";
 
     /** URL for request Ignite latest version. */
-    private final static String IGNITE_LATEST_VERSION_URL = "https://ignite.apache.org/latest";
+    private final static String IGNITE_LATEST_VERSION_URL = "";
 
     /** Mirrors. */
-    private static final String APACHE_MIRROR_URL = "https://www.apache.org/dyn/closer.cgi?as_json=1";
+    private static final String APACHE_MIRROR_URL = "";
 
     /** Ignite on Apache URL path. */
-    private static final String IGNITE_PATH = "/ignite/%s/apache-ignite-fabric-%s-bin.zip";
+    private static final String IGNITE_PATH = "";
 
     /** Version pattern. */
     private static final Pattern VERSION_PATTERN = Pattern.compile("(?<=version=).*\\S+");
