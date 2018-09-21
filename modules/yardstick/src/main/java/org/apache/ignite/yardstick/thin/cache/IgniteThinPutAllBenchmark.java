@@ -20,6 +20,7 @@ package org.apache.ignite.yardstick.thin.cache;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.client.ClientCache;
+import org.apache.ignite.yardstick.cache.model.HeavySampleValue;
 
 /**
  * Thin client benchmark that performs putAll operations.
@@ -27,10 +28,10 @@ import org.apache.ignite.client.ClientCache;
 public class IgniteThinPutAllBenchmark extends IgniteThinCacheAbstractBenchmark<Integer, Object> {
     /** {@inheritDoc} */
     @Override public boolean test(Map<Object, Object> ctx) throws Exception {
-        Map<Integer, Integer> vals = new HashMap<>();
+        Map<Integer, HeavySampleValue> vals = new HashMap<>();
 
         for (int i = 0; i < args.batch(); i++ )
-            vals.put(i, nextRandom(1000));
+            vals.put(i, new HeavySampleValue(i, args.scaleFactor()));
 
         cache().putAll(vals);
 
