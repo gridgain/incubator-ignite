@@ -30,6 +30,7 @@ import org.apache.ignite.DataRegionMetrics;
 import org.apache.ignite.DataStorageMetrics;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.configuration.DataPageEvictionMode;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -112,6 +113,10 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
     /** First eviction was warned flag. */
     private volatile boolean firstEvictWarn;
 
+    /** Free memory on deactivation. */
+    private final boolean freeOnDeactivation = IgniteSystemProperties.getBoolean(
+            IgniteSystemProperties.IGNITE_MEMORY_FREE_ON_DEACTIVATE, false);
+
     /** {@inheritDoc} */
     @Override protected void start0() throws IgniteCheckedException {
         if (cctx.kernalContext().clientNode() && cctx.kernalContext().config().getDataStorageConfiguration() == null)
@@ -124,8 +129,6 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
         validateConfiguration(memCfg);
 
         pageSize = memCfg.getPageSize();
-
-        initDataRegions(memCfg);
     }
 
     /**
@@ -265,9 +268,8 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
             CU.isPersistenceEnabled(memCfg)
         );
 
-        for (DatabaseLifecycleListener lsnr : getDatabaseListeners(cctx.kernalContext())) {
+        for (DatabaseLifecycleListener lsnr : getDatabaseListeners(cctx.kernalContext()))
             lsnr.onInitDataRegions(this);
-        }
     }
 
     /**
@@ -706,7 +708,7 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
 
     /** {@inheritDoc} */
     @Override protected void stop0(boolean cancel) {
-        onDeActivate(cctx.kernalContext());
+        clearDataRegions();
     }
 
     /**
@@ -1087,25 +1089,33 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
 
         assert memCfg != null;
 
-        initDataRegions(memCfg);
+        if (!dataRegionsInitialized) {
+            initDataRegions(memCfg);
 
-        registerMetricsMBeans();
+            registerMetricsMBeans();
 
-        startMemoryPolicies();
+            startMemoryPolicies();
 
-        initPageMemoryDataStructures(memCfg);
-
-        for (DatabaseLifecycleListener lsnr : getDatabaseListeners(kctx)) {
-            lsnr.afterInitialise(this);
+            initPageMemoryDataStructures(memCfg);
         }
+
+        for (DatabaseLifecycleListener lsnr : getDatabaseListeners(kctx))
+            lsnr.afterInitialise(this);
     }
 
     /** {@inheritDoc} */
     @Override public void onDeActivate(GridKernalContext kctx) {
-        for (DatabaseLifecycleListener lsnr : getDatabaseListeners(cctx.kernalContext())) {
+        for (DatabaseLifecycleListener lsnr : getDatabaseListeners(cctx.kernalContext()))
             lsnr.beforeStop(this);
-        }
 
+        if (freeOnDeactivation)
+            clearDataRegions();
+    }
+
+    /**
+     * Stop and free memory.
+     */
+    private void clearDataRegions() {
         if (dataRegionMap != null) {
             for (DataRegion memPlc : dataRegionMap.values()) {
                 memPlc.pageMemory().stop();
