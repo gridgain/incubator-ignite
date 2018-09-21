@@ -199,7 +199,7 @@ public abstract class GridCacheContinuousQueryAbstractSelfTest extends GridCommo
                 for (int i = 0; i < gridCount(); i++) {
                     GridContinuousProcessor proc = grid(i).context().continuous();
 
-                    if(((Map)U.field(proc, "rmtInfos")).size() > 0)
+                    if(!((Map)U.field(proc, "rmtInfos")).isEmpty())
                         return false;
                 }
 
@@ -338,7 +338,7 @@ public abstract class GridCacheContinuousQueryAbstractSelfTest extends GridCommo
             assertNotNull(vals);
             assertEquals(2, vals.size());
             assertEquals(2, (int)vals.get(0));
-            assertNull(vals.get(1));
+            assertEquals(2, (int)vals.get(1));
 
             vals = map.get(3);
 
@@ -564,7 +564,7 @@ public abstract class GridCacheContinuousQueryAbstractSelfTest extends GridCommo
             assertNotNull(vals);
             assertEquals(2, vals.size());
             assertEquals(3, (int)vals.get(0));
-            assertNull(vals.get(1));
+            assertEquals(3, (int)vals.get(1));
 
             vals = map.get(4);
 
@@ -1136,7 +1136,7 @@ public abstract class GridCacheContinuousQueryAbstractSelfTest extends GridCommo
             @Override public void onUpdated(Iterable<CacheEntryEvent<?, ?>> evts) {
                 for (CacheEntryEvent<?, ?> e : evts) {
                     if (e.getEventType() == EventType.EXPIRED) {
-                        assertNull(e.getValue());
+                        assertEquals(e.getOldValue(), e.getValue());
 
                         map.put(e.getKey(), e.getOldValue());
 

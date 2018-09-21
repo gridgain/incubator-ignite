@@ -595,13 +595,13 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
     private void checkHistorySize(int histSize) {
         List<Ignite> nodes = G.allGrids();
 
-        assertTrue(nodes.size() > 0);
+        assertTrue(!nodes.isEmpty());
 
         for (Ignite node : nodes) {
             List<GridDhtPartitionsExchangeFuture> exchFuts =
                     ((IgniteEx)node).context().cache().context().exchange().exchangeFutures();
 
-            assertTrue("Unexpected size: " + exchFuts.size(), exchFuts.size() > 0 && exchFuts.size() <= histSize);
+            assertTrue("Unexpected size: " + exchFuts.size(), !exchFuts.isEmpty() && exchFuts.size() <= histSize);
         }
     }
 
@@ -1220,7 +1220,7 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
     private void checkCaches0() throws Exception {
         List<Ignite> nodes = G.allGrids();
 
-        assertTrue(nodes.size() > 0);
+        assertTrue(!nodes.isEmpty());
 
         for (Ignite node : nodes)
             checkNodeCaches(node);
@@ -1426,8 +1426,10 @@ public class CacheExchangeMergeTest extends GridCommonAbstractTest {
                 tx.commit();
             }
         }
-        catch (ClusterTopologyException ignore) {
-            // No-op.
+        catch (ClusterTopologyException e) {
+            info("Tx failed, ignore: " + e);
+
+            return;
         }
 
         for (Map.Entry<Object, Object> e : map.entrySet())
