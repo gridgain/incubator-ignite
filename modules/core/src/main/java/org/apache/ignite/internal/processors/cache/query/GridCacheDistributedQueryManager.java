@@ -52,6 +52,7 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteReducer;
 import org.jetbrains.annotations.Nullable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.ignite.cache.CacheMode.LOCAL;
 import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
@@ -615,7 +616,13 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
 
         final GridCacheQueryBean bean = new GridCacheQueryBean(qry, null, qry.<K, V>transform(), null);
 
-        final CacheQueryFuture fut = queryDistributed(bean, nodes);
+        //final CacheQueryFuture fut = queryDistributed(bean, nodes);
+
+
+        AtomicReference<CacheQueryFuture> fut = new AtomicReference<>(queryDistributed(bean, nodes));
+
+        final Collection<ClusterNode> nodes0 = nodes;
+
 
         return new GridCloseableIteratorAdapter() {
             /** */
@@ -639,7 +646,14 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
                 if (locIter != null && locIter.hasNextX())
                     cur = locIter.nextX();
 
-                return cur != null || (cur = convert(fut.next())) != null;
+                if (X.hasCause(fut.get().error(), ClusterTopologyCheckedException.class)) {
+                    //
+                    fut.set(queryDistributed(bean, qry.nodes()));
+
+
+                }
+
+                return cur != null || (cur = convert(fut.get().next())) != null;
             }
 
             /**
@@ -662,7 +676,7 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
                     locIter.close();
 
                 if (fut != null)
-                    fut.cancel();
+                    fut.get().cancel();
             }
         };
     }

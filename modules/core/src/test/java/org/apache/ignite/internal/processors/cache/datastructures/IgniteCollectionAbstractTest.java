@@ -67,6 +67,8 @@ public abstract class IgniteCollectionAbstractTest extends GridCommonAbstractTes
     protected final CollectionConfiguration config(boolean collocated) {
         CollectionConfiguration cfg = collectionConfiguration();
 
+        cfg.setBackups(1);
+
         cfg.setCollocated(collocated);
 
         return cfg;

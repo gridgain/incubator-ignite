@@ -29,6 +29,8 @@ import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -40,6 +42,7 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.cluster.ClusterTopologyException;
 import org.apache.ignite.internal.IgniteClientDisconnectedCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.cluster.ClusterGroupEmptyCheckedException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
@@ -54,6 +57,7 @@ import org.apache.ignite.internal.util.GridCloseableIteratorAdapter;
 import org.apache.ignite.internal.util.GridEmptyCloseableIterator;
 import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.P1;
 import org.apache.ignite.internal.util.typedef.T2;
@@ -453,12 +457,27 @@ public class GridCacheQueryAdapter<T> implements CacheQuery<T> {
 
     /** {@inheritDoc} */
     @Override public CacheQueryFuture<T> execute(@Nullable Object... args) {
-        return execute0(null, args);
+        return execute00(null, args);
     }
 
     /** {@inheritDoc} */
     @Override public <R> CacheQueryFuture<R> execute(IgniteReducer<T, R> rmtReducer, @Nullable Object... args) {
-        return execute0(rmtReducer, args);
+        return execute00(rmtReducer, args);
+    }
+
+    private <R> CacheQueryFuture<R> execute00(@Nullable IgniteReducer<T, R> rmtReducer, @Nullable Object... args) {
+
+        final AtomicReference<CacheQueryFuture<R>> fut0 = new AtomicReference<>(execute0(rmtReducer, args));
+
+        fut0.get().listen(new CI1<IgniteInternalFuture<?>>() {
+            @Override public void apply(IgniteInternalFuture<?> fut) {
+                if (fut0.get().error() != null)
+                    if (X.hasCause(fut0.get().error(), ClusterTopologyCheckedException.class))
+                        fut0.set(execute0(null));
+                }
+            });
+
+        return fut0.get();
     }
 
     /** {@inheritDoc} */
@@ -590,7 +609,7 @@ public class GridCacheQueryAdapter<T> implements CacheQuery<T> {
     /**
      * @return Nodes to execute on.
      */
-    private Collection<ClusterNode> nodes() throws IgniteCheckedException {
+    public Collection<ClusterNode> nodes() throws IgniteCheckedException {
         CacheMode cacheMode = cctx.config().getCacheMode();
 
         Integer part = partition();
