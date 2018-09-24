@@ -27,6 +27,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryRemovedException;
@@ -263,20 +264,20 @@ public class GridDhtTxLocal extends GridDhtTxLocalAdapter implements GridCacheMa
 
     /** {@inheritDoc} */
     @Override @Nullable protected IgniteInternalFuture<Boolean> addReader(long msgId, GridDhtCacheEntry cached,
-        IgniteTxEntry entry, AffinityTopologyVersion topVer) {
+        IgniteTxEntry entry, AffinityVersion affVer) {
         // Don't add local node as reader.
         if (entry.addReader() && !cctx.localNodeId().equals(nearNodeId)) {
             GridCacheContext cacheCtx = cached.context();
 
             while (true) {
                 try {
-                    return cached.addReader(nearNodeId, msgId, topVer);
+                    return cached.addReader(nearNodeId, msgId, affVer);
                 }
                 catch (GridCacheEntryRemovedException ignore) {
                     if (log.isDebugEnabled())
                         log.debug("Got removed entry when adding to DHT local transaction: " + cached);
 
-                    cached = cacheCtx.dht().entryExx(entry.key(), topVer);
+                    cached = cacheCtx.dht().entryExx(entry.key(), affVer);
                 }
             }
         }

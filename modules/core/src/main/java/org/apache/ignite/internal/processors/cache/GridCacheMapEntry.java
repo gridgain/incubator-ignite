@@ -39,6 +39,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.UnregisteredBinaryTypeException;
 import org.apache.ignite.internal.UnregisteredClassException;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.DataEntry;
@@ -327,8 +328,9 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         return ver == GridCacheVersionManager.START_VER;
     }
 
-    /** {@inheritDoc} */
-    @Override public boolean valid(AffinityTopologyVersion topVer) {
+    /** {@inheritDoc}
+     * @param affVer*/
+    @Override public boolean valid(AffinityVersion affVer) {
         return true;
     }
 
@@ -1344,7 +1346,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         boolean keepBinary,
         boolean oldValPresent,
         @Nullable CacheObject oldVal,
-        AffinityTopologyVersion topVer,
+        AffinityVersion affVer,
         CacheEntryPredicate[] filter,
         GridDrType drType,
         long drExpireTime,
@@ -1357,7 +1359,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
     ) throws IgniteCheckedException, GridCacheEntryRemovedException {
         CacheObject old;
 
-        final boolean valid = valid(tx != null ? tx.affinityVersion() : topVer);
+        final boolean valid = valid(tx != null ? tx.affinityVersion() : affVer);
 
         // Lock should be held by now.
         if (!cctx.isAll(this, filter))
@@ -1472,7 +1474,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             if (cctx.deferredDelete() && deletedUnlocked() && !isInternal() && !detached())
                 deletedUnlocked(false);
 
-            updateCntr0 = nextPartitionCounter(topVer, tx == null || tx.local(), updateCntr);
+            updateCntr0 = nextPartitionCounter(affVer, tx == null || tx.local(), updateCntr);
 
             if (updateCntr != null && updateCntr != 0)
                 updateCntr0 = updateCntr;
@@ -1482,9 +1484,9 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             update(val, expireTime, ttl, newVer, true);
 
-            drReplicate(drType, val, newVer, topVer);
+            drReplicate(drType, val, newVer, affVer);
 
-            recordNodeId(affNodeId, topVer);
+            recordNodeId(affNodeId, affVer);
 
             if (metrics && cctx.statisticsEnabled()) {
                 cctx.cache().metrics0().onWrite();
@@ -1524,7 +1526,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                     false,
                     updateCntr0,
                     null,
-                    topVer);
+                    affVer);
             }
 
             cctx.dataStructures().onEntryUpdated(key, false, keepBinary);
@@ -1570,7 +1572,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         boolean keepBinary,
         boolean oldValPresent,
         @Nullable CacheObject oldVal,
-        AffinityTopologyVersion topVer,
+        AffinityVersion affVer,
         CacheEntryPredicate[] filter,
         GridDrType drType,
         @Nullable GridCacheVersion explicitVer,
@@ -1586,7 +1588,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
         GridCacheVersion newVer;
 
-        final boolean valid = valid(tx != null ? tx.affinityVersion() : topVer);
+        final boolean valid = valid(tx != null ? tx.affinityVersion() : affVer);
 
         // Lock should be held by now.
         if (!cctx.isAll(this, filter))
@@ -1678,7 +1680,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 }
             }
 
-            updateCntr0 = nextPartitionCounter(topVer, tx == null || tx.local(), updateCntr);
+            updateCntr0 = nextPartitionCounter(affVer, tx == null || tx.local(), updateCntr);
 
             if (updateCntr != null && updateCntr != 0)
                 updateCntr0 = updateCntr;
@@ -1686,7 +1688,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             if (tx != null && cctx.group().persistenceEnabled() && cctx.group().walEnabled())
                 logPtr = logTxUpdate(tx, null, 0, updateCntr0);
 
-            drReplicate(drType, null, newVer, topVer);
+            drReplicate(drType, null, newVer, affVer);
 
             if (metrics && cctx.statisticsEnabled()) {
                 cctx.cache().metrics0().onRemove();
@@ -1737,7 +1739,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                     false,
                     updateCntr0,
                     null,
-                    topVer);
+                    affVer);
             }
 
             cctx.dataStructures().onEntryUpdated(key, true, keepBinary);
@@ -1756,7 +1758,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                         log.debug("Entry could not be marked obsolete (it is still used): " + this);
                 }
                 else {
-                    recordNodeId(affNodeId, topVer);
+                    recordNodeId(affNodeId, affVer);
 
                     if (log.isDebugEnabled())
                         log.debug("Entry was marked obsolete: " + this);
@@ -4893,9 +4895,10 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         return lock.isHeldByCurrentThread();
     }
 
-    /** {@inheritDoc} */
-    @Override public void touch(AffinityTopologyVersion topVer) {
-        context().evicts().touch(this, topVer);
+    /** {@inheritDoc}
+     * @param affVer*/
+    @Override public void touch(AffinityVersion affVer) {
+        context().evicts().touch(this, affVer);
     }
 
     /** {@inheritDoc} */

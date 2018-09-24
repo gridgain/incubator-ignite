@@ -346,7 +346,7 @@ public class VerifyBackupPartitionsTask extends ComputeTaskAdapter<Set<String>,
 
             Object consId = ignite.context().discovery().localNode().consistentId();
 
-            boolean isPrimary = part.primary(grpCtx.topology().readyTopologyVersion());
+            boolean isPrimary = part.primary(grpCtx.topology().readyAffinityVersion());
 
             PartitionKey partKey = new PartitionKey(grpCtx.groupId(), part.id(), grpCtx.cacheOrGroupName());
 

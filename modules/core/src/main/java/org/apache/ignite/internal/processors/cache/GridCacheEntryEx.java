@@ -239,12 +239,12 @@ public interface GridCacheEntryEx {
     public boolean isNewLocked() throws GridCacheEntryRemovedException;
 
     /**
-     * @param topVer Topology version where validation should be performed.
+     * @param affVer Topology version where validation should be performed.
      *  When negative the latest available topology should be used.
      *
      * @return Checks if value is valid.
      */
-    public boolean valid(AffinityTopologyVersion topVer);
+    public boolean valid(AffinityVersion affVer);
 
     /**
      * @return {@code True} if partition is in valid.
@@ -414,7 +414,7 @@ public interface GridCacheEntryEx {
      * @param keepBinary Keep binary flag.
      * @param oldValPresent {@code True} if oldValue present.
      * @param oldVal Old value.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @param filter Filter.
      * @param drType DR type.
      * @param drExpireTime DR expire time (if any).
@@ -441,7 +441,7 @@ public interface GridCacheEntryEx {
         boolean keepBinary,
         boolean oldValPresent,
         @Nullable CacheObject oldVal,
-        AffinityTopologyVersion topVer,
+        AffinityVersion affVer,
         CacheEntryPredicate[] filter,
         GridDrType drType,
         long drExpireTime,
@@ -463,7 +463,7 @@ public interface GridCacheEntryEx {
      * @param keepBinary Keep binary flag.
      * @param oldValPresent {@code True} if oldValue present.
      * @param oldVal Old value.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @param filter Filter.
      * @param drType DR type.
      * @param explicitVer Explicit version (if any).
@@ -485,7 +485,7 @@ public interface GridCacheEntryEx {
         boolean keepBinary,
         boolean oldValPresent,
         @Nullable CacheObject oldVal,
-        AffinityTopologyVersion topVer,
+        AffinityVersion affVer,
         CacheEntryPredicate[] filter,
         GridDrType drType,
         @Nullable GridCacheVersion explicitVer,
@@ -1177,7 +1177,7 @@ public interface GridCacheEntryEx {
     /**
      * Touch this entry in its context's eviction manager.
      *
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      */
-    public void touch(AffinityTopologyVersion topVer);
+    public void touch(AffinityVersion affVer);
 }

@@ -691,7 +691,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
                                             "igniteInstanceName=" + g.name() +
                                             ", cache=" + cfg.getName() +
                                             ", cacheId=" + dht.context().cacheId() +
-                                            ", topVer=" + top.readyTopologyVersion() +
+                                            ", topVer=" + top.readyAffinityVersion() +
                                             ", p=" + p +
                                             ", affNodesCnt=" + affNodesCnt +
                                             ", ownersCnt=" + ownerNodesCnt +
@@ -709,7 +709,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
                                         "igniteInstanceName=" + g.name() +
                                         ", cache=" + cfg.getName() +
                                         ", cacheId=" + dht.context().cacheId() +
-                                        ", topVer=" + top.readyTopologyVersion() +
+                                        ", topVer=" + top.readyAffinityVersion() +
                                         ", started=" + dht.context().started() +
                                         ", p=" + p +
                                         ", readVer=" + readyVer +
@@ -730,7 +730,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
                                         "igniteInstanceName=" + g.name() +
                                         ", cache=" + cfg.getName() +
                                         ", cacheId=" + dht.context().cacheId() +
-                                        ", topVer=" + top.readyTopologyVersion() +
+                                        ", topVer=" + top.readyAffinityVersion() +
                                         ", p=" + p +
                                         ", readVer=" + readyVer +
                                         ", locNode=" + g.cluster().localNode() + ']');
@@ -770,7 +770,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
                                             "igniteInstanceName=" + g.name() +
                                             ", cache=" + cfg.getName() +
                                             ", cacheId=" + dht.context().cacheId() +
-                                            ", topVer=" + top.readyTopologyVersion() +
+                                            ", topVer=" + top.readyAffinityVersion() +
                                             ", locNode=" + g.cluster().localNode() + ']');
                                     }
 
@@ -806,7 +806,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
         throws Exception {
         GridTestUtils.waitForCondition(new GridAbsPredicate() {
             @Override public boolean apply() {
-                return topVer.compareTo(top.readyTopologyVersion()) <= 0;
+                return topVer.compareTo(top.readyAffinityVersion()) <= 0;
             }
         }, 5000);
     }

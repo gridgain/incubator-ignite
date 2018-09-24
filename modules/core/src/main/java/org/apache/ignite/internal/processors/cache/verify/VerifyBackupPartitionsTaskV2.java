@@ -294,7 +294,7 @@ public class VerifyBackupPartitionsTaskV2 extends ComputeTaskAdapter<VisorIdleVe
 
             Object consId = ignite.context().discovery().localNode().consistentId();
 
-            boolean isPrimary = part.primary(grpCtx.topology().readyTopologyVersion());
+            boolean isPrimary = part.primary(grpCtx.topology().readyAffinityVersion());
 
             try {
                 if (part.state() == GridDhtPartitionState.MOVING) {

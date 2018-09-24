@@ -39,6 +39,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheEntryPredicate;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheOperationContext;
@@ -302,7 +303,7 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
         long msgId,
         GridDhtCacheEntry cached,
         IgniteTxEntry entry,
-        AffinityTopologyVersion topVer
+        AffinityVersion affVer
     ) {
         // We are in near transaction, do not add local node as reader.
         return null;

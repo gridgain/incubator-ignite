@@ -418,14 +418,14 @@ public interface IgniteCacheOffheapManager {
      * @param cacheId Cache ID.
      * @param primary Primary entries flag.
      * @param backup Backup entries flag.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @return Rows iterator.
      * @throws IgniteCheckedException If failed.
      */
     public GridIterator<CacheDataRow> cacheIterator(int cacheId,
         boolean primary,
         boolean backup,
-        AffinityTopologyVersion topVer,
+        AffinityVersion affVer,
         @Nullable MvccSnapshot mvccSnapshot)
         throws IgniteCheckedException;
 

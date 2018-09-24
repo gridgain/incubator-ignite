@@ -29,6 +29,7 @@ import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.processors.affinity.AffinityAssignment;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.CachePartitionFullCountersMap;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.CachePartitionPartialCountersMap;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionExchangeId;
@@ -83,12 +84,12 @@ public interface GridDhtPartitionTopology {
     /**
      * @return Result topology version of last finished exchange.
      */
-    public AffinityTopologyVersion readyTopologyVersion();
+    public AffinityVersion readyAffinityVersion();
 
     /**
      * @return Start topology version of last exchange.
      */
-    public AffinityTopologyVersion lastTopologyChangeVersion();
+    public AffinityVersion lastAffinityChangeVersion();
 
     /**
      * Gets a future that will be completed when partition exchange map for this
@@ -133,9 +134,9 @@ public interface GridDhtPartitionTopology {
     /**
      * Initializes local data structures after partitions are restored from persistence.
      *
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      */
-    public void afterStateRestored(AffinityTopologyVersion topVer);
+    public void afterStateRestored(AffinityVersion affVer);
 
     /**
      * Post-initializes this topology.
@@ -147,14 +148,14 @@ public interface GridDhtPartitionTopology {
     public boolean afterExchange(GridDhtPartitionsExchangeFuture exchFut) throws IgniteCheckedException;
 
     /**
-     * @param topVer Topology version at the time of creation.
+     * @param affVer Topology version at the time of creation.
      * @param p Partition ID.
      * @param create If {@code true}, then partition will be created if it's not there.
      * @return Local partition.
      * @throws GridDhtInvalidPartitionException If partition is evicted or absent and
      *      does not belong to this node.
      */
-    @Nullable public GridDhtLocalPartition localPartition(int p, AffinityTopologyVersion topVer, boolean create)
+    @Nullable public GridDhtLocalPartition localPartition(int p, AffinityVersion affVer, boolean create)
         throws GridDhtInvalidPartitionException;
 
     /**
@@ -167,14 +168,14 @@ public interface GridDhtPartitionTopology {
     public GridDhtLocalPartition forceCreatePartition(int p) throws IgniteCheckedException;
 
     /**
-     * @param topVer Topology version at the time of creation.
+     * @param affVer Topology version at the time of creation.
      * @param p Partition ID.
      * @param create If {@code true}, then partition will be created if it's not there.
      * @return Local partition.
      * @throws GridDhtInvalidPartitionException If partition is evicted or absent and
      *      does not belong to this node.
      */
-    @Nullable public GridDhtLocalPartition localPartition(int p, AffinityTopologyVersion topVer, boolean create,
+    @Nullable public GridDhtLocalPartition localPartition(int p, AffinityVersion affVer, boolean create,
         boolean showRenting)
         throws GridDhtInvalidPartitionException;
 
@@ -222,10 +223,10 @@ public interface GridDhtPartitionTopology {
 
     /**
      * @param p Partition ID.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @return Collection of all nodes responsible for this partition with primary node being first.
      */
-    public List<ClusterNode> nodes(int p, AffinityTopologyVersion topVer);
+    public List<ClusterNode> nodes(int p, AffinityVersion affVer);
 
     /**
      * @param p Partition ID.
@@ -251,10 +252,10 @@ public interface GridDhtPartitionTopology {
 
     /**
      * @param p Partition ID.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @return Collection of all nodes who {@code own} this partition.
      */
-    public List<ClusterNode> owners(int p, AffinityTopologyVersion topVer);
+    public List<ClusterNode> owners(int p, AffinityVersion affVer);
 
     /**
      * @param p Partition ID.
@@ -324,18 +325,18 @@ public interface GridDhtPartitionTopology {
      * <p>
      * This method should be called on topology coordinator after all partition messages are received.
      *
-     * @param resTopVer Exchange result version.
+     * @param resAffVer Exchange result version.
      * @param discoEvt Discovery event for which we detect lost partitions.
      * @return {@code True} if partitions state got updated.
      */
-    public boolean detectLostPartitions(AffinityTopologyVersion resTopVer, DiscoveryEvent discoEvt);
+    public boolean detectLostPartitions(AffinityVersion resAffVer, DiscoveryEvent discoEvt);
 
     /**
      * Resets the state of all LOST partitions to OWNING.
      *
-     * @param resTopVer Exchange result version.
+     * @param resAffVer Exchange result version.
      */
-    public void resetLostPartitions(AffinityTopologyVersion resTopVer);
+    public void resetLostPartitions(AffinityVersion resAffVer);
 
     /**
      * @return Collection of lost partitions, if any.
@@ -400,10 +401,10 @@ public interface GridDhtPartitionTopology {
     void globalPartSizes(@Nullable Map<Integer, Long> partSizes);
 
     /**
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @return {@code True} if rebalance process finished.
      */
-    public boolean rebalanceFinished(AffinityTopologyVersion topVer);
+    public boolean rebalanceFinished(AffinityVersion affVer);
 
     /**
      * Calculates nodes and partitions which have non-actual state and must be rebalanced.

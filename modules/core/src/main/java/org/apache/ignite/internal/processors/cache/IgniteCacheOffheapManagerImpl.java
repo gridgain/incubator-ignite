@@ -42,6 +42,7 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccMarkUpdat
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccUpdateNewTxStateHintRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.DataPageMvccUpdateTxStateHintRecord;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtInvalidPartitionException;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.CachePartitionPartialCountersMap;
@@ -859,10 +860,10 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         int cacheId,
         boolean primary,
         boolean backups,
-        final AffinityTopologyVersion topVer,
+        final AffinityVersion affVer,
         @Nullable MvccSnapshot mvccSnapshot)
         throws IgniteCheckedException {
-        return iterator(cacheId, cacheData(primary, backups, topVer), mvccSnapshot);
+        return iterator(cacheId, cacheData(primary, backups, affVer), mvccSnapshot);
     }
 
     /** {@inheritDoc} */

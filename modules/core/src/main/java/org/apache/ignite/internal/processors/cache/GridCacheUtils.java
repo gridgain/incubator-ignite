@@ -1745,7 +1745,7 @@ public class GridCacheUtils {
         boolean skipVals
     ) {
         if (!readThrough || skipVals ||
-            (key != null && !cctx.affinity().backupsByKey(key, topVer).contains(cctx.localNode())))
+            (key != null && !cctx.affinity().backupsByKey(key, topVer.affinityVersion()).contains(cctx.localNode())))
             return null;
 
         return new BackupPostProcessingClosure() {
@@ -1756,7 +1756,7 @@ public class GridCacheUtils {
                     cctx.shared().database().checkpointReadLock();
 
                     try {
-                        entry = colocated.entryEx(key, topVer);
+                        entry = colocated.entryEx(key, topVer.affinityVersion());
 
                         entry.initialValue(
                             val,
@@ -1807,7 +1807,7 @@ public class GridCacheUtils {
 
                     for (GridCacheEntryInfo info : infos) {
                         // Save backup value.
-                        if (aff.backupsByKey(info.key(), topVer).contains(locNode))
+                        if (aff.backupsByKey(info.key(), topVer.affinityVersion()).contains(locNode))
                             process(info.key(), info.value(), info.version(), colocated);
                     }
                 }

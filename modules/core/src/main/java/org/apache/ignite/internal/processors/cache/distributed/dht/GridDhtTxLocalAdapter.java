@@ -32,6 +32,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheAffinityManager;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
@@ -242,13 +243,13 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
      * @param msgId Message ID.
      * @param cached Cached entry.
      * @param entry Transaction entry.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @return {@code True} if reader was added as a result of this call.
      */
     @Nullable protected abstract IgniteInternalFuture<Boolean> addReader(long msgId,
         GridDhtCacheEntry cached,
         IgniteTxEntry entry,
-        AffinityTopologyVersion topVer);
+        AffinityVersion affVer);
 
     /**
      * @param err Error, if any.
@@ -586,7 +587,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
             Set<KeyCacheObject> skipped = null;
 
             try {
-                AffinityTopologyVersion topVer = affinityVersion();
+                AffinityVersion affVer = affinityVersion();
 
                 GridDhtCacheAdapter dhtCache = cacheCtx.isNear() ? cacheCtx.near().dht() : cacheCtx.dht();
 
@@ -604,7 +605,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
 
                         while (true) {
                             try {
-                                cached = dhtCache.entryExx(key, topVer);
+                                cached = dhtCache.entryExx(key, affVer);
 
                                 cached.unswap(read);
 
@@ -638,7 +639,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
 
                         txEntry.cached(cached);
 
-                        addReader(msgId, cached, txEntry, topVer);
+                        addReader(msgId, cached, txEntry, affVer);
                     }
                     else {
                         if (skipped == null)
@@ -954,7 +955,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
 
         Map<Integer, PartitionUpdateCounters> res = new HashMap<>();
 
-        AffinityTopologyVersion top = affinityVersionSnapshot();
+        AffinityVersion affVer = affinityVersionSnapshot();
 
         for (Map.Entry<Integer, PartitionUpdateCounters> entry : updCntrs.entrySet()) {
             Integer cacheId = entry.getKey();
@@ -972,7 +973,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter {
 
                 Long cntr = e.getValue();
 
-                if (affinity.backupByPartition(node, p, top)) {
+                if (affinity.backupByPartition(node, p, affVer)) {
                     assert cntr != null && cntr > 0 : cntr;
 
                     resCntrs.put(p, cntr);

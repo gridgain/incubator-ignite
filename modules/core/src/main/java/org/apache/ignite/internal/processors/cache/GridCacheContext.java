@@ -1525,7 +1525,7 @@ public class GridCacheContext<K, V> implements Externalizable {
     ) throws GridCacheEntryRemovedException {
         assert !AffinityTopologyVersion.NONE.equals(topVer);
 
-        Collection<ClusterNode> dhtNodes = dht().topology().nodes(entry.partition(), topVer);
+        Collection<ClusterNode> dhtNodes = dht().topology().nodes(entry.partition(), topVer.affinityVersion());
 
         if (log.isDebugEnabled())
             log.debug("Mapping entry to DHT nodes [nodes=" + U.nodeIds(dhtNodes) + ", entry=" + entry + ']');
@@ -2092,7 +2092,7 @@ public class GridCacheContext<K, V> implements Externalizable {
         assert affinityNode();
 
         if (!isReplicated() || group().persistenceEnabled()) {
-            GridDhtLocalPartition locPart = topology().localPartition(part, topVer, false);
+            GridDhtLocalPartition locPart = topology().localPartition(part, topVer.affinityVersion(), false);
 
             assert locPart != null && locPart.state() == OWNING : "partition evicted after reserveForFastLocalGet " +
                 "[part=" + part + ", locPart=" + locPart + ", topVer=" + topVer + ']';
@@ -2131,18 +2131,18 @@ public class GridCacheContext<K, V> implements Externalizable {
         GridDhtPartitionTopology top = topology();
 
         if (isReplicated() && !group().persistenceEnabled()) {
-            boolean rebFinished = top.rebalanceFinished(topVer);
+            boolean rebFinished = top.rebalanceFinished(topVer.affinityVersion());
 
             if (rebFinished)
                 return true;
 
-            GridDhtLocalPartition locPart = top.localPartition(part, topVer, false, false);
+            GridDhtLocalPartition locPart = top.localPartition(part, topVer.affinityVersion(), false, false);
 
             // No need to reserve a partition for REPLICATED cache because this partition cannot be evicted.
             return locPart != null && locPart.state() == OWNING;
         }
         else {
-            GridDhtLocalPartition locPart = top.localPartition(part, topVer, false, false);
+            GridDhtLocalPartition locPart = top.localPartition(part, topVer.affinityVersion(), false, false);
 
             if (locPart != null && locPart.reserve()) {
                 boolean canRead = true;

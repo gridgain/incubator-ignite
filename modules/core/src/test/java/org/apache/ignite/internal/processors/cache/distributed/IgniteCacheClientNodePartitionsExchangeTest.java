@@ -464,7 +464,7 @@ public class IgniteCacheClientNodePartitionsExchangeTest extends GridCommonAbstr
 
                 assertEquals("Unexpected topology version [node=" + ignite.name() + ", cache=" + cache.name() + ']',
                     topVer,
-                    top.readyTopologyVersion());
+                    top.readyAffinityVersion());
             }
         }
 

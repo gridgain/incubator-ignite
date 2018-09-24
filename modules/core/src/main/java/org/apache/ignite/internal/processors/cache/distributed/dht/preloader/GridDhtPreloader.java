@@ -226,16 +226,16 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
         GridDhtPartitionTopology top = grp.topology();
 
         if (!grp.rebalanceEnabled())
-            return new GridDhtPreloaderAssignments(exchId, top.readyTopologyVersion());
+            return new GridDhtPreloaderAssignments(exchId, top.readyAffinityVersion());
 
         int partCnt = grp.affinity().partitions();
 
-        AffinityTopologyVersion topVer = top.readyTopologyVersion();
+        AffinityTopologyVersion topVer = top.readyAffinityVersion();
 
-        assert exchFut == null || exchFut.context().events().topologyVersion().equals(top.readyTopologyVersion()) :
+        assert exchFut == null || exchFut.context().events().topologyVersion().equals(top.readyAffinityVersion()) :
             "Topology version mismatch [exchId=" + exchId +
             ", grp=" + grp.name() +
-            ", topVer=" + top.readyTopologyVersion() + ']';
+            ", topVer=" + top.readyAffinityVersion() + ']';
 
         GridDhtPreloaderAssignments assignments = new GridDhtPreloaderAssignments(exchId, topVer);
 

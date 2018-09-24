@@ -37,6 +37,7 @@ import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.processors.affinity.AffinityAssignment;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentCache;
 import org.apache.ignite.internal.processors.cache.ExchangeDiscoveryEvents;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
@@ -243,7 +244,7 @@ public class GridClientPartitionTopology implements GridDhtPartitionTopology {
     }
 
     /** {@inheritDoc} */
-    @Override public AffinityTopologyVersion readyTopologyVersion() {
+    @Override public AffinityTopologyVersion readyAffinityVersion() {
         lock.readLock().lock();
 
         try {
@@ -257,7 +258,7 @@ public class GridClientPartitionTopology implements GridDhtPartitionTopology {
     }
 
     /** {@inheritDoc} */
-    @Override public AffinityTopologyVersion lastTopologyChangeVersion() {
+    @Override public AffinityTopologyVersion lastAffinityChangeVersion() {
         throw new UnsupportedOperationException();
     }
 
@@ -997,14 +998,15 @@ public class GridClientPartitionTopology implements GridDhtPartitionTopology {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean detectLostPartitions(AffinityTopologyVersion affVer, DiscoveryEvent discoEvt) {
+    @Override public boolean detectLostPartitions(AffinityVersion affVer, DiscoveryEvent discoEvt) {
         assert false : "detectLostPartitions should never be called on client topology";
 
         return false;
     }
 
-    /** {@inheritDoc} */
-    @Override public void resetLostPartitions(AffinityTopologyVersion affVer) {
+    /** {@inheritDoc}
+     * @param affVer*/
+    @Override public void resetLostPartitions(AffinityVersion affVer) {
         assert false : "resetLostPartitions should never be called on client topology";
     }
 
@@ -1269,8 +1271,9 @@ public class GridClientPartitionTopology implements GridDhtPartitionTopology {
     }
 
 
-    /** {@inheritDoc} */
-    @Override public boolean rebalanceFinished(AffinityTopologyVersion topVer) {
+    /** {@inheritDoc}
+     * @param affVer*/
+    @Override public boolean rebalanceFinished(AffinityVersion affVer) {
         assert false : "Should not be called on non-affinity node";
 
         return false;

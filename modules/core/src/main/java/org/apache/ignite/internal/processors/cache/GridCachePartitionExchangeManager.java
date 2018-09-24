@@ -980,7 +980,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         if (evt.type() == DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT)
             return ((DiscoveryCustomEvent)evt).affinityTopologyVersion();
 
-        return new AffinityTopologyVersion(evt.topologyVersion());
+        return cctx.discovery().toCompatibleAffinityTopologyVersion(new AffinityVersion(evt.topologyVersion(), 0));
     }
 
     /**
@@ -1609,17 +1609,17 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                 if (msg.client()) {
                     AffinityTopologyVersion initVer = exchFut.initialVersion();
-                    AffinityTopologyVersion readyVer = readyAffinityVersion();
+                    AffinityVersion readyAffVer = readyAffinityVersion();
 
-                    if (initVer.compareTo(readyVer) < 0 && !exchFut.isDone()) {
+                    if (initVer.affinityVersion().compareTo(readyAffVer) < 0 && !exchFut.isDone()) {
                         U.warn(log, "Client node tries to connect but its exchange " +
                             "info is cleaned up from exchange history. " +
                             "Consider increasing 'IGNITE_EXCHANGE_HISTORY_SIZE' property " +
                             "or start clients in  smaller batches. " +
                             "Current settings and versions: " +
                             "[IGNITE_EXCHANGE_HISTORY_SIZE=" + EXCHANGE_HISTORY_SIZE + ", " +
-                            "initVer=" + initVer + ", " +
-                            "readyVer=" + readyVer + "]."
+                            "initAffVer=" + initVer.affinityVersion() + ", " +
+                            "readyAffVer=" + readyAffVer + "]."
                         );
 
                         exchFut.forceClientReconnect(node, msg);
@@ -2688,8 +2688,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                                 assignsMap.put(grp.groupId(), assigns);
 
-                                if (resVer == null && !grp.isLocal())
-                                    resVer = grp.topology().readyTopologyVersion();
+                                // TODO: check if it is still necessary.
+//                                if (resVer == null && !grp.isLocal())
+//                                    resVer = grp.topology().readyTopologyVersion();
                             }
                         }
 

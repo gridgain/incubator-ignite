@@ -758,7 +758,7 @@ public class IgniteCacheClientNodeChangingTopologyTest extends GridCommonAbstrac
         AffinityTopologyVersion topVer1 = new AffinityTopologyVersion(4, 0);
 
         assertEquals(topVer1,
-            ignite0.context().cache().internalCache(DEFAULT_CACHE_NAME).context().topology().readyTopologyVersion());
+            ignite0.context().cache().internalCache(DEFAULT_CACHE_NAME).context().topology().readyAffinityVersion());
 
         TestCommunicationSpi spi = (TestCommunicationSpi)ignite3.configuration().getCommunicationSpi();
 
@@ -799,7 +799,7 @@ public class IgniteCacheClientNodeChangingTopologyTest extends GridCommonAbstrac
 
         ignite0.context().cache().context().exchange().affinityReadyFuture(topVer2).get();
 
-        assertEquals(topVer2, ignite0.context().cache().internalCache(DEFAULT_CACHE_NAME).context().topology().readyTopologyVersion());
+        assertEquals(topVer2, ignite0.context().cache().internalCache(DEFAULT_CACHE_NAME).context().topology().readyAffinityVersion());
 
         GridCacheAffinityManager aff = ignite0.context().cache().internalCache(DEFAULT_CACHE_NAME).context().affinity();
 

@@ -217,12 +217,13 @@ public class GridDhtPartitionMap implements Comparable<GridDhtPartitionMap>, Ext
      * @return Old update sequence value.
      */
     public long updateSequence(long updateSeq, AffinityTopologyVersion topVer) {
-        assert topVer.compareTo(top) >= 0 : "Invalid topology version [cur=" + top + ", new=" + topVer + "]";
+        assert topVer.affinityVersion().compareTo(top.affinityVersion()) >= 0 :
+            "Invalid topology version [cur=" + top + ", new=" + topVer + "]";
 
         long old = this.updateSeq;
 
         // Overwrite update sequence without checking in case of greater topology version
-        if (topVer.compareTo(top) == 0)
+        if (topVer.affinityVersion().compareTo(top.affinityVersion()) == 0)
             assert updateSeq >= old : "Invalid update sequence [cur=" + old + ", new=" + updateSeq + ']';
 
         this.updateSeq = updateSeq;

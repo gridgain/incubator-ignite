@@ -48,6 +48,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.managers.communication.GridIoPolicy;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.pool.PoolProcessor;
 import org.apache.ignite.internal.processors.resource.GridNoImplicitInjection;
 import org.apache.ignite.internal.util.GridSpinReadWriteLock;
@@ -503,16 +504,17 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             final String cacheName = F.first(cacheNames);
 
-            final AffinityTopologyVersion mapTopVer = ctx.cache().context().exchange().readyAffinityVersion();
-            final ClusterNode node = ctx.affinity().mapPartitionToNode(cacheName, partId, mapTopVer);
+            final AffinityVersion mapAffVer = ctx.cache().context().exchange().readyAffinityVersion();
+            final ClusterNode node = ctx.affinity().mapPartitionToNode(cacheName, partId, mapAffVer);
 
             if (node == null)
                 return ComputeTaskInternalFuture.finishedFuture(ctx, T5.class, U.emptyTopologyException());
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T5(node, job, cacheNames, partId, mapTopVer), null,
-                false, execName);
+            return ctx.task().execute(new T5(node, job, cacheNames, partId,
+                    ctx.discovery().toCompatibleAffinityTopologyVersion(mapAffVer)),
+                null, false, execName);
         }
         finally {
             busyLock.readUnlock();
@@ -543,16 +545,16 @@ public class GridClosureProcessor extends GridProcessorAdapter {
 
             final String cacheName = F.first(cacheNames);
 
-            final AffinityTopologyVersion mapTopVer = ctx.cache().context().exchange().readyAffinityVersion();
-            final ClusterNode node = ctx.affinity().mapPartitionToNode(cacheName, partId, mapTopVer);
+            final AffinityVersion mapAffVer = ctx.cache().context().exchange().readyAffinityVersion();
+            final ClusterNode node = ctx.affinity().mapPartitionToNode(cacheName, partId, mapAffVer);
 
             if (node == null)
                 return ComputeTaskInternalFuture.finishedFuture(ctx, T4.class, U.emptyTopologyException());
 
             ctx.task().setThreadContext(TC_SUBGRID, nodes);
 
-            return ctx.task().execute(new T4(node, job, cacheNames, partId, mapTopVer), null,
-                false, execName);
+            return ctx.task().execute(new T4(node, job, cacheNames, partId,
+                    ctx.discovery().toCompatibleAffinityTopologyVersion(mapAffVer)), null,false, execName);
         }
         finally {
             busyLock.readUnlock();

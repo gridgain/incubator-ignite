@@ -1073,17 +1073,17 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             }
 
             try {
-                if (top != null && needRemap(req.topologyVersion(), top.readyTopologyVersion())) {
+                if (top != null && needRemap(req.topologyVersion(), top.readyAffinityVersion())) {
                     if (log.isDebugEnabled()) {
                         log.debug("Client topology version mismatch, need remap lock request [" +
                                 "reqTopVer=" + req.topologyVersion() +
-                                ", locTopVer=" + top.readyTopologyVersion() +
+                                ", locTopVer=" + top.readyAffinityVersion() +
                                 ", req=" + req + ']');
                     }
 
                     GridNearLockResponse res = sendClientLockRemapResponse(nearNode,
                         req,
-                        top.lastTopologyChangeVersion());
+                        top.lastAffinityChangeVersion());
 
                     return new GridFinishedFuture<>(res);
                 }

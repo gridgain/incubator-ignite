@@ -1964,6 +1964,17 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
      * Gets cache nodes for cache with given name.
      *
      * @param cacheName Cache name.
+     * @param affVer Topology version.
+     * @return Collection of cache nodes.
+     */
+    public Collection<ClusterNode> cacheNodes(@Nullable String cacheName, AffinityVersion affVer) {
+        return resolveDiscoCache(CU.cacheId(cacheName), toCompatibleAffinityTopologyVersion(affVer).topologyVersion()).cacheNodes(cacheName);
+    }
+
+    /**
+     * Gets cache nodes for cache with given name.
+     *
+     * @param cacheName Cache name.
      * @param topVer Topology version.
      * @return Collection of cache nodes.
      */

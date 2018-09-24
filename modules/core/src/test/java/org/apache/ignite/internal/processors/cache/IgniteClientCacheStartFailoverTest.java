@@ -289,7 +289,7 @@ public class IgniteClientCacheStartFailoverTest extends GridCommonAbstractTest {
 
                 waitForReadyTopology(top, topVer);
 
-                assertEquals(topVer, top.readyTopologyVersion());
+                assertEquals(topVer, top.readyAffinityVersion());
 
                 assertFalse(top.rebalanceFinished(topVer));
             }

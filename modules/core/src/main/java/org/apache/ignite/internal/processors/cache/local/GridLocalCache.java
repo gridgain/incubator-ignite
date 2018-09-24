@@ -24,6 +24,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheEntryPredicate;
 import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
@@ -174,7 +175,7 @@ public class GridLocalCache<K, V> extends GridCacheAdapter<K, V> {
     @Override public void unlockAll(
         Collection<? extends K> keys
     ) throws IgniteCheckedException {
-        AffinityTopologyVersion topVer = ctx.affinity().affinityVersion();
+        AffinityVersion affVer = ctx.affinity().affinityVersion();
 
         for (K key : keys) {
             GridLocalCacheEntry entry = peekExx(ctx.toCacheKeyObject(key));
@@ -182,7 +183,7 @@ public class GridLocalCache<K, V> extends GridCacheAdapter<K, V> {
             if (entry != null && ctx.isAll(entry, CU.empty0())) {
                 entry.releaseLocal();
 
-                entry.touch(topVer);
+                entry.touch(affVer);
             }
         }
     }

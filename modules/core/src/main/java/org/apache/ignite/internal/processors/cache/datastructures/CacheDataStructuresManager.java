@@ -44,6 +44,7 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheAffinityManager;
 import org.apache.ignite.internal.processors.cache.GridCacheGateway;
@@ -471,17 +472,17 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
 
     /**
      * @param setId Set ID.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @throws IgniteCheckedException If failed.
      */
     @SuppressWarnings("unchecked")
-    private void removeSetData(IgniteUuid setId, AffinityTopologyVersion topVer) throws IgniteCheckedException {
+    private void removeSetData(IgniteUuid setId, AffinityVersion affVer) throws IgniteCheckedException {
         boolean loc = cctx.isLocal();
 
         GridCacheAffinityManager aff = cctx.affinity();
 
         if (!loc) {
-            aff.affinityReadyFuture(topVer).get();
+            aff.affinityReadyFuture(affVer).get();
 
             cctx.preloader().syncFuture().get();
         }
@@ -498,7 +499,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
         Collection<SetItemKey> keys = new ArrayList<>(BATCH_SIZE);
 
         for (SetItemKey key : set) {
-            if (!loc && !aff.primaryByKey(cctx.localNode(), key, topVer))
+            if (!loc && !aff.primaryByKey(cctx.localNode(), key, affVer))
                 continue;
 
             keys.add(key);
@@ -585,7 +586,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
         else {
             blockSet(id);
 
-            cctx.dataStructures().removeSetData(id, AffinityTopologyVersion.ZERO);
+            cctx.dataStructures().removeSetData(id, AffinityTopologyVersion.ZERO.affinityVersion());
         }
     }
 
@@ -807,7 +808,7 @@ public class CacheDataStructuresManager extends GridCacheManagerAdapter {
             gate.enter();
 
             try {
-                cache.context().dataStructures().removeSetData(setId, topVer);
+                cache.context().dataStructures().removeSetData(setId, topVer.affinityVersion());
             }
             finally {
                 gate.leave();

@@ -27,6 +27,7 @@ import javax.cache.processor.EntryProcessorResult;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.eviction.EvictableEntry;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridDhtAtomicAbstractUpdateFuture;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
@@ -286,8 +287,9 @@ public class GridCacheTestEntryEx extends GridMetadataAwareAdapter implements Gr
         return null;
     }
 
-    /** {@inheritDoc} */
-    @Override public boolean valid(AffinityTopologyVersion topVer) {
+    /** {@inheritDoc}
+     * @param affVer*/
+    @Override public boolean valid(AffinityVersion affVer) {
         return true;
     }
 
@@ -462,7 +464,7 @@ public class GridCacheTestEntryEx extends GridMetadataAwareAdapter implements Gr
         boolean keepBinary,
         boolean hasOldVal,
         @Nullable CacheObject oldVal,
-        AffinityTopologyVersion topVer,
+        AffinityVersion affVer,
         CacheEntryPredicate[] filter,
         GridDrType drType,
         long drExpireTime,
@@ -577,7 +579,7 @@ public class GridCacheTestEntryEx extends GridMetadataAwareAdapter implements Gr
         boolean keepBinary,
         boolean oldValPresent,
         @Nullable CacheObject oldVal,
-        AffinityTopologyVersion topVer,
+        AffinityVersion affVer,
         CacheEntryPredicate[] filter,
         GridDrType drType,
         @Nullable GridCacheVersion drVer,
@@ -950,8 +952,9 @@ public class GridCacheTestEntryEx extends GridMetadataAwareAdapter implements Gr
         return null;
     }
 
-    /** {@inheritDoc} */
-    @Override public void touch(AffinityTopologyVersion topVer) {
-        context().evicts().touch(this, topVer);
+    /** {@inheritDoc}
+     * @param affVer*/
+    @Override public void touch(AffinityVersion affVer) {
+        context().evicts().touch(this, affVer);
     }
 }

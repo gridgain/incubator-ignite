@@ -438,7 +438,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
     protected boolean updateNearCache(
         GridCacheContext<?, ?> cacheCtx,
         KeyCacheObject key,
-        AffinityTopologyVersion topVer
+        AffinityVersion affVer
     ) {
         return false;
     }

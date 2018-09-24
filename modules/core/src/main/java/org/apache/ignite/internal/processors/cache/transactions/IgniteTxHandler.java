@@ -395,12 +395,12 @@ public class IgniteTxHandler {
                                 "txId=" + req.version() +
                                 ", node=" + nearNode.id() +
                                 ", reqTopVer=" + req.topologyVersion() +
-                                ", locTopVer=" + top.readyTopologyVersion() +
+                                ", locTopVer=" + top.readyAffinityVersion() +
                                 ", req=" + req + ']');
                         }
                     }
 
-                    if (!retry && needRemap(req.topologyVersion(), top.readyTopologyVersion(), req)) {
+                    if (!retry && needRemap(req.topologyVersion(), top.readyAffinityVersion(), req)) {
                         retry = true;
 
                         if (txPrepareMsgLog.isDebugEnabled()) {
@@ -408,7 +408,7 @@ public class IgniteTxHandler {
                                 "txId=" + req.version() +
                                 ", node=" + nearNode.id() +
                                 ", reqTopVer=" + req.topologyVersion() +
-                                ", locTopVer=" + top.readyTopologyVersion() +
+                                ", locTopVer=" + top.readyAffinityVersion() +
                                 ", req=" + req + ']');
                         }
                     }
@@ -423,7 +423,7 @@ public class IgniteTxHandler {
                             req.version(),
                             null,
                             null,
-                            top.lastTopologyChangeVersion(),
+                            top.lastAffinityChangeVersion(),
                             req.onePhaseCommit(),
                             req.deployInfo() != null);
 

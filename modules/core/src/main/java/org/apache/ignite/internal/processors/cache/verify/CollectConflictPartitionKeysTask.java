@@ -220,7 +220,7 @@ public class CollectConflictPartitionKeysTask extends ComputeTaskAdapter<Partiti
 
             Object consId = ignite.context().discovery().localNode().consistentId();
 
-            boolean isPrimary = part.primary(grpCtx.topology().readyTopologyVersion());
+            boolean isPrimary = part.primary(grpCtx.topology().readyAffinityVersion());
 
             PartitionHashRecord partHashRec = new PartitionHashRecord(
                 partKey, isPrimary, consId, partHash, updateCntrBefore, partSize);

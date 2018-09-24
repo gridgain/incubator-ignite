@@ -22,6 +22,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheLockCandidates;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
@@ -92,32 +93,33 @@ public class GridNearCacheEntry extends GridDistributedCacheEntry {
         return true;
     }
 
-    /** {@inheritDoc} */
-    @Override public boolean valid(AffinityTopologyVersion topVer) {
-        assert topVer.topologyVersion() > 0 : "Topology version is invalid: " + topVer;
+    /** {@inheritDoc}
+     * @param affVer*/
+    @Override public boolean valid(AffinityVersion affVer) {
+        assert affVer.topologyVersion() > 0 : "Topology version is invalid: " + affVer;
 
         AffinityTopologyVersion topVer0 = this.topVer;
 
-        if (topVer0.equals(topVer))
+        if (topVer0.equals(affVer))
             return true;
 
-        if (topVer0.equals(AffinityTopologyVersion.NONE) || topVer.compareTo(topVer0) < 0)
+        if (topVer0.equals(AffinityTopologyVersion.NONE) || affVer.compareTo(topVer0) < 0)
             return false;
 
         try {
-            if (cctx.affinity().primaryChanged(partition(), topVer0, topVer)) {
+            if (cctx.affinity().primaryChanged(partition(), topVer0, affVer)) {
                 this.topVer = AffinityTopologyVersion.NONE;
 
                 return false;
             }
 
-            if (cctx.affinity().backupByPartition(cctx.localNode(), part, topVer)) {
+            if (cctx.affinity().backupByPartition(cctx.localNode(), part, affVer)) {
                 this.topVer = AffinityTopologyVersion.NONE;
 
                 return false;
             }
 
-            this.topVer = topVer;
+            this.topVer = affVer;
 
             return true;
         }

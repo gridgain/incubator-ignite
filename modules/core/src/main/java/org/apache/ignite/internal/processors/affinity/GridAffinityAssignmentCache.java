@@ -510,7 +510,7 @@ public class GridAffinityAssignmentCache {
      * @param affVer Topology version.
      * @return Affinity assignment.
      */
-    public List<List<ClusterNode>> readyAssignments(long affVer) {
+    public List<List<ClusterNode>> readyAssignments(AffinityVersion affVer) {
         AffinityAssignment aff = readyAffinity(affVer);
 
         assert aff != null : "No ready affinity [grp=" + cacheOrGrpName + ", ver=" + affVer + ']';
@@ -623,7 +623,7 @@ public class GridAffinityAssignmentCache {
      * @param affVer Topology version.
      * @return Assignment.
      */
-    public AffinityAssignment readyAffinity(long affVer) {
+    public AffinityAssignment readyAffinity(AffinityVersion affVer) {
         AffinityAssignment cache = head.get();
 
         if (!cache.affinityVersion().equals(affVer)) {

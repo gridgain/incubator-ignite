@@ -309,7 +309,7 @@ public class ValidateIndexesClosure implements IgniteCallable<VisorValidateIndex
 
             Object consId = ignite.context().discovery().localNode().consistentId();
 
-            boolean isPrimary = part.primary(grpCtx.topology().readyTopologyVersion());
+            boolean isPrimary = part.primary(grpCtx.topology().readyAffinityVersion());
 
             partRes = new ValidateIndexesPartitionResult(updateCntrBefore, partSize, isPrimary, consId, null);
 

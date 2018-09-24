@@ -435,7 +435,7 @@ public class CacheContinuousQueryManager extends GridCacheManagerAdapter {
         if (F.isEmpty(lsnrCol))
             return;
 
-        boolean primary = cctx.affinity().primaryByPartition(cctx.localNode(), e.partition(), AffinityTopologyVersion.NONE);
+        boolean primary = cctx.affinity().primaryByPartition(cctx.localNode(), e.partition(), AffinityTopologyVersion.NONE.affinityVersion());
 
         if (cctx.isReplicated() || primary) {
             boolean recordIgniteEvt = cctx.events().isRecordable(EVT_CACHE_QUERY_OBJECT_READ);

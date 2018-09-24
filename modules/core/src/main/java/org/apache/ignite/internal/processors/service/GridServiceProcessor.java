@@ -63,6 +63,7 @@ import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
 import org.apache.ignite.internal.managers.eventstorage.DiscoveryEventListener;
 import org.apache.ignite.internal.processors.GridProcessorAdapter;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheAffinityChangeMessage;
 import org.apache.ignite.internal.processors.cache.CacheIteratorConverter;
 import org.apache.ignite.internal.processors.cache.DynamicCacheChangeBatch;
@@ -1197,7 +1198,7 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
                 Map<UUID, Integer> cnts = new HashMap<>();
 
                 if (affKey != null) {
-                    ClusterNode n = ctx.affinity().mapKeyToNode(cacheName, affKey, topVer);
+                    ClusterNode n = ctx.affinity().mapKeyToNode(cacheName, affKey, topVer.affinityVersion());
 
                     if (n != null) {
                         int cnt = maxPerNodeCnt == 0 ? totalCnt == 0 ? 1 : totalCnt : maxPerNodeCnt;
@@ -1735,7 +1736,7 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
      */
     private class TopologyListener implements DiscoveryEventListener {
         /** */
-        private volatile long currTopVer = null;
+        private volatile AffinityTopologyVersion currTopVer = null;
 
         /**
          * Check that listening-in topology version is the latest and wait until exchange is finished.
@@ -1743,11 +1744,11 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
          * @param initTopVer listening-in topology version.
          * @return {@code True} if current event is not last and should be skipped.
          */
-        private boolean skipExchange(final long initTopVer) {
-            long pendingTopVer = 0;
-            long newTopVer;
+        private boolean skipExchange(final AffinityTopologyVersion initTopVer) {
+            AffinityTopologyVersion pendingTopVer = null;
+            AffinityTopologyVersion newTopVer;
 
-            if (initTopVer != (newTopVer = currTopVer))
+            if (!initTopVer.equals(newTopVer = currTopVer))
                 pendingTopVer = newTopVer;
             else {
                 IgniteInternalFuture<?> affReadyFut = ctx.cache().context().exchange().affinityReadyFuture(initTopVer);
@@ -1763,11 +1764,11 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
                 }
 
                 // If exchange already moved forward - skip current version.
-                if (initTopVer != (newTopVer = currTopVer))
+                if (!initTopVer.equals(newTopVer = currTopVer))
                     pendingTopVer = newTopVer;
             }
 
-            boolean skipExchange = pendingTopVer != 0;
+            boolean skipExchange = pendingTopVer != null;
 
             if (skipExchange && log.isInfoEnabled()) {
                 log.info("Service processor detected a topology change during " +
@@ -1787,7 +1788,7 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
                 return;
 
             try {
-                final long topVer;
+                final AffinityTopologyVersion topVer;
 
                 if (evt instanceof DiscoveryCustomEvent) {
                     DiscoveryCustomMessage msg = ((DiscoveryCustomEvent)evt).customMessage();
@@ -1806,10 +1807,11 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
                     if (msg instanceof MetadataUpdateProposedMessage || msg instanceof MetadataUpdateAcceptedMessage)
                         return;
 
-                    topVer = ((DiscoveryCustomEvent)evt).affinityTopologyVersion().topologyVersion();
+                    topVer = ((DiscoveryCustomEvent)evt).affinityTopologyVersion();
                 }
                 else
-                    topVer = (evt).topologyVersion();
+                    // TODO: use correct top/aff versions here
+                    topVer = ctx.discovery().toCompatibleAffinityTopologyVersion(new AffinityVersion(evt.topologyVersion(), 0));
 
                 currTopVer = topVer;
 
@@ -1874,7 +1876,7 @@ public class GridServiceProcessor extends GridProcessorAdapter implements Ignite
 
                             Cache.Entry<Object, Object> e = it.next();
 
-                            if (cache.context().affinity().primaryByKey(ctx.grid().localNode(), e.getKey(), topVer)) {
+                            if (cache.context().affinity().primaryByKey(ctx.grid().localNode(), e.getKey(), topVer.affinityVersion())) {
                                 String name = ((GridServiceAssignmentsKey)e.getKey()).name();
 
                                 try {

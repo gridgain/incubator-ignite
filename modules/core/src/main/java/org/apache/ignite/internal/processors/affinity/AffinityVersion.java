@@ -22,6 +22,13 @@ public class AffinityVersion implements Comparable<AffinityVersion> {
         return minorVer;
     }
 
+    /**
+     * @return {@code True} if this is real affinity version.
+     */
+    public boolean initialized() {
+        return majorVer > 0;
+    }
+
     @Override public int compareTo(@NotNull AffinityVersion o) {
         int cmp = Long.compare(majorVer, o.majorVer);
 

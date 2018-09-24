@@ -1773,7 +1773,7 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                                 // Can not wait for topology future since it will break
                                 // GridNearAtomicCheckUpdateRequest processing.
                                 remap = !top.topologyVersionFuture().exchangeDone() ||
-                                    needRemap(req.topologyVersion(), top.readyTopologyVersion());
+                                    needRemap(req.topologyVersion(), top.readyAffinityVersion());
                             }
 
                             if (!remap) {
@@ -1785,7 +1785,7 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                             }
                             else
                                 // Should remap all keys.
-                                res.remapTopologyVersion(top.lastTopologyChangeVersion());
+                                res.remapTopologyVersion(top.lastAffinityChangeVersion());
                         }
                         finally {
                             top.readUnlock();
@@ -1843,7 +1843,7 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
             if (log.isDebugEnabled())
                 log.debug("Caught invalid partition exception for cache entry (will remap update request): " + req);
 
-            res.remapTopologyVersion(ctx.topology().lastTopologyChangeVersion());
+            res.remapTopologyVersion(ctx.topology().lastAffinityChangeVersion());
         }
         catch (Throwable e) {
             // At least RuntimeException can be thrown by the code above when GridCacheContext is cleaned and there is
@@ -1903,7 +1903,7 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
         boolean hasNear = req.nearCache();
 
         // Assign next version for update inside entries lock.
-        GridCacheVersion ver = ctx.versions().next(top.readyTopologyVersion());
+        GridCacheVersion ver = ctx.versions().next(top.readyAffinityVersion());
 
         if (hasNear)
             res.nearVersion(ver);

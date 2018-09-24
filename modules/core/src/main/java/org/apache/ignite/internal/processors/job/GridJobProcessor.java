@@ -1564,7 +1564,7 @@ public class GridJobProcessor extends GridProcessorAdapter {
                     try {
                         if (cctx.isReplicated()) {
                             GridDhtLocalPartition part = cctx.topology().localPartition(partId,
-                                topVer, false);
+                                topVer.affinityVersion(), false);
 
                             // We don't need to reserve partitions because they will not be evicted in replicated caches.
                             if (part == null || part.state() != OWNING) {
@@ -1574,7 +1574,7 @@ public class GridJobProcessor extends GridProcessorAdapter {
                             }
                         }
 
-                        GridDhtLocalPartition part = cctx.topology().localPartition(partId, topVer, false);
+                        GridDhtLocalPartition part = cctx.topology().localPartition(partId, topVer.affinityVersion(), false);
 
                         if (part == null || part.state() != OWNING || !part.reserve()) {
                             checkPartMapping = true;
@@ -1592,7 +1592,7 @@ public class GridJobProcessor extends GridProcessorAdapter {
                         }
                     }
                     finally {
-                        if (checkPartMapping && !cctx.affinity().primaryByPartition(partId, topVer).id().equals(ctx.localNodeId()))
+                        if (checkPartMapping && !cctx.affinity().primaryByPartition(partId, topVer.affinityVersion()).id().equals(ctx.localNodeId()))
                             throw new IgniteException("Failed partition reservation. " +
                                 "Partition is not primary on the node. [partition=" + partId + ", cacheName=" + cctx.name() +
                                 ", nodeId=" + ctx.localNodeId() + ", topology=" + topVer + ']');

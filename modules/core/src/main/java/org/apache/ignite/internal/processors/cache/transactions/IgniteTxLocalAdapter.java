@@ -40,6 +40,7 @@ import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.DataEntry;
 import org.apache.ignite.internal.pagemem.wal.record.DataRecord;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.processors.affinity.AffinityVersion;
 import org.apache.ignite.internal.processors.cache.CacheEntryPredicate;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.CacheInvokeEntry;
@@ -482,11 +483,11 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
      *
      * @param cacheCtx Cache context.
      * @param key Key.
-     * @param topVer Topology version.
+     * @param affVer Topology version.
      * @return Cache entry.
      */
-    protected GridCacheEntryEx entryEx(GridCacheContext cacheCtx, IgniteTxKey key, AffinityTopologyVersion topVer) {
-        return cacheCtx.cache().entryEx(key.key(), topVer);
+    protected GridCacheEntryEx entryEx(GridCacheContext cacheCtx, IgniteTxKey key, AffinityVersion affVer) {
+        return cacheCtx.cache().entryEx(key.key(), affVer);
     }
 
     /** {@inheritDoc} */
@@ -530,7 +531,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
             try {
                 cctx.tm().txContext(this);
 
-                AffinityTopologyVersion topVer = affinityVersion();
+                AffinityVersion affVer = affinityVersion();
 
                 /*
                  * Commit to cache. Note that for 'near' transaction we loop through all the entries.
@@ -559,7 +560,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                     if (cached.detached())
                                         break;
 
-                                    boolean updateNearCache = updateNearCache(cacheCtx, txEntry.key(), topVer);
+                                    boolean updateNearCache = updateNearCache(cacheCtx, txEntry.key(), affVer);
 
                                     boolean metrics = true;
 
@@ -684,7 +685,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                             txEntry.keepBinary(),
                                             txEntry.hasOldValue(),
                                             txEntry.oldValue(),
-                                            topVer,
+                                            affVer,
                                             null,
                                             cached.detached() ? DR_NONE : drType,
                                             txEntry.conflictExpireTime(),
@@ -724,7 +725,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                                 txEntry.keepBinary(),
                                                 txEntry.hasOldValue(),
                                                 txEntry.oldValue(),
-                                                topVer,
+                                                affVer,
                                                 CU.empty0(),
                                                 DR_NONE,
                                                 txEntry.conflictExpireTime(),
@@ -748,7 +749,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                             txEntry.keepBinary(),
                                             txEntry.hasOldValue(),
                                             txEntry.oldValue(),
-                                            topVer,
+                                            affVer,
                                             null,
                                             cached.detached() ? DR_NONE : drType,
                                             cached.isNear() ? null : explicitVer,
@@ -783,7 +784,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                                                 txEntry.keepBinary(),
                                                 txEntry.hasOldValue(),
                                                 txEntry.oldValue(),
-                                                topVer,
+                                                affVer,
                                                 CU.empty0(),
                                                 DR_NONE,
                                                 null,
