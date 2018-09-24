@@ -708,7 +708,10 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
 
     /** {@inheritDoc} */
     @Override protected void stop0(boolean cancel) {
-        clearDataRegions();
+        for (DatabaseLifecycleListener lsnr : getDatabaseListeners(cctx.kernalContext()))
+            lsnr.beforeStop(this);
+
+        stopAndFreeMemory();
     }
 
     /**
@@ -1109,13 +1112,13 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
             lsnr.beforeStop(this);
 
         if (freeOnDeactivation)
-            clearDataRegions();
+            stopAndFreeMemory();
     }
 
     /**
      * Stop and free memory.
      */
-    private void clearDataRegions() {
+    private void stopAndFreeMemory() {
         if (dataRegionMap != null) {
             for (DataRegion memPlc : dataRegionMap.values()) {
                 memPlc.pageMemory().stop();
