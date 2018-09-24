@@ -18,8 +18,8 @@
 import {of} from 'rxjs/observable/of';
 import {Confirm} from 'app/services/Confirm.service';
 import {DiffPatcher} from 'jsondiffpatch';
-import {html} from 'jsondiffpatch/public/build/jsondiffpatch-formatters.js';
-import 'jsondiffpatch/public/formatters-styles/html.css';
+import {formatters} from 'jsondiffpatch';
+import 'jsondiffpatch/dist/formatters-styles/html.css';
 
 export class IgniteObjectDiffer {
     constructor() {
@@ -76,7 +76,7 @@ export default class ConfigChangesGuard {
             </p>
             <details class='config-changes-guard__details'>
                 <summary>Click here to see changes</summary>
-                <div style='max-height: 400px; overflow: auto;'>${html.format(changes)}</div>                
+                <div style='max-height: 400px; overflow: auto;'>${formatters.html.format(changes)}</div>                
             </details>
         `));
     }
