@@ -140,6 +140,7 @@
 
     .ui-grid-header-cell-wrapper {
         display: table !important;
+        width: auto !important;
     }
 
     .ui-grid-header-cell-row {
@@ -148,6 +149,7 @@
 
     .ui-grid-header-cell {
         display: table-cell !important;
+        vertical-align: bottom !important;
     }
 }
 
