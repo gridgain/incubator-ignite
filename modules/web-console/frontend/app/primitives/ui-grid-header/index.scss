@@ -131,3 +131,23 @@
         }
     }
 }
+
+// Fix for preserving rendering header as flexbox (Introduced in 4.6.3)
+.ui-grid-header-canvas {
+    &:before, &:after {
+        display: table !important;
+    }
+
+    .ui-grid-header-cell-wrapper {
+        display: table !important;
+    }
+
+    .ui-grid-header-cell-row {
+        display: table-row !important;
+    }
+
+    .ui-grid-header-cell {
+        display: table-cell !important;
+    }
+}
+
