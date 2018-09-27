@@ -112,6 +112,8 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
     /** First eviction was warned flag. */
     private volatile boolean firstEvictWarn;
 
+    public volatile boolean reuseMem;
+
     /** {@inheritDoc} */
     @Override protected void start0() throws IgniteCheckedException {
         if (cctx.kernalContext().clientNode() && cctx.kernalContext().config().getDataStorageConfiguration() == null)
@@ -706,7 +708,7 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
 
     /** {@inheritDoc} */
     @Override protected void stop0(boolean cancel) {
-        onDeActivate(cctx.kernalContext());
+        onDeActivate(false);
     }
 
     /**
@@ -938,7 +940,7 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
         File allocPath = buildAllocPath(plcCfg);
 
         DirectMemoryProvider memProvider = allocPath == null ?
-            new UnsafeMemoryProvider(log) :
+            new UnsafeMemoryProvider(log, this) :
             new MappedFileMemoryProvider(
                 log,
                 allocPath);
@@ -1102,6 +1104,14 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
 
     /** {@inheritDoc} */
     @Override public void onDeActivate(GridKernalContext kctx) {
+        onDeActivate(true);
+    }
+
+
+    private void onDeActivate(boolean reuseMemory)
+    {
+        reuseMem = reuseMemory;
+
         for (DatabaseLifecycleListener lsnr : getDatabaseListeners(cctx.kernalContext())) {
             lsnr.beforeStop(this);
         }
