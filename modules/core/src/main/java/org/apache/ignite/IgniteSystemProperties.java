@@ -655,13 +655,6 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_MEMORY_UNALIGNED_ACCESS = "IGNITE_MEMORY_UNALIGNED_ACCESS";
 
     /**
-     *  If {@code true}, free memory on deactivation. Otherwise, memory will be deallocated only if node stops.
-     *  <p>
-     *  Defaults to {@code true}.
-     */
-    public static final String IGNITE_MEMORY_FREE_ON_DEACTIVATE = "IGNITE_MEMORY_FREE_ON_DEACTIVATE";
-
-    /**
      * When unsafe memory copy if performed below this threshold, Ignite will do it on per-byte basis instead of
      * calling to Unsafe.copyMemory().
      * <p>

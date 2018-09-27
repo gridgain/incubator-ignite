@@ -25,6 +25,7 @@ import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.mem.UnsafeChunk;
+import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
@@ -41,14 +42,31 @@ public class UnsafeMemoryProvider implements DirectMemoryProvider {
     /** */
     private IgniteLogger log;
 
+    /** Ignite cache database manager. */
+    private IgniteCacheDatabaseSharedManager dbMgr;
+
     /** Flag shows if current memory provider have been already initialized. */
     private boolean isInit;
+
+    /** local region cnt. */
+    private int locCnt = 0;
 
     /**
      * @param log Ignite logger to use.
      */
     public UnsafeMemoryProvider(IgniteLogger log) {
         this.log = log;
+
+        this.dbMgr = null;
+    }
+
+    /**
+     * @param log Ignite logger to use.
+     */
+    public UnsafeMemoryProvider(IgniteLogger log, IgniteCacheDatabaseSharedManager dbMgr) {
+        this.log = log;
+
+        this.dbMgr = dbMgr;
     }
 
     /** {@inheritDoc} */
@@ -67,18 +85,32 @@ public class UnsafeMemoryProvider implements DirectMemoryProvider {
     @Override public void shutdown() {
         if (regions != null) {
             for (Iterator<DirectMemoryRegion> it = regions.iterator(); it.hasNext(); ) {
-                DirectMemoryRegion chunk = it.next();
+                UnsafeChunk chunk = (UnsafeChunk) it.next();
 
-                GridUnsafe.freeMemory(chunk.address());
+                if (dbMgr != null && dbMgr.reuseMem)
+                    GridUnsafe.setMemory(chunk.address(), chunk.size(), (byte)0);
+                else {
+                    GridUnsafe.freeMemory(chunk.address());
 
-                // Safety.
-                it.remove();
+                    // Safety.
+                    it.remove();
+                }
             }
         }
     }
 
     /** {@inheritDoc} */
     @Override public DirectMemoryRegion nextRegion() {
+        if (dbMgr != null && dbMgr.reuseMem && regions.size() == sizes.length) {
+            if (locCnt == regions.size()) {
+                locCnt = 0;
+
+                return null;
+            }
+
+            return regions.get(locCnt++);
+        }
+
         if (regions.size() == sizes.length)
             return null;
 
