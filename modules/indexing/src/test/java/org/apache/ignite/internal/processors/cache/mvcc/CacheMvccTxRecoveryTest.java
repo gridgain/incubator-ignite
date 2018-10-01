@@ -371,37 +371,41 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
 
         Affinity<Object> aff = ign.affinity("test");
 
+        int victim = 2;
+        int missedPrepare = 1;
+
         for (int i = 0; i < 100; i++) {
-            if (aff.isPrimary(grid(0).localNode(), i) && aff.isBackup(grid(1).localNode(), i)) {
+            if (aff.isPrimary(grid(victim).localNode(), i) && aff.isBackup(grid(missedPrepare).localNode(), i)) {
                 keys.add(i);
                 break;
             }
         }
 
-        TestCommunicationSpi comm = (TestCommunicationSpi)grid(0).configuration().getCommunicationSpi();
-
         // t0d0 choose node visely and messages to block
         // t0d0 check problem with visibility inconsistense on different nodes in various cases
-        comm.blockDhtPrepare(grid(1).localNode().id());
+        ((TestCommunicationSpi)grid(victim).configuration().getCommunicationSpi())
+            .blockDhtPrepare(grid(missedPrepare).localNode().id());
 
         Transaction nearTx = ign.transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
 
         for (Integer k : keys)
             cache.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, 42)").setArgs(k));
 
-//        List<IgniteInternalTx> txs = IntStream.range(0, srvCnt)
-//            .mapToObj(i -> grid(i).context().cache().context().tm().activeTransactions().iterator().next())
-//            .collect(Collectors.toList());
+        List<IgniteInternalTx> txs = IntStream.range(0, srvCnt)
+            .filter(i -> i != victim)
+            .mapToObj(i -> grid(i).context().cache().context().tm().activeTransactions().iterator().next())
+            .collect(Collectors.toList());
 
         ((TransactionProxyImpl)nearTx).tx().prepareNearTxLocal();
 
         // drop near
         stopGrid(srvCnt, true);
         // drop primary
-        stopGrid(0, true);
+        // t0d0 update started voting on mvcc coordinator
+        stopGrid(victim, true);
 
         for (int i = 0; i < srvCnt; i++) {
-            if (i == 0) continue;
+            if (i == victim) continue;
 
             for (Integer k : keys) {
                 dataStore(grid(i).cachex("test").context(), k)
@@ -409,23 +413,22 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
             }
         }
 
-//        assertConditionEventually(
-//            () -> txs.stream().allMatch(tx -> tx.state() == ROLLED_BACK),
-//            "Transaction rollback is expected");
+        assertConditionEventually(
+            () -> txs.stream().allMatch(tx -> tx.state() == ROLLED_BACK),
+            "Transaction rollback is expected");
 
-        TimeUnit.SECONDS.sleep(2);
+        TimeUnit.SECONDS.sleep(5);
 
         for (int i = 0; i < srvCnt; i++) {
-            if (i == 0) continue;
+            if (i == victim) continue;
 
             for (Integer k : keys) {
                 dataStore(grid(i).cachex("test").context(), k)
                     .ifPresent(ds -> System.err.println(k + " -> " + ds.updateCounter()));
             }
-        }
 
-        System.err.println(grid(1).cache("test").query(new SqlFieldsQuery("select * from Integer").setLocal(true)).getAll());
-        System.err.println(grid(2).cache("test").query(new SqlFieldsQuery("select * from Integer").setLocal(true)).getAll());
+            System.err.println(grid(i).cache("test").query(new SqlFieldsQuery("select * from Integer").setLocal(true)).getAll());
+        }
     }
 
     /**
