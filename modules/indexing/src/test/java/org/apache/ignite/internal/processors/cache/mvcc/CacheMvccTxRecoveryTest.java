@@ -47,6 +47,7 @@ import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.managers.communication.GridIoMessage;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.IgniteCacheOffheapManager;
+import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
@@ -366,20 +367,22 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
             .setBackups(2)
             .setIndexedTypes(Integer.class, Integer.class));
 
-        AtomicInteger keyCntr = new AtomicInteger();
-
         ArrayList<Integer> keys = new ArrayList<>();
 
-//        ign.cluster().forServers().nodes()
-//            .forEach(node -> keys.add(keyForNode(ign.affinity("test"), keyCntr, node)));
+        Affinity<Object> aff = ign.affinity("test");
 
-//        keys.add(primaryKey(grid(0).cache("test")));
-        keys.add(1);
+        for (int i = 0; i < 100; i++) {
+            if (aff.isPrimary(grid(0).localNode(), i) && aff.isBackup(grid(1).localNode(), i)) {
+                keys.add(i);
+                break;
+            }
+        }
 
         TestCommunicationSpi comm = (TestCommunicationSpi)grid(0).configuration().getCommunicationSpi();
 
         // t0d0 choose node visely and messages to block
-        comm.blockNearPrepare(grid(1).localNode().id());
+        // t0d0 check problem with visibility inconsistense on different nodes in various cases
+        comm.blockDhtPrepare(grid(1).localNode().id());
 
         Transaction nearTx = ign.transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
 
@@ -397,6 +400,15 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
         // drop primary
         stopGrid(0, true);
 
+        for (int i = 0; i < srvCnt; i++) {
+            if (i == 0) continue;
+
+            for (Integer k : keys) {
+                dataStore(grid(i).cachex("test").context(), k)
+                    .ifPresent(ds -> System.err.println(k + " -> " + ds.updateCounter()));
+            }
+        }
+
 //        assertConditionEventually(
 //            () -> txs.stream().allMatch(tx -> tx.state() == ROLLED_BACK),
 //            "Transaction rollback is expected");
@@ -411,6 +423,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
                     .ifPresent(ds -> System.err.println(k + " -> " + ds.updateCounter()));
             }
         }
+
         System.err.println(grid(1).cache("test").query(new SqlFieldsQuery("select * from Integer").setLocal(true)).getAll());
         System.err.println(grid(2).cache("test").query(new SqlFieldsQuery("select * from Integer").setLocal(true)).getAll());
     }
@@ -530,7 +543,7 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
         @LoggerResource
         private IgniteLogger log;
         /** */
-        private UUID blockedNodeId;
+        private T2<UUID, Class<?>> blockDesc;
         /** */
         private List<T2<ClusterNode, GridIoMessage>> blockedMsgs = new ArrayList<>();
 
@@ -543,9 +556,9 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
                 if (msg0 instanceof GridNearTxPrepareRequest || msg0 instanceof GridDhtTxPrepareRequest)
                     System.err.println("PREPARE MSG " + msg0.getClass().getSimpleName() + " for " + node.id());
 
-                if (msg0 instanceof GridNearTxPrepareRequest) {
+                if (msg0 instanceof GridDistributedTxPrepareRequest) {
                     synchronized (this) {
-                        if (node.id().equals(blockedNodeId)) {
+                        if (blockDesc != null && node.id().equals(blockDesc.get1()) && blockDesc.get2().isInstance(msg0)) {
                             log.info("Block message: " + msg0);
 
                             blockedMsgs.add(new T2<>(node, (GridIoMessage)msg));
@@ -561,14 +574,21 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
 
         /** */
         synchronized void blockNearPrepare(UUID nodeId) {
-            assert blockedNodeId == null;
+            assert blockDesc == null;
 
-            blockedNodeId = nodeId;
+            blockDesc = new T2<>(nodeId, GridNearTxPrepareRequest.class);
+        }
+
+        /** */
+        synchronized void blockDhtPrepare(UUID nodeId) {
+            assert blockDesc == null;
+
+            blockDesc = new T2<>(nodeId, GridDhtTxPrepareRequest.class);
         }
 
         /** */
         synchronized void unblock() {
-            blockedNodeId = null;
+            blockDesc = null;
 
             for (T2<ClusterNode, GridIoMessage> msg : blockedMsgs) {
                 log.info("Send blocked message: " + msg.get2().message());
