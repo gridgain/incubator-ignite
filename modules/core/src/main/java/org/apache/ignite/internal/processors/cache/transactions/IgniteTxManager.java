@@ -2451,7 +2451,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
 
                 Collection<IgniteInternalTx> txs = new ArrayList<>(activeTransactions());
                 System.err.println("ACTIVE TXS " + txs.stream().map(IgniteInternalTx::state).map(Object::toString).collect(Collectors.joining(":")));
-                LockSupport.parkNanos(TimeUnit.SECONDS.toNanos(1));
+//                LockSupport.parkNanos(TimeUnit.SECONDS.toNanos(1));
                 for (final IgniteInternalTx tx : txs) {
                     if ("127.0.0.1:47500".equals(cctx.localNode().consistentId()))
                         System.err.println();

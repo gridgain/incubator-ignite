@@ -147,7 +147,7 @@ public class IgniteCacheCommitDelayTxRecoveryTest extends GridCommonAbstractTest
 
         assertFalse(srv.configuration().isClientMode());
 
-        for (Boolean pessimistic : Arrays.asList(false, true)) {
+        for (Boolean pessimistic : Arrays.asList(true)) {
             checkRecovery(backupKey(srv.cache(DEFAULT_CACHE_NAME)), srv, pessimistic, useStore);
 
             checkRecovery(nearKey(srv.cache(DEFAULT_CACHE_NAME)), srv, pessimistic, useStore);
