@@ -42,22 +42,22 @@ public class IgniteCacheTxRecoverySelfTestSuite extends TestSuite {
     public static TestSuite suite() throws Exception {
         TestSuite suite = new TestSuite("Cache tx recovery test suite");
 
-        suite.addTestSuite(IgniteCacheCommitDelayTxRecoveryTest.class);
+//        suite.addTestSuite(IgniteCacheCommitDelayTxRecoveryTest.class);
 
-        suite.addTestSuite(IgniteCachePartitionedPrimaryNodeFailureRecoveryTest.class);
+//        suite.addTestSuite(IgniteCachePartitionedPrimaryNodeFailureRecoveryTest.class);
         suite.addTestSuite(IgniteCachePartitionedNearDisabledPrimaryNodeFailureRecoveryTest.class);
         suite.addTestSuite(IgniteCachePartitionedTwoBackupsPrimaryNodeFailureRecoveryTest.class);
 
-        suite.addTestSuite(GridCachePartitionedTxOriginatingNodeFailureSelfTest.class);
-        suite.addTestSuite(GridCachePartitionedNearDisabledTxOriginatingNodeFailureSelfTest.class);
-        suite.addTestSuite(GridCacheReplicatedTxOriginatingNodeFailureSelfTest.class);
-
+//        suite.addTestSuite(GridCachePartitionedTxOriginatingNodeFailureSelfTest.class);
+//        suite.addTestSuite(GridCachePartitionedNearDisabledTxOriginatingNodeFailureSelfTest.class);
+//        suite.addTestSuite(GridCacheReplicatedTxOriginatingNodeFailureSelfTest.class);
+//
         suite.addTestSuite(GridCacheColocatedTxPessimisticOriginatingNodeFailureSelfTest.class);
-        suite.addTestSuite(GridCacheNearTxPessimisticOriginatingNodeFailureSelfTest.class);
+//        suite.addTestSuite(GridCacheNearTxPessimisticOriginatingNodeFailureSelfTest.class);
         suite.addTestSuite(GridCacheReplicatedTxPessimisticOriginatingNodeFailureSelfTest.class);
-
-        suite.addTestSuite(IgniteCacheTxRecoveryRollbackTest.class);
-        suite.addTestSuite(TxRecoveryStoreEnabledTest.class);
+//
+//        suite.addTestSuite(IgniteCacheTxRecoveryRollbackTest.class);
+//        suite.addTestSuite(TxRecoveryStoreEnabledTest.class);
 
         return suite;
     }

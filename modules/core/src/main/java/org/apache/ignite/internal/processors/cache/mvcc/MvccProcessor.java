@@ -239,6 +239,8 @@ public interface MvccProcessor extends GridProcessor {
      */
     void ackQueryDone(MvccSnapshot snapshot, long qryId);
 
+    void ackRecoveryFinished(UUID failedNodeId, Map<Long, Boolean> recoveryResolution);
+
     /**
      * @param crdId Coordinator ID.
      * @param txs Transaction IDs.

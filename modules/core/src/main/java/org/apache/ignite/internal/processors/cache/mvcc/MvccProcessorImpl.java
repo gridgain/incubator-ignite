@@ -28,6 +28,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import javax.cache.expiry.EternalExpiryPolicy;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccActiveQueriesMes
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccFutureResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccMessage;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccQuerySnapshotRequest;
+import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccRecoveryFinishedMessage;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccSnapshotResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccTxSnapshotRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccWaitTxsRequest;
@@ -79,7 +81,6 @@ import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.DatabaseLifecycleListener;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
-import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.data.MvccDataRow;
 import org.apache.ignite.internal.processors.cache.tree.mvcc.search.MvccLinkAwareSearchRow;
@@ -193,7 +194,17 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
     private final GridAtomicLong committedCntr = new GridAtomicLong(MVCC_INITIAL_CNTR);
 
     /** */
-    private final Map<Long, Long> activeTxs = new HashMap<>();
+    private final Map<Long, ActiveTxMeta> activeTxs = new HashMap<>();
+
+    private class ActiveTxMeta {
+        private final Long tracking;
+        private final UUID nearNodeId;
+
+        private ActiveTxMeta(Long tracking, UUID nearNodeId) {
+            this.tracking = tracking;
+            this.nearNodeId = nearNodeId;
+        }
+    }
 
     /** Active query trackers. */
     private final Map<Long, MvccQueryTracker> activeTrackers = new ConcurrentHashMap<>();
@@ -551,7 +562,7 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
         if (!ctx.localNodeId().equals(crd.nodeId()) || !initFut.isDone())
             return null;
         else if (tx != null)
-            return assignTxSnapshot(0L);
+            return assignTxSnapshot(0L, ctx.localNodeId());
         else
             return activeQueries.assignQueryCounter(ctx.localNodeId(), 0L);
     }
@@ -606,7 +617,7 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
                 });
             }
             else if (tx != null)
-                lsnr.onResponse(assignTxSnapshot(0L));
+                lsnr.onResponse(assignTxSnapshot(0L, ctx.localNodeId()));
             else
                 lsnr.onResponse(activeQueries.assignQueryCounter(ctx.localNodeId(), 0L));
 
@@ -724,6 +735,16 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
             crd = currentCoordinator();
         }
         while (!sendQueryDone(crd, msg));
+    }
+
+    @Override public void ackRecoveryFinished(UUID failedNodeId, Map<Long, Boolean> recoveryResolution) {
+        // t0d0 do all necessary checks and preparations
+        try {
+            sendMessage(curCrd.nodeId(), new MvccRecoveryFinishedMessage(failedNodeId, recoveryResolution));
+        }
+        catch (IgniteCheckedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -933,7 +954,7 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
     /**
      * @return Counter.
      */
-    private MvccSnapshotResponse assignTxSnapshot(long futId) {
+    private MvccSnapshotResponse assignTxSnapshot(long futId, UUID nearNodeId) {
         assert initFut.isDone();
         assert crdVer != 0;
         assert ctx.localNodeId().equals(currentCoordinatorId());
@@ -947,14 +968,14 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
             tracking = ver;
             cleanup = committedCntr.get() + 1;
 
-            for (Map.Entry<Long, Long> txVer : activeTxs.entrySet()) {
-                cleanup = Math.min(txVer.getValue(), cleanup);
+            for (Map.Entry<Long, ActiveTxMeta> txVer : activeTxs.entrySet()) {
+                cleanup = Math.min(txVer.getValue().tracking, cleanup);
                 tracking = Math.min(txVer.getKey(), tracking);
 
                 res.addTx(txVer.getKey());
             }
 
-            boolean add = activeTxs.put(ver, tracking) == null;
+            boolean add = activeTxs.put(ver, new ActiveTxMeta(tracking, nearNodeId)) == null;
 
             assert add : ver;
         }
@@ -974,19 +995,21 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
     /**
      * @param txCntr Counter assigned to transaction.
      */
-    private void onTxDone(Long txCntr, boolean committed) {
+    private void onTxDone(long txCntr, boolean committed) {
         assert initFut.isDone();
+
+        Long txCntr0 = txCntr;
 
         GridFutureAdapter fut;
 
         synchronized (this) {
-            activeTxs.remove(txCntr);
+            activeTxs.remove(txCntr0);
 
             if (committed)
-                committedCntr.setIfGreater(txCntr);
+                committedCntr.setIfGreater(txCntr0);
         }
 
-        fut = waitTxFuts.remove(txCntr);
+        fut = waitTxFuts.remove(txCntr0);
 
         if (fut != null)
             fut.onDone();
@@ -1373,7 +1396,7 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
             return;
         }
 
-        MvccSnapshotResponse res = assignTxSnapshot(msg.futureId());
+        MvccSnapshotResponse res = assignTxSnapshot(msg.futureId(), nodeId);
 
         try {
             sendMessage(node.id(), res);
@@ -1734,6 +1757,14 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
             activeQueries.onNodeFailed(nodeId);
 
             prevCrdQueries.onNodeFailed(nodeId);
+
+            RecoveryBallotBox ballotBox = recoveryBallotBoxes.computeIfAbsent(nodeId, uuid -> new RecoveryBallotBox());
+
+            // t0d0 handle case when voting node fails during recovery
+            ballotBox
+                .voters(discoEvt.topologyNodes().stream().map(ClusterNode::id).collect(Collectors.toList()));
+
+            tryFinishRecoveryVoting(nodeId, ballotBox);
         }
 
         /** {@inheritDoc} */
@@ -1788,6 +1819,8 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
                 processNewCoordinatorQueryAckRequest(nodeId, (MvccAckRequestQueryId)msg);
             else if (msg instanceof MvccActiveQueriesMessage)
                 processCoordinatorActiveQueriesMessage(nodeId, (MvccActiveQueriesMessage)msg);
+            else if (msg instanceof MvccRecoveryFinishedMessage)
+                processRecoveryFinishedMessage(nodeId, ((MvccRecoveryFinishedMessage)msg));
             else
                 U.warn(log, "Unexpected message received [node=" + nodeId + ", msg=" + msg + ']');
         }
@@ -1795,6 +1828,71 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
         /** {@inheritDoc} */
         @Override public String toString() {
             return "CoordinatorMessageListener[]";
+        }
+    }
+
+    // near node -> remote node -> remote note voting result for all txs
+    private final ConcurrentHashMap<UUID, RecoveryBallotBox> recoveryBallotBoxes = new ConcurrentHashMap<>();
+
+    private static class RecoveryBallotBox {
+        volatile List<UUID> voters;
+        final ConcurrentHashMap<UUID, Map<Long, Boolean>> box = new ConcurrentHashMap<>();
+
+        void voters(List<UUID> voters) {
+            this.voters = voters;
+        }
+
+        void vote(UUID nodeId, Map<Long, Boolean> vote) {
+            // t0d0 merge votes from different nodes? remove duplicates?
+            box.put(nodeId, vote);
+        }
+
+        boolean isVotingDone() {
+            if (voters == null)
+                return false;
+
+            return box.keySet().containsAll(voters);
+        }
+
+        boolean commited(Long txCntr) {
+            // t0d0 map to resolution faster?
+            // t0d0 voting done with zero replies?
+            return box.values().stream()
+                .filter(m -> m.containsKey(txCntr))
+                .map(m -> m.get(txCntr))
+                .findAny().get();
+        }
+    }
+
+    private void processRecoveryFinishedMessage(UUID nodeId, MvccRecoveryFinishedMessage msg) {
+        UUID nearNodeId = msg.nearNodeId();
+
+        RecoveryBallotBox ballotBox = recoveryBallotBoxes.computeIfAbsent(nearNodeId, uuid -> new RecoveryBallotBox());
+
+        ballotBox.vote(nodeId, msg.recoveryResolution());
+
+        System.err.format("VOTING: near=%s voter=%s (%d)%n", nearNodeId, nodeId, ballotBox.voters.size());
+
+        tryFinishRecoveryVoting(nearNodeId, ballotBox);
+    }
+
+    private void tryFinishRecoveryVoting(UUID nearNodeId, RecoveryBallotBox ballotBox) {
+        if (ballotBox.isVotingDone()) {
+            // t0d0 voting for multiple transaction and same node
+
+            List<Long> recoveredTxs;
+
+            synchronized (this) {
+                recoveredTxs = activeTxs.entrySet().stream()
+                    .filter(e -> e.getValue().nearNodeId.equals(nearNodeId))
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toList());
+            }
+
+            // t0d0 finish queries as well
+            recoveredTxs.forEach(txCntr -> onTxDone(txCntr, ballotBox.commited(txCntr)));
+
+            recoveryBallotBoxes.remove(nearNodeId);
         }
     }
 
