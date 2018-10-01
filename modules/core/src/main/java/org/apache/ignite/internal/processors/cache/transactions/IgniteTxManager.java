@@ -2518,7 +2518,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
                                 }
                                 else {
                                     // If we could not mark tx as rollback, it means that transaction is being committed.
-                                    System.err.format("ROLLING BACK %s ON %s%n", tx.getClass().getSimpleName(), cctx.localNodeId());
+                                    System.err.format("ROLLING BACK %s ON %s %s%n", tx.getClass().getSimpleName(), cctx.localNode().consistentId(), cctx.localNodeId());
                                     if (tx.setRollbackOnly()) {
                                         tx.rollbackAsync();
 
@@ -2530,7 +2530,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
                     }
                 }
 
-                System.err.format("RECOVERY (%d) %s%n", pendingRecovery.size(), cctx.localNodeId());
+                System.err.format("RECOVERY (%d) %s %s%n", pendingRecovery.size(), cctx.localNode().consistentId(), cctx.localNodeId());
 
                 if (pendingRecovery.isEmpty()) {
                     // t0d0 empty vote is possible, should be handled by coordinator
@@ -2539,7 +2539,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
                 else {
                     TxRecoveredFuture firstFut = pendingRecovery.get(0);
                     CompletableFuture<Map<Long, Boolean>> allFuts = firstFut.thenApply(decision -> {
-                        System.err.format("VOTE %d FROM %s%n", 0, cctx.localNodeId());
+                        System.err.format("VOTE %d FROM %s %s%n", 0, cctx.localNode().consistentId(), cctx.localNode().id());
                         HashMap<Long, Boolean> res = new HashMap<>();
                         res.put(firstFut.txCntr, decision);
                         return res;

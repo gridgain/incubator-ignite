@@ -31,11 +31,13 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.affinity.Affinity;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -411,6 +413,68 @@ public class CacheMvccTxRecoveryTest extends CacheMvccAbstractTest {
         }
         System.err.println(grid(1).cache("test").query(new SqlFieldsQuery("select * from Integer").setLocal(true)).getAll());
         System.err.println(grid(2).cache("test").query(new SqlFieldsQuery("select * from Integer").setLocal(true)).getAll());
+    }
+
+    /**
+     * @throws Exception if failed.
+     */
+    public void testRecoveryOrphanedRemoteTx() throws Exception {
+        // tx is rolled back
+        // mvcc tracker is closed
+        // partition counters are consistent
+        int srvCnt = 2;
+
+        startGridsMultiThreaded(srvCnt);
+
+        client = true;
+
+        IgniteEx ign = startGrid(srvCnt);
+
+        IgniteCache<Object, Object> cache = ign.getOrCreateCache(new CacheConfiguration<>("test")
+            .setAtomicityMode(TRANSACTIONAL_SNAPSHOT)
+            .setCacheMode(PARTITIONED)
+            .setBackups(1)
+            .setIndexedTypes(Integer.class, Integer.class));
+
+        ArrayList<Integer> keys = new ArrayList<>();
+
+        for (int i = 0; i < 1000; i++) {
+            Affinity<Object> aff = ign.affinity("test");
+            List<ClusterNode> nodes = new ArrayList<>(aff.mapKeyToPrimaryAndBackups(i));
+            ClusterNode primary = nodes.get(0);
+            ClusterNode backup = nodes.get(1);
+            if (grid(0).localNode().equals(primary) && grid(1).localNode().equals(backup))
+                keys.add(i);
+            if (grid(1).localNode().equals(primary) && grid(0).localNode().equals(backup))
+                keys.add(i);
+            if (keys.size() == 2)
+                break;
+        }
+
+        assert keys.size() == 2;
+
+        TestCommunicationSpi comm = (TestCommunicationSpi)ign.configuration().getCommunicationSpi();
+
+        // t0d0 choose node visely and messages to block
+        comm.blockNearPrepare(grid(1).localNode().id());
+
+        Transaction nearTx = ign.transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
+
+        for (Integer k : keys)
+            cache.query(new SqlFieldsQuery("insert into Integer(_key, _val) values(?, 42)").setArgs(k));
+
+        List<IgniteInternalTx> txs = IntStream.range(0, srvCnt)
+            .mapToObj(i -> grid(i).context().cache().context().tm().activeTransactions().iterator().next())
+            .collect(Collectors.toList());
+
+        ((TransactionProxyImpl)nearTx).tx().prepareNearTxLocal();
+
+        // drop near
+        stopGrid(srvCnt, true);
+
+        assertConditionEventually(
+            () -> txs.stream().allMatch(tx -> tx.state() == ROLLED_BACK),
+            "Transaction rollback is expected");
     }
 
     /** */
