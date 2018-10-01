@@ -3049,7 +3049,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
             DataPageIO iox = (DataPageIO)io;
 
-            int offset = iox.getPayloadOffset(pageAddr, itemId, grp.dataRegion().pageMemory().pageSize(), MVCC_INFO_SIZE);
+            int offset = iox.getPayloadOffset(pageAddr, itemId,
+                grp.dataRegion().pageMemory().realPageSize(grp.groupId()), MVCC_INFO_SIZE);
 
             long newCrd = iox.newMvccCoordinator(pageAddr, offset);
             long newCntr = iox.newMvccCounter(pageAddr, offset);
@@ -3078,8 +3079,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
             DataPageIO iox = (DataPageIO)io;
 
-            int pageSize = grp.dataRegion().pageMemory().pageSize();
-            int offset = iox.getPayloadOffset(pageAddr, itemId, pageSize, MVCC_INFO_SIZE);
+            int offset = iox.getPayloadOffset(pageAddr, itemId,
+                grp.dataRegion().pageMemory().realPageSize(grp.groupId()), MVCC_INFO_SIZE);
 
             long crd = iox.mvccCoordinator(pageAddr, offset);
             long cntr = iox.mvccCounter(pageAddr, offset);
@@ -3132,7 +3133,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
             DataPageIO iox = (DataPageIO)io;
 
-            int offset = iox.getPayloadOffset(pageAddr, itemId, grp.dataRegion().pageMemory().pageSize(), MVCC_INFO_SIZE);
+            int offset = iox.getPayloadOffset(pageAddr, itemId,
+                grp.dataRegion().pageMemory().realPageSize(grp.groupId()), MVCC_INFO_SIZE);
 
             long crd = iox.mvccCoordinator(pageAddr, offset);
             long cntr = iox.mvccCounter(pageAddr, offset);
