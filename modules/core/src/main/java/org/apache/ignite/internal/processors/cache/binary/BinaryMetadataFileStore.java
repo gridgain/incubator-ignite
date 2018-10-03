@@ -19,12 +19,17 @@ package org.apache.ignite.internal.processors.cache.binary;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.binary.BinaryMetadata;
+import org.apache.ignite.internal.binary.BinarySchema;
 import org.apache.ignite.internal.binary.BinaryUtils;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.Nullable;
@@ -89,6 +94,23 @@ class BinaryMetadataFileStore {
     void writeMetadata(BinaryMetadata binMeta) {
         if (!CU.isPersistenceEnabled(ctx.config()))
             return;
+
+        if (log.isInfoEnabled()) {
+            int typeId = binMeta.typeId();
+            String typeName = binMeta.typeName();
+            Set<Integer> schemaIds = null;
+
+            Collection<BinarySchema> schemas = binMeta.schemas();
+            if (!F.isEmpty(schemas)) {
+                // schemaIds = schemas.stream().map(BinarySchema::schemaId).collect(Collectors.toSet());
+                schemaIds = new HashSet<>(schemas.size());
+                for (BinarySchema binarySchema : schemas)
+                    schemaIds.add(binarySchema.schemaId());
+            }
+
+            log.info(String.format("<<<DBG>>>: Write metadata to file [typeId = %d, typeName = %s, schemaIds = %s]",
+                typeId, typeName, schemaIds));
+        }
 
         try {
             File file = new File(workDir, Integer.toString(binMeta.typeId()) + ".bin");

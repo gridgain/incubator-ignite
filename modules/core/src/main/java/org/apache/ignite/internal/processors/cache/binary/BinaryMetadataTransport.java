@@ -158,8 +158,8 @@ final class BinaryMetadataTransport {
     GridFutureAdapter<MetadataUpdateResult> requestMetadataUpdate(BinaryMetadata metadata) {
         MetadataUpdateResultFuture resFut = new MetadataUpdateResultFuture();
 
-        if (log.isDebugEnabled())
-            log.debug("Requesting metadata update for " + metadata.typeId() + "; caller thread is blocked on future "
+        if (log.isInfoEnabled())
+            log.info("Requesting metadata update for " + metadata.typeId() + "; caller thread is blocked on future "
                 + resFut);
 
         try {
@@ -277,8 +277,8 @@ final class BinaryMetadataTransport {
                     acceptedVer = 0;
                 }
 
-                if (log.isDebugEnabled())
-                    log.debug("Versions are stamped on coordinator" +
+                if (log.isInfoEnabled())
+                    log.info("Versions are stamped on coordinator" +
                         " [typeId=" + typeId +
                         ", pendingVer=" + pendingVer +
                         ", acceptedVer=" + acceptedVer + "]"
@@ -347,8 +347,8 @@ final class BinaryMetadataTransport {
 
                         BinaryMetadataHolder newHolder = new BinaryMetadataHolder(msg.metadata(), pendingVer, acceptedVer);
 
-                        if (log.isDebugEnabled())
-                            log.debug("Updated metadata on originating node: " + newHolder);
+                        if (log.isInfoEnabled())
+                            log.info("Updated metadata on originating node: " + newHolder);
 
                         metaLocCache.put(typeId, newHolder);
                     }
@@ -381,8 +381,8 @@ final class BinaryMetadataTransport {
                             }
                         }
                         else {
-                            if (log.isDebugEnabled())
-                                log.debug("Updated metadata on server node: " + newHolder);
+                            if (log.isInfoEnabled())
+                                log.info("Updated metadata on server node: " + newHolder);
 
                             metaLocCache.put(typeId, newHolder);
                         }
@@ -429,8 +429,8 @@ final class BinaryMetadataTransport {
 
         /** {@inheritDoc} */
         @Override public void onCustomEvent(AffinityTopologyVersion topVer, ClusterNode snd, MetadataUpdateAcceptedMessage msg) {
-            if (log.isDebugEnabled())
-                log.debug("Received MetadataUpdateAcceptedMessage " + msg);
+            if (log.isInfoEnabled())
+                log.info("Received MetadataUpdateAcceptedMessage " + msg);
 
             if (msg.duplicated())
                 return;
@@ -461,8 +461,8 @@ final class BinaryMetadataTransport {
                 int oldAcceptedVer = holder.acceptedVersion();
 
                 if (oldAcceptedVer >= newAcceptedVer) {
-                    if (log.isDebugEnabled())
-                        log.debug("Marking ack as duplicate [holder=" + holder +
+                    if (log.isInfoEnabled())
+                        log.info("Marking ack as duplicate [holder=" + holder +
                             ", newAcceptedVer: " + newAcceptedVer + ']');
 
                     //this is duplicate ack
@@ -481,8 +481,8 @@ final class BinaryMetadataTransport {
 
             GridFutureAdapter<MetadataUpdateResult> fut = syncMap.get(new SyncKey(typeId, newAcceptedVer));
 
-            if (log.isDebugEnabled())
-                log.debug("Completing future " + fut + " for " + metaLocCache.get(typeId));
+            if (log.isInfoEnabled())
+                log.info("Completing future " + fut + " for " + metaLocCache.get(typeId));
 
             if (fut != null)
                 fut.onDone(MetadataUpdateResult.createSuccessfulResult());
@@ -627,8 +627,8 @@ final class BinaryMetadataTransport {
                 ioMgr.sendToGridTopic(nodeId, GridTopic.TOPIC_METADATA_REQ, resp, SYSTEM_POOL);
             }
             catch (ClusterTopologyCheckedException e) {
-                if (log.isDebugEnabled())
-                    log.debug("Failed to send metadata response, node failed: " + nodeId);
+                if (log.isInfoEnabled())
+                    log.info("Failed to send metadata response, node failed: " + nodeId);
             }
             catch (IgniteCheckedException e) {
                 U.error(log, "Failed to send up-to-date metadata response.", e);

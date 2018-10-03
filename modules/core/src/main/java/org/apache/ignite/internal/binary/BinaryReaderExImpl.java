@@ -2031,25 +2031,34 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
 
                     if (schema == null) {
                         // retry
-                        U.sleep(1000);
+                        long stop = U.currentTimeMillis() + 60 * 5 * 1000;
 
-                        type = (BinaryTypeImpl)ctx.metadata(typeId, schemaId);
+                        while(U.currentTimeMillis() < stop) {
+                            U.sleep(5000);
 
-                        meta = type != null ? type.metadata() : null;
+                            type = (BinaryTypeImpl)ctx.metadata(typeId, schemaId);
 
-                        if (type == null || meta == null)
-                            throw new BinaryObjectException("Cannot find metadata for object with compact footer: " +
-                                typeId);
+                            meta = type != null ? type.metadata() : null;
 
-                        Collection<BinarySchema> existingSchemas2 = meta.schemas();
+                            if (type == null || meta == null)
+                                throw new BinaryObjectException("Cannot find metadata for object with compact footer: " +
+                                    typeId);
 
-                        for (BinarySchema existingSchema : existingSchemas2) {
-                            if (schemaId == existingSchema.schemaId()) {
-                                ctx.log().info("<<<DBG>>>: Found schema after wait: " + existingSchema);
+                            Collection<BinarySchema> existingSchemas2 = meta.schemas();
 
-                                break;
+                            for (BinarySchema existingSchema : existingSchemas2) {
+                                if (schemaId == existingSchema.schemaId()) {
+                                    schema = existingSchema;
+
+                                    ctx.log().info("<<<DBG>>>: Found schema after wait: " + existingSchema);
+
+                                    break;
+                                }
                             }
                         }
+
+                        if (schema == null)
+                            ctx.log().error("<<<DBG>>>: Failed to wait for metadata");
 
                         List<Integer> existingSchemaIds = new ArrayList<>(existingSchemas.size());
 
