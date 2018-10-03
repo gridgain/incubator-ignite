@@ -545,6 +545,8 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
 
     /** {@inheritDoc} */
     @Nullable @Override public BinaryType metadata(final int typeId, final int schemaId) {
+        BinaryContext.BinaryMetaTraceData traceData = binaryContext().metaTraceCtxThreadLoc.get();
+
         BinaryMetadataHolder holder = metadataLocCache.get(typeId);
 
         if (ctx.clientNode()) {
@@ -560,13 +562,21 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
             }
         }
         else if (holder != null) {
-            if (IgniteThread.current() instanceof IgniteDiscoveryThread)
+            if (IgniteThread.current() instanceof IgniteDiscoveryThread) {
+                traceData.disco = true;
+
                 return holder.metadata().wrap(binaryCtx);
+            }
+
+            traceData.pending = holder.pendingVersion();
+            traceData.accepted = holder.acceptedVersion();
 
             if (holder.pendingVersion() - holder.acceptedVersion() > 0) {
                 GridFutureAdapter<MetadataUpdateResult> fut = transport.awaitMetadataUpdate(
                         typeId,
                         holder.pendingVersion());
+
+                traceData.doneFut = fut.isDone();
 
                 if (log.isDebugEnabled() && !fut.isDone())
                     log.debug("Waiting for update for" +

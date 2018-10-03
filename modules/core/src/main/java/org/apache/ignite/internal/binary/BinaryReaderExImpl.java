@@ -2004,37 +2004,46 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
 
         if (schema == null) {
             if (fieldIdLen != BinaryUtils.FIELD_ID_LEN) {
-                BinaryTypeImpl type = (BinaryTypeImpl) ctx.metadata(typeId, schemaId);
+                try {
+                    BinaryContext.BinaryMetaTraceData traceData = new BinaryContext.BinaryMetaTraceData();
 
-                BinaryMetadata meta = type != null ? type.metadata() : null;
+                    ctx.metaTraceCtxThreadLoc.set(traceData);
 
-                if (type == null || meta == null)
-                    throw new BinaryObjectException("Cannot find metadata for object with compact footer: " +
-                        typeId);
+                    BinaryTypeImpl type = (BinaryTypeImpl)ctx.metadata(typeId, schemaId);
 
-                Collection<BinarySchema> existingSchemas = meta.schemas();
+                    BinaryMetadata meta = type != null ? type.metadata() : null;
 
-                for (BinarySchema existingSchema : existingSchemas) {
-                    if (schemaId == existingSchema.schemaId()) {
-                        schema = existingSchema;
+                    if (type == null || meta == null)
+                        throw new BinaryObjectException("Cannot find metadata for object with compact footer: " +
+                            typeId);
 
-                        break;
+                    Collection<BinarySchema> existingSchemas = meta.schemas();
+
+                    for (BinarySchema existingSchema : existingSchemas) {
+                        if (schemaId == existingSchema.schemaId()) {
+                            schema = existingSchema;
+
+                            break;
+                        }
+                    }
+
+                    if (schema == null) {
+                        List<Integer> existingSchemaIds = new ArrayList<>(existingSchemas.size());
+
+                        for (BinarySchema existingSchema : existingSchemas)
+                            existingSchemaIds.add(existingSchema.schemaId());
+
+                        throw new BinaryObjectException("Cannot find schema for object with compact footer" +
+                            " [typeName=" + type.typeName() +
+                            ", traceData=" + traceData +
+                            ", typeId=" + typeId +
+                            ", missingSchemaId=" + schemaId +
+                            ", existingSchemaIds=" + existingSchemaIds + ']'
+                        );
                     }
                 }
-
-                if (schema == null) {
-                    List<Integer> existingSchemaIds = new ArrayList<>(existingSchemas.size());
-
-                    for (BinarySchema existingSchema : existingSchemas)
-                        existingSchemaIds.add(existingSchema.schemaId());
-
-
-                    throw new BinaryObjectException("Cannot find schema for object with compact footer" +
-                        " [typeName=" + type.typeName() +
-                        ", typeId=" + typeId +
-                        ", missingSchemaId=" + schemaId +
-                        ", existingSchemaIds=" + existingSchemaIds + ']'
-                    );
+                finally {
+                    ctx.metaTraceCtxThreadLoc.remove();
                 }
             }
             else

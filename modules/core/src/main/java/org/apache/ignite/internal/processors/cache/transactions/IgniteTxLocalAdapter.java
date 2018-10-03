@@ -516,6 +516,17 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                  * Commit to cache. Note that for 'near' transaction we loop through all the entries.
                  */
                 for (IgniteTxEntry txEntry : commitEntries) {
+//                    if (!near()) {
+//                        try {
+//                            txEntry.toString();
+//                        }
+//                        catch (Throwable e) {
+//                            log.error("Got exception while printing entry", e);
+//
+//                            throw new Error(e);
+//                        }
+//                    }
+
                     GridCacheContext cacheCtx = txEntry.context();
 
                     GridDrType drType = cacheCtx.isDrEnabled() ? DR_PRIMARY : DR_NONE;
@@ -837,6 +848,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
 
                         boolean isNodeStopping = X.hasCause(ex, NodeStoppingException.class);
                         boolean hasInvalidEnvironmentIssue = X.hasCause(ex, InvalidEnvironmentException.class);
+
+                        log.error("<<<DBG>>>: exception on local commit", ex);
 
                         IgniteCheckedException err = new IgniteTxHeuristicCheckedException("Failed to locally write to cache " +
                             "(all transaction entries will be invalidated, however there was a window when " +
