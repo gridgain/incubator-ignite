@@ -563,20 +563,24 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
         }
         else if (holder != null) {
             if (IgniteThread.current() instanceof IgniteDiscoveryThread) {
-                traceData.disco = true;
+                if (traceData != null)
+                    traceData.disco = true;
 
                 return holder.metadata().wrap(binaryCtx);
             }
 
-            traceData.pending = holder.pendingVersion();
-            traceData.accepted = holder.acceptedVersion();
+            if (traceData != null) {
+                traceData.pending = holder.pendingVersion();
+                traceData.accepted = holder.acceptedVersion();
+            }
 
             if (holder.pendingVersion() - holder.acceptedVersion() > 0) {
                 GridFutureAdapter<MetadataUpdateResult> fut = transport.awaitMetadataUpdate(
                         typeId,
                         holder.pendingVersion());
 
-                traceData.doneFut = fut.isDone();
+                if (traceData != null)
+                    traceData.doneFut = fut.isDone();
 
                 if (log.isDebugEnabled() && !fut.isDone())
                     log.debug("Waiting for update for" +
