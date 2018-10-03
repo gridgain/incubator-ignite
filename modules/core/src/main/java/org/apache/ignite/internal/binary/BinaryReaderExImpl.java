@@ -36,10 +36,12 @@ import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjectException;
 import org.apache.ignite.binary.BinaryRawReader;
 import org.apache.ignite.binary.BinaryReader;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.binary.streams.BinaryInputStream;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -2028,6 +2030,27 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
                     }
 
                     if (schema == null) {
+                        // retry
+                        U.sleep(1000);
+
+                        type = (BinaryTypeImpl)ctx.metadata(typeId, schemaId);
+
+                        meta = type != null ? type.metadata() : null;
+
+                        if (type == null || meta == null)
+                            throw new BinaryObjectException("Cannot find metadata for object with compact footer: " +
+                                typeId);
+
+                        Collection<BinarySchema> existingSchemas2 = meta.schemas();
+
+                        for (BinarySchema existingSchema : existingSchemas2) {
+                            if (schemaId == existingSchema.schemaId()) {
+                                ctx.log().info("<<<DBG>>>: Found schema after wait: " + existingSchema);
+
+                                break;
+                            }
+                        }
+
                         List<Integer> existingSchemaIds = new ArrayList<>(existingSchemas.size());
 
                         for (BinarySchema existingSchema : existingSchemas)
@@ -2041,6 +2064,9 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
                             ", existingSchemaIds=" + existingSchemaIds + ']'
                         );
                     }
+                }
+                catch (IgniteInterruptedCheckedException e) {
+                    ctx.log().error("<<<DBG>>>: Interrupted");
                 }
                 finally {
                     ctx.metaTraceCtxThreadLoc.remove();
