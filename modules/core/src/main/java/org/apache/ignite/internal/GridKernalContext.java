@@ -69,6 +69,7 @@ import org.apache.ignite.internal.processors.session.GridTaskSessionProcessor;
 import org.apache.ignite.internal.processors.subscription.GridInternalSubscriptionProcessor;
 import org.apache.ignite.internal.processors.task.GridTaskProcessor;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
+import org.apache.ignite.internal.processors.trace.TraceProcessor;
 import org.apache.ignite.internal.suggestions.GridPerformanceSuggestions;
 import org.apache.ignite.internal.util.IgniteExceptionRegistry;
 import org.apache.ignite.internal.util.StripedExecutor;
@@ -437,6 +438,13 @@ public interface GridKernalContext extends Iterable<GridComponent> {
      * @return Data structures processor.
      */
     public DataStructuresProcessor dataStructures();
+
+    /**
+     * Gets trace processor.
+     *
+     * @return Trace processor.
+     */
+    public TraceProcessor trace();
 
     /**
      * Checks whether this node is invalid due to a critical error or not.

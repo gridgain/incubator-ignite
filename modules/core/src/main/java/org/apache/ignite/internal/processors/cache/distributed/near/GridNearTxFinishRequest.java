@@ -26,6 +26,7 @@ import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxFinishRequest;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
 import org.apache.ignite.internal.util.tostring.GridToStringBuilder;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteUuid;
@@ -93,7 +94,9 @@ public class GridNearTxFinishRequest extends GridDistributedTxFinishRequest {
         @Nullable UUID subjId,
         int taskNameHash,
         MvccSnapshot mvccSnapshot,
-        boolean addDepInfo) {
+        boolean addDepInfo,
+        EventsTrace eventsTrace
+    ) {
         super(
             xidVer,
             futId,
@@ -111,13 +114,16 @@ public class GridNearTxFinishRequest extends GridDistributedTxFinishRequest {
             subjId,
             taskNameHash,
             txSize,
-            addDepInfo
+            addDepInfo,
+            eventsTrace
         );
 
         explicitLock(explicitLock);
         storeEnabled(storeEnabled);
 
         this.mvccSnapshot = mvccSnapshot;
+
+        recordTracePoint(TracePoint.NEAR_FINISH_REQUEST_CREATED);
     }
 
     /**
@@ -186,13 +192,13 @@ public class GridNearTxFinishRequest extends GridDistributedTxFinishRequest {
         }
 
         switch (writer.state()) {
-            case 21:
+            case 22:
                 if (!writer.writeInt("miniId", miniId))
                     return false;
 
                 writer.incrementState();
 
-            case 22:
+            case 23:
                 if (!writer.writeMessage("mvccSnapshot", mvccSnapshot))
                     return false;
 
@@ -214,7 +220,7 @@ public class GridNearTxFinishRequest extends GridDistributedTxFinishRequest {
             return false;
 
         switch (reader.state()) {
-            case 21:
+            case 22:
                 miniId = reader.readInt("miniId");
 
                 if (!reader.isLastRead())
@@ -222,7 +228,7 @@ public class GridNearTxFinishRequest extends GridDistributedTxFinishRequest {
 
                 reader.incrementState();
 
-            case 22:
+            case 23:
                 mvccSnapshot = reader.readMessage("mvccSnapshot");
 
                 if (!reader.isLastRead())
@@ -242,7 +248,7 @@ public class GridNearTxFinishRequest extends GridDistributedTxFinishRequest {
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 23;
+        return 24;
     }
 
     /** {@inheritDoc} */

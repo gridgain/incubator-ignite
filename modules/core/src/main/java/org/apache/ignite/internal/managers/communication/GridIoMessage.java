@@ -24,6 +24,7 @@ import org.apache.ignite.internal.ExecutorAwareMessage;
 import org.apache.ignite.internal.GridDirectTransient;
 import org.apache.ignite.internal.processors.cache.GridCacheMessage;
 import org.apache.ignite.internal.processors.datastreamer.DataStreamerRequest;
+import org.apache.ignite.internal.processors.trace.IgniteTraceAware;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.plugin.extensions.communication.Message;
@@ -193,6 +194,9 @@ public class GridIoMessage implements Message {
 
     /** {@inheritDoc} */
     @Override public boolean writeTo(ByteBuffer buf, MessageWriter writer) {
+        if (msg instanceof IgniteTraceAware)
+            ((IgniteTraceAware)msg).recordTracePoint(IgniteTraceAware.TracePoint.MSG_NIO_SEND);
+
         writer.setBuffer(buf);
 
         if (!writer.isHeaderWritten()) {

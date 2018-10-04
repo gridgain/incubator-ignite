@@ -28,6 +28,8 @@ import org.apache.ignite.internal.GridDirectTransient;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
+import org.apache.ignite.internal.processors.trace.IgniteTraceAware;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -41,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Lock response message.
  */
-public class GridDistributedLockResponse extends GridDistributedBaseMessage {
+public class GridDistributedLockResponse extends GridDistributedBaseMessage implements IgniteTraceAware {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -60,11 +62,24 @@ public class GridDistributedLockResponse extends GridDistributedBaseMessage {
     @GridDirectCollection(CacheObject.class)
     private List<CacheObject> vals;
 
+    /** */
+    private EventsTrace evtsTrace;
+
     /**
      * Empty constructor (required by {@link Externalizable}).
      */
     public GridDistributedLockResponse() {
         /* No-op. */
+    }
+
+    /** {@inheritDoc} */
+    @Override public void recordTracePoint(TracePoint pt) {
+        if (evtsTrace != null)
+            evtsTrace.recordTracePoint(pt);
+    }
+
+    public EventsTrace nodeTrace() {
+        return evtsTrace;
     }
 
     /**
@@ -78,7 +93,9 @@ public class GridDistributedLockResponse extends GridDistributedBaseMessage {
         GridCacheVersion lockVer,
         IgniteUuid futId,
         int cnt,
-        boolean addDepInfo) {
+        boolean addDepInfo,
+        EventsTrace evtsTrace
+    ) {
         super(lockVer, cnt, addDepInfo);
 
         assert futId != null;
@@ -87,6 +104,8 @@ public class GridDistributedLockResponse extends GridDistributedBaseMessage {
         this.futId = futId;
 
         vals = new ArrayList<>(cnt);
+
+        this.evtsTrace = evtsTrace;
     }
 
     /**
@@ -100,7 +119,9 @@ public class GridDistributedLockResponse extends GridDistributedBaseMessage {
         GridCacheVersion lockVer,
         IgniteUuid futId,
         Throwable err,
-        boolean addDepInfo) {
+        boolean addDepInfo,
+        EventsTrace evtsTrace
+    ) {
         super(lockVer, 0, addDepInfo);
 
         assert futId != null;
@@ -123,7 +144,9 @@ public class GridDistributedLockResponse extends GridDistributedBaseMessage {
         IgniteUuid futId,
         int cnt,
         Throwable err,
-        boolean addDepInfo) {
+        boolean addDepInfo,
+        EventsTrace evtsTrace
+    ) {
         super(lockVer, cnt, addDepInfo);
 
         assert futId != null;
@@ -131,6 +154,7 @@ public class GridDistributedLockResponse extends GridDistributedBaseMessage {
         this.cacheId = cacheId;
         this.futId = futId;
         this.err = err;
+        this.evtsTrace = evtsTrace;
 
         vals = new ArrayList<>(cnt);
     }
@@ -228,12 +252,18 @@ public class GridDistributedLockResponse extends GridDistributedBaseMessage {
                 writer.incrementState();
 
             case 8:
-                if (!writer.writeIgniteUuid("futId", futId))
+                if (!writer.writeMessage("evtsTrace", evtsTrace))
                     return false;
 
                 writer.incrementState();
 
             case 9:
+                if (!writer.writeIgniteUuid("futId", futId))
+                    return false;
+
+                writer.incrementState();
+
+            case 10:
                 if (!writer.writeCollection("vals", vals, MessageCollectionItemType.MSG))
                     return false;
 
@@ -264,7 +294,7 @@ public class GridDistributedLockResponse extends GridDistributedBaseMessage {
                 reader.incrementState();
 
             case 8:
-                futId = reader.readIgniteUuid("futId");
+                evtsTrace = reader.readMessage("evtsTrace");
 
                 if (!reader.isLastRead())
                     return false;
@@ -272,6 +302,14 @@ public class GridDistributedLockResponse extends GridDistributedBaseMessage {
                 reader.incrementState();
 
             case 9:
+                futId = reader.readIgniteUuid("futId");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
+            case 10:
                 vals = reader.readCollection("vals", MessageCollectionItemType.MSG);
 
                 if (!reader.isLastRead())
@@ -291,7 +329,7 @@ public class GridDistributedLockResponse extends GridDistributedBaseMessage {
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 10;
+        return 11;
     }
 
     /** {@inheritDoc} */

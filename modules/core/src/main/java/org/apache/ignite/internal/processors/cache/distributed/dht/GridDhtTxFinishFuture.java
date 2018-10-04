@@ -33,7 +33,6 @@ import org.apache.ignite.internal.InvalidEnvironmentException;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.processors.cache.GridCacheCompoundIdentityFuture;
-import org.apache.ignite.internal.processors.cache.GridCacheFuture;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedTxMapping;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccCoordinator;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
 import org.apache.ignite.internal.util.GridLongList;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
@@ -61,7 +61,7 @@ import static org.apache.ignite.transactions.TransactionState.COMMITTING;
  *
  */
 public final class GridDhtTxFinishFuture<K, V> extends GridCacheCompoundIdentityFuture<IgniteInternalTx>
-    implements GridCacheFuture<IgniteInternalTx>, IgniteDiagnosticAware {
+    implements IgniteDiagnosticAware {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -107,7 +107,11 @@ public final class GridDhtTxFinishFuture<K, V> extends GridCacheCompoundIdentity
      * @param tx Transaction.
      * @param commit Commit flag.
      */
-    public GridDhtTxFinishFuture(GridCacheSharedContext<K, V> cctx, GridDhtTxLocalAdapter tx, boolean commit) {
+    public GridDhtTxFinishFuture(
+        GridCacheSharedContext<K, V> cctx,
+        GridDhtTxLocalAdapter tx,
+        boolean commit
+    ) {
         super(F.<IgniteInternalTx>identityReducer(tx));
 
         this.cctx = cctx;
@@ -187,6 +191,8 @@ public final class GridDhtTxFinishFuture<K, V> extends GridCacheCompoundIdentity
     public void onResult(UUID nodeId, GridDhtTxFinishResponse res) {
         if (!isDone()) {
             boolean found = false;
+
+            tx.collectNodeTrace(nodeId, res.nodeTrace());
 
             for (IgniteInternalFuture<IgniteInternalTx> fut : futures()) {
                 if (isMini(fut)) {
@@ -372,7 +378,8 @@ public final class GridDhtTxFinishFuture<K, V> extends GridCacheCompoundIdentity
                 false,
                 false,
                 tx.mvccSnapshot(),
-                tx.filterUpdateCountersForBackupNode(n));
+                tx.filterUpdateCountersForBackupNode(n),
+                tx.nodeTrace() != null ? new EventsTrace() : null);
 
             try {
                 cctx.io().send(n, req, tx.ioPolicy());
@@ -485,7 +492,8 @@ public final class GridDhtTxFinishFuture<K, V> extends GridCacheCompoundIdentity
                 false,
                 false,
                 mvccSnapshot,
-                commit ? null : tx.filterUpdateCountersForBackupNode(n));
+                commit ? null : tx.filterUpdateCountersForBackupNode(n),
+                tx.nodeTrace() != null ? new EventsTrace() : null);
 
             req.writeVersion(tx.writeVersion() != null ? tx.writeVersion() : tx.xidVersion());
 
@@ -556,7 +564,8 @@ public final class GridDhtTxFinishFuture<K, V> extends GridCacheCompoundIdentity
                     false,
                     false,
                     mvccSnapshot,
-                    null);
+                    null,
+                    tx.nodeTrace() != null ? new EventsTrace() : null);
 
                 req.writeVersion(tx.writeVersion());
 

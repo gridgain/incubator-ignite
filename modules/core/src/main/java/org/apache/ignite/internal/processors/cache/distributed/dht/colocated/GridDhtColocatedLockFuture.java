@@ -61,6 +61,7 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.processors.cache.transactions.TxDeadlock;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.future.GridEmbeddedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
@@ -485,6 +486,8 @@ public final class GridDhtColocatedLockFuture extends GridCacheCompoundIdentityF
 
         if (mini != null) {
             assert mini.node().id().equals(nodeId);
+
+            tx.collectNodeTrace(nodeId, res.nodeTrace());
 
             mini.onResult(res);
 
@@ -1073,7 +1076,8 @@ public final class GridDhtColocatedLockFuture extends GridCacheCompoundIdentityF
                                         keepBinary,
                                         clientFirst,
                                         false,
-                                        cctx.deploymentEnabled());
+                                        cctx.deploymentEnabled(),
+                                        cctx.kernalContext().trace().tracingEnabled() ? new EventsTrace() : null);
 
                                     mapping.request(req);
                                 }

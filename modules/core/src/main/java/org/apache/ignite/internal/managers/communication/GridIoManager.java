@@ -71,6 +71,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccMessage;
 import org.apache.ignite.internal.processors.platform.message.PlatformMessageFilter;
 import org.apache.ignite.internal.processors.pool.PoolProcessor;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
+import org.apache.ignite.internal.processors.trace.IgniteTraceAware;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashSet;
 import org.apache.ignite.internal.util.StripedCompositeReadWriteLock;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
@@ -978,6 +979,8 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
             // as thread pool may not have any available threads to give.
             byte plc = msg.policy();
 
+            traceNioReceive(msg);
+
             switch (plc) {
                 case P2P_POOL: {
                     processP2PMessage(nodeId, msg, msgC);
@@ -1170,12 +1173,25 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         catch (RejectedExecutionException e) {
             if (!ctx.isStopping()) {
                 U.error(log, "Failed to process regular message due to execution rejection. Will attempt to process " +
-                        "message in the listener thread instead.", e);
+                    "message in the listener thread instead.", e);
 
                 c.run();
             }
             else if (log.isDebugEnabled())
                 log.debug("Failed to process regular message due to execution rejection: " + msg);
+        }
+    }
+
+    /**
+     * @param msg Message to intercept.
+     */
+    private void traceNioReceive(GridIoMessage msg) {
+        if (ctx.trace().tracingEnabled()) {
+            if (msg.message() instanceof IgniteTraceAware) {
+                IgniteTraceAware traceable = (IgniteTraceAware)msg.message();
+
+                traceable.recordTracePoint(IgniteTraceAware.TracePoint.MSG_NIO_RECEIVE);
+            }
         }
     }
 
@@ -1193,6 +1209,9 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         Object obj = msg.message();
 
         assert obj != null;
+
+        if (obj instanceof IgniteTraceAware)
+            ((IgniteTraceAware)obj).recordTracePoint(IgniteTraceAware.TracePoint.MSG_LISTENER_INVOKE);
 
         invokeListener(msg.policy(), lsnr, nodeId, obj);
     }

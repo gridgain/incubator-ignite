@@ -528,7 +528,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             req.futureId(),
             req.miniId(),
             e,
-            ctx.deploymentEnabled());
+            ctx.deploymentEnabled(),
+            req.nodeTrace());
 
         try {
             ctx.io().send(nodeId, res, ctx.ioPolicy());
@@ -563,7 +564,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
 
         try {
             res = new GridDhtLockResponse(ctx.cacheId(), req.version(), req.futureId(), req.miniId(), cnt,
-                ctx.deploymentEnabled());
+                ctx.deploymentEnabled(), req.nodeTrace());
 
             dhtTx = startRemoteTx(nodeId, req, res);
             nearTx = isNearEnabled(cacheCfg) ? near().startRemoteTx(nodeId, req) : null;
@@ -590,7 +591,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             U.error(log, err, e);
 
             res = new GridDhtLockResponse(ctx.cacheId(), req.version(), req.futureId(), req.miniId(),
-                new IgniteTxRollbackCheckedException(err, e), ctx.deploymentEnabled());
+                new IgniteTxRollbackCheckedException(err, e), ctx.deploymentEnabled(), req.nodeTrace());
 
             fail = true;
         }
@@ -603,7 +604,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 req.version(),
                 req.futureId(),
                 req.miniId(),
-                new IgniteCheckedException(err, e), ctx.deploymentEnabled());
+                new IgniteCheckedException(err, e), ctx.deploymentEnabled(),
+                req.nodeTrace());
 
             fail = true;
         }
@@ -1170,6 +1172,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                     top.readUnlock();
             }
 
+            tx.nodeTrace(req.nodeTrace());
+
             boolean timedOut = false;
 
             for (KeyCacheObject key : keys) {
@@ -1334,9 +1338,11 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
      * @param topVer Remap version.
      * @return Response.
      */
-    private GridNearLockResponse sendClientLockRemapResponse(ClusterNode nearNode,
+    private GridNearLockResponse sendClientLockRemapResponse(
+        ClusterNode nearNode,
         GridNearLockRequest req,
-        AffinityTopologyVersion topVer) {
+        AffinityTopologyVersion topVer
+    ) {
         assert topVer != null;
 
         GridNearLockResponse res = new GridNearLockResponse(
@@ -1348,7 +1354,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
             0,
             null,
             topVer,
-            ctx.deploymentEnabled());
+            ctx.deploymentEnabled(),
+            req.nodeTrace());
 
         try {
             ctx.io().send(nearNode, res, ctx.ioPolicy());
@@ -1394,7 +1401,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 entries.size(),
                 err,
                 null,
-                ctx.deploymentEnabled());
+                ctx.deploymentEnabled(),
+                tx.nodeTrace());
 
             if (err == null) {
                 res.pending(localDhtPendingVersions(entries, mappedVer));
@@ -1504,7 +1512,8 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
                 entries.size(),
                 e,
                 null,
-                ctx.deploymentEnabled());
+                ctx.deploymentEnabled(),
+                tx.nodeTrace());
         }
     }
 

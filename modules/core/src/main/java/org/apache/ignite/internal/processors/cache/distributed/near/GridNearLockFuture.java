@@ -57,6 +57,7 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.processors.cache.transactions.TxDeadlock;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.future.GridEmbeddedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
@@ -524,6 +525,8 @@ public final class GridNearLockFuture extends GridCacheCompoundIdentityFuture<Bo
 
             if (log.isDebugEnabled())
                 log.debug("Found mini future for response [mini=" + mini + ", res=" + res + ']');
+
+            tx.collectNodeTrace(nodeId, res.nodeTrace());
 
             mini.onResult(res);
 
@@ -1123,7 +1126,8 @@ public final class GridNearLockFuture extends GridCacheCompoundIdentityFuture<Bo
                                                 keepBinary,
                                                 clientFirst,
                                                 true,
-                                                cctx.deploymentEnabled());
+                                                cctx.deploymentEnabled(),
+                                                cctx.kernalContext().trace().tracingEnabled() ? new EventsTrace() : null);
 
                                             mapping.request(req);
                                         }

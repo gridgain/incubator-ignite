@@ -49,6 +49,8 @@ import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
+import org.apache.ignite.internal.processors.trace.IgniteTraceAware;
 import org.apache.ignite.internal.transactions.IgniteTxHeuristicCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.util.GridLongList;
@@ -113,7 +115,11 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
      * @param tx Transaction.
      * @param commit Commit flag.
      */
-    public GridNearTxFinishFuture(GridCacheSharedContext<K, V> cctx, GridNearTxLocal tx, boolean commit) {
+    public GridNearTxFinishFuture(
+        GridCacheSharedContext<K, V> cctx,
+        GridNearTxLocal tx,
+        boolean commit
+    ) {
         super(F.<IgniteInternalTx>identityReducer(tx));
 
         this.cctx = cctx;
@@ -201,6 +207,8 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
         if (!isDone()) {
             FinishMiniFuture finishFut = null;
 
+            tx.collectNodeTrace(nodeId, res.nodeTrace());
+
             synchronized (this) {
                 int size = futuresCountNoLock();
 
@@ -248,6 +256,8 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
      */
     public void onResult(UUID nodeId, GridDhtTxFinishResponse res) {
         if (!isDone()) {
+            tx.collectNodeTrace(nodeId, res.nodeTrace());
+
             boolean found = false;
 
             for (IgniteInternalFuture<IgniteInternalTx> fut : futures()) {
@@ -357,6 +367,8 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
                 }
 
                 if (super.onDone(tx0, err)) {
+                    tx.recordTracePoint(IgniteTraceAware.TracePoint.TX_END);
+
                     if (error() instanceof IgniteTxHeuristicCheckedException && !nodeStop) {
                         AffinityTopologyVersion topVer = tx.topologyVersion();
 
@@ -404,6 +416,8 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
     /** {@inheritDoc} */
     @Override @SuppressWarnings("ForLoopReplaceableByForEach")
     public void finish(final boolean commit, final boolean clearThreadMap, final boolean onTimeout) {
+        tx.recordTracePoint(IgniteTraceAware.TracePoint.TX_COMMIT);
+
         if (!cctx.mvcc().addFuture(this, futureId()))
             return;
 
@@ -559,13 +573,12 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
                 ClusterNode backup = cctx.discovery().node(backupId);
 
                 // Nothing to do if backup has left the grid.
-                if (backup == null) {
-                    // No-op.
+                if (backup != null) {
+                    if (backup.isLocal())
+                        cctx.tm().removeTxReturn(tx.xidVersion());
+                    else
+                        cctx.tm().sendDeferredAckResponse(backupId, tx.xidVersion());
                 }
-                else if (backup.isLocal())
-                    cctx.tm().removeTxReturn(tx.xidVersion());
-                else
-                    cctx.tm().sendDeferredAckResponse(backupId, tx.xidVersion());
             }
         }
     }
@@ -807,7 +820,8 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
             tx.subjectId(),
             tx.taskNameHash(),
             tx.mvccSnapshot(),
-            tx.activeCachesDeploymentEnabled()
+            tx.activeCachesDeploymentEnabled(),
+            cctx.kernalContext().trace().tracingEnabled() ? new EventsTrace() : null
         );
 
         // If this is the primary node for the keys.
@@ -948,7 +962,8 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
             !waitRemoteTxs && (tx.needReturnValue() && tx.implicit()),
             waitRemoteTxs,
             null,
-            null);
+            null,
+            cctx.kernalContext().trace().tracingEnabled() ? new EventsTrace() : null);
 
         finishReq.checkCommitted(true);
 
@@ -958,7 +973,7 @@ public final class GridNearTxFinishFuture<K, V> extends GridCacheCompoundIdentit
     /**
      *
      */
-    private abstract class MinFuture extends GridFutureAdapter<IgniteInternalTx> {
+    private abstract static class MinFuture extends GridFutureAdapter<IgniteInternalTx> {
         /** */
         private final int futId;
 

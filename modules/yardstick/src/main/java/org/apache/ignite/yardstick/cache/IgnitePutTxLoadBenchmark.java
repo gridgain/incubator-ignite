@@ -24,6 +24,8 @@ import java.util.Random;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.IgniteTransactions;
+import org.apache.ignite.internal.processors.cache.transactions.TransactionProxyImpl;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionMetrics;
 import org.yardstickframework.BenchmarkConfiguration;
@@ -66,6 +68,8 @@ public class IgnitePutTxLoadBenchmark extends IgniteCacheAbstractBenchmark<Integ
         long startTime;
         long endTime;
 
+        EventsTrace trace = null;
+
         try (Transaction tx = transactions.txStart(args.txConcurrency(), args.txIsolation())) {
             ArrayList<Long> keyList = new ArrayList<>(args.scaleFactor());
 
@@ -84,12 +88,19 @@ public class IgnitePutTxLoadBenchmark extends IgniteCacheAbstractBenchmark<Integ
             tx.commit();
 
             endTime = System.currentTimeMillis();
+
+            if (tx instanceof TransactionProxyImpl)
+                trace = ((TransactionProxyImpl)tx).tx().nodeTrace();
         }
 
         TransactionMetrics tm = transactions.metrics();
 
-        if (endTime - startTime > args.getWarningTime())
+        if (endTime - startTime > args.getWarningTime()) {
             BenchmarkUtils.println("Transaction commit time = " + (endTime - startTime));
+
+            if (trace != null)
+                BenchmarkUtils.println("Transaction trace: \n" + trace.toString());
+        }
 
         if (tm.txRollbacks() > 0 && args.printRollBacks())
             BenchmarkUtils.println("Transaction rollbacks = " + tm.txRollbacks());

@@ -63,6 +63,7 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.dr.GridDrType;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
@@ -555,6 +556,8 @@ public final class GridDhtLockFuture extends GridCacheCompoundIdentityFuture<Boo
             if (mini != null) {
                 assert mini.node().id().equals(nodeId);
 
+                tx.collectNodeTrace(nodeId, res.nodeTrace());
+
                 mini.onResult(res);
 
                 return;
@@ -946,7 +949,8 @@ public final class GridDhtLockFuture extends GridCacheCompoundIdentityFuture<Boo
                             skipStore,
                             cctx.store().configured(),
                             keepBinary,
-                            cctx.deploymentEnabled());
+                            cctx.deploymentEnabled(),
+                            tx.nodeTrace() != null ? new EventsTrace() : null);
 
                         try {
                             for (ListIterator<GridDhtCacheEntry> it = dhtMapping.listIterator(); it.hasNext(); ) {

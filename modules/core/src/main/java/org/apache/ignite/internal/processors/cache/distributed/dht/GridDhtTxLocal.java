@@ -39,6 +39,7 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPr
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
 import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
@@ -156,7 +157,8 @@ public class GridDhtTxLocal extends GridDhtTxLocalAdapter implements GridCacheMa
             onePhaseCommit,
             txSize,
             subjId,
-            taskNameHash);
+            taskNameHash,
+            null);
 
         assert nearNodeId != null;
         assert nearFutId != null;
@@ -352,6 +354,8 @@ public class GridDhtTxLocal extends GridDhtTxLocalAdapter implements GridCacheMa
             // Prepare was called explicitly.
             return chainOnePhasePrepare(fut);
         }
+
+        eventsTrace = req.nodeTrace();
 
         if (state() != PREPARING) {
             if (!state(PREPARING)) {
@@ -600,7 +604,8 @@ public class GridDhtTxLocal extends GridDhtTxLocalAdapter implements GridCacheMa
                 threadId,
                 nearFinFutId,
                 nearFinMiniId,
-                err);
+                err,
+                eventsTrace);
 
             try {
                 cctx.io().send(nearNodeId, res, ioPolicy());

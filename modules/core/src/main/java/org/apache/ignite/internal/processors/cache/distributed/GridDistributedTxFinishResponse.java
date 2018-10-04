@@ -23,6 +23,8 @@ import org.apache.ignite.internal.managers.communication.GridIoMessageFactory;
 import org.apache.ignite.internal.processors.cache.GridCacheMessage;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
+import org.apache.ignite.internal.processors.trace.IgniteTraceAware;
 import org.apache.ignite.internal.util.tostring.GridToStringBuilder;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.lang.IgniteUuid;
@@ -32,7 +34,7 @@ import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 /**
  * Transaction finish response.
  */
-public class GridDistributedTxFinishResponse extends GridCacheMessage {
+public class GridDistributedTxFinishResponse extends GridCacheMessage implements IgniteTraceAware {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -49,6 +51,9 @@ public class GridDistributedTxFinishResponse extends GridCacheMessage {
     /** */
     private int part;
 
+    /** */
+    protected EventsTrace eventsTrace;
+
     /**
      * Empty constructor required by {@link GridIoMessageFactory}.
      */
@@ -61,13 +66,14 @@ public class GridDistributedTxFinishResponse extends GridCacheMessage {
      * @param txId Transaction id.
      * @param futId Future ID.
      */
-    public GridDistributedTxFinishResponse(int part, GridCacheVersion txId, IgniteUuid futId) {
+    public GridDistributedTxFinishResponse(int part, GridCacheVersion txId, IgniteUuid futId, EventsTrace eventsTrace) {
         assert txId != null;
         assert futId != null;
 
         this.part = part;
         this.txId = txId;
         this.futId = futId;
+        this.eventsTrace = eventsTrace;
     }
 
     /** {@inheritDoc} */
@@ -78,6 +84,19 @@ public class GridDistributedTxFinishResponse extends GridCacheMessage {
     /** {@inheritDoc} */
     @Override public boolean cacheGroupMessage() {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void recordTracePoint(TracePoint point) {
+        if (eventsTrace != null)
+            eventsTrace.recordTracePoint(point);
+    }
+
+    /**
+     * @return Message trace, if any.
+     */
+    public EventsTrace nodeTrace() {
+        return eventsTrace;
     }
 
     /** {@inheritDoc} */
@@ -146,24 +165,30 @@ public class GridDistributedTxFinishResponse extends GridCacheMessage {
 
         switch (writer.state()) {
             case 2:
-                if (!writer.writeByte("flags", flags))
+                if (!writer.writeMessage("eventsTrace", eventsTrace))
                     return false;
 
                 writer.incrementState();
 
             case 3:
-                if (!writer.writeIgniteUuid("futId", futId))
+                if (!writer.writeByte("flags", flags))
                     return false;
 
                 writer.incrementState();
 
             case 4:
-                if (!writer.writeInt("part", part))
+                if (!writer.writeIgniteUuid("futId", futId))
                     return false;
 
                 writer.incrementState();
 
             case 5:
+                if (!writer.writeInt("part", part))
+                    return false;
+
+                writer.incrementState();
+
+            case 6:
                 if (!writer.writeMessage("txId", txId))
                     return false;
 
@@ -186,7 +211,7 @@ public class GridDistributedTxFinishResponse extends GridCacheMessage {
 
         switch (reader.state()) {
             case 2:
-                flags = reader.readByte("flags");
+                eventsTrace = reader.readMessage("eventsTrace");
 
                 if (!reader.isLastRead())
                     return false;
@@ -194,7 +219,7 @@ public class GridDistributedTxFinishResponse extends GridCacheMessage {
                 reader.incrementState();
 
             case 3:
-                futId = reader.readIgniteUuid("futId");
+                flags = reader.readByte("flags");
 
                 if (!reader.isLastRead())
                     return false;
@@ -202,7 +227,7 @@ public class GridDistributedTxFinishResponse extends GridCacheMessage {
                 reader.incrementState();
 
             case 4:
-                part = reader.readInt("part");
+                futId = reader.readIgniteUuid("futId");
 
                 if (!reader.isLastRead())
                     return false;
@@ -210,6 +235,14 @@ public class GridDistributedTxFinishResponse extends GridCacheMessage {
                 reader.incrementState();
 
             case 5:
+                part = reader.readInt("part");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
+            case 6:
                 txId = reader.readMessage("txId");
 
                 if (!reader.isLastRead())
@@ -229,7 +262,7 @@ public class GridDistributedTxFinishResponse extends GridCacheMessage {
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 6;
+        return 7;
     }
 
     /** {@inheritDoc} */

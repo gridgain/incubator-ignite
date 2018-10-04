@@ -75,6 +75,7 @@ import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.EnlistOperation;
 import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
 import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
@@ -255,7 +256,11 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             false,
             txSize,
             subjId,
-            taskNameHash);
+            taskNameHash,
+            ctx.kernalContext().trace().tracingEnabled() ? new EventsTrace() : null);
+
+        recordTracePoint(TracePoint.TX_CREATE);
+
         this.lb = lb;
 
         mappings = implicitSingle ? new IgniteTxMappingsSingleImpl() : new IgniteTxMappingsImpl();
@@ -3722,6 +3727,8 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                 });
             }
 
+            recordTracePoint(TracePoint.TX_PREPARE);
+
             if (timeout == -1) {
                 fut.onDone(this, timeoutException());
 
@@ -3808,8 +3815,12 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
                 }
             });
         }
-        else
+        else {
+            // TODO is this needed?
+            recordTracePoint(TracePoint.TX_END);
+
             fut.finish(true, false, false);
+        }
 
         return fut;
     }

@@ -729,7 +729,8 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
                     req.futureId(),
                     req.miniId(),
                     0,
-                    false);
+                    false,
+                    req.nodeTrace());
 
                 sendResponseOnFailedMessage(nodeId, res, cctx, plc);
             }
@@ -744,7 +745,8 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
                     req.version(),
                     req.futureId(),
                     req.miniId(),
-                    req.deployInfo() != null);
+                    req.deployInfo() != null,
+                    req.nodeTrace());
 
                 res.error(req.classError());
 
@@ -864,7 +866,8 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
                     0,
                     req.classError(),
                     null,
-                    false);
+                    false,
+                    req.nodeTrace());
 
                 sendResponseOnFailedMessage(nodeId, res, cctx, plc);
             }
@@ -885,7 +888,8 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
                     null,
                     null,
                     false,
-                    req.deployInfo() != null);
+                    req.deployInfo() != null,
+                    req.nodeTrace());
 
                 res.error(req.classError());
 

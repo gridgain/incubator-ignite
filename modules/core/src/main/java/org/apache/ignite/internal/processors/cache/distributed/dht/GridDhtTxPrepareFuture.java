@@ -68,10 +68,10 @@ import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
-import org.apache.ignite.internal.processors.cache.transactions.TxCounters;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.dr.GridDrType;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObjectAdapter;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
 import org.apache.ignite.internal.transactions.IgniteTxHeuristicCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxOptimisticCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
@@ -568,6 +568,8 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
         MiniFuture mini = miniFuture(res.miniId());
 
         if (mini != null) {
+            tx.collectNodeTrace(nodeId, res.nodeTrace());
+
             assert mini.node().id().equals(nodeId);
 
             mini.onResult(res);
@@ -894,7 +896,8 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
             prepErr,
             null,
             tx.onePhaseCommit(),
-            tx.activeCachesDeploymentEnabled());
+            tx.activeCachesDeploymentEnabled(),
+            tx.nodeTrace());
 
         res.mvccSnapshot(tx.mvccSnapshot());
 
@@ -1398,7 +1401,8 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
                 tx.storeWriteThrough(),
                 retVal,
                 mvccSnapshot,
-                tx.filterUpdateCountersForBackupNode(n));
+                tx.filterUpdateCountersForBackupNode(n),
+                tx.nodeTrace() != null ? new EventsTrace() : null);
 
             req.queryUpdate(dhtMapping.queryUpdate());
 
@@ -1505,7 +1509,8 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
                     tx.storeWriteThrough(),
                     retVal,
                     mvccSnapshot,
-                    null);
+                    null,
+                    tx.nodeTrace() != null ? new EventsTrace() : null);
 
                 for (IgniteTxEntry entry : nearMapping.entries()) {
                     if (CU.writes().apply(entry)) {

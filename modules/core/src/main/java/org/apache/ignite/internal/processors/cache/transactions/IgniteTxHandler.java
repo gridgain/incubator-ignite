@@ -283,7 +283,8 @@ public class IgniteTxHandler {
                         e,
                         null,
                         req.onePhaseCommit(),
-                        req.deployInfo() != null);
+                        req.deployInfo() != null,
+                        req.nodeTrace());
                 }
             }
         });
@@ -425,7 +426,8 @@ public class IgniteTxHandler {
                             null,
                             top.lastTopologyChangeVersion(),
                             req.onePhaseCommit(),
-                            req.deployInfo() != null);
+                            req.deployInfo() != null,
+                            req.nodeTrace());
 
                         try {
                             ctx.io().send(nearNode, res, req.policy());
@@ -503,6 +505,7 @@ public class IgniteTxHandler {
             if (req.explicitLock())
                 tx.explicitLock(true);
 
+            tx.nodeTrace(req.nodeTrace());
             tx.transactionNodes(req.transactionNodes());
 
             if (req.near())
@@ -632,7 +635,8 @@ public class IgniteTxHandler {
             e,
             null,
             req.onePhaseCommit(),
-            req.deployInfo() != null);
+            req.deployInfo() != null,
+            null);
 
         try {
             ctx.io().send(node.id(), res, req.policy());
@@ -943,7 +947,8 @@ public class IgniteTxHandler {
                 req.threadId(),
                 req.futureId(),
                 req.miniId(),
-                new IgniteTxRollbackCheckedException("Transaction has been already completed or not started yet."));
+                new IgniteTxRollbackCheckedException("Transaction has been already completed or not started yet."),
+                req.nodeTrace());
 
             try {
                 ctx.io().send(nodeId, res, req.policy());
@@ -989,6 +994,7 @@ public class IgniteTxHandler {
             tx.nearFinishFutureId(req.futureId());
             tx.nearFinishMiniId(req.miniId());
             tx.storeEnabled(req.storeEnabled());
+            tx.nodeTrace(req.nodeTrace());
 
             if (req.commit()) {
                 if (!tx.markFinalizing(USER_FINISH)) {
@@ -1123,7 +1129,8 @@ public class IgniteTxHandler {
                 req.version(),
                 req.futureId(),
                 req.miniId(),
-                req.deployInfo() != null);
+                req.deployInfo() != null,
+                req.nodeTrace());
 
             // Start near transaction first.
             nearTx = !F.isEmpty(req.nearWrites()) ? startNearRemoteTx(ctx.deploy().globalLoader(), nodeId, req) : null;
@@ -1200,7 +1207,8 @@ public class IgniteTxHandler {
                 req.futureId(),
                 req.miniId(),
                 e,
-                req.deployInfo() != null);
+                req.deployInfo() != null,
+                req.nodeTrace());
         }
 
         if (req.onePhaseCommit()) {
@@ -1539,7 +1547,8 @@ public class IgniteTxHandler {
                 req.partition(),
                 req.version(),
                 req.futureId(),
-                req.miniId());
+                req.miniId(),
+                req.nodeTrace());
 
             if (req.checkCommitted()) {
                 res.checkCommitted(true);

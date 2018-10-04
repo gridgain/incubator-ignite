@@ -26,6 +26,8 @@ import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxState;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxStateAware;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
+import org.apache.ignite.internal.processors.trace.IgniteTraceAware;
 import org.apache.ignite.internal.util.tostring.GridToStringBuilder;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -35,7 +37,8 @@ import org.apache.ignite.plugin.extensions.communication.MessageWriter;
 /**
  * Response to prepare request.
  */
-public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage implements IgniteTxStateAware {
+public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
+    implements IgniteTxStateAware, IgniteTraceAware {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -57,6 +60,9 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
     /** */
     protected byte flags;
 
+    /** */
+    protected EventsTrace eventsTrace;
+
     /**
      * Empty constructor (required by {@link Externalizable}).
      */
@@ -69,10 +75,16 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
      * @param xid Lock or transaction ID.
      * @param addDepInfo Deployment info flag.
      */
-    public GridDistributedTxPrepareResponse(int part, GridCacheVersion xid, boolean addDepInfo) {
+    public GridDistributedTxPrepareResponse(
+        int part,
+        GridCacheVersion xid,
+        boolean addDepInfo,
+        EventsTrace eventsTrace
+    ) {
         super(xid, 0, addDepInfo);
 
         this.part = part;
+        this.eventsTrace = eventsTrace;
     }
 
     /**
@@ -81,11 +93,18 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
      * @param err Error.
      * @param addDepInfo Deployment info flag.
      */
-    public GridDistributedTxPrepareResponse(int part, GridCacheVersion xid, Throwable err, boolean addDepInfo) {
+    public GridDistributedTxPrepareResponse(
+        int part,
+        GridCacheVersion xid,
+        Throwable err,
+        boolean addDepInfo,
+        EventsTrace eventsTrace
+    ) {
         super(xid, 0, addDepInfo);
 
         this.part = part;
         this.err = err;
+        this.eventsTrace = eventsTrace;
     }
 
     /**
@@ -143,6 +162,19 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
     }
 
     /** {@inheritDoc} */
+    @Override public void recordTracePoint(TracePoint point) {
+        if (eventsTrace != null)
+            eventsTrace.recordTracePoint(point);
+    }
+
+    /**
+     * @return Message trace, if any.
+     */
+    public EventsTrace nodeTrace() {
+        return eventsTrace;
+    }
+
+    /** {@inheritDoc} */
     @Override public IgniteLogger messageLogger(GridCacheSharedContext ctx) {
         return ctx.txPrepareMessageLogger();
     }
@@ -185,12 +217,18 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
                 writer.incrementState();
 
             case 8:
-                if (!writer.writeByte("flags", flags))
+                if (!writer.writeMessage("eventsTrace", eventsTrace))
                     return false;
 
                 writer.incrementState();
 
             case 9:
+                if (!writer.writeByte("flags", flags))
+                    return false;
+
+                writer.incrementState();
+
+            case 10:
                 if (!writer.writeInt("part", part))
                     return false;
 
@@ -221,7 +259,7 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
                 reader.incrementState();
 
             case 8:
-                flags = reader.readByte("flags");
+                eventsTrace = reader.readMessage("eventsTrace");
 
                 if (!reader.isLastRead())
                     return false;
@@ -229,6 +267,14 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
                 reader.incrementState();
 
             case 9:
+                flags = reader.readByte("flags");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
+            case 10:
                 part = reader.readInt("part");
 
                 if (!reader.isLastRead())
@@ -248,7 +294,7 @@ public class GridDistributedTxPrepareResponse extends GridDistributedBaseMessage
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 10;
+        return 11;
     }
 
     /** {@inheritDoc} */
