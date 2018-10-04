@@ -1647,13 +1647,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
             cctx.exchange().onExchangeDone(res, initialVersion(), err0);
 
-            if (exchActions != null && !F.isEmpty(exchActions.cacheStartRequests()))
-                cctx.cache().finishedAll(
-                    exchActions.cacheStartRequests()
-                        .stream()
-                        .map(ExchangeActions.CacheActionData::request)
-                        .collect(Collectors.toList())
-                );
+            cctx.cache().finishedAll(res);
 
             if (exchActions != null && err0 == null)
                 exchActions.completeRequestFutures(cctx);
