@@ -2062,10 +2062,11 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
                         for (BinarySchema existingSchema : existingSchemas)
                             existingSchemaIds.add(existingSchema.schemaId());
 
-                        if (schema == null) {
+                        //if (schema == null) {
                             ctx.log().error("<<<DBG>>>: Cannot find schema for object with compact footer" +
                                 " [typeName=" + type.typeName() +
                                 ", traceData=" + traceData +
+                                ", schema=" + schema +
                                 ", typeId=" + typeId +
                                 ", missingSchemaId=" + schemaId +
                                 ", existingSchemaIds=" + existingSchemaIds + ']');
@@ -2073,15 +2074,15 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
                             U.sleep(5000);
 
                             Runtime.getRuntime().halt(1);
-                        }
-
-                        throw new BinaryObjectException("Cannot find schema for object with compact footer" +
-                            " [typeName=" + type.typeName() +
-                            ", traceData=" + traceData +
-                            ", typeId=" + typeId +
-                            ", missingSchemaId=" + schemaId +
-                            ", existingSchemaIds=" + existingSchemaIds + ']'
-                        );
+//                        }
+//
+//                        throw new BinaryObjectException("Cannot find schema for object with compact footer" +
+//                            " [typeName=" + type.typeName() +
+//                            ", traceData=" + traceData +
+//                            ", typeId=" + typeId +
+//                            ", missingSchemaId=" + schemaId +
+//                            ", existingSchemaIds=" + existingSchemaIds + ']'
+//                        );
                     }
                 }
                 catch (IgniteInterruptedCheckedException e) {
