@@ -88,8 +88,6 @@ public class TxMetadataChangeTest extends GridCommonAbstractTest {
         assertTrue(client1.configuration().isClientMode());
         assertNotNull(client1.cache(DEFAULT_CACHE_NAME));
 
-        AtomicBoolean stop = new AtomicBoolean();
-
         int range = 100;
 
         Random r = new Random(0);
