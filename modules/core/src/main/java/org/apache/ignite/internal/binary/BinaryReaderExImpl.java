@@ -2071,18 +2071,31 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
                                 ", missingSchemaId=" + schemaId +
                                 ", existingSchemaIds=" + existingSchemaIds + ']');
 
-                            U.sleep(5000);
+                        // Give some time to log errors for caller stack.
+                        Thread shutdown = new Thread(new Runnable() {
+                            @Override public void run() {
+                                try {
+                                    U.sleep(5000);
+                                }
+                                catch (IgniteInterruptedCheckedException e) {
+                                    // No-op.
+                                }
 
-                            Runtime.getRuntime().halt(1);
+                                Runtime.getRuntime().halt(1);
+                            }
+                        });
+                        shutdown.setDaemon(true);
+                        shutdown.setName("MetaShutdownThread");
+                        shutdown.start();
 //                        }
 //
-//                        throw new BinaryObjectException("Cannot find schema for object with compact footer" +
-//                            " [typeName=" + type.typeName() +
-//                            ", traceData=" + traceData +
-//                            ", typeId=" + typeId +
-//                            ", missingSchemaId=" + schemaId +
-//                            ", existingSchemaIds=" + existingSchemaIds + ']'
-//                        );
+                        throw new BinaryObjectException("Cannot find schema for object with compact footer" +
+                            " [typeName=" + type.typeName() +
+                            ", traceData=" + traceData +
+                            ", typeId=" + typeId +
+                            ", missingSchemaId=" + schemaId +
+                            ", existingSchemaIds=" + existingSchemaIds + ']'
+                        );
                     }
                 }
                 catch (IgniteInterruptedCheckedException e) {

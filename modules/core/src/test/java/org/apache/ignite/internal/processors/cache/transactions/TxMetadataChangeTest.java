@@ -81,7 +81,13 @@ public class TxMetadataChangeTest extends GridCommonAbstractTest {
     }
 
     public void testMetadata() throws Exception {
-        Ignite crd = startGridsMultiThreaded(3);
+        Ignite crd = startGrid(0);
+        startGrid(1);
+        startGrid(2);
+
+        crd.cluster().active(true);
+
+        awaitPartitionMapExchange();
 
         Ignite client1 = startGrid("client1");
 
@@ -94,30 +100,51 @@ public class TxMetadataChangeTest extends GridCommonAbstractTest {
 
         AtomicInteger updates = new AtomicInteger();
 
+        List<Integer> keys = primaryKeys(grid(1).cache(DEFAULT_CACHE_NAME), 2);
+
         IgniteInternalFuture fut = GridTestUtils.runAsync(new Runnable() {
             @Override public void run() {
-                int cnt = 1;
-
-                while (cnt-- > 0) {
-                    int key = r.nextInt(range);
-
+//                int cnt = 1;
+//
+//                while (cnt-- > 0) {
                     IgniteCache<Integer, BinaryObject> cache = client1.cache(DEFAULT_CACHE_NAME).withKeepBinary();
 
                     try (Transaction tx = client1.transactions().txStart(TransactionConcurrency.OPTIMISTIC, TransactionIsolation.SERIALIZABLE)) {
                         BinaryObjectBuilder val = client1.binary().builder("Value");
 
-                        int toUpdate = 1 + r.nextInt(FIELDS);
+                        val.setField("f1", "testVal");
+                        val.setField("f2", "testVal");
 
-                        for (int j = 0; j < toUpdate; j++)
-                            val.setField("f" + r.nextInt(FIELDS), "testVal");
-
-                        cache.put(key, val.build());
+                        cache.put(keys.get(0), val.build());
 
                         tx.commit();
 
                         updates.incrementAndGet();
                     }
+//                }
+            }
+        });
+
+        IgniteInternalFuture fut2 = GridTestUtils.runAsync(new Runnable() {
+            @Override public void run() {
+//                int cnt = 1;
+//
+//                while (cnt-- > 0) {
+                IgniteCache<Integer, BinaryObject> cache = client1.cache(DEFAULT_CACHE_NAME).withKeepBinary();
+
+                try (Transaction tx = client1.transactions().txStart(TransactionConcurrency.OPTIMISTIC, TransactionIsolation.SERIALIZABLE)) {
+                    BinaryObjectBuilder val = client1.binary().builder("Value");
+
+                    val.setField("f2", "testVal");
+                    val.setField("f1", "testVal");
+
+                    cache.put(keys.get(0), val.build());
+
+                    tx.commit();
+
+                    updates.incrementAndGet();
                 }
+//                }
             }
         });
 
@@ -126,6 +153,7 @@ public class TxMetadataChangeTest extends GridCommonAbstractTest {
 //        stop.set(true);
 
         fut.get();
+        fut2.get();
 
         log.info("Updates: " + updates.get());
     }
