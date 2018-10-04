@@ -2057,13 +2057,21 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
                             }
                         }
 
-                        if (schema == null)
-                            ctx.log().error("<<<DBG>>>: Failed to wait for metadata");
-
                         List<Integer> existingSchemaIds = new ArrayList<>(existingSchemas.size());
 
                         for (BinarySchema existingSchema : existingSchemas)
                             existingSchemaIds.add(existingSchema.schemaId());
+
+                        if (schema == null) {
+                            ctx.log().error("<<<DBG>>>: Cannot find schema for object with compact footer" +
+                                " [typeName=" + type.typeName() +
+                                ", traceData=" + traceData +
+                                ", typeId=" + typeId +
+                                ", missingSchemaId=" + schemaId +
+                                ", existingSchemaIds=" + existingSchemaIds + ']');
+
+                            Runtime.getRuntime().halt(1);
+                        }
 
                         throw new BinaryObjectException("Cannot find schema for object with compact footer" +
                             " [typeName=" + type.typeName() +
