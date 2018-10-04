@@ -2070,6 +2070,8 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
                                 ", missingSchemaId=" + schemaId +
                                 ", existingSchemaIds=" + existingSchemaIds + ']');
 
+                            U.sleep(5000);
+
                             Runtime.getRuntime().halt(1);
                         }
 
