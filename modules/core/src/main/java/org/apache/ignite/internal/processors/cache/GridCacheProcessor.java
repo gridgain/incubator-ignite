@@ -1691,9 +1691,46 @@ public class GridCacheProcessor extends GridProcessorAdapter {
     /**
      * Finish all proxy latches.
      */
-    public void finishedAll() {
-        for (String name : jCacheProxies.keySet())
-            initFinished(name);
+    public void finishedAll(Collection<DynamicCacheChangeRequest> cachesToStrart) {
+        if (cachesToStrart == null) {
+            for (String name : jCacheProxies.keySet()) {
+                IgniteCacheProxyImpl<?, ?> proxy = jCacheProxies.get(name);
+
+                if (proxy.isRestarting()) {
+                    GridCacheAdapter<?, ?> adapter = caches.get(name);
+
+                    GridCacheContext<?, ?> cacheCtx = adapter.context();
+
+                    proxy.onRestarted(cacheCtx, adapter);
+
+                    if (cacheCtx.dataStructuresCache())
+                        ctx.dataStructures().restart(proxy.internalProxy());
+                }
+
+                initFinished(name);
+            }
+
+            return;
+        }
+
+        for (DynamicCacheChangeRequest request : cachesToStrart) {
+            IgniteCacheProxyImpl<?, ?> proxy = jCacheProxies.get(request.cacheName());
+
+            boolean disabledAfterStart = request.disabledAfterStart();
+
+            if (!disabledAfterStart && proxy != null && proxy.isRestarting()) {
+                GridCacheAdapter<?, ?> adapter = caches.get(request.cacheName());
+
+                GridCacheContext<?, ?> cacheCtx = adapter.context();
+
+                proxy.onRestarted(cacheCtx, adapter);
+
+                if (cacheCtx.dataStructuresCache())
+                    ctx.dataStructures().restart(proxy.internalProxy());
+            }
+
+            initFinished(request.cacheName());
+        }
     }
 
     /**
@@ -1968,15 +2005,6 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         grp.onCacheStarted(cacheCtx);
 
         onKernalStart(cache);
-
-        IgniteCacheProxyImpl<?, ?> proxy = jCacheProxies.get(ccfg.getName());
-
-        if (!disabledAfterStart && proxy != null && proxy.isRestarting()) {
-            proxy.onRestarted(cacheCtx, cache);
-
-            if (cacheCtx.dataStructuresCache())
-                ctx.dataStructures().restart(proxy.internalProxy());
-        }
     }
 
     /**
@@ -3749,7 +3777,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         if (ctx.discovery().localNode().isClient()) {
             IgniteCacheProxy<K, V> proxy = (IgniteCacheProxy<K, V>)jCacheProxies.get(name);
 
-            awaitInitProxy(proxy);
+            //awaitInitProxy(proxy);
 
             if (proxy == null) {
                 GridCacheAdapter<?, ?> cacheAdapter = caches.get(name);
