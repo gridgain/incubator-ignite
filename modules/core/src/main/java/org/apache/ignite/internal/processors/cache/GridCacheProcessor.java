@@ -35,6 +35,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
+import javax.cache.configuration.FactoryBuilder;
+import javax.cache.expiry.EternalExpiryPolicy;
+import javax.cache.expiry.ExpiryPolicy;
 import javax.management.MBeanServer;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
@@ -79,9 +82,9 @@ import org.apache.ignite.internal.processors.cache.binary.CacheObjectBinaryProce
 import org.apache.ignite.internal.processors.cache.datastructures.CacheDataStructuresManager;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCache;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionTopology;
-import org.apache.ignite.internal.processors.cache.distributed.dht.PartitionsEvictManager;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionTopology;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.PartitionsEvictManager;
 import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridDhtAtomicCache;
 import org.apache.ignite.internal.processors.cache.distributed.dht.colocated.GridDhtColocatedCache;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.StopCachesOnClientReconnectExchangeTask;
@@ -486,6 +489,36 @@ public class GridCacheProcessor extends GridProcessorAdapter implements Metastor
             throw new IgniteCheckedException("Affinity function must return at most " +
                 CacheConfiguration.MAX_PARTITIONS_COUNT + " partitions [actual=" + cc.getAffinity().partitions() +
                 ", affFunction=" + cc.getAffinity() + ", cacheName=" + cc.getName() + ']');
+
+        if (cc.getAtomicityMode() == TRANSACTIONAL_SNAPSHOT) {
+            assertParameter(cc.getCacheMode() != LOCAL,
+                "LOCAL cache mode cannot be used with TRANSACTIONAL_SNAPSHOT atomicity mode");
+
+            assertParameter(cc.getNearConfiguration() == null,
+                "near cache cannot be used with TRANSACTIONAL_SNAPSHOT atomicity mode");
+
+            assertParameter(!cc.isReadThrough(),
+                "readThrough cannot be used with TRANSACTIONAL_SNAPSHOT atomicity mode");
+
+            assertParameter(!cc.isWriteThrough(),
+                "writeThrough cannot be used with TRANSACTIONAL_SNAPSHOT atomicity mode");
+
+            assertParameter(!cc.isWriteBehindEnabled(),
+                "writeBehindEnabled cannot be used with TRANSACTIONAL_SNAPSHOT atomicity mode");
+
+            ExpiryPolicy expPlc = null;
+
+            if (cc.getExpiryPolicyFactory() instanceof FactoryBuilder.SingletonFactory)
+                expPlc = (ExpiryPolicy)cc.getExpiryPolicyFactory().create();
+
+            if (!(expPlc instanceof EternalExpiryPolicy)) {
+                assertParameter(cc.getExpiryPolicyFactory() == null,
+                    "expiry policy cannot be used with TRANSACTIONAL_SNAPSHOT atomicity mode");
+            }
+
+            assertParameter(cc.getInterceptor() == null,
+                "interceptor cannot be used with TRANSACTIONAL_SNAPSHOT atomicity mode");
+        }
 
         if (cc.isWriteBehindEnabled()) {
             if (cfgStore == null)
@@ -1872,29 +1905,37 @@ public class GridCacheProcessor extends GridProcessorAdapter implements Metastor
     }
 
     /**
+     * @param exchTopVer Local join exchange future version.
      * @param locJoinCtx Local join cache context.
-     * @param exchTopVer Current exchange version.
      * @throws IgniteCheckedException If failed.
      */
-    public void startCachesOnLocalJoin(
-        LocalJoinCachesContext locJoinCtx,
-        AffinityTopologyVersion exchTopVer
+    public IgniteInternalFuture<?> startCachesOnLocalJoin(
+        AffinityTopologyVersion exchTopVer,
+        LocalJoinCachesContext locJoinCtx
     ) throws IgniteCheckedException {
-        if (locJoinCtx != null) {
-            sharedCtx.affinity().initCachesOnLocalJoin(
-                locJoinCtx.cacheGroupDescriptors(), locJoinCtx.cacheDescriptors());
+        long time = System.currentTimeMillis();
 
-            for (T2<DynamicCacheDescriptor, NearCacheConfiguration> t : locJoinCtx.caches()) {
-                DynamicCacheDescriptor desc = t.get1();
+        if (locJoinCtx == null)
+            return new GridFinishedFuture<>();
 
-                prepareCacheStart(
-                    desc.cacheConfiguration(),
-                    desc,
-                    t.get2(),
-                    exchTopVer,
-                    false);
-            }
+        IgniteInternalFuture<?> res = sharedCtx.affinity().initCachesOnLocalJoin(
+            locJoinCtx.cacheGroupDescriptors(), locJoinCtx.cacheDescriptors());
+
+        for (T2<DynamicCacheDescriptor, NearCacheConfiguration> t : locJoinCtx.caches()) {
+            DynamicCacheDescriptor desc = t.get1();
+
+            prepareCacheStart(
+                desc.cacheConfiguration(),
+                desc,
+                t.get2(),
+                exchTopVer,
+                false);
         }
+
+        if (log.isInfoEnabled())
+            log.info("Starting caches on local join performed in " + (System.currentTimeMillis() - time) + " ms.");
+
+        return res;
     }
 
     /**
