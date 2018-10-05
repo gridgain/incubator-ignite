@@ -64,6 +64,7 @@ import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.CacheGroupDescriptor;
 import org.apache.ignite.internal.processors.cache.CachePartitionExchangeWorkerTask;
 import org.apache.ignite.internal.processors.cache.DynamicCacheChangeBatch;
+import org.apache.ignite.internal.processors.cache.DynamicCacheChangeRequest;
 import org.apache.ignite.internal.processors.cache.DynamicCacheDescriptor;
 import org.apache.ignite.internal.processors.cache.ExchangeActions;
 import org.apache.ignite.internal.processors.cache.ExchangeContext;
@@ -1647,7 +1648,12 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
             cctx.exchange().onExchangeDone(res, initialVersion(), err0);
 
-            cctx.cache().finishedAll(res);
+            Map<String, DynamicCacheChangeRequest> reqs = exchActions.cacheStartRequests()
+                .stream()
+                .map(ExchangeActions.CacheActionData::request)
+                .collect(Collectors.toMap(DynamicCacheChangeRequest::cacheName, r -> r));
+
+            cctx.cache().finishedAll(res, reqs);
 
             if (exchActions != null && err0 == null)
                 exchActions.completeRequestFutures(cctx);
