@@ -116,9 +116,6 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter impleme
     @GridToStringExclude
     protected volatile IgniteInternalFuture<?> lockFut;
 
-    /** */
-    protected EventsTrace eventsTrace;
-
     /**
      * Empty constructor required for {@link Externalizable}.
      */
@@ -153,8 +150,7 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter impleme
         boolean onePhaseCommit,
         int txSize,
         @Nullable UUID subjId,
-        int taskNameHash,
-        EventsTrace eventsTrace
+        int taskNameHash
     ) {
         super(
             cctx,
@@ -179,8 +175,6 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter impleme
         this.explicitLock = explicitLock;
 
         threadId = Thread.currentThread().getId();
-
-        this.eventsTrace = eventsTrace;
     }
 
     /**
@@ -263,12 +257,6 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter impleme
      * @param err Error, if any.
      */
     protected abstract void sendFinishReply(@Nullable Throwable err);
-
-    /** {@inheritDoc} */
-    @Override public void recordTracePoint(TracePoint point) {
-        if (eventsTrace != null)
-            eventsTrace.recordTracePoint(point);
-    }
 
     /** {@inheritDoc} */
     @Override public boolean needsCompletedVersions() {
@@ -934,29 +922,6 @@ public abstract class GridDhtTxLocalAdapter extends IgniteTxLocalAdapter impleme
             else if (updateLockFuture(fut, ROLLBACK_FUT))
                 return fut;
         }
-    }
-
-    /**
-     * @return Node trace.
-     */
-    public EventsTrace nodeTrace() {
-        return eventsTrace;
-    }
-
-    /**
-     * @param eventsTrace Node trace.
-     */
-    public void nodeTrace(EventsTrace eventsTrace) {
-        this.eventsTrace = eventsTrace;
-    }
-
-    /**
-     * @param rmtNodeId Remote node ID.
-     * @param eventsTrace Node trace to collect.
-     */
-    public void collectNodeTrace(UUID rmtNodeId, EventsTrace eventsTrace) {
-        if (this.eventsTrace != null && eventsTrace != null)
-            this.eventsTrace.addRemoteTrace(rmtNodeId, eventsTrace);
     }
 
     /**

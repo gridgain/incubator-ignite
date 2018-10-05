@@ -44,10 +44,11 @@ public interface IgniteTraceAware {
         NEAR_FINISH_RESPONSE_CREATED,
         DHT_FINISH_REQUEST_CREATED,
         DHT_FINISH_RESPONSE_CREATED,
-        TX_LOCAL_WRITE_BEGIN,
-        TX_LOCAL_WRITE_END,
+        TX_LOCAL_COMMIT_BEGIN,
+        TX_LOCAL_COMMIT_END,
         TX_LOCAL_WAL_SYNC_BEGIN,
         TX_LOCAL_WAL_SYNC_END,
+        TX_LOCAL_CHECKPOINT_LOCK_ACQUIRED
         ;
 
         /** */

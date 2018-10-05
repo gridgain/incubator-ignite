@@ -56,13 +56,13 @@ public class EventsTrace implements Message, IgniteTraceAware {
     private List<EventsTrace> rmtTraces;
 
     /**
-     * @param point Trace point.
+     * @param pt Trace point.
      */
-    @Override public synchronized void recordTracePoint(TracePoint point) {
+    @Override public synchronized void recordTracePoint(TracePoint pt) {
         if (traceIds == null || numTracePoints == traceIds.length)
             expandTracePoints();
 
-        traceIds[numTracePoints] = (byte)point.ordinal();
+        traceIds[numTracePoints] = (byte)pt.ordinal();
         traceStamps[numTracePoints] = System.nanoTime() / 1000;
 
         String curThread = Thread.currentThread().getName();
@@ -268,9 +268,8 @@ public class EventsTrace implements Message, IgniteTraceAware {
     protected void toString(StringBuilder sb, UUID nodeId, String ident, long base) {
         sb.append(ident).append("Events trace ");
 
-        if (nodeId != null) {
+        if (nodeId != null)
             sb.append("[").append(nodeId).append("][");
-        }
         else
             sb.append("[");
 

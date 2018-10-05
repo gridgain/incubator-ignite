@@ -69,6 +69,8 @@ import org.apache.ignite.internal.processors.cache.store.CacheStoreManager;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersionConflictContext;
 import org.apache.ignite.internal.processors.dr.GridDrType;
+import org.apache.ignite.internal.processors.trace.EventsTrace;
+import org.apache.ignite.internal.processors.trace.IgniteTraceAware;
 import org.apache.ignite.internal.transactions.IgniteTxHeuristicCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
@@ -114,7 +116,7 @@ import static org.apache.ignite.transactions.TransactionState.UNKNOWN;
 /**
  * Transaction adapter for cache transactions.
  */
-public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements IgniteTxLocalEx {
+public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements IgniteTxLocalEx, IgniteTraceAware {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -166,6 +168,9 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
 
     /** */
     private volatile boolean qryEnlisted;
+
+    /** */
+    private EventsTrace evtsTrace;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -364,6 +369,35 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
     /** {@inheritDoc} */
     @Override public void seal() {
         txState.seal();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void recordTracePoint(TracePoint pt) {
+        if (evtsTrace != null)
+            evtsTrace.recordTracePoint(pt);
+    }
+
+    /**
+     * @return Node trace.
+     */
+    public EventsTrace nodeTrace() {
+        return evtsTrace;
+    }
+
+    /**
+     * @param evtsTrace Node trace.
+     */
+    public void nodeTrace(EventsTrace evtsTrace) {
+        this.evtsTrace = evtsTrace;
+    }
+
+    /**
+     * @param rmtNodeId Remote node ID.
+     * @param evtsTrace Node trace to collect.
+     */
+    public void collectNodeTrace(UUID rmtNodeId, EventsTrace evtsTrace) {
+        if (this.evtsTrace != null && evtsTrace != null)
+            this.evtsTrace.addRemoteTrace(rmtNodeId, evtsTrace);
     }
 
     /**
@@ -567,6 +601,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
             throw new IgniteCheckedException("Invalid transaction state for commit [state=" + state + ", tx=" + this + ']');
         }
 
+        recordTracePoint(TracePoint.TX_LOCAL_COMMIT_BEGIN);
+
         checkValid();
 
         Collection<IgniteTxEntry> commitEntries = (near() || cctx.snapshot().needTxReadLogging()) ? allEntries() : writeEntries();
@@ -592,6 +628,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
             cctx.database().checkpointReadLock();
 
             try {
+                recordTracePoint(TracePoint.TX_LOCAL_CHECKPOINT_LOCK_ACQUIRED);
+
                 cctx.tm().txContext(this);
 
                 AffinityTopologyVersion topVer = topologyVersion();
@@ -980,6 +1018,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                 // Apply cache sizes only for primary nodes. Update counters were applied on prepare state.
                 applyTxSizes();
 
+                recordTracePoint(TracePoint.TX_LOCAL_WAL_SYNC_BEGIN);
+
                 if (ptr != null && !cctx.tm().logTxRecords())
                     cctx.wal().flush(ptr, false);
             }
@@ -995,6 +1035,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                 notifyDrManager(state() == COMMITTING && err == null);
 
                 cctx.tm().resetContext();
+
+                recordTracePoint(TracePoint.TX_LOCAL_WAL_SYNC_END);
             }
         }
 
@@ -1011,6 +1053,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
                 assert !needsCompletedVersions || rolledbackVers != null;
             }
         }
+
+        recordTracePoint(TracePoint.TX_LOCAL_COMMIT_END);
     }
 
     /**

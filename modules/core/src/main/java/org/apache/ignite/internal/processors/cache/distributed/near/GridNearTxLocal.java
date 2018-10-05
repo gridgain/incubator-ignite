@@ -256,8 +256,9 @@ public class GridNearTxLocal extends GridDhtTxLocalAdapter implements GridTimeou
             false,
             txSize,
             subjId,
-            taskNameHash,
-            ctx.kernalContext().trace().tracingEnabled() ? new EventsTrace() : null);
+            taskNameHash);
+
+        nodeTrace(ctx.kernalContext().trace().tracingEnabled() ? new EventsTrace() : null);
 
         recordTracePoint(TracePoint.TX_CREATE);
 

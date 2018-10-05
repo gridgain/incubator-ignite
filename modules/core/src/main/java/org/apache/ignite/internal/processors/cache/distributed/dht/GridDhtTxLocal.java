@@ -157,8 +157,7 @@ public class GridDhtTxLocal extends GridDhtTxLocalAdapter implements GridCacheMa
             onePhaseCommit,
             txSize,
             subjId,
-            taskNameHash,
-            null);
+            taskNameHash);
 
         assert nearNodeId != null;
         assert nearFutId != null;
@@ -355,7 +354,7 @@ public class GridDhtTxLocal extends GridDhtTxLocalAdapter implements GridCacheMa
             return chainOnePhasePrepare(fut);
         }
 
-        eventsTrace = req.nodeTrace();
+        nodeTrace(req.nodeTrace());
 
         if (state() != PREPARING) {
             if (!state(PREPARING)) {
@@ -605,7 +604,7 @@ public class GridDhtTxLocal extends GridDhtTxLocalAdapter implements GridCacheMa
                 nearFinFutId,
                 nearFinMiniId,
                 err,
-                eventsTrace);
+                nodeTrace());
 
             try {
                 cctx.io().send(nearNodeId, res, ioPolicy());
