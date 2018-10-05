@@ -1710,7 +1710,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
     ) {
         IgniteCacheProxyImpl<?, ?> proxy = jCacheProxies.get(cache.name());
 
-        if (proxy.isRestarting()) {
+        if (proxy != null && proxy.isRestarting()) {
             proxy.onRestarted(cacheCtx, cache);
 
             if (cacheCtx.dataStructuresCache())
