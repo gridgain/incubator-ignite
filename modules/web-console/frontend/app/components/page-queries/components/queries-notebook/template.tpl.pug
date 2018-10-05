@@ -422,7 +422,7 @@ mixin paragraph-query
                 +query-actions
 
             +query-settings
-        .col-sm-12.sql-result(ng-if='paragraph.queryExecuted()' ng-switch='paragraph.resultType()')
+        .col-sm-12.sql-result(ng-if='paragraph.queryExecuted() && !paragraph.loading' ng-switch='paragraph.resultType()')
             .error(ng-switch-when='error')
                 label Error: {{paragraph.error.message}}
                 br
