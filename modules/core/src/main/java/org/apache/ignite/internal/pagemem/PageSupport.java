@@ -36,6 +36,18 @@ public interface PageSupport {
     public long acquirePage(int grpId, long pageId) throws IgniteCheckedException;
 
     /**
+     * Tries to get the page absolute pointer associated with the given page ID. Each page obtained with this method
+     * must be released by calling {@link #releasePage(int, long, long)}. This method will return -1 if a page with
+     * the given ID was not allocated yet or is not loaded to memory.
+     *
+     * @param grpId Cache group ID.
+     * @param pageId Page ID.
+     * @return Page pointer.
+     * @throws IgniteCheckedException If failed.
+     */
+    public long tryAcquirePage(int grpId, long pageId) throws IgniteCheckedException;
+
+    /**
      *
      * @param grpId Cache group ID.
      * @param pageId Page ID to release.

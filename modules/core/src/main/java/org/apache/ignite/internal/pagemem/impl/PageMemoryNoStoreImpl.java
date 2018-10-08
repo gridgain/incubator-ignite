@@ -24,6 +24,8 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
@@ -329,6 +331,11 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         releaseFreePage(pageId);
 
         return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long tryAcquirePage(int grpId, long pageId) throws IgniteCheckedException {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

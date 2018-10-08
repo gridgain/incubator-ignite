@@ -638,6 +638,42 @@ public class PageMemoryImpl implements PageMemoryEx {
     }
 
     /** {@inheritDoc} */
+    @Override public long tryAcquirePage(int grpId, long pageId) throws IgniteCheckedException {
+        int partId = PageIdUtils.partId(pageId);
+
+        if (PageIdUtils.pageIndex(pageId) >= storeMgr.pages(grpId, PageIdUtils.partId(pageId)))
+            return -1;
+
+        Segment seg = segment(grpId, pageId);
+
+        seg.readLock().lock();
+
+        try {
+            long relPtr = seg.loadedPages.get(
+                grpId,
+                PageIdUtils.effectivePageId(pageId),
+                seg.partGeneration(grpId, partId),
+                INVALID_REL_PTR,
+                INVALID_REL_PTR
+            );
+
+            // The page is loaded to the memory.
+            if (relPtr != INVALID_REL_PTR) {
+                long absPtr = seg.absolute(relPtr);
+
+                seg.acquirePage(absPtr);
+
+                return absPtr;
+            }
+
+            return -1;
+        }
+        finally {
+            seg.readLock().unlock();
+        }
+    }
+
+    /** {@inheritDoc} */
     @Override public long acquirePage(int grpId, long pageId, boolean restore) throws IgniteCheckedException {
         FullPageId fullId = new FullPageId(pageId, grpId);
 
