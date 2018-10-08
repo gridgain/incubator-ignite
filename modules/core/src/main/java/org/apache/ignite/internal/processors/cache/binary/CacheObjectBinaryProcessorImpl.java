@@ -582,8 +582,8 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
                 if (traceData != null)
                     traceData.doneFut = fut.isDone();
 
-                if (log.isDebugEnabled() && !fut.isDone())
-                    log.debug("Waiting for update for" +
+                if (log.isInfoEnabled() && !fut.isDone())
+                    log.info("Waiting for update for" +
                             " [typeId=" + typeId
                             + ", schemaId=" + schemaId
                             + ", pendingVer=" + holder.pendingVersion()
