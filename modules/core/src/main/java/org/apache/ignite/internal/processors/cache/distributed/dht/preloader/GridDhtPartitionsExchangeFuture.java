@@ -84,6 +84,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheUtils;
 import org.apache.ignite.internal.processors.cache.LocalJoinCachesContext;
 import org.apache.ignite.internal.processors.cache.StateChangeRequest;
 import org.apache.ignite.internal.processors.cache.WalStateAbstractMessage;
+import org.apache.ignite.internal.processors.cache.distributed.dht.ClientCacheDhtTopologyFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridClientPartitionTopology;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
 import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
@@ -941,6 +942,10 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
      * @throws IgniteCheckedException If failed.
      */
     private void updateTopologies(boolean crd, MvccCoordinator mvccCrd) throws IgniteCheckedException {
+        GridDhtTopologyFutureAdapter topFut = changedAffinity() ?
+            new ClientCacheDhtTopologyFuture(exchId.topologyVersion()) :
+            this;
+
         for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
             if (grp.isLocal())
                 continue;
@@ -965,7 +970,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             }
 
             top.updateTopologyVersion(
-                this,
+                topFut,
                 events().discoveryCache(),
                 mvccCrd,
                 updSeq,
@@ -973,7 +978,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         }
 
         for (GridClientPartitionTopology top : cctx.exchange().clientTopologies()) {
-            top.updateTopologyVersion(this,
+            top.updateTopologyVersion(topFut,
                 events().discoveryCache(),
                 mvccCrd,
                 -1,
