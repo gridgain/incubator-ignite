@@ -942,10 +942,6 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
      * @throws IgniteCheckedException If failed.
      */
     private void updateTopologies(boolean crd, MvccCoordinator mvccCrd) throws IgniteCheckedException {
-        GridDhtTopologyFutureAdapter topFut = changedAffinity() ?
-            new ClientCacheDhtTopologyFuture(exchId.topologyVersion()) :
-            this;
-
         for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
             if (grp.isLocal())
                 continue;
@@ -970,7 +966,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             }
 
             top.updateTopologyVersion(
-                topFut,
+                this,
                 events().discoveryCache(),
                 mvccCrd,
                 updSeq,
@@ -978,7 +974,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         }
 
         for (GridClientPartitionTopology top : cctx.exchange().clientTopologies()) {
-            top.updateTopologyVersion(topFut,
+            top.updateTopologyVersion(this,
                 events().discoveryCache(),
                 mvccCrd,
                 -1,
