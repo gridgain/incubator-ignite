@@ -43,6 +43,7 @@ import org.apache.ignite.internal.util.lang.GridCloseableIterator;
 import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.CI2;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.T1;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -616,15 +617,11 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
 
         final GridCacheQueryBean bean = new GridCacheQueryBean(qry, null, qry.<K, V>transform(), null);
 
-        //final CacheQueryFuture fut = queryDistributed(bean, nodes);
-
-
-        AtomicReference<CacheQueryFuture> fut = new AtomicReference<>(queryDistributed(bean, nodes));
-
         final Collection<ClusterNode> nodes0 = nodes;
 
-
         return new GridCloseableIteratorAdapter() {
+
+            CacheQueryFuture fut = queryDistributed(bean, nodes0);
             /** */
             private Object cur;
 
@@ -646,14 +643,10 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
                 if (locIter != null && locIter.hasNextX())
                     cur = locIter.nextX();
 
-                if (X.hasCause(fut.get().error(), ClusterTopologyCheckedException.class)) {
-                    //
-                    fut.set(queryDistributed(bean, qry.nodes()));
+                if (X.hasCause(fut.error(), ClusterTopologyCheckedException.class))
+                    fut = queryDistributed(bean, qry.nodes());
 
-
-                }
-
-                return cur != null || (cur = convert(fut.get().next())) != null;
+                return cur != null || (cur = convert(fut.next())) != null;
             }
 
             /**
@@ -676,7 +669,7 @@ public class GridCacheDistributedQueryManager<K, V> extends GridCacheQueryManage
                     locIter.close();
 
                 if (fut != null)
-                    fut.get().cancel();
+                    fut.cancel();
             }
         };
     }

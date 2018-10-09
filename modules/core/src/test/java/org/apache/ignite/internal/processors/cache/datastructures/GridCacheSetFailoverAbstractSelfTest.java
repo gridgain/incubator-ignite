@@ -121,11 +121,7 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
 
             assertTrue(iter.hasNext());
 
-            try {
-                iter.next();
-            } catch (CacheException ignored) {
-                // No-op.
-            }
+            iter.next();
 
             startGrid(idx);
         }
@@ -210,7 +206,7 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
         }
     }
 
-    public void test0() throws Exception {
+    public void test0() {
         IgniteSet<Integer> set = grid(0).set(SET_NAME, config(false));
 
         final int ITEMS = 10_000;
@@ -230,7 +226,11 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
             assertNotNull(iter.next());
 
             cnt++;
+
+            //System.err.println(iter.next());
         }
+
+        assertTrue(set.size() == ITEMS);
 
         assertTrue(cnt == ITEMS);
     }
@@ -283,6 +283,8 @@ public abstract class GridCacheSetFailoverAbstractSelfTest extends IgniteCollect
                 srvCanDown.await();
 
                 srvDown.await();
+
+                //waitForRemoteNodes(grid(0), gridCount() - 1);
 
                 Thread.sleep(500);
 
