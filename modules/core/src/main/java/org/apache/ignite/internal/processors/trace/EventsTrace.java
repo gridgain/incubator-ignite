@@ -328,7 +328,7 @@ public class EventsTrace implements Message, IgniteTraceAware {
         if (updBase == 0 && numTracePoints > 0)
             updBase = traceStamps[0];
 
-        long latency = traceStamps[traceStamps.length - 1] - traceStamps[0];
+        long latency = traceStamps[numTracePoints - 1] - traceStamps[0];
 
         sb.append(ident).append("  Total trace time: ")
             .append(latency).append("us\n");
