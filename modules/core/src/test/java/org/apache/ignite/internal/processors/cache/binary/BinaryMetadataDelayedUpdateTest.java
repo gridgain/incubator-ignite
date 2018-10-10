@@ -55,7 +55,7 @@ import org.apache.ignite.transactions.TransactionIsolation;
 /**
  */
 public class BinaryMetadataDelayedUpdateTest extends GridCommonAbstractTest {
-    public static final int GRIDS = 3;
+    public static final int GRIDS = 6;
 
     public static final int FIELDS = 10;
 
@@ -100,75 +100,68 @@ public class BinaryMetadataDelayedUpdateTest extends GridCommonAbstractTest {
     }
 
     public void testMetadataDelayedUpdate() throws Exception {
-        int blockIdx = 1;
+        int clId = 0;
 
-        Ignite client = null;
+        int clientCnt = 4;
 
         for (int i = 0; i < GRIDS; i++) {
-            startGrid(i);
+            IgniteEx ex = startGrid(i);
 
-            awaitPartitionMapExchange();
+            BlockTcpDiscoverySpi spi = (BlockTcpDiscoverySpi)ex.configuration().getDiscoverySpi();
 
-            if (blockIdx == i)
-                client = startGrid("client");
+            spi.blockOnNextMessage(new IgniteBiPredicate<ClusterNode, DiscoveryCustomMessage>() {
+                @Override public boolean apply(ClusterNode snd, DiscoveryCustomMessage msg) {
+                    if (msg instanceof MetadataUpdateAcceptedMessage)
+                        doSleep(50);
+
+                    return false;
+                }
+            });
+
+            for (int j = 0; j < clientCnt; j++)
+                startGrid("client" + clId++);
         }
-
-        startGrid("client2");
 
         awaitPartitionMapExchange();
 
-        assertNotNull(client);
+        int pool = GRIDS * clientCnt;
 
-        IgniteCache<Object, Object> cache1 = client.cache(DEFAULT_CACHE_NAME);
-        cache1.put(0, build(client, 0));
+        CountDownLatch l = new CountDownLatch(pool);
 
-        BlockTcpDiscoverySpi spi = (BlockTcpDiscoverySpi)grid(blockIdx).configuration().getDiscoverySpi();
+        Thread[] threads = new Thread[pool];
 
-        CountDownLatch l = new CountDownLatch(2);
+        for (int i = 0; i < pool; i++) {
+            int clientId = i / clientCnt;
 
-        spi.blockOnNextMessage(new IgniteBiPredicate<ClusterNode, DiscoveryCustomMessage>() {
-            @Override public boolean apply(ClusterNode snd, DiscoveryCustomMessage msg) {
-                boolean blocked = msg instanceof MetadataUpdateAcceptedMessage;
+            IgniteEx client = grid("client" + clientId);
 
-                if (blocked) {
-                    l.countDown();
+            final int finalI = i;
 
-                    log.info("Got custom message: [from=" + snd + ", msg=" + msg + ']');
+            Thread t = new Thread(new Runnable() {
+                @Override public void run() {
+                    try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
+                        l.countDown();
+                        l.await();
+
+                        client.cache(DEFAULT_CACHE_NAME).put(finalI, build(client, finalI));
+
+                        tx.commit();
+                    }
+                    catch (Throwable t) {
+                        log.error("err", t);
+                    }
                 }
+            });
 
-                return blocked;
-            }
-        });
-
-        IgniteInternalFuture fut = GridTestUtils.runAsync(new Runnable() {
-            @Override public void run() {
-                try {
-                    l.await();
-                }
-                catch (InterruptedException e) {
-                    fail();
-                }
-
-                spi.stopBlock();
-            }
-        });
-
-        // Map transaction to next node in ring.
-        int prim = (blockIdx + 1) % GRIDS;
-
-        IgniteEx grid = grid(prim);
-        Integer key = primaryKey(grid.cache(DEFAULT_CACHE_NAME));
-
-        try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
-            cache1.put(key, build(client, 1, 0));
-
-            tx.commit();
-        }
-        catch (Throwable t) {
-            log.error("err", t);
+            t.setName("WorkerClient" + i);
+            threads[i] = t;
         }
 
-        fut.get();
+        for (Thread thread : threads)
+            thread.start();
+
+        for (Thread thread : threads)
+            thread.join();
     }
 
     protected BinaryObject build(Ignite ignite, int... fields) {
