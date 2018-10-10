@@ -232,10 +232,10 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
 
         AffinityTopologyVersion topVer = top.readyTopologyVersion();
 
-        assert exchFut == null || exchFut.context().events().topologyVersion().equals(top.readyTopologyVersion()) :
-            "Topology version mismatch [exchId=" + exchId +
-            ", grp=" + grp.name() +
-            ", topVer=" + top.readyTopologyVersion() + ']';
+//        assert exchFut == null || exchFut.context().events().topologyVersion().equals(top.readyTopologyVersion()) :
+//            "Topology version mismatch [exchId=" + exchId +
+//            ", grp=" + grp.name() +
+//            ", topVer=" + top.readyTopologyVersion() + ']';
 
         GridDhtPreloaderAssignments assignments = new GridDhtPreloaderAssignments(exchId, topVer);
 

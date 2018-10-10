@@ -279,9 +279,13 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
             topReadyFut = exchFut;
 
-            rebalancedTopVer = AffinityTopologyVersion.NONE;
+            boolean changedAff = !(exchFut instanceof GridDhtPartitionsExchangeFuture && !((GridDhtPartitionsExchangeFuture)exchFut).changedAffinity());
 
-            lastTopChangeVer = exchTopVer;
+            if (changedAff) {
+                rebalancedTopVer = AffinityTopologyVersion.NONE;
+
+                lastTopChangeVer = exchTopVer;
+            }
 
             this.discoCache = discoCache;
             this.mvccCrd = mvccCrd;
@@ -521,12 +525,12 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     if (stopping)
                         return;
 
-                    assert lastTopChangeVer.equals(exchFut.initialVersion()) : "Invalid topology version [topVer=" + lastTopChangeVer +
-                        ", exchId=" + exchFut.exchangeId() + ']';
+//                    assert lastTopChangeVer.equals(exchFut.initialVersion()) : "Invalid topology version [topVer=" + lastTopChangeVer +
+//                        ", exchId=" + exchFut.exchangeId() + ']';
 
                     ExchangeDiscoveryEvents evts = exchFut.context().events();
 
-                    if (affReady) {
+                    if (exchFut.changedAffinity() && affReady) {
                         assert grp.affinity().lastVersion().equals(evts.topologyVersion()) : "Invalid affinity version [" +
                             "grp=" + grp.cacheOrGroupName() +
                             ", affVer=" + grp.affinity().lastVersion() +
@@ -629,6 +633,9 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
             return;
 
         GridDhtPartitionsExchangeFuture exchFut = (GridDhtPartitionsExchangeFuture) topReadyFut;
+
+        if (exchFut == null)
+            return;
 
         boolean grpStarted = exchFut.cacheGroupAddedOnExchange(grp.groupId(), grp.receivedFrom());
 
@@ -738,6 +745,10 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
                     return false;
 
                 assert readyTopVer.initialized() : readyTopVer;
+
+                if (!lastTopChangeVer.equals(readyTopVer))
+                    System.out.println("???");
+
                 assert lastTopChangeVer.equals(readyTopVer);
 
                 if (log.isDebugEnabled()) {
@@ -1909,30 +1920,30 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
         lock.writeLock().lock();
 
         try {
-            assert !(topReadyFut instanceof GridDhtPartitionsExchangeFuture) ||
-                assignment.topologyVersion().equals(((GridDhtPartitionsExchangeFuture)topReadyFut).context().events().topologyVersion());
+//            assert !(topReadyFut instanceof GridDhtPartitionsExchangeFuture) ||
+//                assignment.topologyVersion().equals(((GridDhtPartitionsExchangeFuture)topReadyFut).context().events().topologyVersion());
 
-            readyTopVer = lastTopChangeVer = assignment.topologyVersion();
-
-            if (fut != null)
+            if (fut != null) {
                 discoCache = fut.events().discoveryCache();
 
-            if (!grp.isReplicated()) {
-                boolean rebuildDiff = fut == null || fut.localJoinExchange() || fut.serverNodeDiscoveryEvent() ||
-                    fut.firstEvent().type() == EVT_DISCOVERY_CUSTOM_EVT || !diffFromAffinityVer.initialized();
+                if (fut.changedAffinity()) {
+                    readyTopVer = lastTopChangeVer = assignment.topologyVersion();
 
-                if (rebuildDiff) {
-                    if (assignment.topologyVersion().compareTo(diffFromAffinityVer) >= 0)
-                        rebuildDiff(assignment);
+                    if (!grp.isReplicated()) {
+                        boolean rebuildDiff = fut.localJoinExchange() || fut.serverNodeDiscoveryEvent() ||
+                            fut.firstEvent().type() == EVT_DISCOVERY_CUSTOM_EVT || !diffFromAffinityVer.initialized();
+
+                        if (rebuildDiff) {
+                            if (assignment.topologyVersion().compareTo(diffFromAffinityVer) >= 0)
+                                rebuildDiff(assignment);
+                        }
+                        else
+                            diffFromAffinityVer = readyTopVer;
+                    }
                 }
-                else
-                    diffFromAffinityVer = readyTopVer;
-
-                if (!updateRebalanceVer)
-                    updateRebalanceVersion(assignment.topologyVersion(), assignment.assignment());
             }
 
-            if (updateRebalanceVer)
+            if (updateRebalanceVer || !grp.isReplicated())
                 updateRebalanceVersion(assignment.topologyVersion(), assignment.assignment());
         }
         finally {
