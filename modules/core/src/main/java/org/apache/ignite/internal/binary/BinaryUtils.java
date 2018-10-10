@@ -48,6 +48,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.binary.BinaryCollectionFactory;
 import org.apache.ignite.binary.BinaryInvalidTypeException;
@@ -957,11 +958,17 @@ public class BinaryUtils {
      * @return New meta if old meta was null, old meta if no changes detected, merged meta otherwise.
      * @throws BinaryObjectException If merge failed due to metadata conflict.
      */
-    public static BinaryMetadata mergeMetadata(@Nullable BinaryMetadata oldMeta, BinaryMetadata newMeta) {
+    public static BinaryMetadata mergeMetadata(@Nullable BinaryMetadata oldMeta, BinaryMetadata newMeta, @Nullable IgniteLogger log) {
         assert newMeta != null;
 
-        if (oldMeta == null)
+        if (oldMeta == null) {
+            if (log != null) {
+                for (BinarySchema schema : newMeta.schemas())
+                    log.info("<<<DBG>>> Added schema id=" + schema.schemaId() + " for binary type=" + newMeta.typeId());
+            }
+
             return newMeta;
+        }
         else {
             assert oldMeta.typeId() == newMeta.typeId();
 
@@ -1036,8 +1043,12 @@ public class BinaryUtils {
             Collection<BinarySchema> mergedSchemas = new HashSet<>(oldMeta.schemas());
 
             for (BinarySchema newSchema : newMeta.schemas()) {
-                if (mergedSchemas.add(newSchema))
+                if (mergedSchemas.add(newSchema)) {
                     changed = true;
+
+                    if (log != null)
+                        log.info("<<<DBG>>> Added schema id=" + newSchema.schemaId() + " for binary type=" + newMeta.typeId());
+                }
             }
 
             // Return either old meta if no changes detected, or new merged meta.
