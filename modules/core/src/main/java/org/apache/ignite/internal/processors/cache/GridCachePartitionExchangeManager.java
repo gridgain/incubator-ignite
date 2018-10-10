@@ -2700,11 +2700,11 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                             exchFut.init(newCrd);
 
-                            if (!exchFut.isDone() && !exchFut.changedAffinity()) {
-                                exchFuts.readyTopVer(exchFut.initialVersion());
-
-                                completeAffReadyFuts(exchFut.initialVersion(), null);
-                            }
+//                            if (!exchFut.isDone() && !exchFut.changedAffinity()) {
+//                                exchFuts.readyTopVer(exchFut.initialVersion());
+//
+//                                completeAffReadyFuts(exchFut.initialVersion(), null);
+//                            }
 
                             int dumpCnt = 0;
 
