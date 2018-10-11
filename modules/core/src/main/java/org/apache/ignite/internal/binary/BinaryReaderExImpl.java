@@ -40,6 +40,7 @@ import org.apache.ignite.internal.binary.streams.BinaryInputStream;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.SB;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -2004,37 +2005,106 @@ public class BinaryReaderExImpl implements BinaryReader, BinaryRawReaderEx, Bina
 
         if (schema == null) {
             if (fieldIdLen != BinaryUtils.FIELD_ID_LEN) {
-                BinaryTypeImpl type = (BinaryTypeImpl) ctx.metadata(typeId, schemaId);
+                try {
+                    BinaryContext.BinaryMetaTraceData traceData = new BinaryContext.BinaryMetaTraceData();
 
-                BinaryMetadata meta = type != null ? type.metadata() : null;
+                    ctx.metaTraceCtxThreadLoc.set(traceData);
 
-                if (type == null || meta == null)
-                    throw new BinaryObjectException("Cannot find metadata for object with compact footer: " +
-                        typeId);
+                    BinaryTypeImpl type = (BinaryTypeImpl)ctx.metadata(typeId, schemaId);
 
-                Collection<BinarySchema> existingSchemas = meta.schemas();
+                    BinaryMetadata meta = type != null ? type.metadata() : null;
 
-                for (BinarySchema existingSchema : existingSchemas) {
-                    if (schemaId == existingSchema.schemaId()) {
-                        schema = existingSchema;
+                    if (type == null || meta == null)
+                        throw new BinaryObjectException("Cannot find metadata for object with compact footer: " +
+                            typeId);
 
-                        break;
+                    Collection<BinarySchema> origExistingSchemas = meta.schemas();
+
+                    for (BinarySchema existingSchema : origExistingSchemas) {
+                        if (schemaId == existingSchema.schemaId()) {
+                            schema = existingSchema;
+
+                            break;
+                        }
+                    }
+
+                    BinarySchema origSchema = schema;
+
+                    if (schema == null)
+                        ctx.log().info("<<<DBG>>>: Schema was not found: [typeId=" + typeId + ", schema=" + schemaId + ", trace=" + traceData + ']');
+
+                    // Waiting schema for 5 minutes.
+                    long stop = U.currentTimeMillis() + 6 * 50 * 1000;
+
+                    outer: while(schema == null) {
+                        try {
+                            Thread.sleep(1000);
+                        }
+                        catch (InterruptedException e) {
+                            ctx.log().info("<<<DBG>>>: Interrupted while waiting for schema [typeId=" + typeId + ", schema=" + schemaId + ", trace=" + traceData + ']');
+
+                            throw new BinaryObjectException("Interrupted while waiting for schema [typeId=" + typeId + ", schema=" + schemaId + ", trace=" + traceData + ']');
+                        }
+
+                        traceData = new BinaryContext.BinaryMetaTraceData();
+
+                        ctx.metaTraceCtxThreadLoc.set(traceData);
+
+                        type = (BinaryTypeImpl)ctx.metadata(typeId, schemaId);
+
+                        meta = type != null ? type.metadata() : null;
+
+                        if (type == null || meta == null)
+                            throw new BinaryObjectException("Cannot find metadata for object with compact footer: " +
+                                typeId);
+
+                        Collection<BinarySchema> existingSchemas = meta.schemas();
+
+                        for (BinarySchema existingSchema : existingSchemas) {
+                            if (schemaId == existingSchema.schemaId()) {
+                                schema = existingSchema;
+
+                                break outer;
+                            }
+                        }
+
+                        List<Integer> existingSchemaIds = new ArrayList<>(origExistingSchemas.size());
+
+                        for (BinarySchema existingSchema : origExistingSchemas)
+                            existingSchemaIds.add(existingSchema.schemaId());
+
+                        ctx.log().error("<<<DBG>>>: Schema still not found: [typeId=" + typeId + ", missingSchemaId=" +
+                            schemaId + ", existingSchemaIds=" + existingSchemaIds + ", trace=" + traceData + ']');
+
+                        if (U.currentTimeMillis() >= stop) {
+                            throw new BinaryObjectException("Timed out while waiting for schema" +
+                                " [typeName=" + type.typeName() +
+                                ", typeId=" + typeId +
+                                ", missingSchemaId=" + schemaId +
+                                ", existingSchemaIds=" + existingSchemaIds + ']'
+                            );
+                        }
+                    }
+
+                    // Even if schema is found after wait throw the exception to initiate failure.
+                    if (origSchema == null) {
+                        ctx.log().info("<<<DBG>>>: Schema was found after wait: [typeId=" + typeId + ", missingSchemaId=" + schemaId + ", trace=" + traceData + ']');
+
+                        List<Integer> existingSchemaIds = new ArrayList<>(origExistingSchemas.size());
+
+                        for (BinarySchema existingSchema : origExistingSchemas)
+                            existingSchemaIds.add(existingSchema.schemaId());
+
+                        throw new BinaryObjectException("Cannot find schema for object with compact footer" +
+                            " [typeName=" + type.typeName() +
+                            ", typeId=" + typeId +
+                            ", missingSchemaId=" + schemaId +
+                            ", existingSchemaIds=" + existingSchemaIds + ']'
+                        );
                     }
                 }
-
-                if (schema == null) {
-                    List<Integer> existingSchemaIds = new ArrayList<>(existingSchemas.size());
-
-                    for (BinarySchema existingSchema : existingSchemas)
-                        existingSchemaIds.add(existingSchema.schemaId());
-
-
-                    throw new BinaryObjectException("Cannot find schema for object with compact footer" +
-                        " [typeName=" + type.typeName() +
-                        ", typeId=" + typeId +
-                        ", missingSchemaId=" + schemaId +
-                        ", existingSchemaIds=" + existingSchemaIds + ']'
-                    );
+                finally {
+                    ctx.metaTraceCtxThreadLoc.remove();
                 }
             }
             else

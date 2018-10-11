@@ -93,4 +93,12 @@ final class MetadataUpdateResult {
          */
         UPDATE_DISABLED
     }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return "[" +
+            "resType=" + resType +
+            ", error=" + error +
+            ']';
+    }
 }

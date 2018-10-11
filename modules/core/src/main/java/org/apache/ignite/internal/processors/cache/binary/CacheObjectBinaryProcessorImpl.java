@@ -65,6 +65,7 @@ import org.apache.ignite.internal.processors.cache.CacheObjectValueContext;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheUtils;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.cacheobject.IgniteCacheObjectProcessorImpl;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -76,6 +77,7 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T1;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.A;
+import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteClosure;
@@ -173,7 +175,7 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
 
                         BinaryMetadata oldMeta = holder != null ? holder.metadata() : null;
 
-                        BinaryMetadata mergedMeta = BinaryUtils.mergeMetadata(oldMeta, ((BinaryTypeImpl)newMeta).metadata());
+                        BinaryMetadata mergedMeta = BinaryUtils.mergeMetadata(oldMeta, ((BinaryTypeImpl)newMeta).metadata(), log);
 
                         if (oldMeta != mergedMeta)
                             metadataLocCache.put(typeId, new BinaryMetadataHolder(mergedMeta, 0, 0));
@@ -447,16 +449,31 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
 
         BinaryMetadata newMeta0 = ((BinaryTypeImpl)newMeta).metadata();
 
+        boolean schemaChanged = true;
+
+        BinaryMetadataHolder metaHolder = null;
+
+        double dur = -1;
+
+        GridFutureAdapter<MetadataUpdateResult> fut = null;
+
+        int[] ref = new int[1];
+
+        ref[0] = -1;
+
         try {
-            BinaryMetadataHolder metaHolder = metadataLocCache.get(typeId);
+            metaHolder = metadataLocCache.get(typeId);
 
             BinaryMetadata oldMeta = metaHolder != null ? metaHolder.metadata() : null;
 
-            BinaryMetadata mergedMeta = BinaryUtils.mergeMetadata(oldMeta, newMeta0);
+            BinaryMetadata mergedMeta = BinaryUtils.mergeMetadata(oldMeta, newMeta0, log);
 
             //metadata requested to be added is exactly the same as already presented in the cache
-            if (mergedMeta == oldMeta)
+            if (mergedMeta == oldMeta) {
+                schemaChanged = false;
+
                 return;
+            }
 
             if (failIfUnregistered)
                 throw new UnregisteredBinaryTypeException(
@@ -466,7 +483,13 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
                         "dev-list.",
                     typeId, mergedMeta);
 
-            MetadataUpdateResult res = transport.requestMetadataUpdate(mergedMeta).get();
+            long t0 = System.nanoTime();
+
+            fut = transport.requestMetadataUpdate(mergedMeta, ref);
+
+            MetadataUpdateResult res = fut.get();
+
+            dur = (System.nanoTime() - t0)/1000/1000.;
 
             assert res != null;
 
@@ -475,6 +498,21 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
         }
         catch (IgniteCheckedException e) {
             throw new BinaryObjectException("Failed to update meta data for type: " + newMeta.typeName(), e);
+        }
+        finally {
+            if (log.isInfoEnabled()) {
+                GridNearTxLocal tx = ctx.cache().context().tm().userTx();
+
+                log.info("<<<DBG>>>: Completed metadata update [typeId=" + typeId +
+                    ", typeName=" + newMeta.typeName() +
+                    ", schemaChanged=" + schemaChanged +
+                    ", duration=" + dur +
+                    ", holder=" + metaHolder +
+                    ", futQueueSize=" + ref[0] +
+                    ", fut=" + fut +
+                    ", tx=" + CU.txString(tx) +
+                    ']');
+            }
         }
     }
 
@@ -490,7 +528,7 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
         BinaryMetadata oldMeta = metaHolder != null ? metaHolder.metadata() : null;
 
         try {
-            BinaryMetadata mergedMeta = BinaryUtils.mergeMetadata(oldMeta, newMeta0);
+            BinaryMetadata mergedMeta = BinaryUtils.mergeMetadata(oldMeta, newMeta0, log);
 
             if (!ctx.clientNode())
                 metadataFileStore.mergeAndWriteMetadata(mergedMeta);
@@ -539,11 +577,11 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
             if (holder.pendingVersion() - holder.acceptedVersion() > 0) {
                 GridFutureAdapter<MetadataUpdateResult> fut = transport.awaitMetadataUpdate(typeId, holder.pendingVersion());
 
-                if (log.isDebugEnabled() && !fut.isDone())
-                    log.debug("Waiting for update for" +
-                            " [typeId=" + typeId +
-                            ", pendingVer=" + holder.pendingVersion() +
-                            ", acceptedVer=" + holder.acceptedVersion() + "]");
+                if (log.isInfoEnabled() && !fut.isDone())
+                    log.info("Waiting for update for" +
+                        " [typeId=" + typeId +
+                        ", pendingVer=" + holder.pendingVersion() +
+                        ", acceptedVer=" + holder.acceptedVersion() + "]");
 
                 try {
                     fut.get();
@@ -561,6 +599,8 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
 
     /** {@inheritDoc} */
     @Nullable @Override public BinaryType metadata(final int typeId, final int schemaId) {
+        BinaryContext.BinaryMetaTraceData traceData = binaryContext().metaTraceCtxThreadLoc.get();
+
         BinaryMetadataHolder holder = metadataLocCache.get(typeId);
 
         if (ctx.clientNode()) {
@@ -576,18 +616,30 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
             }
         }
         else if (holder != null) {
-            if (IgniteThread.current() instanceof IgniteDiscoveryThread)
+            if (IgniteThread.current() instanceof IgniteDiscoveryThread) {
+                if (traceData != null)
+                    traceData.disco = true;
+
                 return holder.metadata().wrap(binaryCtx);
+            }
+
+            if (traceData != null) {
+                traceData.pending = holder.pendingVersion();
+                traceData.accepted = holder.acceptedVersion();
+            }
 
             if (holder.pendingVersion() - holder.acceptedVersion() > 0) {
                 GridFutureAdapter<MetadataUpdateResult> fut = transport.awaitMetadataUpdate(
                         typeId,
-                        holder.pendingVersion());
+                    holder.pendingVersion());
 
-                if (log.isDebugEnabled() && !fut.isDone())
-                    log.debug("Waiting for update for" +
-                            " [typeId=" + typeId
-                            + ", schemaId=" + schemaId
+                if (traceData != null)
+                    traceData.doneFut = fut.isDone();
+
+                if (log.isInfoEnabled() && !fut.isDone())
+                    log.info("Waiting for update for" +
+                        " [typeId=" + typeId
+                        + ", schemaId=" + schemaId
                             + ", pendingVer=" + holder.pendingVersion()
                             + ", acceptedVer=" + holder.acceptedVersion() + "]");
 
@@ -942,7 +994,7 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
                 continue;
 
             try {
-                BinaryUtils.mergeMetadata(locMeta, rmtMeta);
+                BinaryUtils.mergeMetadata(locMeta, rmtMeta, log);
             }
             catch (Exception e) {
                 String locMsg = "Exception was thrown when merging binary metadata from node %s: %s";
@@ -1001,7 +1053,7 @@ public class CacheObjectBinaryProcessorImpl extends IgniteCacheObjectProcessorIm
                 BinaryMetadata newMeta = metaEntry.getValue().metadata();
                 BinaryMetadata localMeta = localMetaHolder.metadata();
 
-                BinaryMetadata mergedMeta = BinaryUtils.mergeMetadata(localMeta, newMeta);
+                BinaryMetadata mergedMeta = BinaryUtils.mergeMetadata(localMeta, newMeta, log);
 
                 if (mergedMeta != localMeta) {
                     //put mergedMeta to local cache and store to disk

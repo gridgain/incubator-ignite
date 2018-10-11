@@ -675,8 +675,8 @@ class ClientImpl extends TcpDiscoveryImpl {
         InetSocketAddress addr) {
         assert addr != null;
 
-        if (log.isDebugEnabled())
-            log.debug("Send join request [addr=" + addr + ", reconnect=" + recon +
+        if (log.isInfoEnabled())
+            log.info("Send join request [addr=" + addr + ", reconnect=" + recon +
                 ", locNodeId=" + getLocalNodeId() + ']');
 
         Collection<Throwable> errs = null;
