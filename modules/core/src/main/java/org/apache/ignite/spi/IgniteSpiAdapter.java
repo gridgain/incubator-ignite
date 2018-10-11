@@ -17,16 +17,6 @@
 
 package org.apache.ignite.spi;
 
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.management.JMException;
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -41,7 +31,6 @@ import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.timeout.GridSpiTimeoutObject;
 import org.apache.ignite.internal.util.IgniteExceptionRegistry;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiPredicate;
@@ -56,6 +45,17 @@ import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.spi.discovery.DiscoveryDataBag;
 import org.jetbrains.annotations.Nullable;
+
+import javax.management.JMException;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_SKIP_CONFIGURATION_CONSISTENCY_CHECK;
 import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
@@ -519,7 +519,7 @@ public abstract class IgniteSpiAdapter implements IgniteSpi {
         if (!enabled)
             return;
 
-        if (!checkClient && (CU.clientNode(getLocalNode()) || CU.clientNode(node)))
+        if (!checkClient && (getLocalNode().isClient() || node.isClient()))
             return;
 
         String clsAttr = createSpiAttributeName(IgniteNodeAttributes.ATTR_SPI_CLASS);

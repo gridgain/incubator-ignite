@@ -17,32 +17,6 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.Objects;
-import java.util.TreeMap;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.affinity.AffinityFunction;
@@ -66,7 +40,6 @@ import org.apache.ignite.internal.managers.discovery.DiscoveryLocalJoinData;
 import org.apache.ignite.internal.managers.eventstorage.DiscoveryEventListener;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentCache;
-import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.latch.ExchangeLatchManager;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTopologyFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.CachePartitionFullCountersMap;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.CachePartitionPartialCountersMap;
@@ -118,6 +91,33 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.thread.IgniteThread;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Objects;
+import java.util.TreeMap;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_IO_DUMP_ON_TIMEOUT;
@@ -2035,7 +2035,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                         ", mergedFut=" + fut.initialVersion() +
                         ", evt=" + IgniteUtils.gridEventName(fut.firstEvent().type()) +
                         ", evtNode=" + fut.firstEvent().eventNode().id()+
-                        ", evtNodeClient=" + CU.clientNode(fut.firstEvent().eventNode())+ ']');
+                        ", evtNodeClient=" + fut.firstEvent().eventNode().isClient() + ']');
                 }
 
                 DiscoveryEvent evt = fut.firstEvent();
@@ -2133,7 +2133,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                             ", mergedFut=" + fut.initialVersion() +
                             ", evt=" + IgniteUtils.gridEventName(fut.firstEvent().type()) +
                             ", evtNode=" + fut.firstEvent().eventNode().id() +
-                            ", evtNodeClient=" + CU.clientNode(fut.firstEvent().eventNode())+ ']');
+                            ", evtNodeClient=" + fut.firstEvent().eventNode().isClient() + ']');
                     }
 
                     addDiscoEvtForTest(fut.firstEvent());
@@ -2468,7 +2468,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                         // because only current exchange future can have multiple discovery events (exchange merge).
                         ClusterNode triggeredBy = ((GridDhtPartitionsExchangeFuture) task).firstEvent().eventNode();
 
-                        if (!CU.clientNode(triggeredBy))
+                        if (!triggeredBy.isClient())
                             return true;
                     }
                 }

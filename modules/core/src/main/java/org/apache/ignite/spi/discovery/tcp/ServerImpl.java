@@ -17,49 +17,6 @@
 
 package org.apache.ignite.spi.discovery.tcp;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectStreamException;
-import java.io.OutputStream;
-import java.io.Serializable;
-import java.io.StreamCorruptedException;
-import java.net.ConnectException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Queue;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.UUID;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import javax.net.ssl.SSLException;
-import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.SSLSocket;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
@@ -145,6 +102,50 @@ import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryServerOnlyCustom
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryStatusCheckMessage;
 import org.apache.ignite.thread.IgniteThreadPoolExecutor;
 import org.jetbrains.annotations.Nullable;
+
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLSocket;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectStreamException;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.io.StreamCorruptedException;
+import java.net.ConnectException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Queue;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.UUID;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_BINARY_MARSHALLER_USE_STRING_SERIALIZATION_VER_2;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_DISCOVERY_CLIENT_RECONNECT_HISTORY_SIZE;
@@ -565,7 +566,7 @@ class ServerImpl extends TcpDiscoveryImpl {
         if (log.isInfoEnabled())
             log.info("Finished node ping [nodeId=" + nodeId + ", res=" + res + ", time=" + (end - start) + "ms]");
 
-        if (!res && !node.isClient() && nodeAlive(nodeId)) {
+        if (!res && node.clientRouterNodeId() == null && nodeAlive(nodeId)) {
             LT.warn(log, "Failed to ping node (status check will be initiated): " + nodeId);
 
             msgWorker.addMessage(new TcpDiscoveryStatusCheckMessage(locNode, node.id()));
@@ -588,7 +589,7 @@ class ServerImpl extends TcpDiscoveryImpl {
 
         UUID clientNodeId = null;
 
-        if (node.isClient()) {
+        if (node.clientRouterNodeId() != null) {
             clientNodeId = node.id();
 
             node = ring.node(node.clientRouterNodeId());
@@ -1973,7 +1974,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                         ring.allNodes(),
                         new C1<TcpDiscoveryNode, Collection<InetSocketAddress>>() {
                             @Override public Collection<InetSocketAddress> apply(TcpDiscoveryNode node) {
-                                return !node.isClient() ? spi.getNodeAddresses(node) :
+                                return node.clientRouterNodeId() == null ? spi.getNodeAddresses(node) :
                                     Collections.<InetSocketAddress>emptyList();
                             }
                         }
@@ -2162,7 +2163,7 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                 TcpDiscoveryNode node = addedMsg.node();
 
-                if (node.isClient() && !msgs.contains(msg)) {
+                if (node.clientRouterNodeId() != null && !msgs.contains(msg)) {
                     Collection<TcpDiscoveryNode> allNodes = ring.allNodes();
 
                     Collection<TcpDiscoveryNode> top = new ArrayList<>(allNodes.size());
@@ -2251,7 +2252,7 @@ class ServerImpl extends TcpDiscoveryImpl {
         @Nullable Collection<TcpDiscoveryAbstractMessage> messages(@Nullable IgniteUuid lastMsgId,
             TcpDiscoveryNode node)
         {
-            assert node != null && node.isClient() : node;
+            assert node != null && node.clientRouterNodeId() != null : node;
 
             if (lastMsgId == null) {
                 // Client connection failed before it received TcpDiscoveryNodeAddedMessage.
@@ -3617,7 +3618,7 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                                 authFailedMsg = "Authentication subject is not serializable";
                             }
-                            else if (!node.isClient() &&
+                            else if (node.clientRouterNodeId() == null &&
                                 !subj.systemOperationAllowed(SecurityPermission.JOIN_AS_SERVER))
                                 authFailedMsg = "Node is not authorised to join as a server node";
 
@@ -4026,13 +4027,13 @@ class ServerImpl extends TcpDiscoveryImpl {
          */
         private void trySendMessageDirectly(TcpDiscoveryNode node, TcpDiscoveryAbstractMessage msg)
             throws IgniteSpiException {
-            if (node.isClient()) {
+            if (node.clientRouterNodeId() != null) {
                 TcpDiscoveryNode routerNode = ring.node(node.clientRouterNodeId());
 
                 if (routerNode == null)
                     throw new IgniteSpiException("Router node for client does not exist: " + node);
 
-                if (routerNode.isClient())
+                if (routerNode.clientRouterNodeId() != null)
                     throw new IgniteSpiException("Router node is a client node: " + node);
 
                 if (routerNode.id().equals(getLocalNodeId())) {
@@ -4114,7 +4115,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                     TcpDiscoveryNodeAddFinishedMessage addFinishMsg = new TcpDiscoveryNodeAddFinishedMessage(locNodeId,
                         node.id());
 
-                    if (node.isClient()) {
+                    if (node.clientRouterNodeId() != null) {
                         addFinishMsg.clientDiscoData(msg.gridDiscoveryData());
 
                         addFinishMsg.clientNodeAttributes(node.attributes());
@@ -4502,7 +4503,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                     notifyDiscovery(EVT_NODE_JOINED, topVer, node);
 
                 try {
-                    if (spi.ipFinder.isShared() && locNodeCoord && !node.isClient())
+                    if (spi.ipFinder.isShared() && locNodeCoord && node.clientRouterNodeId() == null)
                         spi.ipFinder.registerAddresses(node.socketAddresses());
                 }
                 catch (IgniteSpiException e) {
@@ -6372,7 +6373,7 @@ class ServerImpl extends TcpDiscoveryImpl {
 
             TcpDiscoveryNode node = ring.node(nodeId);
 
-            assert node == null || node.isClient();
+            assert node == null || node.clientRouterNodeId() != null;
 
             if (node != null) {
                 node.clientRouterNodeId(msg.routerNodeId());

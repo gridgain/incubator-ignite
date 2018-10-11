@@ -17,29 +17,6 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.cache.Cache;
-import javax.cache.CacheException;
-import javax.cache.configuration.Factory;
-import javax.cache.expiry.Duration;
-import javax.cache.expiry.ExpiryPolicy;
-import javax.cache.integration.CacheLoader;
-import javax.cache.integration.CacheWriter;
-import javax.cache.integration.CacheWriterException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
@@ -65,7 +42,6 @@ import org.apache.ignite.internal.IgniteNodeAttributes;
 import org.apache.ignite.internal.cluster.ClusterGroupEmptyCheckedException;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
 import org.apache.ignite.internal.cluster.ClusterTopologyServerNotFoundException;
-import org.apache.ignite.internal.managers.discovery.IgniteClusterNode;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.distributed.GridDistributedLockCancelledException;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtCacheAdapter;
@@ -99,13 +75,36 @@ import org.apache.ignite.lang.IgniteReducer;
 import org.apache.ignite.lifecycle.LifecycleAware;
 import org.apache.ignite.plugin.CachePluginConfiguration;
 import org.apache.ignite.plugin.security.SecurityException;
-import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionRollbackException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import javax.cache.Cache;
+import javax.cache.CacheException;
+import javax.cache.configuration.Factory;
+import javax.cache.expiry.Duration;
+import javax.cache.expiry.ExpiryPolicy;
+import javax.cache.integration.CacheLoader;
+import javax.cache.integration.CacheWriter;
+import javax.cache.integration.CacheWriterException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_SKIP_CONFIGURATION_CONSISTENCY_CHECK;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -1355,35 +1354,11 @@ public class GridCacheUtils {
 
     /**
      * @param node Node.
-     * @return {@code True} if given node is client node (has flag {@link IgniteConfiguration#isClientMode()} set).
-     */
-    public static boolean clientNode(ClusterNode node) {
-        if (node instanceof IgniteClusterNode)
-            return ((IgniteClusterNode)node).isCacheClient();
-        else
-            return clientNodeDirect(node);
-    }
-
-    /**
-     * @param node Node.
-     * @return {@code True} if given node is client node (has flag {@link IgniteConfiguration#isClientMode()} set).
-     */
-    @SuppressWarnings("ConstantConditions")
-    public static boolean clientNodeDirect(ClusterNode node) {
-        Boolean clientModeAttr = node.attribute(IgniteNodeAttributes.ATTR_CLIENT_MODE);
-
-        assert clientModeAttr != null : node;
-
-        return clientModeAttr != null && clientModeAttr;
-    }
-
-    /**
-     * @param node Node.
      * @param filter Node filter.
      * @return {@code True} if node is not client node and pass given filter.
      */
     public static boolean affinityNode(ClusterNode node, IgnitePredicate<ClusterNode> filter) {
-        return !node.isDaemon() && !clientNode(node) && filter.apply(node);
+        return !node.isDaemon() && !node.isClient() && filter.apply(node);
     }
 
     /**

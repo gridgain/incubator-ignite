@@ -17,35 +17,6 @@
 
 package org.apache.ignite.spi.discovery.tcp;
 
-import java.io.BufferedOutputStream;
-import java.io.EOFException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.Serializable;
-import java.io.StreamCorruptedException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLException;
-import javax.net.ssl.SSLServerSocketFactory;
-import javax.net.ssl.SSLSocketFactory;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteAuthenticationException;
 import org.apache.ignite.IgniteCheckedException;
@@ -55,9 +26,9 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.AddressResolver;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
+import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.managers.discovery.IgniteDiscoverySpi;
 import org.apache.ignite.internal.managers.discovery.IgniteDiscoverySpiInternalListener;
-import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
@@ -108,6 +79,36 @@ import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryDuplicateIdMessa
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryEnsureDelivery;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryJoinRequestMessage;
 import org.jetbrains.annotations.Nullable;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocketFactory;
+import java.io.BufferedOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.io.StreamCorruptedException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CONSISTENT_ID_BY_HOST_WITHOUT_PORT;
 import static org.apache.ignite.IgniteSystemProperties.getBoolean;
@@ -516,7 +517,9 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
      * of {@link IgniteConfiguration#isClientMode()}
      *
      * @return forceServerMode flag.
+     * @deprecated Will be removed at 3.0.
      */
+    @Deprecated
     public boolean isForceServerMode() {
         return forceSrvMode;
     }
@@ -529,8 +532,10 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
      *
      * @param forceSrvMode forceServerMode flag.
      * @return {@code this} for chaining.
+     * @deprecated Will be removed at 3.0.
      */
     @IgniteSpiConfiguration(optional = true)
+    @Deprecated
     public TcpDiscoverySpi setForceServerMode(boolean forceSrvMode) {
         this.forceSrvMode = forceSrvMode;
 
@@ -1931,9 +1936,9 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
         DiscoveryDataBag dataBag;
 
         if (dataPacket.joiningNodeId().equals(locNode.id()))
-            dataBag = dataPacket.unmarshalGridData(marshaller(), clsLdr, locNode.isClient(), log);
+            dataBag = dataPacket.unmarshalGridData(marshaller(), clsLdr, locNode.clientRouterNodeId() != null, log);
         else
-            dataBag = dataPacket.unmarshalJoiningNodeData(marshaller(), clsLdr, locNode.isClient(), log);
+            dataBag = dataPacket.unmarshalJoiningNodeData(marshaller(), clsLdr, locNode.clientRouterNodeId() != null, log);
 
 
         exchange.onExchange(dataBag);

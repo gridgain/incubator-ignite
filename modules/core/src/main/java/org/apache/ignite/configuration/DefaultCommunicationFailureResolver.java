@@ -17,22 +17,22 @@
 
 package org.apache.ignite.configuration;
 
+import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.cluster.graph.BitSetIterator;
+import org.apache.ignite.internal.cluster.graph.ClusterGraph;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.resources.LoggerResource;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.BitSet;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.IgniteLogger;
-import org.apache.ignite.cluster.ClusterNode;
-import org.apache.ignite.internal.cluster.graph.BitSetIterator;
-import org.apache.ignite.internal.cluster.graph.ClusterGraph;
-import org.apache.ignite.internal.util.typedef.internal.CU;
-import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.resources.LoggerResource;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Default Communication Failure Resolver.
@@ -67,11 +67,11 @@ public class DefaultCommunicationFailureResolver implements CommunicationFailure
     @Nullable private ClusterPart findLargestConnectedCluster(CommunicationFailureContext ctx) {
         List<ClusterNode> srvNodes = ctx.topologySnapshot()
             .stream()
-            .filter(node -> !CU.clientNode(node))
+            .filter(node -> !node.isClient())
             .collect(Collectors.toList());
 
         // Exclude client nodes from analysis.
-        ClusterGraph graph = new ClusterGraph(ctx, CU::clientNode);
+        ClusterGraph graph = new ClusterGraph(ctx, ClusterNode::isClient);
 
         List<BitSet> components = graph.findConnectedComponents();
 
@@ -153,7 +153,7 @@ public class DefaultCommunicationFailureResolver implements CommunicationFailure
             ClusterNode node = allNodes.get(idx);
 
             // Client nodes will be processed separately.
-            if (CU.clientNode(node))
+            if (node.isClient())
                 continue;
 
             if (!clusterPart.srvNodesSet.get(idx))
@@ -164,7 +164,7 @@ public class DefaultCommunicationFailureResolver implements CommunicationFailure
         for (int idx = 0; idx < allNodes.size(); idx++) {
             ClusterNode node = allNodes.get(idx);
 
-            if (CU.clientNode(node) && !clusterPart.connectedClients.contains(node))
+            if (node.isClient() && !clusterPart.connectedClients.contains(node))
                 ctx.killNode(node);
         }
     }
@@ -182,7 +182,7 @@ public class DefaultCommunicationFailureResolver implements CommunicationFailure
         List<ClusterNode> allNodes = ctx.topologySnapshot();
 
         for (ClusterNode node : allNodes) {
-            if (!CU.clientNode(node))
+            if (!node.isClient())
                 continue;
 
             boolean hasConnections = true;

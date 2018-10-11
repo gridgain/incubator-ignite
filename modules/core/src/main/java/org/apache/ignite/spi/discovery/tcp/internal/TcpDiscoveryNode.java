@@ -17,6 +17,24 @@
 
 package org.apache.ignite.spi.discovery.tcp.internal;
 
+import org.apache.ignite.cache.CacheMetrics;
+import org.apache.ignite.cluster.ClusterMetrics;
+import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.ClusterMetricsSnapshot;
+import org.apache.ignite.internal.IgniteNodeAttributes;
+import org.apache.ignite.internal.managers.discovery.IgniteClusterNode;
+import org.apache.ignite.internal.util.lang.GridMetadataAwareAdapter;
+import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.tostring.GridToStringInclude;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.lang.IgnitePredicate;
+import org.apache.ignite.lang.IgniteProductVersion;
+import org.apache.ignite.spi.discovery.DiscoveryMetricsProvider;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.jetbrains.annotations.Nullable;
+
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -30,24 +48,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.cache.CacheMetrics;
-import org.apache.ignite.cluster.ClusterMetrics;
-import org.apache.ignite.cluster.ClusterNode;
-import org.apache.ignite.internal.ClusterMetricsSnapshot;
-import org.apache.ignite.internal.IgniteNodeAttributes;
-import org.apache.ignite.internal.managers.discovery.IgniteClusterNode;
-import org.apache.ignite.internal.util.lang.GridMetadataAwareAdapter;
-import org.apache.ignite.internal.util.tostring.GridToStringExclude;
-import org.apache.ignite.internal.util.tostring.GridToStringInclude;
-import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.internal.util.typedef.internal.CU;
-import org.apache.ignite.internal.util.typedef.internal.S;
-import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.lang.IgnitePredicate;
-import org.apache.ignite.lang.IgniteProductVersion;
-import org.apache.ignite.spi.discovery.DiscoveryMetricsProvider;
-import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
-import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_DAEMON;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_NODE_CONSISTENT_ID;
@@ -467,7 +467,15 @@ public class TcpDiscoveryNode extends GridMetadataAwareAdapter implements Ignite
 
     /** {@inheritDoc} */
     @Override public boolean isClient() {
-        return clientRouterNodeId != null;
+        if (!cacheCliInit) {
+            Boolean clientModeAttr = ((ClusterNode) this).attribute(IgniteNodeAttributes.ATTR_CLIENT_MODE);
+
+            cacheCli = clientModeAttr != null && clientModeAttr;
+
+            cacheCliInit = true;
+        }
+
+        return cacheCli;
     }
 
     /**
@@ -526,17 +534,6 @@ public class TcpDiscoveryNode extends GridMetadataAwareAdapter implements Ignite
         node.clientRouterNodeId = clientRouterNodeId;
 
         return node;
-    }
-
-    /** {@inheritDoc} */
-    public boolean isCacheClient() {
-        if (!cacheCliInit) {
-            cacheCli = CU.clientNodeDirect(this);
-
-            cacheCliInit = true;
-        }
-
-        return cacheCli;
     }
 
     /** {@inheritDoc} */
@@ -627,7 +624,7 @@ public class TcpDiscoveryNode extends GridMetadataAwareAdapter implements Ignite
         ver = (IgniteProductVersion)in.readObject();
         clientRouterNodeId = U.readUuid(in);
 
-        if (isClient())
+        if (clientRouterNodeId() != null)
             consistentId = consistentIdAttr != null ? consistentIdAttr : id;
         else
             consistentId = consistentIdAttr != null ? consistentIdAttr : U.consistentId(addrs, discPort);

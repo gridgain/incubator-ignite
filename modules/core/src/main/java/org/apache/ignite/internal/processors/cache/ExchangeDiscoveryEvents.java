@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.CacheEvent;
@@ -29,14 +26,16 @@ import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.managers.discovery.DiscoCache;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
-import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
 import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
 import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
-import static org.apache.ignite.internal.events.DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT;
 
 /**
  * Discovery events processed in single exchange (contain multiple events if exchanges for multiple
@@ -127,7 +126,7 @@ public class ExchangeDiscoveryEvents {
 
         ClusterNode node = evt.eventNode();
 
-        if (!CU.clientNode(node)) {
+        if (!node.isClient()) {
             lastSrvEvt = evt;
 
             srvEvtTopVer = new AffinityTopologyVersion(evt.topologyVersion(), 0);
@@ -135,7 +134,7 @@ public class ExchangeDiscoveryEvents {
             if (evt.type()== EVT_NODE_JOINED)
                 srvJoin = true;
             else if (evt.type() == EVT_NODE_LEFT || evt.type() == EVT_NODE_FAILED)
-                srvLeft = !CU.clientNode(node);
+                srvLeft = !node.isClient();
         }
     }
 
@@ -151,7 +150,7 @@ public class ExchangeDiscoveryEvents {
      * @return {@code True} if given event is {@link EventType#EVT_NODE_FAILED} or {@link EventType#EVT_NODE_LEFT}.
      */
     public static boolean serverLeftEvent(DiscoveryEvent evt) {
-        return  ((evt.type() == EVT_NODE_FAILED || evt.type() == EVT_NODE_LEFT) && !CU.clientNode(evt.eventNode()));
+        return  ((evt.type() == EVT_NODE_FAILED || evt.type() == EVT_NODE_LEFT) && !evt.eventNode().isClient());
     }
 
     /**
@@ -159,7 +158,7 @@ public class ExchangeDiscoveryEvents {
      * @return {@code True} if given event is {@link EventType#EVT_NODE_JOINED}.
      */
     public static boolean serverJoinEvent(DiscoveryEvent evt) {
-        return  (evt.type() == EVT_NODE_JOINED && !CU.clientNode(evt.eventNode()));
+        return  (evt.type() == EVT_NODE_JOINED && !evt.eventNode().isClient());
     }
 
     /**

@@ -17,33 +17,6 @@
 
 package org.apache.ignite.internal.managers.discovery;
 
-import java.io.Serializable;
-import java.lang.management.GarbageCollectorMXBean;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
-import java.lang.management.OperatingSystemMXBean;
-import java.lang.management.RuntimeMXBean;
-import java.lang.management.ThreadMXBean;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteClientDisconnectedException;
 import org.apache.ignite.IgniteException;
@@ -133,10 +106,39 @@ import org.apache.ignite.spi.discovery.DiscoverySpiMutableCustomMessageSupport;
 import org.apache.ignite.spi.discovery.DiscoverySpiNodeAuthenticator;
 import org.apache.ignite.spi.discovery.DiscoverySpiOrderSupport;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 import org.apache.ignite.thread.IgniteThread;
 import org.apache.ignite.thread.OomExceptionHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.io.Serializable;
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
+import java.lang.management.OperatingSystemMXBean;
+import java.lang.management.RuntimeMXBean;
+import java.lang.management.ThreadMXBean;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_BINARY_MARSHALLER_USE_STRING_SERIALIZATION_VER_2;
@@ -210,7 +212,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
     /** Predicate filtering client nodes. */
     private static final IgnitePredicate<ClusterNode> FILTER_CLI = new P1<ClusterNode>() {
         @Override public boolean apply(ClusterNode n) {
-            return CU.clientNode(n);
+            return n.isClient();
         }
     };
 
@@ -2332,8 +2334,12 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
     public boolean reconnectSupported() {
         DiscoverySpi spi = getSpi();
 
-        return ctx.discovery().localNode().isClient() &&
-            (spi instanceof IgniteDiscoverySpi) &&
+        ClusterNode clusterNode = ctx.discovery().localNode();
+
+        boolean client = (clusterNode instanceof TcpDiscoveryNode) ?
+                (((TcpDiscoveryNode) clusterNode).clientRouterNodeId() != null) : clusterNode.isClient();
+
+        return client && (spi instanceof IgniteDiscoverySpi) &&
             ((IgniteDiscoverySpi)spi).clientReconnectSupported();
     }
 
@@ -2393,7 +2399,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 if (!node.isLocal())
                     rmtNodes.add(node);
 
-                if (!CU.clientNode(node)) {
+                if (!node.isClient()) {
                     srvNodes.add(node);
 
                     if (minSrvVer == null)

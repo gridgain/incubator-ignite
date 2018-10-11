@@ -17,16 +17,6 @@
 
 package org.apache.ignite.spi.discovery.zk.internal;
 
-import java.io.Externalizable;
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 import org.apache.ignite.cache.CacheMetrics;
 import org.apache.ignite.cluster.ClusterMetrics;
 import org.apache.ignite.internal.ClusterMetricsSnapshot;
@@ -39,6 +29,17 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.spi.discovery.DiscoveryMetricsProvider;
 import org.jetbrains.annotations.Nullable;
+
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_DAEMON;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_NODE_CONSISTENT_ID;
@@ -166,11 +167,6 @@ public class ZookeeperClusterNode implements IgniteClusterNode, Externalizable, 
         map.put(ATTR_NODE_CONSISTENT_ID, consistentId);
 
         attrs = Collections.unmodifiableMap(map);
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean isCacheClient() {
-        return isClient();
     }
 
     /** {@inheritDoc} */
