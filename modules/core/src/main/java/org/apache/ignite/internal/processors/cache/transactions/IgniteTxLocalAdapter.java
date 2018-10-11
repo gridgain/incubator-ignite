@@ -843,14 +843,14 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
 
                         IgniteCheckedException err = new IgniteTxHeuristicCheckedException("Failed to locally write to cache " +
                             "(all transaction entries will be invalidated, however there was a window when " +
-                            "entries for this transaction were visible to others): " + this, ex);
+                            "entries for this transaction were visible to others): " + CU.txString(this), ex);
 
                         if (isNodeStopping) {
-                            U.warn(log, "Failed to commit transaction, node is stopping [tx=" + this +
+                            U.warn(log, "Failed to commit transaction, node is stopping [tx=" + CU.txString(this) +
                                 ", err=" + ex + ']');
                         }
                         else if (hasInvalidEnvironmentIssue) {
-                            U.warn(log, "Failed to commit transaction, node is in invalid state and will be stopped [tx=" + this +
+                            U.warn(log, "Failed to commit transaction, node is in invalid state and will be stopped [tx=" + CU.txString(this) +
                                 ", err=" + ex + ']');
                         }
                         else
