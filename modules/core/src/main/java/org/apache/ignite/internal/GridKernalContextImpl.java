@@ -47,7 +47,6 @@ import org.apache.ignite.internal.managers.eventstorage.GridEventStorageManager;
 import org.apache.ignite.internal.managers.failover.GridFailoverManager;
 import org.apache.ignite.internal.managers.indexing.GridIndexingManager;
 import org.apache.ignite.internal.managers.loadbalancer.GridLoadBalancerManager;
-import org.apache.ignite.internal.worker.WorkersRegistry;
 import org.apache.ignite.internal.processors.affinity.GridAffinityProcessor;
 import org.apache.ignite.internal.processors.authentication.IgniteAuthenticationProcessor;
 import org.apache.ignite.internal.processors.cache.CacheConflictResolutionManager;
@@ -96,6 +95,7 @@ import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.worker.WorkersRegistry;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.plugin.PluginNotFoundException;
 import org.apache.ignite.plugin.PluginProvider;
@@ -367,9 +367,6 @@ public class GridKernalContextImpl implements GridKernalContext, Externalizable 
     private WorkersRegistry workersRegistry;
 
     /** */
-    private Thread.UncaughtExceptionHandler hnd;
-
-    /** */
     private IgniteEx grid;
 
     /** */
@@ -436,7 +433,6 @@ public class GridKernalContextImpl implements GridKernalContext, Externalizable 
      * @param customExecSvcs Custom named executors.
      * @param plugins Plugin providers.
      * @param workerRegistry Worker registry.
-     * @param hnd Default uncaught exception handler used by thread pools.
      */
     @SuppressWarnings("TypeMayBeWeakened")
     protected GridKernalContextImpl(
@@ -462,8 +458,7 @@ public class GridKernalContextImpl implements GridKernalContext, Externalizable 
         @Nullable Map<String, ? extends ExecutorService> customExecSvcs,
         List<PluginProvider> plugins,
         IgnitePredicate<String> clsFilter,
-        WorkersRegistry workerRegistry,
-        Thread.UncaughtExceptionHandler hnd
+        WorkersRegistry workerRegistry
     ) {
         assert grid != null;
         assert cfg != null;
@@ -489,7 +484,6 @@ public class GridKernalContextImpl implements GridKernalContext, Externalizable 
         this.schemaExecSvc = schemaExecSvc;
         this.customExecSvcs = customExecSvcs;
         this.workersRegistry = workerRegistry;
-        this.hnd = hnd;
 
         marshCtx = new MarshallerContextImpl(plugins, clsFilter);
 
@@ -1149,11 +1143,6 @@ public class GridKernalContextImpl implements GridKernalContext, Externalizable 
     /** {@inheritDoc} */
     @Override public FailureProcessor failure() {
         return failureProc;
-    }
-
-    /** {@inheritDoc} */
-    public Thread.UncaughtExceptionHandler uncaughtExceptionHandler() {
-        return hnd;
     }
 
     /** {@inheritDoc} */
