@@ -3534,8 +3534,11 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     asyncRunner.awaitDone();
                 }
 
-                if (curr.nextSnapshot)
+                if (curr.nextSnapshot) {
+                    map.computeSize();
+
                     snapFut = snapshotMgr.onMarkCheckPointBegin(curr.snapshotOperation, map);
+                }
 
                 if (asyncRunner != null)
                     asyncRunner.reset();
