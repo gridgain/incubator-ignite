@@ -2709,6 +2709,9 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
     /** {@inheritDoc} */
     @Override public boolean rebalanceFinished(AffinityTopologyVersion topVer) {
+        if (true)
+            return true;
+
         AffinityTopologyVersion curTopVer = this.readyTopVer;
 
         return curTopVer.equals(topVer) && curTopVer.equals(rebalancedTopVer);
