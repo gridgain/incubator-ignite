@@ -1145,7 +1145,7 @@ public class GridDhtPartitionTopologyImpl implements GridDhtPartitionTopology {
 
             AffinityTopologyVersion diffVer = diffFromAffinityVer;
 
-            if (!diffVer.equals(topVer)) {
+            if (false && !diffVer.equals(topVer)) {
                 LT.warn(log, "Requested topology version does not match calculated diff, need to check if " +
                     "affinity has changed [grp=" + grp.cacheOrGroupName() + ", topVer=" + topVer +
                     ", diffVer=" + diffVer + "]");
