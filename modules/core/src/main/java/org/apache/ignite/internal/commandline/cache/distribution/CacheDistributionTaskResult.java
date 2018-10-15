@@ -23,6 +23,7 @@ import java.io.ObjectOutput;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -124,7 +125,7 @@ public class CacheDistributionTaskResult extends VisorDataTransferObject {
             }
         }
 
-        rows.sort(null);
+        Collections.sort(rows);
 
         StringBuilder userAttrsName = new StringBuilder();
         if (!rows.isEmpty() && rows.get(0).userAttrs != null) {
@@ -153,7 +154,7 @@ public class CacheDistributionTaskResult extends VisorDataTransferObject {
     /**
      * Class for
      */
-    private static class Row implements Comparable {
+    private static class Row implements Comparable<Row> {
         /** */
         private int grpId;
 
@@ -289,15 +290,12 @@ public class CacheDistributionTaskResult extends VisorDataTransferObject {
         }
 
         /** {@inheritDoc} */
-        @Override public int compareTo(@NotNull Object o) {
-            assert o instanceof Row;
+        @Override public int compareTo(@NotNull Row other) {
 
-            Row other = (Row)o;
-
-            int res = grpId - other.grpId;
+            int res = Integer.compare(grpId, other.grpId);
 
             if (res == 0) {
-                res = partId - other.partId;
+                res = Integer.compare(partId, other.partId);
 
                 if (res == 0)
                     res = nodeId.compareTo(other.nodeId);
