@@ -1588,7 +1588,7 @@ public final class GridDhtTxPrepareFuture extends GridCacheCompoundFuture<Ignite
 
         while (true) {
             try {
-                List<ClusterNode> dhtNodes = dht.topology().nodes(cached.partition(), tx.topologyVersion());
+                List<ClusterNode> dhtNodes = dht.topology().nodes(cached.partition(), req.lastAffinityChangedTopologyVersion());
 
                 assert !dhtNodes.isEmpty() && dhtNodes.get(0).id().equals(cctx.localNodeId()) :
                     "localNode = " + cctx.localNodeId() + ", dhtNodes = " + dhtNodes;
