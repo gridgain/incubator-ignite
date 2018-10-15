@@ -13,7 +13,7 @@
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>Apache.Ignite.Examples.Compute.TaskExample</StartupObject>
+    <StartupObject>Apache.Ignite.Examples.Services.Interop.Client</StartupObject>
   </PropertyGroup>
   <PropertyGroup>
     <SignAssembly>true</SignAssembly>
@@ -52,6 +52,8 @@
     <Reference Include="System.Transactions" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Services\Interop\Client.cs" />
+    <Compile Include="Services\Interop\IComplexTypeHandler.cs" />
     <Compile Include="Sql\LinqExample.cs" />
     <Compile Include="Sql\SqlDdlExample.cs" />
     <Compile Include="Sql\SqlDmlExample.cs" />
