@@ -542,7 +542,7 @@ public class GridAffinityAssignmentCache {
      * @return Affinity assignment.
      */
     public List<List<ClusterNode>> assignments(AffinityTopologyVersion topVer) {
-        AffinityAssignment aff = cachedAffinity(topVer, AffinityTopologyVersion.NONE);
+        AffinityAssignment aff = cachedAffinity(topVer);
 
         return aff.assignment();
     }
@@ -609,7 +609,7 @@ public class GridAffinityAssignmentCache {
      */
     public List<ClusterNode> nodes(int part, AffinityTopologyVersion topVer) {
         // Resolve cached affinity nodes.
-        return cachedAffinity(topVer, AffinityTopologyVersion.NONE).get(part);
+        return cachedAffinity(topVer).get(part);
     }
 
     /**
@@ -620,7 +620,7 @@ public class GridAffinityAssignmentCache {
      * @return Primary partitions for specified node ID.
      */
     public Set<Integer> primaryPartitions(UUID nodeId, AffinityTopologyVersion topVer) {
-        return cachedAffinity(topVer, AffinityTopologyVersion.NONE).primaryPartitions(nodeId);
+        return cachedAffinity(topVer).primaryPartitions(nodeId);
     }
 
     /**
@@ -631,7 +631,7 @@ public class GridAffinityAssignmentCache {
      * @return Backup partitions for specified node ID.
      */
     public Set<Integer> backupPartitions(UUID nodeId, AffinityTopologyVersion topVer) {
-        return cachedAffinity(topVer, AffinityTopologyVersion.NONE).backupPartitions(nodeId);
+        return cachedAffinity(topVer).backupPartitions(nodeId);
     }
 
     /**
@@ -781,7 +781,7 @@ public class GridAffinityAssignmentCache {
 
         idealAssignment(aff.idealAssignment());
 
-        AffinityAssignment assign = aff.cachedAffinity(aff.lastVersion(), AffinityTopologyVersion.NONE);
+        AffinityAssignment assign = aff.cachedAffinity(aff.lastVersion());
 
         initialize(aff.lastVersion(), assign.assignment(), assign.mvccCoordinator());
     }
