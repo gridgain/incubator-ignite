@@ -5,8 +5,8 @@ using System.Text;
 
 namespace Apache.Ignite.Examples.Services.Interop
 {
-    interface IComplexTypeHandler
+    public interface IComplexTypeHandler
     {
-        int handle(int obj);
+        ComplexType handle(ComplexType obj);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Apache.Ignite.Core;
+using Apache.Ignite.Core.Binary;
 using Apache.Ignite.Core.Communication.Tcp;
 using Apache.Ignite.Core.Discovery.Tcp;
 using Apache.Ignite.Core.Discovery.Tcp.Static;
@@ -16,12 +17,26 @@ namespace Apache.Ignite.Examples.Services.Interop
 
             var igniteCfg = new IgniteConfiguration
             {
-                JvmClasspath = Path.Combine(Environment.GetEnvironmentVariable("IGNITE_HOME"), "examples", "target", "classes"),
-                JvmOptions = new[] { "-DIGNITE_QUIET=false", "-Djava.net.preferIPv4Stack=true"/*, "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"*/ },
+                JvmClasspath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "..", "examples", "target", "classes"),
+                JvmOptions = new[] { "-DIGNITE_QUIET=false", "-Djava.net.preferIPv4Stack=true", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005" },
 
-                //ClientMode = true,
+                ClientMode = true,
 
                 Localhost = locHost,
+                BinaryConfiguration = new BinaryConfiguration
+                {
+                    NameMapper = new BinaryBasicNameMapper
+                    {
+                        IsSimpleName = true
+                    },
+                    TypeConfigurations = new[] 
+                    {
+                        new BinaryTypeConfiguration
+                        {
+                            TypeName = typeof(ComplexType).Name
+                        }
+                    }
+                },
                 DiscoverySpi = new TcpDiscoverySpi
                 {
                     LocalAddress = locHost,
@@ -40,9 +55,9 @@ namespace Apache.Ignite.Examples.Services.Interop
             using (var ignite = Ignition.Start(igniteCfg))
             {
                 var svc = ignite.GetServices().GetServiceProxy<IComplexTypeHandler>("ComplexTypeHandler");
-                var res = svc.handle(3);
+                var res = svc.handle(new ComplexType { i = 3 });
 
-                Console.WriteLine(">>> " + res);
+                Console.WriteLine(">>> " + res.i);
             }
         }
     }
