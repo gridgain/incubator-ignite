@@ -1,8 +1,5 @@
 ﻿using Apache.Ignite.Core;
 using Apache.Ignite.Core.Binary;
-using Apache.Ignite.Core.Communication.Tcp;
-using Apache.Ignite.Core.Discovery.Tcp;
-using Apache.Ignite.Core.Discovery.Tcp.Static;
 using org.apache.ignite.examples.servicegrid.interop;
 using System;
 using System.Collections.Generic;
