@@ -16,40 +16,42 @@ import java.util.Collections;
 
 public class Server {
     public static void main(String[] args) throws IgniteCheckedException {
-        String locHost = args.length > 0 ? args[0] : "127.0.0.1";
-        String discoveryAddr = locHost + ":47500";
+//        String locHost = args.length > 0 ? args[0] : "127.0.0.1";
+//        String discoveryAddr = locHost + ":47500";
+//
+//        IgniteConfiguration igniteCfg = new IgniteConfiguration()
+//            .setLocalHost(locHost)
+//            .setBinaryConfiguration(
+//                new BinaryConfiguration()
+//                    .setNameMapper(
+//                        new BinaryBasicNameMapper()
+//                            .setSimpleName(true)
+//                    )
+//                    .setTypeConfigurations(Collections.singletonList(
+//                        new BinaryTypeConfiguration(ComplexType.class.getSimpleName())
+//                    ))
+//            )
+//            .setServiceConfiguration(
+//                new ServiceConfiguration()
+//                    .setName("ComplexTypeHandler")
+//                    .setMaxPerNodeCount(1)
+//                    .setTotalCount(1)
+//                    .setService(new ComplexTypeHandlerService())
+//            )
+//            .setDiscoverySpi(
+//                new TcpDiscoverySpi()
+//                    .setLocalAddress(locHost)
+//                    .setIpFinder(
+//                        new TcpDiscoveryVmIpFinder().setAddresses(Collections.singletonList(discoveryAddr))
+//                    )
+//            )
+//            .setMetricsLogFrequency(0)
+//            .setFailureDetectionTimeout(600000)
+//            .setClientFailureDetectionTimeout(600000)
+//            .setGridLogger(
+//                new Log4JLogger(Paths.get(System.getenv("IGNITE_HOME"), "config", "ignite-log4j.xml").toString())
+//            );
 
-        IgniteConfiguration igniteCfg = new IgniteConfiguration()
-            .setLocalHost(locHost)
-            .setBinaryConfiguration(
-                new BinaryConfiguration()
-                    .setNameMapper(
-                        new BinaryBasicNameMapper()
-                            .setSimpleName(true)
-                    )
-                    .setTypeConfigurations(Collections.singletonList(
-                        new BinaryTypeConfiguration(ComplexType.class.getSimpleName())
-                    ))
-            )
-            .setServiceConfiguration(
-                new ServiceConfiguration()
-                    .setName("ComplexTypeHandler")
-                    .setMaxPerNodeCount(1)
-                    .setTotalCount(1)
-                    .setService(new ComplexTypeHandlerService())
-            )
-            .setDiscoverySpi(
-                new TcpDiscoverySpi()
-                    .setLocalAddress(locHost)
-                    .setIpFinder(
-                        new TcpDiscoveryVmIpFinder().setAddresses(Collections.singletonList(discoveryAddr))
-                    )
-            )
-            .setMetricsLogFrequency(0)
-            .setGridLogger(
-                new Log4JLogger(Paths.get(System.getenv("IGNITE_HOME"), "config", "ignite-log4j.xml").toString())
-            );
-
-        Ignition.start(igniteCfg);
+        Ignition.start("examples/config/example-service-interop.xml");
     }
 }

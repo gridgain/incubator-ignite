@@ -12,44 +12,62 @@ namespace Apache.Ignite.Examples.Services.Interop
     {
         public static void Main(string[] args)
         {
-            string locHost = args.Length > 0 ? args[0] : "127.0.0.1";
-            string discoveryAddr = locHost + ":47500";
+            //string locHost = args.Length > 0 ? args[0] : "127.0.0.1";
+            //string discoveryAddr = locHost + ":47500";
 
             var igniteCfg = new IgniteConfiguration
             {
-                JvmClasspath = Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "..", "examples", "target", "classes"),
+                JvmClasspath = string.Join(
+                    ";",
+                    Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "core", "target", "libs", "cache-api-1.0.0.jar"),
+                    Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "core", "target", "classes"),
+
+                    Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "spring", "target", "libs", "commons-logging-1.1.1.jar"),
+                    Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "spring", "target", "libs", "spring-core-4.3.18.RELEASE.jar"),
+                    Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "spring", "target", "libs", "spring-context-4.3.18.RELEASE.jar"),
+                    Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "spring", "target", "libs", "spring-aop-4.3.18.RELEASE.jar"),
+                    Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "spring", "target", "libs", "spring-beans-4.3.18.RELEASE.jar"),
+                    Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "spring", "target", "libs", "spring-expression-4.3.18.RELEASE.jar"),
+                    Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "spring", "target", "classes"),
+                    
+                    Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "..", "examples", "target", "classes")
+                ),
                 JvmOptions = new[] { "-DIGNITE_QUIET=false", "-Djava.net.preferIPv4Stack=true", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005" },
 
                 ClientMode = true,
 
-                Localhost = locHost,
-                BinaryConfiguration = new BinaryConfiguration
-                {
-                    NameMapper = new BinaryBasicNameMapper
-                    {
-                        IsSimpleName = true
-                    },
-                    TypeConfigurations = new[] 
-                    {
-                        new BinaryTypeConfiguration
-                        {
-                            TypeName = typeof(ComplexType).Name
-                        }
-                    }
-                },
-                DiscoverySpi = new TcpDiscoverySpi
-                {
-                    LocalAddress = locHost,
-                    IpFinder = new TcpDiscoveryStaticIpFinder
-                    {
-                        Endpoints = new[] { discoveryAddr }
-                    }
-                },
-                CommunicationSpi = new TcpCommunicationSpi
-                {
-                    LocalAddress = locHost
-                },
-                MetricsLogFrequency = TimeSpan.Zero
+                SpringConfigUrl = Path.Combine("examples", "config", "example-service-interop.xml")
+
+                //Localhost = locHost,
+                //BinaryConfiguration = new BinaryConfiguration
+                //{
+                //    NameMapper = new BinaryBasicNameMapper
+                //    {
+                //        IsSimpleName = true
+                //    },
+                //    TypeConfigurations = new[]
+                //    {
+                //        new BinaryTypeConfiguration
+                //        {
+                //            TypeName = typeof(ComplexType).Name
+                //        }
+                //    }
+                //},
+                //DiscoverySpi = new TcpDiscoverySpi
+                //{
+                //    LocalAddress = locHost,
+                //    IpFinder = new TcpDiscoveryStaticIpFinder
+                //    {
+                //        Endpoints = new[] { discoveryAddr }
+                //    }
+                //},
+                //CommunicationSpi = new TcpCommunicationSpi
+                //{
+                //    LocalAddress = locHost
+                //},
+                //MetricsLogFrequency = TimeSpan.Zero,
+                //FailureDetectionTimeout = TimeSpan.FromSeconds(600),
+                //ClientFailureDetectionTimeout = TimeSpan.FromSeconds(600)
             };
 
             using (var ignite = Ignition.Start(igniteCfg))
