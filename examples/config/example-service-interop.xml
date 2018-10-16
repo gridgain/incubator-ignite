@@ -6,14 +6,14 @@
         http://www.springframework.org/schema/beans
         http://www.springframework.org/schema/beans/spring-beans.xsd">
     <bean id="ignite.cfg" class="org.apache.ignite.configuration.IgniteConfiguration">
-        <property name="localHost" value="10.0.2.15"/>
+        <property name="localHost" value="#{systemEnvironment['IGNITE_LOCALHOST']}"/>
         <property name="discoverySpi">
             <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
                 <property name="ipFinder">
                     <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
                         <property name="addresses">
                             <list>
-                                <value>10.0.2.15:47500</value>
+                                <value>#{systemEnvironment['IGNITE_LOCALHOST']}:47500</value>
                             </list>
                         </property>
                     </bean>
@@ -21,34 +21,32 @@
             </bean>
         </property>
 
-        <property name="serviceConfiguration">
-            <list>
-                <bean class="org.apache.ignite.services.ServiceConfiguration">
-                    <property name="name" value="ComplexTypeHandler"/>
-                    <property name="maxPerNodeCount" value="1"/>
-                    <property name="totalCount" value="1"/>
-                    <property name="service">
-                        <bean class="org.apache.ignite.examples.servicegrid.interop.ComplexTypeHandlerService"/>
-                    </property>
-                </bean>
-            </list>
-        </property>
-
         <property name="binaryConfiguration">
             <bean class="org.apache.ignite.configuration.BinaryConfiguration">
-                <property name="nameMapper">
-                    <bean class="org.apache.ignite.binary.BinaryBasicNameMapper">
-                        <property name="simpleName" value="true"/>
-                    </bean>
-                </property>
                 <property name="typeConfigurations">
                     <list>
                         <bean class="org.apache.ignite.binary.BinaryTypeConfiguration">
-                            <property name="typeName" value="ComplexType"/>
+                            <property name="typeName" value="org.apache.ignite.examples.servicegrid.interop.Model"/>
+                        </bean>
+                        <bean class="org.apache.ignite.binary.BinaryTypeConfiguration">
+                            <property name="typeName" value="org.apache.ignite.examples.servicegrid.interop.Result"/>
                         </bean>
                     </list>
                 </property>
             </bean>
+        </property>
+
+        <property name="serviceConfiguration">
+            <list>
+                <bean class="org.apache.ignite.services.ServiceConfiguration">
+                    <property name="name" value="Calculator"/>
+                    <property name="maxPerNodeCount" value="1"/>
+                    <property name="totalCount" value="1"/>
+                    <property name="service">
+                        <bean class="org.apache.ignite.examples.servicegrid.interop.CalculatorService"/>
+                    </property>
+                </bean>
+            </list>
         </property>
 
         <property name="metricsLogFrequency" value="0"/>

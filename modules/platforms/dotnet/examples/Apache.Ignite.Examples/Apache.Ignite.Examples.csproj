@@ -53,8 +53,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Services\Interop\Client.cs" />
-    <Compile Include="Services\Interop\ComplexType.cs" />
-    <Compile Include="Services\Interop\IComplexTypeHandler.cs" />
+    <Compile Include="Services\Interop\Model.cs" />
+    <Compile Include="Services\Interop\ICalculator.cs" />
+    <Compile Include="Services\Interop\Result.cs" />
     <Compile Include="Sql\LinqExample.cs" />
     <Compile Include="Sql\SqlDdlExample.cs" />
     <Compile Include="Sql\SqlDmlExample.cs" />

@@ -3,7 +3,9 @@ using Apache.Ignite.Core.Binary;
 using Apache.Ignite.Core.Communication.Tcp;
 using Apache.Ignite.Core.Discovery.Tcp;
 using Apache.Ignite.Core.Discovery.Tcp.Static;
+using org.apache.ignite.examples.servicegrid.interop;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Apache.Ignite.Examples.Services.Interop
@@ -32,50 +34,29 @@ namespace Apache.Ignite.Examples.Services.Interop
                     
                     Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "..", "examples", "target", "classes")
                 ),
-                JvmOptions = new[] { "-DIGNITE_QUIET=false", "-Djava.net.preferIPv4Stack=true", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005" },
+                JvmOptions = new[] { "-DIGNITE_QUIET=false", "-Djava.net.preferIPv4Stack=true"/*, "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"*/ },
 
                 ClientMode = true,
 
-                SpringConfigUrl = Path.Combine("examples", "config", "example-service-interop.xml")
+                BinaryConfiguration = new BinaryConfiguration
+                {
+                    TypeConfigurations = new List<BinaryTypeConfiguration>
+                    {
+                        new BinaryTypeConfiguration(typeof(Model).FullName),
+                        new BinaryTypeConfiguration(typeof(Result).FullName)
+                    }
+                },
 
-                //Localhost = locHost,
-                //BinaryConfiguration = new BinaryConfiguration
-                //{
-                //    NameMapper = new BinaryBasicNameMapper
-                //    {
-                //        IsSimpleName = true
-                //    },
-                //    TypeConfigurations = new[]
-                //    {
-                //        new BinaryTypeConfiguration
-                //        {
-                //            TypeName = typeof(ComplexType).Name
-                //        }
-                //    }
-                //},
-                //DiscoverySpi = new TcpDiscoverySpi
-                //{
-                //    LocalAddress = locHost,
-                //    IpFinder = new TcpDiscoveryStaticIpFinder
-                //    {
-                //        Endpoints = new[] { discoveryAddr }
-                //    }
-                //},
-                //CommunicationSpi = new TcpCommunicationSpi
-                //{
-                //    LocalAddress = locHost
-                //},
-                //MetricsLogFrequency = TimeSpan.Zero,
-                //FailureDetectionTimeout = TimeSpan.FromSeconds(600),
-                //ClientFailureDetectionTimeout = TimeSpan.FromSeconds(600)
+                SpringConfigUrl = Path.Combine("examples", "config", "example-service-interop.xml")
             };
 
             using (var ignite = Ignition.Start(igniteCfg))
             {
-                var svc = ignite.GetServices().GetServiceProxy<IComplexTypeHandler>("ComplexTypeHandler");
-                var res = svc.handle(new ComplexType { i = 3 });
+                var bin = ignite.GetBinary();
+                var svc = ignite.GetServices().WithServerKeepBinary().GetServiceProxy<ICalculator>("Calculator");
+                var res = (Model)svc.calculate(bin.ToBinary<IBinaryObject>(new Model { name = "GridGain", iterationsCount = 3 }));
 
-                Console.WriteLine(">>> " + res.i);
+                Console.WriteLine(">>> " + res.results);
             }
         }
     }
