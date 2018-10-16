@@ -74,7 +74,6 @@ import org.apache.ignite.internal.visor.baseline.VisorBaselineTask;
 import org.apache.ignite.internal.visor.baseline.VisorBaselineTaskArg;
 import org.apache.ignite.internal.visor.baseline.VisorBaselineTaskResult;
 import org.apache.ignite.internal.visor.cache.VisorCacheAffinityConfiguration;
-import org.apache.ignite.internal.visor.cache.VisorCacheConfigOutputFormat;
 import org.apache.ignite.internal.visor.cache.VisorCacheConfiguration;
 import org.apache.ignite.internal.visor.cache.VisorCacheConfigurationCollectorTask;
 import org.apache.ignite.internal.visor.cache.VisorCacheConfigurationCollectorTaskArg;
@@ -127,13 +126,13 @@ import static org.apache.ignite.internal.commandline.Command.DEACTIVATE;
 import static org.apache.ignite.internal.commandline.Command.STATE;
 import static org.apache.ignite.internal.commandline.Command.TX;
 import static org.apache.ignite.internal.commandline.Command.WAL;
+import static org.apache.ignite.internal.commandline.OutputFormat.MULTI_LINE;
+import static org.apache.ignite.internal.commandline.OutputFormat.SINGLE_LINE;
 import static org.apache.ignite.internal.visor.baseline.VisorBaselineOperation.ADD;
 import static org.apache.ignite.internal.visor.baseline.VisorBaselineOperation.COLLECT;
 import static org.apache.ignite.internal.visor.baseline.VisorBaselineOperation.REMOVE;
 import static org.apache.ignite.internal.visor.baseline.VisorBaselineOperation.SET;
 import static org.apache.ignite.internal.visor.baseline.VisorBaselineOperation.VERSION;
-import static org.apache.ignite.internal.visor.cache.VisorCacheConfigOutputFormat.MULTI_LINE;
-import static org.apache.ignite.internal.visor.cache.VisorCacheConfigOutputFormat.SINGLE_LINE;
 import static org.apache.ignite.internal.visor.verify.VisorViewCacheCmd.CACHES;
 import static org.apache.ignite.internal.visor.verify.VisorViewCacheCmd.GROUPS;
 import static org.apache.ignite.internal.visor.verify.VisorViewCacheCmd.SEQ;
@@ -872,7 +871,7 @@ public class CommandHandler {
      */
     private void printCacheInfos(
         Collection<CacheInfo> infos,
-        VisorCacheConfigOutputFormat outputFormat,
+        OutputFormat outputFormat,
         VisorViewCacheCmd cmd
     ) {
         for (CacheInfo info : infos) {
@@ -913,7 +912,7 @@ public class CommandHandler {
      */
     private void printCachesConfig(
         Map<String, VisorCacheConfiguration> caches,
-        VisorCacheConfigOutputFormat outputFormat
+        OutputFormat outputFormat
     ) {
 
         for (Map.Entry<String, VisorCacheConfiguration> entry : caches.entrySet()) {
@@ -1771,7 +1770,7 @@ public class CommandHandler {
 
                 VisorViewCacheCmd cacheCmd = CACHES;
 
-                VisorCacheConfigOutputFormat outputFormat = SINGLE_LINE;
+                OutputFormat outputFormat = SINGLE_LINE;
 
                 while (hasNextCacheArg()) {
                     String tmp = nextArg("").toLowerCase();
@@ -1790,7 +1789,7 @@ public class CommandHandler {
                         case OUTPUT_FORMAT:
                             String tmp2 = nextArg("output format must be defined!").toLowerCase();
 
-                            outputFormat = VisorCacheConfigOutputFormat.fromConsoleName(tmp2);
+                            outputFormat = OutputFormat.fromConsoleName(tmp2);
 
                             break;
 
