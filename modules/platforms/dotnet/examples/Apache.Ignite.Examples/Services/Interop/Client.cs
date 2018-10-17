@@ -1,5 +1,6 @@
 ﻿using Apache.Ignite.Core;
 using Apache.Ignite.Core.Binary;
+using Apache.Ignite.Core.Cache.Configuration;
 using org.apache.ignite.examples.servicegrid.interop;
 using System;
 using System.Collections.Generic;
@@ -11,12 +12,10 @@ namespace Apache.Ignite.Examples.Services.Interop
     {
         public static void Main(string[] args)
         {
-            //string locHost = args.Length > 0 ? args[0] : "127.0.0.1";
-            //string discoveryAddr = locHost + ":47500";
-
             var igniteCfg = new IgniteConfiguration
             {
-                JvmClasspath = string.Join(
+                JvmClasspath = string.Join
+                (
                     ";",
                     Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "core", "target", "libs", "cache-api-1.0.0.jar"),
                     Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "core", "target", "classes"),
@@ -31,7 +30,7 @@ namespace Apache.Ignite.Examples.Services.Interop
                     
                     Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "..", "examples", "target", "classes")
                 ),
-                JvmOptions = new[] { "-DIGNITE_QUIET=false", "-Djava.net.preferIPv4Stack=true"/*, "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"*/ },
+                JvmOptions = new[] { "-Djava.net.preferIPv4Stack=true", "-DIGNITE_QUIET=false" },
 
                 ClientMode = true,
 
@@ -40,7 +39,12 @@ namespace Apache.Ignite.Examples.Services.Interop
                     TypeConfigurations = new List<BinaryTypeConfiguration>
                     {
                         new BinaryTypeConfiguration(typeof(Model).FullName),
-                        new BinaryTypeConfiguration(typeof(Result).FullName)
+                        new BinaryTypeConfiguration(typeof(Result).FullName),
+                        new BinaryTypeConfiguration(typeof(CacheMode).FullName)
+                        {
+                            IsEnum = true,
+                            NameMapper = new BinaryBasicNameMapper { IsSimpleName = true }
+                        }
                     }
                 },
 
@@ -51,7 +55,7 @@ namespace Apache.Ignite.Examples.Services.Interop
             {
                 var bin = ignite.GetBinary();
                 var svc = ignite.GetServices().WithServerKeepBinary().GetServiceProxy<ICalculator>("Calculator");
-                var res = (Model)svc.calculate(bin.ToBinary<IBinaryObject>(new Model { name = "GridGain", iterationsCount = 3 }));
+                var res = (Model)svc.calculate(bin.ToBinary<IBinaryObject>(new Model { name = "GridGain", iterationsCount = 3, cacheMode = CacheMode.Replicated }));
 
                 Console.WriteLine(">>> " + res.results);
             }

@@ -31,6 +31,15 @@
                         <bean class="org.apache.ignite.binary.BinaryTypeConfiguration">
                             <property name="typeName" value="org.apache.ignite.examples.servicegrid.interop.Result"/>
                         </bean>
+                        <bean class="org.apache.ignite.binary.BinaryTypeConfiguration">
+                            <property name="typeName" value="org.apache.ignite.cache.CacheMode"/>
+                            <property name="enum" value="true"/>
+                            <property name="nameMapper">
+                                <bean class="org.apache.ignite.binary.BinaryBasicNameMapper">
+                                    <property name="simpleName" value="true"/>
+                                </bean>
+                            </property>
+                        </bean>
                     </list>
                 </property>
             </bean>
