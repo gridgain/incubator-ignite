@@ -35,6 +35,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
@@ -133,6 +134,7 @@ import static org.apache.ignite.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.GridTopic.TOPIC_CACHE;
 import static org.apache.ignite.internal.events.DiscoveryCustomEvent.EVT_DISCOVERY_CUSTOM_EVT;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
+import static org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion.NONE;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture.nextDumpTimeout;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPreloader.DFLT_PRELOAD_RESEND_TIMEOUT;
 
@@ -187,7 +189,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
      *
      * Should not be used to determine latest rebalanced topology.
      */
-    private volatile AffinityTopologyVersion rebTopVer = AffinityTopologyVersion.NONE;
+    private volatile AffinityTopologyVersion rebTopVer = NONE;
 
     /** */
     private GridFutureAdapter<?> reconnectExchangeFut;
@@ -993,6 +995,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         return exchWorker.hasPendingExchange();
     }
 
+    /** */
+    private final ConcurrentNavigableMap<AffinityTopologyVersion, AffinityTopologyVersion> lastAffTopVers = new ConcurrentSkipListMap<>();
+
     /**
      *
      * @param topVer
@@ -1002,12 +1007,37 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         if (topVer.topologyVersion() <= 0)
             return topVer;
 
-        GridDhtPartitionsExchangeFuture exchFut = exchFuts.get(topVer);
+        AffinityTopologyVersion lastAffTopVer = lastAffTopVers.get(topVer);
 
-        if (exchFut == null || exchFut.firstEvent() == null || exchFut.changedAffinity())
-            return topVer;
+        return lastAffTopVer != null ? lastAffTopVer : topVer;
+    }
 
-        return exchFut.lastAffinityChangeTopologyVersion();
+    /**
+     *
+     * @param topVer
+     * @param lastAffTopVer
+     * @return
+     */
+    public boolean lastAffinityChangedTopologyVersion(AffinityTopologyVersion topVer, AffinityTopologyVersion lastAffTopVer) {
+        assert lastAffTopVer.compareTo(topVer) <= 0;
+
+        if (lastAffTopVer.topologyVersion() <= 0 || lastAffTopVer.equals(topVer))
+            return false;
+
+        while (true) {
+            AffinityTopologyVersion old = lastAffTopVers.putIfAbsent(topVer, lastAffTopVer);
+
+            if (old == null)
+                return true;
+
+            if (lastAffTopVer.compareTo(old) < 0) {
+                if (lastAffTopVers.replace(topVer, old, lastAffTopVer))
+                    return true;
+            }
+            else
+                return false;
+        }
+
     }
 
     /**
@@ -1082,7 +1112,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
             return;
         }
 
-        ClusterNode oldest = cctx.discovery().oldestAliveServerNode(AffinityTopologyVersion.NONE);
+        ClusterNode oldest = cctx.discovery().oldestAliveServerNode(NONE);
 
         if (oldest == null) {
             if (log.isDebugEnabled())
@@ -2815,7 +2845,19 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                                 crd = newCrd = !srvNodes.isEmpty() && srvNodes.get(0).isLocal();
                             }
 
-                            exchFut.init(lastFinishedFut.get(), newCrd);
+                            if (!exchFut.changedAffinity()) {
+                                GridDhtPartitionsExchangeFuture lastFut = lastFinishedFut.get();
+
+                                if (!lastFut.changedAffinity()) {
+                                    AffinityTopologyVersion lastAffVer = cctx.exchange().lastAffinityChangedTopologyVersion(lastFut.initialVersion());
+
+                                    cctx.exchange().lastAffinityChangedTopologyVersion(exchFut.initialVersion(), lastAffVer);
+                                }
+                                else
+                                    cctx.exchange().lastAffinityChangedTopologyVersion(exchFut.initialVersion(), lastFut.initialVersion());
+                            }
+
+                            exchFut.init(newCrd);
 
                             int dumpCnt = 0;
 
@@ -2908,7 +2950,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                                     continue;
 
                                 if (grp.preloader().rebalanceRequired(rebTopVer, exchFut))
-                                    rebTopVer = AffinityTopologyVersion.NONE;
+                                    rebTopVer = NONE;
 
                                 changed |= grp.topology().afterExchange(exchFut);
                             }
@@ -2919,9 +2961,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                         // Schedule rebalance if force rebalance or force reassign occurs.
                         if (exchFut == null)
-                            rebTopVer = AffinityTopologyVersion.NONE;
+                            rebTopVer = NONE;
 
-                        if (!cctx.kernalContext().clientNode() && rebTopVer.equals(AffinityTopologyVersion.NONE)) {
+                        if (!cctx.kernalContext().clientNode() && rebTopVer.equals(NONE)) {
                             assignsMap = new HashMap<>();
 
                             IgniteCacheSnapshotManager snp = cctx.snapshot();
@@ -2952,7 +2994,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                         busy = false;
                     }
 
-                    if (assignsMap != null && rebTopVer.equals(AffinityTopologyVersion.NONE)) {
+                    if (assignsMap != null && rebTopVer.equals(NONE)) {
                         int size = assignsMap.size();
 
                         NavigableMap<Integer, List<Integer>> orderMap = new TreeMap<>();
@@ -3135,7 +3177,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
         /** */
         private final AtomicReference<AffinityTopologyVersion> readyTopVer =
-            new AtomicReference<>(AffinityTopologyVersion.NONE);
+            new AtomicReference<>(NONE);
 
         /**
          * Creates ordered, not strict list set.
