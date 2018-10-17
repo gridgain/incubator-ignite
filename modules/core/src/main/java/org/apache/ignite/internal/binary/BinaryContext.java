@@ -260,9 +260,6 @@ public class BinaryContext {
     /** Object schemas. */
     private volatile Map<Integer, BinarySchemaRegistry> schemas;
 
-    /** */
-    public ThreadLocal<BinaryMetaTraceData> metaTraceCtxThreadLoc = new ThreadLocal<>();
-
     /**
      * @param metaHnd Meta data handler.
      * @param igniteCfg Ignite configuration.
@@ -1293,7 +1290,7 @@ public class BinaryContext {
      * @throws BinaryObjectException In case of error.
      */
     public BinaryType metadata(int typeId, int schemaId) throws BinaryObjectException {
-        return metaHnd != null ? metaHnd.metadata(typeId, schemaId) : null;
+        return metaHnd != null ? metaHnd.metadata(typeId, schemaId): null;
     }
 
     /**
@@ -1621,22 +1618,6 @@ public class BinaryContext {
          */
         public boolean registered() {
             return registered;
-        }
-    }
-
-    public static class BinaryMetaTraceData {
-        public boolean disco;
-        public int pending;
-        public int accepted;
-        public Boolean doneFut;
-
-        @Override public String toString() {
-            return "[" +
-                "disco=" + disco +
-                ", pending=" + pending +
-                ", accepted=" + accepted +
-                ", doneFut=" + doneFut +
-                ']';
         }
     }
 }

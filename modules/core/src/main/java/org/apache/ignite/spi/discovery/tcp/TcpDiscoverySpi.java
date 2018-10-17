@@ -423,8 +423,8 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
     /** */
     private IgniteDiscoverySpiInternalListener internalLsnr;
 
-    /** For tests. */
-    public boolean skipAddrsRandomization = false;
+    /** For test purposes. */
+    private boolean skipAddrsRandomization = false;
 
     /**
      * Gets current SPI state.

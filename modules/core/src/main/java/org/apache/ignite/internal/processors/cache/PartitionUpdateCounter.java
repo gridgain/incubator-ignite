@@ -196,10 +196,12 @@ public class PartitionUpdateCounter {
         ctx.database().checkpointReadLock();
 
         try {
-            ctx.wal().log(new MetastoreDataRecord(
-                METASTORE_PARTITION_UPDATE_COUNTER_KEY,
-                ctx.kernalContext().marshallerContext().jdkMarshaller().marshal(
-                    PartitionCounterUpdateLog.create(grpId, partId, newVal, delta))));
+            if (ctx.wal() != null) {
+                ctx.wal().log(new MetastoreDataRecord(
+                    METASTORE_PARTITION_UPDATE_COUNTER_KEY,
+                    ctx.kernalContext().marshallerContext().jdkMarshaller().marshal(
+                        PartitionCounterUpdateLog.create(grpId, partId, newVal, delta))));
+            }
         }
         catch (IgniteCheckedException e) {
             log.error("failed to store partition update record", e);

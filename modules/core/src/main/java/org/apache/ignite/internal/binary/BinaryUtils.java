@@ -48,7 +48,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import org.apache.ignite.IgniteCheckedException;
-import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.binary.BinaryCollectionFactory;
 import org.apache.ignite.binary.BinaryInvalidTypeException;
@@ -958,13 +957,27 @@ public class BinaryUtils {
      * @return New meta if old meta was null, old meta if no changes detected, merged meta otherwise.
      * @throws BinaryObjectException If merge failed due to metadata conflict.
      */
-    public static BinaryMetadata mergeMetadata(@Nullable BinaryMetadata oldMeta, BinaryMetadata newMeta, @Nullable IgniteLogger log) {
+    public static BinaryMetadata mergeMetadata(@Nullable BinaryMetadata oldMeta, BinaryMetadata newMeta) {
+        return mergeMetadata(oldMeta, newMeta, null);
+    }
+
+    /**
+     * Merge old and new metas.
+     *
+     * @param oldMeta Old meta.
+     * @param newMeta New meta.
+     * @param changedSchemas Set for holding changed schemas.
+     * @return New meta if old meta was null, old meta if no changes detected, merged meta otherwise.
+     * @throws BinaryObjectException If merge failed due to metadata conflict.
+     */
+    public static BinaryMetadata mergeMetadata(@Nullable BinaryMetadata oldMeta, BinaryMetadata newMeta,
+        @Nullable Set<Integer> changedSchemas) {
         assert newMeta != null;
 
         if (oldMeta == null) {
-            if (log != null) {
+            if (changedSchemas != null) {
                 for (BinarySchema schema : newMeta.schemas())
-                    log.info("<<<DBG>>> Added schema id=" + schema.schemaId() + " for binary type=" + newMeta.typeId());
+                    changedSchemas.add(schema.schemaId());
             }
 
             return newMeta;
@@ -1046,8 +1059,8 @@ public class BinaryUtils {
                 if (mergedSchemas.add(newSchema)) {
                     changed = true;
 
-                    if (log != null)
-                        log.info("<<<DBG>>> Added schema id=" + newSchema.schemaId() + " for binary type=" + newMeta.typeId());
+                    if (changedSchemas != null)
+                        changedSchemas.add(newSchema.schemaId());
                 }
             }
 
