@@ -254,6 +254,9 @@ public class PartitionUpdateCounter {
     }
 
     public static class PartitionCounterUpdateLog implements Serializable {
+        /** */
+        private static final long serialVersionUID = 0L;
+
         private String threadName;
 
         private String stackTrace;
