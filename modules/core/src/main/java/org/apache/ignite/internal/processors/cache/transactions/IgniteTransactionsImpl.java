@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.processors.cache.transactions;
 
 import java.util.Collection;
+
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.IgniteTransactions;
 import org.apache.ignite.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.IgniteTransactionsEx;
@@ -35,6 +37,8 @@ import org.apache.ignite.transactions.TransactionException;
 import org.apache.ignite.transactions.TransactionIsolation;
 import org.apache.ignite.transactions.TransactionMetrics;
 import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_MIN_TX_TIMEOUT;
 
 /**
  * Grid transactions implementation.
@@ -143,6 +147,8 @@ public class IgniteTransactionsImpl<K, V> implements IgniteTransactionsEx {
             ctx.systemTx() ? ctx : null);
     }
 
+    private static final Long TX_MIN_TIMEOUT = IgniteSystemProperties.getLong(IGNITE_MIN_TX_TIMEOUT);
+
     /**
      * @param concurrency Transaction concurrency.
      * @param isolation Transaction isolation.
@@ -167,6 +173,13 @@ public class IgniteTransactionsImpl<K, V> implements IgniteTransactionsEx {
             if (tx != null)
                 throw new IllegalStateException("Failed to start new transaction " +
                     "(current thread already has a transaction): " + tx);
+
+            if (timeout > 0 && TX_MIN_TIMEOUT != null) {
+                if (TX_MIN_TIMEOUT <= 0)
+                    timeout = 0;
+                else
+                    timeout = Math.max(timeout, TX_MIN_TIMEOUT);
+            }
 
             tx = cctx.tm().newTx(
                 false,
