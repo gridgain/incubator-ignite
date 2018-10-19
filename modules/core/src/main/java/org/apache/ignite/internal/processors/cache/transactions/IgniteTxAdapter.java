@@ -1229,11 +1229,11 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
                             ptr = cctx.wal().log(txRecord);
 
                             if (state == PREPARED)
-                                cctx.tm().pendingTxsTracker().onTxPrepared(nearXidVersion(), ptr);
+                                cctx.tm().pendingTxsTracker().onTxPrepared(this, ptr);
                             else if (state == ROLLED_BACK)
-                                cctx.tm().pendingTxsTracker().onTxRolledBack(nearXidVersion());
+                                cctx.tm().pendingTxsTracker().onTxRolledBack(this);
                             else
-                                cctx.tm().pendingTxsTracker().onTxCommitted(nearXidVersion());
+                                cctx.tm().pendingTxsTracker().onTxCommitted(this);
                         }
                         catch (IgniteCheckedException e) {
                             U.error(log, "Failed to log TxRecord: " + txRecord, e);

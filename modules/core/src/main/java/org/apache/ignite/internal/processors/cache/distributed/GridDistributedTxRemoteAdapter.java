@@ -870,10 +870,10 @@ public abstract class GridDistributedTxRemoteAdapter extends IgniteTxAdapter
                 writeKeys.add(dataEntry.key());
 
             if (!readKeys.isEmpty())
-                cctx.tm().pendingTxsTracker().onKeysRead(nearXidVersion(), readKeys);
+                cctx.tm().pendingTxsTracker().onKeysRead(this, readKeys);
 
             if (!writeKeys.isEmpty())
-                cctx.tm().pendingTxsTracker().onKeysWritten(nearXidVersion(), writeKeys);
+                cctx.tm().pendingTxsTracker().onKeysWritten(this, writeKeys);
         }
     }
 

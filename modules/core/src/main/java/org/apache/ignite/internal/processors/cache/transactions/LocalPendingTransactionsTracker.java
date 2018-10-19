@@ -88,6 +88,9 @@ public class LocalPendingTransactionsTracker {
     /** Tx finish awaiting. */
     private volatile TxFinishAwaiting txFinishAwaiting = null;
 
+    /** Global tx tracker. */
+    public static final GlobalTxTracker GLOBAL_TX_TRACKER = new GlobalTxTracker();
+
     /**
      * Tx finish awaiting facility.
      */
@@ -369,6 +372,16 @@ public class LocalPendingTransactionsTracker {
     }
 
     /**
+     * @param tx Internal transaction.
+     * @param preparedMarkerPtr Prepared marker ptr.
+     */
+    public void onTxPrepared(IgniteInternalTx tx, WALPointer preparedMarkerPtr) {
+        GLOBAL_TX_TRACKER.onTxPrepared(tx, log);
+
+        onTxPrepared(tx.nearXidVersion(), preparedMarkerPtr);
+    }
+
+    /**
      * @param nearXidVer Near xid version.
      * @param preparedMarkerPtr Prepared marker ptr.
      */
@@ -391,6 +404,15 @@ public class LocalPendingTransactionsTracker {
         finally {
             stateLock.readLock().unlock();
         }
+    }
+
+    /**
+     * @param tx Internal transaction.
+     */
+    public void onTxCommitted(IgniteInternalTx tx) {
+        GLOBAL_TX_TRACKER.onTxCommitted(tx, log);
+
+        onTxCommitted(tx.nearXidVersion());
     }
 
     /**
@@ -433,6 +455,15 @@ public class LocalPendingTransactionsTracker {
     }
 
     /**
+     * @param tx Internal transaction.
+     */
+    public void onTxRolledBack(IgniteInternalTx tx) {
+        GLOBAL_TX_TRACKER.onTxRolledBack(tx, log);
+
+        onTxRolledBack(tx.nearXidVersion());
+    }
+
+    /**
      * @param nearXidVer Near xid version.
      */
     public void onTxRolledBack(GridCacheVersion nearXidVer) {
@@ -456,6 +487,16 @@ public class LocalPendingTransactionsTracker {
     }
 
     /**
+     * @param tx Internal transaction.
+     * @param keys Keys.
+     */
+    public void onKeysWritten(IgniteInternalTx tx, List<KeyCacheObject> keys) {
+        GLOBAL_TX_TRACKER.onTxCommitting(tx, log);
+
+        onKeysWritten(tx.nearXidVersion(), keys);
+    }
+
+    /**
      * @param nearXidVer Near xid version.
      * @param keys Keys.
      */
@@ -467,7 +508,8 @@ public class LocalPendingTransactionsTracker {
 
         try {
             if (!currentlyPreparedTxs.containsKey(nearXidVer))
-                throw new AssertionError("Tx should be in PREPARED state when logging data records: " + nearXidVer);
+                U.warn(log, cctx.localNode().consistentId() + " Tx should be in PREPARED state when logging data records: " + nearXidVer);
+                //throw new AssertionError("Tx should be in PREPARED state when logging data records: " + nearXidVer);
 
             currentlyCommittingTxs.add(nearXidVer);
 
@@ -500,6 +542,16 @@ public class LocalPendingTransactionsTracker {
     }
 
     /**
+     * @param tx Internal transaction.
+     * @param keys Keys.
+     */
+    public void onKeysRead(IgniteInternalTx tx, List<KeyCacheObject> keys) {
+        GLOBAL_TX_TRACKER.onTxCommitting(tx, log);
+
+        onKeysRead(tx.nearXidVersion(), keys);
+    }
+
+    /**
      * @param nearXidVer Near xid version.
      * @param keys Keys.
      */
@@ -511,7 +563,8 @@ public class LocalPendingTransactionsTracker {
 
         try {
             if (!currentlyPreparedTxs.containsKey(nearXidVer))
-                throw new AssertionError("Tx should be in PREPARED state when logging data records: " + nearXidVer);
+                U.warn(log, cctx.localNode().consistentId() + " Tx should be in PREPARED state when logging data records: " + nearXidVer);
+                //throw new AssertionError("Tx should be in PREPARED state when logging data records: " + nearXidVer);
 
             currentlyCommittingTxs.add(nearXidVer);
 
