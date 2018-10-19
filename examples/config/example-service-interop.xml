@@ -21,7 +21,7 @@
             </bean>
         </property>
 
-        <property name="binaryConfiguration">
+        <!--<property name="binaryConfiguration">
             <bean class="org.apache.ignite.configuration.BinaryConfiguration">
                 <property name="typeConfigurations">
                     <list>
@@ -43,7 +43,7 @@
                     </list>
                 </property>
             </bean>
-        </property>
+        </property>-->
 
         <property name="serviceConfiguration">
             <list>

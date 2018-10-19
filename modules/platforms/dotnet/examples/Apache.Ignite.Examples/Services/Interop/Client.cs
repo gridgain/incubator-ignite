@@ -37,19 +37,19 @@ namespace Apache.Ignite.Examples.Services.Interop
 
                 ClientMode = true,
 
-                BinaryConfiguration = new BinaryConfiguration
-                {
-                    TypeConfigurations = new List<BinaryTypeConfiguration>
-                    {
-                        new BinaryTypeConfiguration(typeof(Model).FullName),
-                        new BinaryTypeConfiguration(typeof(Result).FullName),
-                        new BinaryTypeConfiguration(typeof(CacheMode).FullName)
-                        {
-                            IsEnum = true,
-                            NameMapper = new BinaryBasicNameMapper { IsSimpleName = true }
-                        }
-                    }
-                },
+                //BinaryConfiguration = new BinaryConfiguration
+                //{
+                //    TypeConfigurations = new List<BinaryTypeConfiguration>
+                //    {
+                //        new BinaryTypeConfiguration(typeof(Model).FullName),
+                //        new BinaryTypeConfiguration(typeof(Result).FullName),
+                //        new BinaryTypeConfiguration(typeof(CacheMode).FullName)
+                //        {
+                //            IsEnum = true,
+                //            NameMapper = new BinaryBasicNameMapper { IsSimpleName = true }
+                //        }
+                //    }
+                //},
 
                 SpringConfigUrl = Path.Combine("examples", "config", "example-service-interop.xml")
             };
