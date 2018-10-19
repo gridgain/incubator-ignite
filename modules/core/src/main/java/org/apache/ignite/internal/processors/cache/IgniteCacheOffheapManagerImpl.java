@@ -1450,7 +1450,8 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             this.dataTree = dataTree;
             this.pCntr =  new PartitionUpdateCounter(log,
                 IgniteCacheOffheapManagerImpl.this.ctx,
-                IgniteCacheOffheapManagerImpl.this.grp.groupId());
+                IgniteCacheOffheapManagerImpl.this.grp.groupId(),
+                partId);
         }
 
         /**
