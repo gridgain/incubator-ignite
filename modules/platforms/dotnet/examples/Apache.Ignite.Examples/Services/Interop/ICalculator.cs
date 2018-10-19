@@ -1,9 +1,9 @@
-﻿using Apache.Ignite.Core.Binary;
+﻿using org.apache.ignite.examples.servicegrid.interop;
 
 namespace Apache.Ignite.Examples.Services.Interop
 {
     public interface ICalculator
     {
-        IBinaryObject calculate(IBinaryObject obj);
+        Model calculate(Model obj);
     }
 }
