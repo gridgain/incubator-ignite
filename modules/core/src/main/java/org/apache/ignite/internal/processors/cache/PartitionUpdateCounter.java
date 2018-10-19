@@ -17,16 +17,22 @@
 
 package org.apache.ignite.internal.processors.cache;
 
+import java.io.PrintWriter;
+import java.io.Serializable;
+import java.io.StringWriter;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.pagemem.wal.record.MetastoreDataRecord;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Partition update counter with MVCC delta updates capabilities.
  */
 public class PartitionUpdateCounter {
+    public static final String METASTORE_PARTITION_UPDATE_COUNTER_KEY = "partitionUpdateCntrKey";
     /** */
     private IgniteLogger log;
 
@@ -39,11 +45,20 @@ public class PartitionUpdateCounter {
     /** Initial counter. */
     private long initCntr;
 
+    /** For debugging purposes only. */
+    private final GridCacheSharedContext ctx;
+
+    /** Cache group id. */
+    private final int grpId;
+
     /**
      * @param log Logger.
+     * @param ctx Cache shared context
      */
-    PartitionUpdateCounter(IgniteLogger log) {
+    PartitionUpdateCounter(IgniteLogger log, GridCacheSharedContext ctx, int grpId) {
         this.log = log;
+        this.ctx = ctx;
+        this.grpId = grpId;
     }
 
     /**
@@ -55,6 +70,8 @@ public class PartitionUpdateCounter {
         initCntr = updateCntr;
 
         cntr.set(updateCntr);
+
+        logCounterUpdate(updateCntr, -1);
     }
 
     /**
@@ -78,18 +95,26 @@ public class PartitionUpdateCounter {
      * @return Value before add.
      */
     public long getAndAdd(long delta) {
-        return cntr.getAndAdd(delta);
+        long ret = cntr.getAndAdd(delta);
+
+        logCounterUpdate(ret, delta);
+
+        return ret;
     }
 
     /**
      * @return Next update counter.
      */
     public long next() {
-        return cntr.incrementAndGet();
+        long ret = cntr.incrementAndGet();
+
+        logCounterUpdate(ret, 1);
+
+        return ret;
     }
 
     /**
-     * Sets value to update counter,
+     * Sets value to update counter.
      *
      * @param val Values.
      */
@@ -100,8 +125,11 @@ public class PartitionUpdateCounter {
             if (val0 >= val)
                 break;
 
-            if (cntr.compareAndSet(val0, val))
+            if (cntr.compareAndSet(val0, val)) {
+                logCounterUpdate(val, 0);
+
                 break;
+            }
         }
     }
 
@@ -132,6 +160,8 @@ public class PartitionUpdateCounter {
 
             assert res;
 
+            logCounterUpdate(next, delta);
+
             Item peek = peek();
 
             if (peek == null || peek.start != next)
@@ -155,6 +185,22 @@ public class PartitionUpdateCounter {
             update(cntr);
 
         initCntr = cntr;
+    }
+
+    private void logCounterUpdate(long newVal, long delta) {
+        ctx.database().checkpointReadLock();
+
+        try {
+            ctx.wal().log(new MetastoreDataRecord(
+                METASTORE_PARTITION_UPDATE_COUNTER_KEY,
+                ctx.kernalContext().marshallerContext().jdkMarshaller().marshal(PartitionCounterUpdateLog.create(grpId, newVal, delta))));
+        }
+        catch (IgniteCheckedException e) {
+            log.error("failed to store partition update record", e);
+        }
+        finally {
+            ctx.database().checkpointReadUnlock();
+        }
     }
 
     /**
@@ -204,6 +250,62 @@ public class PartitionUpdateCounter {
             assert cmp != 0;
 
             return cmp;
+        }
+    }
+
+    public static class PartitionCounterUpdateLog implements Serializable {
+        /** */
+        private static final long serialVersionUID = 0L;
+
+        private String threadName;
+
+        private String stackTrace;
+
+        private long val;
+
+        private long delta;
+
+        private int grpId;
+
+        public PartitionCounterUpdateLog() {
+        }
+
+        public PartitionCounterUpdateLog(int grpId, long val, long delta, String threadName, String stackTrace) {
+            this.grpId = grpId;
+            this.val = val;
+            this.delta = delta;
+            this.threadName = threadName;
+            this.stackTrace = stackTrace;
+        }
+
+        public String getThreadName() {
+            return threadName;
+        }
+
+        public String getStackTrace() {
+            return stackTrace;
+        }
+
+        public long getVal() {
+            return val;
+        }
+
+        public long getDelta() {
+            return delta;
+        }
+
+        public int getGrpId() {
+            return grpId;
+        }
+
+        public static PartitionCounterUpdateLog create(int grpId, long val, long delta) {
+            Exception e = new RuntimeException("PartitionUpdateCounterLogMessage");
+
+            StringWriter wr = new StringWriter();
+
+            e.printStackTrace(new PrintWriter(wr));
+
+            return new PartitionCounterUpdateLog(grpId, val, delta, Thread.currentThread().getName(), wr.toString());
         }
     }
 }

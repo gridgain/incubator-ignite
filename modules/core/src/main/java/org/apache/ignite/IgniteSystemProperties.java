@@ -31,7 +31,6 @@ import org.apache.ignite.internal.client.GridClient;
 import org.apache.ignite.internal.marshaller.optimized.OptimizedMarshaller;
 import org.apache.ignite.internal.processors.rest.GridRestCommand;
 import org.apache.ignite.internal.util.GridLogThrottle;
-import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.stream.StreamTransformer;
 import org.jetbrains.annotations.Nullable;
 
@@ -458,6 +457,18 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_TEST_FEATURES_ENABLED = "IGNITE_TEST_FEATURES_ENABLED";
 
     /**
+     * Overrides transaction timeout using the following rules:
+     *
+     * <ul>
+     *     <li>If {@code IGNITE_MIN_TX_TIMEOUT} isn't defined or value isn't numeric value then user defined timeout will not overridden.</li>
+     *     <li>If {@code IGNITE_MIN_TX_TIMEOUT <= 0} then any tx will never timed out.</li>
+     *     <li>If {@code IGNITE_MIN_TX_TIMEOUT > 0} and user defined timeout less then {@code IGNITE_MIN_TX_TIMEOUT}
+     *     tx timeout will be overridden by {@code IGNITE_MIN_TX_TIMEOUT} value.</li>
+     * </ul>
+     */
+    public static final String IGNITE_MIN_TX_TIMEOUT = "IGNITE_MIN_TX_TIMEOUT";
+
+    /**
      * Property controlling size of buffer holding last exception. Default value of {@code 1000}.
      */
     public static final String IGNITE_EXCEPTION_REGISTRY_MAX_SIZE = "IGNITE_EXCEPTION_REGISTRY_MAX_SIZE";
@@ -490,7 +501,12 @@ public final class IgniteSystemProperties {
     /** Disable fallback to H2 SQL parser if the internal SQL parser fails to parse the statement. */
     public static final String IGNITE_SQL_PARSER_DISABLE_H2_FALLBACK = "IGNITE_SQL_PARSER_DISABLE_H2_FALLBACK";
 
-    /** Force all SQL queries to be processed lazily regardless of what clients request. */
+    /**
+     *  Force all SQL queries to be processed lazily regardless of what clients request.
+     *
+     * @deprecated Since version 2.7.
+     */
+    @Deprecated
     public static final String IGNITE_SQL_FORCE_LAZY_RESULT_SET = "IGNITE_SQL_FORCE_LAZY_RESULT_SET";
 
     /** Disable SQL system views. */
@@ -1154,6 +1170,25 @@ public final class IgniteSystemProperties {
 
         return res;
     }
+
+    public static Long getLong(String name) {
+        String s = getString(name);
+
+        if (s == null)
+            return null;
+
+        long res;
+
+        try {
+            res = Long.parseLong(s);
+        }
+        catch (NumberFormatException ignore) {
+            return null;
+        }
+
+        return res;
+    }
+
 
     /**
      * Gets either system property or environment variable with given name.

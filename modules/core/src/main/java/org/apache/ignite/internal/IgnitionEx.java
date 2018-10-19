@@ -1830,7 +1830,8 @@ public class IgnitionEx {
                                 new IgniteException(S.toString(GridWorker.class, deadWorker))));
                     }
                 },
-                180_000, // todo TXDR remove
+                // TODO: TXDR temporary workaround that is needed for 'db-snapshot-executor' threads, for example.
+                180_000,
                 log);
 
             stripedExecSvc = new StripedExecutor(
