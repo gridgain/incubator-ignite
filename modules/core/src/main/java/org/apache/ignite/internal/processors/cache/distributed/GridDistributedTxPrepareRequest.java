@@ -205,6 +205,8 @@ public class GridDistributedTxPrepareRequest extends GridDistributedBaseMessage 
         setFlag(tx.isInvalidate(), INVALIDATE_FLAG_MASK);
         setFlag(onePhaseCommit, ONE_PHASE_COMMIT_FLAG_MASK);
         setFlag(last, LAST_REQ_FLAG_MASK);
+
+        assert !onePhaseCommit();
     }
 
     /**
