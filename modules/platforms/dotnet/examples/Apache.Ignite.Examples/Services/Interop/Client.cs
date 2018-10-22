@@ -31,25 +31,31 @@ namespace Apache.Ignite.Examples.Services.Interop
 
                     Path.Combine(Environment.CurrentDirectory, "..", "..", "..", "..", "..", "..", "..", "examples", "target", "classes")
                 ),
-                JvmOptions = new[] { "-Djava.net.preferIPv4Stack=true", "-DIGNITE_QUIET=false" },
+                JvmOptions = new[] 
+                {
+                    "-Djava.net.preferIPv4Stack=true",
+                    "-DIGNITE_QUIET=false",
+                    "-DIGNITE_JVM_PAUSE_DETECTOR_DISABLED=true",
+                    //"-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
+                },
 
                 WorkDirectory = Path.Combine(Environment.CurrentDirectory, "work"),
 
                 ClientMode = true,
 
-                //BinaryConfiguration = new BinaryConfiguration
-                //{
-                //    TypeConfigurations = new List<BinaryTypeConfiguration>
-                //    {
-                //        new BinaryTypeConfiguration(typeof(Model).FullName),
-                //        new BinaryTypeConfiguration(typeof(Result).FullName),
-                //        new BinaryTypeConfiguration(typeof(CacheMode).FullName)
-                //        {
-                //            IsEnum = true,
-                //            NameMapper = new BinaryBasicNameMapper { IsSimpleName = true }
-                //        }
-                //    }
-                //},
+                BinaryConfiguration = new BinaryConfiguration
+                {
+                    TypeConfigurations = new List<BinaryTypeConfiguration>
+                    {
+                        //new BinaryTypeConfiguration(typeof(Model).FullName),
+                        //new BinaryTypeConfiguration(typeof(Result).FullName),
+                        new BinaryTypeConfiguration(typeof(CacheMode).FullName)
+                        {
+                            IsEnum = true,
+                            NameMapper = new BinaryBasicNameMapper { IsSimpleName = true }
+                        }
+                    }
+                },
 
                 SpringConfigUrl = Path.Combine("examples", "config", "example-service-interop.xml")
             };
