@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.cache;
 
+import java.util.TreeSet;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
@@ -37,7 +38,7 @@ public class PartitionUpdateCounter {
     private IgniteLogger log;
 
     /** Queue of counter update tasks*/
-    private final Queue<Item> queue = new PriorityQueue<>();
+    private final TreeSet<Item> queue = new TreeSet<>();
 
     /** Counter. */
     private final AtomicLong cntr = new AtomicLong();
@@ -207,21 +208,34 @@ public class PartitionUpdateCounter {
      * @return Retrieves the minimum update counter task from queue.
      */
     private Item poll() {
-        return queue.poll();
+        return queue.pollFirst();
     }
 
     /**
      * @return Checks the minimum update counter task from queue.
      */
     private Item peek() {
-        return queue.peek();
+        return queue.isEmpty() ? null : queue.first();
+
     }
 
     /**
      * @param item Adds update task to priority queue.
      */
     private void offer(Item item) {
-        queue.offer(item);
+        queue.add(item);
+    }
+
+    /**
+     * Flushes pending update counters closing all possible gaps.
+     */
+    public synchronized void finalizeUpdateCountres() {
+        Item last = queue.pollLast();
+
+        if (last != null)
+            update(last.start + last.delta);
+
+        queue.clear();
     }
 
     /**
@@ -245,11 +259,7 @@ public class PartitionUpdateCounter {
 
         /** {@inheritDoc} */
         @Override public int compareTo(@NotNull Item o) {
-            int cmp = Long.compare(this.start, o.start);
-
-            assert cmp != 0;
-
-            return cmp;
+            return Long.compare(this.start, o.start);
         }
     }
 
