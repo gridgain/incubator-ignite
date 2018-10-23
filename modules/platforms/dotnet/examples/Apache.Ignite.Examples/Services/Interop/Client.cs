@@ -45,7 +45,7 @@ namespace Apache.Ignite.Examples.Services.Interop
 
                 BinaryConfiguration = new BinaryConfiguration
                 {
-                    NameMapper = new BinaryBasicNameMapper { IsSimpleName = true },
+                    NameMapper = new DotnetToJavaNameMapper(),
 
                     TypeConfigurations = new List<BinaryTypeConfiguration>
                     {
