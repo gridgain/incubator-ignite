@@ -1,4 +1,4 @@
-﻿using org.apache.ignite.examples.servicegrid.interop;
+﻿using Org.Apache.Ignite.Examples.Servicegrid.Interop;
 
 namespace Apache.Ignite.Examples.Services.Interop
 {

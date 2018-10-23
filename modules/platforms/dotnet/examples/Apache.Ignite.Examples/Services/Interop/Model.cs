@@ -1,12 +1,12 @@
 ﻿using Apache.Ignite.Core.Cache.Configuration;
 
-namespace org.apache.ignite.examples.servicegrid.interop
+namespace Org.Apache.Ignite.Examples.Servicegrid.Interop
 {
     public class Model
     {
-        public int iterationsCount { get; set; }
-        public string name { get; set; }
-        public CacheMode cacheMode { get; set; }
-        public Result[] results { get; set; }
+        public int IterationsCount { get; set; }
+        public string Name { get; set; }
+        public CacheMode CacheMode { get; set; }
+        public Result[] Results { get; set; }
     }
 }

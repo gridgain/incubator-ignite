@@ -23,6 +23,12 @@
 
         <property name="binaryConfiguration">
             <bean class="org.apache.ignite.configuration.BinaryConfiguration">
+                <property name="nameMapper">
+                    <bean class="org.apache.ignite.binary.BinaryBasicNameMapper">
+                        <property name="simpleName" value="true"/>
+                    </bean>
+                </property>
+
                 <property name="typeConfigurations">
                     <list>
                         <!--<bean class="org.apache.ignite.binary.BinaryTypeConfiguration">

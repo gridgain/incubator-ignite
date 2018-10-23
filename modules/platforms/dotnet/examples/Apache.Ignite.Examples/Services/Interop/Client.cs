@@ -1,7 +1,7 @@
 ﻿using Apache.Ignite.Core;
 using Apache.Ignite.Core.Binary;
 using Apache.Ignite.Core.Cache.Configuration;
-using org.apache.ignite.examples.servicegrid.interop;
+using Org.Apache.Ignite.Examples.Servicegrid.Interop;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -36,7 +36,7 @@ namespace Apache.Ignite.Examples.Services.Interop
                     "-Djava.net.preferIPv4Stack=true",
                     "-DIGNITE_QUIET=false",
                     "-DIGNITE_JVM_PAUSE_DETECTOR_DISABLED=true",
-                    //"-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
+                    "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
                 },
 
                 WorkDirectory = Path.Combine(Environment.CurrentDirectory, "work"),
@@ -45,6 +45,8 @@ namespace Apache.Ignite.Examples.Services.Interop
 
                 BinaryConfiguration = new BinaryConfiguration
                 {
+                    NameMapper = new BinaryBasicNameMapper { IsSimpleName = true },
+
                     TypeConfigurations = new List<BinaryTypeConfiguration>
                     {
                         //new BinaryTypeConfiguration(typeof(Model).FullName),
@@ -63,9 +65,9 @@ namespace Apache.Ignite.Examples.Services.Interop
             using (var ignite = Ignition.Start(igniteCfg))
             {
                 var svc = ignite.GetServices().GetServiceProxy<ICalculator>("Calculator");
-                var res = svc.calculate(new Model { name = "GridGain", iterationsCount = 3, cacheMode = CacheMode.Replicated });
+                var res = svc.calculate(new Model { Name = "GridGain", IterationsCount = 3, CacheMode = CacheMode.Replicated });
 
-                Console.WriteLine(string.Join("\n", res.results.Select(r => ">>> " + String.Concat(r.name, " = ", r.value))));
+                Console.WriteLine(string.Join("\n", res.Results.Select(r => ">>> " + string.Concat(r.Name, " = ", r.Value))));
             }
         }
     }

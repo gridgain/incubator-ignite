@@ -1,8 +1,8 @@
-﻿namespace org.apache.ignite.examples.servicegrid.interop
+﻿namespace Org.Apache.Ignite.Examples.Servicegrid.Interop
 {
     public class Result
     {
-        public string name { get; set; }
-        public double value { get; set; }
+        public string Name { get; set; }
+        public double Value { get; set; }
     }
 }
