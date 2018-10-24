@@ -1985,8 +1985,12 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             FileDescriptor[] alreadyCompressed = scan(walArchiveDir.listFiles(WAL_SEGMENT_FILE_COMPACTED_FILTER));
 
-            if (alreadyCompressed.length > 0)
+            if (alreadyCompressed.length > 0) {
                 segmentAware.onSegmentCompressed(alreadyCompressed[alreadyCompressed.length - 1].idx());
+
+                log.info("After initial onSegmentCompressed call [lastCompressedIdx=" +
+                    segmentAware.lastCompressedIdx());
+            }
 
             for (int i = 1; i < calculateThreadCount(); i++) {
                 FileCompressorWorker worker = new FileCompressorWorker(i, log);
@@ -2066,7 +2070,15 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             boolean reserved = reserve(new FileWALPointer(segmentToCompress, 0, 0));
 
-            return reserved ? segmentToCompress : -1;
+            if (reserved)
+                return segmentToCompress;
+            else {
+                log.info("Failed to reserve the segment to be compressed [idx=" + segmentToCompress + ']');
+
+                segmentAware.removeFromCurrentlyCompressedList(segmentToCompress);
+
+                return -1;
+            }
         }
 
         /** {@inheritDoc} */
@@ -2084,8 +2096,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
                     if (segIdx <= segmentAware.lastCompressedIdx()) {
                         if (segIdx != -1)
-                            // Should remove segIdx from internal list of segments being compressed.
-                            segmentAware.onSegmentCompressed(segIdx);
+                            segmentAware.removeFromCurrentlyCompressedList(segIdx);
 
                         continue;
                     }
@@ -2121,6 +2132,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                     }
 
                     segmentAware.onSegmentCompressed(segIdx);
+
+                    log.info("Segment was compressed successfully [segIdx=" + segIdx + ", lastCompressedIdx=" +
+                        segmentAware.lastCompressedIdx() + ']');
                 }
                 catch (IgniteInterruptedCheckedException ignore) {
                     Thread.currentThread().interrupt();
@@ -2130,6 +2144,9 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                             "] was skipped due to unexpected error", e);
 
                     segmentAware.onSegmentCompressed(segIdx);
+
+                    log.info("After compression failed [segIdx=" + segIdx + ", lastCompressedIdx=" +
+                        segmentAware.lastCompressedIdx() + ']');
                 }
                 finally {
                     if (segIdx != -1L)

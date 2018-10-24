@@ -96,6 +96,11 @@ public class SegmentCompressStorage {
             this.lastCompressedIdx = lastMaxCompressedIdx;
     }
 
+    /** */
+    synchronized void removeFromCurrentlyCompressedList(long idx) {
+        compressingSegments.remove(idx);
+    }
+
     /**
      * @return Last compressed segment.
      */
