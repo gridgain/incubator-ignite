@@ -118,6 +118,11 @@ public class SegmentAware {
         segmentCompressStorage.onSegmentCompressed(compressedIdx);
     }
 
+    /** */
+    public void removeFromCurrentlyCompressedList(long idx) {
+        segmentCompressStorage.removeFromCurrentlyCompressedList(idx);
+    }
+
     /**
      * @return Last compressed segment.
      */
