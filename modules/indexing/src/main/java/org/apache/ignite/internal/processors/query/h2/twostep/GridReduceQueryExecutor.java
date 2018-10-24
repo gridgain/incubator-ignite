@@ -88,6 +88,8 @@ import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2DmlReque
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2DmlResponse;
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryRequest;
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2SelectForUpdateTxDetails;
+import org.apache.ignite.internal.stat.StatisticsHolderQuery;
+import org.apache.ignite.internal.stat.StatisticsQueryHelper;
 import org.apache.ignite.internal.util.GridIntIterator;
 import org.apache.ignite.internal.util.GridIntList;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
@@ -284,6 +286,7 @@ public class GridReduceQueryExecutor {
      * @param r Query run.
      * @param nodeId Failed node ID.
      * @param msg Error message.
+     * @param failCode Fail code.
      */
     private void fail(ReduceQueryRun r, UUID nodeId, String msg, byte failCode) {
         if (r != null) {
@@ -364,6 +367,9 @@ public class GridReduceQueryExecutor {
             if (sfuFut != null)
                 sfuFut.onResult(node.id(), (long)msg.allRows(), msg.removeMapping(), null);
         }
+
+        if (msg.last())
+            r.statisticsHolderQry().merge(msg.logicalReadsStat(), msg.physicalReadsStat());
     }
 
     /**
@@ -404,6 +410,7 @@ public class GridReduceQueryExecutor {
      * @param topVer Topology version.
      * @param cctx Cache context.
      * @param parts Partitions.
+     * @return Mapping of partitions on nodes.
      */
     private Map<ClusterNode, IntArray> stableDataNodesMap(AffinityTopologyVersion topVer,
         final GridCacheContext<?, ?> cctx, @Nullable final int[] parts) {
@@ -652,9 +659,13 @@ public class GridReduceQueryExecutor {
                 }
             }
 
+            StatisticsHolderQuery qryStatisticsHolder = StatisticsQueryHelper.deriveQueryStatistics();
+
+            qryStatisticsHolder.queryId(qryReqId);
+
             final ReduceQueryRun r = new ReduceQueryRun(qryReqId, qry.originalSql(), schemaName,
                 h2.connectionForSchema(schemaName), qry.mapQueries().size(), qry.pageSize(),
-                U.currentTimeMillis(), sfuFut, cancel);
+                U.currentTimeMillis(), sfuFut, cancel, qryStatisticsHolder);
 
             Collection<ClusterNode> nodes;
 
@@ -1199,6 +1210,7 @@ public class GridReduceQueryExecutor {
      * @param r Query run.
      * @param qryReqId Query id.
      * @param distributedJoins Distributed join flag.
+     * @param mvccTracker MVCC query tracker.
      */
     public void releaseRemoteResources(Collection<ClusterNode> nodes, ReduceQueryRun r, long qryReqId,
         boolean distributedJoins, MvccQueryTracker mvccTracker) {
@@ -1227,6 +1239,7 @@ public class GridReduceQueryExecutor {
      * @param nodes Nodes to check periodically if they alive.
      * @param cancel Query cancel.
      * @throws IgniteInterruptedCheckedException If interrupted.
+     * @throws QueryCancelledException If cancelled.
      */
     private void awaitAllReplies(ReduceQueryRun r, Collection<ClusterNode> nodes, GridQueryCancel cancel)
         throws IgniteInterruptedCheckedException, QueryCancelledException {
@@ -1861,7 +1874,11 @@ public class GridReduceQueryExecutor {
         }
     }
 
-    /** */
+    /**
+     * @param partsMap Mapping partiotions on nodes.
+     * @param parts Partitions.
+     * @return Narrow on query.
+     */
     private Map<ClusterNode, IntArray> narrowForQuery(Map<ClusterNode, IntArray> partsMap, int[] parts) {
         if (parts == null)
             return partsMap;

@@ -56,7 +56,7 @@ public class StatisticsHolderCache implements StatisticsHolder {
         if (pageIoType == PageIO.T_DATA) {
             logicalReadCntr.increment();
 
-            StatisticsHelper.trackLogicalReadQuery(pageAddr);
+            StatisticsQueryHelper.trackLogicalReadQuery(pageAddr);
         }
 
     }
@@ -70,7 +70,7 @@ public class StatisticsHolderCache implements StatisticsHolder {
 
             physicalReadCntr.increment();
 
-            StatisticsHelper.trackPhysicalAndLogicalReadQuery(pageAddr);
+            StatisticsQueryHelper.trackPhysicalAndLogicalReadQuery(pageAddr);
         }
     }
 

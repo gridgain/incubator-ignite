@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.processors.query;
 
-import javax.cache.Cache;
-import javax.cache.CacheException;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -36,6 +34,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.cache.Cache;
+import javax.cache.CacheException;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.IgniteException;
@@ -95,6 +95,7 @@ import org.apache.ignite.internal.processors.query.schema.operation.SchemaAlterT
 import org.apache.ignite.internal.processors.query.schema.operation.SchemaIndexCreateOperation;
 import org.apache.ignite.internal.processors.query.schema.operation.SchemaIndexDropOperation;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
+import org.apache.ignite.internal.stat.StatisticsQueryHelper;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashSet;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
 import org.apache.ignite.internal.util.future.GridCompoundFuture;
@@ -213,6 +214,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
 
     /**
      * @param ctx Kernal context.
+     * @throws IgniteCheckedException in case of failure.
      */
     public GridQueryProcessor(GridKernalContext ctx) throws IgniteCheckedException {
         super(ctx);
@@ -1911,6 +1913,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @param cctx Cache context.
      * @param newRow New row.
      * @param prevRow Previous row.
+     * @param prevRowAvailable {@code true} in case previous row is available.
      * @throws IgniteCheckedException In case of error.
      */
     @SuppressWarnings({"unchecked", "ConstantConditions"})
@@ -2151,6 +2154,8 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      *
      * @param qry Query.
      * @param keepBinary Keep binary flag.
+     * @param failOnMultipleStmts If {@code true} the method must throws exception when query contains
+     *      more then one SQL statement.
      * @return Cursor.
      */
     public List<FieldsQueryCursor<List<?>>> querySqlFields(final SqlFieldsQuery qry, final boolean keepBinary,
@@ -2268,6 +2273,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @param schemaName Schema name.
      * @param streamer Data streamer.
      * @param qry Query.
+     * @param args Query parameters.
      * @return Update counter.
      */
     public long streamUpdateQuery(@Nullable final String cacheName, final String schemaName,
@@ -2328,6 +2334,8 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @param qry Query.
      * @param keepBinary Keep binary flag.
      * @return Cursor.
+     * @param <K> Key type.
+     * @param <V> Value type.
      */
     public <K, V> QueryCursor<Cache.Entry<K,V>> querySql(final GridCacheContext<?,?> cctx, final SqlQuery qry,
         boolean keepBinary) {
@@ -2351,6 +2359,8 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @param qry Query.
      * @param keepBinary Keep binary flag.
      * @return Cursor.
+     * @param <K> Key type.
+     * @param <V> Value type.
      */
     private <K,V> QueryCursor<Cache.Entry<K,V>> queryDistributedSql(final GridCacheContext<?,?> cctx,
         final SqlQuery qry, final boolean keepBinary) {
@@ -2382,6 +2392,8 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @param qry Query.
      * @param keepBinary Keep binary flag.
      * @return Cursor.
+     * @param <K> Key type.
+     * @param <V> Value type.
      */
     private <K, V> QueryCursor<Cache.Entry<K, V>> queryLocalSql(final GridCacheContext<?, ?> cctx, final SqlQuery qry,
         final boolean keepBinary) {
@@ -2485,11 +2497,13 @@ public class GridQueryProcessor extends GridProcessorAdapter {
 
     /**
      * Entry point for add column procedure.
+     * @param cacheName Name of cache.
      * @param schemaName Schema name.
      * @param tblName Target table name.
      * @param cols Columns to add.
      * @param ifTblExists Ignore operation if target table doesn't exist.
      * @param ifNotExists Ignore operation if column exists.
+     * @return Future for dynamic column add.
      */
     public IgniteInternalFuture<?> dynamicColumnAdd(String cacheName, String schemaName, String tblName,
         List<QueryField> cols, boolean ifTblExists, boolean ifNotExists) {
@@ -2503,11 +2517,13 @@ public class GridQueryProcessor extends GridProcessorAdapter {
     /**
      * Entry point for drop column procedure.
      *
+     * @param cacheName Name of cache.
      * @param schemaName Schema name.
      * @param tblName Target table name.
      * @param cols Columns to drop.
      * @param ifTblExists Ignore operation if target table doesn't exist.
      * @param ifExists Ignore operation if column does not exist.
+     * @return Future for dynamic column remove.
      */
     public IgniteInternalFuture<?> dynamicColumnRemove(String cacheName, String schemaName, String tblName,
         List<String> cols, boolean ifTblExists, boolean ifExists) {
@@ -2566,6 +2582,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
     /**
      * @param sqlQry Sql query.
      * @param params Params.
+     * @param cctx Grid cache context.
      */
     private void sendQueryExecutedEvent(String sqlQry, Object[] params, GridCacheContext<?, ?> cctx) {
         if (cctx.events().isRecordable(EVT_CACHE_QUERY_EXECUTED)) {
@@ -2599,15 +2616,15 @@ public class GridQueryProcessor extends GridProcessorAdapter {
         for (QueryField col : cols) {
             try {
                 props.add(new QueryBinaryProperty(
-                    ctx, 
+                    ctx,
                     col.name(),
-                    null, 
-                    Class.forName(col.typeName()), 
-                    false, 
-                    null, 
-                    !col.isNullable(), 
-                    null, 
-                    col.precision(), 
+                    null,
+                    Class.forName(col.typeName()),
+                    false,
+                    null,
+                    !col.isNullable(),
+                    null,
+                    col.precision(),
                     col.scale()));
             }
             catch (ClassNotFoundException e) {
@@ -2772,6 +2789,9 @@ public class GridQueryProcessor extends GridProcessorAdapter {
      * @param cctx Cache context.
      * @param clo Closure.
      * @param complete Complete.
+     * @return Result of execution of query.
+     * @param <R> Type of result.
+     * @throws IgniteCheckedException In case of failure.
      */
     @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
     public <R> R executeQuery(GridCacheQueryType qryType, String qry, @Nullable GridCacheContext<?, ?> cctx,
@@ -2781,6 +2801,8 @@ public class GridQueryProcessor extends GridProcessorAdapter {
         Throwable err = null;
 
         R res = null;
+
+        StatisticsQueryHelper.startGatheringQueryStatistics();
 
         try {
             res = clo.apply();
@@ -2821,6 +2843,8 @@ public class GridQueryProcessor extends GridProcessorAdapter {
                     log.trace("Query execution [startTime=" + startTime + ", duration=" + duration +
                         ", fail=" + failed + ", res=" + res + ']');
             }
+
+            StatisticsQueryHelper.finishGatheringQueryStatistics();
         }
     }
 
@@ -2920,6 +2944,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
     /**
      * Marshal schema error.
      *
+     * @param opId Operation id.
      * @param err Error.
      * @return Error bytes.
      */

@@ -19,11 +19,12 @@
 package org.apache.ignite.internal.stat;
 
 import java.util.Map;
+import org.apache.ignite.cache.query.QueryStatistics;
 
 /**
  * Holder of IO statistics.
  */
-public interface StatisticsHolder {
+public interface StatisticsHolder extends QueryStatistics {
 
     /**
      * Track logical read of given page.
@@ -38,16 +39,6 @@ public interface StatisticsHolder {
      * @param pageAddr start address of page.
      */
     public void trackPhysicalAndLogicalRead(long pageAddr);
-
-    /**
-     * @return Number of logical reads.
-     */
-    public long logicalReads();
-
-    /**
-     * @return Number of physical reads.
-     */
-    public long physicalReads();
 
     /**
      * @return Logical reads statistics per page types.

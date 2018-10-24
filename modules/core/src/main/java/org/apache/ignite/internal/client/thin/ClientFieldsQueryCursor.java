@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.thin;
 
 import org.apache.ignite.cache.query.FieldsQueryCursor;
+import org.apache.ignite.cache.query.QueryStatistics;
 
 /**
  * Thin client query cursor.
@@ -36,5 +37,10 @@ class ClientFieldsQueryCursor<T> extends ClientQueryCursor<T> implements FieldsQ
     /** {@inheritDoc} */
     @Override public int getColumnsCount() {
         return ((FieldsQueryPager<T>)getPager()).getFieldNames().size();
+    }
+
+    /** {@inheritDoc} */
+    @Override public QueryStatistics stats() {
+        return null;
     }
 }

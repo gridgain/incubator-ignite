@@ -28,6 +28,9 @@ import java.util.concurrent.atomic.LongAdder;
  */
 public class StatisticsHolderQuery implements StatisticsHolder {
     /** */
+    public final static long UNKNOWN_QUERY_ID = Long.MIN_VALUE;
+
+    /** */
     public static final String PHYSICAL_READS = "PHYSICAL_READS";
     /** */
     public static final String LOGICAL_READS = "LOGICAL_READS";
@@ -38,12 +41,12 @@ public class StatisticsHolderQuery implements StatisticsHolder {
     private LongAdder physicalReadCntr = new LongAdder();
 
     /** */
-    private final String qryId;
+    private volatile long qryId;
 
     /**
      * @param qryId Query id.
      */
-    public StatisticsHolderQuery(String qryId) {
+    public StatisticsHolderQuery(long qryId) {
         this.qryId = qryId;
     }
 
@@ -95,20 +98,38 @@ public class StatisticsHolderQuery implements StatisticsHolder {
     }
 
     /**
+     * @param qryId Query id.
+     */
+    public void queryId(long qryId) {
+        assert this.qryId == UNKNOWN_QUERY_ID : qryId;
+
+        this.qryId = qryId;
+    }
+
+    /**
      * @return Query id.
      */
-    public String queryId() {
+    public long queryId() {
         return qryId;
     }
 
     /**
-     * Merge given statistics into this.
+     * Add given given statistics into this.
      *
-     * @param mergeStat Statistics to merge.
+     * @param logicalReads Logical reads to add.
+     * @param physicalReads Physical reads to add.
      */
-    public void merge(StatisticsHolderQuery mergeStat) {
-        logicalReadCntr.add(mergeStat.logicalReads());
+    public void merge(long logicalReads, long physicalReads) {
+        logicalReadCntr.add(logicalReads);
 
-        physicalReadCntr.add(mergeStat.physicalReads());
+        physicalReadCntr.add(physicalReads);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return "StatisticsHolderQuery{" + "logicalReadCntr=" + logicalReadCntr +
+            ", physicalReadCntr=" + physicalReadCntr +
+            ", qryId=" + qryId +
+            '}';
     }
 }

@@ -24,13 +24,14 @@ import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.query.GridCacheSqlQuery;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
+import org.apache.ignite.internal.stat.StatisticsHolderQuery;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Mapper query results.
  */
 class MapQueryResults {
-    /** H@ indexing. */
+    /** H2 indexing. */
     private final IgniteH2Indexing h2;
 
     /** */
@@ -54,6 +55,9 @@ class MapQueryResults {
     /** {@code SELECT FOR UPDATE} flag. */
     private final boolean forUpdate;
 
+    /** */
+    private final StatisticsHolderQuery statisticsHolderQry;
+
     /**
      * Constructor.
      * @param h2 Indexing instance.
@@ -62,10 +66,11 @@ class MapQueryResults {
      * @param cctx Cache context.
      * @param lazyWorker Lazy worker (if any).
      * @param forUpdate {@code SELECT FOR UPDATE} flag.
+     * @param statisticsHolderQry Statistics holder for query.
      */
     @SuppressWarnings("unchecked")
     MapQueryResults(IgniteH2Indexing h2, long qryReqId, int qrys, @Nullable GridCacheContext<?, ?> cctx,
-        @Nullable MapQueryLazyWorker lazyWorker, boolean forUpdate) {
+        @Nullable MapQueryLazyWorker lazyWorker, boolean forUpdate, StatisticsHolderQuery statisticsHolderQry) {
         this.forUpdate = forUpdate;
         this.h2 = h2;
         this.qryReqId = qryReqId;
@@ -77,6 +82,8 @@ class MapQueryResults {
 
         for (int i = 0; i < cancels.length; i++)
             cancels[i] = new GridQueryCancel();
+
+        this.statisticsHolderQry = statisticsHolderQry;
     }
 
     /**
@@ -183,5 +190,12 @@ class MapQueryResults {
      */
     public boolean isForUpdate() {
         return forUpdate;
+    }
+
+    /**
+     * @return Statistics holder related to current query.
+     */
+    public StatisticsHolderQuery statisticsHolderQry() {
+        return statisticsHolderQry;
     }
 }

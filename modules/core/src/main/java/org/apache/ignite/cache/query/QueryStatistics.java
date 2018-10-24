@@ -13,34 +13,22 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.ignite.cache.query;
 
 /**
- * SQL query result cursor. This extends {@link QueryCursor}
- * to expose fields metadata to public API for SqlFieldsQueries.
+ * Query IO statistics.
  */
-public interface FieldsQueryCursor<T> extends QueryCursor<T> {
+public interface QueryStatistics {
     /**
-     * Gets field name.
-     *
-     * @param idx field index.
-     * @return Field name.
+     * @return Number of logical reads.
      */
-    String getFieldName(int idx);
+    public long logicalReads();
 
     /**
-     * Gets number of columns in a row.
-     *
-     * @return row size.
+     * @return Number of physical reads.
      */
-    int getColumnsCount();
-
-    /**
-     * Gets Query IO statistics.
-     *
-     * @return Query IO statistics.
-     */
-    QueryStatistics stats();
+    public long physicalReads();
 }

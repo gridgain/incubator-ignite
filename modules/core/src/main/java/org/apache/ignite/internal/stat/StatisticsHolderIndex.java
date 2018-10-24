@@ -72,13 +72,13 @@ public class StatisticsHolderIndex implements StatisticsHolder {
             case INNER:
                 logicalReadInnerCntr.increment();
 
-                StatisticsHelper.trackLogicalReadQuery(pageAddr);
+                StatisticsQueryHelper.trackLogicalReadQuery(pageAddr);
 
                 break;
             case LEAF:
                 logicalReadLeafCntr.increment();
 
-                StatisticsHelper.trackLogicalReadQuery(pageAddr);
+                StatisticsQueryHelper.trackLogicalReadQuery(pageAddr);
 
                 break;
         }
@@ -94,14 +94,14 @@ public class StatisticsHolderIndex implements StatisticsHolder {
                 logicalReadInnerCntr.increment();
                 physicalReadInnerCntr.increment();
 
-                StatisticsHelper.trackPhysicalAndLogicalReadQuery(pageAddr);
+                StatisticsQueryHelper.trackPhysicalAndLogicalReadQuery(pageAddr);
 
                 break;
             case LEAF:
                 logicalReadLeafCntr.increment();
                 physicalReadLeafCntr.increment();
 
-                StatisticsHelper.trackPhysicalAndLogicalReadQuery(pageAddr);
+                StatisticsQueryHelper.trackPhysicalAndLogicalReadQuery(pageAddr);
 
                 break;
         }

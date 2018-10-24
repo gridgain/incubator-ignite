@@ -29,6 +29,7 @@ import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxSe
 import org.apache.ignite.internal.processors.cache.query.GridCacheTwoStepQuery;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.GridRunningQueryInfo;
+import org.apache.ignite.internal.stat.StatisticsHolderQuery;
 import org.apache.ignite.internal.util.typedef.F;
 import org.h2.jdbc.JdbcConnection;
 import org.jetbrains.annotations.Nullable;
@@ -60,6 +61,9 @@ class ReduceQueryRun {
     /** Future controlling {@code SELECT FOR UPDATE} query execution. */
     private final GridNearTxSelectForUpdateFuture selectForUpdateFut;
 
+    /** Statistics holder for current query. */
+    private final StatisticsHolderQuery statisticsHolderQry;
+
     /**
      * Constructor.
      * @param id Query ID.
@@ -71,9 +75,11 @@ class ReduceQueryRun {
      * @param startTime Start time.
      * @param selectForUpdateFut Future controlling {@code SELECT FOR UPDATE} query execution.
      * @param cancel Query cancel handler.
+     * @param statisticsHolderQry Query statistics holder.
      */
     ReduceQueryRun(Long id, String qry, String schemaName, Connection conn, int idxsCnt, int pageSize, long startTime,
-        GridNearTxSelectForUpdateFuture selectForUpdateFut, GridQueryCancel cancel) {
+        GridNearTxSelectForUpdateFuture selectForUpdateFut, GridQueryCancel cancel,
+        StatisticsHolderQuery statisticsHolderQry) {
         this.qry = new GridRunningQueryInfo(id, qry, SQL_FIELDS, schemaName, startTime, cancel,
             false);
 
@@ -84,6 +90,15 @@ class ReduceQueryRun {
         this.pageSize = pageSize > 0 ? pageSize : GridCacheTwoStepQuery.DFLT_PAGE_SIZE;
 
         this.selectForUpdateFut = selectForUpdateFut;
+
+        this.statisticsHolderQry = statisticsHolderQry;
+    }
+
+    /**
+     * @return Query statistics holder.
+     */
+    public StatisticsHolderQuery statisticsHolderQry() {
+        return statisticsHolderQry;
     }
 
     /**

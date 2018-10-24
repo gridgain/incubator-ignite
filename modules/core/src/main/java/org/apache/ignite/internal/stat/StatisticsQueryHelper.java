@@ -18,38 +18,79 @@
 
 package org.apache.ignite.internal.stat;
 
+import static org.apache.ignite.internal.stat.StatisticsHolderQuery.UNKNOWN_QUERY_ID;
+
 /**
- * Helper for gathering IO statistics.
+ * Helper for gathering query IO statistics.
  */
-public class StatisticsHelper {
+public class StatisticsQueryHelper {
     /** */
     private static final ThreadLocal<StatisticsHolderQuery> CURRENT_QUERY_STATISTICS = new ThreadLocal<>();
 
     /**
-     * Start gathering IO statistics for query. Should be used together with {@code finishGatheringQueryStatistics}
+     * Start gathering IO statistics for a query. Should be used together with {@code finishGatheringQueryStatistics}
      * method.
+     */
+    public static void startGatheringQueryStatistics() {
+        startGatheringQueryStatistics(UNKNOWN_QUERY_ID);
+    }
+
+    /**
+     * Start gathering IO statistics for query with given id. Should be used together with {@code
+     * finishGatheringQueryStatistics} method.
      *
      * @param qryId Identifier of query.
+     * @return {@code true} In case Gathering statistics has been started. {@code false} If statistics gathering already
+     * started.
      */
-    public static void startGatheringQueryStatistics(String qryId) {
+    public static boolean startGatheringQueryStatistics(long qryId) {
         StatisticsHolderQuery currQryStatisticsHolder = CURRENT_QUERY_STATISTICS.get();
 
-        assert currQryStatisticsHolder == null : currQryStatisticsHolder;
+        assert currQryStatisticsHolder == null || currQryStatisticsHolder.queryId() == qryId : currQryStatisticsHolder;
+
+        if (currQryStatisticsHolder != null && currQryStatisticsHolder.queryId() == qryId)
+            return false;
 
         CURRENT_QUERY_STATISTICS.set(new StatisticsHolderQuery(qryId));
+
+        return true;
+    }
+
+    /**
+     * Start gathering IO statistics for query with given statistics as start point. Should be used together with {@code
+     * finishGatheringQueryStatistics} method.
+     *
+     * @param statisticsHolderQry Statistics holder which will be used to gather query statistics.
+     * @return {@code true} In case Gathering statistics has been started. {@code false} If statistics gathering already
+     * started.
+     */
+    public static boolean startGatheringQueryStatistics(StatisticsHolderQuery statisticsHolderQry) {
+        assert statisticsHolderQry != null;
+
+        StatisticsHolderQuery currQry = CURRENT_QUERY_STATISTICS.get();
+
+        assert currQry == null || currQry == statisticsHolderQry : currQry;
+
+        if (currQry == statisticsHolderQry)
+            return false;
+
+        CURRENT_QUERY_STATISTICS.set(statisticsHolderQry);
+
+        return true;
     }
 
     /**
      * Merge query statistics.
      *
-     * @param qryStat Statistics which will be merged to current query statistics.
+     * @param logicalReads Logical reads which will be added to current query statistics.
+     * @param physicalReads Physical reads which will be added to current query statistics,
      */
-    public static void mergeQueryStatistics(StatisticsHolderQuery qryStat) {
+    public static void mergeQueryStatistics(long logicalReads, long physicalReads) {
         StatisticsHolderQuery currQryStatisticsHolder = CURRENT_QUERY_STATISTICS.get();
 
         assert currQryStatisticsHolder != null;
 
-        currQryStatisticsHolder.merge(qryStat);
+        currQryStatisticsHolder.merge(logicalReads, physicalReads);
     }
 
     /**
@@ -66,6 +107,14 @@ public class StatisticsHelper {
         CURRENT_QUERY_STATISTICS.remove();
 
         return currQryStatisticsHolder;
+    }
+
+    /**
+     * @return Current query statistics holder. Can be {@code null} in case gathering statistics was not started or
+     * already finished.
+     */
+    public static StatisticsHolderQuery deriveQueryStatistics() {
+        return CURRENT_QUERY_STATISTICS.get();
     }
 
     /**

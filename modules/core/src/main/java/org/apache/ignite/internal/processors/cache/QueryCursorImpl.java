@@ -27,9 +27,12 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.cache.query.FieldsQueryCursor;
 import org.apache.ignite.cache.query.QueryCancelledException;
+import org.apache.ignite.cache.query.QueryStatistics;
 import org.apache.ignite.internal.processors.cache.query.QueryCursorEx;
 import org.apache.ignite.internal.processors.query.GridQueryCancel;
 import org.apache.ignite.internal.processors.query.GridQueryFieldMetadata;
+import org.apache.ignite.internal.stat.StatisticsHolderQuery;
+import org.apache.ignite.internal.stat.StatisticsQueryHelper;
 
 import static org.apache.ignite.internal.processors.cache.QueryCursorImpl.State.CLOSED;
 import static org.apache.ignite.internal.processors.cache.QueryCursorImpl.State.EXECUTION;
@@ -62,6 +65,9 @@ public class QueryCursorImpl<T> implements QueryCursorEx<T>, FieldsQueryCursor<T
     /** */
     private final GridQueryCancel cancel;
 
+    /** */
+    private final StatisticsHolderQuery statisticsHolderQry;
+
     /**
      * @param iterExec Query executor.
      * @param cancel Cancellation closure.
@@ -85,6 +91,7 @@ public class QueryCursorImpl<T> implements QueryCursorEx<T>, FieldsQueryCursor<T
         this.iterExec = iterExec;
         this.cancel = cancel;
         this.isQry = isQry;
+        this.statisticsHolderQry = StatisticsQueryHelper.deriveQueryStatistics();
     }
 
     /** {@inheritDoc} */
@@ -92,7 +99,15 @@ public class QueryCursorImpl<T> implements QueryCursorEx<T>, FieldsQueryCursor<T
         if (!STATE_UPDATER.compareAndSet(this, IDLE, EXECUTION))
             throw new IgniteException("Iterator is already fetched or query was cancelled.");
 
-        iter = iterExec.iterator();
+        boolean qryStatGatheringStarted = StatisticsQueryHelper.startGatheringQueryStatistics(statisticsHolderQry);
+
+        try {
+            iter = iterExec.iterator();
+        }
+        finally {
+            if (qryStatGatheringStarted)
+                StatisticsQueryHelper.finishGatheringQueryStatistics();
+        }
 
         if (!STATE_UPDATER.compareAndSet(this, EXECUTION, RESULT_READY)) {
             // Handle race with cancel and make sure the iterator resources are freed correctly.
@@ -203,6 +218,11 @@ public class QueryCursorImpl<T> implements QueryCursorEx<T>, FieldsQueryCursor<T
         assert this.fieldsMeta != null;
 
         return fieldsMeta.size();
+    }
+
+    /** {@inheritDoc} */
+    @Override public QueryStatistics stats() {
+        return statisticsHolderQry;
     }
 
     /** Query cursor state */

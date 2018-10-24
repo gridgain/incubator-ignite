@@ -24,11 +24,13 @@ import org.apache.ignite.internal.GridDirectCollection;
 import org.apache.ignite.internal.GridDirectTransient;
 import org.apache.ignite.internal.IgniteCodeGeneratingFail;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
+import org.apache.ignite.internal.stat.StatisticsHolder;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.apache.ignite.plugin.extensions.communication.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageWriter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Next page response.
@@ -76,6 +78,12 @@ public class GridQueryNextPageResponse implements Message {
     /** Remove mapping flag. */
     private boolean removeMapping;
 
+    /** Logical reads count statistics. */
+    private long logicalReadsStat;
+
+    /** Physical reads count statistics. */
+    private long physicalReadsStat;
+
     /**
      * For {@link Externalizable}.
      */
@@ -93,9 +101,10 @@ public class GridQueryNextPageResponse implements Message {
      * @param vals Values for rows in this page added sequentially.
      * @param plainRows Not marshalled rows for local node.
      * @param last Last page flag.
+     * @param stats IO statistics.
      */
     public GridQueryNextPageResponse(long qryReqId, int segmentId, int qry, int page, int allRows, int cols,
-        Collection<Message> vals, Collection<?> plainRows, boolean last) {
+        Collection<Message> vals, Collection<?> plainRows, boolean last, @Nullable StatisticsHolder stats) {
         assert vals != null ^ plainRows != null;
         assert cols > 0 : cols;
 
@@ -108,6 +117,11 @@ public class GridQueryNextPageResponse implements Message {
         this.vals = vals;
         this.plainRows = plainRows;
         this.last = last;
+
+        if (stats != null) {
+            this.logicalReadsStat = stats.logicalReads();
+            this.physicalReadsStat = stats.physicalReads();
+        }
     }
 
     /**
@@ -248,6 +262,18 @@ public class GridQueryNextPageResponse implements Message {
                     return false;
 
                 writer.incrementState();
+
+            case 11:
+                if (!writer.writeLong("logicalReadsStat", logicalReadsStat))
+                    return false;
+
+                writer.incrementState();
+
+            case 12:
+                if (!writer.writeLong("physicalReadsStat", physicalReadsStat))
+                    return false;
+
+                writer.incrementState();
         }
 
         return true;
@@ -349,6 +375,21 @@ public class GridQueryNextPageResponse implements Message {
 
                 reader.incrementState();
 
+            case 11:
+                logicalReadsStat = reader.readLong("logicalReadsStat");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
+            case 12:
+                physicalReadsStat = reader.readLong("physicalReadsStat");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
         }
 
         return reader.afterMessageRead(GridQueryNextPageResponse.class);
@@ -361,7 +402,7 @@ public class GridQueryNextPageResponse implements Message {
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 11;
+        return 13;
     }
 
     /**
@@ -418,6 +459,34 @@ public class GridQueryNextPageResponse implements Message {
      */
     public boolean removeMapping() {
         return removeMapping;
+    }
+
+    /**
+     * @return Number of logical reads for query.
+     */
+    public long logicalReadsStat() {
+        return logicalReadsStat;
+    }
+
+    /**
+     * @param logicalReadsStat Number of logical reads for query.
+     */
+    public void logicalReadsStat(long logicalReadsStat) {
+        this.logicalReadsStat = logicalReadsStat;
+    }
+
+    /**
+     * @return Number of physical reads for query.
+     */
+    public long physicalReadsStat() {
+        return physicalReadsStat;
+    }
+
+    /**
+     * @param physicalReadsStat Number of physical reads for query.
+     */
+    public void physicalReadsStat(long physicalReadsStat) {
+        this.physicalReadsStat = physicalReadsStat;
     }
 
     /** {@inheritDoc} */

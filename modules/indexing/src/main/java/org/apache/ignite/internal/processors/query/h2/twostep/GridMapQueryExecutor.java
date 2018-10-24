@@ -58,12 +58,12 @@ import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheInvalidStateException;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.distributed.dht.CompoundLockFuture;
-import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
-import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
-import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionsReservation;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTransactionalCacheAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxLocalAdapter;
 import org.apache.ignite.internal.processors.cache.distributed.dht.GridReservable;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionsReservation;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccSnapshot;
 import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.processors.cache.query.CacheQueryType;
@@ -87,6 +87,8 @@ import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2DmlReque
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2DmlResponse;
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryRequest;
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2SelectForUpdateTxDetails;
+import org.apache.ignite.internal.stat.StatisticsHolder;
+import org.apache.ignite.internal.stat.StatisticsQueryHelper;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
 import org.apache.ignite.internal.util.typedef.CI1;
 import org.apache.ignite.internal.util.typedef.F;
@@ -554,6 +556,7 @@ public class GridMapQueryExecutor {
     /**
      * @param node Node.
      * @param req Query request.
+     * @throws IgniteCheckedException In case of failure.
      */
     private void onQueryRequest(final ClusterNode node, final GridH2QueryRequest req) throws IgniteCheckedException {
         int[] qryParts = req.queryPartitions();
@@ -837,6 +840,8 @@ public class GridMapQueryExecutor {
 
         List<GridReservable> reserved = new ArrayList<>();
 
+        boolean qryStatGatheringStarted = StatisticsQueryHelper.startGatheringQueryStatistics(reqId);
+
         try {
             // We want to reserve only in not SELECT FOR UPDATE case -
             // otherwise, their state is protected by locked topology.
@@ -855,7 +860,8 @@ public class GridMapQueryExecutor {
                 }
             }
 
-            qr = new MapQueryResults(h2, reqId, qrys.size(), mainCctx, MapQueryLazyWorker.currentWorker(), inTx);
+            qr = new MapQueryResults(h2, reqId, qrys.size(), mainCctx, MapQueryLazyWorker.currentWorker(), inTx,
+                StatisticsQueryHelper.deriveQueryStatistics());
 
             if (nodeRess.put(reqId, segmentId, qr) != null)
                 throw new IllegalStateException();
@@ -1060,6 +1066,9 @@ public class GridMapQueryExecutor {
                 for (int i = 0; i < reserved.size(); i++)
                     reserved.get(i).release();
             }
+
+            if (qryStatGatheringStarted)
+                StatisticsQueryHelper.finishGatheringQueryStatistics();
         }
     }
 
@@ -1088,6 +1097,7 @@ public class GridMapQueryExecutor {
     /**
      * @param node Node.
      * @param req DML request.
+     * @throws IgniteCheckedException In case of failure.
      */
     private void onDmlRequest(final ClusterNode node, final GridH2DmlRequest req) throws IgniteCheckedException {
         int[] parts = req.queryPartitions();
@@ -1302,6 +1312,8 @@ public class GridMapQueryExecutor {
 
         boolean last = res.fetchNextPage(rows, pageSize);
 
+        StatisticsHolder qryStatistics = null;
+
         if (last) {
             res.close();
 
@@ -1312,6 +1324,8 @@ public class GridMapQueryExecutor {
                 if (MapQueryLazyWorker.currentWorker() != null)
                     releaseReservations();
             }
+
+            qryStatistics = qr.statisticsHolderQry();
         }
 
         boolean loc = node.isLocal();
@@ -1325,7 +1339,8 @@ public class GridMapQueryExecutor {
             colsCnt,
             loc ? null : toMessages(rows, new ArrayList<>(res.columnCount()), colsCnt),
             loc ? rows : null,
-            last);
+            last,
+            qryStatistics);
 
         msg.removeMapping(removeMapping);
 
@@ -1365,6 +1380,7 @@ public class GridMapQueryExecutor {
      * @param node Node.
      * @param reqId Request ID.
      * @param segmentId Index segment ID.
+     * @param retryCause Cause of retry
      */
     private void sendRetry(ClusterNode node, long reqId, int segmentId, String retryCause) {
         try {
@@ -1374,7 +1390,8 @@ public class GridMapQueryExecutor {
             /*qry*/0, /*page*/0, /*allRows*/0, /*cols*/1,
                 loc ? null : Collections.<Message>emptyList(),
                 loc ? Collections.<Value[]>emptyList() : null,
-                false);
+                false,
+                null);
 
             msg.retry(h2.readyTopologyVersion());
             msg.retryCause(retryCause);
