@@ -1312,6 +1312,8 @@ public class GridMapQueryExecutor {
 
         boolean last = res.fetchNextPage(rows, pageSize);
 
+        boolean loc = node.isLocal();
+
         StatisticsHolder qryStatistics = null;
 
         if (last) {
@@ -1325,10 +1327,9 @@ public class GridMapQueryExecutor {
                     releaseReservations();
             }
 
-            qryStatistics = qr.statisticsHolderQry();
+            if (!loc)
+                qryStatistics = qr.statisticsHolderQry();
         }
-
-        boolean loc = node.isLocal();
 
         // In case of SELECT FOR UPDATE the last columns is _KEY,
         // we can't retrieve them for an arbitrary row otherwise.

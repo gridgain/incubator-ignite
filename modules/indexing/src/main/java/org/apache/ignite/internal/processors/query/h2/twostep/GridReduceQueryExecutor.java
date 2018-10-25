@@ -368,7 +368,7 @@ public class GridReduceQueryExecutor {
                 sfuFut.onResult(node.id(), (long)msg.allRows(), msg.removeMapping(), null);
         }
 
-        if (msg.last())
+        if (msg.last() && !node.isLocal())
             r.statisticsHolderQry().merge(msg.logicalReadsStat(), msg.physicalReadsStat());
     }
 

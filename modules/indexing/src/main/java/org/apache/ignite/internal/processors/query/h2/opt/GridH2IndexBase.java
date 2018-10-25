@@ -17,6 +17,21 @@
 
 package org.apache.ignite.internal.processors.query.h2.opt;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import javax.cache.CacheException;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteInterruptedException;
 import org.apache.ignite.IgniteLogger;
@@ -37,6 +52,8 @@ import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2RowRange
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2RowRangeBounds;
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2ValueMessage;
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2ValueMessageFactory;
+import org.apache.ignite.internal.stat.StatisticsHolder;
+import org.apache.ignite.internal.stat.StatisticsQueryHelper;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteTree;
 import org.apache.ignite.internal.util.lang.GridCursor;
@@ -62,22 +79,6 @@ import org.h2.util.DoneFuture;
 import org.h2.value.Value;
 import org.h2.value.ValueNull;
 import org.jetbrains.annotations.Nullable;
-
-import javax.cache.CacheException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.singletonList;
@@ -405,6 +406,8 @@ public abstract class GridH2IndexBase extends BaseIndex {
         if (qctx == null)
             res.status(STATUS_NOT_FOUND);
         else {
+            boolean qryStatGatheringStarted = StatisticsQueryHelper.startGatheringQueryStatistics(msg.queryId());
+
             try {
                 RangeSource src;
 
@@ -459,6 +462,15 @@ public abstract class GridH2IndexBase extends BaseIndex {
 
                 res.error(th.getClass() + ": " + th.getMessage());
                 res.status(STATUS_ERROR);
+            }
+            finally {
+                if (qryStatGatheringStarted) {
+                    StatisticsHolder statisticsHolder = StatisticsQueryHelper.finishGatheringQueryStatistics();
+
+                    res.logicalReadsStat(statisticsHolder.logicalReads());
+
+                    res.physicalReadsStat(statisticsHolder.physicalReads());
+                }
             }
         }
 
@@ -1407,7 +1419,11 @@ public abstract class GridH2IndexBase extends BaseIndex {
                         return false;
                     }
 
-                    ranges = awaitForResponse().ranges().iterator();
+                    GridH2IndexRangeResponse response = awaitForResponse();
+
+                    StatisticsQueryHelper.mergeQueryStatistics(response.logicalReadsStat(), response.physicalReadsStat());
+
+                    ranges = response.ranges().iterator();
                 }
 
                 GridH2RowRange range = ranges.next();

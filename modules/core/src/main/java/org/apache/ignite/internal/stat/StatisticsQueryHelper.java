@@ -86,6 +86,9 @@ public class StatisticsQueryHelper {
      * @param physicalReads Physical reads which will be added to current query statistics,
      */
     public static void mergeQueryStatistics(long logicalReads, long physicalReads) {
+        if (logicalReads == 0 && physicalReads == 0)
+            return;
+
         StatisticsHolderQuery currQryStatisticsHolder = CURRENT_QUERY_STATISTICS.get();
 
         assert currQryStatisticsHolder != null;

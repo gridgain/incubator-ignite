@@ -18,6 +18,7 @@
 
 package org.apache.ignite.internal.processors.cache.index;
 
+import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.CacheAtomicityMode;
@@ -28,10 +29,14 @@ import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.stat.GridIoStatManager;
+import org.apache.ignite.internal.stat.StatType;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.apache.ignite.transactions.Transaction;
 
 ;
 
@@ -73,10 +78,11 @@ public class IoStatSQLTest extends GridCommonAbstractTest {
      * @param idxTypes Indexed types.
      * @return Cache configuration.
      */
-    protected CacheConfiguration cacheConfig(String name, boolean partitioned, Class<?>... idxTypes) {
+    protected CacheConfiguration cacheConfig(String name, boolean partitioned, boolean transactional,
+        Class<?>... idxTypes) {
         return new CacheConfiguration(name)
             .setCacheMode(partitioned ? CacheMode.PARTITIONED : CacheMode.REPLICATED)
-            .setAtomicityMode(CacheAtomicityMode.ATOMIC)
+            .setAtomicityMode(transactional ? CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT : CacheAtomicityMode.ATOMIC)
             .setBackups(1)
             .setIndexedTypes(idxTypes);
     }
@@ -87,28 +93,58 @@ public class IoStatSQLTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testSimpleLocalQuery() throws Exception {
-        CacheConfiguration ccfg1 = cacheConfig("simpleLocalQuery_Pers", false, String.class, Person.class);
+        simpleLocalQueryTest(false);
+    }
 
-        IgniteCache<String, Person> c1 = ignite(0).getOrCreateCache(ccfg1);
+    /**
+     * Test gathering IO statistics for local query within transaction.
+     *
+     * @throws Exception If failed.
+     */
+    public void testSimpleLocalQueryTransctional() throws Exception {
+        simpleLocalQueryTest(true);
+    }
+
+    /**
+     * @param transactional {@code true} In case test should be transactional.
+     * @throws Exception In case of Failure.
+     */
+    public void simpleLocalQueryTest(boolean transactional) throws Exception {
+        CacheConfiguration ccfg1 = cacheConfig("pers", false, transactional, String.class, Person.class);
+
+        IgniteEx ignite = ((IgniteEx)ignite(0));
+
+        IgniteCache<String, Person> c1 = ignite.getOrCreateCache(ccfg1);
+
+        GridIoStatManager ioStatManager = ignite.context().ioStats();
 
         try {
             awaitPartitionMapExchange();
 
-            populateDataIntoCaches(c1);
+            populateDataIntoCache(c1);
 
-            String sql =
-                "select * from Person " +
-                    "where lower(name) = lower(?)";
+            String sql = "select * from Person where lower(name) = lower(?)";
 
             SqlFieldsQuery qry = new SqlFieldsQuery(sql).setArgs("Person name #2").setLocal(true);
 
+            Transaction tx = null;
+
+            if (transactional)
+                tx = ignite(0).transactions().txStart();
+
+            ioStatManager.resetStats();
+
             FieldsQueryCursor qryCursor = c1.query(qry);
-            assertEquals(1, qryCursor.getAll().size());
+            qryCursor.getAll();
 
             QueryStatistics stats = qryCursor.stats();
 
-            assertEquals(51, stats.logicalReads());
+            assertEquals(calculateOverallLogicalReads(ioStatManager), stats.logicalReads());
+
             assertEquals(0, stats.physicalReads());
+
+            if (transactional)
+                tx.commit();
         }
         finally {
             c1.destroy();
@@ -122,15 +158,39 @@ public class IoStatSQLTest extends GridCommonAbstractTest {
      * @throws Exception If failed.
      */
     public void testNonCollocatedDistributedJoin() throws Exception {
-        CacheConfiguration ccfg1 = cacheConfig("pers", true, String.class, Person.class);
-        CacheConfiguration ccfg2 = cacheConfig("org", true, String.class, Organization.class);
+        nonCollocatedDistributedJoinTest(false);
+    }
 
-        IgniteCache<String, Person> c1 = ignite(0).getOrCreateCache(ccfg1);
-        IgniteCache<String, Organization> c2 = ignite(0).getOrCreateCache(ccfg2);
+    /**
+     * Test gathering IO statistics non collocated distributed join for small page size and case when result can fit
+     * into one page within transaction.
+     *
+     * @throws Exception
+     */
+    public void testNonCollocatedDistributedTransactionalJoin() throws Exception {
+        nonCollocatedDistributedJoinTest(true);
+    }
+
+    /**
+     * @param transactional {@code true} In case test should be transactional.
+     * @throws Exception In case of failure.
+     */
+    private void nonCollocatedDistributedJoinTest(boolean transactional) throws Exception {
+        CacheConfiguration ccfg1 = cacheConfig("pers", true, transactional, String.class, Person.class);
+        CacheConfiguration ccfg2 = cacheConfig("org", true, transactional, String.class, Organization.class);
+
+        IgniteEx ignite = ((IgniteEx)ignite(0));
+        IgniteEx ignite2 = ((IgniteEx)ignite(1));
+
+        IgniteCache<String, Person> c1 = ignite.getOrCreateCache(ccfg1);
+        IgniteCache<String, Organization> c2 = ignite.getOrCreateCache(ccfg2);
+
+        GridIoStatManager ioStatManager = ignite.context().ioStats();
+        GridIoStatManager ioStatManager2 = ignite2.context().ioStats();
+
+        awaitPartitionMapExchange();
 
         try {
-            awaitPartitionMapExchange();
-
             populateDataIntoCaches(c1, c2);
 
             String joinSql =
@@ -140,7 +200,17 @@ public class IoStatSQLTest extends GridCommonAbstractTest {
 
             Stream.of(1, PERSON_PER_ORG_COUNT + 1).forEach(pageSize -> {
 
-                    SqlFieldsQuery qry = new SqlFieldsQuery(joinSql).setArgs("Organization #0").setDistributedJoins(true).setPageSize(pageSize);
+                    SqlFieldsQuery qry = new SqlFieldsQuery(joinSql).setArgs("Organization #0")
+                        .setDistributedJoins(true).setPageSize(pageSize);
+
+                    Transaction tx = null;
+
+                    if (transactional)
+                        tx = ignite(0).transactions().txStart();
+
+                    ioStatManager.resetStats();
+
+                    ioStatManager2.resetStats();
 
                     FieldsQueryCursor qryCursor = c1.query(qry);
 
@@ -148,8 +218,15 @@ public class IoStatSQLTest extends GridCommonAbstractTest {
 
                     QueryStatistics stats = qryCursor.stats();
 
-                    assertEquals(367, stats.logicalReads());
+                    long overallLogicalReads = calculateOverallLogicalReads(ioStatManager, ioStatManager2);
+
+                    assertEquals(overallLogicalReads, stats.logicalReads());
+
                     assertEquals(0, stats.physicalReads());
+
+                    if (transactional)
+                        tx.commit();
+
                 }
             );
 
@@ -187,15 +264,51 @@ public class IoStatSQLTest extends GridCommonAbstractTest {
         }
     }
 
-    private void populateDataIntoCaches(IgniteCache<String, Person> c1) {
+    /**
+     * @param cache Cache
+     */
+    private void populateDataIntoCache(IgniteCache<String, Person> cache) {
         for (int personId = 0; personId < PERSON_PER_ORG_COUNT; personId++) {
             Person prsn = new Person();
+
             prsn.setId("pers" + personId);
-//                prsn.setOrgId();
+
             prsn.setName("Person name #" + personId);
 
-            c1.put(prsn.getId(), prsn);
+            cache.put(prsn.getId(), prsn);
         }
+    }
+
+    /**
+     * @param ioStatManagers IO statistic managers.
+     * @return overall logical reads.
+     */
+    private long calculateOverallLogicalReads(GridIoStatManager... ioStatManagers) {
+        long totalLogicalReads = 0;
+
+        for (GridIoStatManager ioStatManager : ioStatManagers) {
+
+            for (StatType statType : StatType.values()) {
+                Set<String> statNames = ioStatManager.deriveStatNames(statType);
+
+                for (String name : statNames) {
+                    Set<String> statSubNames = ioStatManager.deriveStatSubNames(statType, name);
+
+                    for (String subName : statSubNames) {
+                        Long logicalReads = ioStatManager.logicalReads(statType, name, subName);
+
+                        if (logicalReads != null)
+                            totalLogicalReads += logicalReads;
+                    }
+
+                    Long logicalReads = ioStatManager.logicalReads(statType, name);
+
+                    if (logicalReads != null)
+                        totalLogicalReads += logicalReads;
+                }
+            }
+        }
+        return totalLogicalReads;
     }
 
     /**

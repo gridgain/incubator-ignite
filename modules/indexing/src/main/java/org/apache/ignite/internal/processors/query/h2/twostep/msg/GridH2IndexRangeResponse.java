@@ -65,6 +65,12 @@ public class GridH2IndexRangeResponse implements Message {
     /** */
     private String err;
 
+    /** Logical reads count statistics. */
+    private long logicalReadsStat;
+
+    /** Physical reads count statistics. */
+    private long physicalReadsStat;
+
     /**
      * @param ranges Ranges.
      */
@@ -236,6 +242,18 @@ public class GridH2IndexRangeResponse implements Message {
                     return false;
 
                 writer.incrementState();
+
+            case 8:
+                if (!writer.writeLong("logicalReadsStat", logicalReadsStat))
+                    return false;
+
+                writer.incrementState();
+
+            case 9:
+                if (!writer.writeLong("physicalReadsStat", physicalReadsStat))
+                    return false;
+
+                writer.incrementState();
         }
 
         return true;
@@ -312,9 +330,53 @@ public class GridH2IndexRangeResponse implements Message {
                     return false;
 
                 reader.incrementState();
+
+            case 8:
+                logicalReadsStat = reader.readLong("logicalReadsStat");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
+
+            case 9:
+                physicalReadsStat = reader.readLong("physicalReadsStat");
+
+                if (!reader.isLastRead())
+                    return false;
+
+                reader.incrementState();
         }
 
         return reader.afterMessageRead(GridH2IndexRangeResponse.class);
+    }
+
+    /**
+     * @return Number of logical reads for query.
+     */
+    public long logicalReadsStat() {
+        return logicalReadsStat;
+    }
+
+    /**
+     * @param logicalReadsStat Number of logical reads for query.
+     */
+    public void logicalReadsStat(long logicalReadsStat) {
+        this.logicalReadsStat = logicalReadsStat;
+    }
+
+    /**
+     * @return Number of physical reads for query.
+     */
+    public long physicalReadsStat() {
+        return physicalReadsStat;
+    }
+
+    /**
+     * @param physicalReadsStat Number of physical reads for query.
+     */
+    public void physicalReadsStat(long physicalReadsStat) {
+        this.physicalReadsStat = physicalReadsStat;
     }
 
     /** {@inheritDoc} */
@@ -324,7 +386,7 @@ public class GridH2IndexRangeResponse implements Message {
 
     /** {@inheritDoc} */
     @Override public byte fieldsCount() {
-        return 8;
+        return 10;
     }
 
     /** {@inheritDoc} */
