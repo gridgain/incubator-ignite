@@ -1989,7 +1989,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                 segmentAware.onSegmentCompressed(alreadyCompressed[alreadyCompressed.length - 1].idx());
 
                 log.info("After initial onSegmentCompressed call [lastCompressedIdx=" +
-                    segmentAware.lastCompressedIdx());
+                    segmentAware.lastCompressedIdx() + ']');
             }
 
             for (int i = 1; i < calculateThreadCount(); i++) {
