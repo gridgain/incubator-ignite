@@ -156,6 +156,7 @@ import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.marshaller.Marshaller;
 import org.apache.ignite.marshaller.jdk.JdkMarshaller;
 import org.apache.ignite.plugin.extensions.communication.Message;
+import org.apache.ignite.plugin.security.SecurityPermission;
 import org.apache.ignite.resources.LoggerResource;
 import org.apache.ignite.spi.indexing.IndexingQueryFilter;
 import org.apache.ignite.spi.indexing.IndexingQueryFilterImpl;
@@ -1391,6 +1392,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             throw new IgniteSQLException("Failed to find SQL table for type: " + type,
                 IgniteQueryErrorCode.TABLE_NOT_FOUND);
 
+        if( ctx.security().enabled() )
+            tbl.cache().checkSecurity(SecurityPermission.CACHE_READ);
+
         String sql = generateQuery(qry, alias, tbl);
 
         Connection conn = connectionForThread(tbl.schemaName());
@@ -1647,6 +1651,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         if (res != null)
             return res;
 
+        int[] cacheIds = new int[0];
+
         {
             // First, let's check if we already have a two-step query for this statement...
             H2TwoStepCachedQueryKey cachedQryKey = new H2TwoStepCachedQueryKey(schemaName, qry.getSql(),
@@ -1657,6 +1663,12 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             if ((cachedQry = twoStepCache.get(cachedQryKey)) != null) {
                 checkQueryType(qry, true);
 
+                cacheIds = cachedQry.cacheIds();
+
+                if( ctx.security().enabled() )
+                    for (int cacheId : cacheIds)
+                        ctx.cache().context().cacheContext(cacheId).checkSecurity(SecurityPermission.CACHE_READ);
+
                 GridCacheTwoStepQuery twoStepQry = cachedQry.query().copy();
 
                 List<GridQueryFieldMetadata> meta = cachedQry.meta();
@@ -1665,7 +1677,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                     cancel));
 
                 if (!twoStepQry.explain())
-                    twoStepCache.putIfAbsent(cachedQryKey, new H2TwoStepCachedQuery(meta, twoStepQry.copy()));
+                    twoStepCache.putIfAbsent(cachedQryKey, new H2TwoStepCachedQuery(cacheIds, meta, twoStepQry.copy()));
 
                 return res;
             }
@@ -1708,14 +1720,21 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             if (remainingSql != null && failOnMultipleStmts)
                 throw new IgniteSQLException("Multiple statements queries are not supported");
+            else {
+                cacheIds = parseRes.cacheIds();
+
+                if( ctx.security().enabled() )
+                    for (int cacheId : cacheIds)
+                        ctx.cache().context().cacheContext(cacheId).checkSecurity(SecurityPermission.CACHE_READ);
+            }
 
             firstArg += prepared.getParameters().size();
 
             res.addAll(doRunPrepared(schemaName, prepared, newQry, twoStepQry, meta, keepBinary, cancel));
 
             if (parseRes.twoStepQuery() != null && parseRes.twoStepQueryKey() != null &&
-                    !parseRes.twoStepQuery().explain())
-                twoStepCache.putIfAbsent(parseRes.twoStepQueryKey(), new H2TwoStepCachedQuery(meta, twoStepQry.copy()));
+                !parseRes.twoStepQuery().explain())
+                twoStepCache.putIfAbsent(parseRes.twoStepQueryKey(), new H2TwoStepCachedQuery(cacheIds, meta, twoStepQry.copy()));
         }
 
         return res;
@@ -1862,7 +1881,9 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             args = Arrays.copyOfRange(argsOrig, firstArg, firstArg + paramsCnt);
         }
 
-       if (prepared.isQuery()) {
+        int[] cacheIds = new int[0];
+
+        if (prepared.isQuery()) {
             try {
                 bindParameters(stmt, F.asList(args));
             }
@@ -1901,6 +1922,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                     qry.setDistributedJoins(true);
                 }
             }
+
+            cacheIds = parser.getCacheIdsOfTables();
         }
 
         SqlFieldsQuery newQry = cloneFieldsQuery(qry).setSql(prepared.getSQL()).setArgs(args);
@@ -1912,7 +1935,15 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             getStatementsCacheForCurrentThread().remove(schemaName, qry.getSql());
 
         if (!hasTwoStep)
-            return new ParsingResult(prepared, newQry, remainingSql, null, null, null);
+            return new ParsingResult(
+                cacheIds,
+                prepared,
+                newQry,
+                remainingSql,
+                null,
+                null,
+                null
+            );
 
         final UUID locNodeId = ctx.localNodeId();
 
@@ -1930,7 +1961,15 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             List<GridQueryFieldMetadata> meta = cachedQry.meta();
 
-            return new ParsingResult(prepared, newQry, remainingSql, twoStepQry, cachedQryKey, meta);
+            return new ParsingResult(
+                cacheIds,
+                prepared,
+                newQry,
+                remainingSql,
+                twoStepQry,
+                cachedQryKey,
+                meta
+            );
         }
 
         try {
@@ -1938,8 +1977,15 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 .distributedJoinMode(distributedJoinMode(qry.isLocal(), qry.isDistributedJoins())));
 
             try {
-                return new ParsingResult(prepared, newQry, remainingSql, split(prepared, newQry),
-                    cachedQryKey, H2Utils.meta(stmt.getMetaData()));
+                return new ParsingResult(
+                    cacheIds,
+                    prepared,
+                    newQry,
+                    remainingSql,
+                    split(prepared, newQry),
+                    cachedQryKey,
+                    H2Utils.meta(stmt.getMetaData())
+                );
             }
             catch (IgniteCheckedException e) {
                 throw new IgniteSQLException("Failed to bind parameters: [qry=" + newQry.getSql() + ", params=" +

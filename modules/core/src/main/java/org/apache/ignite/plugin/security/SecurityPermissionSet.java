@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Security permission set for authorized security subjects. Permission set
  * allows to specify task permissions for every task and cache permissions
- * for every cache. While cards are supported at the end of task or
+ * for every cache. Wildcards are supported at the end of task or
  * cache name.
  * <p>
  * Property {@link #defaultAllowAll()} specifies whether to allow or deny

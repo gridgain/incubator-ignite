@@ -33,13 +33,17 @@ public class H2TwoStepCachedQuery {
     /** */
     private final GridCacheTwoStepQuery twoStepQry;
 
+    /** */
+    private final int[] cacheIds;
+
     /**
      * @param meta Fields metadata.
      * @param twoStepQry Query.
      */
-    public H2TwoStepCachedQuery(List<GridQueryFieldMetadata> meta, GridCacheTwoStepQuery twoStepQry) {
+    public H2TwoStepCachedQuery(int[] cacheIds, List<GridQueryFieldMetadata> meta, GridCacheTwoStepQuery twoStepQry) {
         this.meta = meta;
         this.twoStepQry = twoStepQry;
+        this.cacheIds = cacheIds;
     }
 
     /**
@@ -54,6 +58,14 @@ public class H2TwoStepCachedQuery {
      */
     public GridCacheTwoStepQuery query() {
         return twoStepQry;
+    }
+
+    /**
+     *
+     * @return Cache ids.
+     */
+    public int[] cacheIds(){
+            return cacheIds;
     }
 
     /** {@inheritDoc} */

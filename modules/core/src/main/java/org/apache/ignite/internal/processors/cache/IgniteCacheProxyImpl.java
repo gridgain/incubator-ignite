@@ -644,8 +644,6 @@ public class IgniteCacheProxyImpl<K, V> extends AsyncSupportAdapter<IgniteCache<
     @Override public <R> QueryCursor<R> query(Query<R> qry) {
         A.notNull(qry, "qry");
         try {
-            ctx.checkSecurity(SecurityPermission.CACHE_READ);
-
             validate(qry);
 
             convertToBinary(qry);
@@ -654,15 +652,18 @@ public class IgniteCacheProxyImpl<K, V> extends AsyncSupportAdapter<IgniteCache<
 
             boolean keepBinary = opCtxCall != null && opCtxCall.isKeepBinary();
 
-            if (qry instanceof ContinuousQuery || qry instanceof ContinuousQueryWithTransformer)
-                return (QueryCursor<R>)queryContinuous((AbstractContinuousQuery)qry, qry.isLocal(), keepBinary);
-
             if (qry instanceof SqlQuery)
                 return (QueryCursor<R>)ctx.kernalContext().query().querySql(ctx, (SqlQuery)qry, keepBinary);
 
             if (qry instanceof SqlFieldsQuery)
                 return (FieldsQueryCursor<R>)ctx.kernalContext().query().querySqlFields(ctx, (SqlFieldsQuery)qry,
                     null, keepBinary, true).get(0);
+
+            if( ctx.kernalContext().security().enabled() )
+                ctx.checkSecurity(SecurityPermission.CACHE_READ);
+
+            if (qry instanceof ContinuousQuery || qry instanceof ContinuousQueryWithTransformer)
+                return (QueryCursor<R>)queryContinuous((AbstractContinuousQuery)qry, qry.isLocal(), keepBinary);
 
             if (qry instanceof ScanQuery)
                 return query((ScanQuery)qry, null, projection(qry.isLocal()));
