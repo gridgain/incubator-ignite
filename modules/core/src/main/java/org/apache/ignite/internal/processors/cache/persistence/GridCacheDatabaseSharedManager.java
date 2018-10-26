@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -96,7 +97,6 @@ import org.apache.ignite.internal.pagemem.wal.record.CacheState;
 import org.apache.ignite.internal.pagemem.wal.record.CheckpointRecord;
 import org.apache.ignite.internal.pagemem.wal.record.DataEntry;
 import org.apache.ignite.internal.pagemem.wal.record.DataRecord;
-import org.apache.ignite.internal.pagemem.wal.record.MemoryRecoveryRecord;
 import org.apache.ignite.internal.pagemem.wal.record.MetastoreDataRecord;
 import org.apache.ignite.internal.pagemem.wal.record.PageSnapshot;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
@@ -166,6 +166,7 @@ import org.jsr166.ConcurrentLinkedHashMap;
 import static java.nio.file.StandardOpenOption.READ;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_SKIP_CRC;
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_WAL_REBALANCE_THRESHOLD;
+import static org.apache.ignite.configuration.DataStorageConfiguration.DFLT_DATA_REG_DEFAULT_NAME;
 import static org.apache.ignite.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.pagemem.wal.record.WALRecord.RecordType.CHECKPOINT_RECORD;
@@ -832,7 +833,8 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             metaStorage = new MetaStorage(
                 cctx,
                 dataRegionMap.get(METASTORE_DATA_REGION_NAME),
-                (DataRegionMetricsImpl)memMetricsMap.get(METASTORE_DATA_REGION_NAME)
+                (DataRegionMetricsImpl)memMetricsMap.get(METASTORE_DATA_REGION_NAME),
+                false
             );
 
             WALPointer restore = restoreMemory(status, restoreMetastorageOnly, (PageMemoryEx) metaStorage.pageMemory(), true);
@@ -2228,9 +2230,13 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                         for (DataEntry dataEntry : dataRec.writeEntries()) {
                             int cacheId = dataEntry.cacheId();
 
-                            int grpId = cctx.cache().cacheDescriptor(cacheId).groupId();
+                            DynamicCacheDescriptor cacheDesc = cctx.cache().cacheDescriptor(cacheId);
 
-                            if (!ignoreGrps.contains(grpId)) {
+                            // Can empty in case recovery node on blt changed.
+                            if (cacheDesc == null)
+                                continue;
+
+                            if (!ignoreGrps.contains(cacheDesc.groupId())) {
                                 GridCacheContext cacheCtx = cctx.cacheContext(cacheId);
 
                                 applyUpdate(cacheCtx, dataEntry);
