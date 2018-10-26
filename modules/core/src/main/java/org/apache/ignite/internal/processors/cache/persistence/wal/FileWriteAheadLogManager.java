@@ -1987,7 +1987,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             FileDescriptor[] alreadyCompressed = scan(walArchiveDir.listFiles(WAL_SEGMENT_FILE_COMPACTED_FILTER));
 
             if (alreadyCompressed.length > 0) {
-                segmentAware.onSegmentCompressed(alreadyCompressed[alreadyCompressed.length - 1].idx());
+                segmentAware.lastSegmentCompressed(alreadyCompressed[alreadyCompressed.length - 1].idx());
 
                 log.info("After initial onSegmentCompressed call [lastCompressedIdx=" +
                     segmentAware.lastCompressedIdx() + ']');
