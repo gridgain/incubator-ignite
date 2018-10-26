@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.processors.cache.persistence;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -176,7 +175,6 @@ import static org.apache.ignite.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.pagemem.wal.record.WALRecord.RecordType.CHECKPOINT_RECORD;
 import static org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage.METASTORAGE_CACHE_ID;
 import static org.apache.ignite.internal.util.IgniteUtils.checkpointBufferSize;
-import static org.apache.ignite.internal.util.IgniteUtils.IGNITE_TEST_FEATURES_ENABLED;
 
 /**
  *
@@ -503,17 +501,6 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             cleanupTempCheckpointDirectory();
 
             persStoreMetrics.wal(cctx.wal());
-
-            final PdsFolderSettings resolveFolders = cctx.kernalContext().pdsFolderResolver().resolveFolders();
-
-            if (IGNITE_TEST_FEATURES_ENABLED) {
-                recDir = initDirectory(
-                        "records",
-                        DataStorageConfiguration.DFLT_WAL_PATH,
-                        resolveFolders.folderName(),
-                        "applied records log directory"
-                );
-            }
         }
     }
 
@@ -2262,77 +2249,49 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         @Nullable IgnitePredicate<WALRecord> stopPred,
         IgniteBiPredicate<WALRecord, DataEntry> entryPred)
     {
-        //TODO: remove
-        FileWriter fw = null;
+        while (it.hasNext()) {
+            IgniteBiTuple<WALPointer, WALRecord> next = it.next();
 
-        {
-            try {
-                if (recDir != null)
-                    fw = new FileWriter(new File(recDir, "records.txt"), true);
-            } catch (Exception e) {
-                log.error("WTF", e);
+            WALRecord rec = next.get2();
 
-                throw new RuntimeException(e);
-            }
-        }
+            if (stopPred != null && stopPred.apply(rec))
+                break;
 
-        try {
-            while (it.hasNext()) {
-                IgniteBiTuple<WALPointer, WALRecord> next = it.next();
+            switch (rec.type()) {
+                case DATA_RECORD:
+                    checkpointReadLock();
 
-                WALRecord rec = next.get2();
+                    try {
+                        DataRecord dataRec = (DataRecord)rec;
 
-                if (stopPred != null && stopPred.apply(rec))
-                    break;
+                        if (entryPred.apply(rec, null)) {
+                            for (DataEntry dataEntry : dataRec.writeEntries()) {
+                                if (entryPred.apply(rec, dataEntry)) {
+                                    int cacheId = dataEntry.cacheId();
 
-                switch (rec.type()) {
-                    case DATA_RECORD:
-                        checkpointReadLock();
+                                    GridCacheContext cacheCtx = cctx.cacheContext(cacheId);
 
-                        try {
-                            DataRecord dataRec = (DataRecord)rec;
-
-                            if (entryPred.apply(rec, null)) {
-                                for (DataEntry dataEntry : dataRec.writeEntries()) {
-                                    if (entryPred.apply(rec, dataEntry)) {
-                                        int cacheId = dataEntry.cacheId();
-
-                                        GridCacheContext cacheCtx = cctx.cacheContext(cacheId);
-
-                                        if (cacheCtx != null) {
-                                            applyUpdate(cacheCtx, dataEntry);
-
-                                            if (recDir != null)
-                                                fw.write(dataEntry.toString() + '\n');
-                                        }
-                                        else if (log != null) {
-                                            log.warning("Cache (cacheId=" + cacheId +
-                                                ") is not started, can't apply updates.");
-                                        }
+                                    if (cacheCtx != null)
+                                        applyUpdate(cacheCtx, dataEntry);
+                                    else if (log != null) {
+                                        log.warning("Cache (cacheId=" + cacheId +
+                                            ") is not started, can't apply updates.");
                                     }
                                 }
                             }
                         }
-                        catch (Exception e) {
-                            throw new IgniteException(e);
-                        }
-                        finally {
-                            checkpointReadUnlock();
-                        }
+                    }
+                    catch (Exception e) {
+                        throw new IgniteException(e);
+                    }
+                    finally {
+                        checkpointReadUnlock();
+                    }
 
-                        break;
+                    break;
 
-                    default:
-                        // Skip other records.
-                }
-            }
-        }
-        finally {
-            try {
-                if (fw != null)
-                    fw.close();
-            } catch (IOException e) {
-                // No-op.
+                default:
+                    // Skip other records.
             }
         }
     }

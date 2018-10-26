@@ -544,7 +544,7 @@ public class IgniteTxHandler {
             if (req.onePhaseCommit()) {
                 assert req.last() : req;
 
-                tx.onePhaseCommit(true);
+                tx.onePhaseCommit(true); //
             }
 
             if (req.needReturnValue())
@@ -1187,14 +1187,14 @@ public class IgniteTxHandler {
                 assert req.last();
 
                 if (dhtTx != null) {
-                    dhtTx.onePhaseCommit(true);
+                    dhtTx.onePhaseCommit(true); //
                     dhtTx.needReturnValue(req.needReturnValue());
 
                     finish(dhtTx, req);
                 }
 
                 if (nearTx != null) {
-                    nearTx.onePhaseCommit(true);
+                    nearTx.onePhaseCommit(true);//
 
                     finish(nearTx, req);
                 }
