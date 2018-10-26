@@ -90,6 +90,13 @@ public class RestResult {
     }
 
     /**
+     * @param data New data.
+     */
+    public void setData(String data) {
+        this.data = data;
+    }
+
+    /**
      * @return String representation of session token.
      */
     public String getSessionToken() {

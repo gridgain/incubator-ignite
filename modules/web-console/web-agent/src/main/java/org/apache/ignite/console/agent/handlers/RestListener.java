@@ -79,10 +79,10 @@ public class RestListener extends AbstractListener {
                         return RestResult.fail(404, "Failed to send request because of embedded node for demo mode is not started yet.");
                 }
 
-                return restExecutor.sendRequest(AgentClusterDemo.getDemoUrl(), params, headers);
+                return restExecutor.sendRequest(AgentClusterDemo.getDemoUrl(), params, headers, false);
             }
 
-            return restExecutor.sendRequest(this.cfg.nodeURIs(), params, headers);
+            return restExecutor.sendRequest(this.cfg.nodeURIs(), params, headers, false);
         }
         catch (Exception e) {
             U.error(log, "Failed to execute REST command with parameters: " + params, e);

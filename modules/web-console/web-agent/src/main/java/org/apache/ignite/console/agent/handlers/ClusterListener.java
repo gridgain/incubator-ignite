@@ -23,13 +23,16 @@ import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.IgniteLogger;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -94,6 +97,9 @@ public class ClusterListener implements AutoCloseable {
 
     /** JSON object mapper. */
     private static final ObjectMapper MAPPER = new GridJettyObjectMapper();
+
+    /** List of last known node IDs. */
+    private Set<UUID> lastTop = new HashSet<>();
 
     /** Latest topology snapshot. */
     private TopologySnapshot top;
@@ -377,7 +383,7 @@ public class ClusterListener implements AutoCloseable {
                 params.put("password", cfg.nodePassword());
             }
 
-            RestResult res = restExecutor.sendRequest(cfg.nodeURIs(), params, null);
+            RestResult res = restExecutor.sendRequest(cfg.nodeURIs(), params, null, true);
 
             switch (res.getStatus()) {
                 case STATUS_SUCCESS:
@@ -397,21 +403,6 @@ public class ClusterListener implements AutoCloseable {
                 default:
                     return res;
             }
-        }
-
-        /**
-         * Collect topology.
-         *
-         * @param full Full.
-         */
-        private RestResult topology(boolean full) throws IOException {
-            Map<String, Object> params = U.newHashMap(3);
-
-            params.put("cmd", "top");
-            params.put("attr", true);
-            params.put("mtr", full);
-
-            return restCommand(params);
         }
 
         /**
@@ -463,37 +454,80 @@ public class ClusterListener implements AutoCloseable {
             }
         }
 
+        /**
+         * Collect topology.
+         *
+         * @param attrs Whether to collect attributes.
+         * @param metrics Whether to collect metrics.
+         * @return List of beans with nodes.
+         */
+        private List<GridClientNodeBean> topology(boolean attrs, boolean metrics) throws IOException {
+            Map<String, Object> params = U.newHashMap(3);
+
+            params.put("cmd", "top");
+            params.put("attr", attrs);
+            params.put("mtr", metrics);
+
+            RestResult res = restCommand(params);
+
+            switch (res.getStatus()) {
+                case STATUS_SUCCESS:
+                    return MAPPER.readValue(res.getData(), new TypeReference<List<GridClientNodeBean>>() {});
+
+                default:
+                    LT.warn(log, res.getError());
+
+                    throw new ConnectException();
+            }
+        }
+
+        /**
+         * @param nodes List of node beans.
+         * @return List of node IDs.
+         */
+        private Set<UUID> nids(List<GridClientNodeBean> nodes) {
+            return nodes.stream().map(GridClientNodeBean::getNodeId).collect(Collectors.toSet());
+        }
 
         /** {@inheritDoc} */
         @Override public void run() {
+            LT.info(log, "Polling data from cluster...");
+
             try {
-                RestResult res = topology(false);
+                // Light weight check for topology without attributes.
+                List<GridClientNodeBean> nodes = topology(false, false);
 
-                switch (res.getStatus()) {
-                    case STATUS_SUCCESS:
-                        List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
-                            new TypeReference<List<GridClientNodeBean>>() {});
+                Set<UUID> nids = nids(nodes);
 
-                        TopologySnapshot newTop = new TopologySnapshot(nodes);
+                // If topology changed, collect with attributes.
+                if (!lastTop.equals(nids)) {
+                    nodes = topology(true, false);
 
-                        if (newTop.differentCluster(top))
-                            log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
+                    lastTop = nids(nodes);
 
-                        boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
+                    TopologySnapshot newTop = new TopologySnapshot(nodes);
 
-                        newTop.setActive(active);
-                        newTop.setSecured(!F.isEmpty(res.getSessionToken()));
+                    if (newTop.differentCluster(top))
+                        log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
 
-                        top = newTop;
+                    boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
+
+                    newTop.setActive(active);
+                    // TODO GG-14352 newTop.setSecured(!F.isEmpty(res.getSessionToken()));
+
+                    top = newTop;
+
+                    client.emit(EVENT_CLUSTER_TOPOLOGY, toJSON(top));
+                }
+                else {
+                    // Check active state.
+                    boolean active = active(top.clusterVersion(), F.first(top.getNids()));
+
+                    if (active != top.isActive()) {
+                        top.setActive(active);
 
                         client.emit(EVENT_CLUSTER_TOPOLOGY, toJSON(top));
-
-                        break;
-
-                    default:
-                        LT.warn(log, res.getError());
-
-                        clusterDisconnect();
+                    }
                 }
             }
             catch (ConnectException ignored) {

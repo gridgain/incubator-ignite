@@ -17,14 +17,6 @@
 
 package org.apache.ignite.console.agent.rest;
 
-import java.io.IOException;
-import java.io.StringWriter;
-import java.net.ConnectException;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -33,6 +25,14 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.net.ConnectException;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
 import okhttp3.Dispatcher;
 import okhttp3.FormBody;
 import okhttp3.HttpUrl;
@@ -45,6 +45,7 @@ import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
+
 
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
@@ -172,8 +173,15 @@ public class RestExecutor implements AutoCloseable {
     }
 
     /** */
-    public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params, Map<String, Object> headers) throws IOException {
+    public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params, Map<String, Object> headers, boolean internal) throws IOException {
         long tm = System.currentTimeMillis();
+
+        boolean exe = params.containsKey("p2");
+
+        String cmd =  String.valueOf(params.get(exe ? "p2" : "cmd"));
+
+        int sz1 = 0;
+        int sz2 = 0;
 
         try {
             Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);
@@ -190,6 +198,30 @@ public class RestExecutor implements AutoCloseable {
 
                     startIdxs.put(nodeURIs, currIdx);
 
+                    String data = res.getData();
+
+                    sz1 = data.length();
+                    sz2 = sz1;
+
+                    if ("top".equals(cmd)) {
+                        StringBuilder sb = new StringBuilder(data);
+
+                        while (true) {
+                            int ix1 = sb.indexOf(",\"caches\":[{\"name\":");
+                            int ix2 = sb.indexOf("]", ix1);
+
+                            if (ix1 > 0 && ix2 > 0)
+                                sb.delete(ix1, ix2 + 1);
+                            else
+                                break;
+                        }
+
+                        sz2 = sb.length();
+
+//                        if (sz2 < sz1)
+//                            res.setData(sb.toString());
+                    }
+
                     return res;
                 }
                 catch (ConnectException ignored) {
@@ -204,11 +236,10 @@ public class RestExecutor implements AutoCloseable {
             throw new ConnectException("Failed connect to cluster [urls=" + nodeURIs + ", parameters=" + params + "]");
         }
         finally {
-            boolean exe = params.containsKey("p2");
-
-            String cmd =  String.valueOf(params.get(exe ? "p2" : "cmd"));
-
-            log.info("Command executed [cmd=" + cmd + ", duration=" + (System.currentTimeMillis() - tm) + "]");
+            log.info("Command executed [cmd=" + cmd +
+                ", internal=" + internal +
+                ", duration=" + (System.currentTimeMillis() - tm) +
+                ", sz1=" + sz1 + ", sz2=" + sz2 + "]");
         }
     }
 
