@@ -41,6 +41,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
@@ -200,26 +201,28 @@ public class RestExecutor implements AutoCloseable {
 
                     String data = res.getData();
 
-                    sz1 = data.length();
-                    sz2 = sz1;
+                    if (!F.isEmpty(data)) {
+                        sz1 = data.length();
+                        sz2 = sz1;
 
-                    if ("top".equals(cmd)) {
-                        StringBuilder sb = new StringBuilder(data);
+                        if ("top".equals(cmd)) {
+                            StringBuilder sb = new StringBuilder(data);
 
-                        while (true) {
-                            int ix1 = sb.indexOf(",\"caches\":[{\"name\":");
-                            int ix2 = sb.indexOf("]", ix1);
+                            while (true) {
+                                int ix1 = sb.indexOf(",\"caches\":[{\"name\":");
+                                int ix2 = sb.indexOf("]", ix1);
 
-                            if (ix1 > 0 && ix2 > 0)
-                                sb.delete(ix1, ix2 + 1);
-                            else
-                                break;
+                                if (ix1 > 0 && ix2 > 0)
+                                    sb.delete(ix1, ix2 + 1);
+                                else
+                                    break;
+                            }
+
+                            sz2 = sb.length();
+
+                            if (sz2 < sz1)
+                                res.setData(sb.toString());
                         }
-
-                        sz2 = sb.length();
-
-//                        if (sz2 < sz1)
-//                            res.setData(sb.toString());
                     }
 
                     return res;
