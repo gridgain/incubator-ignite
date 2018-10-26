@@ -856,7 +856,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
     /** {@inheritDoc} */
     @Override public void preloadPartition(int part) throws IgniteCheckedException {
         if (grp.isLocal()) {
-            dataStore(part).preload();
+            partitionData(part).preload();
 
             return;
         }
@@ -1701,6 +1701,14 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
             if (delegate != null)
                 delegate.clear(cacheId);
+        }
+
+        /** {@inheritDoc} */
+        @Override public void preload() throws IgniteCheckedException {
+            CacheDataStore delegate0 = init0(true);
+
+            if (delegate0 != null)
+                delegate0.preload();
         }
     }
 

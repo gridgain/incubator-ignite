@@ -272,7 +272,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
      * @param p Partition.
      * @return Partition data.
      */
-    @Nullable private CacheDataStore partitionData(int p) {
+    @Nullable protected CacheDataStore partitionData(int p) {
         if (grp.isLocal())
             return locCacheDataStore;
         else {
