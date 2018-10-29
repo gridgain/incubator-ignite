@@ -406,6 +406,22 @@ public class ClusterListener implements AutoCloseable {
         }
 
         /**
+         * Collect topology.
+         *
+         * @param full Full.
+         */
+        private RestResult topology(boolean full) throws IOException {
+            Map<String, Object> params = U.newHashMap(3);
+
+            params.put("cmd", "top");
+            params.put("attr", true);
+            params.put("mtr", full);
+            params.put("caches", false);
+
+            return restCommand(params);
+        }
+
+        /**
          * @param ver Cluster version.
          * @param nid Node ID.
          * @return Cluster active state.
