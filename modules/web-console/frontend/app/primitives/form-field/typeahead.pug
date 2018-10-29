@@ -14,7 +14,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 
-mixin form-field__typeahead({ label, model, name, disabled, plain = true, optionLabel = 'label', required, placeholder, options, tip })
+mixin form-field__typeahead({ label, model, name, disabled, plain = true, optionLabel = 'label', charsToSuggest = 0, limit = 1000, required, placeholder, options, tip })
     -var errLbl = label.substring(0, label.length - 1)
     mixin __form-field__typeahead()
         input(
@@ -30,7 +30,8 @@ mixin form-field__typeahead({ label, model, name, disabled, plain = true, option
             bs-typeahead
             bs-options=plain ? `item for item in ${options}` : `item.value as item.${optionLabel} for item in ${options}`
             container='body'
-            data-min-length='1'
+            data-min-length=charsToSuggest
+            limit=limit
             ignite-retain-selection
             ng-ref='$input'
             ng-ref-read='ngModel'
