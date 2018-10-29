@@ -14,7 +14,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 
-mixin form-field__typeahead({ label, model, name, disabled, plain = true, required, placeholder, options, tip })
+mixin form-field__typeahead({ label, model, name, disabled, plain = true, optionLabel = 'label', required, placeholder, options, tip })
     -var errLbl = label.substring(0, label.length - 1)
     mixin __form-field__typeahead()
         input(
@@ -28,7 +28,7 @@ mixin form-field__typeahead({ label, model, name, disabled, plain = true, requir
             ng-disabled=disabled && `${disabled}` || `!${options}.length`
 
             bs-typeahead
-            bs-options=plain ? `item for item in ${options}` : `item.value for item in ${options}`
+            bs-options=plain ? `item for item in ${options}` : `item.value as item.${optionLabel} for item in ${options}`
             container='body'
             data-min-length='1'
             ignite-retain-selection

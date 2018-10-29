@@ -68,13 +68,14 @@ div
                     ignite-on-enter-focus-move='companyInput'
                 )
             .col-50
-                +form-field__dropdown({
+                +form-field__typeahead({
                     label: 'Country:',
                     model: '$ctrl.ui.user.country',
                     name: '"country"',
                     required: true,
                     placeholder: 'Choose your country',
-                    options: '$ctrl.ui.countries'
+                    options: '$ctrl.ui.countries',
+                    plain: false
                 })
         .row
             .col-100
