@@ -32,9 +32,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import okhttp3.Dispatcher;
@@ -71,8 +75,8 @@ public class RestExecutor implements AutoCloseable {
     /** JSON object mapper. */
     private static final ObjectMapper MAPPER = new GridJettyObjectMapper();
 
-    /** */
-    private final OkHttpClient httpClient;
+//    /** */
+//    private final OkHttpClient httpClient;
 
     /** Index of alive node URI. */
     private Map<List<String>, Integer> startIdxs = U.newHashMap(2);
@@ -81,193 +85,246 @@ public class RestExecutor implements AutoCloseable {
      * Default constructor.
      */
     public RestExecutor() {
-        Dispatcher dispatcher = new Dispatcher();
-        
-        dispatcher.setMaxRequests(Integer.MAX_VALUE);
-        dispatcher.setMaxRequestsPerHost(Integer.MAX_VALUE);
-
-        OkHttpClient.Builder builder = new OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .dispatcher(dispatcher);
-
-        // Workaround for use self-signed certificate
-        if (Boolean.getBoolean("trust.all")) {
-            try {
-                SSLContext ctx = SSLContext.getInstance("TLS");
-
-                // Create an SSLContext that uses our TrustManager
-                ctx.init(null, new TrustManager[] {trustManager()}, null);
-
-                builder.sslSocketFactory(ctx.getSocketFactory(), trustManager());
-
-                builder.hostnameVerifier((hostname, session) -> true);
-            } catch (Exception ignored) {
-                LT.warn(log, "Failed to initialize the Trust Manager for \"-Dtrust.all\" option to skip certificate validation.");
-            }
-        }
-
-        httpClient = builder.build();
+//        Dispatcher dispatcher = new Dispatcher();
+//
+//        dispatcher.setMaxRequests(Integer.MAX_VALUE);
+//        dispatcher.setMaxRequestsPerHost(Integer.MAX_VALUE);
+//
+//        OkHttpClient.Builder builder = new OkHttpClient.Builder()
+//            .readTimeout(0, TimeUnit.MILLISECONDS)
+//            .dispatcher(dispatcher);
+//
+//        // Workaround for use self-signed certificate
+//        if (Boolean.getBoolean("trust.all")) {
+//            try {
+//                SSLContext ctx = SSLContext.getInstance("TLS");
+//
+//                // Create an SSLContext that uses our TrustManager
+//                ctx.init(null, new TrustManager[] {trustManager()}, null);
+//
+//                builder.sslSocketFactory(ctx.getSocketFactory(), trustManager());
+//
+//                builder.hostnameVerifier((hostname, session) -> true);
+//            } catch (Exception ignored) {
+//                LT.warn(log, "Failed to initialize the Trust Manager for \"-Dtrust.all\" option to skip certificate validation.");
+//            }
+//        }
+//
+//        httpClient = builder.build();
     }
 
     /**
      * Stop HTTP client.
      */
     @Override public void close() {
-        if (httpClient != null) {
-            httpClient.dispatcher().executorService().shutdown();
-
-            httpClient.dispatcher().cancelAll();
-        }
+//        if (httpClient != null) {
+//            httpClient.dispatcher().executorService().shutdown();
+//
+//            httpClient.dispatcher().cancelAll();
+//        }
     }
 
-    /** */
-    private RestResult parseResponse(Response res) throws IOException {
-        if (res.isSuccessful()) {
-            RestResponseHolder holder = MAPPER.readValue(res.body().byteStream(), RestResponseHolder.class);
+//    /** */
+//    private RestResult parseResponse(Response res) throws IOException {
+//        if (res.isSuccessful()) {
+//            RestResponseHolder holder = MAPPER.readValue(res.body().byteStream(), RestResponseHolder.class);
+//
+//            int status = holder.getSuccessStatus();
+//
+//            switch (status) {
+//                case STATUS_SUCCESS:
+//                    return RestResult.success(holder.getResponse(), holder.getSessionToken());
+//
+//                default:
+//                    return RestResult.fail(status, holder.getError());
+//            }
+//        }
+//
+//        if (res.code() == 401)
+//            return RestResult.fail(STATUS_AUTH_FAILED, "Failed to authenticate in cluster. " +
+//                "Please check agent\'s login and password or node port.");
+//
+//        if (res.code() == 404)
+//            return RestResult.fail(STATUS_FAILED, "Failed connect to cluster.");
+//
+//        return RestResult.fail(STATUS_FAILED, "Failed to execute REST command: " + res.message());
+//    }
 
-            int status = holder.getSuccessStatus();
+//    /** */
+//    private RestResult sendRequest(String url, Map<String, Object> params, Map<String, Object> headers) throws IOException {
+//        HttpUrl httpUrl = HttpUrl.parse(url);
+//
+//        HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
+//            .addPathSegment("ignite");
+//
+//        final Request.Builder reqBuilder = new Request.Builder();
+//
+//        if (headers != null) {
+//            for (Map.Entry<String, Object> entry : headers.entrySet())
+//                if (entry.getValue() != null)
+//                    reqBuilder.addHeader(entry.getKey(), entry.getValue().toString());
+//        }
+//
+//        FormBody.Builder bodyParams = new FormBody.Builder();
+//
+//        if (params != null) {
+//            for (Map.Entry<String, Object> entry : params.entrySet()) {
+//                if (entry.getValue() != null)
+//                    bodyParams.add(entry.getKey(), entry.getValue().toString());
+//            }
+//        }
+//
+//        reqBuilder.url(urlBuilder.build())
+//            .post(bodyParams.build());
+//
+//        try (Response resp = httpClient.newCall(reqBuilder.build()).execute()) {
+//            return parseResponse(resp);
+//        }
+//    }
 
-            switch (status) {
-                case STATUS_SUCCESS:
-                    return RestResult.success(holder.getResponse(), holder.getSessionToken());
+    private Map<String, RestResult> cache = new ConcurrentHashMap<>();
 
-                default:
-                    return RestResult.fail(status, holder.getError());
+    private List<String> commands = Arrays.asList(
+        "top",
+        "currentState",
+        "VisorBaselineViewTask",
+        "VisorCacheNamesCollectorTask",
+        "VisorGridGainCacheConfigurationCollectorTask",
+        "VisorGridGainNodeConfigurationCollectorTask",
+        "VisorGridGainNodeDataCollectorTask",
+        "VisorServiceTask"
+    );
+
+    private RestResult compute(String key) {
+        try {
+            String path = "C:/Temp/dump";
+
+            String subPath = commands.stream()
+                .filter(key::contains)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Dump not found for key: " + key));
+
+            List<Path> dumps = Files.list(Paths.get(path, subPath)).collect(Collectors.toList());
+
+            for (Path dump : dumps) {
+                List<String> lines = Files.readAllLines(dump);
+
+                if (
+                    "top".equals(subPath) ||
+                    "currentState".equals(subPath) ||
+                    lines.get(1).indexOf(key) > 0
+                )
+                    return RestResult.success(lines.get(2).substring(10), null);
             }
         }
-
-        if (res.code() == 401)
-            return RestResult.fail(STATUS_AUTH_FAILED, "Failed to authenticate in cluster. " +
-                "Please check agent\'s login and password or node port.");
-
-        if (res.code() == 404)
-            return RestResult.fail(STATUS_FAILED, "Failed connect to cluster.");
-
-        return RestResult.fail(STATUS_FAILED, "Failed to execute REST command: " + res.message());
-    }
-
-    /** */
-    private RestResult sendRequest(String url, Map<String, Object> params, Map<String, Object> headers) throws IOException {
-        HttpUrl httpUrl = HttpUrl.parse(url);
-
-        HttpUrl.Builder urlBuilder = httpUrl.newBuilder()
-            .addPathSegment("ignite");
-
-        final Request.Builder reqBuilder = new Request.Builder();
-
-        if (headers != null) {
-            for (Map.Entry<String, Object> entry : headers.entrySet())
-                if (entry.getValue() != null)
-                    reqBuilder.addHeader(entry.getKey(), entry.getValue().toString());
+        catch (Exception e) {
+            return RestResult.fail(STATUS_FAILED, e.getMessage());
         }
 
-        FormBody.Builder bodyParams = new FormBody.Builder();
-
-        if (params != null) {
-            for (Map.Entry<String, Object> entry : params.entrySet()) {
-                if (entry.getValue() != null)
-                    bodyParams.add(entry.getKey(), entry.getValue().toString());
-            }
-        }
-
-        reqBuilder.url(urlBuilder.build())
-            .post(bodyParams.build());
-
-        try (Response resp = httpClient.newCall(reqBuilder.build()).execute()) {
-            return parseResponse(resp);
-        }
+        return RestResult.fail(STATUS_FAILED, "Failed connect to find dump.");
     }
 
     /** */
     public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params, Map<String, Object> headers, boolean internal) throws IOException {
-        long tm = System.currentTimeMillis();
+        String key = String.valueOf(params);
 
-        SB dump = new SB(1024 * 100);
+        if (key.contains("top"))
+            key = "top";
+        else if (key.contains("currentState"))
+            key = "currentState";
 
-        dump.a("Time: ").a(tm).a('\n');
-        dump.a("Params: ").a(params).a('\n');
+        RestResult res = cache.computeIfAbsent(key, this::compute);
 
-        boolean exe = params.containsKey("p2");
+        return res;
 
-        String cmd =  String.valueOf(params.get(exe ? "p2" : "cmd"));
-
-        int sz1 = 0;
-        int sz2 = 0;
-
-        try {
-            Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);
-
-            for (int i = 0;  i < nodeURIs.size(); i++) {
-                Integer currIdx = (startIdx + i) % nodeURIs.size();
-
-                String nodeUrl = nodeURIs.get(currIdx);
-
-                try {
-                    RestResult res = sendRequest(nodeUrl, params, headers);
-
-                    LT.info(log, "Connected to cluster [url=" + nodeUrl + "]");
-
-                    startIdxs.put(nodeURIs, currIdx);
-
-                    String data = res.getData();
-
-                    dump.a("Response: ").a(data);
-
-                    if (!F.isEmpty(data)) {
-                        sz1 = data.length();
-                        sz2 = sz1;
-
-                        if ("top".equals(cmd)) {
-                            StringBuilder sb = new StringBuilder(data);
-
-                            while (true) {
-                                int ix1 = sb.indexOf(",\"caches\":[{\"name\":");
-                                int ix2 = sb.indexOf("]", ix1);
-
-                                if (ix1 > 0 && ix2 > 0)
-                                    sb.delete(ix1, ix2 + 1);
-                                else
-                                    break;
-                            }
-
-                            sz2 = sb.length();
-
-                            if (sz2 < sz1)
-                                res.setData(sb.toString());
-                        }
-                    }
-
-                    return res;
-                }
-                catch (ConnectException ignored) {
-                    // No-op.
-                }
-            }
-
-            LT.warn(log, "Failed connect to cluster. " +
-                "Please ensure that nodes have [ignite-rest-http] module in classpath " +
-                "(was copied from libs/optional to libs folder).");
-
-            throw new ConnectException("Failed connect to cluster [urls=" + nodeURIs + ", parameters=" + params + "]");
-        }
-        finally {
-            long dur = System.currentTimeMillis() - tm;
-
-            log.info("Command executed [cmd=" + cmd +
-                ", internal=" + internal +
-                ", duration=" + dur +
-                ", sz1=" + sz1 + ", sz2=" + sz2 + "]");
-
-            if (!internal) {
-                dump.a('\n').a("Duration: ").a(dur).a('\n').a("Size: ").a(sz1).a('\n');
-
-                Path path = Paths.get("./dump/dump_" + tm + ".txt").toAbsolutePath().normalize();
-
-                Files.createDirectories(path.getParent());
-
-                Files.write(path, dump.toString().getBytes(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-            }
-        }
+//        long tm = System.currentTimeMillis();
+//
+//        SB dump = new SB(1024 * 100);
+//
+//        dump.a("Time: ").a(tm).a('\n');
+//        dump.a("Params: ").a(params).a('\n');
+//
+//        boolean exe = params.containsKey("p2");
+//
+//        String cmd =  String.valueOf(params.get(exe ? "p2" : "cmd"));
+//
+//        int sz1 = 0;
+//        int sz2 = 0;
+//
+//        try {
+//            Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);
+//
+//            for (int i = 0;  i < nodeURIs.size(); i++) {
+//                Integer currIdx = (startIdx + i) % nodeURIs.size();
+//
+//                String nodeUrl = nodeURIs.get(currIdx);
+//
+//                try {
+//                    RestResult res = sendRequest(nodeUrl, params, headers);
+//
+//                    LT.info(log, "Connected to cluster [url=" + nodeUrl + "]");
+//
+//                    startIdxs.put(nodeURIs, currIdx);
+//
+//                    String data = res.getData();
+//
+//                    dump.a("Response: ").a(data);
+//
+//                    if (!F.isEmpty(data)) {
+//                        sz1 = data.length();
+//                        sz2 = sz1;
+//
+//                        if ("top".equals(cmd)) {
+//                            StringBuilder sb = new StringBuilder(data);
+//
+//                            while (true) {
+//                                int ix1 = sb.indexOf(",\"caches\":[{\"name\":");
+//                                int ix2 = sb.indexOf("]", ix1);
+//
+//                                if (ix1 > 0 && ix2 > 0)
+//                                    sb.delete(ix1, ix2 + 1);
+//                                else
+//                                    break;
+//                            }
+//
+//                            sz2 = sb.length();
+//
+//                            if (sz2 < sz1)
+//                                res.setData(sb.toString());
+//                        }
+//                    }
+//
+//                    return res;
+//                }
+//                catch (ConnectException ignored) {
+//                    // No-op.
+//                }
+//            }
+//
+//            LT.warn(log, "Failed connect to cluster. " +
+//                "Please ensure that nodes have [ignite-rest-http] module in classpath " +
+//                "(was copied from libs/optional to libs folder).");
+//
+//            throw new ConnectException("Failed connect to cluster [urls=" + nodeURIs + ", parameters=" + params + "]");
+//        }
+//        finally {
+//            long dur = System.currentTimeMillis() - tm;
+//
+//            log.info("Command executed [cmd=" + cmd +
+//                ", internal=" + internal +
+//                ", duration=" + dur +
+//                ", sz1=" + sz1 + ", sz2=" + sz2 + "]");
+//
+//            if (!internal) {
+//                dump.a('\n').a("Duration: ").a(dur).a('\n').a("Size: ").a(sz1).a('\n');
+//
+//                Path path = Paths.get("./dump/dump_" + tm + ".txt").toAbsolutePath().normalize();
+//
+//                Files.createDirectories(path.getParent());
+//
+//                Files.write(path, dump.toString().getBytes(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+//            }
+//        }
     }
 
     /**

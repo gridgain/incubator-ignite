@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.agent.handlers;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.socket.client.Socket;
 import java.io.IOException;
 import java.net.ConnectException;
@@ -97,6 +98,10 @@ public class ClusterListener implements AutoCloseable {
 
     /** JSON object mapper. */
     private static final ObjectMapper MAPPER = new GridJettyObjectMapper();
+
+    static {
+        MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
     /** List of last known node IDs. */
     private Set<UUID> lastTop = new HashSet<>();
