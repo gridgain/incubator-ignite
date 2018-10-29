@@ -166,8 +166,13 @@ public abstract class IgniteAbstractBenchmark extends BenchmarkDriverAdapter {
         for (long top = curTop; top >= 1; top--) {
             Collection<ClusterNode> nodes = cluster.topology(top);
 
-            if (topologyContainsId(nodes, locNodeId) && nodes.size() >= args.nodes())
+            println(cfg, "+++ Checking toppology " + top + " that contains nodes " + nodes);
+
+            if (topologyContainsId(nodes, locNodeId) && nodes.size() >= args.nodes()) {
+                println(cfg, "+++ Topology " + top + " is what we've been searching");
                 return true;
+            } else
+                println(cfg, "+++ Topology " + top + " is not the one.");
         }
 
         return false;
