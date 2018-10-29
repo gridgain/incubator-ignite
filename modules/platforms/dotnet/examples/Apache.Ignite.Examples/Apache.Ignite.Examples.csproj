@@ -52,6 +52,7 @@
     <Reference Include="System.Transactions" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Services\Interop\CacheMode.cs" />
     <Compile Include="Services\Interop\Client.cs" />
     <Compile Include="Services\Interop\DotnetToJavaNameMapper.cs" />
     <Compile Include="Services\Interop\Model.cs" />

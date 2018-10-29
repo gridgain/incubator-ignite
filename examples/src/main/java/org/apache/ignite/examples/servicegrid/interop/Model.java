@@ -1,7 +1,5 @@
 package org.apache.ignite.examples.servicegrid.interop;
 
-import org.apache.ignite.cache.CacheMode;
-
 public class Model {
     private final int iterationsCount;
     private final String name;

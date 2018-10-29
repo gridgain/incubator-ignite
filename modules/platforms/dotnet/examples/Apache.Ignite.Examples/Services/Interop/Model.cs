@@ -1,6 +1,4 @@
-﻿using Apache.Ignite.Core.Cache.Configuration;
-
-namespace Org.Apache.Ignite.Examples.Servicegrid.Interop
+﻿namespace Org.Apache.Ignite.Examples.Servicegrid.Interop
 {
     public class Model
     {

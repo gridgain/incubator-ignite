@@ -1,6 +1,5 @@
 ﻿using Apache.Ignite.Core;
 using Apache.Ignite.Core.Binary;
-using Apache.Ignite.Core.Cache.Configuration;
 using Org.Apache.Ignite.Examples.Servicegrid.Interop;
 using System;
 using System.Collections.Generic;
