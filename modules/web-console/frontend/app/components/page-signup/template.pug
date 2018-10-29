@@ -90,11 +90,12 @@ web-console-header
                     autocomplete='tel'
                 )
             div
-                +form-field__dropdown({
+                +form-field__typeahead({
                     label: 'Country:',
                     model: '$ctrl.data.country',
                     name: '"country"',
                     required: true,
+                    plain: false,
                     placeholder: 'Choose your country',
                     options: '$ctrl.countries'
                 })(
