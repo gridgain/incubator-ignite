@@ -28,6 +28,10 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.net.ConnectException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +47,7 @@ import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
@@ -177,6 +182,11 @@ public class RestExecutor implements AutoCloseable {
     public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params, Map<String, Object> headers, boolean internal) throws IOException {
         long tm = System.currentTimeMillis();
 
+        SB dump = new SB(1024 * 100);
+
+        dump.a("Time: ").a(tm).a('\n');
+        dump.a("Params: ").a(params).a('\n');
+
         boolean exe = params.containsKey("p2");
 
         String cmd =  String.valueOf(params.get(exe ? "p2" : "cmd"));
@@ -200,6 +210,8 @@ public class RestExecutor implements AutoCloseable {
                     startIdxs.put(nodeURIs, currIdx);
 
                     String data = res.getData();
+
+                    dump.a("Response: ").a(data);
 
                     if (!F.isEmpty(data)) {
                         sz1 = data.length();
@@ -239,10 +251,22 @@ public class RestExecutor implements AutoCloseable {
             throw new ConnectException("Failed connect to cluster [urls=" + nodeURIs + ", parameters=" + params + "]");
         }
         finally {
+            long dur = System.currentTimeMillis() - tm;
+
             log.info("Command executed [cmd=" + cmd +
                 ", internal=" + internal +
-                ", duration=" + (System.currentTimeMillis() - tm) +
+                ", duration=" + dur +
                 ", sz1=" + sz1 + ", sz2=" + sz2 + "]");
+
+            if (!internal) {
+                dump.a('\n').a("Duration: ").a(dur).a('\n').a("Size: ").a(sz1).a('\n');
+
+                Path path = Paths.get("./dump/dump_" + tm + ".txt").toAbsolutePath().normalize();
+
+                Files.createDirectories(path.getParent());
+
+                Files.write(path, dump.toString().getBytes(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+            }
         }
     }
 

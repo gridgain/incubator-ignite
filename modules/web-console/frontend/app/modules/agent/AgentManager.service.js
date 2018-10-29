@@ -57,6 +57,13 @@ const SuccessStatus = {
     SECURITY_CHECK_FAILED: 3
 };
 
+const __dbg = true;
+
+const __dbg_log = (s) => {
+    if (__dbg)
+        console.log(s);
+};
+
 class ConnectionState {
     constructor(cluster) {
         this.agents = [];
@@ -651,11 +658,20 @@ export default class AgentManager {
      * @param {Array.<Object>} args
      */
     visorTask(taskId, nids, ...args) {
+        const id = Math.random().toString(16).substr(2, 4).toUpperCase();
+
+        __dbg_log(`Submitted task: id=${id}, task=${taskId}, nids=${nids}`);
+
         args = _.map(args, (arg) => maskNull(arg));
 
         nids = _.isArray(nids) ? nids.join(';') : maskNull(nids);
 
-        return this._executeOnCluster('node:visor', {taskId, nids, args});
+        return this._executeOnCluster('node:visor', {taskId, nids, args})
+            .then((data) => {
+                __dbg_log(`Task finished: ${id}`);
+
+                return data;
+            });
     }
 
     /**
