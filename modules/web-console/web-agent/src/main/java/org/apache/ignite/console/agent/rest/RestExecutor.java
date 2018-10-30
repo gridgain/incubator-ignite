@@ -17,53 +17,20 @@
 
 package org.apache.ignite.console.agent.rest;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.net.ConnectException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import okhttp3.Dispatcher;
-import okhttp3.FormBody;
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 import org.apache.ignite.IgniteLogger;
-import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
-import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.internal.util.typedef.internal.LT;
-import org.apache.ignite.internal.util.typedef.internal.SB;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static org.apache.ignite.console.agent.AgentUtils.trustManager;
-import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_AUTH_FAILED;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_FAILED;
-import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
 
 /**
  * API to translate REST requests to Ignite cluster.
@@ -72,19 +39,19 @@ public class RestExecutor implements AutoCloseable {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(RestExecutor.class));
 
-    /** JSON object mapper. */
-    private static final ObjectMapper MAPPER = new GridJettyObjectMapper();
+//    /** JSON object mapper. */
+//    private static final ObjectMapper MAPPER = new GridJettyObjectMapper();
 
 //    /** */
 //    private final OkHttpClient httpClient;
 
-    /** Index of alive node URI. */
-    private Map<List<String>, Integer> startIdxs = U.newHashMap(2);
+//    /** Index of alive node URI. */
+//    private Map<List<String>, Integer> startIdxs = U.newHashMap(2);
 
-    /**
-     * Default constructor.
-     */
-    public RestExecutor() {
+//    /**
+//     * Default constructor.
+//     */
+//    public RestExecutor() {
 //        Dispatcher dispatcher = new Dispatcher();
 //
 //        dispatcher.setMaxRequests(Integer.MAX_VALUE);
@@ -111,7 +78,7 @@ public class RestExecutor implements AutoCloseable {
 //        }
 //
 //        httpClient = builder.build();
-    }
+//    }
 
     /**
      * Stop HTTP client.
@@ -182,8 +149,10 @@ public class RestExecutor implements AutoCloseable {
 //        }
 //    }
 
+    /** */
     private Map<String, RestResult> cache = new ConcurrentHashMap<>();
 
+    /** */
     private List<String> commands = Arrays.asList(
         "top",
         "currentState",
@@ -195,6 +164,7 @@ public class RestExecutor implements AutoCloseable {
         "VisorServiceTask"
     );
 
+    /** */
     private RestResult compute(String key) {
         try {
             String path = "C:/Temp/dump";
@@ -209,33 +179,103 @@ public class RestExecutor implements AutoCloseable {
             for (Path dump : dumps) {
                 List<String> lines = Files.readAllLines(dump);
 
-                if (
-                    "top".equals(subPath) ||
-                    "currentState".equals(subPath) ||
-                    lines.get(1).indexOf(key) > 0
-                )
-                    return RestResult.success(lines.get(2).substring(10), null);
+                String params = lines.get(1);
+                String data = lines.get(2).substring(10);
+
+                if ("top".equals(subPath)) {
+                    StringBuilder sb = new StringBuilder(data);
+
+                    while (true) {
+                        int ix1 = sb.indexOf(",\"caches\":[{\"name\":");
+                        int ix2 = sb.indexOf("]", ix1);
+
+                        if (ix1 > 0 && ix2 > 0)
+                            sb.delete(ix1, ix2 + 1);
+                        else
+                            break;
+                    }
+
+                    data = sb.toString();
+
+                    return  RestResult.success(data, null);
+                }
+                if ("VisorGridGainNodeConfigurationCollectorTask".equals(subPath)) {
+                    String nid = key.substring(44);
+
+                    if (params.contains(nid))
+                        return RestResult.success(data, null);
+                }
+                else if ("VisorGridGainCacheConfigurationCollectorTask".equals(subPath)) {
+                    String cache = key.substring(45);
+
+                    if (params.contains(cache))
+                        return RestResult.success(data, null);
+                }
+                else if ("VisorGridGainNodeDataCollectorTask".equals(subPath)) {
+                    String nids = key.substring(35);
+
+                    if (params.contains(nids)) {
+//                        log.info("Collected nodes metrics: " + key);
+
+                        return RestResult.success(data, null);
+                    }
+                }
+                else if (params.contains(subPath))
+                    return  RestResult.success(data, null);
             }
         }
         catch (Exception e) {
+            log.error("Failed to find dump: " + key, e);
+
             return RestResult.fail(STATUS_FAILED, e.getMessage());
         }
 
-        return RestResult.fail(STATUS_FAILED, "Failed connect to find dump.");
+        log.info(key);
+
+        return RestResult.fail(STATUS_FAILED, " Failed to find dump: " + key);
     }
 
     /** */
-    public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params, Map<String, Object> headers, boolean internal) throws IOException {
+    private String p1(String key) {
+        int ix = key.indexOf(", p2");
+
+        return key.substring(3, ix);
+    }
+
+    /** */
+    private String p6(String key) {
+        int ix1 = key.indexOf(", p6");
+        int ix2 = key.indexOf(';', ix1);
+
+        return key.substring(ix1 + 4, ix2);
+    }
+
+    /** */
+    public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params, Map<String, Object> headers, boolean internal) {
         String key = String.valueOf(params);
 
-        if (key.contains("top"))
-            key = "top";
+        if (key.contains("cmd=top"))
+            key = "cmd=top";
         else if (key.contains("currentState"))
             key = "currentState";
+        else if (key.contains("VisorBaselineViewTask"))
+            key = "VisorBaselineViewTask";
+        else if (key.contains("VisorGridGainNodeConfigurationCollectorTask"))
+            key = "VisorGridGainNodeConfigurationCollectorTask" + p1(key);
+        else if (key.contains("VisorCacheNamesCollectorTask"))
+            key = "VisorCacheNamesCollectorTask";
+        else if (key.contains("VisorGridGainCacheConfigurationCollectorTask"))
+            key = "VisorGridGainCacheConfigurationCollectorTask" + p6(key);
+        else if (key.contains("VisorGridGainNodeDataCollectorTask"))
+            key = "VisorGridGainNodeDataCollectorTask" + p1(key);
+        else if (key.contains("VisorServiceTask"))
+            key="VisorServiceTask";
+        else
+            log.info("Unknown key:" + key);
 
-        RestResult res = cache.computeIfAbsent(key, this::compute);
+        RestResult cached = cache.computeIfAbsent(key, this::compute);
 
-        return res;
+        return new RestResult(cached.getStatus(), cached.getError(), cached.getData());
 
 //        long tm = System.currentTimeMillis();
 //
@@ -327,169 +367,169 @@ public class RestExecutor implements AutoCloseable {
 //        }
     }
 
-    /**
-     * REST response holder Java bean.
-     */
-    private static class RestResponseHolder {
-        /** Success flag */
-        private int successStatus;
+//    /**
+//     * REST response holder Java bean.
+//     */
+//    private static class RestResponseHolder {
+//        /** Success flag */
+//        private int successStatus;
+//
+//        /** Error. */
+//        private String err;
+//
+//        /** Response. */
+//        private String res;
+//
+//        /** Session token string representation. */
+//        private String sesTok;
+//
+//        /**
+//         * @return {@code True} if this request was successful.
+//         */
+//        public int getSuccessStatus() {
+//            return successStatus;
+//        }
+//
+//        /**
+//         * @param successStatus Whether request was successful.
+//         */
+//        public void setSuccessStatus(int successStatus) {
+//            this.successStatus = successStatus;
+//        }
+//
+//        /**
+//         * @return Error.
+//         */
+//        public String getError() {
+//            return err;
+//        }
+//
+//        /**
+//         * @param err Error.
+//         */
+//        public void setError(String err) {
+//            this.err = err;
+//        }
+//
+//        /**
+//         * @return Response object.
+//         */
+//        public String getResponse() {
+//            return res;
+//        }
+//
+//        /**
+//         * @param res Response object.
+//         */
+//        @JsonDeserialize(using = RawContentDeserializer.class)
+//        public void setResponse(String res) {
+//            this.res = res;
+//        }
+//
+//        /**
+//         * @return String representation of session token.
+//         */
+//        public String getSessionToken() {
+//            return sesTok;
+//        }
+//
+//        /**
+//         * @param sesTokStr String representation of session token.
+//         */
+//        public void setSessionToken(String sesTokStr) {
+//            this.sesTok = sesTokStr;
+//        }
+//    }
 
-        /** Error. */
-        private String err;
-
-        /** Response. */
-        private String res;
-
-        /** Session token string representation. */
-        private String sesTok;
-
-        /**
-         * @return {@code True} if this request was successful.
-         */
-        public int getSuccessStatus() {
-            return successStatus;
-        }
-
-        /**
-         * @param successStatus Whether request was successful.
-         */
-        public void setSuccessStatus(int successStatus) {
-            this.successStatus = successStatus;
-        }
-
-        /**
-         * @return Error.
-         */
-        public String getError() {
-            return err;
-        }
-
-        /**
-         * @param err Error.
-         */
-        public void setError(String err) {
-            this.err = err;
-        }
-
-        /**
-         * @return Response object.
-         */
-        public String getResponse() {
-            return res;
-        }
-
-        /**
-         * @param res Response object.
-         */
-        @JsonDeserialize(using = RawContentDeserializer.class)
-        public void setResponse(String res) {
-            this.res = res;
-        }
-
-        /**
-         * @return String representation of session token.
-         */
-        public String getSessionToken() {
-            return sesTok;
-        }
-
-        /**
-         * @param sesTokStr String representation of session token.
-         */
-        public void setSessionToken(String sesTokStr) {
-            this.sesTok = sesTokStr;
-        }
-    }
-
-    /**
-     * Raw content deserializer that will deserialize any data as string.
-     */
-    private static class RawContentDeserializer extends JsonDeserializer<String> {
-        /** */
-        private final JsonFactory factory = new JsonFactory();
-
-        /**
-         * @param tok Token to process.
-         * @param p Parser.
-         * @param gen Generator.
-         */
-        private void writeToken(JsonToken tok, JsonParser p, JsonGenerator gen) throws IOException {
-            switch (tok) {
-                case FIELD_NAME:
-                    gen.writeFieldName(p.getText());
-                    break;
-
-                case START_ARRAY:
-                    gen.writeStartArray();
-                    break;
-
-                case END_ARRAY:
-                    gen.writeEndArray();
-                    break;
-
-                case START_OBJECT:
-                    gen.writeStartObject();
-                    break;
-
-                case END_OBJECT:
-                    gen.writeEndObject();
-                    break;
-
-                case VALUE_NUMBER_INT:
-                    gen.writeNumber(p.getBigIntegerValue());
-                    break;
-
-                case VALUE_NUMBER_FLOAT:
-                    gen.writeNumber(p.getDecimalValue());
-                    break;
-
-                case VALUE_TRUE:
-                    gen.writeBoolean(true);
-                    break;
-
-                case VALUE_FALSE:
-                    gen.writeBoolean(false);
-                    break;
-
-                case VALUE_NULL:
-                    gen.writeNull();
-                    break;
-
-                default:
-                    gen.writeString(p.getText());
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override public String deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-            JsonToken startTok = p.getCurrentToken();
-
-            if (startTok.isStructStart()) {
-                StringWriter wrt = new StringWriter(4096);
-
-                JsonGenerator gen = factory.createGenerator(wrt);
-
-                JsonToken tok = startTok, endTok = startTok == START_ARRAY ? END_ARRAY : END_OBJECT;
-
-                int cnt = 1;
-
-                while (cnt > 0) {
-                    writeToken(tok, p, gen);
-
-                    tok = p.nextToken();
-
-                    if (tok == startTok)
-                        cnt++;
-                    else if (tok == endTok)
-                        cnt--;
-                }
-
-                gen.close();
-
-                return wrt.toString();
-            }
-
-            return p.getValueAsString();
-        }
-    }
+//    /**
+//     * Raw content deserializer that will deserialize any data as string.
+//     */
+//    private static class RawContentDeserializer extends JsonDeserializer<String> {
+//        /** */
+//        private final JsonFactory factory = new JsonFactory();
+//
+//        /**
+//         * @param tok Token to process.
+//         * @param p Parser.
+//         * @param gen Generator.
+//         */
+//        private void writeToken(JsonToken tok, JsonParser p, JsonGenerator gen) throws IOException {
+//            switch (tok) {
+//                case FIELD_NAME:
+//                    gen.writeFieldName(p.getText());
+//                    break;
+//
+//                case START_ARRAY:
+//                    gen.writeStartArray();
+//                    break;
+//
+//                case END_ARRAY:
+//                    gen.writeEndArray();
+//                    break;
+//
+//                case START_OBJECT:
+//                    gen.writeStartObject();
+//                    break;
+//
+//                case END_OBJECT:
+//                    gen.writeEndObject();
+//                    break;
+//
+//                case VALUE_NUMBER_INT:
+//                    gen.writeNumber(p.getBigIntegerValue());
+//                    break;
+//
+//                case VALUE_NUMBER_FLOAT:
+//                    gen.writeNumber(p.getDecimalValue());
+//                    break;
+//
+//                case VALUE_TRUE:
+//                    gen.writeBoolean(true);
+//                    break;
+//
+//                case VALUE_FALSE:
+//                    gen.writeBoolean(false);
+//                    break;
+//
+//                case VALUE_NULL:
+//                    gen.writeNull();
+//                    break;
+//
+//                default:
+//                    gen.writeString(p.getText());
+//            }
+//        }
+//
+//        /** {@inheritDoc} */
+//        @Override public String deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+//            JsonToken startTok = p.getCurrentToken();
+//
+//            if (startTok.isStructStart()) {
+//                StringWriter wrt = new StringWriter(4096);
+//
+//                JsonGenerator gen = factory.createGenerator(wrt);
+//
+//                JsonToken tok = startTok, endTok = startTok == START_ARRAY ? END_ARRAY : END_OBJECT;
+//
+//                int cnt = 1;
+//
+//                while (cnt > 0) {
+//                    writeToken(tok, p, gen);
+//
+//                    tok = p.nextToken();
+//
+//                    if (tok == startTok)
+//                        cnt++;
+//                    else if (tok == endTok)
+//                        cnt--;
+//                }
+//
+//                gen.close();
+//
+//                return wrt.toString();
+//            }
+//
+//            return p.getValueAsString();
+//        }
+//    }
 }

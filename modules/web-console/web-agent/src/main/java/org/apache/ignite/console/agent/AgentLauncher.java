@@ -330,7 +330,7 @@ public class AgentLauncher {
             // Create an SSLContext that uses our TrustManager
             ctx.init(null, new TrustManager[] {trustManager()}, null);
 
-            opts.sslContext = ctx;
+            // opts.sslContext = ctx;
         }
 
         final Socket client = IO.socket(uri, opts);

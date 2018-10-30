@@ -41,7 +41,7 @@ public class RestResult {
      * @param error The field contains description of error if server could not handle the request.
      * @param data The field contains result of command.
      */
-    private RestResult(int status, String error, String data) {
+    public RestResult(int status, String error, String data) {
         this.status = status;
         this.error = error;
         this.data = data;

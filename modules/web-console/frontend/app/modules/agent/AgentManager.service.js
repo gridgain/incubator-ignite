@@ -57,7 +57,7 @@ const SuccessStatus = {
     SECURITY_CHECK_FAILED: 3
 };
 
-const __dbg = true;
+const __dbg = false;
 
 const __dbg_log = (s) => {
     if (__dbg)
