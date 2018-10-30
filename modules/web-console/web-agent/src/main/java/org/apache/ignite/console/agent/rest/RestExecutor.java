@@ -41,6 +41,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
@@ -136,7 +137,7 @@ public class RestExecutor implements AutoCloseable {
         if (res.code() == 404)
             return RestResult.fail(STATUS_FAILED, "Failed connect to cluster.");
 
-        return RestResult.fail(STATUS_FAILED, "Failed to execute REST command: " + res.message());
+        return RestResult.fail(STATUS_FAILED, "Failed to execute REST command: " + res);
     }
 
     /** */
@@ -172,34 +173,79 @@ public class RestExecutor implements AutoCloseable {
     }
 
     /** */
-    public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params, Map<String, Object> headers) throws IOException {
-        Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);
+    public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params, Map<String, Object> headers, boolean internal) throws IOException {
+        long tm = System.currentTimeMillis();
 
-        for (int i = 0;  i < nodeURIs.size(); i++) {
-            Integer currIdx = (startIdx + i) % nodeURIs.size();
+        boolean exe = params.containsKey("p2");
 
-            String nodeUrl = nodeURIs.get(currIdx);
+        String cmd =  String.valueOf(params.get(exe ? "p2" : "cmd"));
 
-            try {
-                RestResult res = sendRequest(nodeUrl, params, headers);
+        int sz1 = 0;
+        int sz2 = 0;
 
-                LT.info(log, "Connected to cluster [url=" + nodeUrl + "]");
+        try {
+            Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);
 
-                startIdxs.put(nodeURIs, currIdx);
+            for (int i = 0;  i < nodeURIs.size(); i++) {
+                Integer currIdx = (startIdx + i) % nodeURIs.size();
 
-                return res;
+                String nodeUrl = nodeURIs.get(currIdx);
+
+                try {
+                    RestResult res = sendRequest(nodeUrl, params, headers);
+
+                    LT.info(log, "Connected to cluster [url=" + nodeUrl + "]");
+
+                    startIdxs.put(nodeURIs, currIdx);
+
+                    String data = res.getData();
+
+                    if (!F.isEmpty(data)) {
+                        sz1 = data.length();
+                        sz2 = sz1;
+
+                        if ("top".equals(cmd)) {
+                            StringBuilder sb = new StringBuilder(data);
+
+                            while (true) {
+                                int ix1 = sb.indexOf(",\"caches\":[{\"name\":");
+                                int ix2 = sb.indexOf("]", ix1);
+
+                                if (ix1 > 0 && ix2 > 0)
+                                    sb.delete(ix1, ix2 + 1);
+                                else
+                                    break;
+                            }
+
+                            sz2 = sb.length();
+
+                            if (sz2 < sz1)
+                                res.setData(sb.toString());
+                        }
+                    }
+
+                    return res;
+                }
+                catch (ConnectException ignored) {
+                    // No-op.
+                }
             }
-            catch (ConnectException ignored) {
-                // No-op.
-            }
+
+            LT.warn(log, "Failed connect to cluster. " +
+                "Please ensure that nodes have [ignite-rest-http] module in classpath " +
+                "(was copied from libs/optional to libs folder).");
+
+            throw new ConnectException("Failed connect to cluster [urls=" + nodeURIs + ", parameters=" + params + "]");
         }
+        finally {
+            long dur = System.currentTimeMillis() - tm;
 
-        LT.warn(log, "Failed connect to cluster. " +
-            "Please ensure that nodes have [ignite-rest-http] module in classpath " +
-            "(was copied from libs/optional to libs folder).");
-
-        throw new ConnectException("Failed connect to cluster [urls=" + nodeURIs + ", parameters=" + params + "]");
-    }
+            log.info("Command executed [cmd=" + cmd +
+                ", internal=" + internal +
+                ", duration=" + dur +
+                ", sz1=" + sz1 + ", sz2=" + sz2 + "]");
+        }
+}
 
     /**
      * REST response holder Java bean.
