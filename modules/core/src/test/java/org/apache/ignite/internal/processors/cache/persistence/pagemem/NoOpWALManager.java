@@ -73,7 +73,7 @@ public class NoOpWALManager implements IgniteWriteAheadLogManager {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean reserve(WALPointer start) throws IgniteCheckedException {
+    @Override public boolean reserve(WALPointer start) {
         return false;
     }
 
@@ -105,11 +105,6 @@ public class NoOpWALManager implements IgniteWriteAheadLogManager {
     /** {@inheritDoc} */
     @Override public boolean disabled(int grpId) {
         return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void cleanupWalDirectories() throws IgniteCheckedException {
-        // No-op.
     }
 
     /** {@inheritDoc} */

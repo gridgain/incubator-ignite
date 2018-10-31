@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.ByteOrder;
 import java.nio.file.FileVisitResult;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -39,13 +40,13 @@ import org.apache.ignite.internal.pagemem.wal.WALIterator;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord.RecordType;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
-import org.apache.ignite.internal.processors.cache.persistence.file.FileIO;
 import org.apache.ignite.internal.processors.cache.persistence.file.FileIOFactory;
-import org.apache.ignite.internal.processors.cache.persistence.file.UnzipFileIO;
 import org.apache.ignite.internal.processors.cache.persistence.wal.ByteBufferExpander;
 import org.apache.ignite.internal.processors.cache.persistence.wal.FileDescriptor;
-import org.apache.ignite.internal.processors.cache.persistence.wal.FileInput;
 import org.apache.ignite.internal.processors.cache.persistence.wal.FileWALPointer;
+import org.apache.ignite.internal.processors.cache.persistence.wal.io.SegmentFileInputFactory;
+import org.apache.ignite.internal.processors.cache.persistence.wal.io.SegmentIO;
+import org.apache.ignite.internal.processors.cache.persistence.wal.io.SimpleSegmentFileInputFactory;
 import org.apache.ignite.internal.util.typedef.T2;
 import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -66,6 +67,9 @@ import static org.apache.ignite.internal.processors.cache.persistence.wal.serial
 public class IgniteWalIteratorFactory {
     /** Logger. */
     private final IgniteLogger log;
+
+    /** */
+    private final SegmentFileInputFactory segmentFileInputFactory = new SimpleSegmentFileInputFactory();
 
     /**
      * Creates WAL files iterator factory.
@@ -269,11 +273,17 @@ public class IgniteWalIteratorFactory {
             if (file.isDirectory()) {
                 try {
                     walkFileTree(file.toPath(), new SimpleFileVisitor<Path>() {
-                        @Override
-                        public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) {
+                        @Override public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) {
                             addFileDescriptor(path.toFile(), ioFactory, descriptors);
 
                             return FileVisitResult.CONTINUE;
+                        }
+
+                        @Override public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+                            if (exc instanceof NoSuchFileException)
+                                return FileVisitResult.CONTINUE;
+
+                            return super.visitFileFailed(file, exc);
                         }
                     });
                 }
@@ -319,10 +329,10 @@ public class IgniteWalIteratorFactory {
         FileDescriptor ds = new FileDescriptor(file);
 
         try (
-            FileIO fileIO = ds.isCompressed() ? new UnzipFileIO(file) : ioFactory.create(file);
+            SegmentIO fileIO = ds.toIO(ioFactory);
             ByteBufferExpander buf = new ByteBufferExpander(HEADER_RECORD_SIZE, ByteOrder.nativeOrder())
         ) {
-            final DataInput in = new FileInput(fileIO, buf);
+            final DataInput in = segmentFileInputFactory.createFileInput(fileIO, buf);
 
             // Header record must be agnostic to the serializer version.
             final int type = in.readUnsignedByte();
@@ -364,7 +374,7 @@ public class IgniteWalIteratorFactory {
             kernalCtx, null, null, null,
             null, null, null, dbMgr, null,
             null, null, null, null,
-            null, null,null, null
+            null, null,null, null, null
         );
     }
 
@@ -372,6 +382,12 @@ public class IgniteWalIteratorFactory {
      * Wal iterator parameter builder.
      */
     public static class IteratorParametersBuilder {
+        /** */
+        public static final FileWALPointer DFLT_LOW_BOUND = new FileWALPointer(Long.MIN_VALUE, 0, 0);
+
+        /** */
+        public static final FileWALPointer DFLT_HIGH_BOUND = new FileWALPointer(Long.MAX_VALUE, Integer.MAX_VALUE, 0);
+
         /** */
         private File[] filesOrDirs;
 
@@ -404,10 +420,10 @@ public class IgniteWalIteratorFactory {
         @Nullable private IgniteBiPredicate<RecordType, WALPointer> filter;
 
         /** */
-        private FileWALPointer lowBound = new FileWALPointer(Long.MIN_VALUE, 0, 0);
+        private FileWALPointer lowBound = DFLT_LOW_BOUND;
 
         /** */
-        private FileWALPointer highBound = new FileWALPointer(Long.MAX_VALUE, Integer.MAX_VALUE, 0);
+        private FileWALPointer highBound = DFLT_HIGH_BOUND;
 
         /**
          * @param filesOrDirs Paths to files or directories.

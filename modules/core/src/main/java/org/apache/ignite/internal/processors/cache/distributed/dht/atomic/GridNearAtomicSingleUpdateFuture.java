@@ -357,7 +357,7 @@ public class GridNearAtomicSingleUpdateFuture extends GridNearAtomicAbstractUpda
             ClusterTopologyCheckedException cause = new ClusterTopologyCheckedException(
                 "Failed to update keys, topology changed while execute atomic update inside transaction.");
 
-            cause.retryReadyFuture(cctx.affinity().affinityReadyFuture(remapTopVer));
+            cause.retryReadyFuture(cctx.shared().exchange().affinityReadyFuture(remapTopVer));
 
             e.add(Collections.singleton(cctx.toCacheKeyObject(key)), cause);
 
@@ -682,7 +682,7 @@ public class GridNearAtomicSingleUpdateFuture extends GridNearAtomicAbstractUpda
     }
 
     /** {@inheritDoc} */
-    public synchronized String toString() {
+    @Override public synchronized String toString() {
         return S.toString(GridNearAtomicSingleUpdateFuture.class, this, super.toString());
     }
 }

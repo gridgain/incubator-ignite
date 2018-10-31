@@ -477,12 +477,12 @@ public class IgniteTxStateImpl extends IgniteTxLocalStateAdapter {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean mvccEnabled(GridCacheSharedContext cctx) {
+    @Override public boolean mvccEnabled() {
         return Boolean.TRUE == mvccEnabled;
     }
 
     /** {@inheritDoc} */
-    public String toString() {
+    @Override public String toString() {
         return S.toString(IgniteTxStateImpl.class, this, "txMap", allEntriesCopy());
     }
 }

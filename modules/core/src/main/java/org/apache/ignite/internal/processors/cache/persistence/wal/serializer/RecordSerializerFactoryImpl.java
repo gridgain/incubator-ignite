@@ -77,11 +77,8 @@ public class RecordSerializerFactoryImpl implements RecordSerializerFactory {
                     recordDeserializeFilter);
 
             case 2:
-                RecordDataV2Serializer dataV2Serializer = new RecordDataV2Serializer(
-                    new RecordDataV1Serializer(cctx));
-
                 return new RecordV2Serializer(
-                    dataV2Serializer,
+                    new RecordDataV2Serializer(cctx),
                     needWritePointer,
                     marshalledMode,
                     skipPositionCheck,
@@ -148,6 +145,14 @@ public class RecordSerializerFactoryImpl implements RecordSerializerFactory {
     /** {@inheritDoc} */
     @Override public RecordSerializerFactoryImpl skipPositionCheck(boolean skipPositionCheck) {
         this.skipPositionCheck = skipPositionCheck;
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public RecordSerializerFactory clearSegmentLocalState() {
+        skipPositionCheck = false;
+        recordDeserializeFilter = null;
 
         return this;
     }

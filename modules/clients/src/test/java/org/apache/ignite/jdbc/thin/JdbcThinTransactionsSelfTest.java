@@ -26,6 +26,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
@@ -54,13 +55,11 @@ public class JdbcThinTransactionsSelfTest extends JdbcThinAbstractSelfTest {
     private GridStringLogger log;
 
     /** {@inheritDoc} */
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({"deprecation", "unchecked"})
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        cfg.setMvccEnabled(true);
-
-        cfg.setCacheConfiguration(cacheConfiguration(DEFAULT_CACHE_NAME));
+        cfg.setCacheConfiguration(cacheConfiguration(DEFAULT_CACHE_NAME).setNearConfiguration(null));
 
         TcpDiscoverySpi disco = new TcpDiscoverySpi();
 
@@ -84,6 +83,7 @@ public class JdbcThinTransactionsSelfTest extends JdbcThinAbstractSelfTest {
         CacheConfiguration cfg = defaultCacheConfiguration();
 
         cfg.setName(name);
+        cfg.setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT);
 
         return cfg;
     }
@@ -97,7 +97,7 @@ public class JdbcThinTransactionsSelfTest extends JdbcThinAbstractSelfTest {
         try (Connection c = c(true, NestedTxMode.ERROR)) {
             try (Statement s = c.createStatement()) {
                 s.execute("CREATE TABLE INTS (k int primary key, v int) WITH \"cache_name=ints,wrap_value=false," +
-                    "atomicity=transactional\"");
+                    "atomicity=transactional_snapshot\"");
             }
         }
     }
@@ -442,6 +442,34 @@ public class JdbcThinTransactionsSelfTest extends JdbcThinAbstractSelfTest {
 
                 assertEquals(2, grid(0).cache("ints").get(2));
             }
+        }
+    }
+
+    /**
+     * Test that exception in one of the statements does not kill connection worker altogether.
+     * @throws SQLException if failed.
+     */
+    @SuppressWarnings("ThrowableResultOfMethodCallIgnored")
+    public void testParsingErrorHasNoSideEffect() throws SQLException {
+        try (Connection c = c(false, NestedTxMode.ERROR)) {
+            try (Statement s = c.createStatement()) {
+                s.execute("INSERT INTO INTS(k, v) values(1, 1)");
+
+                GridTestUtils.assertThrows(null, new Callable<Void>() {
+                    @Override public Void call() throws Exception {
+                        s.execute("INSERT INTO INTS(k, v) values(1)");
+
+                        return null;
+                    }
+                }, SQLException.class, "Failed to parse query");
+
+                s.execute("INSERT INTO INTS(k, v) values(2, 2)");
+
+                c.commit();
+            }
+
+            assertEquals(1, grid(0).cache("ints").get(1));
+            assertEquals(2, grid(0).cache("ints").get(2));
         }
     }
 }

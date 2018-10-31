@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagemem.wal.record;
  * todo GG-13416 doc
  */
 public class ConsistentCutRecord extends WALRecord {
-    // todo GG-13416 maybe save exchangeless snapshot ID
     /** {@inheritDoc} */
     @Override public RecordType type() {
         return RecordType.CONSISTENT_CUT;

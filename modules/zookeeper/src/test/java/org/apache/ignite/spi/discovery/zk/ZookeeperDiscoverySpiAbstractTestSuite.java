@@ -54,7 +54,7 @@ public abstract class ZookeeperDiscoverySpiAbstractTestSuite extends TestSuite {
      *
      * @param cfg Configuration to change.
      */
-    public synchronized static void preprocessConfiguration(IgniteConfiguration cfg) {
+    public static synchronized void preprocessConfiguration(IgniteConfiguration cfg) {
         if (testingCluster == null)
             throw new IllegalStateException("Test Zookeeper cluster is not started.");
 
@@ -72,10 +72,19 @@ public abstract class ZookeeperDiscoverySpiAbstractTestSuite extends TestSuite {
     }
 
     /**
-     * @param instances Number of instances in
+     * @param instances Number of instances in.
      * @return Test cluster.
      */
     public static TestingCluster createTestingCluster(int instances) {
+        return createTestingCluster(instances, 0);
+    }
+
+    /**
+     * @param instances Number of instances in.
+     * @param firstInstanceIdx First instance index.
+     * @return Test cluster.
+     */
+    public static TestingCluster createTestingCluster(int instances, int firstInstanceIdx) {
         String tmpDir;
 
         if (System.getenv("TMPFS_ROOT") != null)
@@ -85,7 +94,7 @@ public abstract class ZookeeperDiscoverySpiAbstractTestSuite extends TestSuite {
 
         List<InstanceSpec> specs = new ArrayList<>();
 
-        for (int i = 0; i < instances; i++) {
+        for (int i = firstInstanceIdx, n = firstInstanceIdx + instances; i < n; i++) {
             File file = new File(tmpDir, "apacheIgniteTestZk-" + i);
 
             if (file.isDirectory())
