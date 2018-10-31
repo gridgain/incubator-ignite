@@ -13,7 +13,7 @@
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>Apache.Ignite.Examples.Services.Interop.Client</StartupObject>
+    <StartupObject>Apache.Ignite.Examples.Services.Interop.Server</StartupObject>
   </PropertyGroup>
   <PropertyGroup>
     <SignAssembly>true</SignAssembly>
@@ -53,8 +53,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Services\Interop\CacheMode.cs" />
+    <Compile Include="Services\Interop\CounterService.cs" />
     <Compile Include="Services\Interop\Client.cs" />
     <Compile Include="Services\Interop\DotnetToJavaNameMapper.cs" />
+    <Compile Include="Services\Interop\ICounter.cs" />
+    <Compile Include="Services\Interop\Server.cs" />
     <Compile Include="Services\Interop\Model.cs" />
     <Compile Include="Services\Interop\ICalculator.cs" />
     <Compile Include="Services\Interop\Result.cs" />
