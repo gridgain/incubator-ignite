@@ -24,6 +24,8 @@ import 'rxjs/add/operator/partition';
 import 'rxjs/add/operator/takeUntil';
 import 'rxjs/add/operator/pluck';
 
+import io from 'socket.io-client';
+
 import AgentModal from './AgentModal.service';
 // @ts-ignore
 import Worker from './decompress.worker';
@@ -125,7 +127,7 @@ class ConnectionState {
 }
 
 export default class AgentManager {
-    static $inject = ['$rootScope', '$q', '$transitions', 'igniteSocketFactory', 'AgentModal', 'UserNotifications', 'IgniteVersion', 'ClusterLoginService'];
+    static $inject = ['$rootScope', '$q', '$transitions', 'AgentModal', 'UserNotifications', 'IgniteVersion', 'ClusterLoginService'];
 
     /** @type {ng.IScope} */
     $root;
@@ -170,17 +172,15 @@ export default class AgentManager {
      * @param {ng.IRootScopeService} $root
      * @param {ng.IQService} $q
      * @param {import('@uirouter/angularjs').TransitionService} $transitions
-     * @param {unknown} socketFactory
      * @param {import('./AgentModal.service').default} agentModal
      * @param {import('app/components/user-notifications/service').default} UserNotifications
      * @param {import('app/services/Version.service').default} Version
      * @param {import('./components/cluster-login/service').default} ClusterLoginSrv
      */
-    constructor($root, $q, $transitions, socketFactory, agentModal, UserNotifications, Version, ClusterLoginSrv) {
+    constructor($root, $q, $transitions, agentModal, UserNotifications, Version, ClusterLoginSrv) {
         this.$root = $root;
         this.$q = $q;
         this.$transitions = $transitions;
-        this.socketFactory = socketFactory;
         this.agentModal = agentModal;
         this.UserNotifications = UserNotifications;
         this.Version = Version;
@@ -223,7 +223,9 @@ export default class AgentManager {
         if (nonNil(this.socket))
             return;
 
-        this.socket = this.socketFactory();
+        const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
+
+        this.socket = io.connect(options);
 
         const onDisconnect = () => {
             const conn = this.connectionSbj.getValue();
