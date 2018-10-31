@@ -95,7 +95,8 @@ public class RestExecutor implements AutoCloseable {
                 builder.sslSocketFactory(ctx.getSocketFactory(), trustManager());
 
                 builder.hostnameVerifier((hostname, session) -> true);
-            } catch (Exception ignored) {
+            }
+            catch (Throwable ignored) {
                 LT.warn(log, "Failed to initialize the Trust Manager for \"-Dtrust.all\" option to skip certificate validation.");
             }
         }
