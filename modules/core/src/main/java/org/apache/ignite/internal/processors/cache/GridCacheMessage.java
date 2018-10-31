@@ -69,8 +69,7 @@ public abstract class GridCacheMessage implements Message {
     private GridDeploymentInfoBean depInfo;
 
     /** */
-    @GridToStringInclude
-    @Nullable private AffinityTopologyVersion lastAffChangedTopVer;
+    @GridToStringInclude private @Nullable AffinityTopologyVersion lastAffChangedTopVer;
 
     /** */
     @GridDirectTransient
@@ -206,7 +205,8 @@ public abstract class GridCacheMessage implements Message {
      * @param topVer Last affinity topology version when affinity was modified.
      */
     public void lastAffinityChangedTopologyVersion(AffinityTopologyVersion topVer) {
-        lastAffChangedTopVer = topVer;
+//        lastAffChangedTopVer = topVer;
+        lastAffChangedTopVer = null;
     }
 
     /**
