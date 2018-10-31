@@ -94,8 +94,14 @@ abstract class AbstractListener implements Emitter.Listener {
                         }
                     }
 
+                    log.info("a.l.call-1");
+
                     cb.call(null, toJSON(res));
-                } catch (Exception e) {
+
+                    log.info("a.l.call-2");
+                } catch (Throwable e) {
+                    log.error("a.l.err", e);
+
                     cb.call(e, null);
                 }
             });

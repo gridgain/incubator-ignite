@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
@@ -251,8 +252,13 @@ public class RestExecutor implements AutoCloseable {
     }
 
     /** */
+    private AtomicInteger cnt = new AtomicInteger(0);
+
+    /** */
     public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params, Map<String, Object> headers, boolean internal) {
         String key = String.valueOf(params);
+
+        int n = -1;
 
         if (key.contains("cmd=top"))
             key = "cmd=top";
@@ -266,8 +272,13 @@ public class RestExecutor implements AutoCloseable {
             key = "VisorCacheNamesCollectorTask";
         else if (key.contains("VisorGridGainCacheConfigurationCollectorTask"))
             key = "VisorGridGainCacheConfigurationCollectorTask" + p6(key);
-        else if (key.contains("VisorGridGainNodeDataCollectorTask"))
+        else if (key.contains("VisorGridGainNodeDataCollectorTask")) {
+            n = cnt.incrementAndGet();
+
+            log.info("Request: " + n);
+
             key = "VisorGridGainNodeDataCollectorTask" + p1(key);
+        }
         else if (key.contains("VisorServiceTask"))
             key="VisorServiceTask";
         else
@@ -275,7 +286,12 @@ public class RestExecutor implements AutoCloseable {
 
         RestResult cached = cache.computeIfAbsent(key, this::compute);
 
-        return new RestResult(cached.getStatus(), cached.getError(), cached.getData());
+        RestResult res = new RestResult(cached.getStatus(), cached.getError(), cached.getData());
+
+        if (n > 0)
+            log.info("Response: " + n);
+
+        return res;
 
 //        long tm = System.currentTimeMillis();
 //

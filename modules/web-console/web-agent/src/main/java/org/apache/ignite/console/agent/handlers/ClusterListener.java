@@ -21,7 +21,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.socket.client.Socket;
 import java.io.IOException;
 import java.net.ConnectException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -203,7 +202,7 @@ public class ClusterListener implements AutoCloseable {
         private String clusterName;
 
         /** */
-        private Collection<UUID> nids;
+        private Set<UUID> nids;
 
         /** */
         private Map<UUID, String> addrs;
@@ -240,7 +239,7 @@ public class ClusterListener implements AutoCloseable {
         TopologySnapshot(Collection<GridClientNodeBean> nodes) {
             int sz = nodes.size();
 
-            nids = new ArrayList<>(sz);
+            nids = new HashSet<>(sz);
             addrs = U.newHashMap(sz);
             clients = U.newHashMap(sz);
             active = false;
@@ -324,7 +323,7 @@ public class ClusterListener implements AutoCloseable {
         /**
          * @return Cluster nodes IDs.
          */
-        public Collection<UUID> getNids() {
+        public Set<UUID> getNids() {
             return nids;
         }
 
@@ -395,11 +394,11 @@ public class ClusterListener implements AutoCloseable {
                     sesTok = res.getSessionToken();
 
                     return res;
-                    
+
                 case STATUS_FAILED:
                     if (res.getError().startsWith(EXPIRED_SES_ERROR_MSG)) {
                         sesTok = null;
-                        
+
                         params.remove("sessionToken");
 
                         return restCommand(params);
@@ -413,14 +412,15 @@ public class ClusterListener implements AutoCloseable {
         /**
          * Collect topology.
          *
-         * @param full Full.
+         * @param attrs Whether to collect attributes.
+         * @return REST result.
          */
-        private RestResult topology(boolean full) throws IOException {
+        private RestResult topology(boolean attrs) throws IOException {
             Map<String, Object> params = U.newHashMap(3);
 
             params.put("cmd", "top");
-            params.put("attr", true);
-            params.put("mtr", full);
+            params.put("attr", attrs);
+            params.put("mtr", false);
             params.put("caches", false);
 
             return restCommand(params);
@@ -476,21 +476,11 @@ public class ClusterListener implements AutoCloseable {
         }
 
         /**
-         * Collect topology.
-         *
-         * @param attrs Whether to collect attributes.
-         * @param metrics Whether to collect metrics.
-         * @return List of beans with nodes.
+         * @param res Response from topology command.
+         * @return List of cluster nodes.
+         * @throws Exception if failed to extract nodes list from response.
          */
-        private List<GridClientNodeBean> topology(boolean attrs, boolean metrics) throws IOException {
-            Map<String, Object> params = U.newHashMap(3);
-
-            params.put("cmd", "top");
-            params.put("attr", attrs);
-            params.put("mtr", metrics);
-
-            RestResult res = restCommand(params);
-
+        private List<GridClientNodeBean> nodes(RestResult res) throws Exception {
             switch (res.getStatus()) {
                 case STATUS_SUCCESS:
                     return MAPPER.readValue(res.getData(), new TypeReference<List<GridClientNodeBean>>() {});
@@ -503,10 +493,21 @@ public class ClusterListener implements AutoCloseable {
         }
 
         /**
-         * @param nodes List of node beans.
-         * @return List of node IDs.
+         * Collect light weight topology without attributes.
+         *
+         * @return Set of node IDs.
+         * @throws Exception If failed to collect topology.
          */
-        private Set<UUID> nids(List<GridClientNodeBean> nodes) {
+        private Set<UUID> newTopologyNids() throws Exception {
+            LT.info(log, "Polling data from cluster...");
+
+            if (top == null)
+                return Collections.emptySet();
+
+            RestResult res = topology(false);
+
+            List<GridClientNodeBean> nodes = nodes(res);
+
             return nodes.stream().map(GridClientNodeBean::getNodeId).collect(Collectors.toSet());
         }
 
@@ -515,16 +516,11 @@ public class ClusterListener implements AutoCloseable {
             LT.info(log, "Polling data from cluster...");
 
             try {
-                // Light weight check for topology without attributes.
-                List<GridClientNodeBean> nodes = topology(false, false);
-
-                Set<UUID> nids = nids(nodes);
-
                 // If topology changed, collect with attributes.
-                if (!lastTop.equals(nids)) {
-                    nodes = topology(true, false);
+                if (top == null || !top.getNids().equals(newTopologyNids())) {
+                    RestResult res = topology(true);
 
-                    lastTop = nids(nodes);
+                    List<GridClientNodeBean> nodes = nodes(res);
 
                     TopologySnapshot newTop = new TopologySnapshot(nodes);
 
@@ -534,22 +530,19 @@ public class ClusterListener implements AutoCloseable {
                     boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
 
                     newTop.setActive(active);
-                    // TODO GG-14352 newTop.setSecured(!F.isEmpty(res.getSessionToken()));
+                    newTop.setSecured(!F.isEmpty(res.getSessionToken()));
 
                     top = newTop;
-
-                    client.emit(EVENT_CLUSTER_TOPOLOGY, toJSON(top));
                 }
                 else {
-                    // Check active state.
+                    // If topology stable, just poll active state only.
                     boolean active = active(top.clusterVersion(), F.first(top.getNids()));
 
-                    if (active != top.isActive()) {
+                    if (active != top.isActive())
                         top.setActive(active);
-
-                        client.emit(EVENT_CLUSTER_TOPOLOGY, toJSON(top));
-                    }
                 }
+
+                client.emit(EVENT_CLUSTER_TOPOLOGY, toJSON(top));
             }
             catch (ConnectException ignored) {
                 clusterDisconnect();
