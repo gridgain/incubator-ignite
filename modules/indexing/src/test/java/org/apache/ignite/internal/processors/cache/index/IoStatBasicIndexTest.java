@@ -43,8 +43,6 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Assert;
 
-import static org.apache.ignite.internal.processors.cache.GridCacheUtils.UTILITY_CACHE_NAME;
-
 /**
  * A set of basic tests for caches with indexes.
  */
@@ -56,7 +54,7 @@ public class IoStatBasicIndexTest extends GridCommonAbstractTest {
     private static final int NUMBER_OF_PK_SORTED_INDEXES = 1;
 
     /** */
-    private static final Set<String> PK_HASH_INDEXES = Sets.newHashSet(UTILITY_CACHE_NAME, DEFAULT_CACHE_NAME);
+    private static final Set<String> PK_HASH_INDEXES = Sets.newHashSet(DEFAULT_CACHE_NAME);
 
     /** */
     private Collection<QueryIndex> indexes;

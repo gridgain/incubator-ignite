@@ -25,6 +25,8 @@ import java.util.concurrent.atomic.LongAdder;
 /**
  * Query Statistics holder to gather statistics related to concrete query.
  * Used in {@code org.apache.ignite.internal.stat.StatisticsHolderIndex} and {@code org.apache.ignite.internal.stat.StatisticsHolderCache}.
+ * Query Statistics holder to gather statistics related to concrete query. Used in {@code
+ * org.apache.ignite.internal.stat.StatisticsHolderIndex} and {@code org.apache.ignite.internal.stat.StatisticsHolderCache}.
  */
 public class StatisticsHolderQuery implements StatisticsHolder {
     /** */
