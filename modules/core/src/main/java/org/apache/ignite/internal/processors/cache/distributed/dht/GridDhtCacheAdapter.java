@@ -967,7 +967,13 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
                             req.addDeploymentInfo());
 
                         if (res.error() == null && res.result() == null) {
-                            System.out.println(">>>>!!!! " + res.result() + " " + res.invalidPartitions() + " " + res.error());
+                            Thread.dumpStack();
+
+                            System.out.println(">>>>!!!! res=" + res.result() +
+                                " invalidPart=" + res.invalidPartitions() +
+                                " err=" + res.error() +
+                                " info=" + info
+                            );
                         }
 
                         if (info != null && req.skipValues())
