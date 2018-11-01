@@ -36,6 +36,7 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.util.GridLogThrottle;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.CU;
@@ -185,9 +186,13 @@ public abstract class GridNearTxPrepareFutureAdapter extends
 
             Collection<UUID> backups = entry.getValue();
 
-            if (backups.size() <= 1)
+ /*           if (backups.size() <= 1) {
                 tx.onePhaseCommit(true);
-        }
+
+                //log.info("ONEPHASE");
+                //GridLogThrottle.info(log, "ONEPHASE");
+            }
+ */       }
     }
 
     /**

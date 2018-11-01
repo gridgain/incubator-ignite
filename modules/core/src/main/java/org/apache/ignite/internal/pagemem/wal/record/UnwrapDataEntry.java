@@ -93,6 +93,10 @@ public class UnwrapDataEntry extends DataEntry {
         }
     }
 
+    public void setKeepBinary(boolean keepBinary) {
+        this.keepBinary = keepBinary;
+    }
+
     /**
      * Unwraps value value from cache value object into primitive boxed type or source class. If client classes were
      * used in key, call of this method requires classes to be available in classpath.

@@ -250,7 +250,14 @@ class StandaloneWalRecordsIterator extends AbstractWalRecordsIterator {
     private boolean checkBounds(WALPointer ptr) {
         FileWALPointer ptr0 = (FileWALPointer)ptr;
 
-        return ptr0.compareTo(lowBound) >= 0 && ptr0.compareTo(highBound) <= 0;
+        boolean res = ptr0.compareTo(lowBound) >= 0 && ptr0.compareTo(highBound) <= 0;
+
+/*
+        if (res)
+            System.out.println();
+*/
+
+        return res;
     }
 
     /**
