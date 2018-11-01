@@ -966,6 +966,10 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
                             false,
                             req.addDeploymentInfo());
 
+                        if (res.error() == null && res.result() == null) {
+                            System.out.println(">>>>!!!! " + res.result() + " " + res.invalidPartitions() + " " + res.error());
+                        }
+
                         if (info != null && req.skipValues())
                             res.setContainsValue();
                     }
@@ -981,6 +985,11 @@ public abstract class GridDhtCacheAdapter<K, V> extends GridDistributedCacheAdap
                             null,
                             true,
                             req.addDeploymentInfo());
+
+                        if (res.error() == null && res.result() == null) {
+                            System.out.println(">>>>!!!! " + res.result() + " " + res.invalidPartitions() + " " + res.error());
+                        }
+
                     }
                 }
                 catch (NodeStoppingException ignored) {

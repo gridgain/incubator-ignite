@@ -196,6 +196,14 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
             log = U.logger(cctx.kernalContext(), logRef, GridPartitionedSingleGetFuture.class);
     }
 
+    @Override protected boolean onDone(@Nullable Object res, @Nullable Throwable err, boolean cancel) {
+        if (res == null && err == null) {
+            Thread.dumpStack();
+        }
+
+        return super.onDone(res, err, cancel);
+    }
+
     /**
      *
      */
@@ -548,7 +556,7 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
                 setResult(verVal.value(), verVal.version());
             }
             else
-                setResult((CacheObject)res0, null);
+                setResult((CacheObject)res0, null, res.error());
         }
     }
 
@@ -591,10 +599,12 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
      * @param nodeId Node ID.
      * @return {@code True} if should process received response.
      */
-    private boolean checkError(@Nullable IgniteCheckedException err,
+    private boolean checkError(
+        @Nullable IgniteCheckedException err,
         boolean invalidParts,
         AffinityTopologyVersion rmtTopVer,
-        UUID nodeId) {
+        UUID nodeId
+    ) {
         if (err != null) {
             onDone(err);
 
@@ -676,11 +686,15 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
             onDone(res);
     }
 
+    private void setResult(@Nullable CacheObject val, @Nullable GridCacheVersion ver) {
+        setResult(val, ver, null);
+    }
+
     /**
      * @param val Value.
      * @param ver Version.
      */
-    private void setResult(@Nullable CacheObject val, @Nullable GridCacheVersion ver) {
+    private void setResult(@Nullable CacheObject val, @Nullable GridCacheVersion ver, @Nullable Exception exp) {
         cctx.shared().database().checkpointReadLock();
 
         try {
@@ -698,8 +712,11 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
                 else
                     onDone(needVer ? new EntryGetResult(val, ver) : val);
             }
-            else
+            else {
+                System.out.println(">>>>!!!! " + exp);
+
                 onDone(null);
+            }
         }
         catch (Exception e) {
             onDone(e);
@@ -771,6 +788,10 @@ public class GridPartitionedSingleGetFuture extends GridCacheFutureAdapter<Objec
 
     /** {@inheritDoc} */
     @Override public boolean onDone(Object res, Throwable err) {
+        if (res == null && err == null) {
+            Thread.dumpStack();
+        }
+
         if (super.onDone(res, err)) {
             // Don't forget to clean up.
             if (trackable)

@@ -932,6 +932,8 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
 
                 res.error(req.classError());
 
+                System.out.println(">>>>!!!! " + res.result() + " " + res.invalidPartitions() + " " + res.error());
+
                 sendResponseOnFailedMessage(nodeId, res, cctx, plc);
             }
 
