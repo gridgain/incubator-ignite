@@ -402,6 +402,7 @@ public class FilePageStoreManager extends GridCacheSharedManagerAdapter implemen
 
         CacheStoreHolder old = idxCacheStores.remove(grp.groupId());
 
+        // Due to lazy initialization the group may not be registered yet.
         if (old != null) {
             IgniteCheckedException ex = shutdown(old, /*clean files if destroy*/destroy, null);
 
