@@ -186,13 +186,9 @@ public abstract class GridNearTxPrepareFutureAdapter extends
 
             Collection<UUID> backups = entry.getValue();
 
- /*           if (backups.size() <= 1) {
-                tx.onePhaseCommit(true);
-
-                //log.info("ONEPHASE");
-                //GridLogThrottle.info(log, "ONEPHASE");
-            }
- */       }
+//            if (backups.size() <= 1)
+//                tx.onePhaseCommit(true);
+        }
     }
 
     /**

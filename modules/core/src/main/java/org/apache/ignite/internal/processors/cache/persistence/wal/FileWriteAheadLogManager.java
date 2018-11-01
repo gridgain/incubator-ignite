@@ -33,10 +33,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.ClosedByInterruptException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -482,7 +480,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             IgniteBiTuple<Long, Long> tup = scanMinMaxArchiveIndices();
 
-            segmentAware = new SegmentAware(dsCfg.getWalSegments(), dsCfg.isWalCompactionEnabled());
+            segmentAware = new SegmentAware(dsCfg.getWalSegments(), dsCfg.isWalCompactionEnabled(), log);
 
             segmentAware.lastTruncatedArchiveIdx(tup == null ? -1 : tup.get1() - 1);
 
@@ -688,6 +686,8 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
     @Override public void resumeLogging(WALPointer lastPtr) throws IgniteCheckedException {
         assert currHnd == null;
         assert lastPtr == null || lastPtr instanceof FileWALPointer;
+        assert (isArchiverEnabled() && archiver != null) || (!isArchiverEnabled() && archiver == null) :
+            "Trying to restore FileWriteHandle on deactivated write ahead log manager";
 
         FileWALPointer filePtr = (FileWALPointer)lastPtr;
 
@@ -1485,29 +1485,6 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             checkFiles(0, false, null, null);
     }
 
-    /** {@inheritDoc} */
-    @Override public void cleanupWalDirectories() throws IgniteCheckedException {
-        try {
-            try (DirectoryStream<Path> files = Files.newDirectoryStream(walWorkDir.toPath())) {
-                for (Path path : files)
-                    Files.delete(path);
-            }
-        }
-        catch (IOException e) {
-            throw new IgniteCheckedException("Failed to cleanup wal work directory: " + walWorkDir, e);
-        }
-
-        try {
-            try (DirectoryStream<Path> files = Files.newDirectoryStream(walArchiveDir.toPath())) {
-                for (Path path : files)
-                    Files.delete(path);
-            }
-        }
-        catch (IOException e) {
-            throw new IgniteCheckedException("Failed to cleanup wal archive directory: " + walArchiveDir, e);
-        }
-    }
-
     /**
      * Clears whole the file, fills with zeros for Default mode.
      *
@@ -1987,7 +1964,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             FileDescriptor[] alreadyCompressed = scan(walArchiveDir.listFiles(WAL_SEGMENT_FILE_COMPACTED_FILTER));
 
             if (alreadyCompressed.length > 0)
-                segmentAware.onSegmentCompressed(alreadyCompressed[alreadyCompressed.length - 1].idx());
+                segmentAware.lastSegmentCompressed(alreadyCompressed[alreadyCompressed.length - 1].idx());
 
             for (int i = 1; i < calculateThreadCount(); i++) {
                 FileCompressorWorker worker = new FileCompressorWorker(i, log);
@@ -2067,7 +2044,13 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             boolean reserved = reserve(new FileWALPointer(segmentToCompress, 0, 0));
 
-            return reserved ? segmentToCompress : -1;
+            if (reserved)
+                return segmentToCompress;
+            else {
+                segmentAware.removeFromCurrentlyCompressedList(segmentToCompress);
+
+                return -1;
+            }
         }
 
         /** {@inheritDoc} */
@@ -2083,8 +2066,12 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                 try {
                     segIdx = tryReserveNextSegmentOrWait();
 
-                    if (segIdx <= segmentAware.lastCompressedIdx())
+                    if (segIdx <= segmentAware.lastCompressedIdx()) {
+                        if (segIdx != -1)
+                            segmentAware.removeFromCurrentlyCompressedList(segIdx);
+
                         continue;
+                    }
 
                     deleteObsoleteRawSegments();
 
