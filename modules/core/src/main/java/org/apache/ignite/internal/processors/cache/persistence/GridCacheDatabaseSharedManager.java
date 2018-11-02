@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.processors.cache.persistence;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -175,6 +176,7 @@ import static org.apache.ignite.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.pagemem.wal.record.WALRecord.RecordType.CHECKPOINT_RECORD;
 import static org.apache.ignite.internal.processors.cache.persistence.metastorage.MetaStorage.METASTORAGE_CACHE_ID;
+import static org.apache.ignite.internal.util.IgniteUtils.IGNITE_TEST_FEATURES_ENABLED;
 import static org.apache.ignite.internal.util.IgniteUtils.checkpointBufferSize;
 
 /**
@@ -515,6 +517,17 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             cleanupTempCheckpointDirectory();
 
             persStoreMetrics.wal(cctx.wal());
+
+            final PdsFolderSettings resolveFolders = cctx.kernalContext().pdsFolderResolver().resolveFolders();
+
+            if (IGNITE_TEST_FEATURES_ENABLED) {
+                recDir = initDirectory(
+                        "records",
+                        DataStorageConfiguration.DFLT_WAL_PATH,
+                        resolveFolders.folderName(),
+                        "applied records log directory"
+                );
+            }
         }
     }
 
@@ -2342,49 +2355,81 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         @Nullable IgnitePredicate<WALRecord> stopPred,
         IgniteBiPredicate<WALRecord, DataEntry> entryPred)
     {
-        while (it.hasNext()) {
-            IgniteBiTuple<WALPointer, WALRecord> next = it.next();
+        //TODO: remove
+        FileWriter fw = null;
 
-            WALRecord rec = next.get2();
+        {
+            try {
+                if (recDir != null)
+                    fw = new FileWriter(new File(recDir, "records.txt"), true);
+            } catch (Exception e) {
+                log.error("WTF", e);
 
-            if (stopPred != null && stopPred.apply(rec))
-                break;
+                throw new RuntimeException(e);
+            }
+        }
 
-            switch (rec.type()) {
-                case DATA_RECORD:
-                    checkpointReadLock();
+        try {
+            while (it.hasNext()) {
+                IgniteBiTuple<WALPointer, WALRecord> next = it.next();
 
-                    try {
-                        DataRecord dataRec = (DataRecord)rec;
+                WALRecord rec = next.get2();
 
-                        if (entryPred.apply(rec, null)) {
-                            for (DataEntry dataEntry : dataRec.writeEntries()) {
-                                if (entryPred.apply(rec, dataEntry)) {
-                                    int cacheId = dataEntry.cacheId();
+                if (stopPred != null && stopPred.apply(rec))
+                    break;
 
-                                    GridCacheContext cacheCtx = cctx.cacheContext(cacheId);
+                switch (rec.type()) {
+                    case DATA_RECORD:
+                        checkpointReadLock();
 
-                                    if (cacheCtx != null)
-                                        applyUpdate(cacheCtx, dataEntry);
-                                    else if (log != null) {
-                                        log.warning("Cache (cacheId=" + cacheId +
-                                            ") is not started, can't apply updates.");
+                        try {
+                            DataRecord dataRec = (DataRecord)rec;
+
+                            if (entryPred.apply(rec, null)) {
+                                for (DataEntry dataEntry : dataRec.writeEntries()) {
+                                    if (entryPred.apply(rec, dataEntry)) {
+                                        int cacheId = dataEntry.cacheId();
+
+                                        GridCacheContext cacheCtx = cctx.cacheContext(cacheId);
+
+                                        if (cacheCtx != null) {
+                                            applyUpdate(cacheCtx, dataEntry);
+
+                                            if (recDir != null)
+                                                fw.write("APPLIED: pos=" + rec.position() + ", entry=" + dataEntry.toString() + '\n');
+
+                                        }
+                                        else if (log != null) {
+                                            log.warning("Cache (cacheId=" + cacheId +
+                                                ") is not started, can't apply updates.");
+                                        }
+                                    }
+                                    else {
+                                        if (recDir != null)
+                                            fw.write("SKIPPED: pos=" + rec.position() + ", entry=" + dataEntry.toString() + '\n');
                                     }
                                 }
                             }
                         }
-                    }
-                    catch (Exception e) {
-                        throw new IgniteException(e);
-                    }
-                    finally {
-                        checkpointReadUnlock();
-                    }
+                        catch (Exception e) {
+                            throw new IgniteException(e);
+                        }
+                        finally {
+                            checkpointReadUnlock();
+                        }
 
-                    break;
+                        break;
 
-                default:
-                    // Skip other records.
+                    default:
+                        // Skip other records.
+                }
+            }
+        } finally {
+            try {
+                if (fw != null)
+                    fw.close();
+            } catch (IOException e) {
+                // No-op.
             }
         }
     }
