@@ -19,6 +19,8 @@ Write-Host "Updating project properties..."
 # Get the current Post Build Event cmd
 $currentPostBuildCmd = $project.Properties.Item("PostBuildEvent").Value
 
+$project.Properties | Select-Object | fl > C:\Users\Alexe\Downloads\temp.txt
+
 # Append our post build command if it's not already there
 if (!$currentPostBuildCmd.Contains($IgnitePostBuildCmd)) {
     $project.Properties.Item("PostBuildEvent").Value += $IgnitePostBuildCmd

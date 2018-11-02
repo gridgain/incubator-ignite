@@ -474,6 +474,7 @@
     <Content Include="Config\ssl.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="NuGet\App.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Config\Apache.Ignite.exe.config.test">
@@ -514,6 +515,7 @@
     <None Include="Config\Apache.Ignite.exe.config.test2">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="NuGet\InstallTest.ps1" />
     <None Include="packages.config" />
     <Compile Include="TestUtils.Windows.cs" />
   </ItemGroup>
