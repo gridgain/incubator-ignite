@@ -17,23 +17,30 @@
 
 package org.apache.ignite.internal.processors.cache;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+
+import com.mchange.v2.c3p0.util.TestUtils;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.QueryEntity;
+import org.apache.ignite.cache.QueryIndex;
+import org.apache.ignite.cache.QueryIndexType;
+import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.WALMode;
+import org.apache.ignite.failure.StopNodeFailureHandler;
 import org.apache.ignite.internal.IgniteClientReconnectAbstractTest;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
@@ -58,6 +65,8 @@ import org.junit.Assert;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
+import static org.apache.ignite.cache.CacheRebalanceMode.SYNC;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 
 /**
@@ -73,13 +82,13 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
     /** Non-persistent data region name. */
     private static final String NO_PERSISTENCE_REGION = "no-persistence-region";
     /** */
-    private static final int DEFAULT_CACHES_COUNT = 2;
+    private static final int DEFAULT_CACHES_COUNT = 10;
 
     /** */
     boolean client;
 
     /** */
-    private boolean active = true;
+    private boolean active = false;
 
     /** */
     CacheConfiguration[] ccfgs;
@@ -113,10 +122,15 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
 
         cfg.setActiveOnStart(active);
 
-        if (ccfgs != null) {
-            cfg.setCacheConfiguration(ccfgs);
+        cfg.setAutoActivationEnabled(false);
 
-            ccfgs = null;
+        if (ccfgs != null) {
+            if (!igniteInstanceName.contains("3"))
+                cfg.setCacheConfiguration(ccfgs);
+
+            //System.err.println("000:" + igniteInstanceName);
+
+            //ccfgs = null;
         }
 
         DataStorageConfiguration memCfg = new DataStorageConfiguration();
@@ -138,6 +152,8 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
         cfg.setDataStorageConfiguration(memCfg);
         cfg.setFailureDetectionTimeout(60_000);
 
+        cfg.setFailureHandler(new StopNodeFailureHandler());
+
         if (testSpi) {
             TestRecordingCommunicationSpi spi = new TestRecordingCommunicationSpi();
 
@@ -155,13 +171,15 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
         stopAllGrids();
 
         super.afterTest();
+
+        cleanPersistenceDir();
     }
 
     /**
      * @return {@code True} if test with persistence.
      */
     protected boolean persistenceEnabled() {
-        return false;
+        return true;
     }
 
     /**
@@ -199,6 +217,10 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
         activateSimple(5, 4, 6);
     }
 
+    private static class TestValue {
+        Object o1;
+    }
+
     /**
      * @param srvs Number of servers.
      * @param clients Number of clients.
@@ -213,21 +235,129 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
         for (int i = 0; i < srvs + clients; i++) {
             client = i >= srvs;
 
-            ccfgs = cacheConfigurations1();
+            //ccfgs = cacheConfigurations1();
 
-            startGrid(i);
+            CacheConfiguration[] ccfgs0 = new CacheConfiguration[10];
 
-            checkNoCaches(i);
+            ccfgs0[0] = cacheConfiguration(CACHE_NAME_PREFIX + 0, ATOMIC);
+            ccfgs0[1] = cacheConfiguration(CACHE_NAME_PREFIX + 1, TRANSACTIONAL);
+            ccfgs0[2] = cacheConfiguration(CACHE_NAME_PREFIX + 2, TRANSACTIONAL);
+            ccfgs0[3] = cacheConfiguration(CACHE_NAME_PREFIX + 3, TRANSACTIONAL);
+            ccfgs0[3].setIndexedTypes(Integer.class, Integer.class);
+            ccfgs0[4] = cacheConfiguration(CACHE_NAME_PREFIX + 4, TRANSACTIONAL);
+            ccfgs0[5] = cacheConfiguration(CACHE_NAME_PREFIX + 5, TRANSACTIONAL);
+            ccfgs0[6] = cacheConfiguration(CACHE_NAME_PREFIX + 6, TRANSACTIONAL);
+            ccfgs0[7] = cacheConfiguration(CACHE_NAME_PREFIX + 7, TRANSACTIONAL);
+            ccfgs0[8] = cacheConfiguration(CACHE_NAME_PREFIX + 8, TRANSACTIONAL);
+            ccfgs0[9] = cacheConfiguration("cache200", TRANSACTIONAL);
+
+//
+
+            //ccfgs0[9].setName("cache200");
+            ccfgs0[9].setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+            ccfgs0[9].setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+            ccfgs0[9].setAffinity(new RendezvousAffinityFunction(false, 32));
+
+            QueryEntity qryEntity = new QueryEntity(Integer.class.getName(), TestValue.class.getName());
+
+            LinkedHashMap<String, String> fields = new LinkedHashMap<>();
+            fields.put("v1", Integer.class.getName());
+            fields.put("v2", Integer.class.getName());
+            qryEntity.setFields(fields);
+
+            QueryIndex idx1 = new QueryIndex("v1");
+            idx1.setIndexType(QueryIndexType.SORTED);
+            idx1.setName("IDX_NAME_1");
+
+            QueryIndex idx2 = new QueryIndex("v2");
+            idx2.setIndexType(QueryIndexType.SORTED);
+            idx2.setName("IDX_NAME_2");
+
+            qryEntity.setIndexes(F.asList(idx1, idx2));
+
+            ccfgs0[9].setQueryEntities(Collections.singleton(qryEntity));
+//
+            ccfgs = ccfgs0;
+
+            //startGrid(i);
+
+            //checkNoCaches(i);
         }
 
-        for (int i = 0; i < srvs + clients; i++)
-            assertFalse(ignite(i).cluster().active());
+/*        for (int i = 0; i < srvs + clients; i++)
+            assertFalse(ignite(i).cluster().active());*/
 
-        ignite(activateFrom).cluster().active(false); // Should be no-op.
+        //ignite(activateFrom).cluster().active(false); // Should be no-op.
 
-        ignite(activateFrom).cluster().active(true);
+        Set<IgniteInternalFuture> f = new HashSet<>();
 
-        for (int i = 0; i < srvs + clients; i++)
+        for (int ii = 0; ii < srvs; ++ii) {
+            int finalIi = ii;
+            f.add(GridTestUtils.runAsync(new Runnable() {
+                @Override public void run() {
+                    try {
+                        startGrid(finalIi);
+                    } catch (Exception e) {
+
+                    }
+
+                    ignite(finalIi).cluster().active(true);
+
+                    if (finalIi == 1) {
+                        ignite(finalIi).cache(CACHE_NAME_PREFIX + finalIi).enableStatistics(true);
+                    }
+
+                    if (finalIi == 2) {
+
+                        ccfgs[9].setAtomicityMode(CacheAtomicityMode.TRANSACTIONAL);
+                        ccfgs[9].setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+                        ccfgs[9].setAffinity(new RendezvousAffinityFunction(false, 32));
+
+                        QueryEntity qryEntity = new QueryEntity(Integer.class.getName(), TestValue.class.getName());
+
+                        LinkedHashMap<String, String> fields = new LinkedHashMap<>();
+                        fields.put("v1", Integer.class.getName());
+                        fields.put("v2", Integer.class.getName());
+                        fields.put("v3", Integer.class.getName());
+                        qryEntity.setFields(fields);
+
+                        QueryIndex idx1 = new QueryIndex("v1");
+                        idx1.setIndexType(QueryIndexType.SORTED);
+                        idx1.setName("IDX_NAME_1");
+
+                        QueryIndex idx2 = new QueryIndex("v2");
+                        idx2.setIndexType(QueryIndexType.SORTED);
+                        idx2.setName("IDX_NAME_2");
+
+                        QueryIndex idx3 = new QueryIndex("v3");
+                        idx2.setIndexType(QueryIndexType.SORTED);
+                        idx2.setName("IDX_NAME_3");
+
+                        qryEntity.setIndexes(F.asList(idx1, idx2, idx3));
+
+                        ccfgs[9].setQueryEntities(Collections.singleton(qryEntity));
+
+                        //ignite(finalIi).cache(CACHE_NAME_PREFIX + finalIi).enableStatistics(true);
+
+                        //stopGrid(finalIi);
+                    }
+                }
+            }) );
+        }
+
+        f.forEach(k -> {
+            try {
+                k.get();
+            } catch (IgniteCheckedException e) {
+
+            }
+        });
+
+        stopAllGrids();
+
+        System.err.println();
+
+/*        for (int i = 0; i < srvs + clients; i++)
             assertTrue(ignite(i).cluster().active());
 
         for (int i = 0; i < srvs + clients; i++) {
@@ -255,7 +385,7 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
         for (int c = 0; c < DEFAULT_CACHES_COUNT; c++)
             checkCache(ignite(srvs + clients + 1), CACHE_NAME_PREFIX + c, false);
 
-        checkCaches(srvs + clients + 2, CACHES);
+        checkCaches(srvs + clients + 2, CACHES);*/
     }
 
     /**
@@ -1378,7 +1508,7 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
             GridCacheProcessor cache = ((IgniteEx)ignite(i)).context().cache();
 
             assertTrue(cache.caches().isEmpty());
-            assertTrue(cache.internalCaches().stream().allMatch(c -> c.context().isRecoveryMode()));
+            assertTrue(cache.internalCaches().isEmpty());
         }
     }
 }

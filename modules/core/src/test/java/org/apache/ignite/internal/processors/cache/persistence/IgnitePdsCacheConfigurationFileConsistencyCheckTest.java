@@ -75,7 +75,7 @@ public class IgnitePdsCacheConfigurationFileConsistencyCheckTest extends GridCom
                 .setIpFinder(IP_FINDER))
                 .setDataStorageConfiguration(new DataStorageConfiguration()
                         .setDefaultDataRegionConfiguration(new DataRegionConfiguration()
-                                .setMaxSize(200 * 1024 * 1024)
+                                .setMaxSize(50 * 1024 * 1024)
                                 .setPersistenceEnabled(true)));
     }
 
