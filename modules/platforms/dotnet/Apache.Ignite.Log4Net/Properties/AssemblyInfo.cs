@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Licensed to the Apache Software Foundation (ASF) under one or more
 * contributor license agreements.  See the NOTICE file distributed with
 * this work for additional information regarding copyright ownership.
@@ -33,8 +33,8 @@ using System.Runtime.InteropServices;
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("6f82d669-382e-4435-8092-68c4440146d8")]
 
-[assembly: AssemblyVersion("2.4.0.25406")]
-[assembly: AssemblyFileVersion("2.4.0.25406")]
-[assembly: AssemblyInformationalVersion("2.4.0")]
+[assembly: AssemblyVersion("2.4.9.25406")]
+[assembly: AssemblyFileVersion("2.4.9.25406")]
+[assembly: AssemblyInformationalVersion("2.4.9")]
 
 [assembly: CLSCompliant(true)]
