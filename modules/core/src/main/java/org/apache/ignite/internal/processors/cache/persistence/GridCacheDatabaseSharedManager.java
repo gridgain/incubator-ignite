@@ -2325,7 +2325,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         @Nullable IgnitePredicate<WALRecord> stopPred,
         IgniteBiPredicate<WALRecord, DataEntry> entryPred,
         boolean lockEntries,
-        IgniteInClosure<FileWALPointer> onWalPointerApplied) {
+        IgniteInClosure<WALPointer> onWalPointerApplied) {
         while (it.hasNext()) {
             IgniteBiTuple<WALPointer, WALRecord> next = it.next();
 
@@ -2371,7 +2371,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                     // Skip other records.
             }
             if (onWalPointerApplied != null)
-                onWalPointerApplied.apply((FileWALPointer)next.get1());
+                onWalPointerApplied.apply(next.get1());
 
         }
     }
