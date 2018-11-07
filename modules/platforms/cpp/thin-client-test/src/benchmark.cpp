@@ -416,7 +416,7 @@ void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const
 
 const int32_t WARMUP_ITERATIONS_NUM = 100000;
 const int32_t ITERATIONS_NUM = 100000;
-const int32_t THREAD_NUM = boost::thread::hardware_concurrency();
+const int32_t THREAD_NUM = 1;//boost::thread::hardware_concurrency();
 
 const std::string logDir = "";
 const std::string address = "127.0.0.1";
