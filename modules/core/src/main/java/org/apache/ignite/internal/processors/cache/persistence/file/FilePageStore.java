@@ -27,7 +27,6 @@ import java.nio.file.Files;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -36,8 +35,8 @@ import org.apache.ignite.internal.pagemem.store.PageStore;
 import org.apache.ignite.internal.processors.cache.persistence.AllocatedPageTracker;
 import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
-import org.apache.ignite.internal.processors.cache.persistence.wal.crc.FastCrc;
 import org.apache.ignite.internal.processors.cache.persistence.wal.crc.IgniteDataIntegrityViolationException;
+import org.apache.ignite.internal.processors.cache.persistence.wal.crc.PureJavaCrc32;
 import org.apache.ignite.internal.util.typedef.internal.U;
 
 import static java.nio.file.StandardOpenOption.CREATE;
@@ -384,7 +383,7 @@ public class FilePageStore implements PageStore {
             pageBuf.position(0);
 
             if (!skipCrc) {
-                int curCrc32 = FastCrc.calcCrc(pageBuf, pageSize);
+                int curCrc32 = PureJavaCrc32.calcCrc32(pageBuf, pageSize);
 
                 if ((savedCrc32 ^ curCrc32) != 0)
                     throw new IgniteDataIntegrityViolationException("Failed to read page (CRC validation failed) " +
@@ -653,7 +652,7 @@ public class FilePageStore implements PageStore {
         try {
             pageBuf.position(0);
 
-            return FastCrc.calcCrc(pageBuf, pageSize);
+            return PureJavaCrc32.calcCrc32(pageBuf, pageSize);
         }
         finally {
             pageBuf.position(0);

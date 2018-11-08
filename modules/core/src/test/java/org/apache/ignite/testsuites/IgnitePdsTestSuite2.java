@@ -61,7 +61,6 @@ import org.apache.ignite.internal.processors.cache.persistence.db.wal.IgniteWalS
 import org.apache.ignite.internal.processors.cache.persistence.db.wal.WalCompactionTest;
 import org.apache.ignite.internal.processors.cache.persistence.db.wal.crc.IgniteDataIntegrityTests;
 import org.apache.ignite.internal.processors.cache.persistence.db.wal.crc.IgniteFsyncReplayWalIteratorInvalidCrcTest;
-import org.apache.ignite.internal.processors.cache.persistence.db.wal.crc.IgnitePureJavaCrcCompatibility;
 import org.apache.ignite.internal.processors.cache.persistence.db.wal.crc.IgniteReplayWalIteratorInvalidCrcTest;
 import org.apache.ignite.internal.processors.cache.persistence.db.wal.crc.IgniteStandaloneWalIteratorInvalidCrcTest;
 import org.apache.ignite.internal.processors.cache.persistence.db.wal.reader.IgniteWalReaderTest;
@@ -82,7 +81,6 @@ public class IgnitePdsTestSuite2 extends TestSuite {
         suite.addTestSuite(IgniteStandaloneWalIteratorInvalidCrcTest.class);
         suite.addTestSuite(IgniteReplayWalIteratorInvalidCrcTest.class);
         suite.addTestSuite(IgniteFsyncReplayWalIteratorInvalidCrcTest.class);
-        suite.addTestSuite(IgnitePureJavaCrcCompatibility.class);
 
         addRealPageStoreTests(suite);
 

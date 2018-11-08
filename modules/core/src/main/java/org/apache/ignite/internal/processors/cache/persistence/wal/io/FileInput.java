@@ -19,12 +19,10 @@ package org.apache.ignite.internal.processors.cache.persistence.wal.io;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.zip.CRC32;
-
 import org.apache.ignite.internal.processors.cache.persistence.file.FileIO;
 import org.apache.ignite.internal.processors.cache.persistence.wal.ByteBufferBackedDataInput;
-import org.apache.ignite.internal.processors.cache.persistence.wal.crc.FastCrc;
 import org.apache.ignite.internal.processors.cache.persistence.wal.crc.IgniteDataIntegrityViolationException;
+import org.apache.ignite.internal.processors.cache.persistence.wal.crc.PureJavaCrc32;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -58,7 +56,7 @@ public interface FileInput extends ByteBufferBackedDataInput {
      */
     public class Crc32CheckingFileInput implements ByteBufferBackedDataInput, AutoCloseable {
         /** */
-        private final FastCrc crc = new FastCrc();
+        private final PureJavaCrc32 crc32 = new PureJavaCrc32();
 
         /** Last calc position. */
         private int lastCalcPosition;
@@ -95,7 +93,7 @@ public interface FileInput extends ByteBufferBackedDataInput {
         @Override public void close() throws Exception {
             updateCrc();
 
-            int val = crc.getValue();
+            int val = crc32.getValue();
 
             int writtenCrc =  this.readInt();
 
@@ -120,7 +118,7 @@ public interface FileInput extends ByteBufferBackedDataInput {
 
             buffer().position(lastCalcPosition);
 
-            crc.update(delegate.buffer(), oldPos - lastCalcPosition);
+            crc32.update(delegate.buffer(), oldPos - lastCalcPosition);
 
             lastCalcPosition = oldPos;
         }
