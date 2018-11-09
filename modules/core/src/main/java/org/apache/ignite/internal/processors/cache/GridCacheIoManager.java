@@ -1335,44 +1335,53 @@ public class GridCacheIoManager extends GridCacheSharedManagerAdapter {
         Class<? extends GridCacheMessage> type,
         IgniteBiInClosure<UUID, ? extends GridCacheMessage> c,
         MessageHandlers msgHandlers) {
-        int msgIdx = messageIndex(type);
+        Lock lock = rw.writeLock();
 
-        if (msgIdx != -1) {
-            Map<Integer, IgniteBiInClosure[]> idxClsHandlers0 = msgHandlers.idxClsHandlers;
+        lock.lock();
 
-            IgniteBiInClosure[] cacheClsHandlers = idxClsHandlers0.get(hndId);
+        try {
+            int msgIdx = messageIndex(type);
 
-            if (cacheClsHandlers == null) {
-                cacheClsHandlers = new IgniteBiInClosure[GridCacheMessage.MAX_CACHE_MSG_LOOKUP_INDEX];
+            if (msgIdx != -1) {
+                Map<Integer, IgniteBiInClosure[]> idxClsHandlers0 = msgHandlers.idxClsHandlers;
 
-                idxClsHandlers0.put(hndId, cacheClsHandlers);
+                IgniteBiInClosure[] cacheClsHandlers = idxClsHandlers0.get(hndId);
+
+                if (cacheClsHandlers == null) {
+                    cacheClsHandlers = new IgniteBiInClosure[GridCacheMessage.MAX_CACHE_MSG_LOOKUP_INDEX];
+
+                    idxClsHandlers0.put(hndId, cacheClsHandlers);
+                }
+
+                if (cacheClsHandlers[msgIdx] != null)
+                    throw new IgniteException("Duplicate cache message ID found [hndId=" + hndId +
+                        ", type=" + type + ']');
+
+                cacheClsHandlers[msgIdx] = c;
+
+                msgHandlers.idxClsHandlers = idxClsHandlers0;
+
+                return;
+            }
+            else {
+                ListenerKey key = new ListenerKey(hndId, type);
+
+                if (msgHandlers.clsHandlers.putIfAbsent(key,
+                    (IgniteBiInClosure<UUID, GridCacheMessage>)c) != null)
+                    assert false : "Handler for class already registered [hndId=" + hndId + ", cls=" + type +
+                        ", old=" + msgHandlers.clsHandlers.get(key) + ", new=" + c + ']';
             }
 
-            if (cacheClsHandlers[msgIdx] != null)
-                throw new IgniteException("Duplicate cache message ID found [hndId=" + hndId +
-                    ", type=" + type + ']');
+            IgniteLogger log0 = log;
 
-            cacheClsHandlers[msgIdx] = c;
-
-            msgHandlers.idxClsHandlers = idxClsHandlers0;
-
-            return;
+            if (log0 != null && log0.isTraceEnabled())
+                log0.trace(
+                    "Registered cache communication handler [hndId=" + hndId + ", type=" + type +
+                        ", msgIdx=" + msgIdx + ", handler=" + c + ']');
         }
-        else {
-            ListenerKey key = new ListenerKey(hndId, type);
-
-            if (msgHandlers.clsHandlers.putIfAbsent(key,
-                (IgniteBiInClosure<UUID, GridCacheMessage>)c) != null)
-                assert false : "Handler for class already registered [hndId=" + hndId + ", cls=" + type +
-                    ", old=" + msgHandlers.clsHandlers.get(key) + ", new=" + c + ']';
+        finally {
+            lock.unlock();
         }
-
-        IgniteLogger log0 = log;
-
-        if (log0 != null && log0.isTraceEnabled())
-            log0.trace(
-                "Registered cache communication handler [hndId=" + hndId + ", type=" + type +
-                    ", msgIdx=" + msgIdx + ", handler=" + c + ']');
     }
 
     /**
