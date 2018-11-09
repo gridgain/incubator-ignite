@@ -17,29 +17,68 @@
 
 package org.apache.ignite.yardstick.cache;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.internal.util.typedef.internal.U;
+
+import static org.yardstickframework.BenchmarkUtils.println;
 
 /**
  * Ignite benchmark that performs getAll operations.
  */
-public class IgniteGetAllBenchmark extends IgniteGetBenchmark {
+public class IgniteGetAllBenchmark extends IgniteCacheAbstractBenchmark<Long, byte[]> {
     /** {@inheritDoc} */
     @Override public boolean test(Map<Object, Object> ctx) throws Exception {
-        Set<Integer> keys = U.newHashSet(args.batch());
+        Set<Long> keys = U.newHashSet(args.batch());
 
         while (keys.size() < args.batch()) {
             int key = nextRandom(args.range());
 
-            keys.add(key);
+            keys.add(new Long(key));
         }
 
-        IgniteCache<Integer, Object> cache = cacheForOperation();
+        IgniteCache<Long, byte[]> cache = cacheForOperation();
 
         cache.getAll(keys);
 
         return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void loadCacheData(String cacheName) {
+        loadByteArrays(cacheName, args.preloadAmount());
+    }
+    /** {@inheritDoc} */
+    @Override protected IgniteCache<Long, byte[]> cache() {
+        return ignite().cache("atomic");
+    }
+
+    /**
+     * @param cacheName Cache name.
+     * @param cnt Number of entries to load.
+     */
+    protected final void loadByteArrays(String cacheName, int cnt) {
+        try (IgniteDataStreamer<Long, byte[]> dataLdr = ignite().dataStreamer(cacheName)) {
+            for (long i = 0; i < cnt; i++) {
+
+                byte[] arr = new byte[450];
+
+                Arrays.fill(arr,(byte)8);
+
+                dataLdr.addData(i, arr);
+
+                if (i % 100000 == 0) {
+                    if (Thread.currentThread().isInterrupted())
+                        break;
+
+                    println("Loaded entries [cache=" + cacheName + ", cnt=" + i + ']');
+                }
+            }
+        }
+
+        println("Load entries done [cache=" + cacheName + ", cnt=" + cnt + ']');
     }
 }
