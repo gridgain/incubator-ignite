@@ -24,7 +24,7 @@ import org.apache.ignite.IgniteCache;
  */
 public class IgniteGetAllOffHeapBenchmark extends IgniteGetAllBenchmark {
     /** {@inheritDoc} */
-    @Override protected IgniteCache<Integer, Object> cache() {
+    @Override protected IgniteCache<Long, byte[]> cache() {
         return ignite().cache("atomic-offheap");
     }
 }
