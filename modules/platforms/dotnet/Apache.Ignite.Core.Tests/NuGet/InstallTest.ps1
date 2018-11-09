@@ -18,3 +18,4 @@ $dte = New-Object psobject -Property $dteProps
 
 
 #&$Devenv $PSScriptRoot\App.csproj /Build
+#$Msbuild="${Env:SystemRoot}\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe"
