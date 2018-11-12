@@ -26,6 +26,7 @@ import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlOperation;
 import org.apache.ignite.internal.sql.ast.GridSqlOperationType;
 import org.apache.ignite.internal.sql.ast.GridSqlPlaceholder;
+import org.apache.ignite.internal.sql.ast.GridSqlQuery;
 import org.apache.ignite.internal.sql.ast.GridSqlTable;
 import org.apache.ignite.internal.sql.ast.StatementBuilder;
 

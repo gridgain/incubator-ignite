@@ -21,6 +21,7 @@ import javax.cache.CacheException;
 
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
+import org.apache.ignite.internal.sql.ast.GridSqlQuery;
 import org.apache.ignite.internal.sql.ast.StatementBuilder;
 import org.h2.command.dml.SelectUnion;
 
@@ -95,7 +96,7 @@ public class GridSqlUnion extends GridSqlQuery {
     }
 
     /** {@inheritDoc} */
-    @Override protected int visibleColumns() {
+    @Override public int visibleColumns() {
         return left.visibleColumns();
     }
 

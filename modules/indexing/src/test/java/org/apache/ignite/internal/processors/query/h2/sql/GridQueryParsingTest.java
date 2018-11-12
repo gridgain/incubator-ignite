@@ -52,6 +52,7 @@ import org.apache.ignite.internal.sql.ast.GridSqlCreateIndex;
 import org.apache.ignite.internal.sql.ast.GridSqlDropIndex;
 import org.apache.ignite.internal.sql.ast.GridSqlDropTable;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
+import org.apache.ignite.internal.sql.ast.GridSqlSubquery;
 import org.apache.ignite.internal.sql.ast.GridSqlTable;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;

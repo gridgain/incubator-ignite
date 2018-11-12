@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
+package org.apache.ignite.internal.sql.ast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -83,7 +83,7 @@ public abstract class GridSqlQuery extends GridSqlStatement implements GridSqlAs
     /**
      * @return Number of visible columns.
      */
-    protected abstract int visibleColumns();
+    public abstract int visibleColumns();
 
     /**
      * @param col Column index.
