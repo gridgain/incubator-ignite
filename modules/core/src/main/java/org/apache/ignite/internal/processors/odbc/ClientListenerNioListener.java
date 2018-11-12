@@ -82,6 +82,8 @@ public class ClientListenerNioListener extends GridNioServerListenerAdapter<byte
     /** Client connection config. */
     private ClientConnectorConfiguration cliConnCfg;
 
+    private long cnt = 0;
+
     /**
      * Constructor.
      *
@@ -155,11 +157,14 @@ public class ClientListenerNioListener extends GridNioServerListenerAdapter<byte
         try {
             long startTime = 0;
 
-            if (log.isDebugEnabled()) {
+            if (cnt % 10000 == 0) {
                 startTime = System.nanoTime();
 
-                log.debug("Client request received [reqId=" + req.requestId() + ", addr=" +
-                    ses.remoteAddress() + ", req=" + req + ']');
+                System.out.println("startTime: " + startTime);
+
+//                log.debug("Client request received [reqId=" + req.requestId() + ", addr=" +
+//                    ses.remoteAddress() + ", req=" + req + ']');
+
             }
 
             ClientListenerResponse resp;
@@ -181,12 +186,13 @@ public class ClientListenerNioListener extends GridNioServerListenerAdapter<byte
             }
 
             if (resp != null) {
-                if (log.isDebugEnabled()) {
-                    long dur = (System.nanoTime() - startTime) / 1000;
+                if (cnt % 10000 == 0) {
+                    long endTime = System.nanoTime();
 
-                    log.debug("Client request processed [reqId=" + req.requestId() + ", dur(mcs)=" + dur +
-                        ", resp=" + resp.status() + ']');
+                    System.out.println("endTime  : " + endTime);
+                    System.out.println();
                 }
+                ++cnt;
 
                 byte[] outMsg = parser.encode(resp);
 
