@@ -21,8 +21,8 @@ import javax.cache.CacheException;
 
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
+import org.apache.ignite.internal.sql.ast.StatementBuilder;
 import org.h2.command.dml.SelectUnion;
-import org.h2.util.StatementBuilder;
 
 /**
  * Select query with UNION.

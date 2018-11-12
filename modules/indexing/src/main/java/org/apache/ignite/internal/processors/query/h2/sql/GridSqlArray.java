@@ -22,7 +22,7 @@ import java.util.Collections;
 
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
-import org.h2.util.StatementBuilder;
+import org.apache.ignite.internal.sql.ast.StatementBuilder;
 
 /**
  * SQL Array: (1, 2, ?, 'abc')

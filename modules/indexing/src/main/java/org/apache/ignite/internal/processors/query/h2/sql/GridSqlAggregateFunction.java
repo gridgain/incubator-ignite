@@ -19,9 +19,9 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlFunctionType;
+import org.apache.ignite.internal.sql.ast.StatementBuilder;
 import org.apache.ignite.internal.util.typedef.F;
 import org.h2.expression.Aggregate;
-import org.h2.util.StatementBuilder;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.sql.ast.GridSqlFunctionType.AVG;

@@ -21,7 +21,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
-import org.h2.util.StatementBuilder;
+import org.apache.ignite.internal.sql.ast.GridSqlOperation;
+import org.apache.ignite.internal.sql.ast.GridSqlOperationType;
+import org.apache.ignite.internal.sql.ast.GridSqlUtils;
+import org.apache.ignite.internal.sql.ast.StatementBuilder;
 
 /**
  * Plain SELECT query.

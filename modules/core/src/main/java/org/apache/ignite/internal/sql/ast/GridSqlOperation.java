@@ -15,14 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
-
-import org.apache.ignite.internal.sql.ast.GridSqlAst;
-import org.apache.ignite.internal.sql.ast.GridSqlElement;
+package org.apache.ignite.internal.sql.ast;
 
 import java.util.ArrayList;
 
-import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlOperationType.IN;
+import static org.apache.ignite.internal.sql.ast.GridSqlOperationType.IN;
 
 /**
  * Unary or binary operation.

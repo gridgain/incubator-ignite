@@ -22,7 +22,8 @@ import java.util.LinkedHashMap;
 
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
-import org.h2.util.StatementBuilder;
+import org.apache.ignite.internal.sql.ast.GridSqlUtils;
+import org.apache.ignite.internal.sql.ast.StatementBuilder;
 
 /** */
 public class GridSqlUpdate extends GridSqlStatement {

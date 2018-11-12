@@ -48,6 +48,8 @@ import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlFunctionType;
+import org.apache.ignite.internal.sql.ast.GridSqlOperation;
+import org.apache.ignite.internal.sql.ast.GridSqlOperationType;
 import org.apache.ignite.internal.sql.ast.GridSqlType;
 import org.apache.ignite.internal.util.lang.GridTreePrinter;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;

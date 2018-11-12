@@ -19,7 +19,8 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
-import org.h2.util.StatementBuilder;
+import org.apache.ignite.internal.sql.ast.GridSqlUtils;
+import org.apache.ignite.internal.sql.ast.StatementBuilder;
 
 /** */
 public class GridSqlDelete extends GridSqlStatement {

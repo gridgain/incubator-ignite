@@ -21,7 +21,7 @@ import java.util.List;
 
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
-import org.h2.util.StatementBuilder;
+import org.apache.ignite.internal.sql.ast.StatementBuilder;
 
 /** */
 public class GridSqlMerge extends GridSqlStatement {

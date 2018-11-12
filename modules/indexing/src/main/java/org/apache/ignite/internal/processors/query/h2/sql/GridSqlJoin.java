@@ -21,7 +21,8 @@ import java.util.ArrayList;
 
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
-import org.h2.util.StatementBuilder;
+import org.apache.ignite.internal.sql.ast.GridSqlUtils;
+import org.apache.ignite.internal.sql.ast.StatementBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
