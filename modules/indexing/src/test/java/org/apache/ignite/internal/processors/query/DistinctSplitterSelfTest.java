@@ -39,11 +39,15 @@ public class DistinctSplitterSelfTest extends GridCommonAbstractTest {
                 stmt.execute("CREATE TABLE good (id BIGINT PRIMARY KEY, name VARCHAR)");
                 stmt.execute("CREATE TABLE ord (id BIGINT PRIMARY KEY, cliId BIGINT, goodId BIGINT)");
 
+//                stmt.executeQuery(
+//                    "SELECT cli.name, good.name " +
+//                    "FROM (SELECT DISTINCT cliId, goodId FROM ord) as ord " +
+//                    "    LEFT JOIN client cli ON cli.id = ord.cliId " +
+//                    "    JOIN good good ON good.id = ord.goodId"
+//                ).close();
+
                 stmt.executeQuery(
-                    "SELECT cli.name, good.name " +
-                    "FROM (SELECT DISTINCT cliId, goodId FROM ord) as ord " +
-                    "    LEFT JOIN client cli ON cli.id = ord.cliId " +
-                    "    JOIN good good ON good.id = ord.goodId"
+                    "SELECT COUNT(c.name) FROM client c JOIN ord o ON c.id = o.cliId"
                 ).close();
             }
         }
@@ -52,5 +56,10 @@ public class DistinctSplitterSelfTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         stopAllGrids();
+    }
+
+    /** {@inheritDoc} */
+    @Override protected long getTestTimeout() {
+        return Long.MAX_VALUE;
     }
 }

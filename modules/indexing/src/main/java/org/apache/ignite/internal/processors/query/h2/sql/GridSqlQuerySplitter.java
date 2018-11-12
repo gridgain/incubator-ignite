@@ -1916,6 +1916,13 @@ public class GridSqlQuerySplitter {
     }
 
     /**
+     * Split expression in SELECT statement.
+     *
+     * General rules:
+     * 1) Non-aggregate expressions are pushed to mapper and returned as is on reducer
+     * 2) Aggregate expressions are split into two phases to get correct final result, unless SqlFieldsQuery.collocated
+     *    is set to "true".
+     *
      * @param mapSelect Selects for map query.
      * @param rdcSelect Selects for reduce query.
      * @param colNames Set of unique top level column names.
