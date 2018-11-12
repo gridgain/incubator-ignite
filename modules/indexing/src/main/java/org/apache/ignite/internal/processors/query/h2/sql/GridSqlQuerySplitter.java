@@ -329,6 +329,8 @@ public class GridSqlQuerySplitter {
 
         String rdcQry = qry.getSQL();
 
+        System.out.println(rdcQry);
+
         checkNoDataTablesInReduceQuery(qry, rdcQry);
 
         // Setup a resulting reduce query.
