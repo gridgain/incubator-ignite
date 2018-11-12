@@ -2318,14 +2318,15 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
      * @param stopPred WAL record predicate for stopping iteration.
      * @param entryPred Data record and corresponding data entries predicate.
      * @param lockEntries If true, update will be performed under entry lock.
-     * @param onWalPointerApplied
+     * @param onWalPointerApplied Listener to be invoked after every WAL record applied.
      */
     public void applyUpdates(
         WALIterator it,
         @Nullable IgnitePredicate<WALRecord> stopPred,
         IgniteBiPredicate<WALRecord, DataEntry> entryPred,
         boolean lockEntries,
-        IgniteInClosure<WALPointer> onWalPointerApplied) {
+        IgniteInClosure<WALPointer> onWalPointerApplied
+    ) {
         while (it.hasNext()) {
             IgniteBiTuple<WALPointer, WALRecord> next = it.next();
 
@@ -2372,7 +2373,6 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             }
             if (onWalPointerApplied != null)
                 onWalPointerApplied.apply(next.get1());
-
         }
     }
 
