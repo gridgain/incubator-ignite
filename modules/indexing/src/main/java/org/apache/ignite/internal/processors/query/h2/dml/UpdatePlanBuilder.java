@@ -56,7 +56,7 @@ import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuerySplitter;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSelect;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlTable;
+import org.apache.ignite.internal.sql.ast.GridSqlTable;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlUnion;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlUpdate;
 import org.apache.ignite.internal.sql.command.SqlBulkLoadCommand;
@@ -124,10 +124,12 @@ public final class UpdatePlanBuilder {
                         ((GridSqlTable)o).tableName() + "'", IgniteQueryErrorCode.UNSUPPORTED_OPERATION);
                 }
 
+                GridH2Table dataTbl = ((GridSqlTable)o).dataTable();
+
                 if (cctx == null)
-                    mvccEnabled = (cctx = (((GridSqlTable)o).dataTable()).cache()).mvccEnabled();
-                else if (((GridSqlTable)o).dataTable().cache().mvccEnabled() != mvccEnabled)
-                    MvccUtils.throwAtomicityModesMismatchException(cctx, ((GridSqlTable)o).dataTable().cache());
+                    mvccEnabled = (cctx = dataTbl.cache()).mvccEnabled();
+                else if (dataTbl.cache().mvccEnabled() != mvccEnabled)
+                    MvccUtils.throwAtomicityModesMismatchException(cctx, dataTbl.cache());
             }
         }
 
@@ -200,7 +202,7 @@ public final class UpdatePlanBuilder {
             target = merge.into();
 
             tbl = DmlAstUtils.gridTableForElement(target);
-            desc = tbl.dataTable().rowDescriptor();
+            desc = ((GridH2Table)tbl.dataTable()).rowDescriptor();
 
             cols = merge.columns();
 
@@ -228,8 +230,8 @@ public final class UpdatePlanBuilder {
         boolean hasValProps = false;
 
         if (desc == null)
-            throw new IgniteSQLException("Row descriptor undefined for table '" + tbl.dataTable().getName() + "'",
-                IgniteQueryErrorCode.NULL_TABLE_DESCRIPTOR);
+            throw new IgniteSQLException("Row descriptor undefined for table '" +
+                ((GridH2Table)tbl.dataTable()).getName() + "'", IgniteQueryErrorCode.NULL_TABLE_DESCRIPTOR);
 
         GridCacheContext<?, ?> cctx = desc.context();
 
@@ -274,7 +276,7 @@ public final class UpdatePlanBuilder {
 
         DmlDistributedPlanInfo distributed = (rowsNum == 0 && !F.isEmpty(selectSql)) ?
             checkPlanCanBeDistributed(idx, mvccEnabled, conn, fieldsQuery, loc, selectSql,
-            tbl.dataTable().cacheName()) : null;
+            ((GridH2Table)tbl.dataTable()).cacheName()) : null;
 
         UpdateMode mode = stmt instanceof GridSqlMerge ? UpdateMode.MERGE : UpdateMode.INSERT;
 
@@ -447,7 +449,7 @@ public final class UpdatePlanBuilder {
 
                 DmlDistributedPlanInfo distributed = F.isEmpty(selectSql) ? null :
                     checkPlanCanBeDistributed(idx, mvccEnabled, conn, fieldsQuery, loc, selectSql,
-                    tbl.dataTable().cacheName());
+                    ((GridH2Table)tbl.dataTable()).cacheName());
 
                 return new UpdatePlan(
                     UpdateMode.UPDATE,
@@ -473,7 +475,7 @@ public final class UpdatePlanBuilder {
 
                 DmlDistributedPlanInfo distributed = F.isEmpty(selectSql) ? null :
                     checkPlanCanBeDistributed(idx, mvccEnabled, conn, fieldsQuery, loc, selectSql,
-                    tbl.dataTable().cacheName());
+                    ((GridH2Table)tbl.dataTable()).cacheName());
 
                 return new UpdatePlan(
                     UpdateMode.DELETE,

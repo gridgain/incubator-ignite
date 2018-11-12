@@ -15,16 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
+package org.apache.ignite.internal.sql.ast;
 
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
 import org.apache.ignite.internal.sql.SqlParserUtils;
-import org.apache.ignite.internal.sql.ast.GridSqlAst;
-import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.util.typedef.internal.SB;
-import org.h2.table.Table;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,7 +34,7 @@ public class GridSqlTable extends GridSqlElement {
     private final String tblName;
 
     /** */
-    private final GridH2Table tbl;
+    private final Object tbl;
 
     /** */
     private List<String> useIndexes;
@@ -46,24 +42,9 @@ public class GridSqlTable extends GridSqlElement {
     /**
      * @param schema Schema.
      * @param tblName Table name.
-     */
-    public GridSqlTable(@Nullable String schema, String tblName) {
-        this(schema, tblName, null);
-    }
-
-    /**
-     * @param tbl Table.
-     */
-    public GridSqlTable(Table tbl) {
-        this(tbl.getSchema().getName(), tbl.getName(), tbl);
-    }
-
-    /**
-     * @param schema Schema.
-     * @param tblName Table name.
      * @param tbl H2 Table.
      */
-    private GridSqlTable(@Nullable String schema, String tblName, @Nullable Table tbl) {
+    public GridSqlTable(@Nullable String schema, String tblName, @Nullable Object tbl) {
         super(Collections.<GridSqlAst>emptyList());
 
         assert schema != null : "schema";
@@ -72,7 +53,7 @@ public class GridSqlTable extends GridSqlElement {
         this.schema = schema;
         this.tblName = tblName;
 
-        this.tbl = tbl instanceof GridH2Table ? (GridH2Table)tbl : null;
+        this.tbl = tbl;
     }
 
     /** {@inheritDoc} */
@@ -139,10 +120,11 @@ public class GridSqlTable extends GridSqlElement {
     }
 
     /**
-     * @return Referenced data table.
+     * @return Referenced data table (always H2 table).
      */
-    public GridH2Table dataTable() {
-        return tbl;
+    @SuppressWarnings("unchecked")
+    public <T> T dataTable() {
+        return (T)tbl;
     }
 
     /** {@inheritDoc} */

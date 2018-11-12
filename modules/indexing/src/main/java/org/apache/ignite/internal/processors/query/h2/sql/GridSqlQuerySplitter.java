@@ -54,6 +54,7 @@ import org.apache.ignite.internal.sql.ast.GridSqlOperationType;
 import org.apache.ignite.internal.sql.ast.GridSqlParameter;
 import org.apache.ignite.internal.sql.ast.GridSqlPlaceholder;
 import org.apache.ignite.internal.sql.ast.GridSqlSortColumn;
+import org.apache.ignite.internal.sql.ast.GridSqlTable;
 import org.apache.ignite.internal.sql.ast.GridSqlType;
 import org.apache.ignite.internal.util.lang.GridTreePrinter;
 import org.apache.ignite.internal.util.tostring.GridToStringInclude;
@@ -165,7 +166,7 @@ public class GridSqlQuerySplitter {
      * @return Merge table.
      */
     private static GridSqlTable mergeTable(int idx) {
-        return new GridSqlTable(MERGE_TABLE_SCHEMA, MERGE_TABLE_PREFIX + idx);
+        return new GridSqlTable(MERGE_TABLE_SCHEMA, MERGE_TABLE_PREFIX + idx, null);
     }
 
     /**
@@ -1576,7 +1577,7 @@ public class GridSqlQuerySplitter {
     private static boolean hasPartitionedTables(GridSqlAst ast) {
         if (ast instanceof GridSqlTable) {
             if (((GridSqlTable)ast).dataTable() != null)
-                return ((GridSqlTable)ast).dataTable().isPartitioned();
+                return ((GridH2Table)((GridSqlTable)ast).dataTable()).isPartitioned();
             else
                 return false;
         }
@@ -1771,8 +1772,8 @@ public class GridSqlQuerySplitter {
         if (from instanceof GridSqlTable) {
             GridSqlTable tbl = (GridSqlTable)from;
 
-            String schemaName = tbl.dataTable() != null ? tbl.dataTable().identifier().schema() : tbl.schema();
-            String tblName = tbl.dataTable() != null ? tbl.dataTable().identifier().table() : tbl.tableName();
+            String schemaName = tbl.dataTable() != null ? ((GridH2Table)tbl.dataTable()).identifier().schema() : tbl.schema();
+            String tblName = tbl.dataTable() != null ? ((GridH2Table)tbl.dataTable()).identifier().table() : tbl.tableName();
 
             tbls.add(new QueryTable(schemaName, tblName));
 

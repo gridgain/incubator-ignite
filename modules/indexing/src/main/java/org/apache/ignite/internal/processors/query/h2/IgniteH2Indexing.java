@@ -129,7 +129,7 @@ import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuery;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuerySplitter;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlTable;
+import org.apache.ignite.internal.sql.ast.GridSqlTable;
 import org.apache.ignite.internal.processors.query.h2.sys.SqlSystemTableEngine;
 import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemView;
 import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemViewBaselineNodes;
@@ -1733,8 +1733,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         for (Object o : parser.objectsMap().values()) {
             if (o instanceof GridSqlAlias)
                 o = GridSqlAlias.unwrap((GridSqlAst) o);
-            if (o instanceof GridSqlTable && ((GridSqlTable) o).dataTable() != null) {
-                GridCacheContext cctx = ((GridSqlTable) o).dataTable().cache();
+            if (o instanceof GridSqlTable && ((GridSqlTable)o).dataTable() != null) {
+                GridCacheContext cctx = ((GridH2Table)((GridSqlTable)o).dataTable()).cache();
 
                 if (mvccEnabled == null) {
                     mvccEnabled = cctx.mvccEnabled();
@@ -1754,8 +1754,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             PreparedStatementEx stmtEx = stmt.unwrap(PreparedStatementEx.class);
 
             if (mvccEnabled) {
-                assert mvccCacheId != null;
-
                 stmtEx.putMeta(MVCC_CACHE_ID, mvccCacheId);
                 stmtEx.putMeta(MVCC_STATE, Boolean.TRUE);
             }

@@ -59,6 +59,7 @@ import org.apache.ignite.internal.sql.ast.GridSqlParameter;
 import org.apache.ignite.internal.sql.ast.GridSqlPlaceholder;
 import org.apache.ignite.internal.sql.ast.GridSqlSortColumn;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
+import org.apache.ignite.internal.sql.ast.GridSqlTable;
 import org.apache.ignite.internal.sql.ast.GridSqlType;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.lang.IgniteUuid;
@@ -719,8 +720,15 @@ public class GridSqlQueryParser {
             // We can't cache simple tables because otherwise it will be the same instance for all
             // table filters. Thus we will not be able to distinguish one table filter from another.
             // Table here is semantically equivalent to a table filter.
-            if (tbl instanceof TableBase || tbl instanceof MetaTable)
-                return new GridSqlTable(tbl);
+            if (tbl instanceof TableBase || tbl instanceof MetaTable) {
+                String schemaName = tbl.getSchema().getName();
+                String tblName = tbl.getName();
+
+                if (!(tbl instanceof GridH2Table))
+                    tbl = null;
+
+                return new GridSqlTable(schemaName, tblName, tbl);
+            }
 
             // Other stuff can be cached because we will have separate instances in
             // different table filters anyways. Thus the semantics will be correct.
@@ -737,8 +745,6 @@ public class GridSqlQueryParser {
                 res.addChild(parseExpression(RANGE_MIN.get((RangeTable)tbl), false));
                 res.addChild(parseExpression(RANGE_MAX.get((RangeTable)tbl), false));
             }
-            else if (tbl instanceof MetaTable)
-                res = new GridSqlTable(tbl);
             else
                 assert0(false, "Unexpected Table implementation [cls=" + tbl.getClass().getSimpleName() + ']');
 
