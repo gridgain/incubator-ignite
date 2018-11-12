@@ -15,12 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
-
-import org.apache.ignite.internal.sql.ast.GridSqlElement;
-import org.apache.ignite.internal.sql.ast.GridSqlStatement;
-import org.apache.ignite.internal.sql.ast.GridSqlUtils;
-import org.apache.ignite.internal.sql.ast.StatementBuilder;
+package org.apache.ignite.internal.sql.ast;
 
 /** */
 public class GridSqlDelete extends GridSqlStatement {

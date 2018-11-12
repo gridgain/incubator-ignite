@@ -15,11 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
-
-import org.apache.ignite.internal.sql.ast.GridSqlAst;
-import org.apache.ignite.internal.sql.ast.GridSqlElement;
-import org.apache.ignite.internal.sql.ast.GridSqlType;
+package org.apache.ignite.internal.sql.ast;
 
 import java.util.Collections;
 

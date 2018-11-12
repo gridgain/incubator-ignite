@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
+import org.apache.ignite.internal.sql.ast.GridSqlPlaceholder;
 import org.apache.ignite.internal.sql.ast.GridSqlSortColumn;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
 import org.apache.ignite.internal.sql.ast.GridSqlType;
