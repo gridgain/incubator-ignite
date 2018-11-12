@@ -24,7 +24,6 @@ import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
 import org.apache.ignite.internal.sql.ast.GridSqlType;
 import org.h2.util.StatementBuilder;
-import org.h2.util.StringUtils;
 
 /**
  * SQL Query AST.
@@ -173,7 +172,7 @@ public abstract class GridSqlQuery extends GridSqlStatement implements GridSqlAs
                     if (expr instanceof GridSqlAlias)
                         expr = expr.child(0);
 
-                    buff.append('=').append(StringUtils.unEnclose(expr.getSQL()));
+                    buff.append('=').append(GridSqlUtils.unEnclose(expr.getSQL()));
                 }
 
                 if (!col.asc())
@@ -187,9 +186,9 @@ public abstract class GridSqlQuery extends GridSqlStatement implements GridSqlAs
         }
 
         if (limit != null)
-            buff.append(" LIMIT ").append(StringUtils.unEnclose(limit.getSQL()));
+            buff.append(" LIMIT ").append(GridSqlUtils.unEnclose(limit.getSQL()));
 
         if (offset != null)
-            buff.append(" OFFSET ").append(StringUtils.unEnclose(offset.getSQL()));
+            buff.append(" OFFSET ").append(GridSqlUtils.unEnclose(offset.getSQL()));
     }
 }

@@ -23,7 +23,6 @@ import java.util.LinkedHashMap;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
 import org.h2.util.StatementBuilder;
-import org.h2.util.StringUtils;
 
 /** */
 public class GridSqlUpdate extends GridSqlStatement {
@@ -98,10 +97,10 @@ public class GridSqlUpdate extends GridSqlStatement {
         }
 
         if (where != null)
-            buff.append("\nWHERE ").append(StringUtils.unEnclose(where.getSQL()));
+            buff.append("\nWHERE ").append(GridSqlUtils.unEnclose(where.getSQL()));
 
         if (limit != null)
-            buff.append("\nLIMIT ").append(StringUtils.unEnclose(limit.getSQL()));
+            buff.append("\nLIMIT ").append(GridSqlUtils.unEnclose(limit.getSQL()));
 
         return buff.toString();
     }

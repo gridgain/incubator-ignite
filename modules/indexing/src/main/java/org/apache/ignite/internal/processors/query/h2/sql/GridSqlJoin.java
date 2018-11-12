@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.h2.util.StatementBuilder;
-import org.h2.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -113,7 +112,7 @@ public class GridSqlJoin extends GridSqlElement {
 
         buff.append(rightTable().getSQL());
 
-        buff.append(" \n ON ").append(StringUtils.unEnclose(on().getSQL()));
+        buff.append(" \n ON ").append(GridSqlUtils.unEnclose(on().getSQL()));
 
         return buff.toString();
     }

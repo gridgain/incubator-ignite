@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.processors.query.h2.sql;
 
+
 import org.h2.util.StatementBuilder;
-import org.h2.util.StringUtils;
 
 /**
  * Operation type.
@@ -213,7 +213,7 @@ public enum GridSqlOperationType {
             if (operation.size() == 2) {
                 String child = operation.child(1).getSQL();
 
-                buff.append(' ').append(StringUtils.unEnclose(child)).append(' ');
+                buff.append(' ').append(GridSqlUtils.unEnclose(child)).append(' ');
             }
             else {
                 for (int i = 1; i < operation.size(); i++) {

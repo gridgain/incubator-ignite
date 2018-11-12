@@ -20,7 +20,6 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
 import org.h2.util.StatementBuilder;
-import org.h2.util.StringUtils;
 
 /** */
 public class GridSqlDelete extends GridSqlStatement {
@@ -60,10 +59,10 @@ public class GridSqlDelete extends GridSqlStatement {
             .append(from.getSQL());
 
         if (where != null)
-            buff.append("\nWHERE ").append(StringUtils.unEnclose(where.getSQL()));
+            buff.append("\nWHERE ").append(GridSqlUtils.unEnclose(where.getSQL()));
 
         if (limit != null)
-            buff.append("\nLIMIT (").append(StringUtils.unEnclose(limit.getSQL())).append(')');
+            buff.append("\nLIMIT (").append(GridSqlUtils.unEnclose(limit.getSQL())).append(')');
 
         return buff.toString();
     }

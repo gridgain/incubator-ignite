@@ -22,7 +22,6 @@ import java.util.List;
 
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.h2.util.StatementBuilder;
-import org.h2.util.StringUtils;
 
 /**
  * Plain SELECT query.
@@ -150,7 +149,7 @@ public class GridSqlSelect extends GridSqlQuery {
             buff.append("\nFROM ").append(from.getSQL());
 
         if (where != null)
-            buff.append("\nWHERE ").append(StringUtils.unEnclose(where.getSQL()));
+            buff.append("\nWHERE ").append(GridSqlUtils.unEnclose(where.getSQL()));
 
         if (grpCols != null) {
             buff.append("\nGROUP BY ");
@@ -212,7 +211,7 @@ public class GridSqlSelect extends GridSqlQuery {
     private static void addAlias(StatementBuilder buff, GridSqlAst exp) {
         exp = GridSqlAlias.unwrap(exp);
 
-        buff.append(StringUtils.unEnclose(exp.getSQL()));
+        buff.append(GridSqlUtils.unEnclose(exp.getSQL()));
     }
 
     /**
