@@ -137,8 +137,8 @@ public:
     {
         res.clear();
         res.reserve(num);
-        
-        boost::random_device seed_gen; 
+
+        boost::random_device seed_gen;
         boost::random::mt19937 gen(seed_gen());
         boost::random::uniform_int_distribution<int32_t> dist(min, max);
 
@@ -148,7 +148,7 @@ public:
 
     void FillCache(cache::CacheClient<int32_t, SampleValue>& cache, int32_t min, int32_t max)
     {
-        boost::random_device seed_gen; 
+        boost::random_device seed_gen;
         boost::random::mt19937 gen(seed_gen());
         boost::random::uniform_int_distribution<int32_t> dist;
 
@@ -263,7 +263,7 @@ public:
     virtual void SetUp()
     {
         ClientCacheBenchmarkAdapter::SetUp();
-        
+
         GenerateRandomSequence(keys, GetConfig().iterationsNum, 0, 10000);
 
         FillCache(cache, 0, 10000);
@@ -371,7 +371,7 @@ int64_t MeasureInThreads(
 
     for (int32_t i = 0; i < cfg.threadNum; ++i)
         threads[i].join();
-    
+
     for (int32_t i = 0; i < cfg.threadNum; ++i)
         contexts[i].TearDown();
 
@@ -383,7 +383,7 @@ int64_t MeasureInThreads(
     latency.reserve(cfg.iterationsNum * cfg.threadNum);
 
     for (int32_t i = 0; i < cfg.threadNum; ++i)
-        latency.insert(latency.end(), latencies[i].begin(), latencies[i].end());   
+        latency.insert(latency.end(), latencies[i].begin(), latencies[i].end());
 
     return duration_cast<milliseconds>(duration).count();
 }
@@ -398,7 +398,7 @@ void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const
 
     std::vector<int64_t> latency;
     int64_t duration = MeasureInThreads<T>(cfg, clientCfg, latency);
-    
+
     if (log)
         *log << std::endl << "Starting benchmark. Operations number: " << cfg.iterationsNum << std::endl;
 
@@ -415,11 +415,11 @@ void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const
 }
 
 const int32_t WARMUP_ITERATIONS_NUM = 100000;
-const int32_t ITERATIONS_NUM = 100000;
+const int32_t ITERATIONS_NUM = 1000000;
 const int32_t THREAD_NUM = 1;//boost::thread::hardware_concurrency();
 
 const std::string logDir = "";
-const std::string address = "127.0.0.1";
+const std::string address = "127.0.0.1:11110";
 
 BOOST_AUTO_TEST_SUITE(Benchmark)
 
