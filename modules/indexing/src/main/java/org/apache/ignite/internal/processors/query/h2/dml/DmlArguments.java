@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.processors.query.h2.dml;
 
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlConst;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlElement;
+import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlParameter;
 import org.jetbrains.annotations.Nullable;
 

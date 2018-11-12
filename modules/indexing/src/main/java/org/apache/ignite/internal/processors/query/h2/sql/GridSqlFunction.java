@@ -22,14 +22,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
+import org.apache.ignite.internal.sql.ast.GridSqlElement;
+import org.apache.ignite.internal.sql.ast.GridSqlFunctionType;
 import org.apache.ignite.internal.util.typedef.F;
 import org.h2.command.Parser;
 import org.h2.util.StatementBuilder;
 import org.h2.value.ValueString;
 
-import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlFunctionType.CASE;
-import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlFunctionType.CAST;
-import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlFunctionType.UNKNOWN_FUNCTION;
+import static org.apache.ignite.internal.sql.ast.GridSqlFunctionType.CASE;
+import static org.apache.ignite.internal.sql.ast.GridSqlFunctionType.CAST;
+import static org.apache.ignite.internal.sql.ast.GridSqlFunctionType.UNKNOWN_FUNCTION;
 
 /**
  * Function.

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 import java.util.Collections;
 
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
+import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlType;
 import org.h2.expression.ValueExpression;
 import org.h2.value.Value;

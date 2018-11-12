@@ -15,12 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
-
-import org.h2.expression.Function;
+package org.apache.ignite.internal.sql.ast;
 
 /**
- * Full list of available functions see at {@link Function}
+ * Full list of available functions.
  */
 public enum GridSqlFunctionType {
     // Aggregate functions.
