@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
+package org.apache.ignite.internal.sql.ast;
 
 import java.util.Map;
 import org.apache.ignite.cache.QueryIndex;
 import org.apache.ignite.cache.QueryIndexType;
+import org.apache.ignite.internal.sql.SqlParserUtils;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
-import org.h2.command.Parser;
 
 /**
  * CREATE INDEX statement.
@@ -100,9 +100,9 @@ public class GridSqlCreateIndex extends GridSqlStatement {
         StringBuilder sb = new StringBuilder("CREATE ")
             .append(idx.getIndexType() == QueryIndexType.GEOSPATIAL ? "SPATIAL " : "")
             .append("INDEX ").append(ifNotExists ? "IF NOT EXISTS " : "")
-            .append(Parser.quoteIdentifier(schemaName)).append('.')
-            .append(Parser.quoteIdentifier(idx.getName())).append(" ON ")
-            .append(Parser.quoteIdentifier(tblName)).append(" (");
+            .append(SqlParserUtils.wrapQuote(schemaName)).append('.')
+            .append(SqlParserUtils.wrapQuote(idx.getName())).append(" ON ")
+            .append(SqlParserUtils.wrapQuote(tblName)).append(" (");
 
         boolean first = true;
 
@@ -112,7 +112,7 @@ public class GridSqlCreateIndex extends GridSqlStatement {
             else
                 sb.append(", ");
 
-            sb.append(Parser.quoteIdentifier(e.getKey())).append(e.getValue() ? " ASC" : " DESC");
+            sb.append(SqlParserUtils.wrapQuote(e.getKey())).append(e.getValue() ? " ASC" : " DESC");
         }
 
         sb.append(')');

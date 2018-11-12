@@ -20,10 +20,10 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
+import org.apache.ignite.internal.sql.SqlParserUtils;
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.util.typedef.internal.SB;
-import org.h2.command.Parser;
 import org.h2.table.Table;
 import org.jetbrains.annotations.Nullable;
 
@@ -85,9 +85,9 @@ public class GridSqlTable extends GridSqlElement {
      */
     public String getBeforeAliasSql() {
         if (schema == null)
-            return Parser.quoteIdentifier(tblName);
+            return SqlParserUtils.wrapQuote(tblName);
 
-        return Parser.quoteIdentifier(schema) + '.' + Parser.quoteIdentifier(tblName);
+        return SqlParserUtils.wrapQuote(schema) + '.' + SqlParserUtils.wrapQuote(tblName);
     }
 
     /**
@@ -109,7 +109,7 @@ public class GridSqlTable extends GridSqlElement {
             else
                 b.a(", ");
 
-            b.a(Parser.quoteIdentifier(idx));
+            b.a(SqlParserUtils.wrapQuote(idx));
         }
 
         b.a(')');

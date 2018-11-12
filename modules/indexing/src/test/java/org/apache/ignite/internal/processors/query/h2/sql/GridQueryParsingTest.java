@@ -47,6 +47,8 @@ import org.apache.ignite.internal.processors.query.IgniteSQLException;
 import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
+import org.apache.ignite.internal.sql.ast.GridSqlCreateIndex;
+import org.apache.ignite.internal.sql.ast.GridSqlDropIndex;
 import org.apache.ignite.internal.sql.ast.GridSqlDropTable;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
 import org.apache.ignite.internal.util.typedef.F;

@@ -21,12 +21,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.ignite.internal.sql.SqlParserUtils;
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlFunctionType;
 import org.apache.ignite.internal.sql.ast.StatementBuilder;
 import org.apache.ignite.internal.util.typedef.F;
-import org.h2.command.Parser;
 import org.h2.value.ValueString;
 
 import static org.apache.ignite.internal.sql.ast.GridSqlFunctionType.CASE;
@@ -96,7 +96,7 @@ public class GridSqlFunction extends GridSqlElement {
         StatementBuilder buff = new StatementBuilder();
 
         if (schema != null)
-            buff.append(Parser.quoteIdentifier(schema)).append('.');
+            buff.append(SqlParserUtils.wrapQuote(schema)).append('.');
 
         // We don't need to quote identifier as long as H2 never does so with function names when generating plan SQL.
         // On the other hand, quoting identifiers that also serve as keywords (like CURRENT_DATE() and CURRENT_DATE)
@@ -147,7 +147,7 @@ public class GridSqlFunction extends GridSqlElement {
                     GridSqlElement e = child(i);
 
                     // id int = ?, name varchar = ('aaa', 'bbb')
-                    buff.append(Parser.quoteIdentifier(((GridSqlAlias)e).alias()))
+                    buff.append(SqlParserUtils.wrapQuote(((GridSqlAlias)e).alias()))
                         .append(' ')
                         .append(e.resultType().sql())
                         .append('=')

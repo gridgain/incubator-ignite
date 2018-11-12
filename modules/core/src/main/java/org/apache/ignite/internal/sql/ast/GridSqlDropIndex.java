@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
+package org.apache.ignite.internal.sql.ast;
 
+import org.apache.ignite.internal.sql.SqlParserUtils;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
-import org.h2.command.Parser;
 
 /**
  * DROP INDEX statement.
@@ -77,7 +77,7 @@ public class GridSqlDropIndex extends GridSqlStatement {
 
     /** {@inheritDoc} */
     @Override public String getSQL() {
-        return "DROP INDEX " + (ifExists ? "IF EXISTS " : "") + Parser.quoteIdentifier(schemaName) + '.' +
-            Parser.quoteIdentifier(idxName);
+        return "DROP INDEX " + (ifExists ? "IF EXISTS " : "") + SqlParserUtils.wrapQuote(schemaName) + '.' +
+            SqlParserUtils.wrapQuote(idxName);
     }
 }

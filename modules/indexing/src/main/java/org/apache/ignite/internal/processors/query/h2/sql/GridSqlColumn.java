@@ -19,10 +19,10 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 
 import java.util.Collections;
 
+import org.apache.ignite.internal.sql.SqlParserUtils;
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.util.typedef.F;
-import org.h2.command.Parser;
 import org.h2.expression.Expression;
 import org.h2.table.Column;
 
@@ -97,13 +97,13 @@ public class GridSqlColumn extends GridSqlElement {
 
     /** {@inheritDoc} */
     @Override public String getSQL() {
-        String sql = Parser.quoteIdentifier(colName);
+        String sql = SqlParserUtils.wrapQuote(colName);
 
         if (tblAlias != null)
-            sql = Parser.quoteIdentifier(tblAlias) + "." + sql;
+            sql = SqlParserUtils.wrapQuote(tblAlias) + "." + sql;
 
         if (schema != null)
-            sql = Parser.quoteIdentifier(schema) + "." + sql;
+            sql = SqlParserUtils.wrapQuote(schema) + "." + sql;
 
         return sql;
     }
