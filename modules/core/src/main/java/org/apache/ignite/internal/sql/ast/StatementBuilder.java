@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.ast;
 /**
  * Statement builder.
  */
+// TODO: Licence violation!
 public class StatementBuilder {
     /** Builder. */
     private final StringBuilder builder = new StringBuilder();
