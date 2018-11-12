@@ -17,27 +17,27 @@
 
 package org.apache.ignite.internal.sql.ast;
 
-/**
- * AST SQL utils.
- */
-public class GridSqlUtils {
-    /**
-     * Un-enclose parenthesis.
-     *
-     * @param s String.
-     * @return Unenclosed string.
-     */
-    public static String unEnclose(String s) {
-        if (s.startsWith("(") && s.endsWith(")"))
-            return s.substring(1, s.length() - 1);
+import java.util.Collections;
 
-        return s;
+/** Keyword (like DEFAULT). */
+public final class GridSqlKeyword extends GridSqlElement {
+    /**
+     * Default update value - analogous to H2.
+     */
+    public static final GridSqlKeyword DEFAULT = new GridSqlKeyword("DEFAULT");
+
+    /** Keyword to return as SQL. */
+    private final String keyword;
+
+    /** */
+    private GridSqlKeyword(String keyword) {
+        super(Collections.<GridSqlAst>emptyList());
+
+        this.keyword = keyword;
     }
 
-    /**
-     * Private constructor.
-     */
-    private GridSqlUtils() {
-        // No-op.
+    /** {@inheritDoc} */
+    @Override public String getSQL() {
+        return keyword;
     }
 }

@@ -50,6 +50,7 @@ import org.apache.ignite.internal.sql.ast.GridSqlDelete;
 import org.apache.ignite.internal.sql.ast.GridSqlDropTable;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlFunctionType;
+import org.apache.ignite.internal.sql.ast.GridSqlKeyword;
 import org.apache.ignite.internal.sql.ast.GridSqlOperation;
 import org.apache.ignite.internal.sql.ast.GridSqlOperationType;
 import org.apache.ignite.internal.sql.ast.GridSqlParameter;

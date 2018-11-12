@@ -425,6 +425,34 @@ public class SqlParserUtils {
     }
 
     /**
+     * Wrap a string with quotes if needed.
+     *
+     * @param s the identifier
+     * @return the quoted identifier
+     */
+    // TODO: Escape quote with quote?
+    // TODO: Special handling for identifiers?
+    public static String wrapQuote(String s) {
+        if (s == null)
+            return "\"\"";
+
+        return "\"" + s + "\"";
+    }
+
+    /**
+     * Unwrap parenthesis.
+     *
+     * @param s String.
+     * @return Unwrapped string.
+     */
+    public static String unwrapParenthesis(String s) {
+        if (s.startsWith("(") && s.endsWith(")"))
+            return s.substring(1, s.length() - 1);
+
+        return s;
+    }
+
+    /**
      * Private constructor.
      */
     private SqlParserUtils() {

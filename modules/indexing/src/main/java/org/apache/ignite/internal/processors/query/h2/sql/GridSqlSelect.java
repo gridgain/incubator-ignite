@@ -20,11 +20,11 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.ignite.internal.sql.SqlParserUtils;
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlOperation;
 import org.apache.ignite.internal.sql.ast.GridSqlOperationType;
 import org.apache.ignite.internal.sql.ast.GridSqlPlaceholder;
-import org.apache.ignite.internal.sql.ast.GridSqlUtils;
 import org.apache.ignite.internal.sql.ast.StatementBuilder;
 
 /**
@@ -153,7 +153,7 @@ public class GridSqlSelect extends GridSqlQuery {
             buff.append("\nFROM ").append(from.getSQL());
 
         if (where != null)
-            buff.append("\nWHERE ").append(GridSqlUtils.unEnclose(where.getSQL()));
+            buff.append("\nWHERE ").append(SqlParserUtils.unwrapParenthesis(where.getSQL()));
 
         if (grpCols != null) {
             buff.append("\nGROUP BY ");
@@ -215,7 +215,7 @@ public class GridSqlSelect extends GridSqlQuery {
     private static void addAlias(StatementBuilder buff, GridSqlAst exp) {
         exp = GridSqlAlias.unwrap(exp);
 
-        buff.append(GridSqlUtils.unEnclose(exp.getSQL()));
+        buff.append(SqlParserUtils.unwrapParenthesis(exp.getSQL()));
     }
 
     /**

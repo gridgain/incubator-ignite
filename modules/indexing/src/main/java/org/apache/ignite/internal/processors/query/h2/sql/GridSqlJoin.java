@@ -19,9 +19,9 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 
 import java.util.ArrayList;
 
+import org.apache.ignite.internal.sql.SqlParserUtils;
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
-import org.apache.ignite.internal.sql.ast.GridSqlUtils;
 import org.apache.ignite.internal.sql.ast.StatementBuilder;
 import org.jetbrains.annotations.Nullable;
 
@@ -113,7 +113,7 @@ public class GridSqlJoin extends GridSqlElement {
 
         buff.append(rightTable().getSQL());
 
-        buff.append(" \n ON ").append(GridSqlUtils.unEnclose(on().getSQL()));
+        buff.append(" \n ON ").append(SqlParserUtils.unwrapParenthesis(on().getSQL()));
 
         return buff.toString();
     }

@@ -20,12 +20,12 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.ignite.internal.sql.SqlParserUtils;
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.sql.ast.GridSqlPlaceholder;
 import org.apache.ignite.internal.sql.ast.GridSqlSortColumn;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
 import org.apache.ignite.internal.sql.ast.GridSqlType;
-import org.apache.ignite.internal.sql.ast.GridSqlUtils;
 import org.apache.ignite.internal.sql.ast.StatementBuilder;
 
 /**
@@ -175,7 +175,7 @@ public abstract class GridSqlQuery extends GridSqlStatement implements GridSqlAs
                     if (expr instanceof GridSqlAlias)
                         expr = expr.child(0);
 
-                    buff.append('=').append(GridSqlUtils.unEnclose(expr.getSQL()));
+                    buff.append('=').append(SqlParserUtils.unwrapParenthesis(expr.getSQL()));
                 }
 
                 if (!col.asc())
@@ -189,9 +189,9 @@ public abstract class GridSqlQuery extends GridSqlStatement implements GridSqlAs
         }
 
         if (limit != null)
-            buff.append(" LIMIT ").append(GridSqlUtils.unEnclose(limit.getSQL()));
+            buff.append(" LIMIT ").append(SqlParserUtils.unwrapParenthesis(limit.getSQL()));
 
         if (offset != null)
-            buff.append(" OFFSET ").append(GridSqlUtils.unEnclose(offset.getSQL()));
+            buff.append(" OFFSET ").append(SqlParserUtils.unwrapParenthesis(offset.getSQL()));
     }
 }

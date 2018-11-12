@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.ast;
 
+import org.apache.ignite.internal.sql.SqlParserUtils;
+
 /**
  * Operation type.
  */
@@ -210,7 +212,7 @@ public enum GridSqlOperationType {
             if (operation.size() == 2) {
                 String child = operation.child(1).getSQL();
 
-                buff.append(' ').append(GridSqlUtils.unEnclose(child)).append(' ');
+                buff.append(' ').append(SqlParserUtils.unwrapParenthesis(child)).append(' ');
             }
             else {
                 for (int i = 1; i < operation.size(); i++) {

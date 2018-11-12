@@ -37,7 +37,7 @@ import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlFunction;
 import org.apache.ignite.internal.sql.ast.GridSqlFunctionType;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlJoin;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlKeyword;
+import org.apache.ignite.internal.sql.ast.GridSqlKeyword;
 import org.apache.ignite.internal.sql.ast.GridSqlOperation;
 import org.apache.ignite.internal.sql.ast.GridSqlOperationType;
 import org.apache.ignite.internal.sql.ast.GridSqlParameter;

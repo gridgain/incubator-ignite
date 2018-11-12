@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.ast;
 
+import org.apache.ignite.internal.sql.SqlParserUtils;
+
 /** */
 public class GridSqlDelete extends GridSqlStatement {
     /** */
@@ -55,10 +57,10 @@ public class GridSqlDelete extends GridSqlStatement {
             .append(from.getSQL());
 
         if (where != null)
-            buff.append("\nWHERE ").append(GridSqlUtils.unEnclose(where.getSQL()));
+            buff.append("\nWHERE ").append(SqlParserUtils.unwrapParenthesis(where.getSQL()));
 
         if (limit != null)
-            buff.append("\nLIMIT (").append(GridSqlUtils.unEnclose(limit.getSQL())).append(')');
+            buff.append("\nLIMIT (").append(SqlParserUtils.unwrapParenthesis(limit.getSQL())).append(')');
 
         return buff.toString();
     }

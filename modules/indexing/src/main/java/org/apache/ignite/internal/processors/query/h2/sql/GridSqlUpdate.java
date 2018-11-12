@@ -20,9 +20,9 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 
+import org.apache.ignite.internal.sql.SqlParserUtils;
 import org.apache.ignite.internal.sql.ast.GridSqlElement;
 import org.apache.ignite.internal.sql.ast.GridSqlStatement;
-import org.apache.ignite.internal.sql.ast.GridSqlUtils;
 import org.apache.ignite.internal.sql.ast.StatementBuilder;
 
 /** */
@@ -98,10 +98,10 @@ public class GridSqlUpdate extends GridSqlStatement {
         }
 
         if (where != null)
-            buff.append("\nWHERE ").append(GridSqlUtils.unEnclose(where.getSQL()));
+            buff.append("\nWHERE ").append(SqlParserUtils.unwrapParenthesis(where.getSQL()));
 
         if (limit != null)
-            buff.append("\nLIMIT ").append(GridSqlUtils.unEnclose(limit.getSQL()));
+            buff.append("\nLIMIT ").append(SqlParserUtils.unwrapParenthesis(limit.getSQL()));
 
         return buff.toString();
     }
