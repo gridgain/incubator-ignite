@@ -15,47 +15,56 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
+package org.apache.ignite.internal.sql.ast;
 
 /**
- * AST for SQL.
+ * SQL statement to query or update grid caches.
  */
-public interface GridSqlAst {
-    /**
-     * @return Generate sql from this AST.
-     */
-    public String getSQL();
+public abstract class GridSqlStatement {
+    /** */
+    protected GridSqlAst limit;
+
+    /** */
+    private boolean explain;
 
     /**
-     * @return Number of child nodes.
+     * @return Generate sql.
      */
-    public int size();
+    public abstract String getSQL();
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return getSQL();
+    }
 
     /**
-     * Get child by index.
-     *
-     * @param childIdx Index of the requested child.
-     * @return Child element.
+     * @param explain Explain.
+     * @return {@code this}.
      */
-    public <E extends GridSqlAst> E child(int childIdx);
+    public GridSqlStatement explain(boolean explain) {
+        this.explain = explain;
+
+        return this;
+    }
 
     /**
-     * Get the first child.
-     *
-     * @return Child element.
+     * @return {@code true} If explain.
      */
-    public <E extends GridSqlAst> E child();
+    public boolean explain() {
+        return explain;
+    }
 
     /**
-     * Set child.
-     *
-     * @param childIdx Index of the requested child.
-     * @param child Child element.
+     * @param limit Limit.
      */
-    public <E extends GridSqlAst> void child(int childIdx, E child);
+    public void limit(GridSqlAst limit) {
+        this.limit = limit;
+    }
 
     /**
-     * @return Optional expression result type (if this is an expression and result type is known).
+     * @return Limit.
      */
-    public GridSqlType resultType();
+    public GridSqlAst limit() {
+        return limit;
+    }
 }

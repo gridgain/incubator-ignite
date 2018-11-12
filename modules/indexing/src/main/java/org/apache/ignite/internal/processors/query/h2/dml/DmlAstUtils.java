@@ -29,7 +29,7 @@ import org.apache.ignite.internal.processors.query.h2.opt.GridH2RowDescriptor;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlAlias;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlArray;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlAst;
+import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlColumn;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlConst;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlDelete;
@@ -42,10 +42,10 @@ import org.apache.ignite.internal.processors.query.h2.sql.GridSqlOperation;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlOperationType;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlParameter;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuery;
+import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSelect;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSubquery;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlTable;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlType;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlUnion;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlUpdate;
 import org.apache.ignite.internal.util.lang.IgnitePair;
@@ -163,10 +163,10 @@ public final class DmlAstUtils {
         Column h2ValCol = gridTbl.getColumn(GridH2KeyValueRowOnheap.VAL_COL);
 
         GridSqlColumn keyCol = new GridSqlColumn(h2KeyCol, tbl, h2KeyCol.getName());
-        keyCol.resultType(GridSqlType.fromColumn(h2KeyCol));
+        keyCol.resultType(GridSqlQueryParser.typeFromColumn(h2KeyCol));
 
         GridSqlColumn valCol = new GridSqlColumn(h2ValCol, tbl, h2ValCol.getName());
-        valCol.resultType(GridSqlType.fromColumn(h2ValCol));
+        valCol.resultType(GridSqlQueryParser.typeFromColumn(h2ValCol));
 
         mapQry.addColumn(keyCol, true);
         mapQry.addColumn(valCol, true);
@@ -344,10 +344,10 @@ public final class DmlAstUtils {
         Column h2ValCol = gridTbl.getColumn(GridH2KeyValueRowOnheap.VAL_COL);
 
         GridSqlColumn keyCol = new GridSqlColumn(h2KeyCol, tbl, h2KeyCol.getName());
-        keyCol.resultType(GridSqlType.fromColumn(h2KeyCol));
+        keyCol.resultType(GridSqlQueryParser.typeFromColumn(h2KeyCol));
 
         GridSqlColumn valCol = new GridSqlColumn(h2ValCol, tbl, h2ValCol.getName());
-        valCol.resultType(GridSqlType.fromColumn(h2ValCol));
+        valCol.resultType(GridSqlQueryParser.typeFromColumn(h2ValCol));
 
         mapQry.addColumn(keyCol, true);
         mapQry.addColumn(valCol, true);

@@ -22,6 +22,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.internal.sql.ast.GridSqlStatement;
 import org.jetbrains.annotations.Nullable;
 
 /**

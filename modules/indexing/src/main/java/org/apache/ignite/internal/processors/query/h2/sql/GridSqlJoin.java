@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.processors.query.h2.sql;
 
 import java.util.ArrayList;
+
+import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.h2.util.StatementBuilder;
 import org.h2.util.StringUtils;
 import org.jetbrains.annotations.Nullable;

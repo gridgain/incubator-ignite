@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.processors.query.h2.sql;
 
 import java.util.Collections;
+
+import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.h2.command.Parser;
 import org.h2.expression.ValueExpression;
 

@@ -43,6 +43,9 @@ import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.processors.query.h2.dml.DmlAstUtils;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RowDescriptor;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
+import org.apache.ignite.internal.sql.ast.GridSqlAst;
+import org.apache.ignite.internal.sql.ast.GridSqlStatement;
+import org.apache.ignite.internal.sql.ast.GridSqlType;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.lang.IgniteUuid;
 import org.h2.command.Command;
@@ -125,8 +128,6 @@ import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlOperatio
 import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlOperationType.SMALLER;
 import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlOperationType.SMALLER_EQUAL;
 import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlOperationType.SPATIAL_INTERSECTS;
-import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlType.fromColumn;
-import static org.apache.ignite.internal.processors.query.h2.sql.GridSqlType.fromExpression;
 
 /**
  * H2 Query parser.
@@ -876,7 +877,7 @@ public class GridSqlQueryParser {
         for (int i = 0; i < srcCols.length; i++) {
             cols[i] = new GridSqlColumn(srcCols[i], tbl, null, null, srcCols[i].getName());
 
-            cols[i].resultType(fromColumn(srcCols[i]));
+            cols[i].resultType(typeFromColumn(srcCols[i]));
         }
 
         res.columns(cols);
@@ -950,7 +951,7 @@ public class GridSqlQueryParser {
         for (int i = 0; i < srcCols.length; i++) {
             cols[i] = new GridSqlColumn(srcCols[i], tbl, null, null, srcCols[i].getName());
 
-            cols[i].resultType(fromColumn(srcCols[i]));
+            cols[i].resultType(typeFromColumn(srcCols[i]));
         }
 
         res.columns(cols);
@@ -1019,7 +1020,7 @@ public class GridSqlQueryParser {
 
         for (Column c : srcCols) {
             GridSqlColumn col = new GridSqlColumn(c, tbl, null, null, c.getName());
-            col.resultType(fromColumn(c));
+            col.resultType(typeFromColumn(c));
             cols.add(col);
             set.put(col.columnName(), parseExpression(srcSet.get(c), true));
         }
@@ -1030,8 +1031,6 @@ public class GridSqlQueryParser {
         res.target(tbl).cols(cols).set(set).where(where).limit(limit);
         return res;
     }
-
-
 
     /**
      * Parse {@code DROP INDEX} statement.
@@ -1373,7 +1372,7 @@ public class GridSqlQueryParser {
 
         GridSqlColumn gridCol = new GridSqlColumn(col, null, col.getName());
 
-        gridCol.resultType(GridSqlType.fromColumn(col));
+        gridCol.resultType(typeFromColumn(col));
 
         return gridCol;
     }
@@ -1896,7 +1895,7 @@ public class GridSqlQueryParser {
             res = parseExpression0(expression, calcTypes);
 
             if (calcTypes)
-                res.resultType(fromExpression(expression));
+                res.resultType(typeFromExpression(expression));
 
             h2ObjToGridObj.put(expression, res);
         }
@@ -2129,7 +2128,7 @@ public class GridSqlQueryParser {
 
                         GridSqlAlias alias = new GridSqlAlias(cols[i].getName(), arg, false);
 
-                        alias.resultType(fromColumn(cols[i]));
+                        alias.resultType(typeFromColumn(cols[i]));
 
                         res.addChild(alias);
                     }
@@ -2149,7 +2148,7 @@ public class GridSqlQueryParser {
             }
 
             if (f.getFunctionType() == Function.CAST || f.getFunctionType() == Function.CONVERT)
-                res.resultType(fromExpression(f));
+                res.resultType(typeFromExpression(f));
 
             return res;
         }
@@ -2233,6 +2232,28 @@ public class GridSqlQueryParser {
         Prepared prep = prepared(nativeStmt);
 
         return prep instanceof Insert && INSERT_QUERY.get((Insert)prep) == null;
+    }
+
+    /**
+     * @param c Column to take type definition from.
+     * @return Type.
+     */
+    public static GridSqlType typeFromColumn(Column c) {
+        if (c.getName() != null)
+            c = new Column(null, c.getType(), c.getPrecision(), c.getScale(), c.getDisplaySize());
+
+        return new GridSqlType(c.getType(), c.getScale(), c.getPrecision(), c.getDisplaySize(), c.getCreateSQL());
+    }
+
+    /**
+     * @param e Expression to take type from.
+     * @return Type.
+     */
+    public static GridSqlType typeFromExpression(Expression e) {
+        if (e.getType() == GridSqlType.TYPE_UNKNOWN)
+            return GridSqlType.UNKNOWN;
+
+        return typeFromColumn(new Column(null, e.getType(), e.getPrecision(), e.getScale(), e.getDisplaySize()));
     }
 
     /**

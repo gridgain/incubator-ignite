@@ -15,45 +15,77 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
+package org.apache.ignite.internal.sql.ast;
 
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.S;
-import org.h2.expression.Expression;
-import org.h2.table.Column;
-import org.h2.value.Value;
-import org.h2.value.ValueBoolean;
-import org.h2.value.ValueDouble;
-import org.h2.value.ValueLong;
 
 /**
  * SQL Data type based on H2.
  */
 public final class GridSqlType {
     /** */
-    public static final GridSqlType UNKNOWN = new GridSqlType(Value.UNKNOWN, 0, 0, 0, null);
+    public static final int TYPE_UNKNOWN = -1;
 
     /** */
-    public static final GridSqlType BIGINT = new GridSqlType(Value.LONG, 0, ValueLong.PRECISION,
-        ValueLong.DISPLAY_SIZE, "BIGINT");
+    public static final int TYPE_BOOLEAN = 1;
 
     /** */
-    public static final GridSqlType DOUBLE = new GridSqlType(Value.DOUBLE, 0, ValueDouble.PRECISION,
-        ValueDouble.DISPLAY_SIZE, "DOUBLE");
+    public static final int TYPE_LONG = 5;
 
     /** */
-    public static final GridSqlType UUID = new GridSqlType(Value.UUID, 0, Integer.MAX_VALUE, 36, "UUID");
+    public static final int TYPE_DOUBLE = 7;
 
     /** */
-    public static final GridSqlType BOOLEAN = new GridSqlType(Value.BOOLEAN, 0, ValueBoolean.PRECISION,
-        ValueBoolean.DISPLAY_SIZE, "BOOLEAN");
+    public static final int TYPE_STRING = 13;
 
     /** */
-    public static final GridSqlType STRING = new GridSqlType(Value.STRING, 0, 0,
-        -1, "VARCHAR");
+    public static final int TYPE_RESULT_SET = 18;
 
     /** */
-    public static final GridSqlType RESULT_SET = new GridSqlType(Value.RESULT_SET, 0,
+    public static final int TYPE_UUID = 20;
+
+    /** */
+    public static final int TYPE_BOOLEAN_PRECISION = 1;
+
+    /** */
+    public static final int TYPE_BOOLEAN_DISPLAY_SIZE = 5;
+
+    /** */
+    public static final int TYPE_LONG_PRECISION = 19;
+
+    /** */
+    public static final int TYPE_LONG_DISPLAY_SIZE = 20;
+
+    /** */
+    public static final int TYPE_DOUBLE_PRECISION = 17;
+
+    /** */
+    public static final int TYPE_DOUBLE_DISPLAY_SIZE = 24;
+
+    /** */
+    public static final GridSqlType UNKNOWN = new GridSqlType(TYPE_UNKNOWN, 0, 0, 0, null);
+
+    /** */
+    public static final GridSqlType BIGINT = new GridSqlType(TYPE_LONG, 0, TYPE_LONG_PRECISION,
+        TYPE_LONG_DISPLAY_SIZE, "BIGINT");
+
+    /** */
+    public static final GridSqlType DOUBLE = new GridSqlType(TYPE_DOUBLE, 0, TYPE_DOUBLE_PRECISION,
+        TYPE_DOUBLE_DISPLAY_SIZE, "DOUBLE");
+
+    /** */
+    public static final GridSqlType UUID = new GridSqlType(TYPE_UUID, 0, Integer.MAX_VALUE, 36, "UUID");
+
+    /** */
+    public static final GridSqlType BOOLEAN = new GridSqlType(TYPE_BOOLEAN, 0, TYPE_BOOLEAN_PRECISION,
+        TYPE_BOOLEAN_DISPLAY_SIZE, "BOOLEAN");
+
+    /** */
+    public static final GridSqlType STRING = new GridSqlType(TYPE_STRING, 0, 0, -1, "VARCHAR");
+
+    /** */
+    public static final GridSqlType RESULT_SET = new GridSqlType(TYPE_RESULT_SET, 0,
         Integer.MAX_VALUE, Integer.MAX_VALUE, "");
 
     /** H2 type. */
@@ -78,36 +110,14 @@ public final class GridSqlType {
      * @param displaySize Display size.
      * @param sql SQL definition of the type.
      */
-    private GridSqlType(int type, int scale, long precision, int displaySize, String sql) {
-        assert !F.isEmpty(sql) || type == Value.UNKNOWN || type == Value.RESULT_SET;
+    public GridSqlType(int type, int scale, long precision, int displaySize, String sql) {
+        assert !F.isEmpty(sql) || type == TYPE_UNKNOWN || type == TYPE_RESULT_SET;
 
         this.type = type;
         this.scale = scale;
         this.precision = precision;
         this.displaySize = displaySize;
         this.sql = sql;
-    }
-
-    /**
-     * @param c Column to take type definition from.
-     * @return Type.
-     */
-    public static GridSqlType fromColumn(Column c) {
-        if (c.getName() != null)
-            c = new Column(null, c.getType(), c.getPrecision(), c.getScale(), c.getDisplaySize());
-
-        return new GridSqlType(c.getType(), c.getScale(), c.getPrecision(), c.getDisplaySize(), c.getCreateSQL());
-    }
-
-    /**
-     * @param e Expression to take type from.
-     * @return Type.
-     */
-    public static GridSqlType fromExpression(Expression e) {
-        if (e.getType() == Value.UNKNOWN)
-            return UNKNOWN;
-
-        return fromColumn(new Column(null, e.getType(), e.getPrecision(), e.getScale(), e.getDisplaySize()));
     }
 
     /**

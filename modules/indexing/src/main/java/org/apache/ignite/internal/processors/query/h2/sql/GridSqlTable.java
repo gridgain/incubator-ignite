@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.query.h2.sql;
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
+import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.util.typedef.internal.SB;
 import org.h2.command.Parser;
 import org.h2.table.Table;
