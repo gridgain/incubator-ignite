@@ -663,22 +663,6 @@ class ClusterCachesInfo {
             }
             else if (req.stop()) {
                 if (desc != null) {
-                    if (req.sql() && !desc.sql()) {
-                        ctx.cache().completeCacheStartFuture(req, false,
-                            new IgniteCheckedException("Only cache created with CREATE TABLE may be removed with " +
-                                "DROP TABLE [cacheName=" + req.cacheName() + ']'));
-
-                        continue;
-                    }
-
-                    if (!req.sql() && desc.sql()) {
-                        ctx.cache().completeCacheStartFuture(req, false,
-                            new IgniteCheckedException("Only cache created with cache API may be removed with " +
-                                "direct call to destroyCache [cacheName=" + req.cacheName() + ']'));
-
-                        continue;
-                    }
-
                     DynamicCacheDescriptor old = registeredCaches.remove(req.cacheName());
 
                     if (req.restart())

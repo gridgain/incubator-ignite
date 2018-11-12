@@ -3891,7 +3891,19 @@ public class GridCacheProcessor extends GridProcessorAdapter {
      * @return Future that will be completed when cache is destroyed.
      */
     @NotNull public DynamicCacheChangeRequest createStopRequest(String cacheName, boolean restart, boolean destroy) {
-        DynamicCacheChangeRequest req = DynamicCacheChangeRequest.stopRequest(ctx, cacheName, false, true);
+        return createStopRequest(cacheName, restart, false, destroy);
+    }
+
+    /**
+     * Prepares cache stop request.
+     *
+     * @param cacheName Cache names to destroy.
+     * @param restart Restart flag.
+     * @param destroy Cache data destroy flag. Setting to {@code true} will cause removing all cache data from store.
+     * @return Future that will be completed when cache is destroyed.
+     */
+    @NotNull public DynamicCacheChangeRequest createStopRequest(String cacheName, boolean restart, boolean sql, boolean destroy) {
+        DynamicCacheChangeRequest req = DynamicCacheChangeRequest.stopRequest(ctx, cacheName, sql, true);
 
         req.stop(true);
         req.destroy(destroy);
