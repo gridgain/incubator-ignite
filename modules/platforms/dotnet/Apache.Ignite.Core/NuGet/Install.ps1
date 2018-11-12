@@ -12,23 +12,27 @@
 
 param($installPath, $toolsPath, $package, $project)
 
-Write-Host "Updating project properties..."
-
 . (Join-Path $toolsPath "PostBuild.ps1")
 
 # Get the current Post Build Event cmd
 $currentPostBuildCmd = $project.Properties.Item("PostBuildEvent").Value
 
-$project | Select-Object | fl > C:\Users\Alexe\Downloads\temp.txt
-$project.Properties | Select-Object | fl >> C:\Users\Alexe\Downloads\temp.txt
-
 # Append our post build command if it's not already there
 if (!$currentPostBuildCmd.Contains($IgnitePostBuildCmd)) {
-    $project.Properties.Item("PostBuildEvent").Value += $IgnitePostBuildCmd
-}
+    Write-Host "Updating project properties..."
 
-# Save
-$project.Save()
+    # The raw project can include multiple conditional PostBuildEvent elements while the loaded "$project" includes 
+    # single unconditional PostBuildEvent whose raw condition was resolved as "true" during the project load.
+    # We want to update all conditions. Thus, we update the raw project instead of the loaded "$project.
+    [xml]$projectXml = Get-Content -Path $project.FileName
+    $ns = New-Object System.Xml.XmlNamespaceManager($projectXml.NameTable)
+    $ns.AddNamespace("ns", $projectXml.DocumentElement.NamespaceURI)
+
+    $project.Properties.Item("PostBuildEvent").Value += $IgnitePostBuildCmd
+
+    # Save
+    $project.Save()
+}
 
 # Remove bin\Libs folders with old jars
 $project.ConfigurationManager | % { 
