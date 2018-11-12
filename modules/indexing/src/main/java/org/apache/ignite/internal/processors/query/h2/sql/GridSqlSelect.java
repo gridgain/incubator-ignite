@@ -135,7 +135,7 @@ public class GridSqlSelect extends GridSqlQuery {
     }
 
     /** {@inheritDoc} */
-    @Override protected GridSqlAst column(int col) {
+    @Override public GridSqlAst column(int col) {
         return cols.get(col);
     }
 

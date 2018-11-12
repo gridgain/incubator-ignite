@@ -89,7 +89,7 @@ public abstract class GridSqlQuery extends GridSqlStatement implements GridSqlAs
      * @param col Column index.
      * @return Expression for column index.
      */
-    protected abstract GridSqlAst column(int col);
+    public abstract GridSqlAst column(int col);
 
     /** {@inheritDoc} */
     @Override public GridSqlType resultType() {
