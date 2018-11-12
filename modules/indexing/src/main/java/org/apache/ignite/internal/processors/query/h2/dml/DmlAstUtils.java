@@ -28,7 +28,7 @@ import org.apache.ignite.internal.processors.query.h2.opt.GridH2KeyValueRowOnhea
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RowDescriptor;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlAlias;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlArray;
+import org.apache.ignite.internal.sql.ast.GridSqlArray;
 import org.apache.ignite.internal.sql.ast.GridSqlAst;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlColumn;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlConst;
@@ -40,7 +40,7 @@ import org.apache.ignite.internal.processors.query.h2.sql.GridSqlJoin;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlKeyword;
 import org.apache.ignite.internal.sql.ast.GridSqlOperation;
 import org.apache.ignite.internal.sql.ast.GridSqlOperationType;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlParameter;
+import org.apache.ignite.internal.sql.ast.GridSqlParameter;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuery;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQueryParser;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSelect;

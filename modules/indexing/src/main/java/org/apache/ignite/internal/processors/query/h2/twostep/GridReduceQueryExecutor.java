@@ -79,7 +79,7 @@ import org.apache.ignite.internal.processors.query.h2.H2Utils;
 import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
 import org.apache.ignite.internal.processors.query.h2.UpdateResult;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2QueryContext;
-import org.apache.ignite.internal.processors.query.h2.sql.GridSqlSortColumn;
+import org.apache.ignite.internal.sql.ast.GridSqlSortColumn;
 import org.apache.ignite.internal.sql.ast.GridSqlType;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryCancelRequest;
 import org.apache.ignite.internal.processors.query.h2.twostep.messages.GridQueryFailResponse;
@@ -106,7 +106,10 @@ import org.h2.command.ddl.CreateTableData;
 import org.h2.engine.Session;
 import org.h2.index.Index;
 import org.h2.jdbc.JdbcConnection;
+import org.h2.result.SortOrder;
 import org.h2.table.Column;
+import org.h2.table.IndexColumn;
+import org.h2.table.Table;
 import org.h2.util.IntArray;
 import org.h2.value.Value;
 import org.jetbrains.annotations.Nullable;
@@ -1793,7 +1796,7 @@ public class GridReduceQueryExecutor {
                 List<GridSqlSortColumn> sortCols = (List<GridSqlSortColumn>)qry.sortColumns();
 
                 GridMergeIndexSorted sortedMergeIdx = new GridMergeIndexSorted(ctx, tbl, MERGE_INDEX_SORTED,
-                    GridSqlSortColumn.toIndexColumns(tbl, sortCols));
+                    toIndexColumns(tbl, sortCols));
 
                 idxs.add(GridMergeTable.createScanIndex(sortedMergeIdx));
                 idxs.add(sortedMergeIdx);
@@ -1905,6 +1908,40 @@ public class GridReduceQueryExecutor {
         }
 
         return cp.isEmpty() ? null : cp;
+    }
+
+    /**
+     * @param tbl Table.
+     * @param sortCols Sort columns.
+     * @return Index columns.
+     */
+    private static IndexColumn[] toIndexColumns(Table tbl, List<GridSqlSortColumn> sortCols) {
+        assert !F.isEmpty(sortCols);
+
+        IndexColumn[] res = new IndexColumn[sortCols.size()];
+
+        for (int i = 0; i < res.length; i++) {
+            GridSqlSortColumn sc = sortCols.get(i);
+
+            Column col = tbl.getColumn(sc.column());
+
+            IndexColumn c = new IndexColumn();
+
+            c.column = col;
+            c.columnName = col.getName();
+
+            c.sortType = sc.asc() ? SortOrder.ASCENDING : SortOrder.DESCENDING;
+
+            if (sc.nullsFirst())
+                c.sortType |= SortOrder.NULLS_FIRST;
+
+            if (sc.nullsLast())
+                c.sortType |= SortOrder.NULLS_LAST;
+
+            res[i] = c;
+        }
+
+        return res;
     }
 
     /**

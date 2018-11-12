@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.query.h2.sql;
+package org.apache.ignite.internal.sql.ast;
 
 import java.util.ArrayList;
 import java.util.Collections;
