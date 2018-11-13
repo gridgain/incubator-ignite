@@ -23,9 +23,9 @@ export default class PageProfileController {
     ];
 
     /**
-     * @param {ng.IRootScopeService} $root       
-     * @param {ng.IScope} $scope      
-     * @param {ng.IHttpService} $http       
+     * @param {ng.IRootScopeService} $root
+     * @param {ng.IScope} $scope
+     * @param {ng.IHttpService} $http
      * @param {ReturnType<typeof import('app/services/LegacyUtils.service').default>} LegacyUtils
      * @param {ReturnType<typeof import('app/services/Messages.service').default>} Messages
      * @param {ReturnType<typeof import('app/services/Focus.service').default>} Focus
@@ -43,6 +43,7 @@ export default class PageProfileController {
         this.Confirm = Confirm;
         this.Countries = Countries;
         this.User = User;
+        this.savingInProgress = false;
     }
 
     $onInit() {
@@ -69,6 +70,8 @@ export default class PageProfileController {
     }
 
     saveUser() {
+        this.savingInProgress = true;
+
         return this.$http.post('/api/v1/profile/save', this.ui.user)
             .then(this.User.load)
             .then(() => {
@@ -80,6 +83,7 @@ export default class PageProfileController {
 
                 this.$root.$broadcast('user', this.ui.user);
             })
-            .catch((res) => this.Messages.showError('Failed to save profile: ', res));
+            .catch((res) => this.Messages.showError('Failed to save profile: ', res))
+            .finally(() => this.savingInProgress = false);
     }
 }
