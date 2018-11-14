@@ -353,8 +353,12 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
     /** Default socket write timeout. */
     public static final long DFLT_SOCK_WRITE_TIMEOUT = 2000;
 
+
+    private static final int CORE_CNT =
+        IgniteSystemProperties.getInteger("IGNITE.CORE.CNT", Runtime.getRuntime().availableProcessors());
+
     /** Default connections per node. */
-    public static final int DFLT_CONN_PER_NODE = 1;
+    public static final int DFLT_CONN_PER_NODE = CORE_CNT + 1;
 
     /** No-op runnable. */
     private static final IgniteRunnable NOOP = new IgniteRunnable() {
@@ -2673,9 +2677,6 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
         sendMessage0(node, msg, ackC);
     }
 
-    private static final int CORE_CNT =
-        IgniteSystemProperties.getInteger("IGNITE.CORE.CNT", Runtime.getRuntime().availableProcessors());
-
     /**
      * @param node Destination node.
      * @param msg Message to send.
@@ -2730,6 +2731,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                     }
 
                     int nodeIdx = part < 0 ? 0 : (part % CORE_CNT) + 1;
+
+                    connIdx = nodeIdx;
 
                     client = reserveClient(node, connIdx, nodeIdx);
 
