@@ -3184,7 +3184,7 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
      * @param req Dht atomic update request.
      */
     private void processDhtAtomicUpdateRequest(UUID nodeId, GridDhtAtomicAbstractUpdateRequest req) {
-        assert Thread.currentThread().getName().startsWith("sys-stripe-") : Thread.currentThread().getName();
+        //assert Thread.currentThread().getName().startsWith("sys-stripe-") : Thread.currentThread().getName();
 
         if (msgLog.isDebugEnabled()) {
             msgLog.debug("Received DHT atomic update request [futId=" + req.futureId() +

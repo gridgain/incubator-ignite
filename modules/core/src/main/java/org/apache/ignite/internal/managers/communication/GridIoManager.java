@@ -67,6 +67,7 @@ import org.apache.ignite.internal.managers.GridManagerAdapter;
 import org.apache.ignite.internal.managers.deployment.GridDeployment;
 import org.apache.ignite.internal.managers.eventstorage.GridEventStorageManager;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.cache.GridCacheMessage;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccMessage;
 import org.apache.ignite.internal.processors.platform.message.PlatformMessageFilter;
 import org.apache.ignite.internal.processors.pool.PoolProcessor;
@@ -1102,6 +1103,20 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                 return "Message closure [msg=" + msg + ']';
             }
         };
+
+        {
+            Message msg0 = msg.message();
+
+            if (msg0 instanceof GridCacheMessage) {
+                int part = ((GridCacheMessage) msg0).partition();
+
+                if (part >= 0) {
+                    c.run();
+
+                    return;
+                }
+            }
+        }
 
         if (msg.topicOrdinal() == TOPIC_IO_TEST.ordinal()) {
             IgniteIoTestMessage msg0 = (IgniteIoTestMessage)msg.message();
