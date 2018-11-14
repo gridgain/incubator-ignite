@@ -271,6 +271,9 @@ import static org.apache.ignite.spi.communication.tcp.messages.RecoveryLastRecei
 @IgniteSpiMultipleInstancesSupport(true)
 @IgniteSpiConsistencyChecked(optional = false)
 public class TcpCommunicationSpi extends IgniteSpiAdapter implements CommunicationSpi<Message> {
+    private static final int CORE_CNT =
+        IgniteSystemProperties.getInteger("IGNITE.CORE.CNT", Runtime.getRuntime().availableProcessors());
+
     /** IPC error message. */
     public static final String OUT_OF_RESOURCES_TCP_MSG = "Failed to allocate shared memory segment " +
         "(switching to TCP, may be slower).";
@@ -321,7 +324,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
      * Default count of selectors for TCP server equals to
      * {@code "Math.max(4, Runtime.getRuntime().availableProcessors() / 2)"}.
      */
-    public static final int DFLT_SELECTORS_CNT = Math.max(4, Runtime.getRuntime().availableProcessors() / 2);
+    public static final int DFLT_SELECTORS_CNT = CORE_CNT;
 
     /**
      * Version when client is ready to wait to connect to server (could be needed when client tries to open connection
@@ -352,10 +355,6 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
     /** Default socket write timeout. */
     public static final long DFLT_SOCK_WRITE_TIMEOUT = 2000;
-
-
-    private static final int CORE_CNT =
-        IgniteSystemProperties.getInteger("IGNITE.CORE.CNT", Runtime.getRuntime().availableProcessors());
 
     /** Default connections per node. */
     public static final int DFLT_CONN_PER_NODE = CORE_CNT + 1;
