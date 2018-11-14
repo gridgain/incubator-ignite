@@ -2672,7 +2672,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
         sendMessage0(node, msg, ackC);
     }
 
-    private static final int CORE_CNT = IgniteSystemProperties.getInteger("IGNITE.CORE.CNT", 1);
+    private static final int CORE_CNT =
+        IgniteSystemProperties.getInteger("IGNITE.CORE.CNT", Runtime.getRuntime().availableProcessors());
 
     /**
      * @param node Destination node.
