@@ -212,7 +212,7 @@ if ($asmDirs) {
         }
 
         if ($projName.StartsWith("Apache.Ignite")) {
-            $target = "$projName\bin\Release"
+            $target = "$projName\bin\$configuration"
             mkdir -Force $target
 
             xcopy /s /y $_.FullName $target
@@ -238,19 +238,19 @@ if (!$skipNuGet) {
     # Check parameters
     if (($platform -ne "Any CPU") -or ($configuration -ne "Release")) {
         echo "NuGet can only package 'Release' 'Any CPU' builds; you have specified '$configuration' '$platform'."
-        exit -1
+        #exit -1
     }
 
     $nupkgDir = "nupkg"
     mkdir -Force $nupkgDir; del -Force $nupkgDir\*.*
 
     # Detect version
-    $ver = if ($version) { $version } else { (gi Apache.Ignite.Core\bin\Release\Apache.Ignite.Core.dll).VersionInfo.ProductVersion }
+    $ver = if ($version) { $version } else { (gi Apache.Ignite.Core\bin\$configuration\Apache.Ignite.Core.dll).VersionInfo.ProductVersion }
 
     # Find all nuspec files and run 'nuget pack' either directly, or on corresponding csproj files (if present)
     ls *.nuspec -Recurse  `
         | % { 
-            & $ng pack $_ -Prop Configuration=Release -Prop Platform=AnyCPU -Version $ver -OutputDirectory $nupkgDir
+            & $ng pack $_ -Prop Configuration=$configuration -Prop Platform=AnyCPU -Version $ver -OutputDirectory $nupkgDir
 
             # check result
             if ($LastExitCode -ne 0)
