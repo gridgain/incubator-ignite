@@ -317,7 +317,7 @@ public class TcpCommunicationConnectionCheckFuture extends GridFutureAdapter<Bit
                 sesMeta = new GridLeanMap<>(3);
 
                 // Set dummy key to identify connection-check outgoing connection.
-                sesMeta.put(TcpCommunicationSpi.CONN_IDX_META, new ConnectionKey(rmtNodeId, -1, -1, true));
+                sesMeta.put(TcpCommunicationSpi.CONN_IDX_META, new ConnectionKey(rmtNodeId, -1, -1, -1, true));
                 sesMeta.put(SES_FUT_META, this);
 
                 nioSrvr.createSession(ch, sesMeta, true, new IgniteInClosure<IgniteInternalFuture<GridNioSession>>() {

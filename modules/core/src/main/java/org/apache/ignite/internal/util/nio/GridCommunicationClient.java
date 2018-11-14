@@ -107,4 +107,6 @@ public interface GridCommunicationClient {
      * @return Connection index.
      */
     public int connectionIndex();
+
+    public int nodeIndex();
 }

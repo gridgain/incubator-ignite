@@ -110,7 +110,7 @@ public class GridTcpSpiForwardingSelfTest extends GridCommonAbstractTest {
         cfg.setConnectorConfiguration(null);
 
         TcpCommunicationSpi commSpi = new TcpCommunicationSpi() {
-            @Override protected GridCommunicationClient createTcpClient(ClusterNode node, int connIdx)
+            @Override protected GridCommunicationClient createTcpClient(ClusterNode node, int connIdx, int nodeIdx)
                 throws IgniteCheckedException {
                 Map<String, Object> attrs = new HashMap<>(node.attributes());
 
@@ -118,7 +118,7 @@ public class GridTcpSpiForwardingSelfTest extends GridCommonAbstractTest {
 
                 ((TcpDiscoveryNode)node).setAttributes(attrs);
 
-                return super.createTcpClient(node, connIdx);
+                return super.createTcpClient(node, connIdx, nodeIdx);
             }
         };
 

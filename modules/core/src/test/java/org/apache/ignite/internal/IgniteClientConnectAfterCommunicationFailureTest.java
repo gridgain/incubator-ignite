@@ -135,13 +135,13 @@ public class IgniteClientConnectAfterCommunicationFailureTest extends GridCommon
         }
 
         /** {@inheritDoc} */
-        @Override protected GridCommunicationClient createTcpClient(ClusterNode node, int connIdx)
+        @Override protected GridCommunicationClient createTcpClient(ClusterNode node, int connIdx, int nodeIdx)
             throws IgniteCheckedException {
             if (blockHandshakeOnce(getLocalNode().id())) {
                 throw new IgniteCheckedException("Node is blocked");
             }
 
-            return super.createTcpClient(node, connIdx);
+            return super.createTcpClient(node, connIdx, nodeIdx);
         }
 
         /** Check if this connection is blocked. */

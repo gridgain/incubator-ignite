@@ -215,7 +215,7 @@ public class TcpCommunicationSpiSkipMessageSendTest extends GridCommonAbstractTe
 
         /** {@inheritDoc} */
         @Override protected GridCommunicationClient createTcpClient(ClusterNode node,
-            int connIdx) throws IgniteCheckedException {
+            int connIdx, int nodeIdx) throws IgniteCheckedException {
             log.info(String.format("CustomCommunicationSpi.createTcpClient [networkDisabled=%s, node=%s]",
                 netDisabled, node));
 
@@ -232,7 +232,7 @@ public class TcpCommunicationSpiSkipMessageSendTest extends GridCommonAbstractTe
                 return null;
             }
             else
-                return super.createTcpClient(node, connIdx);
+                return super.createTcpClient(node, connIdx, nodeIdx);
         }
 
         /**

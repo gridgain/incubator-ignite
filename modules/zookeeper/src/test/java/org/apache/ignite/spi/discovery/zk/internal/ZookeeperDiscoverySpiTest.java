@@ -4068,7 +4068,8 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
         /** {@inheritDoc} */
         @Override protected GridCommunicationClient createTcpClient(
             ClusterNode node,
-            int connIdx
+            int connIdx,
+            int nodeIdx
         ) throws IgniteCheckedException {
             if (failure && !matrix.hasConnection(getLocalNode(), node)) {
                 processClientCreationError(node, null, new IgniteCheckedException("Test", new SocketTimeoutException()));
@@ -4077,7 +4078,7 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
             }
 
             return new FailingCommunicationClient(getLocalNode(), node,
-                super.createTcpClient(node, connIdx));
+                super.createTcpClient(node, connIdx, nodeIdx));
         }
 
         /**

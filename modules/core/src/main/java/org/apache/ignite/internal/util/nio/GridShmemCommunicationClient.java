@@ -65,7 +65,7 @@ public class GridShmemCommunicationClient extends GridAbstractCommunicationClien
         MessageFormatter formatter)
         throws IgniteCheckedException
     {
-        super(connIdx, metricsLsnr);
+        super(connIdx, metricsLsnr, 0);
 
         assert metricsLsnr != null;
         assert port > 0 && port < 0xffff;

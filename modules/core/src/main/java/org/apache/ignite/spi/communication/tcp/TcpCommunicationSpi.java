@@ -70,6 +70,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.IgniteKernal;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
+import org.apache.ignite.internal.managers.communication.GridIoMessage;
 import org.apache.ignite.internal.managers.discovery.IgniteDiscoverySpi;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.managers.eventstorage.HighPriorityListener;
@@ -455,7 +456,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                                             "will try to reconnect [rmtNode=" + outDesc.node().id() + ']');
 
                                     DisconnectedSessionInfo disconnectData =
-                                        new DisconnectedSessionInfo(outDesc, connId.connectionIndex());
+                                        new DisconnectedSessionInfo(outDesc, connId.connectionIndex(), connId.nodeIndex());
 
                                     commWorker.addProcessDisconnectRequest(disconnectData);
                                 }
@@ -483,7 +484,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
                 if (msg instanceof NodeIdMessage) {
                     sndId = U.bytesToUuid(((NodeIdMessage)msg).nodeIdBytes(), 0);
-                    connKey = new ConnectionKey(sndId, 0, -1);
+                    connKey = new ConnectionKey(sndId, 0, -1, 0);
                 }
                 else {
                     assert msg instanceof HandshakeMessage : msg;
@@ -491,7 +492,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                     HandshakeMessage msg0 = (HandshakeMessage)msg;
 
                     sndId = ((HandshakeMessage)msg).nodeId();
-                    connKey = new ConnectionKey(sndId, msg0.connectionIndex(), msg0.connectCount());
+                    connKey = new ConnectionKey(sndId, msg0.connectionIndex(), msg0.connectCount(), 0);
                 }
 
                 if (log.isDebugEnabled())
@@ -856,7 +857,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 GridTcpNioCommunicationClient client = null;
 
                 if (createClient) {
-                    client = new GridTcpNioCommunicationClient(connKey.connectionIndex(), ses, log);
+                    client = new GridTcpNioCommunicationClient(connKey.connectionIndex(), ses, log, connKey.nodeIndex());
 
                     addNodeClient(node, connKey.connectionIndex(), client);
                 }
@@ -2671,6 +2672,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
         sendMessage0(node, msg, ackC);
     }
 
+    private static final int CORE_CNT = IgniteSystemProperties.getInteger("IGNITE.CORE.CNT", 1);
+
     /**
      * @param node Destination node.
      * @param msg Message to send.
@@ -2709,7 +2712,11 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 boolean retry;
 
                 do {
-                    client = reserveClient(node, connIdx);
+                    int part = (msg instanceof GridIoMessage) ? ((GridIoMessage) msg).partition() : -1;
+
+                    int nodeIdx = part < 0 ? 0 : (part % CORE_CNT) + 1;
+
+                    client = reserveClient(node, connIdx, nodeIdx);
 
                     UUID nodeId = null;
 
@@ -2835,7 +2842,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
      * @return The existing or just created client.
      * @throws IgniteCheckedException Thrown if any exception occurs.
      */
-    private GridCommunicationClient reserveClient(ClusterNode node, int connIdx) throws IgniteCheckedException {
+    private GridCommunicationClient reserveClient(ClusterNode node, int connIdx, int nodeIdx) throws IgniteCheckedException {
         assert node != null;
         assert (connIdx >= 0 && connIdx < connectionsPerNode) || !usePairedConnections(node) : connIdx;
 
@@ -2854,7 +2861,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 // Do not allow concurrent connects.
                 GridFutureAdapter<GridCommunicationClient> fut = new ConnectFuture();
 
-                ConnectionKey connKey = new ConnectionKey(nodeId, connIdx, -1);
+                ConnectionKey connKey = new ConnectionKey(nodeId, connIdx, -1, nodeIdx);
 
                 GridFutureAdapter<GridCommunicationClient> oldFut = clientFuts.putIfAbsent(connKey, fut);
 
@@ -2866,7 +2873,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                             curClients0[connIdx] : null;
 
                         if (client0 == null) {
-                            client0 = createNioClient(node, connIdx);
+                            client0 = createNioClient(node, connIdx, nodeIdx);
 
                             if (client0 != null) {
                                 addNodeClient(node, connIdx, client0);
@@ -2940,7 +2947,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
      * @return Client.
      * @throws IgniteCheckedException If failed.
      */
-    @Nullable private GridCommunicationClient createNioClient(ClusterNode node, int connIdx)
+    @Nullable private GridCommunicationClient createNioClient(ClusterNode node, int connIdx, int nodeIdx)
         throws IgniteCheckedException {
         assert node != null;
 
@@ -2983,7 +2990,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
         connectGate.enter();
 
         try {
-            GridCommunicationClient client = createTcpClient(node, connIdx);
+            GridCommunicationClient client = createTcpClient(node, connIdx, nodeIdx);
 
             if (log.isDebugEnabled())
                 log.debug("TCP client created: " + client);
@@ -3217,7 +3224,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
      * @return Client.
      * @throws IgniteCheckedException If failed.
      */
-    protected GridCommunicationClient createTcpClient(ClusterNode node, int connIdx) throws IgniteCheckedException {
+    protected GridCommunicationClient createTcpClient(ClusterNode node, int connIdx, int nodeIdx) throws IgniteCheckedException {
         Collection<InetSocketAddress> addrs = nodeAddresses(node);
 
         GridCommunicationClient client = null;
@@ -3270,7 +3277,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                             "(node left topology): " + node);
                     }
 
-                    ConnectionKey connKey = new ConnectionKey(node.id(), connIdx, -1);
+                    ConnectionKey connKey = new ConnectionKey(node.id(), connIdx, -1, nodeIdx);
 
                     GridNioRecoveryDescriptor recoveryDesc = outRecoveryDescriptor(node, connKey);
 
@@ -3338,7 +3345,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
                         GridNioSession ses = nioSrvr.createSession(ch, meta, false, null).get();
 
-                        client = new GridTcpNioCommunicationClient(connIdx, ses, log);
+                        client = new GridTcpNioCommunicationClient(connIdx, ses, log, nodeIdx);
                     }
                     finally {
                         if (client == null) {
@@ -4346,7 +4353,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                     GridNioRecoveryDescriptor recovery = null;
 
                     if (!usePairedConnections(node) && client instanceof GridTcpNioCommunicationClient) {
-                        recovery = recoveryDescs.get(new ConnectionKey(node.id(), client.connectionIndex(), -1));
+                        recovery = recoveryDescs.get(new ConnectionKey(node.id(), client.connectionIndex(), -1, client.nodeIndex()));
 
                         if (recovery != null && recovery.lastAcknowledged() != recovery.received()) {
                             RecoveryLastReceivedMessage msg = new RecoveryLastReceivedMessage(recovery.received());
@@ -4372,7 +4379,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
                     if (idleTime >= idleConnTimeout) {
                         if (recovery == null && usePairedConnections(node))
-                            recovery = outRecDescs.get(new ConnectionKey(node.id(), client.connectionIndex(), -1));
+                            recovery = outRecDescs.get(new ConnectionKey(node.id(), client.connectionIndex(), -1, client.nodeIndex()));
 
                         if (recovery != null &&
                             recovery.nodeAlive(getSpiContext().node(nodeId)) &&
@@ -4485,7 +4492,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 if (log.isDebugEnabled())
                     log.debug("Recovery reconnect [rmtNode=" + recoveryDesc.node().id() + ']');
 
-                GridCommunicationClient client = reserveClient(node, sesInfo.connIdx);
+                GridCommunicationClient client = reserveClient(node, sesInfo.connIdx, sesInfo.nodeIdx);
 
                 client.release();
             }
@@ -4767,13 +4774,17 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
         /** */
         private int connIdx;
 
+        /** Node index. */
+        private int nodeIdx;
+
         /**
          * @param recoveryDesc Recovery descriptor.
          * @param connIdx Connection index.
          */
-        DisconnectedSessionInfo(@Nullable GridNioRecoveryDescriptor recoveryDesc, int connIdx) {
+        DisconnectedSessionInfo(@Nullable GridNioRecoveryDescriptor recoveryDesc, int connIdx, int nodeIdx) {
             this.recoveryDesc = recoveryDesc;
             this.connIdx = connIdx;
+            this.nodeIdx = nodeIdx;
         }
 
         /** {@inheritDoc} */

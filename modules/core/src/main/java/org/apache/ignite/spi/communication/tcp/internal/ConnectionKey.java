@@ -35,6 +35,9 @@ public class ConnectionKey {
     private final long connCnt;
 
     /** */
+    private final int nodeIdx;
+
+    /** */
     private final boolean dummy;
 
     /**
@@ -44,8 +47,8 @@ public class ConnectionKey {
      * @param idx Connection index.
      * @param connCnt Connection counter (set only for incoming connections).
      */
-    public ConnectionKey(@NotNull UUID nodeId, int idx, long connCnt) {
-        this(nodeId, idx, connCnt, false);
+    public ConnectionKey(@NotNull UUID nodeId, int idx, long connCnt, int nodeIdx) {
+        this(nodeId, idx, connCnt, nodeIdx, false);
     }
 
     /**
@@ -55,10 +58,11 @@ public class ConnectionKey {
      * @param dummy Indicates that session with this ConnectionKey is temporary
      *              (for now dummy sessions are used only for Communication Failure Resolving process).
      */
-    public ConnectionKey(@NotNull UUID nodeId, int idx, long connCnt, boolean dummy) {
+    public ConnectionKey(@NotNull UUID nodeId, int idx, long connCnt, int nodeIdx, boolean dummy) {
         this.nodeId = nodeId;
         this.idx = idx;
         this.connCnt = connCnt;
+        this.nodeIdx = nodeIdx;
         this.dummy = dummy;
     }
 
@@ -67,6 +71,10 @@ public class ConnectionKey {
      */
     public long connectCount() {
         return connCnt;
+    }
+
+    public int nodeIndex() {
+        return nodeIdx;
     }
 
     /**
@@ -100,13 +108,16 @@ public class ConnectionKey {
 
         ConnectionKey key = (ConnectionKey) o;
 
-        return idx == key.idx && nodeId.equals(key.nodeId);
+        return idx == key.idx && nodeId.equals(key.nodeId) && nodeIdx == key.nodeIdx;
     }
 
     /** {@inheritDoc} */
     @Override public int hashCode() {
         int res = nodeId.hashCode();
+
         res = 31 * res + idx;
+        res = 31 * res + nodeIdx;
+
         return res;
     }
 
