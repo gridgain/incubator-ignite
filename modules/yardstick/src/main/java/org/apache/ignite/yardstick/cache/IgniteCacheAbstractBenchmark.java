@@ -197,6 +197,8 @@ public abstract class IgniteCacheAbstractBenchmark<K, V> extends IgniteAbstractB
 
             stopPreloadLogging();
         }
+
+        java.lang.Thread.sleep(60_000L);
     }
 
     /**
