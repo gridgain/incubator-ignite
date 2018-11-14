@@ -2113,10 +2113,10 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 "Specified 'unackedMsgsBufSize' is too low, it should be at least 'ackSndThreshold * 5'.");
         }
 
-        if (connectionsPerNode > 1)
-            connPlc = new RoundRobinConnectionPolicy();
-        else
-            connPlc = new FirstConnectionPolicy();
+//        if (connectionsPerNode > 1)
+//            connPlc = new RoundRobinConnectionPolicy();
+//        else
+//            connPlc = new FirstConnectionPolicy();
 
         try {
             locHost = U.resolveLocalHost(locAddr);
