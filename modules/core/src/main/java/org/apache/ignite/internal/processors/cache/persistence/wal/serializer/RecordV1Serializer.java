@@ -170,7 +170,7 @@ public class RecordV1Serializer implements RecordSerializer {
         /** {@inheritDoc} */
         @Override public void writeWithHeaders(WALRecord rec, ByteBuffer buf) throws IgniteCheckedException {
             // Write record type.
-            putRecordType(buf, dataSerializer.recordType(rec));
+            putRecordType(buf, rec.type());
 
             // SWITCH_SEGMENT_RECORD should have only type, no need to write pointer.
             if (rec.type() == SWITCH_SEGMENT_RECORD)
