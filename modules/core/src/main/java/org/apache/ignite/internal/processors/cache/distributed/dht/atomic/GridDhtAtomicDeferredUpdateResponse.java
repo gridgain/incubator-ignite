@@ -168,4 +168,9 @@ public class GridDhtAtomicDeferredUpdateResponse extends GridCacheIdMessage impl
     @Override public String toString() {
         return S.toString(GridDhtAtomicDeferredUpdateResponse.class, this);
     }
+
+    /** {@inheritDoc} */
+    @Override public boolean optimized() {
+        return true;
+    }
 }

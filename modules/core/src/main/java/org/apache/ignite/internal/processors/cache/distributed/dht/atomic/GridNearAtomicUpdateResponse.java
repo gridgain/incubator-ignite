@@ -536,4 +536,9 @@ public class GridNearAtomicUpdateResponse extends GridCacheIdMessage implements 
     @Override public String toString() {
         return S.toString(GridNearAtomicUpdateResponse.class, this, super.toString());
     }
+
+    /** {@inheritDoc} */
+    @Override public boolean optimized() {
+        return true;
+    }
 }

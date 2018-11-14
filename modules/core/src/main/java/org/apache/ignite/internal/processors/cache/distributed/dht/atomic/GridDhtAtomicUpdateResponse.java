@@ -270,4 +270,9 @@ public class GridDhtAtomicUpdateResponse extends GridCacheIdMessage implements G
     @Override public String toString() {
         return S.toString(GridDhtAtomicUpdateResponse.class, this);
     }
+
+    /** {@inheritDoc} */
+    @Override public boolean optimized() {
+        return true;
+    }
 }

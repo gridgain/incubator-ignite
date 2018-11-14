@@ -311,4 +311,9 @@ public class GridDhtAtomicNearResponse extends GridCacheIdMessage {
         return S.toString(GridDhtAtomicNearResponse.class, this,
             "flags", flags.toString());
     }
+
+    /** {@inheritDoc} */
+    @Override public boolean optimized() {
+        return true;
+    }
 }

@@ -74,6 +74,7 @@ import org.apache.ignite.internal.managers.communication.GridIoMessage;
 import org.apache.ignite.internal.managers.discovery.IgniteDiscoverySpi;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.managers.eventstorage.HighPriorityListener;
+import org.apache.ignite.internal.processors.cache.GridCacheMessage;
 import org.apache.ignite.internal.util.GridConcurrentFactory;
 import org.apache.ignite.internal.util.GridSpinReadWriteLock;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
@@ -2713,7 +2714,20 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 boolean retry;
 
                 do {
-                    int part = (msg instanceof GridIoMessage) ? ((GridIoMessage) msg).partition() : -1;
+                    int part = -1;
+
+                    if (msg instanceof GridIoMessage) {
+                        GridIoMessage msg0 = (GridIoMessage)msg;
+
+                        Message msg1 = msg0.message();
+
+                        if (msg1 instanceof GridCacheMessage) {
+                            GridCacheMessage msg2 = (GridCacheMessage)msg1;
+
+                            if (msg2.optimized())
+                                part = msg2.partition();
+                        }
+                    }
 
                     int nodeIdx = part < 0 ? 0 : (part % CORE_CNT) + 1;
 

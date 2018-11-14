@@ -671,4 +671,9 @@ public abstract class GridDhtAtomicAbstractUpdateRequest extends GridCacheIdMess
         return S.toString(GridDhtAtomicAbstractUpdateRequest.class, this,
             "flags", flags.toString());
     }
+
+    /** {@inheritDoc} */
+    @Override public boolean optimized() {
+        return true;
+    }
 }

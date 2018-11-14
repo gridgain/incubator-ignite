@@ -35,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -1072,6 +1073,9 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         }
     }
 
+    private final ConcurrentHashMap<Integer, String> partToThread = new ConcurrentHashMap<>();
+    private final ConcurrentSkipListSet<String> threads = new ConcurrentSkipListSet<>();
+
     /**
      * @param nodeId Node ID.
      * @param msg Message.
@@ -1108,12 +1112,25 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
             Message msg0 = msg.message();
 
             if (msg0 instanceof GridCacheMessage) {
-                int part = ((GridCacheMessage) msg0).partition();
+                GridCacheMessage msg1 = (GridCacheMessage)msg0;
 
-                if (part >= 0) {
-                    c.run();
+                if (msg1.optimized()) {
+                    int part = msg1.partition();
 
-                    return;
+                    if (part >= 0) {
+                        String partThread = partToThread.get(part);
+
+                        if (partThread == null)
+                            partToThread.put(part, Thread.currentThread().getName());
+                        else if (!partThread.equals(Thread.currentThread().getName()))
+                            throw new RuntimeException("OUCH!");
+
+                        threads.add(Thread.currentThread().getName());
+
+                        c.run();
+
+                        return;
+                    }
                 }
             }
         }

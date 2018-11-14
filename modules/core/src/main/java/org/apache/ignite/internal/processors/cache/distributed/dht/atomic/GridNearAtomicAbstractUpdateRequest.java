@@ -691,4 +691,9 @@ public abstract class GridNearAtomicAbstractUpdateRequest extends GridCacheIdMes
         return S.toString(GridNearAtomicAbstractUpdateRequest.class, this,
             "flags", flags.toString());
     }
+
+    /** {@inheritDoc} */
+    @Override public boolean optimized() {
+        return true;
+    }
 }

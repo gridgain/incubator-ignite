@@ -713,4 +713,8 @@ public abstract class GridCacheMessage implements Message {
     @Override public String toString() {
         return S.toString(GridCacheMessage.class, this);
     }
+
+    public boolean optimized() {
+        return false;
+    }
 }
