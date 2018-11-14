@@ -1121,7 +1121,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                         String partThread = partToThread.get(part);
 
                         if (partThread == null)
-                            partToThread.put(part, Thread.currentThread().getName());
+                            partToThread.putIfAbsent(part, Thread.currentThread().getName());
                         else if (!partThread.equals(Thread.currentThread().getName()))
                             throw new RuntimeException("OUCH!");
 
