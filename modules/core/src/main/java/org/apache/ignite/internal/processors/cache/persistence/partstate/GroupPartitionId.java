@@ -102,18 +102,9 @@ public class GroupPartitionId implements Comparable<GroupPartitionId> {
 
     /** {@inheritDoc} */
     @Override public int compareTo(@NotNull GroupPartitionId o) {
-        if (getGroupId() < o.getGroupId())
-            return -1;
+        int res = Integer.compare(getGroupId(), o.getGroupId());
 
-        if (getGroupId() > o.getGroupId())
-            return 1;
-
-        if (getPartitionId() < o.getPartitionId())
-            return -1;
-
-        if (getPartitionId() > o.getPartitionId())
-            return 1;
-        return 0;
+        return res != 0 ? res : Integer.compare(getPartitionId(), o.getPartitionId());
     }
 
     /**
