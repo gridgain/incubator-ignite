@@ -190,6 +190,8 @@ public abstract class IgniteCacheAbstractBenchmark<K, V> extends IgniteAbstractB
             }
         }
 
+        java.lang.Thread.sleep(60_000L);
+
         if(args.enablePreload()) {
             startPreloadLogging(args.preloadLogsInterval());
 
@@ -197,8 +199,6 @@ public abstract class IgniteCacheAbstractBenchmark<K, V> extends IgniteAbstractB
 
             stopPreloadLogging();
         }
-
-        java.lang.Thread.sleep(60_000L);
     }
 
     /**
