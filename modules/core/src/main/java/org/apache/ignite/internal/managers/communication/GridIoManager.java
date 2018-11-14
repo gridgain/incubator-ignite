@@ -1118,14 +1118,14 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                     int part = msg1.partition();
 
                     if (part >= 0) {
-                        String partThread = partToThread.get(part);
-
-                        if (partThread == null)
-                            partToThread.putIfAbsent(part, Thread.currentThread().getName());
-                        else if (!partThread.equals(Thread.currentThread().getName()))
-                            throw new RuntimeException("OUCH!");
-
-                        threads.add(Thread.currentThread().getName());
+//                        String partThread = partToThread.get(part);
+//
+//                        if (partThread == null)
+//                            partToThread.putIfAbsent(part, Thread.currentThread().getName());
+//                        else if (!partThread.equals(Thread.currentThread().getName()))
+//                            throw new RuntimeException("OUCH!");
+//
+//                        threads.add(Thread.currentThread().getName());
 
                         c.run();
 
