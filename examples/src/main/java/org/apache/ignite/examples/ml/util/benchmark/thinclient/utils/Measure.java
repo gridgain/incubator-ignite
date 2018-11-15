@@ -54,7 +54,7 @@ public class Measure {
     public static void computeStatsAndPrint(long pageSize, List<Measure> measures) {
         List<Meta> measuresMetaToPrint = Arrays.asList(
             new Meta("latency", Measure::getLatency, "ms"),
-            new Meta("throughput", Measure::getThroughput, "mb/s")
+            new Meta("throughput", Measure::getThroughput, "kb/s")
         );
 
         measuresMetaToPrint.forEach(t -> {
