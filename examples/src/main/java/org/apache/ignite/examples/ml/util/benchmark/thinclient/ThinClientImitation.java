@@ -93,18 +93,33 @@ public class ThinClientImitation {
             long latency = end - start;
 
             long cursorID = in.readLong(); //cursor ID
-            long pageSizeInMsg = msgLen - SCAN_QUERY_HEADER_SIZE;
+            int rowCount = in.readInt(); //row cnt
+
+            int pageSizeInMsg = msgLen - SCAN_QUERY_HEADER_SIZE;
 
             readPageToNULL(in, pageSizeInMsg);
 
-            response = new FirstQueryResponse(latency, cursorID, pageSizeInMsg, false);
+            boolean isLastPage = in.readByte() == 0;
+            response = new FirstQueryResponse(latency, cursorID, pageSizeInMsg, isLastPage);
         }
 
         return response;
     }
 
-    private static void readPageToNULL(ClientInputStream in, long msg) {
+    private static void readPageToNULL(ClientInputStream in, int pageSize) throws IOException {
+        int BUFFER_LEN = 1024 * 1024;
+        byte[] buffer = new byte[BUFFER_LEN];
+        int received = 0;
 
+        while (received < pageSize) {
+            int res = in.in.read(buffer, 0, Math.min(buffer.length, pageSize - received));
+            if(res < 0)
+                throw new RuntimeException("EOF");
+            if(res == 0)
+                throw new RuntimeException("Server closed connection");
+
+            received += res;
+        }
     }
 
     private static class ClientOutputStream {

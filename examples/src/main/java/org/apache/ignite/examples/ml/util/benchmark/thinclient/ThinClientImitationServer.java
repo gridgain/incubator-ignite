@@ -17,6 +17,7 @@
 
 package org.apache.ignite.examples.ml.util.benchmark.thinclient;
 
+import java.util.Arrays;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
@@ -39,8 +40,11 @@ public class ThinClientImitationServer {
 
             IgniteCache<Integer, byte[]> cache = ignite.getOrCreateCache(cacheConfiguration);
 
-            for (int i = 0; i < COUNT_OF_ROWS; i++)
-                cache.put(i, new byte[VALUE_OBJECT_SIZE_IN_BYTES]);
+            for (int i = 0; i < COUNT_OF_ROWS; i++) {
+                byte[] val = new byte[VALUE_OBJECT_SIZE_IN_BYTES];
+                Arrays.fill(val, (byte) i);
+                cache.put(i, val);
+            }
 
             System.out.println("Cache is ready!");
 
