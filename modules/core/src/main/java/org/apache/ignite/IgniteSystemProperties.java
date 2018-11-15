@@ -993,6 +993,9 @@ public final class IgniteSystemProperties {
      */
     public static final String IGNITE_REUSE_MEMORY_ON_DEACTIVATE = "IGNITE_REUSE_MEMORY_ON_DEACTIVATE";
 
+    /** */
+    public static final String IGNITE_WAL_ENCRYPTION_DISABLED = "IGNITE_WAL_ENCRYPTION_DISABLED";
+
     /**
      * Enforces singleton.
      */

@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.spi.encryption.EncryptionSpi;
 import org.apache.ignite.internal.pagemem.FullPageId;
 import org.apache.ignite.internal.pagemem.wal.record.CacheState;
@@ -146,6 +147,9 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
     /** */
     private static final byte PLAIN = 0;
 
+    /** */
+    private final boolean encryptionDisabled;
+
     /**
      * @param cctx Cache shared context.
      */
@@ -161,6 +165,8 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
             this.realPageSize = CU.encryptedPageSize(pageSize, encSpi);
         else
             this.realPageSize = pageSize;
+
+        encryptionDisabled = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_WAL_ENCRYPTION_DISABLED, false);
     }
 
     /** {@inheritDoc} */
@@ -221,6 +227,9 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
      * @return {@code True} if this record should be encrypted.
      */
     private boolean needEncryption(WALRecord rec) {
+        if (encryptionDisabled)
+            return false;
+
         if (!(rec instanceof WalRecordCacheGroupAware))
             return false;
 
@@ -232,6 +241,9 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
      * @return {@code True} if this record should be encrypted.
      */
     private boolean needEncryption(int grpId) {
+        if (encryptionDisabled)
+            return false;
+
         return cctx.kernalContext().encryption().groupKey(grpId) != null;
     }
 
@@ -1924,6 +1936,9 @@ public class RecordDataV1Serializer implements RecordDataSerializer {
      * @return {@code True} if this data record should be encrypted.
      */
     boolean isDataRecordEncrypted(DataRecord rec) {
+        if (encryptionDisabled)
+            return false;
+
         for (DataEntry e : rec.writeEntries()) {
             if(needEncryption(cctx.cacheContext(e.cacheId()).groupId()))
                 return true;
