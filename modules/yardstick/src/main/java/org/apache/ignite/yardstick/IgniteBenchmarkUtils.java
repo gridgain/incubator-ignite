@@ -76,7 +76,21 @@ public class IgniteBenchmarkUtils {
     public static <T> T doInTransaction(IgniteTransactions igniteTx, TransactionConcurrency txConcurrency,
         TransactionIsolation txIsolation, Callable<T> clo) throws Exception {
         while (true) {
-            try (Transaction tx = igniteTx.txStart(txConcurrency, txIsolation)) {
+            Transaction tx = null;
+
+            try {
+                tx = igniteTx.txStart(txConcurrency, txIsolation);
+            }
+            catch (Exception e){
+                BenchmarkUtils.println("Failed to start transaction " + e.getMessage());
+
+                if(tx != null)
+                    tx.close();
+
+                continue;
+            }
+
+            try {
                 T res = clo.call();
 
                 tx.commit();
@@ -84,6 +98,9 @@ public class IgniteBenchmarkUtils {
                 return res;
             }
             catch (CacheException e) {
+                if (e.getMessage().contains("Cannot serialize transaction due to write conflict"))
+                    tx.rollback();
+
                 if (e.getCause() instanceof ClusterTopologyException) {
                     ClusterTopologyException topEx = (ClusterTopologyException)e.getCause();
 
@@ -97,6 +114,9 @@ public class IgniteBenchmarkUtils {
             }
             catch (TransactionRollbackException | TransactionOptimisticException ignore) {
                 // Safe to retry right away.
+            }
+            finally {
+                tx.close();
             }
         }
     }
