@@ -4172,6 +4172,11 @@ public class ZookeeperDiscoverySpiTest extends GridCommonAbstractTest {
             @Override public int connectionIndex() {
                 return delegate.connectionIndex();
             }
+
+            /** {@inheritDoc} */
+            @Override public int nodeIndex() {
+                return 0;
+            }
         }
     }
 
