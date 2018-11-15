@@ -1354,9 +1354,6 @@ public abstract class IgniteUtils {
      * @param log Logger.
      */
     public static void dumpThreads(@Nullable IgniteLogger log) {
-        if (true)
-            return;
-
         ThreadMXBean mxBean = ManagementFactory.getThreadMXBean();
 
         final Set<Long> deadlockedThreadsIds = getDeadlockedThreadIds(mxBean);
