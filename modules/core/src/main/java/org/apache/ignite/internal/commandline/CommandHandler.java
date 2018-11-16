@@ -2445,7 +2445,7 @@ public class CommandHandler {
         Console console = System.console();
 
         if (console == null)
-            throw new UnsupportedOperationException("Console unavailable! Can't secure read password! " + msg);
+            throw new UnsupportedOperationException("Failed to securely read password (console is unavailable): " + msg);
         else
             return console.readPassword(msg);
     }
