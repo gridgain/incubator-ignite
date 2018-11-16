@@ -2434,6 +2434,41 @@ public class CommandHandler {
     }
 
     /**
+     * Requests password from console with message.
+     *
+     * @param msg Message.
+     * @return Password.
+     */
+    private char[] requestPasswordFromConsole(String msg){
+        Console console = System.console();
+
+        if(console == null)
+            throw new UnsupportedOperationException("Console unassailable! Can't secure read password! " + msg);
+        else
+            return console.readPassword(msg);
+    }
+
+    /**
+     * Requests user data from console with message.
+     *
+     * @param msg Message.
+     * @return Input user data.
+     */
+    private String requestDataFromConsole(String msg){
+        Console console = System.console();
+
+        if(console != null)
+            return console.readLine(msg);
+        else {
+            Scanner scanner = new Scanner(System.in);
+
+            log(msg);
+
+            return scanner.nextLine();
+        }
+    }
+
+    /**
      * Check if raw arg is command or option.
      *
      * @return {@code true} If raw arg is command, overwise {@code false}.
@@ -2669,6 +2704,8 @@ public class CommandHandler {
 
                 if (args.getSslKeyStorePassword() != null)
                     factory.setKeyStorePassword(args.getSslKeyStorePassword());
+                else
+                    factory.setKeyStorePassword(requestPasswordFromConsole("SSL keystore password: "));
 
                 factory.setKeyStoreType(args.getSslKeyStoreType());
 
@@ -2679,6 +2716,8 @@ public class CommandHandler {
 
                     if (args.getSslTrustStorePassword() != null)
                         factory.setTrustStorePassword(args.getSslTrustStorePassword());
+                    else
+                        factory.setTrustStorePassword(requestPasswordFromConsole("SSL truststore password: "));
 
                     factory.setTrustStoreType(args.getSslTrustStoreType());
                 }
@@ -2750,27 +2789,10 @@ public class CommandHandler {
                     if (tryConnectMaxCount > 0 && isAuthError(e)) {
                         log("Authentication error, try connection again.");
 
-                        final Console console = System.console();
+                        if (F.isEmpty(args.getUserName()))
+                            args.setUserName(requestDataFromConsole("user: "));
 
-                        if (console != null) {
-                            if (F.isEmpty(args.getUserName()))
-                                args.setUserName(console.readLine("user: "));
-
-                            args.setPassword(new String(console.readPassword("password: ")));
-                        }
-                        else {
-                            Scanner scanner = new Scanner(System.in);
-
-                            if (F.isEmpty(args.getUserName())) {
-                                log("user: ");
-
-                                args.setUserName(scanner.next());
-                            }
-
-                            log("password: ");
-
-                            args.setPassword(scanner.next());
-                        }
+                        args.setPassword(new String(requestPasswordFromConsole("password: ")));
 
                         tryConnectAgain = true;
 
