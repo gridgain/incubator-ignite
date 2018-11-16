@@ -26,6 +26,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.Measure;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Start {@link ServerMock} prior to launching this benchmark.
@@ -57,17 +58,8 @@ public class Benchmark {
                 POOL = Executors.newFixedThreadPool(threadCount);
 
                 for (int pageSize : PAGE_SIZES) {
-                    long alreadyDownloadedKBytes = downloadedBytes.get() / 1024;
-                    ArrayList<Measure> times = new ArrayList<>(SAMPLES);
-                    for (int i = 0; i < SAMPLES; i++)
-                        times.add(oneMeasure(pageSize, threadCount, USE_FILTER, DISTINGUISH_PARTITIONS));
-
-                    System.out.println(String.format("measure [page size = %d, thread count = %d, downloaded kbytes = %d]",
-                        pageSize, threadCount, (downloadedBytes.get() / 1024) - alreadyDownloadedKBytes
-                    ));
-                    Measure.computeStatsAndPrint(pageSize, times);
-
-                    benchMeta.add(new MeasureWithMeta(threadCount, pageSize, times));
+                    MeasureWithMeta measuresWithMeta = measureSpecificConfiguration(threadCount, pageSize);
+                    benchMeta.add(measuresWithMeta);
                 }
             }
             finally {
@@ -82,6 +74,21 @@ public class Benchmark {
         System.out.println(String.format("Done [downloaded kbytes = %d in %d sec.]", downloadedBytes.get() / 1024, (end - start) / 1000));
         System.out.println();
         printTable(benchMeta);
+    }
+
+    @NotNull private static Benchmark.MeasureWithMeta measureSpecificConfiguration(int threadCount,
+        int pageSize) throws Exception {
+        long alreadyDownloadedKBytes = downloadedBytes.get() / 1024;
+        ArrayList<Measure> times = new ArrayList<>(SAMPLES);
+        for (int i = 0; i < SAMPLES; i++)
+            times.add(oneMeasure(pageSize, threadCount, USE_FILTER, DISTINGUISH_PARTITIONS));
+
+        System.out.println(String.format("measure [page size = %d, thread count = %d, downloaded kbytes = %d]",
+            pageSize, threadCount, (downloadedBytes.get() / 1024) - alreadyDownloadedKBytes
+        ));
+        Measure.computeStatsAndPrint(pageSize, times);
+
+        return new MeasureWithMeta(threadCount, pageSize, times);
     }
 
     private static Measure oneMeasure(int pageSize, int currentClientCount, boolean useFilter, boolean distinguishPartitions) throws Exception {
