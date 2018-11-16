@@ -20,11 +20,16 @@ package org.apache.ignite.examples.ml.util.benchmark.thinclient;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.ClientInputStream;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.ClientOutputStream;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.Connection;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.Measure;
+import org.apache.ignite.lang.IgniteBiTuple;
 
 public class ThinClientMock {
     private static final int SCAN_QUERY_HEADER_SIZE = 25;
@@ -34,32 +39,55 @@ public class ThinClientMock {
     private static final int PORT = 10800;
 
     private final int pageSize;
+    private final List<Integer> partitions;
 
-    public ThinClientMock(int pageSize, int countOfClients, boolean useFilter, boolean splitPartitions) {
+    public ThinClientMock(int pageSize, int clientId, int countOfClients, boolean useFilter,
+        boolean distinguishPartitions) {
         this.pageSize = pageSize;
+        if (distinguishPartitions) {
+            partitions = IntStream.range(0, ServerMock.COUNT_OF_PARTITIONS)
+                .filter(partition -> (partition % countOfClients) == clientId).boxed()
+                .collect(Collectors.toList());
+        }
+        else
+            partitions = Collections.singletonList(-1);
     }
 
     public Measure measure() throws Exception {
         try (Connection connection = new Connection(new Socket(HOST, PORT))) {
             long start = System.currentTimeMillis();
-            FirstQueryResponse firstQueryResponse = handshakeAndQuery(connection, pageSize);
-            List<PageResponse> nextPages = new ArrayList<>();
-            boolean isLastPage = firstQueryResponse.isLastPage;
-            while (!isLastPage) {
-                PageResponse response = readNextPage(connection, firstQueryResponse);
-                nextPages.add(response);
-                isLastPage = response.isLastPage;
+
+            long firstQueryLatency = -1L;
+            long totalPayload = 0L;
+            handshake(connection);
+            for (Integer partId : partitions) {
+                IgniteBiTuple<Long, Long> result = getOnePartition(connection, partId);
+                if (firstQueryLatency == -1L)
+                    firstQueryLatency = result.get1();
+                totalPayload += result.get2();
             }
+
             long end = System.currentTimeMillis();
             long dataReceiveTime = end - start;
-            long totalPayload = (firstQueryResponse.pageSize + nextPages.stream().mapToInt(x -> x.pageSize).sum()) / 1024;
-
-            return new Measure(firstQueryResponse.latency, totalPayload / (dataReceiveTime / 1000));
+            return new Measure(firstQueryLatency, totalPayload / (dataReceiveTime / 1000));
         }
     }
 
-    private FirstQueryResponse handshakeAndQuery(Connection connection, int pageSize) throws IOException {
-        FirstQueryResponse response = null;
+    //returns latency and total payload in kbytes
+    private IgniteBiTuple<Long, Long> getOnePartition(Connection connection, int partitionId) throws IOException {
+        FirstQueryResponse firstQueryResponse = firstQuery(connection, pageSize, partitionId);
+        List<PageResponse> nextPages = new ArrayList<>();
+        boolean isLastPage = firstQueryResponse.isLastPage;
+        while (!isLastPage) {
+            PageResponse response = readNextPage(connection, firstQueryResponse);
+            nextPages.add(response);
+            isLastPage = response.isLastPage;
+        }
+        long totalPayload = (firstQueryResponse.pageSize + nextPages.stream().mapToInt(x -> x.pageSize).sum()) / 1024;
+        return new IgniteBiTuple<>(firstQueryResponse.latency, totalPayload);
+    }
+
+    private void handshake(Connection connection) throws IOException {
         ClientOutputStream out = connection.out();
         ClientInputStream in = connection.in();
 
@@ -76,6 +104,11 @@ public class ThinClientMock {
         int res = in.readByte();               // Handshake result.
         if (res != 1)
             throw new IllegalStateException("Handshake failed [res=" + res + "]");
+    }
+
+    private FirstQueryResponse firstQuery(Connection connection, int pageSize, int partitionId) throws IOException {
+        ClientOutputStream out = connection.out();
+        ClientInputStream in = connection.in();
 
         // Scan Query.
         out.writeInt(25);                    // Message length.
@@ -85,7 +118,7 @@ public class ThinClientMock {
         out.writeByte(0);                    // Flags.
         out.writeByte(101);                  // Filter (NULL).
         out.writeInt(pageSize);                 // Page Size.
-        out.writeInt(-1);                    // Partition to query.
+        out.writeInt(partitionId);                    // Partition to query.
         out.writeByte(1);                    // Local flag.
         out.flush();
 
@@ -128,6 +161,7 @@ public class ThinClientMock {
                 throw new RuntimeException("Server closed connection");
 
             received += res;
+            Benchmark.downloadedBytes.addAndGet(res);
         }
     }
 
