@@ -20,9 +20,9 @@ package org.apache.ignite.examples.ml.util.benchmark.thinclient;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.ClientInputStream;
@@ -41,8 +41,7 @@ public class ThinClientMock {
     private final int pageSize;
     private final List<Integer> partitions;
 
-    public ThinClientMock(int pageSize, int clientId, int countOfClients, boolean useFilter,
-        boolean distinguishPartitions) {
+    public ThinClientMock(int pageSize, int clientId, int countOfClients, boolean useFilter, boolean distinguishPartitions) {
         this.pageSize = pageSize;
         if (distinguishPartitions) {
             partitions = IntStream.range(0, ServerMock.COUNT_OF_PARTITIONS)
@@ -53,7 +52,7 @@ public class ThinClientMock {
             partitions = Collections.singletonList(-1);
     }
 
-    public Measure measure() throws Exception {
+    public Optional<Measure> measure() throws Exception {
         try (Connection connection = new Connection(new Socket(HOST, PORT))) {
             long start = System.currentTimeMillis();
 
@@ -69,7 +68,11 @@ public class ThinClientMock {
 
             long end = System.currentTimeMillis();
             long dataReceiveTime = end - start;
-            return new Measure(firstQueryLatency, totalPayload / (dataReceiveTime / 1000));
+            long seconds = dataReceiveTime / 1000;
+            if(seconds <= 0)
+                return Optional.empty();
+
+            return Optional.of(new Measure(firstQueryLatency, totalPayload / seconds));
         }
     }
 
