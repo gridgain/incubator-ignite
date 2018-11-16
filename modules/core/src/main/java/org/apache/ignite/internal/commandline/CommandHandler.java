@@ -670,11 +670,14 @@ public class CommandHandler {
      * @return List of hosts.
      */
     private Stream<IgniteBiTuple<GridClientNode, String>> listHosts(GridClient client) throws GridClientException {
-        return client.compute().nodes(GridClientNode::connectable).stream()
+        return client.compute()
+            .nodes(GridClientNode::connectable)
+            .stream()
             .flatMap(node -> Stream.concat(
                 node.tcpAddresses() == null ? Stream.empty() : node.tcpAddresses().stream(),
                 node.tcpHostNames() == null ? Stream.empty() : node.tcpHostNames().stream()
-            ).map(addr -> new IgniteBiTuple<>(node, addr + ":" + node.tcpPort())));
+            )
+            .map(addr -> new IgniteBiTuple<>(node, addr + ":" + node.tcpPort())));
     }
 
     /**
