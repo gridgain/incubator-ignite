@@ -54,7 +54,7 @@ public class Benchmark {
 
         for (int threadCount = 1; threadCount <= MAX_THREAD_COUNT; ) {
             try {
-                POOL = Executors.newFixedThreadPool(MAX_THREAD_COUNT);
+                POOL = Executors.newFixedThreadPool(threadCount);
 
                 for (int pageSize : PAGE_SIZES) {
                     long alreadyDownloadedKBytes = downloadedBytes.get() / 1024;
@@ -89,7 +89,10 @@ public class Benchmark {
         for (int i = 0; i < MAX_THREAD_COUNT; i++) {
             final int clientID = i;
             futures.add(POOL.submit(() -> {
-                return new ThinClientMock(pageSize, clientID, MAX_THREAD_COUNT, useFilter, distinguishPartitions).measure();
+                return new ThinClientMock(
+                    pageSize, clientID, MAX_THREAD_COUNT,
+                    useFilter, distinguishPartitions
+                ).measure();
             }));
         }
 
@@ -113,15 +116,17 @@ public class Benchmark {
     }
 
     private static void printTable(List<MeasureWithMeta> benchMeta) {
-        StringBuilder header = new StringBuilder("thread count\tpage size");
+        StringBuilder header = new StringBuilder("rows\tcount of partitions\tthread count\tpage size");
         Measure.tableHeader().forEach(name -> header.append("\t" + name));
         System.out.println(header);
         benchMeta.forEach(meta -> {
             StringBuilder row = new StringBuilder();
-            row.append(meta.threadCount).append("\t")
+            row.append(ServerMock.COUNT_OF_ROWS).append("\t")
+                .append(ServerMock.COUNT_OF_PARTITIONS).append("\t")
+                .append(meta.threadCount).append("\t")
                 .append(meta.pageSize).append("\t");
             Measure.computeAllMetrics(meta.measures).forEach(r -> {
-               row.append(r.mean).append("\t");
+                row.append(r.mean).append("\t");
             });
             System.out.println(row);
         });

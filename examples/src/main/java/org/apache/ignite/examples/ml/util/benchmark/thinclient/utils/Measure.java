@@ -28,36 +28,37 @@ public class Measure {
         new Meta("throughput", Measure::getThroughput, "kbytes/s")
     );
 
-    private long latency;
-    private long throughput;
+    private double latency;
+    private double throughput;
 
-    public Measure(long latency, long throughput) {
+    public Measure(double latency, double throughput) {
         this.latency = latency;
         this.throughput = throughput;
     }
 
     public static Measure sumOf(List<Measure> measures) {
         assert !measures.isEmpty();
+
         Measure sum = measures.stream()
-            .reduce((l,r) -> new Measure(l.latency + r.latency, l.throughput + r.throughput))
+            .reduce((left,right) -> new Measure(left.latency + right.latency, left.throughput + right.throughput))
             .get();
         return new Measure(sum.latency / measures.size(), sum.throughput);
     }
 
-    public long getLatency() {
+    public double getLatency() {
         return latency;
     }
 
-    public long getThroughput() {
+    public double getThroughput() {
         return throughput;
     }
 
     private static class Meta {
         private final String name;
-        private final Function<Measure, Long> getter;
+        private final Function<Measure, Double> getter;
         private final String dim;
         public Meta(String name,
-            Function<Measure, Long> getter, String dim) {
+            Function<Measure, Double> getter, String dim) {
             this.name = name;
             this.getter = getter;
             this.dim = dim;
@@ -77,8 +78,8 @@ public class Measure {
             .collect(Collectors.toList());
     }
 
-    private static double mean(Iterable<Measure> measures, Function<Measure, Long> getter) {
-        long accumulatedValue = 0L;
+    private static double mean(Iterable<Measure> measures, Function<Measure, Double> getter) {
+        double accumulatedValue = 0L;
         int counter = 0;
 
         for (Measure m : measures) {
@@ -86,10 +87,10 @@ public class Measure {
             counter++;
         }
 
-        return ((double)accumulatedValue) / counter;
+        return accumulatedValue / counter;
     }
 
-    private static double std(Iterable<Measure> measures, Function<Measure, Long> getter) {
+    private static double std(Iterable<Measure> measures, Function<Measure, Double> getter) {
         double mean = mean(measures, getter);
 
         long accumulatedValue = 0L;
@@ -107,7 +108,7 @@ public class Measure {
         return measuresMetaToPrint.stream().map(x -> x.name + "(" + x.dim + ")").collect(Collectors.toList());
     }
 
-    private static MeasuringResult computeMetric(List<Measure> measures, Function<Measure, Long> getter) {
+    private static MeasuringResult computeMetric(List<Measure> measures, Function<Measure, Double> getter) {
         double mean = mean(measures, getter);
         double stddev = std(measures, getter);
         double interval95 = 1.96 * stddev / Math.sqrt(measures.size());

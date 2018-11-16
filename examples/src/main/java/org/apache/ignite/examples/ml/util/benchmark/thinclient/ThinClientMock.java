@@ -32,8 +32,8 @@ import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.Measure;
 import org.apache.ignite.lang.IgniteBiTuple;
 
 public class ThinClientMock {
-    private static final int SCAN_QUERY_HEADER_SIZE = 25;
-    private static final int READ_NEXT_PAGE_SIZE = 17;
+    private static final int SCAN_QUERY_HEADER_MESSAGE_SIZE = 25;
+    private static final int READ_NEXT_PAGE_MESSAGE_SIZE = 17;
 
     private static final String HOST = "localhost";
     private static final int PORT = 10800;
@@ -57,7 +57,7 @@ public class ThinClientMock {
             long start = System.currentTimeMillis();
 
             long firstQueryLatency = -1L;
-            long totalPayload = 0L;
+            double totalPayload = 0L;
             handshake(connection);
             for (Integer partId : partitions) {
                 IgniteBiTuple<Long, Long> result = getOnePartition(connection, partId);
@@ -68,7 +68,7 @@ public class ThinClientMock {
 
             long end = System.currentTimeMillis();
             long dataReceiveTime = end - start;
-            long seconds = dataReceiveTime / 1000;
+            double seconds = dataReceiveTime / 1000;
             if(seconds <= 0)
                 return Optional.empty();
 
@@ -143,7 +143,7 @@ public class ThinClientMock {
         long cursorID = in.readLong(); //cursor ID
         int rowCount = in.readInt(); //row cnt
 
-        int pageSizeInMsg = msgLen - SCAN_QUERY_HEADER_SIZE;
+        int pageSizeInMsg = msgLen - SCAN_QUERY_HEADER_MESSAGE_SIZE;
 
         readPageToNULL(in, pageSizeInMsg);
 
@@ -195,7 +195,7 @@ public class ThinClientMock {
 
         int rowCount = in.readInt(); //row cnt
 
-        int pageSizeInMsg = msgLen - READ_NEXT_PAGE_SIZE;
+        int pageSizeInMsg = msgLen - READ_NEXT_PAGE_MESSAGE_SIZE;
 
         readPageToNULL(in, pageSizeInMsg);
 
