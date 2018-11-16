@@ -2594,6 +2594,7 @@ public class CommandHandler {
             .collect(Collectors.toList());
     }
 
+    /** */
     private void printHelp() {
         log("This utility can do the following commands:");
 
