@@ -24,11 +24,13 @@ if (!$currentPostBuildCmd.Contains($IgnitePostBuildCmd)) {
     # The raw project can include multiple conditional PostBuildEvent elements while the loaded "$project" includes 
     # single unconditional PostBuildEvent whose raw condition was resolved as "true" during the project load.
     # We want to update all conditions. Thus, we update the raw project instead of the loaded "$project.
-    [xml]$projectXml = Get-Content -Path $project.FileName
-    $ns = New-Object System.Xml.XmlNamespaceManager($projectXml.NameTable)
-    $ns.AddNamespace("ns", $projectXml.DocumentElement.NamespaceURI)
+    #[xml]$projectXml = Get-Content -Path $project.FileName
+    #$ns = New-Object System.Xml.XmlNamespaceManager($projectXml.NameTable)
+    #$ns.AddNamespace("ns", $projectXml.DocumentElement.NamespaceURI)
 
     $project.Properties.Item("PostBuildEvent").Value += $IgnitePostBuildCmd
+
+    ForEach ($item in $project.ProjectItems) { Write-Host $item.Name }
 
     # Save
     $project.Save()
