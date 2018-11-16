@@ -20,6 +20,7 @@ package org.apache.ignite.examples.ml.util.benchmark.thinclient.utils;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 public class Measure {
     private long latency;
@@ -28,6 +29,14 @@ public class Measure {
     public Measure(long latency, long throughput) {
         this.latency = latency;
         this.throughput = throughput;
+    }
+
+    public static Measure sumOf(List<Measure> measures) {
+        assert !measures.isEmpty();
+        Measure sum = measures.stream()
+            .reduce((l,r) -> new Measure(l.latency + r.latency, l.throughput + r.throughput))
+            .get();
+        return new Measure(sum.latency / measures.size(), sum.throughput);
     }
 
     public long getLatency() {

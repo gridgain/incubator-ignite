@@ -26,40 +26,39 @@ import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.ClientOutpu
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.Connection;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.Measure;
 
-public class ThinClientImitation {
-    private static final int SAMPLES = 20;
+public class ThinClientMock {
     private static final int SCAN_QUERY_HEADER_SIZE = 25;
     private static final int READ_NEXT_PAGE_SIZE = 17;
 
-    private static final int[] pageSizes = new int[] {5, 10, 20, 50, 100, 150, 200, 300, 400, 500, 600};
+    private static final String HOST = "localhost";
+    private static final int PORT = 10800;
 
-    public static void main(String... args) throws Exception {
-        for (int pageSize : pageSizes) {
-            ArrayList<Measure> times = new ArrayList<>(SAMPLES);
-            for (int i = 0; i < SAMPLES; i++) {
-                try (Connection connection = new Connection(new Socket("localhost", 10800))) {
-                    long start = System.currentTimeMillis();
-                    FirstQueryResponse firstQueryResponse = handshakeAndQuery(connection, pageSize);
-                    List<PageResponse> nextPages = new ArrayList<>();
-                    boolean isLastPage = firstQueryResponse.isLastPage;
-                    while(!isLastPage) {
-                        PageResponse response = readNextPage(connection, firstQueryResponse);
-                        nextPages.add(response);
-                        isLastPage = response.isLastPage;
-                    }
-                    long end = System.currentTimeMillis();
-                    long dataReceiveTime = end - start;
-                    long totalPayload = (firstQueryResponse.pageSize + nextPages.stream().mapToInt(x -> x.pageSize).sum()) / 1024;
+    private final int pageSize;
 
-                    times.add(new Measure(firstQueryResponse.latency, totalPayload / (dataReceiveTime / 1000)));
-                }
+    public ThinClientMock(int pageSize, int countOfClients, boolean useFilter, boolean splitPartitions) {
+        this.pageSize = pageSize;
+    }
+
+    public Measure measure() throws Exception {
+        try (Connection connection = new Connection(new Socket(HOST, PORT))) {
+            long start = System.currentTimeMillis();
+            FirstQueryResponse firstQueryResponse = handshakeAndQuery(connection, pageSize);
+            List<PageResponse> nextPages = new ArrayList<>();
+            boolean isLastPage = firstQueryResponse.isLastPage;
+            while (!isLastPage) {
+                PageResponse response = readNextPage(connection, firstQueryResponse);
+                nextPages.add(response);
+                isLastPage = response.isLastPage;
             }
+            long end = System.currentTimeMillis();
+            long dataReceiveTime = end - start;
+            long totalPayload = (firstQueryResponse.pageSize + nextPages.stream().mapToInt(x -> x.pageSize).sum()) / 1024;
 
-            Measure.computeStatsAndPrint(pageSize, times);
+            return new Measure(firstQueryResponse.latency, totalPayload / (dataReceiveTime / 1000));
         }
     }
 
-    private static FirstQueryResponse handshakeAndQuery(Connection connection, int pageSize) throws IOException {
+    private FirstQueryResponse handshakeAndQuery(Connection connection, int pageSize) throws IOException {
         FirstQueryResponse response = null;
         ClientOutputStream out = connection.out();
         ClientInputStream in = connection.in();
@@ -82,7 +81,7 @@ public class ThinClientImitation {
         out.writeInt(25);                    // Message length.
         out.writeShort(2000);                // Scan Query opcode.
         out.writeLong(0);                    // Request ID.
-        out.writeInt(ThinClientImitationServer.CACHE_NAME.hashCode());  // Cache Name hash code.
+        out.writeInt(ServerMock.CACHE_NAME.hashCode());  // Cache Name hash code.
         out.writeByte(0);                    // Flags.
         out.writeByte(101);                  // Filter (NULL).
         out.writeInt(pageSize);                 // Page Size.
@@ -116,8 +115,7 @@ public class ThinClientImitation {
         return new FirstQueryResponse(latency, cursorID, rowCount, pageSizeInMsg, isLastPage);
     }
 
-
-    private static void readPageToNULL(ClientInputStream in, int pageSize) throws IOException {
+    private void readPageToNULL(ClientInputStream in, int pageSize) throws IOException {
         int BUFFER_LEN = 1024 * 1024;
         byte[] buffer = new byte[BUFFER_LEN];
         int received = 0;
@@ -133,7 +131,7 @@ public class ThinClientImitation {
         }
     }
 
-    private static PageResponse readNextPage(Connection connection, FirstQueryResponse firstQueryResponse) throws IOException {
+    private PageResponse readNextPage(Connection connection, FirstQueryResponse firstQueryResponse) throws IOException {
         ClientOutputStream out = connection.out();
         ClientInputStream in = connection.in();
 

@@ -24,7 +24,7 @@ import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.configuration.CacheConfiguration;
 
-public class ThinClientImitationServer {
+public class ServerMock {
     public static final String CACHE_NAME = "THIN_CLIENT_IMITATION_CACHE";
 
     private static final int VALUE_OBJECT_SIZE_IN_BYTES = 1024 * 1024;
