@@ -1001,9 +1001,15 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
                 CacheLazyEntry e = new CacheLazyEntry(cctx, key, old, keepBinary);
 
-                Object interceptorVal = cctx.config().getInterceptor().onBeforePut(
-                    new CacheLazyEntry(cctx, key, old, keepBinary),
-                    val0);
+                Object interceptorVal = val0;
+
+                boolean interceptorDisabled = cctx.dr().cacheInterceptorDisabled() &&
+                    explicitVer != null && explicitVer.dataCenterId() != cctx.dr().dataCenterId();
+
+                if (intercept = !interceptorDisabled) {
+                    interceptorVal = cctx.config().getInterceptor().onBeforePut(
+                        new CacheLazyEntry(cctx, key, old, keepBinary), val0);
+                }
 
                 key0 = e.key();
 
@@ -1206,7 +1212,14 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             if (intercept) {
                 entry0 = new CacheLazyEntry(cctx, key, old, keepBinary);
 
-                interceptRes = cctx.config().getInterceptor().onBeforeRemove(entry0);
+                boolean interceptorDisabled = cctx.dr().cacheInterceptorDisabled() &&
+                    explicitVer != null && explicitVer.dataCenterId() != cctx.dr().dataCenterId();
+
+                if (intercept = !interceptorDisabled)
+                    interceptRes = cctx.config().getInterceptor().onBeforeRemove(entry0);
+                else
+                    interceptRes = new IgniteBiTuple<>(false, entry0.getValue());
+
 
                 if (cctx.cancelRemove(interceptRes)) {
                     CacheObject ret = cctx.toCacheObject(cctx.unwrapTemporary(interceptRes.get2()));
@@ -1957,7 +1970,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             cctx.dataStructures().onEntryUpdated(key, c.op == GridCacheOperation.DELETE, keepBinary);
 
-            if (intercept) {
+            if (intercept && !c.disableInterceptAfterFlag) {
                 if (c.op == GridCacheOperation.UPDATE) {
                     cctx.config().getInterceptor().onAfterPut(new CacheLazyEntry(
                         cctx,
@@ -4554,6 +4567,9 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         /** */
         private CacheDataRow oldRow;
 
+        /** Disable interceptor invocation onAfter* methods flag. */
+        private boolean disableInterceptAfterFlag = false;
+
         AtomicCacheUpdateClosure(
             GridCacheMapEntry entry,
             AffinityTopologyVersion topVer,
@@ -4923,7 +4939,10 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                     null,
                     keepBinary);
 
-                Object interceptorVal = cctx.config().getInterceptor().onBeforePut(interceptEntry, updated0);
+                Object interceptorVal = updated0;
+
+                if (!(disableInterceptAfterFlag = cctx.dr().cacheInterceptorDisabled() && conflictVer != null))
+                    interceptorVal = cctx.config().getInterceptor().onBeforePut(interceptEntry, updated0);
 
                 if (interceptorVal == null) {
                     treeOp = IgniteTree.OperationType.NOOP;
@@ -5028,7 +5047,10 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                     null,
                     keepBinary);
 
-                interceptRes = cctx.config().getInterceptor().onBeforeRemove(intercepEntry);
+                if (disableInterceptAfterFlag = cctx.dr().cacheInterceptorDisabled() && conflictVer != null)
+                    interceptRes = new IgniteBiTuple<>(false, intercepEntry.getValue());
+                else
+                    interceptRes = cctx.config().getInterceptor().onBeforeRemove(intercepEntry);
 
                 if (cctx.cancelRemove(interceptRes)) {
                     treeOp = IgniteTree.OperationType.NOOP;
