@@ -87,8 +87,10 @@ public class ThinClientMock {
             isLastPage = response.isLastPage;
         }
         long totalPayload = (firstQueryResponse.pageSize + nextPages.stream().mapToInt(x -> x.pageSize).sum()) / 1024;
+        closeCursor(connection, firstQueryResponse.cursorId);
         return new IgniteBiTuple<>(firstQueryResponse.latency, totalPayload);
     }
+
 
     private void handshake(Connection connection) throws IOException {
         ClientOutputStream out = connection.out();
@@ -121,7 +123,7 @@ public class ThinClientMock {
         out.writeByte(0);                    // Flags.
         out.writeByte(101);                  // Filter (NULL).
         out.writeInt(pageSize);                 // Page Size.
-        out.writeInt(partitionId);                    // Partition to query.
+        out.writeInt(partitionId);              // Partition to query.
         out.writeByte(1);                    // Local flag.
         out.flush();
 
@@ -166,6 +168,17 @@ public class ThinClientMock {
             received += res;
             Benchmark.downloadedBytes.addAndGet(res);
         }
+    }
+
+    private void closeCursor(Connection connection, long cursorId) throws IOException {
+//        try {
+//            ClientOutputStream out = connection.out();
+//            out.writeInt(18); //msg lengh
+//            out.writeShort(0); //close resource
+//            out.writeLong(0); //req id
+//            out.writeLong(cursorId); //cursor ID
+//            out.flush();
+//        }
     }
 
     private PageResponse readNextPage(Connection connection, FirstQueryResponse firstQueryResponse) throws IOException {

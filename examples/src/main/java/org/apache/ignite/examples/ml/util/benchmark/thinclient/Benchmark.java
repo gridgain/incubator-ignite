@@ -60,7 +60,7 @@ public class Benchmark {
                     long alreadyDownloadedKBytes = downloadedBytes.get() / 1024;
                     ArrayList<Measure> times = new ArrayList<>(SAMPLES);
                     for (int i = 0; i < SAMPLES; i++)
-                        times.add(oneMeasure(pageSize, USE_FILTER, DISTINGUISH_PARTITIONS));
+                        times.add(oneMeasure(pageSize, threadCount, USE_FILTER, DISTINGUISH_PARTITIONS));
 
                     System.out.println(String.format("measure [page size = %d, thread count = %d, downloaded kbytes = %d]",
                         pageSize, threadCount, (downloadedBytes.get() / 1024) - alreadyDownloadedKBytes
@@ -84,13 +84,13 @@ public class Benchmark {
         printTable(benchMeta);
     }
 
-    private static Measure oneMeasure(int pageSize, boolean useFilter, boolean distinguishPartitions) throws Exception {
+    private static Measure oneMeasure(int pageSize, int currentClientCount, boolean useFilter, boolean distinguishPartitions) throws Exception {
         ArrayList<Future<Optional<Measure>>> futures = new ArrayList<>(MAX_THREAD_COUNT);
-        for (int i = 0; i < MAX_THREAD_COUNT; i++) {
+        for (int i = 0; i < currentClientCount; i++) {
             final int clientID = i;
             futures.add(POOL.submit(() -> {
                 return new ThinClientMock(
-                    pageSize, clientID, MAX_THREAD_COUNT,
+                    pageSize, clientID, currentClientCount,
                     useFilter, distinguishPartitions
                 ).measure();
             }));
