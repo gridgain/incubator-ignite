@@ -49,7 +49,6 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.managers.discovery.ConsistentIdMapper;
 import org.apache.ignite.internal.managers.eventstorage.GridEventStorageManager;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
-import org.apache.ignite.internal.pagemem.wal.record.TxRecord;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheInvokeEntry;
 import org.apache.ignite.internal.processors.cache.CacheLazyEntry;
@@ -74,7 +73,7 @@ import org.apache.ignite.internal.processors.cache.version.GridCacheLazyPlainVer
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersionConflictContext;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersionedEntryEx;
-import org.apache.ignite.internal.processors.cluster.BaselineTopology;
+import org.apache.ignite.internal.transactions.IgniteTxHeuristicCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxRollbackCheckedException;
 import org.apache.ignite.internal.transactions.IgniteTxTimeoutCheckedException;
 import org.apache.ignite.internal.util.GridSetWrapper;
@@ -90,7 +89,6 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.thread.IgniteThread;
 import org.apache.ignite.transactions.TransactionConcurrency;
@@ -282,7 +280,7 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
     private volatile IgniteInternalFuture rollbackFut;
 
     /** */
-    private volatile TxCounters txCounters = new TxCounters();
+    private volatile TxCounters txCounters;
 
     /**
      * Empty constructor required for {@link Externalizable}.
@@ -479,7 +477,6 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
     /**
      * Uncommits transaction by invalidating all of its entries. Courtesy to minimize inconsistency.
      */
-    @SuppressWarnings({"CatchGenericClass"})
     protected void uncommit() {
         for (IgniteTxEntry e : writeMap().values()) {
             try {
@@ -764,6 +761,36 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
             "[timeout=" + timeout() + ", tx=" + CU.txString(this) + ']');
     }
 
+    /**
+     * @param ex Root cause.
+     */
+    public final IgniteCheckedException heuristicException(Throwable ex) {
+        return new IgniteTxHeuristicCheckedException("Committing a transaction has produced runtime exception", ex);
+    }
+
+    /**
+     * @param log Log.
+     * @param commit Commit.
+     * @param e Exception.
+     */
+    public void logTxFinishErrorSafe(@Nullable IgniteLogger log, boolean commit, Throwable e) {
+        assert e != null : "Exception is expected";
+
+        final String fmt = "Failed completing the transaction: [commit=%s, tx=%s, plc=%s]";
+
+        try {
+            // First try printing a full transaction. This is error prone.
+            U.error(log, String.format(fmt, commit, this,
+                cctx.gridConfig().getFailureHandler().getClass().getSimpleName()), e);
+        }
+        catch (Throwable e0) {
+            e.addSuppressed(e0);
+
+            U.error(log, String.format(fmt, commit, CU.txString(this),
+                cctx.gridConfig().getFailureHandler().getClass().getSimpleName()), e);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override public GridCacheVersion xidVersion() {
         return xidVer;
@@ -807,7 +834,6 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("SimplifiableIfStatement")
     @Override public boolean ownsLock(GridCacheEntryEx entry) throws GridCacheEntryRemovedException {
         GridCacheContext<?, ?> cacheCtx = entry.context();
 
@@ -823,7 +849,6 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("SimplifiableIfStatement")
     @Override public boolean ownsLockUnsafe(GridCacheEntryEx entry) {
         GridCacheContext cacheCtx = entry.context();
 
@@ -1015,7 +1040,6 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("ExternalizableWithoutPublicNoArgConstructor")
     @Override public IgniteInternalFuture<IgniteInternalTx> finishFuture() {
         GridFutureAdapter<IgniteInternalTx> fut = finFut;
 
@@ -1170,30 +1194,8 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
                         }
                     }
 
-                    // Log tx state change to WAL.
-                    if (cctx.wal() != null && cctx.tm().logTxRecords() && txNodes != null) {
-
-                        BaselineTopology baselineTop = cctx.kernalContext().state().clusterState().baselineTopology();
-
-                        Map<Short, Collection<Short>> participatingNodes = consistentIdMapper
-                            .mapToCompactIds(topVer, txNodes, baselineTop);
-
-                        TxRecord txRecord = new TxRecord(
-                            state,
-                            nearXidVersion(),
-                            writeVersion(),
-                            participatingNodes
-                        );
-
-                        try {
-                            ptr = cctx.wal().log(txRecord);
-                        }
-                        catch (IgniteCheckedException e) {
-                            U.error(log, "Failed to log TxRecord: " + txRecord, e);
-
-                            throw new IgniteException("Failed to log TxRecord: " + txRecord, e);
-                        }
-                    }
+                    if (!txState().mvccEnabled())
+                        ptr = cctx.tm().logTxRecord(this);
                 }
             }
         }
@@ -1372,7 +1374,6 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
      * @param writeEntries Transaction write set.
      * @throws IgniteCheckedException If batch update failed.
      */
-    @SuppressWarnings({"CatchGenericClass"})
     protected final void batchStoreCommit(Iterable<IgniteTxEntry> writeEntries) throws IgniteCheckedException {
         if (!storeEnabled() || internal() ||
             (!local() && near())) // No need to work with local store at GridNearTxRemote.
@@ -2227,6 +2228,11 @@ public abstract class IgniteTxAdapter extends GridMetadataAwareAdapter implement
 
         /** {@inheritDoc} */
         @Override public void commitError(Throwable e) {
+            throw new IllegalStateException("Deserialized transaction can only be used as read-only.");
+        }
+
+        /** {@inheritDoc} */
+        @Nullable @Override public String label() {
             throw new IllegalStateException("Deserialized transaction can only be used as read-only.");
         }
 
