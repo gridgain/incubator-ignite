@@ -674,8 +674,7 @@ public class CommandHandler {
             .flatMap(node -> Stream.concat(
                 node.tcpAddresses() == null ? Stream.empty() : node.tcpAddresses().stream(),
                 node.tcpHostNames() == null ? Stream.empty() : node.tcpHostNames().stream()
-            )
-                .map(addr -> new IgniteBiTuple<>(node, addr + ":" + node.tcpPort())));
+            ).map(addr -> new IgniteBiTuple<>(node, addr + ":" + node.tcpPort())));
     }
 
     /**
@@ -2439,10 +2438,10 @@ public class CommandHandler {
      * @param msg Message.
      * @return Password.
      */
-    private char[] requestPasswordFromConsole(String msg){
+    private char[] requestPasswordFromConsole(String msg) {
         Console console = System.console();
 
-        if(console == null)
+        if (console == null)
             throw new UnsupportedOperationException("Console unassailable! Can't secure read password! " + msg);
         else
             return console.readPassword(msg);
@@ -2454,10 +2453,10 @@ public class CommandHandler {
      * @param msg Message.
      * @return Input user data.
      */
-    private String requestDataFromConsole(String msg){
+    private String requestDataFromConsole(String msg) {
         Console console = System.console();
 
-        if(console != null)
+        if (console != null)
             return console.readLine(msg);
         else {
             Scanner scanner = new Scanner(System.in);
