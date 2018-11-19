@@ -229,6 +229,8 @@ public class UpgradePendingTreeToPerPartitionTask implements IgniteCallable<Bool
                     oldPendingEntries.removex(row);
                 }
 
+                log.info("Processed -> " + cnt);
+
                 if (cnt < BATCH_SIZE)
                     break;
             }
@@ -239,7 +241,7 @@ public class UpgradePendingTreeToPerPartitionTask implements IgniteCallable<Bool
 
         log.info("PendingTree upgraded: " +
             "[grpId=" + grp.groupId() +
-            ", grpName=" + grp.name() +
+            ", grpName=" + grp.cacheOrGroupName() +
             ", processedEntries=" + processedEntriesCnt +
             ", failedEntries=" + skippedEntries +
             ']');
@@ -272,7 +274,7 @@ public class UpgradePendingTreeToPerPartitionTask implements IgniteCallable<Bool
                 "to per-partition PendingTree: key not found (skipping): " +
                 "[grpId=" + grp.groupId() +
                 ", grpName=" + grp.name() +
-                ", pendingRow=" + row + "]");
+                ", pendingRow=" + row + "]", ex);
 
             return null;
         }

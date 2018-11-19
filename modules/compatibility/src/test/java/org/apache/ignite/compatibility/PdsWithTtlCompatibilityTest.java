@@ -134,6 +134,9 @@ public class PdsWithTtlCompatibilityTest extends IgnitePersistenceCompatibilityA
     public static void validateResultingCacheData(Ignite ignite,
         IgniteCache<Object, Object> cache) throws IgniteInterruptedCheckedException {
 
+        for (int i = 0; i < ENTRIES_CNT; i++)
+            assertNotNull(cache.get(i));
+
         final long expireTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(DURATION_SEC + 1);
 
         final IgniteFuture<Collection<Boolean>> future = ignite.compute().broadcastAsync(new UpgradePendingTreeToPerPartitionTask());
