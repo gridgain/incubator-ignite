@@ -70,20 +70,4 @@ public class IgnitePdsDestroyCacheWithoutCheckpointsTest extends IgnitePdsDestro
 
         checkDestroyCachesAbruptly(ignite);
     }
-
-    /**
-     * Disable checkpoints on nodes.
-     *
-     * @throws IgniteCheckedException If failed.
-     */
-    private void disableCheckpoints() throws IgniteCheckedException {
-        for (Ignite ignite : G.allGrids()) {
-            assert !ignite.cluster().localNode().isClient();
-
-            GridCacheDatabaseSharedManager dbMgr = (GridCacheDatabaseSharedManager)((IgniteEx)ignite).context()
-                    .cache().context().database();
-
-            dbMgr.enableCheckpoints(false).get();
-        }
-    }
 }

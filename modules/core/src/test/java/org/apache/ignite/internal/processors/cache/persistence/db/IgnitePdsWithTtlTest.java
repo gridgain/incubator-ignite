@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import javax.cache.expiry.AccessedExpiryPolicy;
 import javax.cache.expiry.CreatedExpiryPolicy;
 import javax.cache.expiry.Duration;
-import javax.cache.expiry.ExpiryPolicy;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.cache.CacheRebalanceMode;
@@ -50,13 +50,23 @@ import static org.apache.ignite.IgniteSystemProperties.IGNITE_BASELINE_AUTO_ADJU
  */
 public class IgnitePdsWithTtlTest extends GridCommonAbstractTest {
     /** */
-    public static final String CACHE_NAME = "expirableCache";
+    public static final String EXPIRABLE_CACHE = "expirableCache";
+
+    /** */
+    public static final String NOT_EXPIRABLE_CACHE_NAME = "notExpirableCache";
 
     /** */
     private static final int EXPIRATION_TIMEOUT = 10;
 
     /** */
-    public static final int ENTRIES = 100_000;
+    public static final Duration EXPIRATION_DURATION = new Duration(TimeUnit.SECONDS, EXPIRATION_TIMEOUT);
+
+    /** */
+    public static final int ENTRIES = 40_000;
+
+
+    /** */
+    protected int lastId = 0;
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
@@ -95,14 +105,23 @@ public class IgnitePdsWithTtlTest extends GridCommonAbstractTest {
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         final IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        final CacheConfiguration ccfg = new CacheConfiguration();
-        ccfg.setName(CACHE_NAME);
-        ccfg.setAffinity(new RendezvousAffinityFunction(false, 32));
-        ccfg.setExpiryPolicyFactory(AccessedExpiryPolicy.factoryOf(new Duration(TimeUnit.SECONDS, EXPIRATION_TIMEOUT)));
-        ccfg.setEagerTtl(true);
-        ccfg.setGroupName("group1");
-        ccfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
-        ccfg.setRebalanceMode(CacheRebalanceMode.SYNC);
+        final CacheConfiguration expCacheCfg = new CacheConfiguration();
+        expCacheCfg.setName(EXPIRABLE_CACHE);
+        expCacheCfg.setAffinity(new RendezvousAffinityFunction(false, 32));
+        expCacheCfg.setExpiryPolicyFactory(AccessedExpiryPolicy.factoryOf(EXPIRATION_DURATION));
+        expCacheCfg.setEagerTtl(true);
+        expCacheCfg.setGroupName("group1");
+        expCacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+        expCacheCfg.setRebalanceMode(CacheRebalanceMode.SYNC);
+
+        final CacheConfiguration notExpCacheCfg = new CacheConfiguration();
+        notExpCacheCfg.setName(NOT_EXPIRABLE_CACHE_NAME);
+        notExpCacheCfg.setAffinity(new RendezvousAffinityFunction(false, 32));
+        notExpCacheCfg.setEagerTtl(true);
+        notExpCacheCfg.setGroupName("group2");
+        notExpCacheCfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.FULL_SYNC);
+        notExpCacheCfg.setRebalanceMode(CacheRebalanceMode.SYNC);
+
 
         cfg.setDataStorageConfiguration(
             new DataStorageConfiguration()
@@ -112,7 +131,7 @@ public class IgnitePdsWithTtlTest extends GridCommonAbstractTest {
                         .setPersistenceEnabled(true)
                 ).setWalMode(WALMode.LOG_ONLY));
 
-        cfg.setCacheConfiguration(ccfg);
+        cfg.setCacheConfiguration(expCacheCfg, notExpCacheCfg);
 
         return cfg;
     }
@@ -122,37 +141,48 @@ public class IgnitePdsWithTtlTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTtlIsApplied() throws Exception {
-        loadAndWaitForCleanup(false);
+        loadAndWaitForCleanup(false, false);
     }
 
     /**
      * @throws Exception if failed.
      */
     @Test
-    public void testTtlIsAppliedAfterRestart() throws Exception {
-        loadAndWaitForCleanup(true);
+    public void testTtlIsAppliedAfterRestartWithCheckpoint() throws Exception {
+        loadAndWaitForCleanup(true, true);
     }
 
     /**
      * @throws Exception if failed.
      */
-    private void loadAndWaitForCleanup(boolean restartGrid) throws Exception {
+    public void testTtlIsAppliedAfterRestartWithoutCheckpoint() throws Exception {
+        loadAndWaitForCleanup(true, false);
+    }
+
+    /**
+     * @throws Exception if failed.
+     */
+    private void loadAndWaitForCleanup(boolean restartGrid, boolean makeCheckpoint) throws Exception {
         IgniteEx srv = startGrid(0);
         srv.cluster().active(true);
 
-        fillCache(srv.cache(CACHE_NAME));
+        if (!makeCheckpoint)
+            disableCheckpoints();
+
+        fillCaches(srv);
+
+        if (makeCheckpoint)
+            forceCheckpoint(srv);
 
         if (restartGrid) {
             stopGrid(0);
             srv = startGrid(0);
             srv.cluster().active(true);
+
+            fillCaches(srv);
         }
 
-        final IgniteCache<Integer, byte[]> cache = srv.cache(CACHE_NAME);
-
-        pringStatistics((IgniteCacheProxy)cache, "After restart from LFS");
-
-        waitAndCheckExpired(cache);
+        waitedAndCheckExpired(srv);
 
         stopAllGrids();
     }
@@ -165,18 +195,14 @@ public class IgnitePdsWithTtlTest extends GridCommonAbstractTest {
         IgniteEx srv = startGrid(0);
         srv.cluster().active(true);
 
-        fillCache(srv.cache(CACHE_NAME));
+        fillCaches(srv);
 
         srv = startGrid(1);
 
         //causes rebalancing start
         srv.cluster().setBaselineTopology(srv.cluster().topologyVersion());
 
-        final IgniteCache<Integer, byte[]> cache = srv.cache(CACHE_NAME);
-
-        pringStatistics((IgniteCacheProxy)cache, "After rebalancing start");
-
-        waitAndCheckExpired(cache);
+        waitedAndCheckExpired(srv);
 
         stopAllGrids();
     }
@@ -191,22 +217,20 @@ public class IgnitePdsWithTtlTest extends GridCommonAbstractTest {
             startGrid(1);
             srv.cluster().active(true);
 
-            ExpiryPolicy plc = CreatedExpiryPolicy.factoryOf(Duration.ONE_DAY).create();
-
-            IgniteCache<Integer, byte[]> cache0 = srv.cache(CACHE_NAME);
-
-            fillCache(cache0.withExpiryPolicy(plc));
+            fillCaches(srv);
 
             srv = startGrid(2);
 
-            IgniteCache<Integer, byte[]> cache = srv.cache(CACHE_NAME);
+            IgniteCache<Integer, byte[]> expCache = srv.cache(NOT_EXPIRABLE_CACHE_NAME);
+            IgniteCache<Integer, byte[]> notExpCache = srv.cache(EXPIRABLE_CACHE);
 
             //causes rebalancing start
             srv.cluster().setBaselineTopology(srv.cluster().topologyVersion());
 
             GridTestUtils.waitForCondition(new GridAbsPredicate() {
                 @Override public boolean apply() {
-                    return Boolean.TRUE.equals(cache.rebalance().get()) && cache.localSizeLong(CachePeekMode.ALL) > 0;
+                    return Boolean.TRUE.equals(expCache.rebalance().get()) && expCache.localSizeLong(CachePeekMode.ALL) > 0
+                        && Boolean.TRUE.equals(notExpCache.rebalance().get()) && notExpCache.localSizeLong(CachePeekMode.ALL) > 0;
                 }
             }, 20_000);
 
@@ -216,6 +240,8 @@ public class IgnitePdsWithTtlTest extends GridCommonAbstractTest {
 
             stopGrid(1);
             startGrid(1);
+
+            waitedAndCheckExpired(srv);
         }
         finally {
             stopAllGrids();
@@ -223,32 +249,43 @@ public class IgnitePdsWithTtlTest extends GridCommonAbstractTest {
     }
 
     /** */
-    protected void fillCache(IgniteCache<Integer, byte[]> cache) {
+    private void fillCache(IgniteCache<Object, Object> cache) {
         cache.putAll(new TreeMap<Integer, byte[]>() {{
             for (int i = 0; i < ENTRIES; i++)
-                put(i, new byte[1024]);
+                put(++lastId, new byte[1024]);
         }});
-
-        //Touch entries.
-        for (int i = 0; i < ENTRIES; i++)
-            cache.get(i); // touch entries
-
-        pringStatistics((IgniteCacheProxy)cache, "After cache puts");
     }
 
     /** */
-    protected void waitAndCheckExpired(
-        final IgniteCache<Integer, byte[]> cache) throws IgniteInterruptedCheckedException {
+    private void fillCaches(Ignite ignite) {
+        fillCache(ignite.cache(EXPIRABLE_CACHE));
+
+        IgniteCache<Object, Object> cache1 = ignite.cache(NOT_EXPIRABLE_CACHE_NAME);
+
+        fillCache(cache1.withExpiryPolicy(CreatedExpiryPolicy.factoryOf(EXPIRATION_DURATION).create()));
+        fillCache(cache1.withExpiryPolicy(CreatedExpiryPolicy.factoryOf(EXPIRATION_DURATION).create()));
+        fillCache(cache1.withExpiryPolicy(CreatedExpiryPolicy.factoryOf(EXPIRATION_DURATION).create()));
+        fillCache(cache1.withExpiryPolicy(CreatedExpiryPolicy.factoryOf(EXPIRATION_DURATION).create()));
+    }
+
+    /** */
+    private void waitedAndCheckExpired(Ignite ignite) throws IgniteInterruptedCheckedException {
+        IgniteCache<Object, Object> expCache = ignite.cache(EXPIRABLE_CACHE);
+        IgniteCache<Object, Object> notExpCache = ignite.cache(NOT_EXPIRABLE_CACHE_NAME);
+
         GridTestUtils.waitForCondition(new PA() {
             @Override public boolean apply() {
-                return cache.size() == 0;
+                System.out.println("expCache.size():"+expCache.size());
+                System.out.println("notExpCache.size():"+notExpCache.size());
+                return expCache.size() == 0 && notExpCache.size() == 0;
             }
-        }, TimeUnit.SECONDS.toMillis(EXPIRATION_TIMEOUT + 1));
+        }, TimeUnit.SECONDS.toMillis(EXPIRATION_TIMEOUT) + 2*60000);
 
-        pringStatistics((IgniteCacheProxy)cache, "After timeout");
+        pringStatistics((IgniteCacheProxy)expCache, "After timeout");
+        pringStatistics((IgniteCacheProxy)notExpCache, "After timeout");
 
-        for (int i = 0; i < ENTRIES; i++)
-            assertNull(cache.get(i));
+        assertEquals("Cache size should equals to 0", 0, expCache.size());
+        assertEquals("Cache size should equals to 0", 0, notExpCache.size());
     }
 
     /** */

@@ -1939,6 +1939,22 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
     }
 
     /**
+     * Disable checkpoints on nodes.
+     *
+     * @throws IgniteCheckedException If failed.
+     */
+    protected void disableCheckpoints() throws IgniteCheckedException {
+        for (Ignite ignite : G.allGrids()) {
+            assert !ignite.cluster().localNode().isClient();
+
+            GridCacheDatabaseSharedManager dbMgr = (GridCacheDatabaseSharedManager)((IgniteEx)ignite).context()
+                .cache().context().database();
+
+            dbMgr.enableCheckpoints(false).get();
+        }
+    }
+
+    /**
      * Forces checkpoint on all available nodes.
      *
      * @throws IgniteCheckedException If checkpoint was failed.
