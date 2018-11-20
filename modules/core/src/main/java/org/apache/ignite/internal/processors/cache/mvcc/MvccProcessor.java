@@ -272,4 +272,11 @@ public interface MvccProcessor extends GridProcessor {
      * @throws IgniteCheckedException If failed to initialize.
      */
     void ensureStarted() throws IgniteCheckedException;
+
+    /**
+     * Runs vacuum process.
+     *
+     * @return {@code Future} with {@link VacuumMetrics}.
+     */
+    IgniteInternalFuture<VacuumMetrics> runVacuum();
 }

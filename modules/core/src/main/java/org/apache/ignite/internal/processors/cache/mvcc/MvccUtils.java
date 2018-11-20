@@ -19,8 +19,10 @@ package org.apache.ignite.internal.processors.cache.mvcc;
 
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.IgniteProperties;
 import org.apache.ignite.internal.cluster.ClusterTopologyServerNotFoundException;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
@@ -52,6 +54,9 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
  * Utils for MVCC.
  */
 public class MvccUtils {
+    /** */
+    private static final boolean READ_COMMITTED = IgniteSystemProperties.getBoolean("IGNITE_SQL_READ_COMMITTED");
+
     /** */
     public static final int MVCC_KEY_ABSENT_BEFORE_OFF = 29;
 
@@ -792,7 +797,7 @@ public class MvccUtils {
         MvccQueryTracker tracker;
 
         if (tx == null)
-            tracker = new MvccQueryTrackerImpl(cctx);
+            tracker = READ_COMMITTED ? new StaticMvccQueryTracker(cctx, MVCC_MAX_SNAPSHOT) : new MvccQueryTrackerImpl(cctx);
         else if ((tracker = tx.mvccQueryTracker()) == null)
             tracker = new StaticMvccQueryTracker(cctx, requestSnapshot(cctx, tx));
 
