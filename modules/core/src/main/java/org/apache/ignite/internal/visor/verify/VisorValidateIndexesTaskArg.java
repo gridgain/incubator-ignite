@@ -20,10 +20,14 @@ package org.apache.ignite.internal.visor.verify;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
+import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.visor.VisorDataTransferObject;
+
 
 /**
  * Arguments for task {@link VisorIdleVerifyTask}
@@ -41,6 +45,8 @@ public class VisorValidateIndexesTaskArg extends VisorDataTransferObject {
     /** Check through K element (skip K-1, check Kth). */
     private int checkThrough;
 
+    private Set<UUID> nodes;
+
     /**
      * Default constructor.
      */
@@ -51,10 +57,11 @@ public class VisorValidateIndexesTaskArg extends VisorDataTransferObject {
     /**
      * @param caches Caches.
      */
-    public VisorValidateIndexesTaskArg(Set<String> caches, int checkFirst, int checkThrough) {
+    public VisorValidateIndexesTaskArg(Set<String> caches, Set<UUID> nodes, int checkFirst, int checkThrough) {
         this.caches = caches;
         this.checkFirst = checkFirst;
         this.checkThrough = checkThrough;
+        this.nodes = nodes;
     }
 
 
@@ -63,6 +70,10 @@ public class VisorValidateIndexesTaskArg extends VisorDataTransferObject {
      */
     public Set<String> getCaches() {
         return caches;
+    }
+
+    public Set<UUID> nodes() {
+        return nodes;
     }
 
     /**
@@ -84,6 +95,7 @@ public class VisorValidateIndexesTaskArg extends VisorDataTransferObject {
         U.writeCollection(out, caches);
         out.writeInt(checkFirst);
         out.writeInt(checkThrough);
+        U.writeCollection(out, nodes);
     }
 
     /** {@inheritDoc} */
@@ -98,11 +110,15 @@ public class VisorValidateIndexesTaskArg extends VisorDataTransferObject {
             checkFirst = -1;
             checkThrough = -1;
         }
+
+        if (protoVer > V2) {
+            nodes = U.readSet(in);
+        }
     }
 
     /** {@inheritDoc} */
     @Override public byte getProtocolVersion() {
-        return V2;
+        return V3;
     }
 
     /** {@inheritDoc} */

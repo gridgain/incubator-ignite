@@ -870,14 +870,13 @@ public class CommandHandler {
     private void cacheValidateIndexes(GridClient client, CacheArguments cacheArgs) throws GridClientException {
         VisorValidateIndexesTaskArg taskArg = new VisorValidateIndexesTaskArg(
             cacheArgs.caches(),
+            cacheArgs.nodeId() != null ? Collections.singleton(cacheArgs.nodeId()) : null,
             cacheArgs.checkFirst(),
             cacheArgs.checkThrough()
         );
 
-        UUID nodeId = cacheArgs.nodeId() == null ? BROADCAST_UUID : cacheArgs.nodeId();
-
         VisorValidateIndexesTaskResult taskRes = executeTaskByNameOnNode(
-            client, VALIDATE_INDEXES_TASK, taskArg, nodeId);
+            client, VALIDATE_INDEXES_TASK, taskArg, null);
 
         if (!F.isEmpty(taskRes.exceptions())) {
             log("Index validation failed on nodes:");
