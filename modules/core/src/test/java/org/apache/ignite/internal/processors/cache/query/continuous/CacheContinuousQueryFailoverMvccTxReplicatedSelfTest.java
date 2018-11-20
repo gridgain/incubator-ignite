@@ -14,22 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ignite.internal.processors.cache.query.continuous;
 
-form-field-size {
-    --scale-select-width: 60px;
-    --error-area-width: 36px;
-    --default-input-padding-horizontal: 10px;
+import org.apache.ignite.cache.CacheMode;
 
-	display: block;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
-    .form-field__error {
-        width: var(--error-area-width);
-        position: absolute;
-        right: var(--scale-select-width);
-        bottom: 0;
-    }
-
-    &.ng-invalid input, input.ng-invalid {
-        padding-right: var(--error-area-width);
+/**
+ *
+ */
+public class CacheContinuousQueryFailoverMvccTxReplicatedSelfTest extends CacheContinuousQueryFailoverMvccTxSelfTest {
+    /** {@inheritDoc} */
+    @Override protected CacheMode cacheMode() {
+        return REPLICATED;
     }
 }
