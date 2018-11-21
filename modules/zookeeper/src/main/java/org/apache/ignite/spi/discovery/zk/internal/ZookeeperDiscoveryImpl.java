@@ -690,6 +690,13 @@ public class ZookeeperDiscoveryImpl {
     }
 
     /**
+     * Resets grid start time to current time.
+     */
+    public void resetGridStartTime() {
+        rtState.gridStartTime = System.currentTimeMillis();
+    }
+
+    /**
      * Starts join procedure and waits for {@link EventType#EVT_NODE_JOINED} event for local node.
      *
      * @throws InterruptedException If interrupted.

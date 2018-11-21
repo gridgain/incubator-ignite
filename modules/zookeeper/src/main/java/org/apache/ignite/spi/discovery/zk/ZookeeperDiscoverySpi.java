@@ -402,6 +402,14 @@ public class ZookeeperDiscoverySpi extends IgniteSpiAdapter implements IgniteDis
         return impl.gridStartTime();
     }
 
+    /**
+     * Resets grid start time to current time.
+     */
+    @SuppressWarnings("unused")
+    public void resetGridStartTime() {
+        impl.resetGridStartTime();
+    }
+
     /** {@inheritDoc} */
     @Override public void sendCustomEvent(DiscoverySpiCustomMessage msg) {
         IgniteDiscoverySpiInternalListener internalLsnr = impl.internalLsnr;

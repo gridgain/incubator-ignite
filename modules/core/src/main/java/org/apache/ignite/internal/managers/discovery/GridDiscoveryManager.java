@@ -25,6 +25,7 @@ import java.lang.management.MemoryUsage;
 import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.RuntimeMXBean;
 import java.lang.management.ThreadMXBean;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -2253,6 +2254,20 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
      */
     public long gridStartTime() {
         return getSpi().getGridStartTime();
+    }
+
+    /**
+     * Resets grid start time to current time.
+     */
+    public void resetGridStartTime() {
+        DiscoverySpi spi = getSpi();
+
+        try {
+            spi.getClass().getMethod("resetGridStartTime").invoke(spi);
+        }
+        catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            throw new IgniteException(e);
+        }
     }
 
     /**
