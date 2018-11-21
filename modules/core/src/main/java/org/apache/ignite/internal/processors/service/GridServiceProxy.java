@@ -429,9 +429,12 @@ public class GridServiceProxy<T> implements Serializable {
             if (svcCtx == null || svcCtx.service() == null)
                 throw new GridServiceNotFoundException(svcName);
 
+            final String PLATFORM_INVOKE_MTD_NAME = "invokeMethod";
             boolean isPlatformSvc = svcCtx.service() instanceof PlatformService;
+            boolean isProxied = false;
 
-            if (isPlatformSvc) {
+            if (isPlatformSvc && !PLATFORM_INVOKE_MTD_NAME.equals(mtdName)) {
+                isProxied = true;
                 args = new Object[] {mtdName, false, args};
                 mtdName = "invokeMethod";
                 argTypes = new Class[] {String.class, boolean.class, Object[].class};
@@ -453,7 +456,7 @@ public class GridServiceProxy<T> implements Serializable {
                 throw new ServiceProxyException(e.getCause());
             }
 
-            if (isPlatformSvc && res instanceof BinaryObject) {
+            if (isProxied && res instanceof BinaryObject) {
                 try {
                     res = ((BinaryObject)res).deserialize();
                 }
