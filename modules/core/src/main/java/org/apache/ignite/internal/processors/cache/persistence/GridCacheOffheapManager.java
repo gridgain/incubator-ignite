@@ -178,13 +178,6 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
         boolean needSnapshot = ctx.nextSnapshot() && ctx.needToSnapshot(grp.cacheOrGroupName());
 
-        for (CacheDataStore store : partDataStores.values()) {
-            if (notEmpty(store)) {
-
-                break;
-            }
-        }
-
         if (needSnapshot) {
             if (execSvc == null)
                 updateSnapshotTag(ctx);
