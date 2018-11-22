@@ -2257,15 +2257,20 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
     }
 
     /**
-     * Resets grid start time to current time.
+     * Sets grid start time.
+     *
+     * @param val New time value.
      */
-    public void resetGridStartTime() {
+    public void setGridStartTime(long val) {
         DiscoverySpi spi = getSpi();
 
         try {
-            spi.getClass().getMethod("resetGridStartTime").invoke(spi);
+            spi.getClass().getMethod("setGridStartTime", long.class).invoke(spi, val);
         }
-        catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+        catch (NoSuchMethodException e) {
+            U.error(log, "Discovery SPI has no 'setGridStartTime(long)' method [class=" + spi.getClass() + ']', e);
+        }
+        catch (IllegalAccessException | InvocationTargetException e) {
             throw new IgniteException(e);
         }
     }

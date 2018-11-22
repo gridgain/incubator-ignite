@@ -690,10 +690,12 @@ public class ZookeeperDiscoveryImpl {
     }
 
     /**
-     * Resets grid start time to current time.
+     * Sets grid start time.
+     *
+     * @param val New time value.
      */
-    public void resetGridStartTime() {
-        rtState.gridStartTime = System.currentTimeMillis();
+    public void setGridStartTime(long val) {
+        rtState.gridStartTime = val;
     }
 
     /**

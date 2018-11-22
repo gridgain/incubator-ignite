@@ -1459,11 +1459,13 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
     }
 
     /**
-     * Resets grid start time to current time.
+     * Sets grid start time.
+     *
+     * @param val New time value.
      */
     @SuppressWarnings("unused")
-    public void resetGridStartTime() {
-        this.gridStartTime = System.currentTimeMillis();
+    public void setGridStartTime(long val) {
+        this.gridStartTime = val;
     }
 
     /**
