@@ -2395,6 +2395,9 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
                                             exec.execute(dataEntry.partitionId(), () -> {
                                                 try {
+                                                    if (applyError.get() != null)
+                                                        return;
+
                                                     checkpointReadLock();
 
                                                     try {
@@ -2459,7 +2462,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         }
 
         if (applyError.get() != null)
-            throw new IgniteException(applyError.get());
+            throw new IgniteException(applyError.get()); // Fail-fast check.
         else {
             CountDownLatch stripesClearLatch = new CountDownLatch(exec.stripes());
 
@@ -2475,6 +2478,9 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                 throw new IgniteInterruptedException(e);
             }
         }
+
+        if (applyError.get() != null)
+            throw new IgniteException(applyError.get());
     }
 
     /**
