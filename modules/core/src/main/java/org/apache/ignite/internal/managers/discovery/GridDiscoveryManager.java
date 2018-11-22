@@ -223,7 +223,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
     private final DiscoveryWorker discoWrk = new DiscoveryWorker();
 
     /** Discovery event notyfier worker. */
-    private final DiscoveryMessageNotifyerWorker discoNotifierWrk = new DiscoveryMessageNotifyerWorker();
+    public final DiscoveryMessageNotifyerWorker discoNotifierWrk = new DiscoveryMessageNotifyerWorker();
 
     /** Network segment check worker. */
     private SegmentCheckWorker segChkWrk;
@@ -624,6 +624,9 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
             ) {
                 DiscoveryCustomMessage customMsg = spiCustomMsg == null ? null
                     : ((CustomMessageWrapper)spiCustomMsg).delegate();
+
+                if(customMsg != null)
+                    log.info("onDiscovery0 : " + customMsg);
 
                 if (skipMessage(type, customMsg)) {
                     log.info("Skip " + customMsg);
@@ -2669,7 +2672,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
     /**
      *
      */
-    private class DiscoveryMessageNotifyerWorker extends GridWorker implements IgniteDiscoveryThread {
+    public class DiscoveryMessageNotifyerWorker extends GridWorker implements IgniteDiscoveryThread {
         /** Queue. */
         private final BlockingQueue<T2<GridFutureAdapter, Runnable>> queue = new LinkedBlockingQueue<>();
 
@@ -2690,7 +2693,9 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 notification.get2().run();
             }
             finally {
-                notification.get1().onDone();
+                boolean done = notification.get1().onDone();
+
+                log.info("DiscoveryMessageNotifyerWorker.body0 Done " + done);
             }
         }
 

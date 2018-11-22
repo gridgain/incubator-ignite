@@ -2907,6 +2907,8 @@ class ServerImpl extends TcpDiscoveryImpl {
          */
         @SuppressWarnings({"BreakStatementWithLabel", "LabeledStatement", "ContinueStatementWithLabel"})
         private void sendMessageAcrossRing(TcpDiscoveryAbstractMessage msg) {
+            log.info("sendMessageAcrossRing " + msg);
+
             assert msg != null;
 
             assert ring.hasRemoteNodes();
@@ -5311,6 +5313,8 @@ class ServerImpl extends TcpDiscoveryImpl {
          * @param waitForNotification If {@code true} then thread will wait when discovery event notification has finished.
          */
         private void processCustomMessage(TcpDiscoveryCustomEventMessage msg, boolean waitForNotification) {
+            log.info("processCustomMessage " + msg);
+
             if (isLocalNodeCoordinator()) {
                 boolean delayMsg;
 
@@ -5374,7 +5378,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                         if (nextMsg != null) {
                             try {
                                 TcpDiscoveryCustomEventMessage ackMsg = new TcpDiscoveryCustomEventMessage(
-                                    getLocalNodeId(), nextMsg, U.marshal(spi.marshaller(), nextMsg));
+                                        getLocalNodeId(), nextMsg, U.marshal(spi.marshaller(), nextMsg));
 
                                 ackMsg.topologyVersion(msg.topologyVersion());
 
@@ -5480,8 +5484,11 @@ class ServerImpl extends TcpDiscoveryImpl {
             if (joiningEmpty && isLocalNodeCoordinator()) {
                 TcpDiscoveryCustomEventMessage msg;
 
-                while ((msg = pollPendingCustomeMessage()) != null)
+                while ((msg = pollPendingCustomeMessage()) != null) {
+                    log.info("POLL " + msg);
+
                     processCustomMessage(msg, true);
+                }
             }
         }
 
