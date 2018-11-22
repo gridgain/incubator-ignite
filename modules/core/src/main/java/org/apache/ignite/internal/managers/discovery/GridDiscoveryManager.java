@@ -625,8 +625,11 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
                 DiscoveryCustomMessage customMsg = spiCustomMsg == null ? null
                     : ((CustomMessageWrapper)spiCustomMsg).delegate();
 
-                if (skipMessage(type, customMsg))
+                if (skipMessage(type, customMsg)) {
+                    log.info("Skip " + customMsg);
+
                     return;
+                }
 
                 final ClusterNode locNode = localNode();
 
@@ -973,16 +976,16 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
             assert customMsg != null && customMsg.id() != null : customMsg;
 
             if (rcvdCustomMsgs.contains(customMsg.id())) {
-                if (log.isDebugEnabled())
-                    log.debug("Received duplicated custom message, will ignore [msg=" + customMsg + "]");
+                log.info("Received duplicated custom message, will ignore [msg=" + customMsg + "]");
 
                 return true;
             }
 
             rcvdCustomMsgs.addLast(customMsg.id());
 
-            while (rcvdCustomMsgs.size() > DISCOVERY_HISTORY_SIZE)
+            while (rcvdCustomMsgs.size() > DISCOVERY_HISTORY_SIZE) {
                 rcvdCustomMsgs.pollFirst();
+            }
         }
 
         return false;
