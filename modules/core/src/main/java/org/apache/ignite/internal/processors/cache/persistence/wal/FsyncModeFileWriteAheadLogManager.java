@@ -1118,8 +1118,8 @@ public class FsyncModeFileWriteAheadLogManager extends GridCacheSharedManagerAda
 
             FileWriteHandle next = initNextWriteHandle(cur.idx);
 
-            if (next.idx - lashCheckpointFileIdx() >= maxSegCountWithoutCheckpoint)
-                cctx.database().forceCheckpoint("too big size of WAL without checkpoint");
+//            if (next.idx - lashCheckpointFileIdx() >= maxSegCountWithoutCheckpoint)
+//                cctx.database().forceCheckpoint("too big size of WAL without checkpoint");
 
             boolean swapped = currentHndUpd.compareAndSet(this, hnd, next);
 
