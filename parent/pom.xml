@@ -122,7 +122,7 @@
         <twitter.hbc.version>2.2.0</twitter.hbc.version>
         <yammer.metrics.annotation.version>2.2.0</yammer.metrics.annotation.version>
         <yammer.metrics.core.version>2.2.0</yammer.metrics.core.version>
-        <yardstick.version>0.8.3</yardstick.version>
+        <yardstick.version>0.8.7</yardstick.version>
         <zkclient.version>0.5</zkclient.version>
         <zookeeper.version>3.4.13</zookeeper.version>
 
