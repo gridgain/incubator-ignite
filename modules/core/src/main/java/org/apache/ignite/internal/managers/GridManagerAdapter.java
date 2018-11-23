@@ -76,11 +76,11 @@ import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYS
 public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridManager {
     /** Kernal context. */
     @GridToStringExclude
-    protected final GridKernalContext ctx;
+    public final GridKernalContext ctx;
 
     /** Logger. */
     @GridToStringExclude
-    protected final IgniteLogger log;
+    public final IgniteLogger log;
 
     /** Set of SPIs for this manager. */
     @GridToStringExclude
@@ -125,7 +125,7 @@ public abstract class GridManagerAdapter<T extends IgniteSpi> implements GridMan
      *
      * @return Wrapped SPI.
      */
-    protected final T getSpi() {
+    public final T getSpi() {
         return spis[0];
     }
 
