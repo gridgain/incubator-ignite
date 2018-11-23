@@ -24,8 +24,7 @@ import java.util.stream.Collectors;
 
 public class Measure {
     private static List<Meta> measuresMetaToPrint = Arrays.asList(
-        new Meta("latency", Measure::getLatency, "ms"),
-        new Meta("throughput", Measure::getThroughput, "kbytes/s")
+        new Meta("latency", Measure::getLatency, "ms")
     );
 
     private double latency;

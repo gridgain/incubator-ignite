@@ -32,8 +32,8 @@ import org.jetbrains.annotations.NotNull;
  * Start {@link ServerMock} prior to launching this benchmark.
  */
 public class Benchmark {
-    private static final int SAMPLES = 20;
-    private static final int[] PAGE_SIZES = new int[] {5, 10, 20, 50, 100, 150, 200, 300, 400, 500, 600};
+    private static final int SAMPLES = 5;
+    private static final int[] PAGE_SIZES = new int[] {/*1, 5, 10, */20, 50, 100, 150, 200/*, 300, 400, 500, 600*/};
 
     private static final int MAX_THREAD_COUNT = 8;
     public static final boolean DISTINGUISH_PARTITIONS = true;
@@ -79,16 +79,21 @@ public class Benchmark {
     @NotNull private static Benchmark.MeasureWithMeta measureSpecificConfiguration(int threadCount,
         int pageSize) throws Exception {
         long alreadyDownloadedKBytes = downloadedBytes.get() / 1024;
+        long startTS = System.currentTimeMillis();
         ArrayList<Measure> times = new ArrayList<>(SAMPLES);
         for (int i = 0; i < SAMPLES; i++)
             times.add(oneMeasure(pageSize, threadCount, USE_FILTER, DISTINGUISH_PARTITIONS));
 
-        System.out.println(String.format("measure [page size = %d, thread count = %d, downloaded kbytes = %d]",
-            pageSize, threadCount, (downloadedBytes.get() / 1024) - alreadyDownloadedKBytes
+        long endTS  = System.currentTimeMillis();
+        long payloadInKB = (downloadedBytes.get() / 1024) - alreadyDownloadedKBytes;
+        double throughputInKB = (1.0 * payloadInKB) / (0.001 * (endTS - startTS));
+        double throughputInRows = (1.0 * SAMPLES * ServerMock.COUNT_OF_ROWS) / (0.001 * (endTS - startTS));
+        System.out.println(String.format("measure [page size = %d, thread count = %d, throughput (kbytes/s) = %.2f, throughput (rows/s) = %.2f]",
+            pageSize, threadCount, throughputInKB, throughputInRows
         ));
         Measure.computeStatsAndPrint(pageSize, times);
 
-        return new MeasureWithMeta(threadCount, pageSize, times);
+        return new MeasureWithMeta(threadCount, pageSize, times, throughputInKB, throughputInRows);
     }
 
     private static Measure oneMeasure(int pageSize, int currentClientCount, boolean useFilter, boolean distinguishPartitions) throws Exception {
@@ -114,8 +119,14 @@ public class Benchmark {
         private final List<Measure> measures;
         private final int threadCount;
         private final int pageSize;
+        private final double throughputInKB;
+        private final double throughputInRows;
 
-        public MeasureWithMeta(int threadCount, int pageSize, List<Measure> measures) {
+        public MeasureWithMeta(int threadCount, int pageSize, List<Measure> measures,
+            double throughputInKB, double throughputInRows) {
+
+            this.throughputInKB = throughputInKB;
+            this.throughputInRows = throughputInRows;
             this.measures = measures;
             this.threadCount = threadCount;
             this.pageSize = pageSize;
@@ -123,15 +134,18 @@ public class Benchmark {
     }
 
     private static void printTable(List<MeasureWithMeta> benchMeta) {
-        StringBuilder header = new StringBuilder("rows\tcount of partitions\tthread count\tpage size");
+        StringBuilder header = new StringBuilder("query parallelism\trows\tcount of partitions\tthread count\tpage size\tthroughput (kbytes/s)\tthroughput (rows/s)");
         Measure.tableHeader().forEach(name -> header.append("\t" + name));
         System.out.println(header);
         benchMeta.forEach(meta -> {
             StringBuilder row = new StringBuilder();
-            row.append(ServerMock.COUNT_OF_ROWS).append("\t")
+            row.append(ServerMock.QUERY_PARALLELISM).append("\t")
+                .append(ServerMock.COUNT_OF_ROWS).append("\t")
                 .append(ServerMock.COUNT_OF_PARTITIONS).append("\t")
                 .append(meta.threadCount).append("\t")
-                .append(meta.pageSize).append("\t");
+                .append(meta.pageSize).append("\t")
+                .append(meta.throughputInKB).append("\t")
+                .append(meta.throughputInRows).append("\t");
             Measure.computeAllMetrics(meta.measures).forEach(r -> {
                 row.append(r.mean).append("\t");
             });
