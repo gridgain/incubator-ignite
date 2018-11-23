@@ -420,7 +420,7 @@ public class IgniteCacheDatabaseSharedManager extends GridCacheSharedManagerAdap
                 "(use DataRegionConfiguration.maxWalArchiveSize because DataRegionConfiguration.walHistorySize was deprecated)"
             );
 
-        if(memCfg.getMaxWalArchiveSize() < memCfg.getWalSegmentSize())
+        if (memCfg.isWalHistorySizeParameterUsed() && memCfg.getMaxWalArchiveSize() < memCfg.getWalSegmentSize())
             throw new IgniteCheckedException(
                 "DataRegionConfiguration.maxWalArchiveSize should be greater than DataRegionConfiguration.walSegmentSize"
             );
