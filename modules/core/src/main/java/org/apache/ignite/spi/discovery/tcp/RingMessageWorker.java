@@ -2191,8 +2191,7 @@ class RingMessageWorker extends MessageWorker<TcpDiscoveryAbstractMessage> {
 
             assert leftNode != null : msg;
 
-            if (log.isDebugEnabled())
-                log.debug("Removed node from topology: " + leftNode);
+            log.info("Removed node from topology: " + leftNode);
 
             long topVer;
 
@@ -2211,8 +2210,7 @@ class RingMessageWorker extends MessageWorker<TcpDiscoveryAbstractMessage> {
                 assert b : "Topology version has not been updated: [ring=" + server.ring + ", msg=" + msg +
                     ", lastMsg=" + lastMsg + ", spiState=" + server.spiStateCopy() + ']';
 
-                if (log.isDebugEnabled())
-                    log.debug("Topology version has been updated: [ring=" + server.ring + ", msg=" + msg + ']');
+                log.info("Topology version has been updated: [ring=" + server.ring + ", msg=" + msg + ']');
 
                 lastMsg = msg;
             }
@@ -2884,7 +2882,7 @@ class RingMessageWorker extends MessageWorker<TcpDiscoveryAbstractMessage> {
                     else
                         processCustomMessage(msg, waitForNotification);
                 } else
-                    log.info("procCustomMsgs.add false " + msg.id());
+                    log.info("procCustomMsgs.add = false " + msg);
 
                 msg.message(null, msg.messageBytes());
             }
@@ -2930,6 +2928,8 @@ class RingMessageWorker extends MessageWorker<TcpDiscoveryAbstractMessage> {
                 state0 = server.spiState;
             }
 
+            log.info("processCustomMessage state0" + state0);
+
             if (msg.verified() && msg.topologyVersion() != server.ring.topologyVersion()) {
                 log.info("Discarding custom event message [msg=" + msg + ", ring=" + server.ring + ']');
 
@@ -2941,7 +2941,8 @@ class RingMessageWorker extends MessageWorker<TcpDiscoveryAbstractMessage> {
                     "msg: " + msg + ", topVer=" + server.ring.topologyVersion();
 
                 notifyDiscoveryListener(msg, waitForNotification);
-            }
+            } else
+                log.info("procCustomMsgs.add = false " + msg);
 
             if (msg.verified())
                 msg.message(null, msg.messageBytes());
@@ -3050,11 +3051,15 @@ class RingMessageWorker extends MessageWorker<TcpDiscoveryAbstractMessage> {
 
         Collection<ClusterNode> snapshot = hist.get(msg.topologyVersion());
 
+        log.info("notifyDiscoveryListener listener " + lsnr + ", spiState " + spiState);
+
         if (lsnr != null && (spiState == CONNECTED || spiState == DISCONNECTING)) {
             TcpDiscoveryNode node = server.ring.node(msg.creatorNodeId());
 
-            if (node == null)
+            if (node == null) {
                 return;
+
+            }
 
             DiscoverySpiCustomMessage msgObj;
 
