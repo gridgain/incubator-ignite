@@ -19,6 +19,8 @@ namespace Apache.Ignite.Examples.Services
 {
     using System;
     using Apache.Ignite.Core;
+    using Apache.Ignite.Core.Cluster;
+    using Apache.Ignite.Core.Services;
     using Apache.Ignite.ExamplesDll.Services;
 
     /// <summary>
@@ -45,30 +47,59 @@ namespace Apache.Ignite.Examples.Services
         {
             using (var ignite = Ignition.StartFromApplicationConfiguration())
             {
-                Console.WriteLine(">>> Services example started.");
-                Console.WriteLine();
+                using (var ignite2 = Ignition.StartFromApplicationConfiguration("igniteConfiguration2"))
+                {
 
-                // Deploy a service
-                var svc = new MapService<int, string>();
-                Console.WriteLine(">>> Deploying service to all nodes...");
-                ignite.GetServices().DeployNodeSingleton("service", svc);
+                    Console.WriteLine(">>> Services example started.");
+                    Console.WriteLine();
 
-                // Get a sticky service proxy so that we will always be contacting the same remote node.
-                var prx = ignite.GetServices().GetServiceProxy<IMapService<int, string>>("service", true);
+                    // Deploy a service
+                    var svc = new MapService<int, string>();
+                    Console.WriteLine(">>> Deploying service to all nodes...");
 
-                for (var i = 0; i < 10; i++)
-                    prx.Put(i, i.ToString());
+                    var svcCfg = new ServiceConfiguration()
+                    {
+                        MaxPerNodeCount = 1,
+                        TotalCount = 0,
+                        Name = "service",
+                        Service = svc,
+                        NodeFilter = new WfeNodeFilter()
+                    };
 
-                var mapSize = prx.Size;
+                    ignite.GetServices().Deploy(svcCfg);
 
-                Console.WriteLine(">>> Map service size: " + mapSize);
+                    // Get a sticky service proxy so that we will always be contacting the same remote node.
+                    var prx = ignite.GetServices().GetServiceProxy<IMapService<int, string>>("service", true);
 
-                ignite.GetServices().CancelAll();
+                    for (var i = 0; i < 10; i++)
+                        prx.Put(i, i.ToString());
+
+                    var mapSize = prx.Size;
+
+                    Console.WriteLine(">>> Map service size: " + mapSize);
+
+                    ignite.GetServices().CancelAll();
+
+                    Console.WriteLine();
+                    Console.WriteLine(">>> Example finished, press any key to exit ...");
+                    Console.ReadKey();
+                }
             }
+        }
 
-            Console.WriteLine();
-            Console.WriteLine(">>> Example finished, press any key to exit ...");
-            Console.ReadKey();
+        [Serializable]
+        private class WfeNodeFilter : IClusterNodeFilter
+        {
+            /// <summary>
+            /// Gets or sets the node identifier.
+            /// </summary>
+            public Guid NodeId { get; set; }
+
+            /** <inheritdoc /> */
+            public bool Invoke(IClusterNode node)
+            {
+                return node.Attributes.ContainsKey("ROLE") && "WFE".Equals(node.Attributes["ROLE"]);
+            }
         }
     }
 }

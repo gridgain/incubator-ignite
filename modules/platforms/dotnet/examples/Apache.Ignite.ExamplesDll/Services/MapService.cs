@@ -45,7 +45,8 @@ namespace Apache.Ignite.ExamplesDll.Services
             // for each service deployment to use its own isolated cache.
             _cache = _ignite.GetOrCreateCache<TK, TV>("MapService_" + context.Name);
 
-            Console.WriteLine("Service initialized: " + context.Name);
+            var attrs = _ignite.GetConfiguration().UserAttributes;
+            Console.WriteLine("Service initialized: " + context.Name + ". ROLE: " + (attrs.ContainsKey("ROLE") ? attrs["ROLE"] : string.Empty));
         }
 
         /// <summary>
