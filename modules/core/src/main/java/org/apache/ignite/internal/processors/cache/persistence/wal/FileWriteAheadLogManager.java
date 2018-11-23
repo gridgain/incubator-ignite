@@ -426,9 +426,10 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
     /** {@inheritDoc} */
     @Override public void start0() throws IgniteCheckedException {
         if (!cctx.kernalContext().clientNode()) {
-            maxSegCountWithoutCheckpoint =
+            maxSegCountWithoutCheckpoint = dsCfg.isWalHistorySizeParameterUsed() ?
                 (long)((U.adjustedWalHistorySize(dsCfg, log) * CHECKPOINT_TRIGGER_ARCHIVE_SIZE_PERCENTAGE)
-                    / dsCfg.getWalSegmentSize());
+                    / dsCfg.getWalSegmentSize()) :
+                0;
 
             final PdsFolderSettings resolveFolders = cctx.kernalContext().pdsFolderResolver().resolveFolders();
 
@@ -1188,7 +1189,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             next.writeHeader();
 
-            if (next.getSegmentId() - lashCheckpointFileIdx() >= maxSegCountWithoutCheckpoint)
+            if (maxSegCountWithoutCheckpoint > 0 && next.getSegmentId() - lashCheckpointFileIdx() >= maxSegCountWithoutCheckpoint)
                 cctx.database().forceCheckpoint("too big size of WAL without checkpoint");
 
             boolean swapped = CURR_HND_UPD.compareAndSet(this, hnd, next);
