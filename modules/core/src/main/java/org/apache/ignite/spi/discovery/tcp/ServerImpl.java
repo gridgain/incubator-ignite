@@ -5195,6 +5195,11 @@ class ServerImpl extends TcpDiscoveryImpl {
                             if (clientNodeIds.contains(clientNode.id()))
                                 clientNode.clientAliveTime(spi.clientFailureDetectionTimeout());
                             else {
+                                if (clientNode.getAliveCheckTime() == 0L) {
+                                    // Init client alive time.
+                                    clientNode.clientAliveTime(spi.clientFailureDetectionTimeout());
+                                }
+
                                 boolean aliveCheck = clientNode.isClientAlive();
 
                                 if (!aliveCheck && isLocalNodeCoordinator()) {
