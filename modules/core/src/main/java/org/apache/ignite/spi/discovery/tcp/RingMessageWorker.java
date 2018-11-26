@@ -2928,7 +2928,7 @@ class RingMessageWorker extends MessageWorker<TcpDiscoveryAbstractMessage> {
                 state0 = server.spiState;
             }
 
-            log.info("processCustomMessage state0" + state0);
+            log.info("processCustomMessage state0 " + state0 + " msg.topologyVersion " + msg.topologyVersion());
 
             if (msg.verified() && msg.topologyVersion() != server.ring.topologyVersion()) {
                 log.info("Discarding custom event message [msg=" + msg + ", ring=" + server.ring + ']');
@@ -2941,8 +2941,7 @@ class RingMessageWorker extends MessageWorker<TcpDiscoveryAbstractMessage> {
                     "msg: " + msg + ", topVer=" + server.ring.topologyVersion();
 
                 notifyDiscoveryListener(msg, waitForNotification);
-            } else
-                log.info("procCustomMsgs.add = false " + msg);
+            }
 
             if (msg.verified())
                 msg.message(null, msg.messageBytes());
