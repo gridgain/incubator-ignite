@@ -19,7 +19,6 @@ package org.apache.ignite.yardstick.jdbc.mvcc;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCountDownLatch;
 import org.apache.ignite.IgniteDataStreamer;
@@ -27,6 +26,7 @@ import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteRunnable;
@@ -116,7 +116,9 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
 
     private void fillData() {
         IgniteCache<Object, Object> tplCache = ignite().cache(mvccArgs.tableTemplate());
-        tplCache.put(1,2);
+
+        CacheConfiguration tplCfg = tplCache.getConfiguration(CacheConfiguration.class);
+        ignite().addCacheConfiguration(tplCfg);
 
         SqlFieldsQuery create = new SqlFieldsQuery("CREATE TABLE PUBLIC.test_long (id LONG PRIMARY KEY, val LONG)" +
                 " WITH \"template=" + tplCache.getName() + "\"");
@@ -151,7 +153,6 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
                 .querySqlFields(qry, false)
                 .getAll();
     }
-
 
     public static class VacuumJob implements IgniteRunnable {
         @Override
