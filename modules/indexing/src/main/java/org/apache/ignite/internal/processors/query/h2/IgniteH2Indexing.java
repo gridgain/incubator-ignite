@@ -123,6 +123,7 @@ import org.apache.ignite.internal.processors.query.h2.sys.view.SqlSystemViewNode
 import org.apache.ignite.internal.processors.query.h2.twostep.GridMapQueryExecutor;
 import org.apache.ignite.internal.processors.query.h2.twostep.GridReduceQueryExecutor;
 import org.apache.ignite.internal.processors.query.h2.twostep.MapQueryLazyWorker;
+import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryRequest;
 import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheVisitor;
 import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheVisitorClosure;
 import org.apache.ignite.internal.processors.query.schema.SchemaIndexCacheVisitorImpl;
@@ -2649,6 +2650,12 @@ public class IgniteH2Indexing implements GridQueryIndexing {
     @Override public void start(GridKernalContext ctx, GridSpinBusyLock busyLock) throws IgniteCheckedException {
         if (log.isDebugEnabled())
             log.debug("Starting cache query index...");
+
+        if (ctx != null) {
+            ctx.io().addStatHandler(GridH2QueryRequest.class, (stat, msg, duration) ->
+                stat.addSqlQuery(msg.queries().get(0).query() +
+                    ", args=" + (msg.parameters() == null ? "[]" : Arrays.asList(msg.parameters())), duration));
+        }
 
         this.busyLock = busyLock;
 
