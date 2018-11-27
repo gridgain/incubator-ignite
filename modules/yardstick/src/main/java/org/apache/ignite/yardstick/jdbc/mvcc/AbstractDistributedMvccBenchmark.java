@@ -19,14 +19,19 @@ package org.apache.ignite.yardstick.jdbc.mvcc;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
 import org.apache.ignite.IgniteCountDownLatch;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
+import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.yardstick.IgniteAbstractBenchmark;
 import org.yardstickframework.BenchmarkConfiguration;
 
-import static org.apache.ignite.yardstick.jdbc.JdbcUtils.fillData;
+import static org.yardstickframework.BenchmarkUtils.jcommander;
 import static org.yardstickframework.BenchmarkUtils.println;
 
 /**
@@ -46,11 +51,15 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
      */
     protected int driversNodesCnt;
 
+    protected MvccParams mvccArgs = new MvccParams();
+
     /** {@inheritDoc} */
     @Override public void setUp(BenchmarkConfiguration cfg) throws Exception {
         super.setUp(cfg);
 
         memberId = cfg.memberId();
+
+        jcommander(cfg.commandLineArguments(), mvccArgs , "<ignite-driver>");
 
         if (memberId < 0)
             throw new IllegalStateException("Member id should be initialized with non-negative value");
@@ -58,11 +67,20 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
         // We assume there is no client nodes in the cluster except clients that are yardstick drivers.
         driversNodesCnt = ignite().cluster().forClients().nodes().size();
 
-        IgniteCountDownLatch dataIsReady = ignite().countDownLatch("fillDataLatch", 1, true, true);
+        IgniteCountDownLatch dataIsReady = ignite().countDownLatch("fillDataLatch", 1, false, true);
 
         try {
             if (memberId == 0) {
-                fillData(cfg, (IgniteEx)ignite(), args.range(), args.atomicMode());
+                //fillData(cfg, (IgniteEx)ignite(), args.range(), args.atomicMode());
+                fillData();
+
+                if (mvccArgs.runVacuum()) {
+                    ClusterGroup servers = ignite().cluster().forServers();
+
+                    IgniteFuture<Void> fut = ignite().compute(servers).runAsync(new VacuumJob());
+
+                    fut.get(DATA_WAIT_TIMEOUT_MIN, TimeUnit.MINUTES);
+                }
 
                 dataIsReady.countDown();
             }
@@ -85,6 +103,25 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
         execute(new SqlFieldsQuery("SELECT COUNT(*) FROM test_long"));
     }
 
+    private void fillData() {
+        SqlFieldsQuery create = new SqlFieldsQuery("CREATE TABLE test_long (id LONG PRIMARY KEY, val LONG)" +
+                " WITH \"template=" + mvccArgs.tableTemplate() + "\"").setSchema("PUBLIC");
+
+        execute(create);
+
+        println(cfg, "Populate data...");
+
+        for (long l = 1; l <= args.range(); ++l) {
+            execute(new SqlFieldsQuery("INSERT INTO test_long (id, val) VALUES (?, ?)").setArgs(l, l + 1));
+
+            if (l % 10000 == 0)
+                println(cfg, "Populate " + l);
+        }
+
+        println(cfg, "Finished populating data");
+    }
+
+
     /**
      * Execute specified query using started driver node.
      * Returns result using {@link QueryCursor#getAll()}.
@@ -97,5 +134,15 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
             .query()
             .querySqlFields(qry, false)
             .getAll();
+    }
+
+
+    public static class VacuumJob implements IgniteRunnable {
+        @Override
+        public void run() {
+            IgniteEx ctx = (IgniteEx) Ignition.ignite();
+
+            ctx.context().coordinators().runVacuum();
+        }
     }
 }
