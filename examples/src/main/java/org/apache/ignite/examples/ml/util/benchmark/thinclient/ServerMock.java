@@ -27,10 +27,10 @@ import org.apache.ignite.configuration.CacheConfiguration;
 public class ServerMock {
     public static final String CACHE_NAME = "THIN_CLIENT_IMITATION_CACHE";
     public static final int COUNT_OF_PARTITIONS = 10;
-    public static final int COUNT_OF_ROWS = 100000;
+    public static final int COUNT_OF_ROWS = 500;
     public static final int QUERY_PARALLELISM = 2;
 
-    private static final int VALUE_OBJECT_SIZE_IN_BYTES = 1024;
+    private static final int VALUE_OBJECT_SIZE_IN_BYTES = 1024 * 1024;
 
     public static void main(String ... args) throws Exception {
         try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
