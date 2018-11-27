@@ -13,7 +13,7 @@
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>Apache.Ignite.Examples.Datagrid.PutGetExample</StartupObject>
+    <StartupObject>Apache.Ignite.Examples.Services.ServicesExample</StartupObject>
   </PropertyGroup>
   <PropertyGroup>
     <SignAssembly>true</SignAssembly>
