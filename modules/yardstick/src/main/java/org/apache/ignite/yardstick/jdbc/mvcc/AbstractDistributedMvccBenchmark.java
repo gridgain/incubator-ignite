@@ -20,7 +20,9 @@ package org.apache.ignite.yardstick.jdbc.mvcc;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCountDownLatch;
+import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
@@ -38,13 +40,19 @@ import static org.yardstickframework.BenchmarkUtils.println;
  * Base for mvcc benchmarks that are running on multiply hosts.
  */
 public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBenchmark {
-    /** Sql query to create load. */
+    /**
+     * Sql query to create load.
+     */
     public static final String UPDATE_QRY = "UPDATE test_long SET val = (val + 1) WHERE id BETWEEN ? AND ?";
 
-    /** Timeout in minutest for test data to be loaded. */
+    /**
+     * Timeout in minutest for test data to be loaded.
+     */
     public static final long DATA_WAIT_TIMEOUT_MIN = 20;
 
-    /** Member id of the host driver is running */
+    /**
+     * Member id of the host driver is running
+     */
     protected int memberId;
     /**
      * Number of nodes handled by driver.
@@ -53,13 +61,16 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
 
     protected MvccParams mvccArgs = new MvccParams();
 
-    /** {@inheritDoc} */
-    @Override public void setUp(BenchmarkConfiguration cfg) throws Exception {
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setUp(BenchmarkConfiguration cfg) throws Exception {
         super.setUp(cfg);
 
         memberId = cfg.memberId();
 
-        jcommander(cfg.commandLineArguments(), mvccArgs , "<ignite-driver>");
+        jcommander(cfg.commandLineArguments(), mvccArgs, "<ignite-driver>");
 
         if (memberId < 0)
             throw new IllegalStateException("Member id should be initialized with non-negative value");
@@ -83,8 +94,7 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
                 }
 
                 dataIsReady.countDown();
-            }
-            else {
+            } else {
                 println(cfg, "No need to upload data for memberId=" + memberId + ". Just waiting");
 
                 dataIsReady.await(DATA_WAIT_TIMEOUT_MIN, TimeUnit.MINUTES);
@@ -92,30 +102,36 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
                 println(cfg, "Data is ready.");
             }
 
-        }
-        catch (Throwable th) {
+        } catch (Throwable th) {
             dataIsReady.countDownAll();
 
             throw new RuntimeException("Fill Data failed.", th);
         }
 
         // Workaround for "Table TEST_LONG not found" on sql update.
-        execute(new SqlFieldsQuery("SELECT COUNT(*) FROM test_long"));
+        Long cnt = (Long) execute(new SqlFieldsQuery("SELECT COUNT(*) FROM test_long")).get(0).get(0);
+
+        assert args.range() == cnt : "Unexpected count : [actual = " + cnt + ", expected=" + args.range() + "]";
     }
 
     private void fillData() {
-        SqlFieldsQuery create = new SqlFieldsQuery("CREATE TABLE test_long (id LONG PRIMARY KEY, val LONG)" +
-                " WITH \"template=" + mvccArgs.tableTemplate() + "\"").setSchema("PUBLIC");
+        IgniteCache<Object, Object> tplCache = ignite().cache(mvccArgs.tableTemplate());
+        tplCache.put(1,2);
 
-        execute(create);
+        SqlFieldsQuery create = new SqlFieldsQuery("CREATE TABLE PUBLIC.test_long (id LONG PRIMARY KEY, val LONG)" +
+                " WITH \"template=" + tplCache.getName() + "\"");
+
+        tplCache.query(create);
 
         println(cfg, "Populate data...");
 
-        for (long l = 1; l <= args.range(); ++l) {
-            execute(new SqlFieldsQuery("INSERT INTO test_long (id, val) VALUES (?, ?)").setArgs(l, l + 1));
+        try (IgniteDataStreamer<Object, Object> streamer = ignite().dataStreamer("SQL_PUBLIC_TEST_LONG")) {
+            for (long l = 1; l <= args.range(); ++l) {
+                streamer.addData(l, l + 1);
 
-            if (l % 10000 == 0)
-                println(cfg, "Populate " + l);
+                if (l % 10000 == 0)
+                    println(cfg, "Populate " + l);
+            }
         }
 
         println(cfg, "Finished populating data");
@@ -129,11 +145,11 @@ public abstract class AbstractDistributedMvccBenchmark extends IgniteAbstractBen
      * @param qry sql query to execute.
      */
     protected List<List<?>> execute(SqlFieldsQuery qry) {
-        return ((IgniteEx)ignite())
-            .context()
-            .query()
-            .querySqlFields(qry, false)
-            .getAll();
+        return ((IgniteEx) ignite())
+                .context()
+                .query()
+                .querySqlFields(qry, false)
+                .getAll();
     }
 
 

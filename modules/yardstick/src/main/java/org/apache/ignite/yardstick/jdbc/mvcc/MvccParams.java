@@ -4,7 +4,7 @@ import com.beust.jcommander.Parameter;
 
 public class MvccParams {
     /** */
-    @Parameter (names = {"--run-vacuum"})
+    @Parameter (names = {"--run-vacuum"}, arity = 1)
     private boolean runVacuum;
 
     @Parameter(names = {"--table-template"})
