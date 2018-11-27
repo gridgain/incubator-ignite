@@ -20,24 +20,61 @@ package org.apache.ignite.yardstick.cache;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import javax.cache.Cache;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCountDownLatch;
 import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.query.SqlQuery;
+import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
+import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.yardstick.cache.model.Person;
+import org.apache.ignite.yardstick.jdbc.mvcc.MvccParams;
 import org.yardstickframework.BenchmarkConfiguration;
 
+import static org.yardstickframework.BenchmarkUtils.jcommander;
 import static org.yardstickframework.BenchmarkUtils.println;
 
 /**
  * Ignite benchmark that performs query operations.
  */
 public class IgniteSqlQueryBenchmark extends IgniteCacheAbstractBenchmark<Integer, Object> {
+    protected MvccParams mvccArgs = new MvccParams();
+
     /** {@inheritDoc} */
     @Override public void setUp(BenchmarkConfiguration cfg) throws Exception {
+        jcommander(cfg.commandLineArguments(), mvccArgs, "<ignite-driver>");
+
         super.setUp(cfg);
 
-        loadCachesData();
+        IgniteCountDownLatch dataIsReady = ignite().countDownLatch("fillDataLatch", 1, false, true);
+
+        if (cfg.memberId() == 0) {
+            loadCachesData();
+
+            if (mvccArgs.runVacuum()) {
+                ClusterGroup servers = ignite().cluster().forServers();
+
+                IgniteFuture<Void> fut = ignite().compute(servers).runAsync(new VacuumJob());
+
+                fut.get(5, TimeUnit.MINUTES);
+            }
+
+            dataIsReady.countDown();
+        }
+        else {
+            println(cfg, "No need to upload data for memberId=" + cfg.memberId() + ". Just waiting");
+
+            dataIsReady.await();
+
+            println(cfg, "Data is ready.");
+        }
+
+        println("+++ in current jvm READ_COMMITTED = " + MvccUtils.READ_COMMITTED);
     }
 
     /** {@inheritDoc} */
@@ -50,7 +87,7 @@ public class IgniteSqlQueryBenchmark extends IgniteCacheAbstractBenchmark<Intege
                 dataLdr.addData(i, new Person(i, "firstName" + i, "lastName" + i, i * 1000));
 
                 if (i % 100000 == 0)
-                    println(cfg, "Populated persons: " + i);
+                    println(cfg, "Populated persons: " + i + " out of " + args.range());
             }
         }
     }
@@ -93,5 +130,17 @@ public class IgniteSqlQueryBenchmark extends IgniteCacheAbstractBenchmark<Intege
     /** {@inheritDoc} */
     @Override protected IgniteCache<Integer, Object> cache() {
         return ignite().cache("query");
+    }
+
+
+    public static class VacuumJob implements IgniteRunnable {
+        @Override
+        public void run() {
+            IgniteEx ign = (IgniteEx) Ignition.ignite();
+
+            ign.log().error("Running vacuum.");
+
+            ign.context().coordinators().runVacuum();
+        }
     }
 }

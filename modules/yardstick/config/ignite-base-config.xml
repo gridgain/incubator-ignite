@@ -33,6 +33,9 @@
 
         <property name="metricsLogFrequency" value="5000"/>
 
+        <!--We need to turn off background vacuum worker-->
+        <property name="mvccVacuumFrequency" value="#{0x7fffffffffffffffL}"/>
+
         <property name="cacheConfiguration">
             <list>
                 <bean class="org.apache.ignite.configuration.CacheConfiguration">
