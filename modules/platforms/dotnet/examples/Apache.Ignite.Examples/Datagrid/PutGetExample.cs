@@ -22,6 +22,7 @@ namespace Apache.Ignite.Examples.Datagrid
     using Apache.Ignite.Core;
     using Apache.Ignite.Core.Binary;
     using Apache.Ignite.Core.Cache;
+    using Apache.Ignite.Core.Configuration;
     using Apache.Ignite.ExamplesDll.Binary;
 
     /// <summary>
@@ -60,17 +61,22 @@ namespace Apache.Ignite.Examples.Datagrid
                 // Clean up caches on all nodes before run.
                 ignite.GetOrCreateCache<object, object>(CacheName).Clear();
 
+                Console.WriteLine(">>> OffheapUsedSize 1: " + ignite.GetDataRegionMetrics(DataStorageConfiguration.DefaultDataRegionName).OffheapUsedSize);
+
                 PutGet(ignite);
+
+                Console.WriteLine(">>> OffheapUsedSize 2: " + ignite.GetDataRegionMetrics(DataStorageConfiguration.DefaultDataRegionName).OffheapUsedSize);
+
                 PutGetBinary(ignite);
                 PutAllGetAll(ignite);
                 PutAllGetAllBinary(ignite);
 
                 Console.WriteLine();
-            }
 
-            Console.WriteLine();
-            Console.WriteLine(">>> Example finished, press any key to exit ...");
-            Console.ReadKey();
+                Console.WriteLine();
+                Console.WriteLine(">>> Example finished, press any key to exit ...");
+                Console.ReadKey();
+            }
         }
 
         /// <summary>
