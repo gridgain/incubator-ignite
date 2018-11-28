@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
+import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.CacheAtomicityMode;
@@ -27,16 +28,13 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.processors.cache.GridCacheContext;
-import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccUtils;
 import org.apache.ignite.internal.util.typedef.internal.S;
+import org.apache.ignite.testframework.MvccFeatureChecker;
+import org.apache.ignite.testframework.MvccFeatureChecker.Feature;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
-
-import javax.cache.Cache;
 
 /**
  *
@@ -107,14 +105,14 @@ public class IgniteCacheTxIteratorSelfTest extends GridCommonAbstractTest {
         try {
             for (CacheMode mode : CacheMode.values()) {
                 for (CacheAtomicityMode atomMode : CacheAtomicityMode.values()) {
-                    if (mode == CacheMode.PARTITIONED && atomMode != CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT) {
+                    if (mode == CacheMode.PARTITIONED) {
                         // Near cache makes sense only for partitioned cache.
                         checkTxCache(CacheMode.PARTITIONED, atomMode, true, false);
                     }
 
-                    checkTxCache(CacheMode.PARTITIONED, atomMode, false, true);
+                    checkTxCache(mode, atomMode, false, true);
 
-                    checkTxCache(CacheMode.PARTITIONED, atomMode, false, false);
+                    checkTxCache(mode, atomMode, false, false);
                 }
             }
         }
@@ -132,6 +130,13 @@ public class IgniteCacheTxIteratorSelfTest extends GridCommonAbstractTest {
         boolean nearEnabled,
         boolean useEvicPlc
     ) throws Exception {
+        if (atomMode == CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT) {
+            if (!MvccFeatureChecker.isSupported(mode) ||
+                (nearEnabled && !MvccFeatureChecker.isSupported(Feature.NEAR_CACHE)) ||
+                (useEvicPlc && !MvccFeatureChecker.isSupported(Feature.EVICTION)))
+                return; // Nothing to do. Mode is not supported.
+        }
+
         final Ignite ignite = grid(0);
 
         final CacheConfiguration<String, TestClass> ccfg = cacheConfiguration(
@@ -156,14 +161,11 @@ public class IgniteCacheTxIteratorSelfTest extends GridCommonAbstractTest {
 
                 for (TransactionIsolation iso : TransactionIsolation.values()) {
                     for (TransactionConcurrency con : TransactionConcurrency.values()) {
-                        try (Transaction transaction = ignite.transactions().txStart(con, iso)) {
-                            //TODO: IGNITE-7187: Fix when ticket will be implemented. (Near cache)
-                            //TODO: IGNITE-7956: Fix when ticket will be implemented. (Eviction)
-                            if (((IgniteCacheProxy)cache).context().mvccEnabled() &&
-                                ((iso != TransactionIsolation.REPEATABLE_READ && con != TransactionConcurrency.PESSIMISTIC)
-                                    || nearEnabled || useEvicPlc))
-                                return; // Nothing to do. Mode is not supported.
+                        if (atomMode == CacheAtomicityMode.TRANSACTIONAL_SNAPSHOT &&
+                            !MvccFeatureChecker.isSupported(con, iso))
+                            continue; // Mode not supported.
 
+                        try (Transaction transaction = ignite.transactions().txStart(con, iso)) {
                             assertEquals(val, cache.get(key));
 
                             transaction.commit();

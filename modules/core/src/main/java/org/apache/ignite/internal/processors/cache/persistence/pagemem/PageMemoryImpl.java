@@ -53,7 +53,6 @@ import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.pagemem.store.IgnitePageStoreManager;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
-import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.pagemem.wal.WALIterator;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
 import org.apache.ignite.internal.pagemem.wal.record.CheckpointRecord;
@@ -65,6 +64,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointLockStateChecker;
 import org.apache.ignite.internal.processors.cache.persistence.CheckpointWriteProgressSupplier;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
+import org.apache.ignite.internal.processors.cache.persistence.StorageException;
 import org.apache.ignite.internal.processors.cache.persistence.freelist.io.PagesListMetaIO;
 import org.apache.ignite.internal.processors.cache.persistence.partstate.GroupPartitionId;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
@@ -228,7 +228,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     private final GridEncryptionManager encMgr;
 
     /** */
-    private final EncryptionSpi encSpi;
+    private final boolean encryptionDisabled;
 
     /** */
     private final IgniteLogger log;
@@ -324,7 +324,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         storeMgr = ctx.pageStore();
         walMgr = ctx.wal();
         encMgr = ctx.kernalContext().encryption();
-        encSpi = ctx.gridConfig().getEncryptionSpi();
+        encryptionDisabled = ctx.gridConfig().getEncryptionSpi() instanceof  NoopEncryptionSpi;
 
         assert storeMgr != null;
         assert walMgr != null;
@@ -974,7 +974,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
     /** {@inheritDoc} */
     @Override public int realPageSize(int grpId) {
-        if ((encSpi instanceof NoopEncryptionSpi) || encMgr.groupKey(grpId) == null)
+        if (encryptionDisabled || encMgr.groupKey(grpId) == null)
             return pageSize();
 
         return encPageSize;
