@@ -69,13 +69,14 @@ namespace Apache.Ignite.Examples.Services
                     };
 
                     IClusterGroup dotNetNodes = ignite.GetCluster().ForDotNet();
+                    IClusterGroup wfeNodes = dotNetNodes.ForPredicate(nodeFilter.Invoke);
 
                     dotNetNodes.GetServices().Deploy(svcCfg);
 
                     Console.WriteLine(">>> Getting service proxy...");
 
                     // Get a sticky service proxy so that we will always be contacting the same remote node.
-                    var prx = dotNetNodes.ForPredicate(nodeFilter.Invoke).GetServices().GetServiceProxy<IMapService<int, string>>("service", true);
+                    var prx = wfeNodes.GetServices().GetServiceProxy<IMapService<int, string>>("service", true);
 
                     Console.WriteLine(">>> Calling the service...");
                     for (var i = 0; i < 10; i++)
