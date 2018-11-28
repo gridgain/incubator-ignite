@@ -57,6 +57,8 @@ namespace Apache.Ignite.Examples.Services
                     var svc = new MapService<int, string>();
                     Console.WriteLine(">>> Deploying service to all nodes...");
 
+                    var nodeFilter = new WfeNodeFilter();
+
                     var svcCfg = new ServiceConfiguration()
                     {
                         MaxPerNodeCount = 1,
@@ -70,9 +72,12 @@ namespace Apache.Ignite.Examples.Services
 
                     dotNetNodes.GetServices().Deploy(svcCfg);
 
-                    // Get a sticky service proxy so that we will always be contacting the same remote node.
-                    var prx = dotNetNodes.GetServices().GetServiceProxy<IMapService<int, string>>("service", true);
+                    Console.WriteLine(">>> Getting service proxy...");
 
+                    // Get a sticky service proxy so that we will always be contacting the same remote node.
+                    var prx = dotNetNodes.ForPredicate(nodeFilter.Invoke).GetServices().GetServiceProxy<IMapService<int, string>>("service", true);
+
+                    Console.WriteLine(">>> Calling the service...");
                     for (var i = 0; i < 10; i++)
                         prx.Put(i, i.ToString());
 
@@ -80,7 +85,7 @@ namespace Apache.Ignite.Examples.Services
 
                     Console.WriteLine(">>> Map service size: " + mapSize);
 
-                    ignite.GetServices().CancelAll();
+                    dotNetNodes.GetServices().CancelAll();
 
                     Console.WriteLine();
                     Console.WriteLine(">>> Example finished, press any key to exit ...");
