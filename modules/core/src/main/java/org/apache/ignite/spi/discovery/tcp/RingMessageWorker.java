@@ -2945,6 +2945,8 @@ class RingMessageWorker extends MessageWorker<TcpDiscoveryAbstractMessage> {
 
             if (msg.verified())
                 msg.message(null, msg.messageBytes());
+            else
+                log.info("Unverified msg " + msg);
 
             if (sendMessageToRemotes(msg))
                 sendMessageAcrossRing(msg);
