@@ -69,8 +69,8 @@ public class ThinClientMock {
             long end = System.currentTimeMillis();
             long dataReceiveTime = end - start;
             double seconds = dataReceiveTime / 1000;
-            if(seconds <= 0)
-                return Optional.empty();
+            if(seconds < 0)
+                throw new IllegalStateException();
 
             return Optional.of(new Measure(firstQueryLatency, totalPayload / seconds));
         }

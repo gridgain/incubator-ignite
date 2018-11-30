@@ -34,7 +34,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class Benchmark {
     private static final int SAMPLES = 5;
-    private static final int[] PAGE_SIZES = new int[] {10, 20, 50, 100, 150, 200, 300, 400, 500, 600};
+    private static final int[] PAGE_SIZES = new int[] {10, 20, 50, 100, 200, 300, 400, 500, 1000, 2000};
 
     private static ExecutorService POOL;
     private static BenchParameters PARAMETERS;
@@ -80,7 +80,7 @@ public class Benchmark {
         for (int i = 0; i < SAMPLES; i++)
             times.add(oneMeasure(pageSize, threadCount, false, true));
 
-        long endTS  = System.currentTimeMillis();
+        long endTS = System.currentTimeMillis();
         long payloadInKB = (downloadedBytes.get() / 1024) - alreadyDownloadedKBytes;
         double throughputInKB = (1.0 * payloadInKB) / (0.001 * (endTS - startTS));
         double throughputInRows = (1.0 * SAMPLES * PARAMETERS.getCountOfRows()) / (0.001 * (endTS - startTS));
@@ -92,7 +92,8 @@ public class Benchmark {
         return new MeasureWithMeta(threadCount, pageSize, times, throughputInKB, throughputInRows);
     }
 
-    private static Measure oneMeasure(int pageSize, int currentClientCount, boolean useFilter, boolean distinguishPartitions) throws Exception {
+    private static Measure oneMeasure(int pageSize, int currentClientCount, boolean useFilter,
+        boolean distinguishPartitions) throws Exception {
         ArrayList<Future<Optional<Measure>>> futures = new ArrayList<>(currentClientCount);
         for (int i = 0; i < currentClientCount; i++) {
             final int clientID = i;
