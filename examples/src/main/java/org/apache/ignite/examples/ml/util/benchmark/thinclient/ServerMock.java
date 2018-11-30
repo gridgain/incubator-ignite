@@ -17,41 +17,77 @@
 
 package org.apache.ignite.examples.ml.util.benchmark.thinclient;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.BenchParameters;
+import org.apache.ignite.internal.IgnitionEx;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
 public class ServerMock {
     public static final String CACHE_NAME = "THIN_CLIENT_IMITATION_CACHE";
-    public static final int COUNT_OF_PARTITIONS = 10;
-    public static final int COUNT_OF_ROWS = 500;
-    public static final int QUERY_PARALLELISM = 2;
 
-    private static final int VALUE_OBJECT_SIZE_IN_BYTES = 1024 * 1024;
+    public static void main(String... args) throws Exception {
+        BenchParameters params = BenchParameters.parseArguments(args);
+        System.out.println("Start servers with such configuration: [" + params.toString() + "]");
 
-    public static void main(String ... args) throws Exception {
+        List<Ignite> ignites = null;
+
         try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
 
             CacheConfiguration<Integer, byte[]> cacheConfiguration = new CacheConfiguration<>();
-            cacheConfiguration.setAffinity(new RendezvousAffinityFunction(false, COUNT_OF_PARTITIONS));
+            cacheConfiguration.setAffinity(new RendezvousAffinityFunction(false, params.getCountOfPartitions()));
             cacheConfiguration.setName(CACHE_NAME);
-            cacheConfiguration.setQueryParallelism(QUERY_PARALLELISM);
+            cacheConfiguration.setQueryParallelism(params.getQueryParallelism());
 
             IgniteCache<Integer, byte[]> cache = ignite.getOrCreateCache(cacheConfiguration);
 
-            for (int i = 0; i < COUNT_OF_ROWS; i++) {
-                byte[] val = new byte[VALUE_OBJECT_SIZE_IN_BYTES];
-                Arrays.fill(val, (byte) i);
+            for (int i = 0; i < params.getCountOfRows(); i++) {
+                byte[] val = new byte[params.getValueObjectSizeInBytes()];
+                Arrays.fill(val, (byte)i);
                 cache.put(i, val);
             }
 
-            System.out.println("Cache is ready! [rows = " + COUNT_OF_ROWS + "]");
+            ignites = startIgnites(params);
+
+            System.out.println("Cache is ready! [rows = " + params.getCountOfRows() + "]");
 
             Thread.currentThread().join();
         }
+        finally {
+            if (ignites != null) {
+                for (Ignite ign : ignites)
+                    ign.close();
+            }
+        }
     }
 
+    private static List<Ignite> startIgnites(BenchParameters params) throws IgniteCheckedException {
+        List<Ignite> nodes = new ArrayList<>();
+
+        for (int idx = 0; idx < params.getCountOfIgnites() - 1; idx++) {
+            IgniteConfiguration configuration = new IgniteConfiguration();
+            configuration
+                .setIgniteInstanceName("node_" + idx)
+                .setPeerClassLoadingEnabled(true)
+                .setDiscoverySpi(new TcpDiscoverySpi().setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(Arrays.asList("127.0.0.1:47500..47509"))))
+                .setClientConnectorConfiguration(new ClientConnectorConfiguration()
+                    .setHost("127.0.0.1")
+                    .setPort(10800 + idx)
+                    .setPortRange(1));
+
+            nodes.add(IgnitionEx.start(configuration));
+        }
+
+        return nodes;
+    }
 }

@@ -41,10 +41,10 @@ public class ThinClientMock {
     private final int pageSize;
     private final List<Integer> partitions;
 
-    public ThinClientMock(int pageSize, int clientId, int countOfClients, boolean useFilter, boolean distinguishPartitions) {
+    public ThinClientMock(int pageSize, int clientId, int countOfClients, boolean distinguishPartitions, int countOfPartitions) {
         this.pageSize = pageSize;
         if (distinguishPartitions) {
-            partitions = IntStream.range(0, ServerMock.COUNT_OF_PARTITIONS)
+            partitions = IntStream.range(0, countOfPartitions)
                 .filter(partition -> (partition % countOfClients) == clientId).boxed()
                 .collect(Collectors.toList());
         }

@@ -25,6 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.BenchParameters;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.Measure;
 import org.jetbrains.annotations.NotNull;
 
@@ -33,27 +34,22 @@ import org.jetbrains.annotations.NotNull;
  */
 public class Benchmark {
     private static final int SAMPLES = 5;
-    private static final int[] PAGE_SIZES = new int[] {/*1, 5, 10, */20, 50, 100, 150, 200/*, 300, 400, 500, 600*/};
-
-    private static final int MAX_THREAD_COUNT = 8;
-    public static final boolean DISTINGUISH_PARTITIONS = true;
-    public static final boolean USE_FILTER = false;
-
-    static {
-        assert MAX_THREAD_COUNT <= ServerMock.COUNT_OF_PARTITIONS : "THREAD_COUNT <= ServerMock.COUNT_OF_PARTITIONS";
-        assert (!DISTINGUISH_PARTITIONS && !USE_FILTER) || DISTINGUISH_PARTITIONS ^ USE_FILTER : "(!DISTINGUISH_PARTITIONS && !USE_FILTER) || DISTINGUISH_PARTITIONS ^ USE_FILTER";
-    }
+    private static final int[] PAGE_SIZES = new int[] {10, 20, 50, 100, 150, 200, 300, 400, 500, 600};
 
     private static ExecutorService POOL;
+    private static BenchParameters PARAMETERS;
 
     public static AtomicLong downloadedBytes = new AtomicLong(0L);
 
     public static void main(String... args) throws Exception {
+        PARAMETERS = BenchParameters.parseArguments(args);
+        System.out.println("Start benchmark with such configuration: [" + PARAMETERS.toString() + "]");
+
         Long start = System.currentTimeMillis();
 
         List<MeasureWithMeta> benchMeta = new ArrayList<>();
 
-        for (int threadCount = 1; threadCount <= MAX_THREAD_COUNT; ) {
+        for (int threadCount = 1; threadCount <= PARAMETERS.getMaxThreadCount(); ) {
             try {
                 POOL = Executors.newFixedThreadPool(threadCount);
 
@@ -67,7 +63,7 @@ public class Benchmark {
                 POOL.awaitTermination(1, TimeUnit.DAYS);
             }
 
-            threadCount = Math.min(MAX_THREAD_COUNT + 1, threadCount * 2);
+            threadCount = Math.min(PARAMETERS.getMaxThreadCount() + 1, threadCount * 2);
         }
 
         Long end = System.currentTimeMillis();
@@ -82,12 +78,12 @@ public class Benchmark {
         long startTS = System.currentTimeMillis();
         ArrayList<Measure> times = new ArrayList<>(SAMPLES);
         for (int i = 0; i < SAMPLES; i++)
-            times.add(oneMeasure(pageSize, threadCount, USE_FILTER, DISTINGUISH_PARTITIONS));
+            times.add(oneMeasure(pageSize, threadCount, false, true));
 
         long endTS  = System.currentTimeMillis();
         long payloadInKB = (downloadedBytes.get() / 1024) - alreadyDownloadedKBytes;
         double throughputInKB = (1.0 * payloadInKB) / (0.001 * (endTS - startTS));
-        double throughputInRows = (1.0 * SAMPLES * ServerMock.COUNT_OF_ROWS) / (0.001 * (endTS - startTS));
+        double throughputInRows = (1.0 * SAMPLES * PARAMETERS.getCountOfRows()) / (0.001 * (endTS - startTS));
         System.out.println(String.format("measure [page size = %d, thread count = %d, throughput (kbytes/s) = %.2f, throughput (rows/s) = %.2f]",
             pageSize, threadCount, throughputInKB, throughputInRows
         ));
@@ -97,13 +93,13 @@ public class Benchmark {
     }
 
     private static Measure oneMeasure(int pageSize, int currentClientCount, boolean useFilter, boolean distinguishPartitions) throws Exception {
-        ArrayList<Future<Optional<Measure>>> futures = new ArrayList<>(MAX_THREAD_COUNT);
+        ArrayList<Future<Optional<Measure>>> futures = new ArrayList<>(currentClientCount);
         for (int i = 0; i < currentClientCount; i++) {
             final int clientID = i;
             futures.add(POOL.submit(() -> {
                 return new ThinClientMock(
                     pageSize, clientID, currentClientCount,
-                    useFilter, distinguishPartitions
+                    distinguishPartitions, PARAMETERS.getCountOfPartitions()
                 ).measure();
             }));
         }
@@ -139,9 +135,9 @@ public class Benchmark {
         System.out.println(header);
         benchMeta.forEach(meta -> {
             StringBuilder row = new StringBuilder();
-            row.append(ServerMock.QUERY_PARALLELISM).append("\t")
-                .append(ServerMock.COUNT_OF_ROWS).append("\t")
-                .append(ServerMock.COUNT_OF_PARTITIONS).append("\t")
+            row.append(PARAMETERS.getQueryParallelism()).append("\t")
+                .append(PARAMETERS.getCountOfRows()).append("\t")
+                .append(PARAMETERS.getCountOfPartitions()).append("\t")
                 .append(meta.threadCount).append("\t")
                 .append(meta.pageSize).append("\t")
                 .append(meta.throughputInKB).append("\t")
