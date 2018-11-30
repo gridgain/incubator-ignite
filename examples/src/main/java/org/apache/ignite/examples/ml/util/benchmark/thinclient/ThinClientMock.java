@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.BenchParameters;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.ClientInputStream;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.ClientOutputStream;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.Connection;
@@ -40,11 +41,13 @@ public class ThinClientMock {
 
     private final int pageSize;
     private final List<Integer> partitions;
+    private final BenchParameters parameters;
 
-    public ThinClientMock(int pageSize, int clientId, int countOfClients, boolean distinguishPartitions, int countOfPartitions) {
+    public ThinClientMock(int pageSize, int clientId, int countOfClients, boolean distinguishPartitions, BenchParameters parameters) {
+        this.parameters = parameters;
         this.pageSize = pageSize;
         if (distinguishPartitions) {
-            partitions = IntStream.range(0, countOfPartitions)
+            partitions = IntStream.range(0, parameters.getCountOfPartitions())
                 .filter(partition -> (partition % countOfClients) == clientId).boxed()
                 .collect(Collectors.toList());
         }
@@ -124,7 +127,7 @@ public class ThinClientMock {
         out.writeByte(101);                  // Filter (NULL).
         out.writeInt(pageSize);                 // Page Size.
         out.writeInt(partitionId);              // Partition to query.
-        out.writeByte(1);                    // Local flag.
+        out.writeByte(parameters.getCountOfIgnites() == 1 ? 1 : 0);                    // Local flag.
         out.flush();
 
         long start = System.currentTimeMillis();
