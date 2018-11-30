@@ -42,30 +42,45 @@ public class ThinClientMock {
     private final int pageSize;
     private final List<Integer> partitions;
     private final BenchParameters parameters;
+    private final boolean useLocalQueries;
+    private final int clientID;
 
-    public ThinClientMock(int pageSize, int clientId, int countOfClients, boolean distinguishPartitions, BenchParameters parameters) {
+    public ThinClientMock(boolean useLocalQueries, int pageSize, int clientId, int countOfClients,
+        boolean distinguishPartitions, BenchParameters parameters) {
         this.parameters = parameters;
         this.pageSize = pageSize;
-        if (distinguishPartitions) {
+        this.useLocalQueries = useLocalQueries;
+        this.clientID = clientId;
+        if (!useLocalQueries) {
             partitions = IntStream.range(0, parameters.getCountOfPartitions())
                 .filter(partition -> (partition % countOfClients) == clientId).boxed()
                 .collect(Collectors.toList());
-        }
-        else
+        } else
             partitions = Collections.singletonList(-1);
     }
 
     public Optional<Measure> measure() throws Exception {
-        try (Connection connection = new Connection(new Socket(HOST, PORT))) {
+        int port = PORT;
+        if(useLocalQueries)
+            port += clientID;
+
+        try (Connection connection = new Connection(new Socket(HOST, port))) {
             long start = System.currentTimeMillis();
 
             long firstQueryLatency = -1L;
             double totalPayload = 0L;
             handshake(connection);
-            for (Integer partId : partitions) {
-                IgniteBiTuple<Long, Long> result = getOnePartition(connection, partId);
-                if (firstQueryLatency == -1L)
-                    firstQueryLatency = result.get1();
+
+            if(!useLocalQueries) {
+                for (Integer partId : partitions) {
+                    IgniteBiTuple<Long, Long> result = getOnePartition(connection, partId);
+                    if (firstQueryLatency == -1L)
+                        firstQueryLatency = result.get1();
+                    totalPayload += result.get2();
+                }
+            } else {
+                IgniteBiTuple<Long, Long> result = getOnePartition(connection, -1);
+                firstQueryLatency = result.get1();
                 totalPayload += result.get2();
             }
 
@@ -127,7 +142,7 @@ public class ThinClientMock {
         out.writeByte(101);                  // Filter (NULL).
         out.writeInt(pageSize);                 // Page Size.
         out.writeInt(partitionId);              // Partition to query.
-        out.writeByte(parameters.getCountOfIgnites() == 1 ? 1 : 0);                    // Local flag.
+        out.writeByte(useLocalQueries ? 1 : 0);                    // Local flag.
         out.flush();
 
         long start = System.currentTimeMillis();

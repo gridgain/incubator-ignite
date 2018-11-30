@@ -21,7 +21,6 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import java.util.Arrays;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 public class BenchParameters {
@@ -39,6 +38,8 @@ public class BenchParameters {
     private int countOfIgnites = 1;
     @Parameter(names = "-h", required = false, description = "view help")
     private boolean help = false;
+    @Parameter(names = "-ulc", required = false, description = "use local queries")
+    private boolean useLocalQueries = false;
 
     public static BenchParameters parseArguments(String ... args) {
         BenchParameters parameters = new BenchParameters();
@@ -127,6 +128,15 @@ public class BenchParameters {
             ", count of rows = " + countOfRows +
             ", value object size in bytes = " + valueObjectSizeInBytes +
             ", max thread count = " + maxThreadCount +
-            ", count of ignites = " + countOfIgnites;
+            ", count of ignites = " + countOfIgnites +
+            ", use local queries = " + useLocalQueries;
+    }
+
+    public boolean isUseLocalQueries() {
+        return useLocalQueries;
+    }
+
+    public void setUseLocalQueries(boolean useLocalQueries) {
+        this.useLocalQueries = useLocalQueries;
     }
 }

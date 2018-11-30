@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.BenchParameters;
 import org.apache.ignite.examples.ml.util.benchmark.thinclient.utils.Measure;
+import org.apache.ignite.internal.util.typedef.PA;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -43,27 +44,22 @@ public class Benchmark {
 
     public static void main(String... args) throws Exception {
         PARAMETERS = BenchParameters.parseArguments(args);
+        if(PARAMETERS.getCountOfIgnites() == 1)
+            PARAMETERS.setUseLocalQueries(true);
+
         System.out.println("Start benchmark with such configuration: [" + PARAMETERS.toString() + "]");
 
         Long start = System.currentTimeMillis();
 
         List<MeasureWithMeta> benchMeta = new ArrayList<>();
 
-        for (int threadCount = 1; threadCount <= PARAMETERS.getMaxThreadCount(); ) {
-            try {
-                POOL = Executors.newFixedThreadPool(threadCount);
-
-                for (int pageSize : PAGE_SIZES) {
-                    MeasureWithMeta measuresWithMeta = measureSpecificConfiguration(threadCount, pageSize);
-                    benchMeta.add(measuresWithMeta);
-                }
+        if(PARAMETERS.isUseLocalQueries())
+            measureThroughSeveralClients(benchMeta, PARAMETERS.getCountOfIgnites());
+        else {
+            for (int threadCount = 1; threadCount <= PARAMETERS.getMaxThreadCount(); ) {
+                measureThroughSeveralClients(benchMeta, threadCount);
+                threadCount = Math.min(PARAMETERS.getMaxThreadCount() + 1, threadCount * 2);
             }
-            finally {
-                POOL.shutdown();
-                POOL.awaitTermination(1, TimeUnit.DAYS);
-            }
-
-            threadCount = Math.min(PARAMETERS.getMaxThreadCount() + 1, threadCount * 2);
         }
 
         Long end = System.currentTimeMillis();
@@ -72,13 +68,28 @@ public class Benchmark {
         printTable(benchMeta);
     }
 
-    @NotNull private static Benchmark.MeasureWithMeta measureSpecificConfiguration(int threadCount,
+    private static void measureThroughSeveralClients(List<MeasureWithMeta> benchMeta, int threadCount) throws Exception {
+        try {
+            POOL = Executors.newFixedThreadPool(threadCount);
+
+            for (int pageSize : PAGE_SIZES) {
+                MeasureWithMeta measuresWithMeta = measureSpecificConfiguration(PARAMETERS.isUseLocalQueries(), threadCount, pageSize);
+                benchMeta.add(measuresWithMeta);
+            }
+        }
+        finally {
+            POOL.shutdown();
+            POOL.awaitTermination(1, TimeUnit.DAYS);
+        }
+    }
+
+    @NotNull private static Benchmark.MeasureWithMeta measureSpecificConfiguration(boolean useLocalQueries, int threadCount,
         int pageSize) throws Exception {
         long alreadyDownloadedKBytes = downloadedBytes.get() / 1024;
         long startTS = System.currentTimeMillis();
         ArrayList<Measure> times = new ArrayList<>(SAMPLES);
         for (int i = 0; i < SAMPLES; i++)
-            times.add(oneMeasure(pageSize, threadCount, false, true));
+            times.add(oneMeasure(useLocalQueries, pageSize, threadCount, false, true));
 
         long endTS = System.currentTimeMillis();
         long payloadInKB = (downloadedBytes.get() / 1024) - alreadyDownloadedKBytes;
@@ -92,13 +103,16 @@ public class Benchmark {
         return new MeasureWithMeta(threadCount, pageSize, times, throughputInKB, throughputInRows);
     }
 
-    private static Measure oneMeasure(int pageSize, int currentClientCount, boolean useFilter,
+    private static Measure oneMeasure(boolean useLocalQueries, int pageSize, int currentClientCount, boolean useFilter,
         boolean distinguishPartitions) throws Exception {
+        if(useLocalQueries && currentClientCount != PARAMETERS.getCountOfIgnites())
+            throw new IllegalArgumentException("useLocalQueries && currentClientCount != PARAMETERS.getCountOfIgnites()");
+
         ArrayList<Future<Optional<Measure>>> futures = new ArrayList<>(currentClientCount);
         for (int i = 0; i < currentClientCount; i++) {
             final int clientID = i;
             futures.add(POOL.submit(() -> {
-                return new ThinClientMock(
+                return new ThinClientMock(useLocalQueries,
                     pageSize, clientID, currentClientCount,
                     distinguishPartitions, PARAMETERS
                 ).measure();
@@ -131,7 +145,7 @@ public class Benchmark {
     }
 
     private static void printTable(List<MeasureWithMeta> benchMeta) {
-        StringBuilder header = new StringBuilder("count of ignites\tquery parallelism\trows\tcount of partitions\tthread count\tpage size\tthroughput (kbytes/s)\tthroughput (rows/s)");
+        StringBuilder header = new StringBuilder("use local queries\tcount of ignites\tquery parallelism\trows\tcount of partitions\tthread count\tpage size\tthroughput (kbytes/s)\tthroughput (rows/s)");
         Measure.tableHeader().forEach(name -> header.append("\t" + name));
         System.out.println(header);
         benchMeta.forEach(meta -> {
