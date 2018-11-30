@@ -150,7 +150,9 @@ public class Benchmark {
         System.out.println(header);
         benchMeta.forEach(meta -> {
             StringBuilder row = new StringBuilder();
-            row.append(PARAMETERS.getCountOfIgnites()).append("\t")
+
+            row.append(PARAMETERS.isUseLocalQueries()).append("\t")
+                .append(PARAMETERS.getCountOfIgnites()).append("\t")
                 .append(PARAMETERS.getQueryParallelism()).append("\t")
                 .append(PARAMETERS.getCountOfRows()).append("\t")
                 .append(PARAMETERS.getCountOfPartitions()).append("\t")
