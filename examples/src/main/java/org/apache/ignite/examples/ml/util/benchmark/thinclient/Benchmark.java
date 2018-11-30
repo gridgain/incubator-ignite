@@ -100,7 +100,7 @@ public class Benchmark {
             futures.add(POOL.submit(() -> {
                 return new ThinClientMock(
                     pageSize, clientID, currentClientCount,
-                    distinguishPartitions, PARAMETERS.getCountOfPartitions()
+                    distinguishPartitions, PARAMETERS
                 ).measure();
             }));
         }
@@ -131,12 +131,13 @@ public class Benchmark {
     }
 
     private static void printTable(List<MeasureWithMeta> benchMeta) {
-        StringBuilder header = new StringBuilder("query parallelism\trows\tcount of partitions\tthread count\tpage size\tthroughput (kbytes/s)\tthroughput (rows/s)");
+        StringBuilder header = new StringBuilder("count of ignites\tquery parallelism\trows\tcount of partitions\tthread count\tpage size\tthroughput (kbytes/s)\tthroughput (rows/s)");
         Measure.tableHeader().forEach(name -> header.append("\t" + name));
         System.out.println(header);
         benchMeta.forEach(meta -> {
             StringBuilder row = new StringBuilder();
-            row.append(PARAMETERS.getQueryParallelism()).append("\t")
+            row.append(PARAMETERS.getCountOfIgnites()).append("\t")
+                .append(PARAMETERS.getQueryParallelism()).append("\t")
                 .append(PARAMETERS.getCountOfRows()).append("\t")
                 .append(PARAMETERS.getCountOfPartitions()).append("\t")
                 .append(meta.threadCount).append("\t")
