@@ -20,6 +20,9 @@ package org.apache.ignite.examples.ml.util.benchmark.thinclient.utils;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import java.util.Arrays;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 public class BenchParameters {
     @Parameter(names = "-qp", required = false, description = "query parallelism")
@@ -43,6 +46,7 @@ public class BenchParameters {
         try {
             jc.parse(args);
         } catch (ParameterException e) {
+            System.out.println("current argument tokens: " + Arrays.stream(args).collect(Collectors.joining(",")));
             jc.usage();
             System.exit(0);
         }
