@@ -71,7 +71,7 @@ namespace Apache.Ignite.Examples.Services
                     IClusterGroup dotNetNodes = ignite.GetCluster().ForDotNet();
                     IClusterGroup wfeNodes = dotNetNodes.ForPredicate(nodeFilter.Invoke);
 
-                    dotNetNodes.GetServices().Deploy(svcCfg);
+                    wfeNodes.GetServices().Deploy(svcCfg);
 
                     Console.WriteLine(">>> Getting service proxy...");
 
