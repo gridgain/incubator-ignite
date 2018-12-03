@@ -11,14 +11,14 @@ serverImageName: yardstickserver
 driverImageName: yardstickdriver
 
 # Flag to rebuild images even if they already exist.
-rebuildImagesIfExist: true
+rebuildImagesIfExist: false
 
-# Flags to remove images.
+# Flags to remove images before run.
 removeImagesFlags:
-  before: true
-  after: true
+  before: false
+  after: false
 
-# List of images to remove.
+# Flag to remove images before run.
 imagesToRemove:
  - yardstickserver
  - yardstickdriver
@@ -30,12 +30,12 @@ dockerRunCmdArgs: "-d --network host --name NAME_PLACEHOLDER"
 # Command which starts docker container.
 startContCmd: "sleep 1d"
 
-# Flags to remove containers.
+# Flag to remove containers after run.
 removeContainersFlags:
   before: true
   after: true
 
-# List of containers names to remove.
+# List of containers names to clean.
 containersToRemove:
  - YARDSTICK_DRIVER
  - YARDSTICK_SERVER
