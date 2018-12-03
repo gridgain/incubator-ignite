@@ -1,23 +1,25 @@
 # Flag to remove images before run.
-#removeImagesBeforeRunList:
-# - yardstickserver
-# - yardstickdriver
+removeImagesBeforeRunList:
+ - yardstickserver
+ - yardstickdriver
 
 # Flag to rebuild images even if they already exist.
-rebuildImagesIfExist: false
+rebuildImagesIfExist: true
 
 # Flag to remove images after run.
-#removeImagesAfterRunList:
-# - yardstickserver
-# - yardstickdriver
+removeImagesAfterRunList:
+ - yardstickserver
+ - yardstickdriver
 
 # Flag to remove containers after run.
 removeContainersAfterRun: true
 
 # Server image name.
+#serverImageName: yardstickserver
 serverImageName: yardstickserver
 
 # Driver image name.
+#driverImageName: yardstickdriver
 driverImageName: yardstickdriver
 
 ## Flag to copy yardstick into containers after starting containers.
