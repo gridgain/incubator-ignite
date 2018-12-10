@@ -13,29 +13,27 @@ driverImageName: yardstickdriver
 # Flag to rebuild images even if they already exist.
 rebuildImagesIfExist: false
 
-# Flags to remove images before run.
+# Command to build docker images.
+dockerBuildCmd: "build --no-cache -t IMAGE_NAME_PLACEHOLDER -f DOCKERFILE_PATH_PLACEHOLDER ."
+
+# Flags to remove images.
 removeImagesFlags:
   before: false
   after: false
 
-# Flag to remove images before run.
-imagesToRemove:
- - yardstickserver
- - yardstickdriver
-
-# List of arguments to use with docker 'run' command. If 'NAME_PLACEHOLDER' is present it will be replaced with
+# List of arguments to use with docker 'run' command. If 'NAME_PLACE_HOLDER' is present it will be replaced with
 # YARDSTICK-<NODETYPE>-<ID> name.
 dockerRunCmdArgs: "-d --network host --name NAME_PLACEHOLDER"
 
 # Command which starts docker container.
 startContCmd: "sleep 1d"
 
-# Flag to remove containers after run.
+# Flags to remove containers.
 removeContainersFlags:
   before: true
   after: true
 
-# List of containers names to clean.
+# List of containers names to remove.
 containersToRemove:
  - YARDSTICK_DRIVER
  - YARDSTICK_SERVER
