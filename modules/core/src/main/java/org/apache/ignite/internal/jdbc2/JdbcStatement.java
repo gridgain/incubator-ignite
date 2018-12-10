@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.processors.odbc.SqlStateCode;
 import org.apache.ignite.internal.util.typedef.F;
 
@@ -262,14 +263,20 @@ public class JdbcStatement implements Statement {
     @Override public int getQueryTimeout() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Query timeout is not supported.");
+        if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_JDBC_SKIP_QUERY_TIMEOUT_ERROR, false))
+            throw new SQLFeatureNotSupportedException("Query timeout is not supported.");
+        else
+
+
+        return 0;
     }
 
     /** {@inheritDoc} */
     @Override public void setQueryTimeout(int timeout) throws SQLException {
         ensureNotClosed();
 
-        throw new SQLFeatureNotSupportedException("Query timeout is not supported.");
+        if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_JDBC_SKIP_QUERY_TIMEOUT_ERROR, false))
+            throw new SQLFeatureNotSupportedException("Query timeout is not supported.");
     }
 
     /** {@inheritDoc} */

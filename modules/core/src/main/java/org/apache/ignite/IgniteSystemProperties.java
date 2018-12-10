@@ -863,6 +863,11 @@ public final class IgniteSystemProperties {
     public static final String IGNITE_UNWIND_THROTTLING_TIMEOUT = "IGNITE_UNWIND_THROTTLING_TIMEOUT";
 
     /**
+     * Skip "Query timeout is not supported" error for thick JDBC client.
+     */
+    public static final String IGNITE_JDBC_SKIP_QUERY_TIMEOUT_ERROR = "IGNITE_JDBC_SKIP_QUERY_TIMEOUT_ERROR";
+
+    /**
      * Enforces singleton.
      */
     private IgniteSystemProperties() {
