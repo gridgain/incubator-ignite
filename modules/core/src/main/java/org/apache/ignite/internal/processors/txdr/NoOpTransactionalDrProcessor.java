@@ -24,6 +24,7 @@ import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.Gri
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsFullMessage;
 import org.apache.ignite.internal.processors.cache.persistence.snapshot.SnapshotOperation;
+import org.apache.ignite.internal.processors.cluster.ChangeGlobalStateMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,6 +58,11 @@ public class NoOpTransactionalDrProcessor extends GridProcessorAdapter implement
             @Nullable GridDhtPartitionExchangeId exchId,
             GridDhtPartitionsFullMessage fullMsg
     ) {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onChangeGlobalStateMessagePrepared(ChangeGlobalStateMessage msg) {
         // No-op.
     }
 
