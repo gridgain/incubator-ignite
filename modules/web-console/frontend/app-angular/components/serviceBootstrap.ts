@@ -15,11 +15,18 @@
  * limitations under the License.
  */
 
-import angular from 'angular';
+import {Component} from '@angular/core';
 
-import igniteConsole from './app/app';
-import configurationLazyModule from './app/configuration/index.lazy';
-import {IgniteWebConsoleModule} from './app-angular';
-import {downgradeModuleFactory} from './app-angular/downgrade';
+@Component({
+    selector: 'service-bootstrap',
+    template: '<p>foo bar</p>'
+})
+export class ServiceBootstrapComponent {
+    constructor() {
+        const injector = angular.element(document.body).injector();
+        const urlService = injector.get('$urlService');
+        urlService.listen();
+        urlService.sync();
+    }
+}
 
-angular.bootstrap(document, [igniteConsole.name, configurationLazyModule.name, downgradeModuleFactory(IgniteWebConsoleModule)], {strictDi: true});

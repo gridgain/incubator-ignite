@@ -15,11 +15,24 @@
  * limitations under the License.
  */
 
-import angular from 'angular';
+page-profile-angular {
+    display: block;
 
-import igniteConsole from './app/app';
-import configurationLazyModule from './app/configuration/index.lazy';
-import {IgniteWebConsoleModule} from './app-angular';
-import {downgradeModuleFactory} from './app-angular/downgrade';
+    form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
 
-angular.bootstrap(document, [igniteConsole.name, configurationLazyModule.name, downgradeModuleFactory(IgniteWebConsoleModule)], {strictDi: true});
+        .span-1 {
+            grid-column: span 1;
+        }
+        .span-2 {
+            grid-column: span 2;
+        }
+
+        label {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: auto auto;
+        }
+    }
+}

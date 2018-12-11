@@ -153,6 +153,13 @@ import igniteServices from './services';
 
 import baseTemplate from 'views/base.pug';
 import * as icons from '../public/images/icons';
+import {igniteWebConsoleAngular} from '../app-angular/downgrade';
+
+import uiRouter from '@uirouter/angularjs';
+import {upgradeModule} from '@uirouter/angular-hybrid';
+// import {downgradeComponent} from '@angular/upgrade/static';
+// import {ServiceBootstrapComponent} from '../app-angular';
+
 
 export default angular
     .module('ignite-console', [
@@ -175,8 +182,9 @@ export default angular
         'ui.grid.resizeColumns',
         'ui.grid.saveState',
         'ui.grid.selection',
-        'ui.router',
-        'ui.router.state.events',
+        uiRouter,
+        upgradeModule.name,
+        // 'ui.router.state.events',
         'ui.carousel',
         // Base modules.
         'ignite-console.core',
@@ -253,6 +261,12 @@ export default angular
         noDataCmp.name,
         globalProgressBar.name
     ])
+// Restore routing after Angular loads
+.config(['$urlServiceProvider', ($urlService) => $urlService.deferIntercept()])
+// .directive('serviceBootstrap', downgradeComponent({component: ServiceBootstrapComponent}))
+// .run(['$compile', '$rootScope', ($compile: ng.ICompileService, $root: ng.IRootScopeService) => {
+//     $compile('<service-bootstrap></service-bootstrap>')($root);
+// }])
     .service('$exceptionHandler', $exceptionHandler)
     // Directives.
     .directive('igniteAutoFocus', igniteAutoFocus)

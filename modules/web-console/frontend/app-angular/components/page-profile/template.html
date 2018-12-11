@@ -1,0 +1,55 @@
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one or more
+ contributor license agreements.  See the NOTICE file distributed with
+ this work for additional information regarding copyright ownership.
+ The ASF licenses this file to You under the Apache License, Version 2.0
+ (the "License"); you may not use this file except in compliance with
+ the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<header class="header-with-selector">
+    <div><h1>User profile</h1></div>        
+</header>
+<form [formGroup]='form' (submit)='saveUser()' id='user'>
+    <label class='span-1'>
+        <span>First name:</span>
+        <input type="text" formControlName='firstName'>
+    </label>
+    <label class='span-1'>
+        <span>Last name:</span>
+        <input type="text" formControlName='lastName'>
+    </label>
+    <label class='span-2'>
+        <span>Email:</span>
+        <input type="email" formControlName='email'>
+    </label>
+    <label class='span-1'>
+        <span>Phone:</span>
+        <input type="tel" formControlName='phone'>
+    </label>
+    <label class='span-1'>
+        <span>Country/Region:</span>
+        <select formControlName='country'>
+            <option *ngFor='let country of countries' [value]="country.value">{{country.label}}</option>
+        </select>
+    </label>
+    <label class='span-2'>
+        <span>Company:</span>
+        <input type="text" formControlName='company'>
+    </label>
+</form>
+<footer>
+    <a class="btn-ignite btn-ignite--link-success" uiSref="default-state">Cancel</a>
+    <button type='submit' class="btn-ignite btn-ignite--success" form='user'>
+        <!-- <ignite-icon icon="checkmark"></ignite-icon> -->
+        Save Changes
+    </button>
+</footer>

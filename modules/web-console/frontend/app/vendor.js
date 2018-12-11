@@ -25,8 +25,9 @@ import 'angular-strap/dist/angular-strap.tpl';
 import 'angular1-async-filter';
 
 import 'angular-messages';
-import '@uirouter/angularjs';
-import '@uirouter/angularjs/lib/legacy/stateEvents';
+
+import 'core-js/es7/reflect';
+import 'zone.js/dist/zone';
 
 import 'resize-observer-polyfill';
 
