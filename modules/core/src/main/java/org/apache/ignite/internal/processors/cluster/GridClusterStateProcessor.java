@@ -910,6 +910,8 @@ public class GridClusterStateProcessor extends GridProcessorAdapter implements I
             forceChangeBaselineTop,
             System.currentTimeMillis());
 
+        ctx.txDr().onChangeGlobalStateMessagePrepared(msg);
+
         IgniteInternalFuture<?> resFut = wrapStateChangeFuture(startedFut, msg);
 
         try {
