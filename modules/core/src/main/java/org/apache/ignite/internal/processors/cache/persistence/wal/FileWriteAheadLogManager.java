@@ -1985,7 +1985,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
             FileDescriptor[] alreadyCompressed = scan(walArchiveDir.listFiles(WAL_SEGMENT_FILE_COMPACTED_FILTER));
 
             if (alreadyCompressed.length > 0)
-                segmentAware.lastSegmentCompressed(alreadyCompressed[alreadyCompressed.length - 1].idx());
+                segmentAware.onSegmentCompressed(alreadyCompressed[alreadyCompressed.length - 1].idx());
 
             for (int i = 1; i < calculateThreadCount(); i++) {
                 FileCompressorWorker worker = new FileCompressorWorker(i, log);
@@ -2087,11 +2087,8 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
                 long segIdx = -1L;
 
                 try {
-                    if ((segIdx = tryReserveNextSegmentOrWait()) == -1) {
-                        if (segIdx != -1)
-                            segmentAware.removeFromCurrentlyCompressedList(segIdx);
+                    if ((segIdx = tryReserveNextSegmentOrWait()) == -1)
                         continue;
-                    }
 
                     deleteObsoleteRawSegments();
 
