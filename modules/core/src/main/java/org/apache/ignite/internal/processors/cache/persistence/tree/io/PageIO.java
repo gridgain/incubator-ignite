@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.spi.encryption.EncryptionSpi;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.PageUtils;
@@ -82,6 +83,9 @@ import org.apache.ignite.internal.util.GridStringBuilder;
  */
 public abstract class PageIO {
     /** */
+    private static PageIO testIO;
+
+    /** */
     private static BPlusInnerIO<?> innerTestIO;
 
     /** */
@@ -130,28 +134,25 @@ public abstract class PageIO {
     public static final int ROTATED_ID_PART_OFF = PAGE_ID_OFF + 8;
 
     /** */
-    private static final int RESERVED_BYTE_OFF = ROTATED_ID_PART_OFF + 1;
+    private static final int COMPRESSION_TYPE_OFF = ROTATED_ID_PART_OFF + 1;
 
     /** */
-    private static final int RESERVED_SHORT_OFF = RESERVED_BYTE_OFF + 1;
+    private static final int COMPRESSED_SIZE_OFF = COMPRESSION_TYPE_OFF + 1;
 
     /** */
-    private static final int RESERVED_INT_OFF = RESERVED_SHORT_OFF + 2;
+    private static final int COMPACTED_SIZE_OFF = COMPRESSED_SIZE_OFF + 2;
 
     /** */
-    private static final int RESERVED_2_OFF = RESERVED_INT_OFF + 4;
+    private static final int RESERVED_SHORT_OFF = COMPACTED_SIZE_OFF + 2;
+
+    /** */
+    private static final int RESERVED_2_OFF = RESERVED_SHORT_OFF + 2;
 
     /** */
     private static final int RESERVED_3_OFF = RESERVED_2_OFF + 8;
 
     /** */
     public static final int COMMON_HEADER_END = RESERVED_3_OFF + 8; // 40=type(2)+ver(2)+crc(4)+pageId(8)+rotatedIdPart(1)+reserved(1+2+4+2*8)
-
-    /** */
-    public static final int MVCC_HINTS_MASK = 0xC0000000;
-
-    /** */
-    public static final int MVCC_HINTS_BIT_OFF = 30;
 
     /* All the page types. */
 
@@ -299,7 +300,7 @@ public abstract class PageIO {
     }
 
     /**
-     * @param pageAddr Page addres.
+     * @param pageAddr Page address.
      * @return Page type.
      */
     public static int getType(long pageAddr) {
@@ -384,6 +385,54 @@ public abstract class PageIO {
         PageUtils.putUnsignedByte(pageAddr, ROTATED_ID_PART_OFF, rotatedIdPart);
 
         assert getRotatedIdPart(pageAddr) == rotatedIdPart;
+    }
+
+    /**
+     * @param page Page buffer.
+     * @param compressType Compression type.
+     */
+    public static void setCompressionType(ByteBuffer page, byte compressType) {
+        page.put(COMPRESSION_TYPE_OFF, compressType);
+    }
+
+    /**
+     * @param page Page buffer.
+     * @return Compression type.
+     */
+    public static byte getCompressionType(ByteBuffer page) {
+        return page.get(COMPRESSION_TYPE_OFF);
+    }
+
+    /**
+     * @param page Page buffer.
+     * @param compressedSize Compressed size.
+     */
+    public static void setCompressedSize(ByteBuffer page, short compressedSize) {
+        page.putShort(COMPRESSED_SIZE_OFF, compressedSize);
+    }
+
+    /**
+     * @param page Page buffer.
+     * @return Compressed size.
+     */
+    public static short getCompressedSize(ByteBuffer page) {
+        return page.getShort(COMPRESSED_SIZE_OFF);
+    }
+
+    /**
+     * @param page Page buffer.
+     * @param compactedSize Compacted size.
+     */
+    public static void setCompactedSize(ByteBuffer page, short compactedSize) {
+        page.putShort(COMPACTED_SIZE_OFF, compactedSize);
+    }
+
+    /**
+     * @param page Page buffer.
+     * @return Compacted size.
+     */
+    public static short getCompactedSize(ByteBuffer page) {
+        return page.getShort(COMPACTED_SIZE_OFF);
     }
 
     /**
@@ -492,6 +541,15 @@ public abstract class PageIO {
     }
 
     /**
+     * Registers IO for testing.
+     *
+     * @param io Page IO.
+     */
+    public static void registerTest(PageIO io) {
+        testIO = io;
+    }
+
+    /**
      * @return Type.
      */
     public final int getType() {
@@ -509,6 +567,8 @@ public abstract class PageIO {
      * @param pageAddr Page address.
      * @param pageId Page ID.
      * @param pageSize Page size.
+     *
+     * @see EncryptionSpi#encryptedSize(int)
      */
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
         setType(pageAddr, getType());
@@ -516,7 +576,8 @@ public abstract class PageIO {
         setPageId(pageAddr, pageId);
         setCrc(pageAddr, 0);
 
-        PageUtils.putLong(pageAddr, ROTATED_ID_PART_OFF, 0L); // 1 + reserved(1+2+4)
+        // rotated(1) + compress_type(1) + compressed_size(2) + compacted_size(2) + reserved(2)
+        PageUtils.putLong(pageAddr, ROTATED_ID_PART_OFF, 0L);
         PageUtils.putLong(pageAddr, RESERVED_2_OFF, 0L);
         PageUtils.putLong(pageAddr, RESERVED_3_OFF, 0L);
     }
@@ -536,6 +597,15 @@ public abstract class PageIO {
         int ver = getVersion(pageAddr);
 
         return getPageIO(type, ver);
+    }
+
+    /**
+     * @param page Page.
+     * @return Page IO.
+     * @throws IgniteCheckedException If failed.
+     */
+    public static <Q extends PageIO> Q getPageIO(ByteBuffer page) throws IgniteCheckedException {
+        return getPageIO(getType(page), getVersion(page));
     }
 
     /**
@@ -575,6 +645,11 @@ public abstract class PageIO {
                 return (Q)SimpleDataPageIO.VERSIONS.forVersion(ver);
 
             default:
+                if (testIO != null) {
+                    if (testIO.type == type && testIO.ver == ver)
+                        return (Q)testIO;
+                }
+
                 return (Q)getBPlusIO(type, ver);
         }
     }
@@ -716,6 +791,21 @@ public abstract class PageIO {
      * @param sb Sb.
      */
     protected abstract void printPage(long addr, int pageSize, GridStringBuilder sb) throws IgniteCheckedException;
+
+    /**
+     * @param page Page.
+     * @param out Output buffer.
+     * @param pageSize Page size.
+     */
+    protected final void copyPage(ByteBuffer page, ByteBuffer out, int pageSize) {
+        assert out.position() == 0;
+        assert pageSize <= out.remaining();
+        assert pageSize == page.remaining();
+
+        page.mark();
+        out.put(page).flip();
+        page.reset();
+    }
 
     /**
      * @param addr Address.

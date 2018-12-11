@@ -27,8 +27,6 @@ import org.apache.ignite.ml.math.primitives.vector.VectorUtils;
 import org.apache.ignite.ml.nn.UpdatesStrategy;
 import org.apache.ignite.ml.optimization.updatecalculators.SimpleGDParameterUpdate;
 import org.apache.ignite.ml.optimization.updatecalculators.SimpleGDUpdateCalculator;
-import org.apache.ignite.ml.regressions.logistic.binomial.LogisticRegressionModel;
-import org.apache.ignite.ml.regressions.logistic.binomial.LogisticRegressionSGDTrainer;
 import org.junit.Test;
 
 /**
@@ -45,11 +43,13 @@ public class LogisticRegressionSGDTrainerTest extends TrainerTest {
         for (int i = 0; i < twoLinearlySeparableClasses.length; i++)
             cacheMock.put(i, twoLinearlySeparableClasses[i]);
 
-        LogisticRegressionSGDTrainer<?> trainer = new LogisticRegressionSGDTrainer<>(new UpdatesStrategy<>(
-            new SimpleGDUpdateCalculator().withLearningRate(0.2),
-            SimpleGDParameterUpdate::sumLocal,
-            SimpleGDParameterUpdate::avg
-        ), 100000, 10, 100, 123L);
+        LogisticRegressionSGDTrainer<?> trainer = new LogisticRegressionSGDTrainer<>()
+            .withUpdatesStgy(new UpdatesStrategy<>(new SimpleGDUpdateCalculator(0.2),
+                SimpleGDParameterUpdate::sumLocal, SimpleGDParameterUpdate::avg))
+            .withMaxIterations(100000)
+            .withLocIterations(100)
+            .withBatchSize(14)
+            .withSeed(123L);
 
         LogisticRegressionModel mdl = trainer.fit(
             cacheMock,
@@ -70,13 +70,15 @@ public class LogisticRegressionSGDTrainerTest extends TrainerTest {
         for (int i = 0; i < twoLinearlySeparableClasses.length; i++)
             cacheMock.put(i, twoLinearlySeparableClasses[i]);
 
-        LogisticRegressionSGDTrainer<?> trainer = new LogisticRegressionSGDTrainer<>(new UpdatesStrategy<>(
-            new SimpleGDUpdateCalculator().withLearningRate(0.2),
-            SimpleGDParameterUpdate::sumLocal,
-            SimpleGDParameterUpdate::avg
-        ), 100000, 10, 100, 123L);
+        LogisticRegressionSGDTrainer<?> trainer = new LogisticRegressionSGDTrainer<>()
+            .withUpdatesStgy(new UpdatesStrategy<>(new SimpleGDUpdateCalculator(0.2),
+                SimpleGDParameterUpdate::sumLocal, SimpleGDParameterUpdate::avg))
+            .withMaxIterations(100000)
+            .withLocIterations(100)
+            .withBatchSize(10)
+            .withSeed(123L);
 
-        LogisticRegressionModel originalModel = trainer.fit(
+        LogisticRegressionModel originalMdl = trainer.fit(
             cacheMock,
             parts,
             (k, v) -> VectorUtils.of(Arrays.copyOfRange(v, 1, v.length)),
@@ -84,7 +86,7 @@ public class LogisticRegressionSGDTrainerTest extends TrainerTest {
         );
 
         LogisticRegressionModel updatedOnSameDS = trainer.update(
-            originalModel,
+            originalMdl,
             cacheMock,
             parts,
             (k, v) -> VectorUtils.of(Arrays.copyOfRange(v, 1, v.length)),
@@ -92,7 +94,7 @@ public class LogisticRegressionSGDTrainerTest extends TrainerTest {
         );
 
         LogisticRegressionModel updatedOnEmptyDS = trainer.update(
-            originalModel,
+            originalMdl,
             new HashMap<Integer, double[]>(),
             parts,
             (k, v) -> VectorUtils.of(Arrays.copyOfRange(v, 1, v.length)),
@@ -101,9 +103,9 @@ public class LogisticRegressionSGDTrainerTest extends TrainerTest {
 
         Vector v1 = VectorUtils.of(100, 10);
         Vector v2 = VectorUtils.of(10, 100);
-        TestUtils.assertEquals(originalModel.apply(v1), updatedOnSameDS.apply(v1), PRECISION);
-        TestUtils.assertEquals(originalModel.apply(v2), updatedOnSameDS.apply(v2), PRECISION);
-        TestUtils.assertEquals(originalModel.apply(v2), updatedOnEmptyDS.apply(v2), PRECISION);
-        TestUtils.assertEquals(originalModel.apply(v1), updatedOnEmptyDS.apply(v1), PRECISION);
+        TestUtils.assertEquals(originalMdl.apply(v1), updatedOnSameDS.apply(v1), PRECISION);
+        TestUtils.assertEquals(originalMdl.apply(v2), updatedOnSameDS.apply(v2), PRECISION);
+        TestUtils.assertEquals(originalMdl.apply(v2), updatedOnEmptyDS.apply(v2), PRECISION);
+        TestUtils.assertEquals(originalMdl.apply(v1), updatedOnEmptyDS.apply(v1), PRECISION);
     }
 }

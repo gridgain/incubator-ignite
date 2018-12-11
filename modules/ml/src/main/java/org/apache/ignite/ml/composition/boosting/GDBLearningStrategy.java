@@ -29,6 +29,7 @@ import org.apache.ignite.ml.composition.boosting.loss.Loss;
 import org.apache.ignite.ml.composition.predictionsaggregator.WeightedPredictionsAggregator;
 import org.apache.ignite.ml.dataset.DatasetBuilder;
 import org.apache.ignite.ml.environment.LearningEnvironment;
+import org.apache.ignite.ml.environment.LearningEnvironmentBuilder;
 import org.apache.ignite.ml.environment.logging.MLLogger;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.functions.IgniteFunction;
@@ -41,8 +42,11 @@ import org.jetbrains.annotations.NotNull;
  * Learning strategy for gradient boosting.
  */
 public class GDBLearningStrategy {
-    /** Learning environment. */
-    protected LearningEnvironment environment;
+    /** Learning environment builder. */
+    protected LearningEnvironmentBuilder envBuilder;
+
+    /** Learning environment used for trainer. */
+    protected LearningEnvironment trainerEnvironment;
 
     /** Count of iterations. */
     protected int cntOfIterations;
@@ -57,7 +61,7 @@ public class GDBLearningStrategy {
     protected IgniteSupplier<DatasetTrainer<? extends Model<Vector, Double>, Double>> baseMdlTrainerBuilder;
 
     /** Mean label value. */
-    protected double meanLabelValue;
+    protected double meanLbVal;
 
     /** Sample size. */
     protected long sampleSize;
@@ -101,6 +105,8 @@ public class GDBLearningStrategy {
     public <K,V> List<Model<Vector, Double>> update(GDBTrainer.GDBModel mdlToUpdate,
         DatasetBuilder<K, V> datasetBuilder, IgniteBiFunction<K, V, Vector> featureExtractor,
         IgniteBiFunction<K, V, Double> lbExtractor) {
+        if (trainerEnvironment == null)
+            throw new IllegalStateException("Learning environment builder is not set.");
 
         List<Model<Vector, Double>> models = initLearningState(mdlToUpdate);
 
@@ -111,9 +117,9 @@ public class GDBLearningStrategy {
         for (int i = 0; i < cntOfIterations; i++) {
             double[] weights = Arrays.copyOf(compositionWeights, models.size());
 
-            WeightedPredictionsAggregator aggregator = new WeightedPredictionsAggregator(weights, meanLabelValue);
+            WeightedPredictionsAggregator aggregator = new WeightedPredictionsAggregator(weights, meanLbVal);
             ModelsComposition currComposition = new ModelsComposition(models, aggregator);
-            if (convCheck.isConverged(datasetBuilder, currComposition))
+            if (convCheck.isConverged(envBuilder, datasetBuilder, currComposition))
                 break;
 
             IgniteBiFunction<K, V, Double> lbExtractorWrap = (k, v) -> {
@@ -125,7 +131,7 @@ public class GDBLearningStrategy {
             long startTs = System.currentTimeMillis();
             models.add(trainer.fit(datasetBuilder, featureExtractor, lbExtractorWrap));
             double learningTime = (double)(System.currentTimeMillis() - startTs) / 1000.0;
-            environment.logger(getClass()).log(MLLogger.VerboseLevel.LOW, "One model training time was %.2fs", learningTime);
+            trainerEnvironment.logger(getClass()).log(MLLogger.VerboseLevel.LOW, "One model training time was %.2fs", learningTime);
         }
 
         return models;
@@ -142,13 +148,13 @@ public class GDBLearningStrategy {
         if(mdlToUpdate != null) {
             models.addAll(mdlToUpdate.getModels());
             WeightedPredictionsAggregator aggregator = (WeightedPredictionsAggregator) mdlToUpdate.getPredictionsAggregator();
-            meanLabelValue = aggregator.getBias();
+            meanLbVal = aggregator.getBias();
             compositionWeights = new double[models.size() + cntOfIterations];
             for(int i = 0; i < models.size(); i++)
                 compositionWeights[i] = aggregator.getWeights()[i];
-        } else {
-            compositionWeights = new double[cntOfIterations];
         }
+        else
+            compositionWeights = new double[cntOfIterations];
 
         Arrays.fill(compositionWeights, models.size(), compositionWeights.length, defaultGradStepSize);
         return models;
@@ -157,10 +163,11 @@ public class GDBLearningStrategy {
     /**
      * Sets learning environment.
      *
-     * @param environment Learning Environment.
+     * @param envBuilder Learning Environment.
      */
-    public GDBLearningStrategy withEnvironment(LearningEnvironment environment) {
-        this.environment = environment;
+    public GDBLearningStrategy withEnvironmentBuilder(LearningEnvironmentBuilder envBuilder) {
+        this.envBuilder = envBuilder;
+        this.trainerEnvironment = envBuilder.buildForTrainer();
         return this;
     }
 
@@ -208,10 +215,10 @@ public class GDBLearningStrategy {
     /**
      * Sets mean label value.
      *
-     * @param meanLabelValue Mean label value.
+     * @param meanLbVal Mean label value.
      */
-    public GDBLearningStrategy withMeanLabelValue(double meanLabelValue) {
-        this.meanLabelValue = meanLabelValue;
+    public GDBLearningStrategy withMeanLabelValue(double meanLbVal) {
+        this.meanLbVal = meanLbVal;
         return this;
     }
 
@@ -262,6 +269,6 @@ public class GDBLearningStrategy {
 
     /** */
     public double getMeanValue() {
-        return meanLabelValue;
+        return meanLbVal;
     }
 }
