@@ -41,7 +41,7 @@ AM_CPPFLAGS = \
 
 AM_CXXFLAGS = \
 	-Wall \
-        -std=c++11
+	-std=c++11
 
 ignite_thin_client_tests_LDADD = \
 	@top_srcdir@/core/libignite.la \
@@ -49,8 +49,8 @@ ignite_thin_client_tests_LDADD = \
 	-lpthread \
 	-lboost_thread \
 	-lboost_system \
-        -lboost_chrono \
-        -lboost_random
+	-lboost_chrono \
+	-lboost_random
 
 ignite_thin_client_tests_LDFLAGS = \
 	-static-libtool-libs \
