@@ -109,51 +109,53 @@ namespace ignite
     }
 }
 
+const int32_t WARMUP_ITERATIONS_NUM = 100000;
+const int32_t ITERATIONS_NUM = 1000000;
+const int32_t THREAD_NUM = 1;
+const std::string ADDRESS = "127.0.0.1";
+
 struct BenchmarkConfiguration
 {
     BenchmarkConfiguration() :
-        threadNum(1),
-        iterationsNum(100000),
-        warmupIterationsNum(100000),
-        log(0)
+        threadNum(THREAD_NUM),
+        iterationsNum(ITERATIONS_NUM),
+        warmupIterationsNum(WARMUP_ITERATIONS_NUM),
+        log(&std::cout),
+        endPoints(ADDRESS)
     {
         // No-op.
     }
 
-    int32_t threadNum;
-    int32_t iterationsNum;
-    int32_t warmupIterationsNum;
+    uint64_t threadNum;
+    uint64_t iterationsNum;
+    uint64_t warmupIterationsNum;
     std::ostream* log;
+    std::string endPoints;
 };
 
-class BenchmarkBase
+class LatencyBenchmark
 {
 public:
-    BenchmarkBase(const BenchmarkConfiguration& cfg):
-        cfg(cfg)
+    LatencyBenchmark(uint64_t iterations) :
+        iteration(0),
+        iterations(iterations),
+        latency()
     {
-        // No-op.
+        latency.reserve(iterations);
     }
 
-    virtual ~BenchmarkBase()
+    virtual ~LatencyBenchmark()
     {
         // No-op.
     }
 
     virtual void SetUp() = 0;
 
-    virtual bool Test() = 0;
-
     virtual void TearDown() = 0;
 
     virtual std::string GetName() = 0;
 
-    const BenchmarkConfiguration& GetConfig() const
-    {
-        return cfg;
-    }
-
-    void GenerateRandomSequence(std::vector<int32_t>& res, int32_t num, int32_t min = 0, int32_t max = INT32_MAX)
+    static void GenerateRandomSequence(std::vector<int32_t>& res, uint64_t num, int32_t min = 0, int32_t max = INT32_MAX)
     {
         res.clear();
         res.reserve(num);
@@ -166,7 +168,7 @@ public:
             res.push_back(dist(gen));
     }
 
-    void FillCache(cache::CacheClient<int32_t, SampleValue>& cache, int32_t min, int32_t max)
+    static void FillCache(cache::CacheClient<int32_t, SampleValue>& cache, int32_t min, int32_t max)
     {
         std::random_device seed_gen;
         std::mt19937 gen(seed_gen());
@@ -176,18 +178,53 @@ public:
             cache.Put(i, SampleValue(dist(gen)));
     }
 
+    uint64_t GetIterations() const
+    {
+        return iterations;
+    }
+
+    uint64_t GetIteration() const
+    {
+        return iteration;
+    }
+
+    const std::vector<int64_t>& GetLatency() const
+    {
+        return latency;
+    }
+
+    bool Test()
+    {
+        if (iteration >= iterations)
+            return false;
+
+        using namespace std::chrono;
+
+        auto begin = steady_clock::now();
+
+        DoTest();
+
+        latency.push_back(duration_cast<microseconds>(steady_clock::now() - begin).count());
+
+        ++iteration;
+
+        return true;
+    }
+
 protected:
-    const BenchmarkConfiguration cfg;
+    virtual void DoTest() = 0;
+
+private:
+    uint64_t iteration;
+    uint64_t iterations;
+    std::vector<int64_t> latency;
 };
 
-class ClientCacheBenchmarkAdapter : public BenchmarkBase
+class ClientCacheBenchmarkAdapter : public LatencyBenchmark
 {
 public:
-    ClientCacheBenchmarkAdapter(
-        const BenchmarkConfiguration& cfg,
-        const IgniteClientConfiguration& clientCfg,
-        const std::string& cacheName) :
-        BenchmarkBase(cfg),
+    ClientCacheBenchmarkAdapter(const IgniteClientConfiguration& clientCfg, const std::string& cacheName, uint64_t iterations) :
+        LatencyBenchmark(iterations),
         client(IgniteClient::Start(clientCfg)),
         cache(client.GetOrCreateCache<int32_t, SampleValue>(cacheName.c_str()))
     {
@@ -220,9 +257,8 @@ protected:
 class ClientCachePutBenchmark : public ClientCacheBenchmarkAdapter
 {
 public:
-    ClientCachePutBenchmark(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg) :
-        ClientCacheBenchmarkAdapter(cfg, clientCfg, "PutBenchTestCache"),
-        iteration(0)
+    ClientCachePutBenchmark(const IgniteClientConfiguration& clientCfg, uint64_t iterations) :
+        ClientCacheBenchmarkAdapter(clientCfg, "PutBenchTestCache", iterations)
     {
         // No-op.
     }
@@ -236,8 +272,8 @@ public:
     {
         ClientCacheBenchmarkAdapter::SetUp();
 
-        GenerateRandomSequence(keys, GetConfig().iterationsNum);
-        GenerateRandomSequence(values, GetConfig().iterationsNum);
+        GenerateRandomSequence(keys, GetIterations());
+        GenerateRandomSequence(values, GetIterations());
     }
 
     virtual void TearDown()
@@ -245,13 +281,9 @@ public:
         ClientCacheBenchmarkAdapter::TearDown();
     }
 
-    virtual bool Test()
+    virtual void DoTest()
     {
-        cache.Put(keys[iteration], SampleValue(values[iteration]));
-
-        ++iteration;
-
-        return iteration < GetConfig().iterationsNum;
+        cache.Put(keys[GetIteration()], SampleValue(values[GetIteration()]));
     }
 
     virtual std::string GetName()
@@ -262,15 +294,13 @@ public:
 private:
     std::vector<int32_t> keys;
     std::vector<int32_t> values;
-    int32_t iteration;
 };
 
 class ClientCacheGetBenchmark : public ClientCacheBenchmarkAdapter
 {
 public:
-    ClientCacheGetBenchmark(const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg) :
-        ClientCacheBenchmarkAdapter(cfg, clientCfg, "GutBenchTestCache"),
-        iteration(0)
+    ClientCacheGetBenchmark(const IgniteClientConfiguration& clientCfg, uint64_t iterations) :
+        ClientCacheBenchmarkAdapter(clientCfg, "GutBenchTestCache", iterations)
     {
         // No-op.
     }
@@ -284,7 +314,7 @@ public:
     {
         ClientCacheBenchmarkAdapter::SetUp();
 
-        GenerateRandomSequence(keys, GetConfig().iterationsNum, 0, 10000);
+        GenerateRandomSequence(keys, GetIterations(), 0, 10000);
 
         FillCache(cache, 0, 10000);
     }
@@ -294,14 +324,10 @@ public:
         ClientCacheBenchmarkAdapter::TearDown();
     }
 
-    virtual bool Test()
+    virtual void DoTest()
     {
         SampleValue val;
-        cache.Get(keys[iteration], val);
-
-        ++iteration;
-
-        return iteration < GetConfig().iterationsNum;
+        cache.Get(keys[GetIteration()], val);
     }
 
     virtual std::string GetName()
@@ -311,7 +337,6 @@ public:
 
 private:
     std::vector<int32_t> keys;
-    int32_t iteration;
 };
 
 
@@ -331,125 +356,141 @@ void PrintBackets(const std::string& annotation, std::vector<int64_t>& res, std:
         << std::endl;
 }
 
-void MeasureThread(Semaphore& sem, std::vector<int64_t>& latency, BenchmarkBase& bench)
+void MeasureThread(Semaphore& sem, LatencyBenchmark& bench)
 {
-    using namespace std::chrono;
-
     sem.Wait();
-
-    latency.clear();
-
-    latency.reserve(bench.GetConfig().iterationsNum);
-
-    auto begin = steady_clock::now();
 
     bool run = true;
 
     while (run)
     {
-        auto putBegin = steady_clock::now();
-
         run = bench.Test();
-
-        latency.push_back(duration_cast<microseconds>(steady_clock::now() - putBegin).count());
     }
 }
 
 template<typename T>
-int64_t MeasureInThreads(
-    const BenchmarkConfiguration& cfg,
+void MeasureInThreads(
     const IgniteClientConfiguration& clientCfg,
-    std::vector<int64_t>& latency)
+    std::vector<int64_t>& latency,
+    uint64_t threadNum,
+    uint64_t iterations)
 {
     std::vector<T> contexts;
     std::vector<std::thread> threads;
-    std::vector< std::vector<int64_t> > latencies(cfg.threadNum);
 
-    contexts.reserve(cfg.threadNum);
-    threads.reserve(cfg.threadNum);
+    contexts.reserve(threadNum);
+    threads.reserve(threadNum);
 
     Semaphore sem(0);
 
-    for (int32_t i = 0; i < cfg.threadNum; ++i)
+    for (uint64_t i = 0; i < threadNum; ++i)
     {
-        contexts.push_back(T(cfg, clientCfg));
+        contexts.push_back(T(clientCfg, iterations));
 
         contexts[i].SetUp();
 
-        threads.push_back(std::thread(MeasureThread, std::ref(sem), std::ref(latencies[i]), std::ref(contexts[i])));
+        threads.push_back(std::thread(MeasureThread, std::ref(sem), std::ref(contexts[i])));
     }
 
-    using namespace std::chrono;
-
-    auto begin = steady_clock::now();
-
-    for (int32_t i = 0; i < cfg.threadNum; ++i)
+    for (uint64_t i = 0; i < threadNum; ++i)
         sem.Post();
 
-    for (int32_t i = 0; i < cfg.threadNum; ++i)
+    for (uint64_t i = 0; i < threadNum; ++i)
         threads[i].join();
 
-    for (int32_t i = 0; i < cfg.threadNum; ++i)
+    for (uint64_t i = 0; i < threadNum; ++i)
         contexts[i].TearDown();
 
-    auto duration = steady_clock::now() - begin;
-
     latency.clear();
-    latency.reserve(cfg.iterationsNum * cfg.threadNum);
+    latency.reserve(iterations * threadNum);
 
-    for (int32_t i = 0; i < cfg.threadNum; ++i)
-        latency.insert(latency.end(), latencies[i].begin(), latencies[i].end());
-
-    return duration_cast<milliseconds>(duration).count();
+    for (uint64_t i = 0; i < threadNum; ++i)
+        latency.insert(latency.end(), contexts[i].GetLatency().begin(), contexts[i].GetLatency().end());
 }
 
 template<typename T>
-void Run(const std::string& annotation, const BenchmarkConfiguration& cfg, const IgniteClientConfiguration& clientCfg)
+void Run(const std::string& annotation, const BenchmarkConfiguration& cfg)
 {
     std::ostream* log = cfg.log;
 
     if (log)
-        *log << "Warming up. Operations number: " << cfg.warmupIterationsNum << std::endl;
+        *log << "Server endpoints: " << cfg.endPoints << std::endl;
+
+    IgniteClientConfiguration clientCfg;
+    clientCfg.SetEndPoints(cfg.endPoints);
 
     std::vector<int64_t> latency;
-    int64_t duration = MeasureInThreads<T>(cfg, clientCfg, latency);
+
+    if (log)
+        *log << "Warming up. Operations number: " << cfg.warmupIterationsNum << std::endl;
+
+    MeasureInThreads<T>(clientCfg, latency, cfg.threadNum, cfg.warmupIterationsNum);
 
     if (log)
         *log << std::endl << "Starting benchmark. Operations number: " << cfg.iterationsNum << std::endl;
 
-    duration = MeasureInThreads<T>(cfg, clientCfg, latency);
+    MeasureInThreads<T>(clientCfg, latency, cfg.threadNum, cfg.warmupIterationsNum);
 
     if (log)
-    {
         PrintBackets(annotation, latency, *log);
-
-        *log << std::endl << "Duration: " << duration << "ms" << std::endl;
-
-        *log << "Throughput: " << static_cast<int32_t>((cfg.iterationsNum * 1000.0) / duration) << "op/sec" << std::endl;
-    }
 }
 
-const int32_t WARMUP_ITERATIONS_NUM = 100000;
-const int32_t ITERATIONS_NUM = 1000000;
-const int32_t THREAD_NUM = 1;
-
-const std::string address = "127.0.0.1:11110";
-
-void PrintHelp(const char* bin)
+void PrintHelp(const std::string& bin)
 {
-    std::cout << "Usage: " << bin << " <command>" << std::endl;
+    std::cout << "Usage: " << bin << " <command> [<option>[...]]" << std::endl;
     std::cout << "Possible commands:" << std::endl;
-    std::cout << " help   : Show this message" << std::endl;
-    std::cout << " get    : Run 'get' benchmark" << std::endl;
-    std::cout << " put    : Run 'put' benchmark" << std::endl;
+    std::cout << " help      : Show this message" << std::endl;
+    std::cout << " get       : Run 'get' benchmark" << std::endl;
+    std::cout << " put       : Run 'put' benchmark" << std::endl;
+    std::cout << "Possible options:" << std::endl;
+    std::cout << " -t <N>    : Number of threads. Default is " << THREAD_NUM << std::endl;
+    std::cout << " -w <N>    : Number of operations on warm up stage. Default is " << WARMUP_ITERATIONS_NUM << std::endl;
+    std::cout << " -i <N>    : Number of operations on benchmark stage. Default is " << ITERATIONS_NUM << std::endl;
+    std::cout << " -a <ips>  : Endpoints list. Default is " << ADDRESS << std::endl;
     std::cout << std::endl;
+}
+
+int ParseConfig(BenchmarkConfiguration& cfg, int argc, char* argv[])
+{
+    // Parsing arguments from 2 to N in pairs
+    for (int i = 2; i < argc; i+=2)
+    {
+        std::string opt(argv[i]);
+        std::string val(argv[i+1]);
+
+        if (opt == "-a")
+        {
+            cfg.endPoints = val;
+
+            continue;
+        }
+
+        uint64_t nval = ignite::common::LexicalCast<uint64_t>(val);
+
+        if (opt == "-t")
+            cfg.threadNum = nval;
+        else
+        if (opt == "-w")
+            cfg.warmupIterationsNum = nval;
+        else
+        if (opt == "-i")
+            cfg.iterationsNum = nval;
+        else
+            return -5;
+    }
+
+    return 0;
 }
 
 int main(int argc, char* argv[])
 {
-    const char* binName = argv[0];
+    std::string binName = argv[0];
 
-    if (argc != 1)
+    size_t pos = binName.find_last_of("\\/");
+
+    binName = binName.substr(pos == std::string::npos ? 0 : pos + 1);
+
+    if (argc < 2 || (argc % 2) != 0)
     {
         PrintHelp(binName);
 
@@ -457,27 +498,43 @@ int main(int argc, char* argv[])
     }
 
     BenchmarkConfiguration cfg;
-    cfg.iterationsNum = ITERATIONS_NUM;
-    cfg.warmupIterationsNum = WARMUP_ITERATIONS_NUM;
-    cfg.threadNum = THREAD_NUM;
-    cfg.log = &std::cout;
 
-    IgniteClientConfiguration clientCfg;
-    clientCfg.SetEndPoints(address);
+    int res = ParseConfig(cfg, argc, argv);
 
-    Run<ClientCacheGetBenchmark>("Get", cfg, clientCfg);
-
-    std::string cmd(argv[1]);
-
-    if (cmd == "get")
-        Run<ClientCacheGetBenchmark>("Get", cfg, clientCfg);
-    else if (cmd == "put")
-        Run<ClientCachePutBenchmark>("Put", cfg, clientCfg);
-    else
+    if (res)
     {
         PrintHelp(binName);
 
-        return cmd == "help" ? 0 : -1;
+        return res;
+    }
+
+    std::string cmd(argv[1]);
+
+    try
+    {
+        if (cmd == "get")
+            Run<ClientCacheGetBenchmark>("Get", cfg);
+        else
+        if (cmd == "put")
+            Run<ClientCachePutBenchmark>("Put", cfg);
+        else
+        {
+            PrintHelp(binName);
+
+            return cmd == "help" ? 0 : -1;
+        }
+    }
+    catch (std::exception& err)
+    {
+        std::cout << "Error: " << err.what() << std::endl;
+
+        return -2;
+    }
+    catch (...)
+    {
+        std::cout << "Unknown error" << std::endl;
+
+        return -3;
     }
 
     return 0;
