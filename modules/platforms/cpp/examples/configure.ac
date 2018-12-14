@@ -59,6 +59,7 @@ AC_CONFIG_FILES([ \
     continuous-query-example/Makefile \
     compute-example/Makefile \
     thin-client-put-get-example/Makefile \
+    thin-client-benchmark/Makefile \
 ])
 
 AC_OUTPUT
