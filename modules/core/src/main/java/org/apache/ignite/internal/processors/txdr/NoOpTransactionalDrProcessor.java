@@ -63,4 +63,8 @@ public class NoOpTransactionalDrProcessor extends GridProcessorAdapter implement
     @Override public boolean shouldScheduleRebalance(GridDhtPartitionsExchangeFuture fut) {
         return false;
     }
+
+    @Override public boolean shouldApplyUpdateCounterOnRebalance() {
+        return false;
+    }
 }
