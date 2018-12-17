@@ -33,14 +33,14 @@ AM_CXXFLAGS = \
     -Wall \
     -std=c++11
 
-ignite_thin_client_put_get_example_LDADD = \
+ignite_thin_client_benchmark_LDADD = \
     @top_srcdir@/../thin-client/libignite-thin-client.la \
     -lpthread
 
-ignite_thin_client_put_get_example_LDFLAGS = \
+ignite_thin_client_benchmark_LDFLAGS = \
     -static-libtool-libs
 
-ignite_thin_client_put_get_example_SOURCES = \
+ignite_thin_client_benchmark_SOURCES = \
     src/thin_client_benchmark.cpp
 
 run-check: check
