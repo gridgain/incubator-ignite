@@ -648,7 +648,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     }
 
     /** {@inheritDoc} */
-    @Override public long acquirePage(int grpId, long pageId, boolean restore) throws IgniteCheckedException {
+    @Override public long acquirePage(int grpId, final long pageId, boolean restore) throws IgniteCheckedException {
         FullPageId fullId = new FullPageId(pageId, grpId);
 
         int partId = PageIdUtils.partId(pageId);
@@ -1870,6 +1870,20 @@ public class PageMemoryImpl implements PageMemoryEx {
         private int pages() {
             return (int)((region.size() - (pagesBase - region.address())) / sysPageSize);
         }
+    }
+
+    /**
+     * Gets a collection of all pages currently marked as dirty. Will create a collection copy.
+     *
+     * @return Collection of all page IDs marked as dirty.
+     */
+    public Collection<FullPageId> dirtyPages() {
+        Collection<FullPageId> res = new HashSet<>((int)loadedPages());
+
+        for (Segment seg : segments)
+            res.addAll(seg.dirtyPages);
+
+        return res;
     }
 
     /**
