@@ -64,6 +64,7 @@ public class NoOpTransactionalDrProcessor extends GridProcessorAdapter implement
         return false;
     }
 
+    /** {@inheritDoc} */
     @Override public boolean shouldApplyUpdateCounterOnRebalance() {
         return false;
     }
