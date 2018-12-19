@@ -3395,7 +3395,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 delegate.onInitBeforeTopologyLock(fut);
             }
             catch (Exception e) {
-                U.warn(log, "Failed to execute exchange callback [err=" + e + ']');
+                U.warn(log, "Failed to execute exchange callback.", e);
             }
         }
 
@@ -3405,7 +3405,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 delegate.onInitAfterTopologyLock(fut);
             }
             catch (Exception e) {
-                U.warn(log, "Failed to execute exchange callback [err=" + e + ']');
+                U.warn(log, "Failed to execute exchange callback.", e);
             }
         }
 
@@ -3415,7 +3415,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 delegate.onDoneBeforeTopologyUnlock(fut);
             }
             catch (Exception e) {
-                U.warn(log, "Failed to execute exchange callback [err=" + e + ']');
+                U.warn(log, "Failed to execute exchange callback.", e);
             }
         }
 
@@ -3425,14 +3425,17 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 delegate.onDoneAfterTopologyUnlock(fut);
             }
             catch (Exception e) {
-                U.warn(log, "Failed to execute exchange callback [err=" + e + ']');
+                U.warn(log, "Failed to execute exchange callback.", e);
             }
         }
 
+        /** {@inheritDoc} */
         @Override public int hashCode() {
             return delegate.hashCode();
         }
 
+        /** {@inheritDoc} */
+        @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
         @Override public boolean equals(Object obj) {
             return delegate.equals(obj);
         }
