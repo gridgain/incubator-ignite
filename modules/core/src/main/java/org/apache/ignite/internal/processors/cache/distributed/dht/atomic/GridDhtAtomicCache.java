@@ -1738,8 +1738,7 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                                 // Can not wait for topology future since it will break
                                 // GridNearAtomicCheckUpdateRequest processing.
                                 remap = !top.topologyVersionFuture().exchangeDone() ||
-                                    needRemap(req.topologyVersion(), top.readyTopologyVersion(),
-                                        req.lastAffinityChangedTopologyVersion(), req.keys());
+                                    needRemap(req.topologyVersion(), top.readyTopologyVersion(), req.keys());
                             }
 
                             if (!remap) {
@@ -1759,7 +1758,8 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
 
                         // This call will convert entry processor invocation results to cache object instances.
                         // Must be done outside topology read lock to avoid deadlocks.
-                        res.returnValue().marshalResult(ctx);
+                        if (res.returnValue() != null)
+                            res.returnValue().marshalResult(ctx);
 
                         break;
                     }

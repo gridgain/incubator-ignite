@@ -845,8 +845,7 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
         checkCaches1(SRVS + CLIENTS);
 
         // Wait for late affinity assignment to finish.
-        grid(0).context().cache().context().exchange().affinityReadyFuture(
-            new AffinityTopologyVersion(SRVS + CLIENTS, 1)).get();
+        awaitPartitionMapExchange();
 
         final AffinityTopologyVersion STATE_CHANGE_TOP_VER = new AffinityTopologyVersion(SRVS + CLIENTS + 1, 1);
 
@@ -1203,13 +1202,13 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
 
         client = false;
 
-        IgniteInternalFuture startFut1 = GridTestUtils.runAsync((Callable) () -> {
+        IgniteInternalFuture<?> startFut1 = GridTestUtils.runAsync(() -> {
             startGrid(4);
 
             return null;
         }, "start-node1");
 
-        IgniteInternalFuture startFut2 = GridTestUtils.runAsync((Callable) () -> {
+        IgniteInternalFuture<?> startFut2 = GridTestUtils.runAsync(() -> {
             startGrid(5);
 
             return null;
@@ -1378,7 +1377,7 @@ public class IgniteClusterActivateDeactivateTest extends GridCommonAbstractTest 
             GridCacheProcessor cache = ((IgniteEx)ignite(i)).context().cache();
 
             assertTrue(cache.caches().isEmpty());
-            assertTrue(cache.internalCaches().isEmpty());
+            assertTrue(cache.internalCaches().stream().allMatch(c -> c.context().isRecoveryMode()));
         }
     }
 }

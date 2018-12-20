@@ -19,6 +19,7 @@ package org.apache.ignite.util;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -31,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,6 +48,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteAtomicSequence;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteDataStreamer;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -54,6 +57,7 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.WALMode;
+import org.apache.ignite.internal.GridJobExecuteResponse;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
@@ -885,13 +889,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
         ignite.cluster().active(true);
 
-        IgniteCache<Object, Object> cache = ignite.createCache(new CacheConfiguration<>()
-            .setAffinity(new RendezvousAffinityFunction(false, 32))
-            .setBackups(1)
-            .setName(DEFAULT_CACHE_NAME));
-
-        for (int i = 0; i < 100; i++)
-            cache.put(i, i);
+        createCacheAndPreload(ignite, 100);
 
         injectTestSystemOut();
 
@@ -918,15 +916,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
         ignite.cluster().active(true);
 
-        int parts = 32;
-
-        IgniteCache<Object, Object> cache = ignite.createCache(new CacheConfiguration<>()
-            .setAffinity(new RendezvousAffinityFunction(false, parts))
-            .setBackups(1)
-            .setName(DEFAULT_CACHE_NAME));
-
-        for (int i = 0; i < 100; i++)
-            cache.put(i, i);
+        createCacheAndPreload(ignite, 100);
 
         injectTestSystemOut();
 
@@ -938,7 +928,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
         corruptDataEntry(cacheCtx, 1, true, false);
 
-        corruptDataEntry(cacheCtx, 1 + parts / 2, false, true);
+        corruptDataEntry(cacheCtx, 1 + cacheCtx.config().getAffinity().partitions() / 2, false, true);
 
         assertEquals(EXIT_CODE_OK, execute("--cache", "idle_verify"));
 
@@ -955,12 +945,11 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
         ignite.cluster().active(true);
 
-        int parts = 32;
+        int keysCount = 20;//less than parts number for ability to check skipZeros flag.
 
-        IgniteCache<Object, Object> cache = ignite.createCache(new CacheConfiguration<>()
-            .setAffinity(new RendezvousAffinityFunction(false, parts))
-            .setBackups(1)
-            .setName(DEFAULT_CACHE_NAME));
+        createCacheAndPreload(ignite, keysCount);
+
+        int parts = ignite.affinity(DEFAULT_CACHE_NAME).partitions();
 
         ignite.createCache(new CacheConfiguration<>()
             .setAffinity(new RendezvousAffinityFunction(false, parts))
@@ -968,11 +957,6 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
             .setName(DEFAULT_CACHE_NAME + "other"));
 
         injectTestSystemOut();
-
-        int keysCount = 20;//less than parts number for ability to check skipZeros flag.
-
-        for (int i = 0; i < keysCount; i++)
-            cache.put(i, i);
 
         assertEquals(EXIT_CODE_OK, execute("--cache", "idle_verify", "--dump", DEFAULT_CACHE_NAME));
 
@@ -1041,23 +1025,15 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
         ignite.cluster().active(true);
 
-        int parts = 32;
-
-        IgniteCache<Object, Object> cache = ignite.createCache(new CacheConfiguration<>()
-            .setAffinity(new RendezvousAffinityFunction(false, parts))
-            .setBackups(1)
-            .setName(DEFAULT_CACHE_NAME));
+        createCacheAndPreload(ignite, 100);
 
         injectTestSystemOut();
-
-        for (int i = 0; i < 100; i++)
-            cache.put(i, i);
 
         GridCacheContext<Object, Object> cacheCtx = ignite.cachex(DEFAULT_CACHE_NAME).context();
 
         corruptDataEntry(cacheCtx, 0, true, false);
 
-        corruptDataEntry(cacheCtx, 0 + parts / 2, false, true);
+        corruptDataEntry(cacheCtx, cacheCtx.config().getAffinity().partitions() / 2, false, true);
 
         assertEquals(EXIT_CODE_OK, execute("--cache", "idle_verify", "--dump"));
 
@@ -1067,6 +1043,130 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
             String dumpWithConflicts = new String(Files.readAllBytes(Paths.get(fileNameMatcher.group(1))));
 
             assertTrue(dumpWithConflicts.contains("found 2 conflict partitions: [counterConflicts=1, hashConflicts=1]"));
+        }
+        else
+            fail("Should be found dump with conflicts");
+    }
+
+    /**
+     * Tests that idle verify print partitions info when node failing.
+     *
+     * @throws Exception If failed.
+     */
+    public void testCacheIdleVerifyDumpWhenNodeFailing() throws Exception {
+        Ignite ignite = startGrids(3);
+
+        Ignite unstable = startGrid("unstable");
+
+        ignite.cluster().active(true);
+
+        createCacheAndPreload(ignite, 100);
+
+        for (int i = 0; i < 3; i++) {
+            TestRecordingCommunicationSpi.spi(unstable).blockMessages(GridJobExecuteResponse.class,
+                getTestIgniteInstanceName(i));
+        }
+
+        injectTestSystemOut();
+
+        IgniteInternalFuture fut = GridTestUtils.runAsync(() -> {
+            assertEquals(EXIT_CODE_OK, execute("--cache", "idle_verify", "--dump"));
+        });
+
+        TestRecordingCommunicationSpi.spi(unstable).waitForBlocked();
+
+        UUID unstableNodeId = unstable.cluster().localNode().id();
+
+        unstable.close();
+
+        fut.get();
+
+        checkExceptionMessageOnReport(unstableNodeId);
+    }
+
+    /**
+     * Tests that idle verify print partitions info when several nodes failing at same time.
+     *
+     * @throws Exception If failed.
+     */
+    public void testCacheIdleVerifyDumpWhenSeveralNodesFailing() throws Exception {
+        int nodes = 6;
+
+        Ignite ignite = startGrids(nodes);
+
+        List<Ignite> unstableNodes = new ArrayList<>(nodes / 2);
+
+        for (int i = 0; i < nodes; i++) {
+            if (i % 2 == 1)
+                unstableNodes.add(ignite(i));
+        }
+
+        ignite.cluster().active(true);
+
+        createCacheAndPreload(ignite, 100);
+
+        for (Ignite unstable : unstableNodes) {
+            for (int i = 0; i < nodes; i++) {
+                TestRecordingCommunicationSpi.spi(unstable).blockMessages(GridJobExecuteResponse.class,
+                    getTestIgniteInstanceName(i));
+            }
+        }
+
+        injectTestSystemOut();
+
+        IgniteInternalFuture fut = GridTestUtils.runAsync(() -> {
+            assertEquals(EXIT_CODE_OK, execute("--cache", "idle_verify", "--dump"));
+        });
+
+        List<UUID> unstableNodeIds = new ArrayList<>(nodes / 2);
+
+        for (Ignite unstable : unstableNodes) {
+            TestRecordingCommunicationSpi.spi(unstable).waitForBlocked();
+
+            unstableNodeIds.add(unstable.cluster().localNode().id());
+
+            unstable.close();
+        }
+
+        fut.get();
+
+        for (UUID unstableId : unstableNodeIds)
+            checkExceptionMessageOnReport(unstableId);
+    }
+
+    /**
+     * Creates default cache and preload some data entries.
+     *
+     * @param ignite Ignite.
+     * @param countEntries Count of entries.
+     */
+    private void createCacheAndPreload(Ignite ignite, int countEntries) {
+        ignite.createCache(new CacheConfiguration<>(DEFAULT_CACHE_NAME)
+            .setAffinity(new RendezvousAffinityFunction(false, 32))
+            .setBackups(1));
+
+        try (IgniteDataStreamer streamer = ignite.dataStreamer(DEFAULT_CACHE_NAME)) {
+            for (int i = 0; i < countEntries; i++)
+                streamer.addData(i, i);
+        }
+    }
+
+    /**
+     * Try to finds node failed exception message on output report.
+     *
+     * @param unstableNodeId Unstable node id.
+     */
+    private void checkExceptionMessageOnReport(UUID unstableNodeId) throws IOException {
+        Matcher fileNameMatcher = dumpFileNameMatcher();
+
+        if (fileNameMatcher.find()) {
+            String dumpWithConflicts = new String(Files.readAllBytes(Paths.get(fileNameMatcher.group(1))));
+
+            assertTrue(dumpWithConflicts.contains("Idle verify failed on nodes:"));
+
+            assertTrue(dumpWithConflicts.contains("Node ID: " + unstableNodeId + "\n" +
+                "Exception message:\n" +
+                "Node has left grid: " + unstableNodeId));
         }
         else
             fail("Should be found dump with conflicts");
@@ -1264,29 +1364,71 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
     /** */
     public void testCacheConfigNoOutputFormat() throws Exception {
-        testCacheConfig(null);
+        testCacheConfig(null, 1, 1);
     }
 
     /** */
-    public void testCacheConfigSingleLineOutputFormat() throws Exception {
-        testCacheConfig(SINGLE_LINE);
+    public void testCacheConfigSingleLineOutputFormatSingleNodeSignleCache() throws Exception {
+        testCacheConfigSingleLineOutputFormat(1, 1);
     }
 
     /** */
-    public void testCacheConfigMultiLineOutputFormat() throws Exception {
-        testCacheConfig(MULTI_LINE);
+    public void testCacheConfigSingleLineOutputFormatTwoNodeSignleCache() throws Exception {
+        testCacheConfigSingleLineOutputFormat(2, 1);
     }
 
     /** */
-    private void testCacheConfig(OutputFormat outputFormat) throws Exception {
-        Ignite ignite = startGrid();
+    public void testCacheConfigSingleLineOutputFormatTwoNodeManyCaches() throws Exception {
+        testCacheConfigSingleLineOutputFormat(2, 100);
+    }
+
+    /** */
+    public void testCacheConfigMultiLineOutputFormatSingleNodeSingleCache() throws Exception {
+        testCacheConfigMultiLineOutputFormat(1, 1);
+    }
+
+    /** */
+    public void testCacheConfigMultiLineOutputFormatTwoNodeSingleCache() throws Exception {
+        testCacheConfigMultiLineOutputFormat(2, 1);
+    }
+
+    /** */
+    public void testCacheConfigMultiLineOutputFormatTwoNodeManyCaches() throws Exception {
+        testCacheConfigMultiLineOutputFormat(2, 100);
+    }
+
+    /** */
+    private void testCacheConfigSingleLineOutputFormat(int nodesCnt, int cachesCnt) throws Exception {
+        testCacheConfig(SINGLE_LINE, nodesCnt, cachesCnt);
+    }
+
+    /** */
+    private void testCacheConfigMultiLineOutputFormat(int nodesCnt, int cachesCnt) throws Exception {
+        testCacheConfig(MULTI_LINE, nodesCnt, cachesCnt);
+    }
+
+    /** */
+    private void testCacheConfig(OutputFormat outputFormat, int nodesCnt, int cachesCnt) throws Exception {
+        assertTrue("Invalid number of nodes or caches", nodesCnt > 0 && cachesCnt > 0);
+
+        Ignite ignite = startGrid(nodesCnt);
 
         ignite.cluster().active(true);
 
-        IgniteCache<Object, Object> cache1 = ignite.createCache(new CacheConfiguration<>()
-            .setAffinity(new RendezvousAffinityFunction(false, 32))
-            .setBackups(1)
-            .setName(DEFAULT_CACHE_NAME));
+        List<CacheConfiguration> ccfgs = new ArrayList<>(cachesCnt);
+
+        for (int i = 0; i < cachesCnt; i++) {
+            ccfgs.add(
+                new CacheConfiguration<>()
+                    .setAffinity(new RendezvousAffinityFunction(false, 32))
+                    .setBackups(1)
+                    .setName(DEFAULT_CACHE_NAME + i)
+            );
+        }
+
+        ignite.createCaches(ccfgs);
+
+        IgniteCache<Object, Object> cache1 = ignite.cache(DEFAULT_CACHE_NAME + 0);
 
         for (int i = 0; i < 100; i++)
             cache1.put(i, i);
@@ -1305,12 +1447,16 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
         String outStr = testOut.toString();
 
         if (outputFormat == null || outputFormat == SINGLE_LINE) {
-            assertTrue(outStr.contains("name=" + DEFAULT_CACHE_NAME));
+            for (int i = 0; i < cachesCnt; i++)
+                assertTrue(outStr.contains("name=" + DEFAULT_CACHE_NAME + i));
+
             assertTrue(outStr.contains("partitions=32"));
             assertTrue(outStr.contains("function=o.a.i.cache.affinity.rendezvous.RendezvousAffinityFunction"));
         }
         else if (outputFormat == MULTI_LINE) {
-            assertTrue(outStr.contains("[cache = '" + DEFAULT_CACHE_NAME + "']"));
+            for (int i = 0; i < cachesCnt; i++)
+                assertTrue(outStr.contains("[cache = '" + DEFAULT_CACHE_NAME + i + "']"));
+
             assertTrue(outStr.contains("Affinity Partitions: 32"));
             assertTrue(outStr.contains("Affinity Function: o.a.i.cache.affinity.rendezvous.RendezvousAffinityFunction"));
         }
@@ -1324,13 +1470,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
         ignite.cluster().active(true);
 
-        IgniteCache<Object, Object> cache = ignite.createCache(new CacheConfiguration<>()
-            .setAffinity(new RendezvousAffinityFunction(false, 32))
-            .setBackups(1)
-            .setName(DEFAULT_CACHE_NAME));
-
-        for (int i = 0; i < 100; i++)
-            cache.put(i, i);
+        createCacheAndPreload(ignite, 100);
 
         injectTestSystemOut();
 
@@ -1374,13 +1514,7 @@ public class GridCommandHandlerTest extends GridCommonAbstractTest {
 
         ignite.cluster().active(true);
 
-        IgniteCache<Object, Object> cache = ignite.createCache(new CacheConfiguration<>()
-            .setAffinity(new RendezvousAffinityFunction(false, 32))
-            .setBackups(1)
-            .setName(DEFAULT_CACHE_NAME));
-
-        for (int i = 0; i < 100; i++)
-            cache.put(i, i);
+        createCacheAndPreload(ignite, 100);
 
         injectTestSystemOut();
 

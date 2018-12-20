@@ -547,7 +547,7 @@ public class ClusterListener implements AutoCloseable {
             catch (ConnectException ignored) {
                 clusterDisconnect();
             }
-            catch (Exception e) {
+            catch (Throwable e) {
                 log.error("WatchTask failed", e);
 
                 clusterDisconnect();

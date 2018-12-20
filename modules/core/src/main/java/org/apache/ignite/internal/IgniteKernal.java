@@ -1038,6 +1038,8 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                 fillNodeAttributes(clusterProc.updateNotifierEnabled());
 
                 ctx.cache().context().database().startMemoryRestore(ctx);
+
+                ctx.recoveryMode(false);
             }
             catch (Throwable e) {
                 U.error(
@@ -1077,6 +1079,14 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
 
             IgniteInternalFuture<Boolean> transitionWaitFut = joinData.transitionWaitFuture();
 
+            // Notify discovery manager the first to make sure that topology is discovered.
+            // Active flag is not used in managers, so it is safe to pass true.
+            ctx.discovery().onKernalStart(true);
+
+            // Notify IO manager the second so further components can send and receive messages.
+            // Must notify the IO manager before transition state await to make sure IO connection can be established.
+            ctx.io().onKernalStart(true);
+
             boolean active;
 
             if (transitionWaitFut != null) {
@@ -1089,12 +1099,6 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
             }
             else
                 active = joinData.active();
-
-            // Notify discovery manager the first to make sure that topology is discovered.
-            ctx.discovery().onKernalStart(active);
-
-            // Notify IO manager the second so further components can send and receive messages.
-            ctx.io().onKernalStart(active);
 
             boolean recon = false;
 
@@ -1439,7 +1443,9 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     private void validateCommon(IgniteConfiguration cfg) {
         A.notNull(cfg.getNodeId(), "cfg.getNodeId()");
 
-        A.notNull(cfg.getMBeanServer(), "cfg.getMBeanServer()");
+        if (!U.IGNITE_MBEANS_DISABLED)
+            A.notNull(cfg.getMBeanServer(), "cfg.getMBeanServer()");
+
         A.notNull(cfg.getGridLogger(), "cfg.getGridLogger()");
         A.notNull(cfg.getMarshaller(), "cfg.getMarshaller()");
         A.notNull(cfg.getUserAttributes(), "cfg.getUserAttributes()");
