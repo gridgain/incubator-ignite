@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.agent.handlers;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.socket.client.Socket;
 import java.io.IOException;
 import java.net.ConnectException;
@@ -97,6 +98,13 @@ public class ClusterListener implements AutoCloseable {
 
     /** JSON object mapper. */
     private static final ObjectMapper MAPPER = new GridJettyObjectMapper();
+
+    static {
+        MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
+
+    /** List of last known node IDs. */
+    private Set<UUID> lastTop = new HashSet<>();
 
     /** Latest topology snapshot. */
     private TopologySnapshot top;
@@ -401,7 +409,7 @@ public class ClusterListener implements AutoCloseable {
                 params.put("password", cfg.nodePassword());
             }
 
-            RestResult res = restExecutor.sendRequest(cfg.nodeURIs(), params, null);
+            RestResult res = restExecutor.sendRequest(cfg.nodeURIs(), params, null, true);
 
             switch (res.getStatus()) {
                 case STATUS_SUCCESS:
@@ -491,6 +499,8 @@ public class ClusterListener implements AutoCloseable {
 
         /** {@inheritDoc} */
         @Override public void run() {
+            LT.info(log, "Polling data from cluster...");
+
             try {
                 RestResult res = topology(false);
 
