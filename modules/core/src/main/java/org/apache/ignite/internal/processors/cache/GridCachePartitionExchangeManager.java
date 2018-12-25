@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.affinity.AffinityFunction;
 import org.apache.ignite.cluster.ClusterNode;
@@ -1131,6 +1132,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     public void refreshPartitions(@NotNull Collection<CacheGroupContext> grps) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-6857
         if (cctx.snapshot().snapshotOperationInProgress()) {
+            if (log.isDebugEnabled())
+                log.debug("Schedule resend parititions due to snapshot in progress");
+
             scheduleResendPartitions();
 
             return;
@@ -1749,8 +1753,12 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                     }
                 }
 
-                if (!cctx.kernalContext().clientNode() && updated)
+                if (!cctx.kernalContext().clientNode() && updated) {
+                    if (log.isDebugEnabled())
+                        log.debug("Refresh partitions due to topology update");
+
                     refreshPartitions();
+                }
 
                 boolean hasMovingParts = false;
 
@@ -3013,8 +3021,12 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                                 changed |= grp.topology().afterExchange(exchFut);
                             }
 
-                            if (!cctx.kernalContext().clientNode() && changed && !hasPendingServerExchange())
+                            if (!cctx.kernalContext().clientNode() && changed && !hasPendingServerExchange()) {
+                                if (log.isDebugEnabled())
+                                    log.debug("Refresh partitions due to mapping was changed");
+
                                 refreshPartitions();
+                            }
                         }
 
                         // Schedule rebalance if force rebalance or force reassign occurs.
@@ -3177,11 +3189,21 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         /** Timeout ID. */
         private final IgniteUuid timeoutId = IgniteUuid.randomUuid();
 
+        /** Logger. */
+        protected final IgniteLogger log;
+
         /** Timeout start time. */
         private final long createTime = U.currentTimeMillis();
 
         /** Started flag. */
         private AtomicBoolean started = new AtomicBoolean();
+
+        /**
+         *
+         */
+        private ResendTimeoutObject() {
+            this.log = cctx.logger(getClass());
+        }
 
         /** {@inheritDoc} */
         @Override public IgniteUuid timeoutId() {
@@ -3201,8 +3223,12 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                         return;
 
                     try {
-                        if (started.compareAndSet(false, true))
+                        if (started.compareAndSet(false, true)) {
+                            if (log.isDebugEnabled())
+                                log.debug("Refresh partitions due to scheduled timeout");
+
                             refreshPartitions();
+                        }
                     }
                     finally {
                         busyLock.readLock().unlock();
