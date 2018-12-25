@@ -4,6 +4,8 @@ serverCtx:
   dockerfilePath: config/docker/Dockerfile-server
   # Image name.
   imageName: yardstickserver
+  # Container name prefix.
+  contPref: YARDSTICK_SERVER
 
 # Driver context.
 driverCtx:
@@ -11,6 +13,8 @@ driverCtx:
   dockerfilePath: config/docker/Dockerfile-driver
   # Image name.
   imageName: yardstickdriver
+  # Container name prefix.
+  contPref: YARDSTICK_DRIVER
 
 # Flag to rebuild images even if they already exist.
 rebuildImagesIfExist: true
@@ -22,11 +26,6 @@ dockerBuildCmd: "build --no-cache -t IMAGE_NAME_PLACEHOLDER -f DOCKERFILE_PATH_P
 removeImagesFlags:
   before: true
   after: true
-
-# List of images to remove.
-imagesToRemove:
- - yardstickserver
- - yardstickdriver
 
 # List of arguments to use with docker 'run' command. If 'CONT_NAME_PLACEHOLDER' is present it will be replaced with
 # YARDSTICK-<NODETYPE>-<ID> name.
