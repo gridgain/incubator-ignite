@@ -198,4 +198,11 @@ public class SegmentCompressStorage {
     long keepUncompressedIdxFrom() {
         return minUncompressedIdxToKeep;
     }
+
+    /**
+     * Reset interrupted flag.
+     */
+    public void reset() {
+        interrupted = false;
+    }
 }
