@@ -215,7 +215,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
     private TxDeadlockDetection txDeadlockDetection;
 
     /** Flag indicates that {@link TxRecord} records will be logged to WAL. */
-    private boolean logTxRecords;
+    private volatile boolean logTxRecords;
 
     /** Pending transactions tracker. */
     private LocalPendingTransactionsTracker pendingTracker;
@@ -297,12 +297,6 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
 
         // todo gg-13416 unhardcode
         this.logTxRecords = IgniteSystemProperties.getBoolean(IGNITE_WAL_LOG_TX_RECORDS, false);
-
-        if (!this.logTxRecords && this.pendingTracker.enabled()) {
-            this.logTxRecords = true;
-
-            U.warn(log, "Transaction wal logging is enabled, because pending transaction tracker is enabled.");
-        }
     }
 
     /**
@@ -2424,6 +2418,12 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
      * @return True if {@link TxRecord} records should be logged to WAL.
      */
     public boolean logTxRecords() {
+        if (!logTxRecords && pendingTracker.enabled()) {
+            logTxRecords = true;
+
+            U.warn(log, "Transaction wal logging is enabled, because pending transaction tracker is enabled.");
+        }
+
         return logTxRecords;
     }
 
@@ -2492,7 +2492,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
      */
     @Nullable WALPointer logTxRecord(IgniteTxAdapter tx) {
         // Log tx state change to WAL.
-        if (cctx.wal() != null && logTxRecords) {
+        if (cctx.wal() != null && logTxRecords()) {
             TxRecord txRecord = newTxRecord(tx);
 
             try {
