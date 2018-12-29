@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.binary;
 
 import javax.cache.Cache;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheInterceptor;
@@ -27,6 +28,8 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assume;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -42,6 +45,14 @@ import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 @SuppressWarnings("unchecked")
 @RunWith(JUnit4.class)
 public class CacheKeepBinaryWithInterceptorTest extends GridCommonAbstractTest {
+    /** */
+    @BeforeClass
+    public static void beforeClass() {
+        // Already contains Mvcc tests.
+        Assume.assumeFalse(IgniteSystemProperties.getBoolean(
+            IgniteSystemProperties.IGNITE_FORCE_MVCC_MODE_IN_TESTS, false));
+    }
+
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);

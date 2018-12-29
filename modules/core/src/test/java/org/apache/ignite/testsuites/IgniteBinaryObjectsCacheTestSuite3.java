@@ -18,6 +18,7 @@
 package org.apache.ignite.testsuites;
 
 import java.util.Collection;
+import junit.framework.JUnit4TestAdapter;
 import junit.framework.TestSuite;
 import org.apache.ignite.internal.processors.cache.binary.GridCacheBinaryAtomicEntryProcessorDeploymentSelfTest;
 import org.apache.ignite.internal.processors.cache.binary.GridCacheBinaryTransactionalEntryProcessorDeploymentSelfTest;
@@ -62,7 +63,7 @@ public class IgniteBinaryObjectsCacheTestSuite3 {
         TestSuite suite = IgniteCacheTestSuite3.suite(ignoredTests);
 
         GridTestUtils.addTestIfNeeded(suite,GridCacheBinaryAtomicEntryProcessorDeploymentSelfTest.class, ignoredTests);
-        GridTestUtils.addTestIfNeeded(suite,GridCacheBinaryTransactionalEntryProcessorDeploymentSelfTest.class, ignoredTests);
+        suite.addTest(new JUnit4TestAdapter(GridCacheBinaryTransactionalEntryProcessorDeploymentSelfTest.class));
 
         return suite;
     }

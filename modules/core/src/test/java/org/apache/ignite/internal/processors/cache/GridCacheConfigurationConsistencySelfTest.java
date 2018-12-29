@@ -23,6 +23,7 @@ import java.util.concurrent.Callable;
 import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.CacheInterceptorAdapter;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.affinity.AffinityFunction;
@@ -45,6 +46,8 @@ import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.testframework.GridStringLogger;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Assume;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -68,6 +71,14 @@ import static org.apache.ignite.configuration.DeploymentMode.SHARED;
 @SuppressWarnings("unchecked")
 @RunWith(JUnit4.class)
 public class GridCacheConfigurationConsistencySelfTest extends GridCommonAbstractTest {
+    /** */
+    @BeforeClass
+    public static void beforeClass() {
+        // Already contains Mvcc tests.
+        Assume.assumeFalse(IgniteSystemProperties.getBoolean(
+            IgniteSystemProperties.IGNITE_FORCE_MVCC_MODE_IN_TESTS, false));
+    }
+
     /** */
     private boolean cacheEnabled;
 

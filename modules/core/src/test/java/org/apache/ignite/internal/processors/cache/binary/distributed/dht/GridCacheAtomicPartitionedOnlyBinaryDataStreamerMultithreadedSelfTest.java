@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.processors.cache.binary.distributed.dht;
 
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.configuration.NearCacheConfiguration;
 import org.apache.ignite.internal.processors.cache.binary.GridCacheBinaryObjectsAbstractDataStreamerSelfTest;
+import org.junit.Assume;
+import org.junit.BeforeClass;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -30,6 +33,15 @@ import static org.apache.ignite.cache.CacheMode.PARTITIONED;
  */
 public class GridCacheAtomicPartitionedOnlyBinaryDataStreamerMultithreadedSelfTest extends
     GridCacheBinaryObjectsAbstractDataStreamerSelfTest {
+
+    /** */
+    @BeforeClass
+    public static void beforeClass() {
+        // No need to test atomic tests in MVCC run.
+        Assume.assumeFalse(IgniteSystemProperties.getBoolean(
+            IgniteSystemProperties.IGNITE_FORCE_MVCC_MODE_IN_TESTS, false));
+    }
+
     /** {@inheritDoc} */
     @Override protected CacheMode cacheMode() {
         return PARTITIONED;

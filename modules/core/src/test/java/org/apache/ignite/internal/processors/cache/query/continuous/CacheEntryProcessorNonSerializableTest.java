@@ -25,6 +25,7 @@ import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.MutableEntry;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
@@ -38,6 +39,8 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
+import org.junit.Assume;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -58,6 +61,14 @@ import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
  */
 @RunWith(JUnit4.class)
 public class CacheEntryProcessorNonSerializableTest extends GridCommonAbstractTest {
+    /** */
+    @BeforeClass
+    public static void beforeClass() {
+        // Already contains Mvcc tests.
+        Assume.assumeFalse(IgniteSystemProperties.getBoolean(
+            IgniteSystemProperties.IGNITE_FORCE_MVCC_MODE_IN_TESTS, false));
+    }
+
     /** */
     private static final int EXPECTED_VALUE = 42;
 

@@ -16,15 +16,27 @@
  */
 package org.apache.ignite.internal.processors.cache.binary.distributed.dht;
 
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridCacheAbstractNearPartitionedByteArrayValuesSelfTest;
 import org.apache.ignite.internal.binary.BinaryMarshaller;
+import org.junit.Assume;
+import org.junit.BeforeClass;
 
 /**
  *
  */
 public class GridCacheBinariesNearPartitionedByteArrayValuesSelfTest
     extends GridCacheAbstractNearPartitionedByteArrayValuesSelfTest {
+
+    /** */
+    @BeforeClass
+    public static void beforeClass() {
+        // Already contains Mvcc tests.
+        Assume.assumeFalse(IgniteSystemProperties.getBoolean(
+            IgniteSystemProperties.IGNITE_FORCE_MVCC_MODE_IN_TESTS, false));
+    }
+
     /** {@inheritDoc} */
     @Override protected boolean peerClassLoading() {
         return false;

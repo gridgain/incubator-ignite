@@ -129,22 +129,6 @@ public class IgniteCacheMvccTestSuite1 {
 
         Set<Class> ignoredTests = new HashSet<>();
 
-        // Skip classes that already contains Mvcc tests
-        ignoredTests.add(CacheKeepBinaryWithInterceptorTest.class);
-        ignoredTests.add(CacheEntryProcessorNonSerializableTest.class);
-        ignoredTests.add(CacheEntryProcessorExternalizableFailedTest.class);
-        ignoredTests.add(IgniteCacheEntryProcessorSequentialCallTest.class);
-        ignoredTests.add(IgniteCacheEntryProcessorCallTest.class);
-        ignoredTests.add(GridCacheConfigurationConsistencySelfTest.class);
-        ignoredTests.add(IgniteCacheMessageRecoveryIdleConnectionTest.class);
-        ignoredTests.add(IgniteCacheConnectionRecoveryTest.class);
-        ignoredTests.add(IgniteCacheConnectionRecovery10ConnectionsTest.class);
-        ignoredTests.add(CacheDeferredDeleteSanitySelfTest.class);
-        ignoredTests.add(CacheDeferredDeleteQueueTest.class);
-        ignoredTests.add(GridCacheStopSelfTest.class);
-        ignoredTests.add(GridCacheBinariesNearPartitionedByteArrayValuesSelfTest.class);
-        ignoredTests.add(GridCacheBinariesPartitionedOnlyByteArrayValuesSelfTest.class);
-
         // Atomic caches.
         ignoredTests.add(IgniteCacheEntryListenerAtomicTest.class);
         ignoredTests.add(IgniteCacheEntryListenerAtomicReplicatedTest.class);
@@ -180,11 +164,6 @@ public class IgniteCacheMvccTestSuite1 {
         ignoredTests.add(GridCacheClientModesTcpClientDiscoveryAbstractTest.CaseClientPartitionedAtomic.class);
         ignoredTests.add(GridCacheClientModesTcpClientDiscoveryAbstractTest.CaseClientReplicatedAtomic.class);
 
-        ignoredTests.add(GridCacheAtomicPartitionedOnlyBinaryDataStreamerMultiNodeSelfTest.class);
-        ignoredTests.add(GridCacheAtomicPartitionedOnlyBinaryDataStreamerMultithreadedSelfTest.class);
-        ignoredTests.add(GridCacheAtomicPartitionedOnlyBinaryMultiNodeSelfTest.class);
-        ignoredTests.add(GridCacheAtomicPartitionedOnlyBinaryMultithreadedSelfTest.class);
-
         // Irrelevant tests.
         ignoredTests.add(GridCacheMvccSelfTest.class); // This is about MvccCandidate, but not TxSnapshot.
         ignoredTests.add(GridCacheMvccPartitionedSelfTest.class); // This is about MvccCandidate, but not TxSnapshot.
@@ -192,8 +171,6 @@ public class IgniteCacheMvccTestSuite1 {
         ignoredTests.add(GridCacheMissingCommitVersionSelfTest.class); // Mvcc tx states resides in TxLog.
 
         // Other non-Tx test.
-        ignoredTests.add(GridCacheAffinityRoutingSelfTest.class);
-        ignoredTests.add(GridCacheAffinityRoutingBinarySelfTest.class);
         ignoredTests.add(IgniteClientAffinityAssignmentSelfTest.class);
         ignoredTests.add(GridCacheConcurrentMapSelfTest.class);
         ignoredTests.add(CacheAffinityCallSelfTest.class);
@@ -236,7 +213,8 @@ public class IgniteCacheMvccTestSuite1 {
         ignoredTests.add(IgniteCacheTxInvokeTest.class); // See IgniteCacheMvccTxInvokeTest.
         ignoredTests.add(IgniteCacheTxNearEnabledInvokeTest.class); // See IgniteCacheMvccTxNearEnabledInvokeTest.
 
-        suite.addTest(IgniteBinaryCacheTestSuite.suite(ignoredTests));
+        suite.addTest(IgniteBinaryCacheTestSuite.suite());
+        suite.addTest(IgniteCacheTestSuite.suite(ignoredTests));
 
         // Add Mvcc clones.
         suite.addTest(new JUnit4TestAdapter(GridCacheMvccMultiThreadedUpdateSelfTest.class));
