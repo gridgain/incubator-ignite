@@ -2461,7 +2461,7 @@ public class CacheAffinitySharedManager<K, V> extends GridCacheSharedManagerAdap
                     List<ClusterNode> curNodes = curAssignment.get(p);
 
                     if (!aliveNodes.containsAll(newNodes))
-                        System.err.println(); //TODO
+                        System.err.println(); //TODO TEST fails
 
                     assert aliveNodes.containsAll(newNodes) : "Invalid new assignment [grp=" + grpHolder.aff.cacheOrGroupName() +
                         ", nodes=" + newNodes +
