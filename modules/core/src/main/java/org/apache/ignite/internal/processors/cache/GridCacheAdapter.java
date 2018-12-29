@@ -4997,7 +4997,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
 
     /** {@inheritDoc} */
     @Override public boolean localPreloadPartition(int part) throws IgniteCheckedException {
-        if (!ctx.affinityNode())
+        if (!ctx.cacheApplicableNode())
             return false;
 
         GridDhtPartitionTopology top = ctx.group().topology();

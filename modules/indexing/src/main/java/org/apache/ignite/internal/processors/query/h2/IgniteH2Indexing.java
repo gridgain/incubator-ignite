@@ -425,7 +425,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             if (log.isDebugEnabled())
                 log.debug("Creating cache index [cacheId=" + cacheInfo.cacheId() + ", idxName=" + name + ']');
 
-            if (cacheInfo.affinityNode()) {
+            if (cacheInfo.cacheApplicableNode()) {
                 final int segments = tbl.rowDescriptor().context().config().getQueryParallelism();
 
                 H2RowCache cache = rowCache.forGroup(cacheInfo.groupId());

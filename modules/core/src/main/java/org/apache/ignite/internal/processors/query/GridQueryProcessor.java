@@ -1789,7 +1789,7 @@ public class GridQueryProcessor extends GridProcessorAdapter {
             return null;
 
         // No data on non-affinity nodes.
-        if (!cctx.affinityNode())
+        if (!cctx.cacheApplicableNode())
             return null;
 
         // No indexes to rebuild when there are no QueryEntities.

@@ -435,7 +435,7 @@ public class WalStateManager extends GridCacheSharedManagerAdapter {
                     ", grpId=" + grp.groupId() + ", hasOwning=" + hasOwning + ", hasMoving=" + hasMoving +
                     ", WALState=" + grp.walEnabled() + ", parts=" + parts);
 
-            if (hasOwning && !grp.localWalEnabled())
+            if (hasOwning && !grp.localWalEnabled()) {
                 grpsToEnableWal.add(grp.groupId());
             }
             else if (hasMoving && !hasOwning && grp.localWalEnabled()) {

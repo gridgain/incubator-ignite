@@ -1387,7 +1387,7 @@ public class GridCacheUtils {
      * @return {@code True} if node is not client node and pass given node filter.
      */
     public static boolean cacheApplicableNode(ClusterNode node, IgnitePredicate<ClusterNode> cacheNodeFilter) {
-        return !node.isDaemon() && !clientNode(node) && cacheNodeFilter.apply(node);
+        return !node.isDaemon() && !node.isClient() && cacheNodeFilter.apply(node);
     }
 
     /**

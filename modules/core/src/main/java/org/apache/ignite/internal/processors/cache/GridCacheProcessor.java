@@ -2059,7 +2059,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
      * @return {@code true} if local node is affinity node for cache.
      */
     private boolean isLocalAffinity(CacheConfiguration cacheConfiguration) {
-        return CU.affinityNode(ctx.discovery().localNode(), cacheConfiguration.getNodeFilter());
+        return CU.cacheApplicableNode(ctx.discovery().localNode(), cacheConfiguration.getNodeFilter());
     }
 
     /**
@@ -2467,7 +2467,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
                 () -> startCacheGroup(
                     desc.groupDescriptor(),
                     desc.cacheType(),
-                    cacheApplicableNode,
+                    affNode,
                     cacheObjCtx,
                     exchTopVer,
                     recoveryMode
@@ -2477,7 +2477,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
         return startCacheGroup(desc.groupDescriptor(),
             desc.cacheType(),
-            cacheApplicableNode,
+            affNode,
             cacheObjCtx,
             exchTopVer,
             recoveryMode
@@ -2942,7 +2942,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             sharedCtx.io().writeLock();
 
             try {
-                if (!cctx.affinityNode() && cctx.transactional())
+                if (!cctx.cacheApplicableNode() && cctx.transactional())
                     sharedCtx.tm().rollbackTransactionsForCache(cctx.cacheId());
 
                 completeProxyInitialize(cctx.name());

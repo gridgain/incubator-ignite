@@ -302,7 +302,7 @@ public class GridNearTxEnlistFuture extends GridNearTxAbstractEnlistFuture<GridC
 
     /** */
     private boolean isLocalBackup(EnlistOperation op, KeyCacheObject key) {
-        if (!cctx.affinityNode() || op == EnlistOperation.LOCK)
+        if (!cctx.cacheApplicableNode() || op == EnlistOperation.LOCK)
             return false;
         else if (cctx.isReplicated())
             return true;

@@ -1941,7 +1941,7 @@ class ClusterCachesInfo {
             assert !aliveSrvNodes.isEmpty() : "No alive server nodes";
 
             for (ClusterNode srvNode : aliveSrvNodes) {
-                if (CU.affinityNode(srvNode, startedCacheCfg.getNodeFilter())) {
+                if (CU.cacheApplicableNode(srvNode, startedCacheCfg.getNodeFilter())) {
                     Object dsCfgBytes = srvNode.attribute(IgniteNodeAttributes.ATTR_DATA_STORAGE_CONFIG);
 
                     if (dsCfgBytes instanceof byte[]) {

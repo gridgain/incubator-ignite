@@ -307,7 +307,7 @@ public class BaselineTopology implements Serializable {
             List<ClusterNode> res = new ArrayList<>(nodeMap.size());
 
             for (ClusterNode node : aliveNodes) {
-                if (nodeMap.containsKey(node.consistentId()) && (nullNodeFilter || CU.affinityNode(node, nodeFilter)))
+                if (nodeMap.containsKey(node.consistentId()) && (nullNodeFilter || CU.cacheApplicableNode(node, nodeFilter)))
                     res.add(node);
             }
 

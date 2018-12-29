@@ -108,8 +108,8 @@ public class GridCacheContextInfo<K, V> {
     /**
      * @return {@code true} in case affinity node.
      */
-    public boolean affinityNode() {
-        return cctx != null && cctx.affinityNode();
+    public boolean cacheApplicableNode() {
+        return cctx != null && cctx.cacheApplicableNode();
     }
 
     /**

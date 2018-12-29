@@ -404,7 +404,7 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
     /** {@inheritDoc} */
     @Override public long restorePartitionStates(Map<GroupPartitionId, PartitionRecoverState> partitionRecoveryStates) throws IgniteCheckedException {
-        if (grp.isLocal() || !grp.affinityNode() || !grp.dataRegion().config().isPersistenceEnabled())
+        if (grp.isLocal() || !grp.cacheApplicableNode() || !grp.dataRegion().config().isPersistenceEnabled())
             return 0;
 
         if (partitionStatesRestored)

@@ -97,7 +97,7 @@ public class CacheGroupContext {
     private final GridCacheSharedContext ctx;
 
     /** */
-    private final boolean cacheApplicableNode; //TODO review after merge
+    private volatile boolean cacheApplicableNode;
 
     /** */
     private final CacheType cacheType;
@@ -791,7 +791,7 @@ public class CacheGroupContext {
         if (!recoveryMode.compareAndSet(true, false))
             return;
 
-        affNode = affinityNode;
+        cacheApplicableNode = affinityNode;
 
         rcvdFrom = originalReceivedFrom;
 

@@ -2091,7 +2091,7 @@ public abstract class GridDhtTransactionalCacheAdapter<K, V> extends GridDhtCach
         UUID txSubjectId,
         int txTaskNameHash) throws IgniteException, IgniteCheckedException {
 
-        assert ctx.affinityNode();
+        assert ctx.cacheApplicableNode();
 
         if (txLockMsgLog.isDebugEnabled()) {
             txLockMsgLog.debug("Received near enlist request [txId=" + nearLockVer +
