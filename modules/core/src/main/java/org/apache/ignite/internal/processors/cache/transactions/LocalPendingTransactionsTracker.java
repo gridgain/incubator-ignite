@@ -245,7 +245,7 @@ public class LocalPendingTransactionsTracker {
     /**
      * Enable pending transactions tracking.
      */
-    public void enable() {
+    void enable() {
         assert cctx.kernalContext().gateway().getState() == GridKernalState.STARTING;
 
         enabled = true;

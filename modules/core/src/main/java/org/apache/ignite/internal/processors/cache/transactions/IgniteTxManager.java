@@ -2418,12 +2418,6 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
      * @return True if {@link TxRecord} records should be logged to WAL.
      */
     public boolean logTxRecords() {
-        if (!logTxRecords && pendingTracker.enabled()) {
-            logTxRecords = true;
-
-            U.warn(log, "Transaction wal logging is enabled, because pending transaction tracker is enabled.");
-        }
-
         return logTxRecords;
     }
 
@@ -2432,6 +2426,20 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
      */
     public LocalPendingTransactionsTracker pendingTxsTracker() {
         return pendingTracker;
+    }
+
+    /**
+     * Enables pending transactions tracker.
+     * Also enables transaction wal logging, if it was disabled.
+     */
+    public void trackPendingTxs() {
+        pendingTracker.enable();
+
+        if (!logTxRecords) {
+            logTxRecords = true;
+
+            U.warn(log, "Transaction wal logging is enabled, because pending transaction tracker is enabled.");
+        }
     }
 
     /**
