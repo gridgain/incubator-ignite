@@ -44,6 +44,7 @@ import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.MvccFeatureChecker;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -83,7 +84,7 @@ public class IgniteClusterActivateDeactivateTestWithPersistence extends IgniteCl
      * @throws Exception If failed.
      */
     @Test
-    public void testActivateCachesRestore_SingleNode() throws Exception {
+    @Ignore public void testActivateCachesRestore_SingleNode() throws Exception {
         activateCachesRestore(1, false);
     }
 
@@ -91,7 +92,7 @@ public class IgniteClusterActivateDeactivateTestWithPersistence extends IgniteCl
      * @throws Exception If failed.
      */
     @Test
-    public void testActivateCachesRestore_SingleNode_WithNewCaches() throws Exception {
+    @Ignore public void testActivateCachesRestore_SingleNode_WithNewCaches() throws Exception {
         activateCachesRestore(1, true);
     }
 
@@ -99,7 +100,7 @@ public class IgniteClusterActivateDeactivateTestWithPersistence extends IgniteCl
      * @throws Exception If failed.
      */
     @Test
-    public void testActivateCachesRestore_5_Servers() throws Exception {
+    @Ignore public void testActivateCachesRestore_5_Servers() throws Exception {
         activateCachesRestore(5, false);
     }
 
@@ -107,12 +108,13 @@ public class IgniteClusterActivateDeactivateTestWithPersistence extends IgniteCl
      * @throws Exception If failed.
      */
     @Test
-    public void testActivateCachesRestore_5_Servers_WithNewCaches() throws Exception {
+    @Ignore public void testActivateCachesRestore_5_Servers_WithNewCaches() throws Exception {
         activateCachesRestore(5, true);
     }
 
     /** {@inheritDoc} */
     @Test
+    @Ignore
     @Override public void testReActivateSimple_5_Servers_4_Clients_FromServer() throws Exception {
         if (MvccFeatureChecker.forcedMvcc())
             fail("https://issues.apache.org/jira/browse/IGNITE-10750");
@@ -126,7 +128,7 @@ public class IgniteClusterActivateDeactivateTestWithPersistence extends IgniteCl
      * @throws Exception If failed.
      */
     @Test
-    public void testDeactivateInactiveCluster() throws Exception {
+    @Ignore public void testDeactivateInactiveCluster() throws Exception {
         if (MvccFeatureChecker.forcedMvcc())
             fail("https://issues.apache.org/jira/browse/IGNITE-10582");
 
@@ -269,7 +271,7 @@ public class IgniteClusterActivateDeactivateTestWithPersistence extends IgniteCl
      * @see <a href="https://issues.apache.org/jira/browse/IGNITE-7330">IGNITE-7330</a> for more information about context of the test
      */
     @Test
-    public void testClientJoinsWhenActivationIsInProgress() throws Exception {
+    @Ignore public void testClientJoinsWhenActivationIsInProgress() throws Exception {
         startGridsAndLoadData(5);
 
         stopAllGrids();
@@ -328,7 +330,7 @@ public class IgniteClusterActivateDeactivateTestWithPersistence extends IgniteCl
      * @throws Exception If failed.
      */
     @Test
-    public void testActivateCacheRestoreConfigurationConflict() throws Exception {
+    @Ignore public void testActivateCacheRestoreConfigurationConflict() throws Exception {
         final int SRVS = 3;
 
         Ignite srv = startGrids(SRVS);
@@ -367,7 +369,7 @@ public class IgniteClusterActivateDeactivateTestWithPersistence extends IgniteCl
      * @throws Exception If failed.
      */
     @Test
-    public void testDeactivateDuringEvictionAndRebalance() throws Exception {
+    @Ignore public void testDeactivateDuringEvictionAndRebalance() throws Exception {
         if (MvccFeatureChecker.forcedMvcc())
             fail("https://issues.apache.org/jira/browse/IGNITE-10786");
 
