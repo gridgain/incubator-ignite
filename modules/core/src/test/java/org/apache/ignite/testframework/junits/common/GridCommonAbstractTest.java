@@ -48,6 +48,7 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteMessaging;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.cache.affinity.Affinity;
 import org.apache.ignite.cache.affinity.AffinityFunction;
@@ -396,6 +397,14 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
     }
 
     /**
+     * @param cache Ignite cache.
+     * @return CacheAtomicityMode for given cache.
+     */
+    public static CacheAtomicityMode atomicityMode(IgniteCache cache) {
+        return ((CacheConfiguration)cache.getConfiguration(CacheConfiguration.class)).getAtomicityMode();
+    }
+
+    /**
      * @param cache Cache.
      * @param keys Keys.
      * @param replaceExistingValues Replace existing values.
@@ -686,7 +695,7 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
 
                             if (readyVer.topologyVersion() > 0 && c.context().started()) {
                                 // Must map on updated version of topology.
-                                Collection<ClusterNode> affNodes =
+                                List<ClusterNode> affNodes =
                                     dht.context().affinity().assignment(readyVer).idealAssignment().get(p);
 
                                 int affNodesCnt = affNodes.size();
@@ -700,8 +709,13 @@ public abstract class GridCommonAbstractTest extends GridAbstractTest {
 
                                 GridDhtLocalPartition loc = top.localPartition(p, readyVer, false);
 
+                                boolean notPrimary = !affNodes.isEmpty() &&
+                                    !exchMgr.rebalanceTopologyVersion().equals(AffinityTopologyVersion.NONE) &&
+                                    !affNodes.get(0).equals(dht.context().affinity().primaryByPartition(p, readyVer));
+
                                 if (affNodesCnt != ownerNodesCnt || !affNodes.containsAll(owners) ||
-                                    (waitEvicts && loc != null && loc.state() != GridDhtPartitionState.OWNING)) {
+                                    (waitEvicts && loc != null && loc.state() != GridDhtPartitionState.OWNING) ||
+                                    notPrimary) {
                                     if (i % 50 == 0)
                                         LT.warn(log(), "Waiting for topology map update [" +
                                             "igniteInstanceName=" + g.name() +

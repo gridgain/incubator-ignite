@@ -34,7 +34,11 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.MvccFeatureChecker;
+import org.apache.ignite.testframework.GridTestUtils.SF;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import static org.apache.ignite.cache.CacheMode.LOCAL;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
@@ -45,6 +49,7 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
 /**
  *
  */
+@RunWith(JUnit4.class)
 public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest {
     /** IP finder. */
     private static final TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
@@ -68,7 +73,7 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
         c.getTransactionConfiguration().setDefaultTxConcurrency(PESSIMISTIC);
         c.getTransactionConfiguration().setDefaultTxIsolation(REPEATABLE_READ);
 
-        CacheConfiguration cc = defaultCacheConfiguration();
+        CacheConfiguration<?, ?> cc = defaultCacheConfiguration();
 
         cc.setCacheMode(mode);
 
@@ -107,6 +112,7 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testConcurrentPutsFifoLocal() throws Exception {
         mode = LOCAL;
 
@@ -114,8 +120,8 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
         plc.setMaxSize(1000);
 
         this.plc = plc;
-        warmUpPutsCnt = 100000;
-        iterCnt = 100000;
+        warmUpPutsCnt = SF.applyLB(100_000, 10_000);
+        iterCnt = SF.applyLB(100_000, 10_000);
 
         checkConcurrentPuts();
     }
@@ -123,6 +129,7 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testConcurrentPutsLruLocal() throws Exception {
         mode = LOCAL;
 
@@ -130,8 +137,8 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
         plc.setMaxSize(1000);
 
         this.plc = plc;
-        warmUpPutsCnt = 100000;
-        iterCnt = 100000;
+        warmUpPutsCnt = SF.applyLB(100_000, 10_000);
+        iterCnt = SF.applyLB(100_000, 10_000);
 
         checkConcurrentPuts();
     }
@@ -139,6 +146,7 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testConcurrentPutsSortedLocal() throws Exception {
         mode = LOCAL;
 
@@ -146,8 +154,8 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
         plc.setMaxSize(1000);
 
         this.plc = plc;
-        warmUpPutsCnt = 100000;
-        iterCnt = 100000;
+        warmUpPutsCnt = SF.applyLB(100_000, 10_000);
+        iterCnt = SF.applyLB(100_000, 10_000);
 
         checkConcurrentPuts();
     }
@@ -175,19 +183,19 @@ public class GridCacheConcurrentEvictionsSelfTest extends GridCommonAbstractTest
 
             final AtomicInteger idx = new AtomicInteger();
 
-            int threadCnt = 30;
+            int threadCnt = SF.applyLB(30, 8);
 
             long start = System.currentTimeMillis();
 
             IgniteInternalFuture<?> fut = multithreadedAsync(
                 new Callable<Object>() {
-                    @Override public Object call() throws Exception {
+                    @Override public Object call() {
                         for (int i = 0; i < iterCnt; i++) {
                             int j = idx.incrementAndGet();
 
                             cache.put(j, j);
 
-                            if (i != 0 && i % 10000 == 0)
+                            if (i != 0 && i % 1000 == 0)
                                 // info("Puts count: " + i);
                                 info("Stats [putsCnt=" + i + ", size=" + cache.size(CachePeekMode.ONHEAP) + ']');
                         }
