@@ -75,6 +75,7 @@ import org.apache.ignite.internal.IgniteNodeAttributes;
 import org.apache.ignite.internal.IgnitionEx;
 import org.apache.ignite.internal.events.DiscoveryCustomEvent;
 import org.apache.ignite.internal.managers.discovery.CustomMessageWrapper;
+import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
 import org.apache.ignite.internal.managers.discovery.DiscoveryServerOnlyCustomMessage;
 import org.apache.ignite.internal.processors.failure.FailureProcessor;
 import org.apache.ignite.internal.processors.security.SecurityContext;
@@ -2428,7 +2429,13 @@ class ServerImpl extends TcpDiscoveryImpl {
                     DiscoverySpiCustomMessage discoverySpiCustomMessage = cem.message(spi.marshaller(),
                         U.resolveClassLoader(spi.ignite().configuration()));
 
-                    customMessageType = discoverySpiCustomMessage.getClass().getSimpleName();
+                    if (discoverySpiCustomMessage instanceof CustomMessageWrapper) {
+                        DiscoveryCustomMessage customMessage = ((CustomMessageWrapper)discoverySpiCustomMessage).delegate();
+
+                        customMessageType = customMessage.getClass().getSimpleName() + " msg " + customMessage;
+                    }
+                    else
+                        customMessageType = discoverySpiCustomMessage.getClass().getSimpleName() + " msg " + discoverySpiCustomMessage;
                 }
                 catch (Throwable e) {
                     customMessageType = "Exception on unmarshal type : " + e.getMessage();
