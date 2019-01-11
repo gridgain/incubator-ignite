@@ -2414,7 +2414,8 @@ class ServerImpl extends TcpDiscoveryImpl {
          * @param msg Message to add.
          */
         void add(TcpDiscoveryAbstractMessage msg) {
-            log.info("Adding pending message " + msg.getClass().getSimpleName() + " already collected messages: " + msgs.size());
+            log.info("Adding pending message " + msg.getClass().getSimpleName() +
+                " with id " + msg.id() + " already collected messages: " + msgs.size());
 
             if (msg instanceof TcpDiscoveryCustomEventMessage) {
                 TcpDiscoveryCustomEventMessage cem = (TcpDiscoveryCustomEventMessage)msg;
@@ -2488,6 +2489,8 @@ class ServerImpl extends TcpDiscoveryImpl {
          * @param custom {@code True} if discard for {@link TcpDiscoveryCustomEventMessage}.
          */
         void discard(IgniteUuid id, boolean custom) {
+            log.info("Discard message id " + id + " is custom " + custom);
+
             if (custom)
                 customDiscardId = id;
             else
