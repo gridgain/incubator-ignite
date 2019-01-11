@@ -2383,6 +2383,9 @@ class ServerImpl extends TcpDiscoveryImpl {
         /** Logger. */
         private final IgniteLogger log;
 
+        /** Spi. */
+        TcpDiscoverySpi spi;
+
         /** Pending messages. */
         private final Queue<PendingMessage> msgs = new ArrayDeque<>(MAX * 2);
 
@@ -2397,9 +2400,11 @@ class ServerImpl extends TcpDiscoveryImpl {
 
         /**
          * @param log Logger.
+         * @param spi Discovery SPI.
          */
-        public PendingMessages(IgniteLogger log) {
+        public PendingMessages(IgniteLogger log, TcpDiscoverySpi spi) {
             this.log = log;
+            this.spi = spi;
         }
 
         /**
@@ -2410,6 +2415,26 @@ class ServerImpl extends TcpDiscoveryImpl {
          */
         void add(TcpDiscoveryAbstractMessage msg) {
             log.info("Adding pending message " + msg.getClass().getSimpleName() + " already collected messages: " + msgs.size());
+
+            if (msg instanceof TcpDiscoveryCustomEventMessage) {
+                TcpDiscoveryCustomEventMessage cem = (TcpDiscoveryCustomEventMessage)msg;
+
+                int size = cem.messageBytes().length;
+
+                String customMessageType;
+
+                try {
+                    DiscoverySpiCustomMessage discoverySpiCustomMessage = cem.message(spi.marshaller(),
+                        U.resolveClassLoader(spi.ignite().configuration()));
+
+                    customMessageType = discoverySpiCustomMessage.getClass().getSimpleName();
+                }
+                catch (Throwable e) {
+                    customMessageType = "Exception on unmarshal type : " + e.getMessage();
+                }
+
+                log.info("Adding pending custom message size " + FileUtils.byteCountToDisplaySize(size) + " with type " + customMessageType);
+            }
 
             msgs.add(new PendingMessage(msg));
 
@@ -2655,7 +2680,7 @@ class ServerImpl extends TcpDiscoveryImpl {
             super("tcp-disco-msg-worker", log, 10,
                 spi.ignite() instanceof IgniteEx ? ((IgniteEx)spi.ignite()).context().workersRegistry() : null);
 
-            pendingMsgs = new PendingMessages(log);
+            pendingMsgs = new PendingMessages(log, spi);
 
             initConnectionCheckFrequency();
         }
