@@ -155,8 +155,7 @@ public class IdleVerifyResultV2 extends VisorDataTransferObject {
         printer.accept("All partitions:\n");
 
         Map<PartitionKeyV2, List<PartitionHashRecordV2>> sortedPartitions = new TreeMap<>(
-            (o1, o2) -> o1.groupId() == o2.groupId() ? Integer.compare(o1.partitionId(), o2.partitionId())
-                : Integer.compare(o1.groupId(), o2.groupId()));
+            Comparator.comparingInt(PartitionKeyV2::groupId).thenComparingInt(PartitionKeyV2::partitionId));
 
         sortedPartitions.putAll(allPartitions());
 
@@ -165,9 +164,7 @@ public class IdleVerifyResultV2 extends VisorDataTransferObject {
 
             List<PartitionHashRecordV2> sortedHashRecords = new ArrayList<>(entry.getValue());
 
-            Collections.sort(sortedHashRecords, (o1, o2) -> o1.updateCounter() == o2.updateCounter() ?
-                o1.consistentId().toString().compareTo(o2.consistentId().toString()) :
-                Long.compare(o1.updateCounter(), o2.updateCounter()));
+            sortedHashRecords.sort(Comparator.comparing(o -> o.consistentId().toString()));
 
             printer.accept("Partition instances: " + sortedHashRecords + "\n");
         }
