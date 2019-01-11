@@ -49,7 +49,7 @@
         <netty-transport.version>4.0.27.Final</netty-transport.version>
         <netty-codec.version>4.0.27.Final</netty-codec.version>
         <guava.version>19.0</guava.version>
-        <metrics-core.version>3.0.2</metrics-core.version>
+        <metrics-core.version>3.2.2</metrics-core.version>
     </properties>
 
     <dependencies>
@@ -155,7 +155,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.codahale.metrics</groupId>
+            <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-core</artifactId>
             <version>${metrics-core.version}</version>
         </dependency>
@@ -237,7 +237,7 @@
                             <overWriteIfNewer>true</overWriteIfNewer>
                             <excludeTransitive>true</excludeTransitive>
                             <excludeGroupIds>
-                                org.apache.ignite,org.springframework,org.gridgain
+                                org.apache.ignite,org.springframework,org.gridgain,com.codahale.metrics
                             </excludeGroupIds>
                             <excludeArtifactIds>
                                 commons-logging,slf4j-api,cache-api,slf4j-api,aopalliance
