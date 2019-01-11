@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,6 +117,9 @@ class ClusterCachesInfo {
 
     /** {@code True} if joined cluster while cluster state change was in progress. */
     private boolean joinOnTransition;
+
+    /** {@code True} if any dynamically started caches were registered. */
+    private boolean hasDynamicCachesRegistered;
 
     /**
      * @param ctx Context.
@@ -823,6 +827,31 @@ class ClusterCachesInfo {
         return result;
     }
 
+    /** @param localConfigData */
+    public void filterDynamicCacheDescriptors(CacheJoinNodeDiscoveryData localConfigData) {
+        if (ctx.isDaemon())
+            return;
+
+        Map<String, CacheJoinNodeDiscoveryData.CacheInfo> caches = localConfigData.caches();
+
+        Iterator<Map.Entry<String, DynamicCacheDescriptor>> cachesIter = registeredCaches.entrySet().iterator();
+
+        while (cachesIter.hasNext()) {
+            Map.Entry<String, DynamicCacheDescriptor> e = cachesIter.next();
+
+            if (!caches.containsKey(e.getKey())) {
+                cachesIter.remove();
+
+                if (e.getValue().groupDescriptor() != null)
+                    registeredCacheGrps.remove(e.getValue().groupId());
+            }
+        }
+
+        locJoinCachesCtx = new LocalJoinCachesContext(locJoinCachesCtx.caches(),
+            registeredCacheGrps,
+            registeredCaches);
+    }
+
     /**
      * @param joinedNodeId Joined node ID.
      * @return {@code True} if there are new caches received from joined node.
@@ -1103,6 +1132,9 @@ class ClusterCachesInfo {
             desc.receivedOnDiscovery(true);
 
             registeredCaches.put(cacheData.cacheConfiguration().getName(), desc);
+
+            if (!hasDynamicCachesRegistered && !desc.staticallyConfigured())
+                hasDynamicCachesRegistered = true;
 
             ctx.discovery().setCacheFilter(
                 desc.cacheId(),
@@ -1636,6 +1668,9 @@ class ClusterCachesInfo {
 
         DynamicCacheDescriptor old = registeredCaches.put(cfg.getName(), desc);
 
+        if (!hasDynamicCachesRegistered && !desc.staticallyConfigured())
+            hasDynamicCachesRegistered = true;
+
         assert old == null : old;
     }
 
@@ -2013,6 +2048,11 @@ class ClusterCachesInfo {
      */
     private boolean surviveReconnect(String cacheName) {
         return CU.isUtilityCache(cacheName);
+    }
+
+    /** Returns {@code True} if {@link ClusterCachesInfo} contains dynamically started caches. */
+    public boolean hasDynamicCachesRegistered() {
+        return hasDynamicCachesRegistered;
     }
 
     /**

@@ -25,7 +25,6 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
@@ -1868,6 +1867,16 @@ public class GridCacheProcessor extends GridProcessorAdapter {
      * @return Caches to be started when this node starts.
      */
     @Nullable public LocalJoinCachesContext localJoinCachesContext() {
+        if (ctx.discovery().localNode().order() == 1 && cachesInfo.hasDynamicCachesRegistered()) {
+            try {
+                CacheJoinNodeDiscoveryData localConfigData = prepareCachesDiscoDataFromConfig();
+
+                cachesInfo.filterDynamicCacheDescriptors(localConfigData);
+            } catch (IgniteCheckedException ignored) {
+                // No-op.
+            }
+        }
+
         return cachesInfo.localJoinCachesContext();
     }
 
@@ -1881,21 +1890,6 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         AffinityTopologyVersion exchTopVer
     ) throws IgniteCheckedException {
         if (locJoinCtx != null) {
-            if (ctx.discovery().localNode().order() == 1) {
-                Iterator<Map.Entry<String, DynamicCacheDescriptor>> iter = locJoinCtx
-                    .cacheDescriptors().entrySet().iterator();
-
-                while (iter.hasNext()) {
-                    Map.Entry<String, DynamicCacheDescriptor> e = iter.next();
-
-                    if (!e.getValue().staticallyConfigured()) {
-                        iter.remove();
-
-                        if (e.getValue().groupDescriptor() != null)
-                            locJoinCtx.cacheGroupDescriptors().remove(e.getValue().groupDescriptor().groupId());
-                    }
-                }
-            }
 
             sharedCtx.affinity().initCachesOnLocalJoin(
                 locJoinCtx.cacheGroupDescriptors(), locJoinCtx.cacheDescriptors());
