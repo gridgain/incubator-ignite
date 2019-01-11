@@ -22,7 +22,6 @@ import javax.cache.CacheException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteDataStreamer;
-import org.apache.ignite.internal.processors.cache.distributed.dht.IgniteClusterReadonlyException;
 import org.apache.ignite.internal.processors.datastreamer.DataStreamerImpl;
 import org.apache.ignite.internal.util.typedef.G;
 import org.junit.Test;
@@ -39,15 +38,15 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
      */
     @Test
     public void testCacheGetPutRemove() {
-        //assertCachesReadOnlyMode(false);
+        assertCachesReadOnlyMode(false);
 
         changeClusterReadOnlyMode(true);
 
         assertCachesReadOnlyMode(true);
 
-        //changeClusterReadOnlyMode(false);
+        changeClusterReadOnlyMode(false);
 
-        //assertCachesReadOnlyMode(false);
+        assertCachesReadOnlyMode(false);
     }
 
     /**
@@ -64,15 +63,6 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
         changeClusterReadOnlyMode(false);
 
         assertDataStreamerReadOnlyMode(false);
-    }
-
-    /**
-     * @param e Exception.
-     */
-    private static void checkThatRootCauseIsReadOnly(Throwable e) {
-        for (Throwable t = e; t != null; t = t.getCause())
-            if (t.getCause() == null)
-                assertTrue(t instanceof IgniteClusterReadonlyException);
     }
 
     /**
@@ -129,7 +119,7 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
 
         for (Ignite ignite : G.allGrids()) {
             for (String cacheName : CACHE_NAMES) {
-                boolean failed = false;
+                Throwable failed = null;
 
                 try (IgniteDataStreamer<Integer, Integer> streamer = ignite.dataStreamer(cacheName)) {
                     for (int i = 0; i < 10; i++) {
@@ -139,11 +129,13 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
                     }
                 }
                 catch (CacheException ignored) {
-                    failed = true;
+                    failed = ignored;
                 }
 
-                if (failed != readOnly)
+                if ((failed == null) == readOnly)
                     fail("Streaming to " + cacheName + " must " + (readOnly ? "fail" : "succeed"));
+
+                checkThatRootCauseIsReadOnly(failed);
             }
         }
     }

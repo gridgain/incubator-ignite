@@ -22,14 +22,14 @@ import org.apache.ignite.IgniteCheckedException;
 /**
  This exception is used to indicate that the cluster is in a read-only state
  */
-public class IgniteClusterReadonlyException extends IgniteCheckedException {
+public class IgniteClusterReadOnlyException extends IgniteCheckedException {
     /** */
     private static final long serialVersionUID = 0L;
     
     /**
      * Create empty exception.
      */
-    public IgniteClusterReadonlyException() {
+    public IgniteClusterReadOnlyException() {
     }
 
     /**
@@ -37,7 +37,7 @@ public class IgniteClusterReadonlyException extends IgniteCheckedException {
      *
      * @param msg Error message.
      */
-    public IgniteClusterReadonlyException(String msg) {
+    public IgniteClusterReadOnlyException(String msg) {
         super(msg);
     }
 }
