@@ -25,6 +25,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
@@ -691,20 +692,7 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             mgr.start(sharedCtx);
 
         if (!ctx.isDaemon()) {
-            Map<String, CacheInfo> caches = new HashMap<>();
-
-            Map<String, CacheInfo> templates = new HashMap<>();
-
-            addCacheOnJoinFromConfig(caches, templates);
-
-            CacheJoinNodeDiscoveryData discoData = new CacheJoinNodeDiscoveryData(
-                IgniteUuid.randomUuid(),
-                caches,
-                templates,
-                startAllCachesOnClientStart()
-            );
-
-            cachesInfo.onStart(discoData);
+            cachesInfo.onStart(prepareCachesDiscoDataFromConfig());
 
             if (log.isDebugEnabled())
                 log.debug("Started cache processor.");
@@ -712,6 +700,22 @@ public class GridCacheProcessor extends GridProcessorAdapter {
 
         ctx.state().cacheProcessorStarted();
         ctx.authentication().cacheProcessorStarted();
+    }
+
+    /** */
+    private CacheJoinNodeDiscoveryData prepareCachesDiscoDataFromConfig() throws IgniteCheckedException {
+        Map<String, CacheInfo> caches = new HashMap<>();
+
+        Map<String, CacheInfo> templates = new HashMap<>();
+
+        addCacheOnJoinFromConfig(caches, templates);
+
+        return new CacheJoinNodeDiscoveryData(
+            IgniteUuid.randomUuid(),
+            caches,
+            templates,
+            startAllCachesOnClientStart()
+        );
     }
 
     /**
@@ -1877,6 +1881,22 @@ public class GridCacheProcessor extends GridProcessorAdapter {
         AffinityTopologyVersion exchTopVer
     ) throws IgniteCheckedException {
         if (locJoinCtx != null) {
+            if (ctx.discovery().localNode().order() == 1) {
+                Iterator<Map.Entry<String, DynamicCacheDescriptor>> iter = locJoinCtx
+                    .cacheDescriptors().entrySet().iterator();
+
+                while (iter.hasNext()) {
+                    Map.Entry<String, DynamicCacheDescriptor> e = iter.next();
+
+                    if (!e.getValue().staticallyConfigured()) {
+                        iter.remove();
+
+                        if (e.getValue().groupDescriptor() != null)
+                            locJoinCtx.cacheGroupDescriptors().remove(e.getValue().groupDescriptor().groupId());
+                    }
+                }
+            }
+
             sharedCtx.affinity().initCachesOnLocalJoin(
                 locJoinCtx.cacheGroupDescriptors(), locJoinCtx.cacheDescriptors());
 
