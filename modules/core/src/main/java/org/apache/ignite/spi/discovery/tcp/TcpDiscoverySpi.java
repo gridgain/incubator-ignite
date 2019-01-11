@@ -1454,9 +1454,15 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
 
         assert addr != null;
 
+        long start = U.currentTimeMillis();
+
         sock.connect(resolved, (int)timeoutHelper.nextTimeoutChunk(sockTimeout));
 
+        log.info("Connected socket to " + remAddr + " in " + (U.currentTimeMillis() - start) + "ms");
+
         writeToSocket(sock, null, U.IGNITE_HEADER, timeoutHelper.nextTimeoutChunk(sockTimeout));
+
+        log.info("Wrote IGNITE_HEADER to " + remAddr + " in " + (U.currentTimeMillis() - start) + "ms");
 
         return sock;
     }
@@ -1470,6 +1476,8 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
     Socket createSocket() throws IOException {
         Socket sock;
 
+        long start = U.currentTimeMillis();
+
         if (isSslEnabled())
             sock = sslSockFactory.createSocket();
         else
@@ -1478,6 +1486,8 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
         sock.bind(new InetSocketAddress(locHost, 0));
 
         sock.setTcpNoDelay(true);
+
+        log.info("Sock created in " + (U.currentTimeMillis() - start) + "ms");
 
         return sock;
     }

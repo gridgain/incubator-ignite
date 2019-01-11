@@ -2380,6 +2380,9 @@ class ServerImpl extends TcpDiscoveryImpl {
         /** */
         private static final int MAX = 1024;
 
+        /** Logger. */
+        private final IgniteLogger log;
+
         /** Pending messages. */
         private final Queue<PendingMessage> msgs = new ArrayDeque<>(MAX * 2);
 
@@ -2393,12 +2396,21 @@ class ServerImpl extends TcpDiscoveryImpl {
         private IgniteUuid customDiscardId;
 
         /**
+         * @param log Logger.
+         */
+        public PendingMessages(IgniteLogger log) {
+            this.log = log;
+        }
+
+        /**
          * Adds pending message and shrinks queue if it exceeds limit
          * (messages that were not discarded yet are never removed).
          *
          * @param msg Message to add.
          */
         void add(TcpDiscoveryAbstractMessage msg) {
+            log.info("Adding pending message " + msg.getClass().getSimpleName() + " already collected messages: " + msgs.size());
+
             msgs.add(new PendingMessage(msg));
 
             while (msgs.size() > MAX) {
@@ -2501,6 +2513,7 @@ class ServerImpl extends TcpDiscoveryImpl {
          *
          * @return Non-discarded messages iterator.
          */
+        @Override
         public Iterator<TcpDiscoveryAbstractMessage> iterator() {
             return new SkipIterator();
         }
@@ -2597,7 +2610,7 @@ class ServerImpl extends TcpDiscoveryImpl {
         private TcpDiscoveryNode next;
 
         /** Pending messages. */
-        private final PendingMessages pendingMsgs = new PendingMessages();
+        private final PendingMessages pendingMsgs;
 
         /** Last message that updated topology. */
         private TcpDiscoveryAbstractMessage lastMsg;
@@ -2641,6 +2654,8 @@ class ServerImpl extends TcpDiscoveryImpl {
         private RingMessageWorker(IgniteLogger log) {
             super("tcp-disco-msg-worker", log, 10,
                 spi.ignite() instanceof IgniteEx ? ((IgniteEx)spi.ignite()).context().workersRegistry() : null);
+
+            pendingMsgs = new PendingMessages(log);
 
             initConnectionCheckFrequency();
         }
@@ -5816,6 +5831,9 @@ class ServerImpl extends TcpDiscoveryImpl {
         /** */
         private volatile UUID nodeId;
 
+        /** Initial socket reader. */
+        private long initSockReader;
+
         /**
          * Constructor.
          *
@@ -5829,6 +5847,8 @@ class ServerImpl extends TcpDiscoveryImpl {
             setPriority(spi.threadPri);
 
             spi.stats.onSocketReaderCreated();
+
+            initSockReader = U.currentTimeMillis();
         }
 
         /** {@inheritDoc} */
@@ -5844,6 +5864,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                     ", rmtPort=" + sock.getPort() + ']');
 
             boolean srvSock;
+            boolean isFirstByteReadedForSock = false;
 
             try {
                 InputStream in;
@@ -5869,6 +5890,13 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                     while (read < buf.length) {
                         int r = in.read(buf, read, buf.length - read);
+
+                        if (!isFirstByteReadedForSock) {
+                            log.info("First red form sock: " + (U.currentTimeMillis() - initSockReader)
+                                + "ms from [rmtAddr=" + rmtAddr + ']');
+
+                            isFirstByteReadedForSock = true;
+                        }
 
                         if (r >= 0)
                             read += r;
@@ -6363,6 +6391,9 @@ class ServerImpl extends TcpDiscoveryImpl {
                 }
             }
             finally {
+                if (!isFirstByteReadedForSock)
+                    log.info("Can not read less one byte from sock during: " + (U.currentTimeMillis() - initSockReader) + "ms");
+
                 if (clientMsgWrk != null) {
                     if (log.isDebugEnabled())
                         log.debug("Client connection failed [sock=" + sock + ", locNodeId=" + locNodeId +
