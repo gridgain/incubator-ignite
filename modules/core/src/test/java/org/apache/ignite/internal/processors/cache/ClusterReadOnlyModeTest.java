@@ -22,6 +22,7 @@ import javax.cache.CacheException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.internal.processors.cache.distributed.dht.IgniteClusterReadonlyException;
 import org.apache.ignite.internal.processors.datastreamer.DataStreamerImpl;
 import org.apache.ignite.internal.util.typedef.G;
 import org.junit.Test;
@@ -38,15 +39,15 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
      */
     @Test
     public void testCacheGetPutRemove() {
-        assertCachesReadOnlyMode(false);
+        //assertCachesReadOnlyMode(false);
 
         changeClusterReadOnlyMode(true);
 
         assertCachesReadOnlyMode(true);
 
-        changeClusterReadOnlyMode(false);
+        //changeClusterReadOnlyMode(false);
 
-        assertCachesReadOnlyMode(false);
+        //assertCachesReadOnlyMode(false);
     }
 
     /**
@@ -63,6 +64,15 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
         changeClusterReadOnlyMode(false);
 
         assertDataStreamerReadOnlyMode(false);
+    }
+
+    /**
+     * @param e Exception.
+     */
+    private static void checkThatRootCauseIsReadOnly(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause())
+            if (t.getCause() == null)
+                assertTrue(t instanceof IgniteClusterReadonlyException);
     }
 
     /**
@@ -88,7 +98,7 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
                             fail("Put must fail for cache " + cacheName);
                         }
                         catch (Exception e) {
-                            // No-op.
+                            checkThatRootCauseIsReadOnly(e);
                         }
 
                         // All removes must fail.
@@ -98,7 +108,7 @@ public class ClusterReadOnlyModeTest extends ClusterReadOnlyModeAbstractTest {
                             fail("Remove must fail for cache " + cacheName);
                         }
                         catch (Exception e) {
-                            // No-op.
+                            checkThatRootCauseIsReadOnly(e);
                         }
                     }
                     else {
