@@ -154,7 +154,7 @@ public class VerifyBackupPartitionsTaskV2 extends ComputeTaskAdapter<VisorIdleVe
             }
         }
 
-        return new IdleVerifyResultV2(updateCntrConflicts, hashConflicts, movingParts, clusterHashes, exceptions);
+        return new IdleVerifyResultV2(updateCntrConflicts, hashConflicts, movingParts, exceptions);
     }
 
     /** {@inheritDoc} */
