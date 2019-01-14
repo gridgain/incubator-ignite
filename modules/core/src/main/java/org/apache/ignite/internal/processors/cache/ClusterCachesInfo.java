@@ -839,12 +839,27 @@ class ClusterCachesInfo {
         while (cachesIter.hasNext()) {
             Map.Entry<String, DynamicCacheDescriptor> e = cachesIter.next();
 
-            if (!caches.containsKey(e.getKey())) {
+            if (!caches.containsKey(e.getKey()))
                 cachesIter.remove();
+        }
 
-                if (e.getValue().groupDescriptor() != null)
-                    registeredCacheGrps.remove(e.getValue().groupId());
+        Iterator<Integer> grpIdsIter = registeredCacheGrps.keySet().iterator();
+
+        while (grpIdsIter.hasNext()) {
+            Integer grpId = grpIdsIter.next();
+
+            boolean removeGrp = true;
+
+            for (DynamicCacheDescriptor cacheDescr : registeredCaches.values()) {
+                if (cacheDescr.groupId() == grpId) {
+                    removeGrp = false;
+
+                    break;
+                }
             }
+
+            if (removeGrp)
+                grpIdsIter.remove();
         }
 
         locJoinCachesCtx = new LocalJoinCachesContext(locJoinCachesCtx.caches(),
