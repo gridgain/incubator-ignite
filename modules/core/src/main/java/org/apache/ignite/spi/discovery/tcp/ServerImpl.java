@@ -2426,8 +2426,10 @@ class ServerImpl extends TcpDiscoveryImpl {
                 String customMessageType;
 
                 try {
-                    DiscoverySpiCustomMessage discoverySpiCustomMessage = cem.message(spi.marshaller(),
-                        U.resolveClassLoader(spi.ignite().configuration()));
+                    DiscoverySpiCustomMessage discoverySpiCustomMessage = U.unmarshal(spi.marshaller(),
+                        cem.messageBytes(), U.resolveClassLoader(spi.ignite().configuration()));
+//                        cem.message(spi.marshaller(),
+//                        U.resolveClassLoader(spi.ignite().configuration()));
 
                     if (discoverySpiCustomMessage instanceof CustomMessageWrapper) {
                         DiscoveryCustomMessage customMessage = ((CustomMessageWrapper)discoverySpiCustomMessage).delegate();
