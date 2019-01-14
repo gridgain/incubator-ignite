@@ -99,7 +99,7 @@ public abstract class GridDhtTopologyFutureAdapter extends GridFutureAdapter<Aff
 
         if (grp.needsRecovery() && !recovery) {
             if (opType == WRITE && (lossPlc == READ_ONLY_SAFE || lossPlc == READ_ONLY_ALL))
-                return new IgniteClusterReadOnlyException(
+                return new IgniteCheckedException(
                     "Failed to write to cache (cache is moved to a read-only state): " + cctx.name());
         }
 
