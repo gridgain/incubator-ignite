@@ -33,6 +33,7 @@ import org.apache.ignite.internal.IgnitionEx;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
+//nohup mvn exec:java -Dexec.mainClass="org.apache.ignite.examples.ml.util.benchmark.thinclient.ServerMock" -Dexec.args="'-coI' '64' '-coP' '128' '-coR' '100000' '-mtc' '64' '-qp' '2' '-sz' '102400' '-ulc'" &>1 > server.start.log &
 public class ServerMock {
     public static final String CACHE_NAME = "THIN_CLIENT_IMITATION_CACHE";
 
@@ -43,21 +44,21 @@ public class ServerMock {
         List<Ignite> ignites = null;
 
         try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
+            if(params.isFillCache()) {
+                CacheConfiguration<Integer, byte[]> cacheConfiguration = new CacheConfiguration<>();
+                cacheConfiguration.setAffinity(new RendezvousAffinityFunction(false, params.getCountOfPartitions()));
+                cacheConfiguration.setName(CACHE_NAME);
+                cacheConfiguration.setQueryParallelism(params.getQueryParallelism());
 
-            CacheConfiguration<Integer, byte[]> cacheConfiguration = new CacheConfiguration<>();
-            cacheConfiguration.setAffinity(new RendezvousAffinityFunction(false, params.getCountOfPartitions()));
-            cacheConfiguration.setName(CACHE_NAME);
-            cacheConfiguration.setQueryParallelism(params.getQueryParallelism());
+                IgniteCache<Integer, byte[]> cache = ignite.getOrCreateCache(cacheConfiguration);
 
-            IgniteCache<Integer, byte[]> cache = ignite.getOrCreateCache(cacheConfiguration);
-
-            for (int i = 0; i < params.getCountOfRows(); i++) {
-                byte[] val = new byte[params.getValueObjectSizeInBytes()];
-                Arrays.fill(val, (byte)i);
-                cache.put(i, val);
+                for (int i = 0; i < params.getCountOfRows(); i++) {
+                    byte[] val = new byte[params.getValueObjectSizeInBytes()];
+                    Arrays.fill(val, (byte)i);
+                    cache.put(i, val);
+                }
             }
-
-            ignites = startIgnites(params);
+//            ignites = startIgnites(params);
 
             System.out.println("Cache is ready! [rows = " + params.getCountOfRows() + "]");
 

@@ -40,6 +40,8 @@ public class BenchParameters {
     private boolean help = false;
     @Parameter(names = "-ulc", required = false, description = "use local queries")
     private boolean useLocalQueries = false;
+    @Parameter(names = "-fc", required = false, description = "fill cache")
+    private boolean fillCache = false;
 
     public static BenchParameters parseArguments(String ... args) {
         BenchParameters parameters = new BenchParameters();
@@ -138,5 +140,9 @@ public class BenchParameters {
 
     public void setUseLocalQueries(boolean useLocalQueries) {
         this.useLocalQueries = useLocalQueries;
+    }
+
+    public boolean isFillCache() {
+        return fillCache;
     }
 }
