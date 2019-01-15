@@ -1458,11 +1458,11 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
 
         sock.connect(resolved, (int)timeoutHelper.nextTimeoutChunk(sockTimeout));
 
-        log.info("Connected socket to " + remAddr + " in " + (U.currentTimeMillis() - start) + "ms");
+        log.info("DBG: Connected sock to " + remAddr + " in " + (U.currentTimeMillis() - start) + "ms");
 
         writeToSocket(sock, null, U.IGNITE_HEADER, timeoutHelper.nextTimeoutChunk(sockTimeout));
 
-        log.info("Wrote IGNITE_HEADER to " + remAddr + " in " + (U.currentTimeMillis() - start) + "ms");
+        log.info("DBG: Wrote IGNITE_HEADER to " + remAddr + " in " + (U.currentTimeMillis() - start) + "ms");
 
         return sock;
     }
@@ -1487,7 +1487,7 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
 
         sock.setTcpNoDelay(true);
 
-        log.info("Sock created in " + (U.currentTimeMillis() - start) + "ms");
+        log.info("DBG: Sock created in " + (U.currentTimeMillis() - start) + "ms");
 
         return sock;
     }

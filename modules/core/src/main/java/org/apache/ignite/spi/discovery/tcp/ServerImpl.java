@@ -948,6 +948,8 @@ class ServerImpl extends TcpDiscoveryImpl {
                     }
                 }
 
+                log.info("DBG: Current spi state: " + spiState);
+
                 if (spiState == CONNECTED)
                     break;
                 else if (spiState == DUPLICATE_ID)
@@ -1059,6 +1061,8 @@ class ServerImpl extends TcpDiscoveryImpl {
                     }
 
                     assert res != null;
+
+                    log.info("DBG: Join request result:" + res);
 
                     noResAddrs.remove(addr);
 
@@ -2415,7 +2419,7 @@ class ServerImpl extends TcpDiscoveryImpl {
          * @param msg Message to add.
          */
         void add(TcpDiscoveryAbstractMessage msg) {
-            log.info("Adding pending message " + msg.getClass().getSimpleName() +
+            log.info("DBG: Adding pending message " + msg.getClass().getSimpleName() +
                 " with id " + msg.id() + " already collected messages: " + msgs.size());
 
             if (msg instanceof TcpDiscoveryCustomEventMessage) {
@@ -2428,8 +2432,6 @@ class ServerImpl extends TcpDiscoveryImpl {
                 try {
                     DiscoverySpiCustomMessage discoverySpiCustomMessage = U.unmarshal(spi.marshaller(),
                         cem.messageBytes(), U.resolveClassLoader(spi.ignite().configuration()));
-//                        cem.message(spi.marshaller(),
-//                        U.resolveClassLoader(spi.ignite().configuration()));
 
                     if (discoverySpiCustomMessage instanceof CustomMessageWrapper) {
                         DiscoveryCustomMessage customMessage = ((CustomMessageWrapper)discoverySpiCustomMessage).delegate();
@@ -2443,7 +2445,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                     customMessageType = "Exception on unmarshal type : " + e.getMessage();
                 }
 
-                log.info("Adding pending custom message size " + FileUtils.byteCountToDisplaySize(size) + " with type " + customMessageType);
+                log.info("DBG: Pending custom message size " + FileUtils.byteCountToDisplaySize(size) + " with type " + customMessageType);
             }
 
             msgs.add(new PendingMessage(msg));
@@ -2498,7 +2500,7 @@ class ServerImpl extends TcpDiscoveryImpl {
          * @param custom {@code True} if discard for {@link TcpDiscoveryCustomEventMessage}.
          */
         void discard(IgniteUuid id, boolean custom) {
-            log.info("Discard message id " + id + " is custom " + custom);
+            log.info("DBG: Discard message id " + id + " is custom " + custom);
 
             if (custom)
                 customDiscardId = id;
@@ -5929,7 +5931,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                         int r = in.read(buf, read, buf.length - read);
 
                         if (!isFirstByteReadedForSock) {
-                            log.info("First red form sock: " + (U.currentTimeMillis() - initSockReader)
+                            log.info("DBG: First reading from sock: " + (U.currentTimeMillis() - initSockReader)
                                 + "ms from [rmtAddr=" + rmtAddr + ']');
 
                             isFirstByteReadedForSock = true;
@@ -6171,7 +6173,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                         else if (msg instanceof TcpDiscoveryJoinRequestMessage) {
                             TcpDiscoveryJoinRequestMessage req = (TcpDiscoveryJoinRequestMessage)msg;
 
-                            log.info("Receiving join request msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
+                            log.info("DBG: Receiving join request msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
 
                             if (!req.responded()) {
                                 boolean ok = processJoinRequestMessage(req, clientMsgWrk);
@@ -6349,9 +6351,9 @@ class ServerImpl extends TcpDiscoveryImpl {
                             ((TcpDiscoveryRingLatencyCheckMessage) msg).onRead();
                         }
                         else if (msg instanceof TcpDiscoveryNodeAddedMessage)
-                            log.info("Receiving node added msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
+                            log.info("DBG: Receiving node added msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
                         else if (msg instanceof TcpDiscoveryNodeAddFinishedMessage)
-                            log.info("Receiving node addFinished msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
+                            log.info("DBG: Receiving node addFinished msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
 
                         TcpDiscoveryClientMetricsUpdateMessage metricsUpdateMsg = null;
 
@@ -6429,7 +6431,7 @@ class ServerImpl extends TcpDiscoveryImpl {
             }
             finally {
                 if (!isFirstByteReadedForSock)
-                    log.info("Can not read less one byte from sock during: " + (U.currentTimeMillis() - initSockReader) + "ms");
+                    log.info("DBG: Can not read less one byte from sock during: " + (U.currentTimeMillis() - initSockReader) + "ms");
 
                 if (clientMsgWrk != null) {
                     if (log.isDebugEnabled())

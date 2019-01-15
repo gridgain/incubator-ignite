@@ -96,11 +96,11 @@ final class MarshallerMappingFileStore {
 
             try (FileOutputStream out = new FileOutputStream(file)) {
                 try (Writer writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
-                    try (FileLock ignored = fileLock(out.getChannel(), false)) {
+//                    try (FileLock ignored = fileLock(out.getChannel(), false)) {
                         writer.write(typeName);
 
                         writer.flush();
-                    }
+//                    }
                 }
             }
             catch (IOException e) {
@@ -111,9 +111,9 @@ final class MarshallerMappingFileStore {
                 if (log.isDebugEnabled())
                     log.debug("File already locked (will ignore): " + file.getAbsolutePath());
             }
-            catch (IgniteInterruptedCheckedException e) {
-                U.error(log, "Interrupted while waiting for acquiring file lock: " + file, e);
-            }
+//            catch (IgniteInterruptedCheckedException e) {
+//                U.error(log, "Interrupted while waiting for acquiring file lock: " + file, e);
+//            }
         }
         finally {
             lock.unlock();
