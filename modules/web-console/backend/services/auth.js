@@ -119,7 +119,7 @@ module.exports.factory = (mongo, settings, errors, utilsService, mailsService) =
          */
         static validateActivationToken(user, activationToken) {
             if (user.activated) {
-                if (user.activationToken !== activationToken)
+                if (!_.isEmpty(activationToken) && user.activationToken !== activationToken)
                     return new errors.AuthFailedException('Invalid email or password!');
             }
             else {
