@@ -74,6 +74,9 @@ module.exports.factory = (mongo, settings, errors, utilsService, mailsService) =
                     if (!user)
                         throw new errors.MissingResourceException('Failed to find account with this token! Please check link from email.');
 
+                    if (settings.activation.enabled && !user.activated)
+                        throw new errors.MissingConfirmRegistrationException(user.email);
+
                     return new Promise((resolve, reject) => {
                         user.setPassword(newPassword, (err, _user) => {
                             if (err)
@@ -99,6 +102,9 @@ module.exports.factory = (mongo, settings, errors, utilsService, mailsService) =
                 .then((user) => {
                     if (!user)
                         throw new errors.IllegalAccessError('Invalid token for password reset!');
+
+                    if (settings.activation.enabled && !user.activated)
+                        throw new errors.MissingConfirmRegistrationException(user.email);
 
                     return {token, email: user.email};
                 });
