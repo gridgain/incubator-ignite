@@ -2510,7 +2510,8 @@ public class MvccProcessorImpl extends GridProcessorAdapter implements MvccProce
                 }
                 finally {
                     entry.unlockEntry();
-                    cctx.evicts().touch(entry, AffinityTopologyVersion.NONE);
+
+                    cctx.evicts().touch(entry);
 
                     metrics.addCleanupNanoTime(System.nanoTime() - cleanupStartNanoTime);
                     metrics.addCleanupRowsCnt(cleaned);
