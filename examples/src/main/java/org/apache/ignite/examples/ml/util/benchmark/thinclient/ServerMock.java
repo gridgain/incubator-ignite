@@ -34,6 +34,8 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
 //nohup mvn exec:java -Dexec.mainClass="org.apache.ignite.examples.ml.util.benchmark.thinclient.ServerMock" -Dexec.args="'-coI' '64' '-coP' '128' '-coR' '100000' '-mtc' '64' '-qp' '2' '-sz' '102400' '-ulc'" &>1 > server.start.log &
+//-DskipTests
+//nohup mvn exec:java -Dexec.mainClass="org.apache.ignite.examples.ml.util.benchmark.thinclient.ServerMock" -Dexec.args="'-fc' '-coI' '1' '-coP' '16' '-coR' '100000' '-mtc' '16' '-qp' '2' '-sz' '102400' '-ulc'" &>1 > server.start.log &
 public class ServerMock {
     public static final String CACHE_NAME = "THIN_CLIENT_IMITATION_CACHE";
 
