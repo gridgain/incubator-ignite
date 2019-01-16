@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.distributed.dht;
 
 import java.io.Externalizable;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.internal.processors.cache.CacheMetricsImpl;
 import org.apache.ignite.internal.processors.cache.GridCacheConcurrentMap;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
@@ -68,6 +69,10 @@ public class GridDhtCache<K, V> extends GridDhtTransactionalCacheAdapter<K, V> {
         String name = super.name();
 
         return name == null ? "defaultDhtCache" : name + "Dht";
+    }
+
+    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

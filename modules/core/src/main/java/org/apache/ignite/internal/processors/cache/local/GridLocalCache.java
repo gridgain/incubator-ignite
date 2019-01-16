@@ -21,6 +21,7 @@ import java.io.Externalizable;
 import java.util.Collection;
 import java.util.concurrent.Callable;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.cache.CachePeekMode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
@@ -254,5 +255,9 @@ public class GridLocalCache<K, V> extends GridCacheAdapter<K, V> {
         ctx.offheap().preloadPartition(part);
 
         return true;
+    }
+
+    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+        throw new UnsupportedOperationException();
     }
 }

@@ -37,6 +37,7 @@ import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorResult;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.cache.CacheEntry;
 import org.apache.ignite.cache.CacheEntryProcessor;
 import org.apache.ignite.cache.CacheMetrics;
@@ -1522,6 +1523,17 @@ public class GatewayProtectedCacheProxy<K, V> extends AsyncSupportAdapter<Ignite
 
         try {
             return delegate.localPreloadPartition(part);
+        }
+        finally {
+            onLeave(opGate);
+        }
+    }
+
+    @Override public IgniteOffHeapIterator getByteIterator(K key) {
+        CacheOperationGate opGate = onEnter();
+
+        try {
+            return delegate.getByteIterator(key);
         }
         finally {
             onLeave(opGate);
