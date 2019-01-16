@@ -49,6 +49,7 @@ import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCacheRestartingException;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.cache.CacheEntry;
 import org.apache.ignite.cache.CacheEntryEventSerializableFilter;
 import org.apache.ignite.cache.CacheEntryProcessor;
@@ -2157,6 +2158,17 @@ public class IgniteCacheProxyImpl<K, V> extends AsyncSupportAdapter<IgniteCache<
 
         try {
             return delegate.localPreloadPartition(part);
+        }
+        catch (IgniteCheckedException e) {
+            throw cacheException(e);
+        }
+    }
+
+    @Override public IgniteOffHeapIterator getByteIterator(K key) {
+        IgniteInternalCache<K, V> delegate = getDelegateSafe();
+
+        try {
+            return delegate.getByteIterator(key);
         }
         catch (IgniteCheckedException e) {
             throw cacheException(e);

@@ -35,6 +35,7 @@ import org.apache.ignite.IgniteCacheRestartingException;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.binary.BinaryInvalidTypeException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
@@ -961,6 +962,17 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
             false,
             TRANSFORM,
             true);
+    }
+
+    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+        A.notNull(key, "key");
+
+        KeyCacheObject keyCacheObject = ctx.toCacheKeyObject(key);
+
+        ctx.checkSecurity(SecurityPermission.CACHE_READ);
+
+        ctx.offheap().read(ctx, keyCacheObject);
+
     }
 
     /**

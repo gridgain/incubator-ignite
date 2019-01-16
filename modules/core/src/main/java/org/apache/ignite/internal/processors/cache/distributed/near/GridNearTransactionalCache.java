@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
@@ -625,6 +626,10 @@ public class GridNearTransactionalCache<K, V> extends GridNearCacheAdapter<K, V>
         catch (IgniteCheckedException ex) {
             U.error(log, "Failed to unlock the lock for keys: " + keys, ex);
         }
+    }
+
+    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+        throw new UnsupportedOperationException();
     }
 
     /**

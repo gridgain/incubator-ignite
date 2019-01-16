@@ -25,6 +25,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.cluster.ClusterTopologyCheckedException;
@@ -169,6 +170,10 @@ public class GridDhtColocatedCache<K, V> extends GridDhtTransactionalCacheAdapte
         KeyCacheObject cacheKey = ctx.toCacheKeyObject(key);
 
         return ctx.mvcc().isLockedByThread(ctx.txKey(cacheKey), Thread.currentThread().getId());
+    }
+
+    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

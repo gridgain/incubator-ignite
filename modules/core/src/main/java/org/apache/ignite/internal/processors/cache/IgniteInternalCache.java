@@ -31,6 +31,7 @@ import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorResult;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheEntry;
 import org.apache.ignite.cache.CacheMetrics;
@@ -1850,4 +1851,6 @@ public interface IgniteInternalCache<K, V> extends Iterable<Cache.Entry<K, V>> {
      * @throws IgniteCheckedException If failed.
      */
     public boolean localPreloadPartition(int part) throws IgniteCheckedException;
+
+    IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException;
 }

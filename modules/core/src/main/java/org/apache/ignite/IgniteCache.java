@@ -1566,4 +1566,7 @@ public interface IgniteCache<K, V> extends javax.cache.Cache<K, V>, IgniteAsyncS
      * @return {@code True} if partition was preloaded, {@code false} if it doesn't belong to local node.
      */
     public boolean localPreloadPartition(int partition);
+
+    public IgniteOffHeapIterator getByteIterator(K i);
+
 }

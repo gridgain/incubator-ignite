@@ -31,6 +31,7 @@ import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorResult;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.cache.CacheEntry;
 import org.apache.ignite.cache.CacheMetrics;
 import org.apache.ignite.cache.CachePeekMode;
@@ -270,6 +271,10 @@ public class GridCacheProxyImpl<K, V> implements IgniteInternalCache<K, V>, Exte
         finally {
             gate.leave(prev);
         }
+    }
+
+    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
