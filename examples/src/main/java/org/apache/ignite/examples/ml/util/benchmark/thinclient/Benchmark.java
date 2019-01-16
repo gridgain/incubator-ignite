@@ -44,8 +44,8 @@ public class Benchmark {
 
     public static void main(String... args) throws Exception {
         PARAMETERS = BenchParameters.parseArguments(args);
-        if(PARAMETERS.getCountOfIgnites() == 1)
-            PARAMETERS.setUseLocalQueries(true);
+//        if(PARAMETERS.getCountOfIgnites() == 1)
+//            PARAMETERS.setUseLocalQueries(true);
 
         System.out.println("Start benchmark with such configuration: [" + PARAMETERS.toString() + "]");
 
