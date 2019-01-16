@@ -39,7 +39,6 @@ import org.junit.runners.JUnit4;
 /**
  *
  */
-@RunWith(JUnit4.class)
 public class TcpDiscoveryCoordinatorFailureTest extends GridCommonAbstractTest {
     /** */
     private static final TcpDiscoveryVmIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
@@ -59,7 +58,6 @@ public class TcpDiscoveryCoordinatorFailureTest extends GridCommonAbstractTest {
     /**
      * @throws Exception if failed.
      */
-    @Test
     public void testCoordinatorFailedNoAddFinishedMessageStartOneNode() throws Exception {
         checkCoordinatorFailedNoAddFinishedMessage(false);
     }
@@ -67,7 +65,6 @@ public class TcpDiscoveryCoordinatorFailureTest extends GridCommonAbstractTest {
     /**
      * @throws Exception if failed.
      */
-    @Test
     public void testCoordinatorFailedNoAddFinishedMessageStartTwoNodes() throws Exception {
         checkCoordinatorFailedNoAddFinishedMessage(true);
     }
