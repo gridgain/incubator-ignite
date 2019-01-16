@@ -35,7 +35,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class Benchmark {
     private static final int SAMPLES = 5;
-    private static final int[] PAGE_SIZES = new int[] {10, 20, 50, 100, 200, 300, 400, 500, 1000, 2000};
+    private static final int[] PAGE_SIZES = new int[] {/*10, 20, 50, 100, */200/*, 300, 400, 500, 1000, 2000*/};
 
     private static ExecutorService POOL;
     private static BenchParameters PARAMETERS;
@@ -56,7 +56,7 @@ public class Benchmark {
         if(PARAMETERS.isUseLocalQueries())
             measureThroughSeveralClients(benchMeta, PARAMETERS.getCountOfIgnites());
         else {
-            for (int threadCount = 1; threadCount <= PARAMETERS.getMaxThreadCount(); ) {
+            for (int threadCount = 32; threadCount <= PARAMETERS.getMaxThreadCount(); ) {
                 measureThroughSeveralClients(benchMeta, threadCount);
                 threadCount = Math.min(PARAMETERS.getMaxThreadCount() + 1, threadCount * 2);
             }
@@ -109,7 +109,7 @@ public class Benchmark {
             throw new IllegalArgumentException("useLocalQueries && currentClientCount != PARAMETERS.getCountOfIgnites()");
 
         ArrayList<Future<Optional<Measure>>> futures = new ArrayList<>(currentClientCount);
-        for (int i = 0; i < currentClientCount; i++) {
+        for (int i = 0; i < 1; i++) {
             final int clientID = i;
             futures.add(POOL.submit(() -> {
                 return new ThinClientMock(useLocalQueries,
