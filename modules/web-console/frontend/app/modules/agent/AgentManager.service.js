@@ -21,7 +21,7 @@ import {nonEmpty, nonNil} from 'app/utils/lodashMixins';
 import {BehaviorSubject} from 'rxjs';
 import {first, pluck, tap, distinctUntilChanged, map, filter} from 'rxjs/operators';
 
-import io from 'socket.io-client';
+import SockJS from 'sockjs-client';
 
 import AgentModal from './AgentModal.service';
 // @ts-ignore
@@ -221,7 +221,7 @@ export default class AgentManager {
 
         const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
-        this.socket = io.connect(options);
+        this.socket = new SockJS("http://localhost:3000");
 
         const onDisconnect = () => {
             const conn = this.connectionSbj.getValue();
@@ -231,11 +231,11 @@ export default class AgentManager {
             this.connectionSbj.next(conn);
         };
 
-        this.socket.on('connect_error', onDisconnect);
+        // this.socket.on('connect_error', onDisconnect);
+        //
+        // this.socket.on('disconnect', onDisconnect);
 
-        this.socket.on('disconnect', onDisconnect);
-
-        this.socket.on('agents:stat', ({clusters, count}) => {
+        this.socket.onmessage('agents:stat', ({clusters, count}) => {
             const conn = this.connectionSbj.getValue();
 
             conn.update(this.isDemoMode(), count, clusters);

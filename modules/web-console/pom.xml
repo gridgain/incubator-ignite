@@ -50,6 +50,19 @@
             <artifactId>ignite-web-agent</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!-- Third-party dependencies -->
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-core</artifactId>
+            <version>3.6.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-web</artifactId>
+            <version>3.6.2</version>
+        </dependency>
     </dependencies>
 
     <profiles>
