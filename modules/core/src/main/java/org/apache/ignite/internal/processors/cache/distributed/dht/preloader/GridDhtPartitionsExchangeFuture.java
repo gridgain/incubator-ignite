@@ -3364,6 +3364,10 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 }
             }
 
+            TransactionalDrProcessor txDrProc = cctx.kernalContext().txDr();
+
+            boolean skipResetOwners = txDrProc != null && txDrProc.shouldIgnoreAssignPartitionStates(this);
+
             timeBag.finishGlobalStage("Affinity recalculation (crd)");
 
             Map<Integer, CacheGroupAffinityMessage> joinedNodeAff = null;
@@ -3383,7 +3387,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                     CachePartitionPartialCountersMap cntrs = msg.partitionUpdateCounters(grpId,
                         top.partitions());
 
-                    if (cntrs != null)
+                    if (cntrs != null && !skipResetOwners)
                         top.collectUpdateCounters(cntrs);
                 }
 
@@ -3437,10 +3441,6 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
                 timeBag.finishGlobalStage("Ideal affinity diff calculation (enforced)");
             }
-
-            TransactionalDrProcessor txDrProc = cctx.kernalContext().txDr();
-
-            boolean skipResetOwners = txDrProc != null && txDrProc.shouldIgnoreAssignPartitionStates(this);
 
             if (!skipResetOwners) {
                 for (CacheGroupContext grpCtx : cctx.cache().cacheGroups()) {
