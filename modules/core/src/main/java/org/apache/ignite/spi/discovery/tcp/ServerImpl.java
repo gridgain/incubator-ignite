@@ -50,6 +50,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -172,6 +173,7 @@ import static org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryStatusChe
 /**
  *
  */
+@SuppressWarnings({"MissortedModifiers", "IfMayBeConditional"})
 class ServerImpl extends TcpDiscoveryImpl {
     /** */
     private static final int ENSURED_MSG_HIST_SIZE = getInteger(IGNITE_DISCOVERY_CLIENT_RECONNECT_HISTORY_SIZE, 512);
@@ -200,7 +202,7 @@ class ServerImpl extends TcpDiscoveryImpl {
     private RingMessageWorker msgWorker;
 
     /** Client message workers. */
-    protected ConcurrentMap<UUID, ClientMessageWorker> clientMsgWorkers = new ConcurrentHashMap8<>();
+    private final ConcurrentMap<UUID, ClientMessageWorker> clientMsgWorkers = new ConcurrentHashMap<>();
 
     /** IP finder cleaner. */
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
@@ -244,7 +246,13 @@ class ServerImpl extends TcpDiscoveryImpl {
     private final Object mux = new Object();
 
     /** Discovery state. */
-    protected TcpDiscoverySpiState spiState = DISCONNECTED;
+    private TcpDiscoverySpiState spiState = DISCONNECTED;
+
+    /**
+     * Local node coordinator flag.
+     * Used to detect previous coordinator failure and send node add finished messages if needed.
+     */
+    private boolean isLocNodeCrd;
 
     /** Last time received message from ring. */
     private volatile long lastRingMsgReceivedTime;
@@ -328,7 +336,7 @@ class ServerImpl extends TcpDiscoveryImpl {
             0,
             1,
             2000,
-            new LinkedBlockingQueue<Runnable>());
+            new LinkedBlockingQueue<>());
 
         if (debugMode) {
             if (!log.isInfoEnabled())
@@ -917,6 +925,8 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                     spiState = CONNECTED;
 
+                    isLocNodeCrd = true;
+
                     mux.notifyAll();
                 }
 
@@ -1500,24 +1510,8 @@ class ServerImpl extends TcpDiscoveryImpl {
      * (i.e. local node is the last one and is currently stopping).
      */
     @Nullable private TcpDiscoveryNode resolveCoordinator() {
-        return resolveCoordinator(null);
-    }
-
-    /**
-     * Resolves coordinator. Nodes that are leaving or failed (but are still in
-     * topology) are removed from search as well as provided filter.
-     *
-     * @param filter Nodes to exclude when resolving coordinator (optional).
-     * @return Coordinator node or {@code null} if there are no coordinator
-     * (i.e. local node is the last one and is currently stopping).
-     */
-    @Nullable private TcpDiscoveryNode resolveCoordinator(
-        @Nullable Collection<TcpDiscoveryNode> filter) {
         synchronized (mux) {
             Collection<TcpDiscoveryNode> excluded = F.concat(false, failedNodes.keySet(), leavingNodes);
-
-            if (!F.isEmpty(filter))
-                excluded = F.concat(false, excluded, filter);
 
             return ring.coordinator(excluded);
         }
@@ -1921,8 +1915,8 @@ class ServerImpl extends TcpDiscoveryImpl {
                         ring.allNodes(),
                         new C1<TcpDiscoveryNode, Collection<InetSocketAddress>>() {
                             @Override public Collection<InetSocketAddress> apply(TcpDiscoveryNode node) {
-                                return !node.isClient() ? spi.getNodeAddresses(node) :
-                                    Collections.<InetSocketAddress>emptyList();
+                                return node.clientRouterNodeId() == null ? spi.getNodeAddresses(node) :
+                                    Collections.emptyList();
                             }
                         }
                     )
@@ -2052,6 +2046,39 @@ class ServerImpl extends TcpDiscoveryImpl {
                     }
                 }
             }
+        }
+
+        // Check if node became a coordinator node before further message processing.
+        // Otherwise, we may have a node add finished message sent out of order and this will result
+        // in 'Invalid node order' assertion on joining node.
+        checkBecameCoordinator();
+    }
+
+    /**
+     * Checks if local node became a coordinator of the ring. This
+     */
+    private void checkBecameCoordinator() {
+        boolean becameCrd = false;
+
+        synchronized (mux) {
+            if (!isLocNodeCrd) {
+                boolean crd = isLocalNodeCoordinator();
+
+                if (crd) {
+                    becameCrd = true;
+
+                    isLocNodeCrd = true;
+
+                    if (log.isDebugEnabled())
+                        log.debug("Local node detected ");
+                }
+            }
+        }
+
+        if (becameCrd) {
+            for (TcpDiscoveryNode node : ring.remoteNodes())
+                if (node.order() == 0)
+                    msgWorker.addMessage(new TcpDiscoveryNodeAddFinishedMessage(locNode.id(), node.id()));
         }
     }
 
@@ -2764,6 +2791,10 @@ class ServerImpl extends TcpDiscoveryImpl {
                 // Reset the failure flag.
                 failureThresholdReached = false;
             }
+
+            // Check if the local node became a coorindinator node after this message is processed to finish
+            // pending joins, if any.
+            checkBecameCoordinator();
 
             spi.stats.onMessageProcessingFinished(msg);
         }
@@ -4395,9 +4426,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                                 n.visible(true);
                             }
 
-                            synchronized (mux) {
-                                joiningNodes.clear();
-                            }
+                            joiningNodes.clear();
 
                             locNode.setAttributes(node.attributes());
 
@@ -5025,11 +5054,13 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                         utilityPool.execute(new Runnable() {
                             @Override public void run() {
-                                if (spiState == DISCONNECTED) {
-                                    if (log.isDebugEnabled())
-                                        log.debug("Ignoring status check request, SPI is already disconnected: " + msg);
+                                synchronized (mux) {
+                                    if (spiState == DISCONNECTED) {
+                                        if (log.isDebugEnabled())
+                                            log.debug("Ignoring status check request, SPI is already disconnected: " + msg);
 
-                                    return;
+                                        return;
+                                    }
                                 }
 
                                 TcpDiscoveryStatusCheckMessage msg0 = msg;
@@ -5176,7 +5207,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                         TcpDiscoveryMetricsUpdateMessage.MetricsSet metricsSet = e.getValue();
 
                         Map<Integer, CacheMetrics> cacheMetrics = msg.hasCacheMetrics(nodeId) ?
-                            msg.cacheMetrics().get(nodeId) : Collections.<Integer, CacheMetrics>emptyMap();
+                            msg.cacheMetrics().get(nodeId) : Collections.emptyMap();
 
                         updateMetrics(nodeId, metricsSet.metrics(), cacheMetrics, tstamp);
 
@@ -5321,11 +5352,13 @@ class ServerImpl extends TcpDiscoveryImpl {
         private void processClientPingRequest(final TcpDiscoveryClientPingRequest msg) {
             utilityPool.execute(new Runnable() {
                 @Override public void run() {
-                    if (spiState == DISCONNECTED) {
-                        if (log.isDebugEnabled())
-                            log.debug("Ignoring ping request, SPI is already disconnected: " + msg);
+                    synchronized (mux) {
+                        if (spiState == DISCONNECTED) {
+                            if (log.isDebugEnabled())
+                                log.debug("Ignoring ping request, SPI is already disconnected: " + msg);
 
-                        return;
+                            return;
+                        }
                     }
 
                     final ClientMessageWorker worker = clientMsgWorkers.get(msg.creatorNodeId());
