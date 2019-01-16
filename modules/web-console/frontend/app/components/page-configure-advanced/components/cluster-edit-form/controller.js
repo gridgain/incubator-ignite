@@ -19,16 +19,25 @@ import cloneDeep from 'lodash/cloneDeep';
 import get from 'lodash/get';
 import isEqual from 'lodash/isEqual';
 import _ from 'lodash';
+import {tap} from 'rxjs/operators';
 
 export default class ClusterEditFormController {
     /** @type {Array<ig.config.cache.ShortCache>} */
     caches;
     /** @type {ig.menu<string>} */
     cachesMenu;
+    /** @type {ig.menu<string>} */
+    servicesCachesMenu;
+    /** @type {ng.ICompiledExpression} */
+    onSave;
 
     static $inject = ['IgniteLegacyUtils', 'IgniteEventGroups', 'IgniteConfirm', 'IgniteVersion', '$scope', 'Clusters', 'IgniteFormUtils'];
+    /**
+     * @param {import('app/services/Clusters').default} Clusters
+     */
     constructor(IgniteLegacyUtils, IgniteEventGroups, IgniteConfirm, IgniteVersion, $scope, Clusters, IgniteFormUtils) {
-        Object.assign(this, {IgniteLegacyUtils, IgniteEventGroups, IgniteConfirm, IgniteVersion, $scope, Clusters, IgniteFormUtils});
+        Object.assign(this, {IgniteLegacyUtils, IgniteEventGroups, IgniteConfirm, IgniteVersion, $scope, IgniteFormUtils});
+        this.Clusters = Clusters;
     }
 
     $onDestroy() {
@@ -37,8 +46,6 @@ export default class ClusterEditFormController {
 
     $onInit() {
         this.available = this.IgniteVersion.available.bind(this.IgniteVersion);
-
-        let __original_value;
 
         const rebuildDropdowns = () => {
             this.eventStorage = [
@@ -80,15 +87,21 @@ export default class ClusterEditFormController {
             }
         };
 
-        this.subscription = this.IgniteVersion.currentSbj
-            .do(rebuildDropdowns)
-            .do(() => filterModel(this.clonedCluster))
-            .subscribe();
+        this.subscription = this.IgniteVersion.currentSbj.pipe(
+            tap(rebuildDropdowns),
+            tap(() => filterModel(this.clonedCluster))
+        )
+        .subscribe();
 
         this.supportedJdbcTypes = this.IgniteLegacyUtils.mkOptions(this.IgniteLegacyUtils.SUPPORTED_JDBC_TYPES);
 
         this.$scope.ui = this.IgniteFormUtils.formUI();
         this.$scope.ui.loadedPanels = ['checkpoint', 'serviceConfiguration', 'odbcConfiguration'];
+
+        this.formActions = [
+            {text: 'Save', icon: 'checkmark', click: () => this.save()},
+            {text: 'Save and Download', icon: 'download', click: () => this.save(true)}
+        ];
     }
 
     $onChanges(changes) {
@@ -99,8 +112,11 @@ export default class ClusterEditFormController {
                 this.$scope.ui.inputForm.$setUntouched();
             }
         }
-        if ('caches' in changes)
+
+        if ('caches' in changes) {
             this.cachesMenu = (changes.caches.currentValue || []).map((c) => ({label: c.name, value: c._id}));
+            this.servicesCachesMenu = [{label: 'Key-affinity not used', value: null}].concat(this.cachesMenu);
+        }
     }
 
     /**
@@ -120,10 +136,10 @@ export default class ClusterEditFormController {
         return [this.cluster, this.clonedCluster].map(this.Clusters.normalize);
     }
 
-    save() {
+    save(download) {
         if (this.$scope.ui.inputForm.$invalid)
             return this.IgniteFormUtils.triggerValidation(this.$scope.ui.inputForm, this.$scope);
-        this.onSave({$event: cloneDeep(this.clonedCluster)});
+        this.onSave({$event: {cluster: cloneDeep(this.clonedCluster), download}});
     }
 
     reset = () => this.clonedCluster = cloneDeep(this.cluster);

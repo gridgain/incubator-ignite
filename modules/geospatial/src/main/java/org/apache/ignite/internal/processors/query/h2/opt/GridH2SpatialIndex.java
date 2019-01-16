@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.processors.query.h2.opt;
 
-import com.vividsolutions.jts.geom.Envelope;
-import com.vividsolutions.jts.geom.Geometry;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,6 +28,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.query.h2.H2Cursor;
+import org.apache.ignite.internal.processors.query.h2.H2Utils;
 import org.apache.ignite.internal.util.GridCursorIteratorWrapper;
 import org.apache.ignite.internal.util.lang.GridCursor;
 import org.apache.ignite.spi.indexing.IndexingQueryCacheFilter;
@@ -52,6 +51,8 @@ import org.h2.table.IndexColumn;
 import org.h2.table.TableFilter;
 import org.h2.value.Value;
 import org.h2.value.ValueGeometry;
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.Geometry;
 
 import static org.apache.ignite.internal.processors.query.h2.opt.GridH2KeyValueRowOnheap.KEY_COL;
 
@@ -154,7 +155,7 @@ public class GridH2SpatialIndex extends GridH2IndexBase implements SpatialIndex 
     }
 
     /** {@inheritDoc} */
-    @Override protected int segmentsCount() {
+    @Override public int segmentsCount() {
         return segments.length;
     }
 
@@ -286,8 +287,7 @@ public class GridH2SpatialIndex extends GridH2IndexBase implements SpatialIndex 
     /** {@inheritDoc} */
     @Override public double getCost(Session ses, int[] masks, TableFilter[] filters, int filter,
         SortOrder sortOrder, HashSet<Column> cols) {
-        return SpatialTreeIndex.getCostRangeIndex(masks,
-            table.getRowCountApproximation(), columns) / 10;
+        return SpatialTreeIndex.getCostRangeIndex(masks, columns) / 10;
     }
 
     /** {@inheritDoc} */
@@ -336,11 +336,15 @@ public class GridH2SpatialIndex extends GridH2IndexBase implements SpatialIndex 
     @SuppressWarnings("unchecked")
     private GridCursor<GridH2Row> rowIterator(Iterator<SpatialKey> i, TableFilter filter) {
         if (!i.hasNext())
-            return EMPTY_CURSOR;
+            return H2Utils.EMPTY_CURSOR;
 
         long time = System.currentTimeMillis();
 
-        IndexingQueryFilter qryFilter = threadLocalFilter();
+        IndexingQueryFilter qryFilter = null;
+        GridH2QueryContext qctx = GridH2QueryContext.get();
+
+        if (qctx != null)
+            qryFilter = qctx.filter();
 
         IndexingQueryCacheFilter qryCacheFilter = qryFilter != null ? qryFilter.forCache(getTable().cacheName()) : null;
 

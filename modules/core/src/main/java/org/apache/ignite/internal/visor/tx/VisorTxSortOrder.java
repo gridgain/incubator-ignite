@@ -25,7 +25,9 @@ public enum VisorTxSortOrder {
     /** Sort by duration. */
     DURATION,
     /** Sort by size. */
-    SIZE;
+    SIZE,
+    /** Sort by startTime */
+    START_TIME;
 
     /** Enumerated values. */
     private static final VisorTxSortOrder[] VALS = values();
@@ -38,18 +40,5 @@ public enum VisorTxSortOrder {
      */
     @Nullable public static VisorTxSortOrder fromOrdinal(int ord) {
         return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
-    }
-
-    /**
-     * @param name Name.
-     */
-    public static VisorTxSortOrder fromString(String name) {
-        if (DURATION.toString().equals(name))
-            return DURATION;
-
-        if (SIZE.toString().equals(name))
-            return SIZE;
-
-        throw new IllegalArgumentException("Sort order is unknown: " + name);
     }
 }

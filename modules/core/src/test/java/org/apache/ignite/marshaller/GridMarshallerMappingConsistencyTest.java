@@ -27,15 +27,16 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  *
  */
+@RunWith(JUnit4.class)
 public class GridMarshallerMappingConsistencyTest extends GridCommonAbstractTest {
     /** Test cache name. */
     private static final String CACHE_NAME = "cache";
@@ -45,9 +46,6 @@ public class GridMarshallerMappingConsistencyTest extends GridCommonAbstractTest
         File.separatorChar + "work" +
         File.separatorChar + "test";
 
-    /** Ip finder. */
-    private TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
-
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration igniteCfg = super.getConfiguration(igniteInstanceName);
@@ -55,7 +53,7 @@ public class GridMarshallerMappingConsistencyTest extends GridCommonAbstractTest
         igniteCfg.setConsistentId(igniteInstanceName);
 
         DataRegionConfiguration drCfg = new DataRegionConfiguration();
-        drCfg.setPersistenceEnabled(true);
+        drCfg.setPersistenceEnabled(true).setMaxSize(DataStorageConfiguration.DFLT_DATA_REGION_INITIAL_SIZE);
 
         DataStorageConfiguration dsCfg = new DataStorageConfiguration();
         dsCfg.setDefaultDataRegionConfiguration(drCfg);
@@ -63,11 +61,6 @@ public class GridMarshallerMappingConsistencyTest extends GridCommonAbstractTest
         igniteCfg.setDataStorageConfiguration(dsCfg);
 
         igniteCfg.setWorkDirectory(WORK_DIR + File.separator + igniteInstanceName);
-
-        TcpDiscoverySpi discoSpi = new TcpDiscoverySpi();
-        discoSpi.setIpFinder(ipFinder);
-
-        igniteCfg.setDiscoverySpi(discoSpi);
 
         return igniteCfg;
     }
@@ -101,6 +94,7 @@ public class GridMarshallerMappingConsistencyTest extends GridCommonAbstractTest
      *
      * @throws Exception If failed.
      */
+    @Test
     public void testMappingsPersistedOnJoin() throws Exception {
         Ignite g1 = startGrid(1);
         Ignite g2 = startGrid(2);
@@ -120,7 +114,8 @@ public class GridMarshallerMappingConsistencyTest extends GridCommonAbstractTest
         c1.put(k, new DummyObject(k));
 
         startGrid(2);
-        waitForRebalancing();
+
+        awaitPartitionMapExchange();
 
         stopAllGrids();
 
@@ -139,6 +134,7 @@ public class GridMarshallerMappingConsistencyTest extends GridCommonAbstractTest
      *
      * @throws Exception If failed.
      */
+    @Test
     public void testPersistedMappingsSharedOnJoin() throws Exception {
         Ignite g1 = startGrid(1);
         startGrid(2);

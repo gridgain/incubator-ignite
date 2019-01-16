@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-import {Subject} from 'rxjs/Subject';
+import {Subject} from 'rxjs';
+import {map} from 'rxjs/operators';
 import naturalCompare from 'natural-compare-lite';
 
 const cellTemplate = (state) => `
@@ -39,11 +40,11 @@ import {confirmClustersRemoval} from '../page-configure/store/actionCreators';
 export default class PageConfigureOverviewController {
     static $inject = [
         '$uiRouter',
-        ModalPreviewProject.name,
-        Clusters.name,
-        ConfigureState.name,
-        ConfigSelectors.name,
-        ConfigurationDownload.name
+        'ModalPreviewProject',
+        'Clusters',
+        'ConfigureState',
+        'ConfigSelectors',
+        'ConfigurationDownload'
     ];
 
     /**
@@ -70,6 +71,9 @@ export default class PageConfigureOverviewController {
     /** @param {Array<ig.config.cluster.ShortCluster>} clusters */
     removeClusters(clusters) {
         this.ConfigureState.dispatchAction(confirmClustersRemoval(clusters.map((c) => c._id)));
+
+        // TODO: Implement storing selected rows in store to share this data between other components.
+        this.selectedRows$.next([]);
     }
 
     /** @param {ig.config.cluster.ShortCluster} cluster */
@@ -78,7 +82,7 @@ export default class PageConfigureOverviewController {
     }
 
     $onInit() {
-        this.shortClusters$ = this.ConfigureState.state$.let(this.ConfigSelectors.selectShortClustersValue());
+        this.shortClusters$ = this.ConfigureState.state$.pipe(this.ConfigSelectors.selectShortClustersValue());
 
         /** @type {Array<uiGrid.IColumnDefOf<ig.config.cluster.ShortCluster>>} */
         this.clustersColumnDefs = [
@@ -137,7 +141,9 @@ export default class PageConfigureOverviewController {
         /** @type {Subject<Array<ig.config.cluster.ShortCluster>>} */
         this.selectedRows$ = new Subject();
 
-        this.actions$ = this.selectedRows$.map((selectedClusters) => [
+        this.selectedRowsIDs$ = this.selectedRows$.pipe(map((selectedClusters) => selectedClusters.map((cluster) => cluster._id)));
+
+        this.actions$ = this.selectedRows$.pipe(map((selectedClusters) => [
             {
                 action: 'Edit',
                 click: () => this.editCluster(selectedClusters[0]),
@@ -158,6 +164,6 @@ export default class PageConfigureOverviewController {
                 click: () => this.removeClusters(selectedClusters),
                 available: true
             }
-        ]);
+        ]));
     }
 }

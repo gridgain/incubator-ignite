@@ -25,6 +25,7 @@ import javax.cache.event.CacheEntryEvent;
 import javax.cache.event.CacheEntryEventFilter;
 import javax.cache.event.CacheEntryUpdatedListener;
 import javax.cache.event.EventType;
+import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.query.ContinuousQuery;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -35,10 +36,10 @@ import org.apache.ignite.internal.managers.communication.GridIoMessageFactory;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.CacheObjectImpl;
 import org.apache.ignite.internal.processors.cache.KeyCacheObjectImpl;
-import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
@@ -47,10 +48,8 @@ import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 /**
  *
  */
+@RunWith(JUnit4.class)
 public class IgniteCacheContinuousQueryImmutableEntryTest extends GridCommonAbstractTest {
-    /** */
-    private static final TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
-
     /** Keys count. */
     private static final int KEYS_COUNT = 10;
 
@@ -66,14 +65,19 @@ public class IgniteCacheContinuousQueryImmutableEntryTest extends GridCommonAbst
 
         CacheConfiguration ccfg = new CacheConfiguration(DEFAULT_CACHE_NAME);
         ccfg.setCacheMode(PARTITIONED);
-        ccfg.setAtomicityMode(ATOMIC);
+        ccfg.setAtomicityMode(atomicityMode());
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
 
         cfg.setCacheConfiguration(ccfg);
 
-        ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(ipFinder);
-
         return cfg;
+    }
+
+    /**
+     * @return Atomicity mode.
+     */
+    protected CacheAtomicityMode atomicityMode() {
+        return ATOMIC;
     }
 
     /** {@inheritDoc} */
@@ -88,6 +92,7 @@ public class IgniteCacheContinuousQueryImmutableEntryTest extends GridCommonAbst
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testEventAvailabilityScope() throws Exception {
         startGrids(GRID_COUNT);
 
@@ -127,6 +132,7 @@ public class IgniteCacheContinuousQueryImmutableEntryTest extends GridCommonAbst
     /**
      *
      */
+    @Test
     public void testCacheContinuousQueryEntrySerialization() {
         CacheContinuousQueryEntry e0 = new CacheContinuousQueryEntry(
             1,

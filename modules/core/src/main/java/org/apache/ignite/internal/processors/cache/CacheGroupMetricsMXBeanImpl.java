@@ -28,15 +28,17 @@ import java.util.UUID;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.pagemem.store.PageStore;
 import org.apache.ignite.internal.processors.affinity.AffinityAssignment;
 import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtLocalPartition;
-import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtPartitionState;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionFullMap;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionMap;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtLocalPartition;
+import org.apache.ignite.internal.processors.cache.distributed.dht.topology.GridDhtPartitionState;
 import org.apache.ignite.internal.processors.cache.persistence.AllocatedPageTracker;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegion;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
+import org.apache.ignite.internal.processors.cache.persistence.GridCacheDatabaseSharedManager;
 import org.apache.ignite.mxbean.CacheGroupMetricsMXBean;
 
 /**
@@ -47,7 +49,7 @@ public class CacheGroupMetricsMXBeanImpl implements CacheGroupMetricsMXBean {
     private final CacheGroupContext ctx;
 
     /** */
-    private final GroupAllocationTrucker groupPageAllocationTracker;
+    private final GroupAllocationTracker groupPageAllocationTracker;
 
     /** Interface describing a predicate of two integers. */
     private interface IntBiPredicate {
@@ -63,7 +65,7 @@ public class CacheGroupMetricsMXBeanImpl implements CacheGroupMetricsMXBean {
     /**
      *
      */
-    public static class GroupAllocationTrucker implements AllocatedPageTracker {
+    public static class GroupAllocationTracker implements AllocatedPageTracker {
         /** */
         private final LongAdder totalAllocatedPages = new LongAdder();
 
@@ -71,9 +73,9 @@ public class CacheGroupMetricsMXBeanImpl implements CacheGroupMetricsMXBean {
         private final AllocatedPageTracker delegate;
 
         /**
-         * @param delegate Delegate allocation trucker.
+         * @param delegate Delegate allocation tracker.
          */
-        public GroupAllocationTrucker(AllocatedPageTracker delegate) {
+        public GroupAllocationTracker(AllocatedPageTracker delegate) {
             this.delegate = delegate;
         }
 
@@ -83,15 +85,12 @@ public class CacheGroupMetricsMXBeanImpl implements CacheGroupMetricsMXBean {
 
             delegate.updateTotalAllocatedPages(delta);
         }
-    }
 
-    /**
-     *
-     */
-    private static class NoopAllocationTrucker implements AllocatedPageTracker{
-        /** {@inheritDoc} */
-        @Override public void updateTotalAllocatedPages(long delta) {
-            // No-op.
+        /**
+         * Resets count of allocated pages to zero.
+         */
+        public void reset() {
+            totalAllocatedPages.reset();
         }
     }
 
@@ -112,7 +111,7 @@ public class CacheGroupMetricsMXBeanImpl implements CacheGroupMetricsMXBean {
             this.groupPageAllocationTracker = dataRegionMetrics.getOrAllocateGroupPageAllocationTracker(ctx.groupId());
         }
         else
-            this.groupPageAllocationTracker = new GroupAllocationTrucker(new NoopAllocationTrucker());
+            this.groupPageAllocationTracker = new GroupAllocationTracker(AllocatedPageTracker.NO_OP);
     }
 
     /** {@inheritDoc} */
@@ -229,14 +228,47 @@ public class CacheGroupMetricsMXBeanImpl implements CacheGroupMetricsMXBean {
         return cnt;
     }
 
+    /**
+     * Count of partitions with a given state on the local node.
+     *
+     * @param state State.
+     */
+    private int localNodePartitionsCountByState(GridDhtPartitionState state) {
+        int cnt = 0;
+
+        for (GridDhtLocalPartition part : ctx.topology().localPartitions()) {
+            if (part.state() == state)
+                cnt++;
+        }
+
+        return cnt;
+    }
+
     /** {@inheritDoc} */
     @Override public int getLocalNodeOwningPartitionsCount() {
-        return nodePartitionsCountByState(ctx.shared().localNodeId(), GridDhtPartitionState.OWNING);
+        return localNodePartitionsCountByState(GridDhtPartitionState.OWNING);
     }
 
     /** {@inheritDoc} */
     @Override public int getLocalNodeMovingPartitionsCount() {
-        return nodePartitionsCountByState(ctx.shared().localNodeId(), GridDhtPartitionState.MOVING);
+        return localNodePartitionsCountByState(GridDhtPartitionState.MOVING);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int getLocalNodeRentingPartitionsCount() {
+        return localNodePartitionsCountByState(GridDhtPartitionState.RENTING);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long getLocalNodeRentingEntriesCount() {
+        long entriesCnt = 0;
+
+        for (GridDhtLocalPartition part : ctx.topology().localPartitions()) {
+            if (part.state() == GridDhtPartitionState.RENTING)
+                entriesCnt += part.dataStore().fullSize();
+        }
+
+        return entriesCnt;
     }
 
     /** {@inheritDoc} */
@@ -335,5 +367,22 @@ public class CacheGroupMetricsMXBeanImpl implements CacheGroupMetricsMXBean {
     /** {@inheritDoc} */
     @Override public long getTotalAllocatedSize() {
         return getTotalAllocatedPages() * ctx.dataRegion().pageMemory().pageSize();
+    }
+
+    /** {@inheritDoc} */
+    @Override public long getStorageSize() {
+        return database().forGroupPageStores(ctx, PageStore::size);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long getSparseStorageSize() {
+        return database().forGroupPageStores(ctx, PageStore::getSparseSize);
+    }
+
+    /**
+     * @return Database.
+     */
+    private GridCacheDatabaseSharedManager database() {
+        return (GridCacheDatabaseSharedManager)ctx.shared().database();
     }
 }

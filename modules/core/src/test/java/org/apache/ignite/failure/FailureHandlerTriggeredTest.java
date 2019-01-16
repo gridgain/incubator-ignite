@@ -19,7 +19,6 @@ package org.apache.ignite.failure;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.managers.discovery.DiscoveryCustomMessage;
 import org.apache.ignite.internal.processors.cache.CachePartitionExchangeWorkerTask;
@@ -30,14 +29,19 @@ import org.apache.ignite.internal.util.worker.GridWorker;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Test of triggering of failure handler.
  */
+@RunWith(JUnit4.class)
 public class FailureHandlerTriggeredTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testFailureHandlerTriggeredOnExchangeWorkerTermination() throws Exception {
         try {
             CountDownLatch latch = new CountDownLatch(1);
@@ -63,40 +67,6 @@ public class FailureHandlerTriggeredTest extends GridCommonAbstractTest {
         }
         finally {
             stopAllGrids();
-        }
-    }
-
-    /**
-     * Test failure handler implementation
-     */
-    private class TestFailureHandler implements FailureHandler {
-        /** Invalidate. */
-        private final boolean invalidate;
-
-        /** Latch. */
-        private final CountDownLatch latch;
-
-        /** Failure context. */
-        volatile FailureContext failureCtx;
-
-        /**
-         * @param invalidate Invalidate.
-         * @param latch Latch.
-         */
-        TestFailureHandler(boolean invalidate, CountDownLatch latch) {
-            this.invalidate = invalidate;
-            this.latch = latch;
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean onFailure(Ignite ignite, FailureContext failureCtx) {
-            this.failureCtx = failureCtx;
-
-            this.latch.countDown();
-
-            ignite.log().warning("Handled ignite failure: " + failureCtx);
-
-            return invalidate;
         }
     }
 
@@ -128,7 +98,7 @@ public class FailureHandlerTriggeredTest extends GridCommonAbstractTest {
         }
 
         /** {@inheritDoc} */
-        public SchemaAbstractDiscoveryMessage message() {
+        @Override public SchemaAbstractDiscoveryMessage message() {
             throw new Error("Exchange worker termination");
         }
     }

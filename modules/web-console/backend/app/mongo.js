@@ -18,6 +18,8 @@
 'use strict';
 
 const _ = require('lodash');
+const {MongodHelper} = require('mongodb-prebuilt');
+const {MongoDBDownload} = require('mongodb-download');
 
 // Fire me up!
 
@@ -63,9 +65,6 @@ module.exports.factory = function(settings, mongoose, schemas) {
         .then(() => defineSchema(mongoose, schemas))
         .catch((err) => {
             console.log('Failed to connect to local MongoDB, will try to download and start embedded MongoDB', err);
-
-            const {MongodHelper} = require('mongodb-prebuilt');
-            const {MongoDBDownload} = require('mongodb-download');
 
             const helper = new MongodHelper(['--port', '27017', '--dbpath', `${process.cwd()}/user_data`]);
 
@@ -129,7 +128,8 @@ module.exports.factory = function(settings, mongoose, schemas) {
                                             admin: true,
                                             token: 'ruQvlWff09zqoVYyh6WJ',
                                             attempts: 0,
-                                            resetPasswordToken: 'O2GWgOkKkhqpDcxjYnSP'
+                                            resetPasswordToken: 'O2GWgOkKkhqpDcxjYnSP',
+                                            activated: true
                                         }),
                                         mongo.Space.create({
                                             _id: '59fc0c26e145c32be0f83b34',
@@ -147,5 +147,22 @@ module.exports.factory = function(settings, mongoose, schemas) {
 
                     return mongo;
                 });
+        })
+        .then((mongo) => {
+            if (settings.activation.enabled) {
+                return mongo.Account.find({
+                    $or: [{activated: false}, {activated: {$exists: false}}],
+                    activationToken: {$exists: false}
+                }, '_id').lean().exec()
+                    .then((accounts) => {
+                        const conditions = _.map(accounts, (account) => ({session: {$regex: `"${account._id}"`}}));
+
+                        return mongoose.connection.db.collection('sessions').deleteMany({$or: conditions});
+                    })
+                    .then(() => mongo)
+                    .catch(() => mongo);
+            }
+
+            return mongo;
         });
 };

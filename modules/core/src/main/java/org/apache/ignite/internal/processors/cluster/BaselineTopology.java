@@ -298,14 +298,16 @@ public class BaselineTopology implements Serializable {
      * @return Sorted list of baseline topology nodes.
      */
     public List<ClusterNode> createBaselineView(
-        List<ClusterNode> aliveNodes,
+        Collection<ClusterNode> aliveNodes,
         @Nullable IgnitePredicate<ClusterNode> nodeFilter
     ) {
+        boolean nullNodeFilter = nodeFilter == null;
+
         if (aliveNodes.size() >= nodeMap.size()) {
             List<ClusterNode> res = new ArrayList<>(nodeMap.size());
 
             for (ClusterNode node : aliveNodes) {
-                if (nodeMap.containsKey(node.consistentId()) && (nodeFilter == null || CU.cacheApplicableNode(node, nodeFilter)))
+                if (nodeMap.containsKey(node.consistentId()) && (nullNodeFilter || CU.affinityNode(node, nodeFilter)))
                     res.add(node);
             }
 
@@ -318,7 +320,7 @@ public class BaselineTopology implements Serializable {
         Map<Object, ClusterNode> consIdMap = new HashMap<>();
 
         for (ClusterNode node : aliveNodes) {
-            if (nodeMap.containsKey(node.consistentId()) && (nodeFilter == null || CU.cacheApplicableNode(node, nodeFilter)))
+            if (nodeMap.containsKey(node.consistentId()) && (nullNodeFilter || CU.cacheApplicableNode(node, nodeFilter)))
                 consIdMap.put(node.consistentId(), node);
         }
 
@@ -328,7 +330,7 @@ public class BaselineTopology implements Serializable {
             if (!consIdMap.containsKey(consId)) {
                 DetachedClusterNode node = new DetachedClusterNode(consId, e.getValue());
 
-                if (nodeFilter == null || CU.cacheApplicableNode(node, nodeFilter))
+                if (nullNodeFilter || CU.cacheApplicableNode(node, nodeFilter))
                     consIdMap.put(consId, node);
             }
         }

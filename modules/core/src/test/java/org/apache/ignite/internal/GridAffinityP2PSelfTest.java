@@ -31,22 +31,20 @@ import org.apache.ignite.configuration.DeploymentMode;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.processors.cache.distributed.GridCacheModuloAffinityFunction;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestExternalClassLoader;
 import org.apache.ignite.testframework.config.GridTestProperties;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * Tests affinity and affinity mapper P2P loading.
  */
+@RunWith(JUnit4.class)
 public class GridAffinityP2PSelfTest extends GridCommonAbstractTest {
-    /** VM ip finder for TCP discovery. */
-    private static TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
-
     /** */
     private static final String EXT_AFFINITY_MAPPER_CLS_NAME = "org.apache.ignite.tests.p2p.GridExternalAffinityMapper";
 
@@ -79,17 +77,8 @@ public class GridAffinityP2PSelfTest extends GridCommonAbstractTest {
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings({"unchecked"})
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration c = super.getConfiguration(igniteInstanceName);
-
-        TcpDiscoverySpi disco = new TcpDiscoverySpi();
-
-        disco.setIpFinder(ipFinder);
-
-        c.setDiscoverySpi(disco);
-
-        c.setFailureDetectionTimeout(Integer.MAX_VALUE);
 
         c.setDeploymentMode(depMode);
 
@@ -121,6 +110,7 @@ public class GridAffinityP2PSelfTest extends GridCommonAbstractTest {
      *
      * @throws Exception if error occur.
      */
+    @Test
     public void testPrivateMode() throws Exception {
         depMode = DeploymentMode.PRIVATE;
 
@@ -132,6 +122,7 @@ public class GridAffinityP2PSelfTest extends GridCommonAbstractTest {
      *
      * @throws Exception if error occur.
      */
+    @Test
     public void testIsolatedMode() throws Exception {
         depMode = DeploymentMode.ISOLATED;
 
@@ -143,6 +134,7 @@ public class GridAffinityP2PSelfTest extends GridCommonAbstractTest {
      *
      * @throws Exception if error occur.
      */
+    @Test
     public void testContinuousMode() throws Exception {
         depMode = DeploymentMode.CONTINUOUS;
 
@@ -154,6 +146,7 @@ public class GridAffinityP2PSelfTest extends GridCommonAbstractTest {
      *
      * @throws Exception if error occur.
      */
+    @Test
     public void testSharedMode() throws Exception {
         depMode = DeploymentMode.SHARED;
 

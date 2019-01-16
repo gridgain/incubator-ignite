@@ -37,6 +37,7 @@ import org.apache.ignite.cluster.ClusterMetrics;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.events.Event;
+import org.apache.ignite.internal.processors.cache.persistence.DataRegion;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.task.GridInternal;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
@@ -44,12 +45,12 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.messaging.MessagingListenActor;
 import org.apache.ignite.mxbean.ClusterMetricsMXBean;
-import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.testframework.junits.common.GridCommonTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import static org.apache.ignite.events.EventType.EVT_NODE_METRICS_UPDATED;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
@@ -60,10 +61,8 @@ import static org.apache.ignite.internal.IgniteVersionUtils.VER_STR;
  * Grid node metrics self test.
  */
 @GridCommonTest(group = "Kernal Self")
+@RunWith(JUnit4.class)
 public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
-    /** */
-    private static final TcpDiscoveryIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
-
     /** Test message size. */
     private static final int MSG_SIZE = 1024;
 
@@ -93,12 +92,6 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        TcpDiscoverySpi spi = new TcpDiscoverySpi();
-
-        spi.setIpFinder(IP_FINDER);
-
-        cfg.setDiscoverySpi(spi);
-
         cfg.setCacheConfiguration();
         cfg.setMetricsUpdateFrequency(500);
 
@@ -119,30 +112,32 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testAllocatedMemory() throws Exception {
         IgniteEx ignite = grid();
 
         final IgniteCache cache = ignite.getOrCreateCache(CACHE_NAME);
 
-        DataRegionMetricsImpl memMetrics = getDefaultMemoryPolicyMetrics(ignite);
+        DataRegion dataRegion = getDefaultDataRegion(ignite);
+
+        DataRegionMetricsImpl memMetrics = dataRegion.memoryMetrics();
 
         memMetrics.enableMetrics();
 
         int pageSize = getPageSize(ignite);
 
-        assertEquals(0, memMetrics.getTotalAllocatedPages());
+        assertEquals(dataRegion.pageMemory().loadedPages(), memMetrics.getTotalAllocatedPages());
 
         fillCache(cache);
 
-        assertTrue(memMetrics.getTotalAllocatedPages() * pageSize > MAX_VALS_AMOUNT
-            * VAL_SIZE);
+        assertTrue(memMetrics.getTotalAllocatedPages() * pageSize > MAX_VALS_AMOUNT * VAL_SIZE);
     }
 
     /**
      * @param ignite Ignite instance.
      */
-    private DataRegionMetricsImpl getDefaultMemoryPolicyMetrics(IgniteEx ignite) throws IgniteCheckedException {
-        return ignite.context().cache().context().database().dataRegion(null).memoryMetrics();
+    private DataRegion getDefaultDataRegion(IgniteEx ignite) throws IgniteCheckedException {
+        return ignite.context().cache().context().database().dataRegion(null);
     }
 
     /**
@@ -183,6 +178,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testSingleTaskMetrics() throws Exception {
         Ignite ignite = grid();
 
@@ -241,6 +237,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testInternalTaskMetrics() throws Exception {
         Ignite ignite = grid();
 
@@ -298,6 +295,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testIoMetrics() throws Exception {
         Ignite ignite0 = grid();
         Ignite ignite1 = startGrid(1);
@@ -351,6 +349,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testClusterNodeMetrics() throws Exception {
         final Ignite ignite0 = grid();
         final Ignite ignite1 = startGrid(1);
@@ -379,6 +378,7 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
      *
      * @throws Exception If failed.
      */
+    @Test
     public void testJmxClusterMetrics() throws Exception {
         Ignite node = grid();
 
@@ -470,7 +470,6 @@ public class ClusterNodeMetricsSelfTest extends GridCommonAbstractTest {
     /**
      * Test message.
      */
-    @SuppressWarnings("UnusedDeclaration")
     private static class TestMessage implements Serializable {
         /** */
         private final byte[] arr = new byte[MSG_SIZE];

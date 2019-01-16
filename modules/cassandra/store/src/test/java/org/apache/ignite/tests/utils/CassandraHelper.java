@@ -197,7 +197,6 @@ public class CassandraHelper {
     }
 
     /** */
-    @SuppressWarnings("UnusedDeclaration")
     public static ResultSet executeWithRegularCredentials(String statement, Object... args) {
         if (args == null || args.length == 0)
             return regularSession().execute(statement);
@@ -207,13 +206,11 @@ public class CassandraHelper {
     }
 
     /** */
-    @SuppressWarnings("UnusedDeclaration")
     public static ResultSet executeWithAdminCredentials(Statement statement) {
         return adminSession().execute(statement);
     }
 
     /** */
-    @SuppressWarnings("UnusedDeclaration")
     public static ResultSet executeWithRegularCredentials(Statement statement) {
         return regularSession().execute(statement);
     }
@@ -227,7 +224,6 @@ public class CassandraHelper {
     }
 
     /** */
-    @SuppressWarnings("UnusedDeclaration")
     public static synchronized DataSource getRegularDataSrc() {
         if (regularDataSrc != null)
             return regularDataSrc;
@@ -330,7 +326,9 @@ public class CassandraHelper {
         }
     }
 
-    /** */
+    /**
+     * Note that setting of cassandra.storagedir property is expected.
+     */
     public static void startEmbeddedCassandra(Logger log) {
         ClassLoader clsLdr = CassandraHelper.class.getClassLoader();
         URL url = clsLdr.getResource(EMBEDDED_CASSANDRA_YAML);

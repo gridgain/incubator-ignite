@@ -27,12 +27,14 @@ import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cache.query.QueryCancelledException;
 import org.apache.ignite.internal.binary.BinaryReaderExImpl;
 import org.apache.ignite.internal.binary.BinaryWriterExImpl;
 import org.apache.ignite.internal.binary.streams.BinaryHeapInputStream;
 import org.apache.ignite.internal.binary.streams.BinaryHeapOutputStream;
+import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.processors.odbc.ClientListenerNioListener;
 import org.apache.ignite.internal.processors.odbc.ClientListenerProtocolVersion;
 import org.apache.ignite.internal.processors.odbc.ClientListenerRequest;
@@ -40,7 +42,9 @@ import org.apache.ignite.internal.processors.odbc.SqlStateCode;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcOrderedBatchExecuteRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQuery;
+import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQueryCancelRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQueryCloseRequest;
+import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.processors.odbc.jdbc.JdbcRequest;
@@ -70,8 +74,14 @@ public class JdbcThinTcpIo {
     /** Version 2.5.0. */
     private static final ClientListenerProtocolVersion VER_2_5_0 = ClientListenerProtocolVersion.create(2, 5, 0);
 
+    /** Version 2.7.0. */
+    private static final ClientListenerProtocolVersion VER_2_7_0 = ClientListenerProtocolVersion.create(2, 7, 0);
+
+    /** Version 2.8.0. */
+    private static final ClientListenerProtocolVersion VER_2_8_0 = ClientListenerProtocolVersion.create(2, 8, 0);
+
     /** Current version. */
-    private static final ClientListenerProtocolVersion CURRENT_VER = VER_2_5_0;
+    public static final ClientListenerProtocolVersion CURRENT_VER = VER_2_8_0;
 
     /** Initial output stream capacity for handshake. */
     private static final int HANDSHAKE_MSG_SIZE = 13;
@@ -92,7 +102,7 @@ public class JdbcThinTcpIo {
     private static final int QUERY_CLOSE_MSG_SIZE = 9;
 
     /** Random. */
-    private static final Random RND = new Random(U.currentTimeMillis());
+    private static final AtomicLong IDX_GEN = new AtomicLong();
 
     /** Connection properties. */
     private final ConnectionProperties connProps;
@@ -106,14 +116,11 @@ public class JdbcThinTcpIo {
     /** Input stream. */
     private BufferedInputStream in;
 
-    /** Closed flag. */
-    private boolean closed;
+    /** Connected flag. */
+    private boolean connected;
 
     /** Ignite server version. */
     private IgniteProductVersion igniteVer;
-
-    /** Address index. */
-    private int srvIdx;
 
     /** Ignite server version. */
     private Thread ownThread;
@@ -121,8 +128,14 @@ public class JdbcThinTcpIo {
     /** Mutex. */
     private final Object mux = new Object();
 
+    /** Connection mutex. */
+    private final Object connMux = new Object();
+
     /** Current protocol version used to connection to Ignite. */
     private ClientListenerProtocolVersion srvProtocolVer;
+
+    /** Server index. */
+    private volatile int srvIdx;
 
     /**
      * Constructor.
@@ -131,9 +144,6 @@ public class JdbcThinTcpIo {
      */
     public JdbcThinTcpIo(ConnectionProperties connProps) {
         this.connProps = connProps;
-
-        // Try to connect to random address then round robin.
-        srvIdx = RND.nextInt(connProps.getAddresses().length);
     }
 
     /**
@@ -160,6 +170,8 @@ public class JdbcThinTcpIo {
             ownThread = Thread.currentThread();
         }
 
+        assert !connected;
+
         try {
             List<String> inaccessibleAddrs = null;
 
@@ -167,9 +179,9 @@ public class JdbcThinTcpIo {
 
             HostAndPortRange[] srvs = connProps.getAddresses();
 
-            boolean connected = false;
+            for (int i = 0; i < srvs.length; i++) {
+                srvIdx = nextServerIndex(srvs.length);
 
-            for (int i = 0; i < srvs.length; i++, srvIdx = (srvIdx + 1) % srvs.length) {
                 HostAndPortRange srv = srvs[srvIdx];
 
                 InetAddress[] addrs = getAllAddressesByHost(srv.host());
@@ -178,8 +190,6 @@ public class JdbcThinTcpIo {
                     for (int port = srv.portFrom(); port <= srv.portTo(); ++port) {
                         try {
                             connect(new InetSocketAddress(addr, port), timeout);
-
-                            connected = true;
 
                             break;
                         }
@@ -238,43 +248,53 @@ public class JdbcThinTcpIo {
      * @throws SQLException On connection reject.
      */
     private void connect(InetSocketAddress addr, int timeout) throws IOException, SQLException {
-        Socket sock;
-
-        if (ConnectionProperties.SSL_MODE_REQUIRE.equalsIgnoreCase(connProps.getSslMode()))
-            sock = JdbcThinSSLUtil.createSSLSocket(addr, connProps);
-        else if (ConnectionProperties.SSL_MODE_DISABLE.equalsIgnoreCase(connProps.getSslMode())) {
-            sock = new Socket();
-
-            try {
-                sock.connect(addr, timeout);
-            }
-            catch (IOException e) {
-                throw new SQLException("Failed to connect to server [host=" + addr.getHostName() +
-                    ", port=" + addr.getPort() + ']', SqlStateCode.CLIENT_CONNECTION_FAILED, e);
-            }
-        }
-        else {
-            throw new SQLException("Unknown sslMode. [sslMode=" + connProps.getSslMode() + ']',
-                SqlStateCode.CLIENT_CONNECTION_FAILED);
-        }
-
-        if (connProps.getSocketSendBuffer() != 0)
-            sock.setSendBufferSize(connProps.getSocketSendBuffer());
-
-        if (connProps.getSocketReceiveBuffer() != 0)
-            sock.setReceiveBufferSize(connProps.getSocketReceiveBuffer());
-
-        sock.setTcpNoDelay(connProps.isTcpNoDelay());
+        Socket sock = null;
 
         try {
-            endpoint = new IpcClientTcpEndpoint(sock);
+            if (ConnectionProperties.SSL_MODE_REQUIRE.equalsIgnoreCase(connProps.getSslMode()))
+                sock = JdbcThinSSLUtil.createSSLSocket(addr, connProps);
+            else if (ConnectionProperties.SSL_MODE_DISABLE.equalsIgnoreCase(connProps.getSslMode())) {
+                sock = new Socket();
 
-            out = new BufferedOutputStream(endpoint.outputStream());
-            in = new BufferedInputStream(endpoint.inputStream());
+                try {
+                    sock.connect(addr, timeout);
+                }
+                catch (IOException e) {
+                    throw new SQLException("Failed to connect to server [host=" + addr.getHostName() +
+                        ", port=" + addr.getPort() + ']', SqlStateCode.CLIENT_CONNECTION_FAILED, e);
+                }
+            }
+            else {
+                throw new SQLException("Unknown sslMode. [sslMode=" + connProps.getSslMode() + ']',
+                    SqlStateCode.CLIENT_CONNECTION_FAILED);
+            }
+
+            if (connProps.getSocketSendBuffer() != 0)
+                sock.setSendBufferSize(connProps.getSocketSendBuffer());
+
+            if (connProps.getSocketReceiveBuffer() != 0)
+                sock.setReceiveBufferSize(connProps.getSocketReceiveBuffer());
+
+            sock.setTcpNoDelay(connProps.isTcpNoDelay());
+
+            try {
+                endpoint = new IpcClientTcpEndpoint(sock);
+
+                out = new BufferedOutputStream(endpoint.outputStream());
+                in = new BufferedInputStream(endpoint.inputStream());
+
+                connected = true;
+            }
+            catch (IgniteCheckedException e) {
+                throw new SQLException("Failed to connect to server [url=" + connProps.getUrl() + ']',
+                    SqlStateCode.CLIENT_CONNECTION_FAILED, e);
+            }
         }
-        catch (IgniteCheckedException e) {
-            throw new SQLException("Failed to connect to server [url=" + connProps.getUrl() + ']',
-                SqlStateCode.CLIENT_CONNECTION_FAILED, e);
+        catch (Exception e) {
+            if (sock != null && !sock.isClosed())
+                U.closeQuiet(sock);
+
+            throw e;
         }
     }
 
@@ -315,6 +335,9 @@ public class JdbcThinTcpIo {
         writer.writeBoolean(connProps.isAutoCloseServerCursor());
         writer.writeBoolean(connProps.isLazy());
         writer.writeBoolean(connProps.isSkipReducerOnUpdate());
+
+        if (ver.compareTo(VER_2_7_0) >= 0)
+            writer.writeString(connProps.nestedTxMode());
 
         if (!F.isEmpty(connProps.getUsername())) {
             assert ver.compareTo(VER_2_5_0) >= 0 : "Authentication is supported since 2.5";
@@ -363,14 +386,17 @@ public class JdbcThinTcpIo {
                     + ", url=" + connProps.getUrl() + ']', SqlStateCode.CONNECTION_REJECTED);
             }
 
-            if (VER_2_4_0.equals(srvProtocolVer) || VER_2_3_0.equals(srvProtocolVer) ||
-                VER_2_1_5.equals(srvProtocolVer))
-                handshake(srvProtocolVer);
-            else if (VER_2_1_0.equals(srvProtocolVer))
+            if (VER_2_7_0.equals(srvProtoVer0)
+                || VER_2_5_0.equals(srvProtoVer0)
+                || VER_2_4_0.equals(srvProtoVer0)
+                || VER_2_3_0.equals(srvProtoVer0)
+                || VER_2_1_5.equals(srvProtoVer0))
+                handshake(srvProtoVer0);
+            else if (VER_2_1_0.equals(srvProtoVer0))
                 handshake_2_1_0();
             else {
                 throw new SQLException("Handshake failed [driverProtocolVer=" + CURRENT_VER +
-                    ", remoteNodeProtocolVer=" + srvProtocolVer + ", err=" + err + ']',
+                    ", remoteNodeProtocolVer=" + srvProtoVer0 + ", err=" + err + ']',
                     SqlStateCode.CONNECTION_REJECTED);
             }
         }
@@ -448,14 +474,7 @@ public class JdbcThinTcpIo {
                     + CURRENT_VER + ", remoteNodeVer=" + igniteVer + ']', SqlStateCode.INTERNAL_ERROR);
             }
 
-            int cap = guessCapacity(req);
-
-            BinaryWriterExImpl writer = new BinaryWriterExImpl(null, new BinaryHeapOutputStream(cap),
-                null, null);
-
-            req.writeBinary(writer);
-
-            send(writer.array());
+            sendRequestRaw(req);
         }
         finally {
             synchronized (mux) {
@@ -466,12 +485,12 @@ public class JdbcThinTcpIo {
 
     /**
      * @param req Request.
+     * @param stmt Statement.
      * @return Server response.
      * @throws IOException In case of IO error.
      * @throws SQLException On concurrent access to JDBC connection.
      */
-    @SuppressWarnings("unchecked")
-    JdbcResponse sendRequest(JdbcRequest req) throws SQLException, IOException {
+    JdbcResponse sendRequest(JdbcRequest req, JdbcThinStatement stmt) throws SQLException, IOException {
         synchronized (mux) {
             if (ownThread != null) {
                 throw new SQLException("Concurrent access to JDBC connection is not allowed"
@@ -483,15 +502,30 @@ public class JdbcThinTcpIo {
         }
 
         try {
-            int cap = guessCapacity(req);
+            if (stmt != null) {
+                synchronized (stmt.cancellationMutex()) {
+                    if (stmt.isCancelled()) {
+                        if (req instanceof JdbcQueryCloseRequest)
+                            return new JdbcResponse(null);
 
-            BinaryWriterExImpl writer = new BinaryWriterExImpl(null, new BinaryHeapOutputStream(cap), null, null);
+                        return new JdbcResponse(IgniteQueryErrorCode.QUERY_CANCELED, QueryCancelledException.ERR_MSG);
+                    }
 
-            req.writeBinary(writer);
+                    sendRequestRaw(req);
 
-            send(writer.array());
+                    if (req instanceof JdbcQueryExecuteRequest || req instanceof JdbcBatchExecuteRequest)
+                        stmt.currentRequestId(req.requestId());
+                }
+            }
+            else
+                sendRequestRaw(req);
 
-            return readResponse();
+            JdbcResponse resp = readResponse();
+
+            if (stmt != null && stmt.isCancelled())
+                return new JdbcResponse(IgniteQueryErrorCode.QUERY_CANCELED, QueryCancelledException.ERR_MSG);
+            else
+                return resp;
         }
         finally {
             synchronized (mux) {
@@ -501,20 +535,29 @@ public class JdbcThinTcpIo {
     }
 
     /**
+     * Sends cancel request.
+     *
+     * @param cancellationReq contains request id to be cancelled
+     * @throws IOException In case of IO error.
+     */
+    void sendCancelRequest(JdbcQueryCancelRequest cancellationReq) throws IOException {
+        sendRequestRaw(cancellationReq);
+    }
+
+    /**
      * @return Server response.
      * @throws IOException In case of IO error.
      */
-    @SuppressWarnings("unchecked")
     JdbcResponse readResponse() throws IOException {
-        BinaryReaderExImpl reader = new BinaryReaderExImpl(null, new BinaryHeapInputStream(read()), null, null, false);
+        BinaryReaderExImpl reader = new BinaryReaderExImpl(null, new BinaryHeapInputStream(read()), null,
+            null, false);
 
         JdbcResponse res = new JdbcResponse();
 
-        res.readBinary(reader);
+        res.readBinary(reader, srvProtocolVer);
 
         return res;
     }
-
 
     /**
      * Try to guess request capacity.
@@ -530,8 +573,8 @@ public class JdbcThinTcpIo {
 
             int cnt = !F.isEmpty(qrys) ? Math.min(MAX_BATCH_QRY_CNT, qrys.size()) : 0;
 
-            // One additional byte for last batch flag.
-            cap = cnt * DYNAMIC_SIZE_MSG_CAP + 1;
+            // One additional byte for autocommit and last batch flags.
+            cap = cnt * DYNAMIC_SIZE_MSG_CAP + 2;
         }
         else if (req instanceof JdbcQueryCloseRequest)
             cap = QUERY_CLOSE_MSG_SIZE;
@@ -543,6 +586,23 @@ public class JdbcThinTcpIo {
             cap = DYNAMIC_SIZE_MSG_CAP;
 
         return cap;
+    }
+
+    /**
+     * @param req Request.
+     * @throws IOException In case of IO error.
+     */
+    private void sendRequestRaw(JdbcRequest req) throws IOException {
+        int cap = guessCapacity(req);
+
+        BinaryWriterExImpl writer = new BinaryWriterExImpl(null, new BinaryHeapOutputStream(cap),
+            null, null);
+
+        req.writeBinary(writer, srvProtocolVer);
+
+        synchronized (connMux) {
+            send(writer.array());
+        }
     }
 
     /**
@@ -601,7 +661,7 @@ public class JdbcThinTcpIo {
      * Close the client IO.
      */
     public void close() {
-        if (closed)
+        if (!connected)
             return;
 
         // Clean up resources.
@@ -611,7 +671,7 @@ public class JdbcThinTcpIo {
         if (endpoint != null)
             endpoint.close();
 
-        closed = true;
+        connected = false;
     }
 
     /**
@@ -635,5 +695,37 @@ public class JdbcThinTcpIo {
         assert srvProtocolVer != null;
 
         return srvProtocolVer.compareTo(VER_2_5_0) >= 0;
+    }
+
+    /**
+     * @return True if query cancellation supported, false otherwise.
+     */
+    boolean isQueryCancellationSupported() {
+        assert srvProtocolVer != null;
+
+        return srvProtocolVer.compareTo(VER_2_8_0) >= 0;
+    }
+
+    /**
+     * @return Current server index.
+     */
+    public int serverIndex() {
+        return srvIdx;
+    }
+
+    /**
+     * Get next server index.
+     *
+     * @param len Number of servers.
+     * @return Index of the next server to connect to.
+     */
+    private static int nextServerIndex(int len) {
+        if (len == 1)
+            return 0;
+        else {
+            long nextIdx = IDX_GEN.getAndIncrement();
+
+            return (int)(nextIdx % len);
+        }
     }
 }

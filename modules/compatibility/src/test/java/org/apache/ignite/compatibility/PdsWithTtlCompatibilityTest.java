@@ -31,6 +31,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.configuration.MemoryConfiguration;
 import org.apache.ignite.configuration.PersistentStoreConfiguration;
 import org.apache.ignite.configuration.WALMode;
 import org.apache.ignite.internal.IgniteEx;
@@ -42,6 +43,9 @@ import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Test PendingTree upgrading to per-partition basis. Test fill cache with persistence enabled and with ExpirePolicy
@@ -50,6 +54,7 @@ import org.apache.ignite.testframework.GridTestUtils;
  * Note: Test for ignite-2.3 version will always fails due to entry ttl update fails with assertion on checkpoint lock
  * check.
  */
+@RunWith(JUnit4.class)
 public class PdsWithTtlCompatibilityTest extends IgnitePersistenceCompatibilityAbstractTest {
     /** */
     static final String TEST_CACHE_NAME = PdsWithTtlCompatibilityTest.class.getSimpleName();
@@ -72,6 +77,7 @@ public class PdsWithTtlCompatibilityTest extends IgnitePersistenceCompatibilityA
                     new DataRegionConfiguration()
                         .setMaxSize(32L * 1024 * 1024)
                         .setPersistenceEnabled(true)
+                        .setCheckpointPageBufferSize(16L * 1024 * 1024)
                 ).setWalMode(WALMode.LOG_ONLY));
 
         return cfg;
@@ -82,6 +88,7 @@ public class PdsWithTtlCompatibilityTest extends IgnitePersistenceCompatibilityA
      *
      * @throws Exception If failed.
      */
+    @Test
     public void testNodeStartByOldVersionPersistenceData_2_1() throws Exception {
         doTestStartupWithOldVersion("2.1.0");
     }
@@ -162,7 +169,9 @@ public class PdsWithTtlCompatibilityTest extends IgnitePersistenceCompatibilityA
 
             cfg.setPeerClassLoadingEnabled(false);
 
-            cfg.setPersistentStoreConfiguration(new PersistentStoreConfiguration().setWalMode(WALMode.LOG_ONLY));
+            cfg.setMemoryConfiguration(new MemoryConfiguration().setDefaultMemoryPolicySize(256L * 1024 * 1024));
+            cfg.setPersistentStoreConfiguration(new PersistentStoreConfiguration().setWalMode(WALMode.LOG_ONLY)
+                .setCheckpointingPageBufferSize(16L * 1024 * 1024));
         }
     }
 

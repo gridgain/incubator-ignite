@@ -14,11 +14,13 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 
-h1.pc-page-header
-    span.pc-page-header-title
-        | {{ $ctrl.clusterName$|async:this }}
+header.header-with-selector
+    div
+        h1 {{ $ctrl.clusterName$|async:this }}
         version-picker
-    button-import-models(cluster-id='$ctrl.clusterID$|async:this')
+    div
+        button-import-models(cluster-id='$ctrl.clusterID$|async:this')
+
 div.pc-content-container
     ul.tabs.tabs--blue
         li(role='presentation' ui-sref-active='active')
@@ -30,14 +32,14 @@ div.pc-content-container
         svg.icon-left(
             ignite-icon='info'
             bs-tooltip=''
-            data-title='This setting is needed to hide and show tooltips with hints.'
+            data-title='Use this setting to hide or show tooltips with hints.'
             data-placement='left'
         )
         span Tooltips
         input(type='checkbox' ng-model='$ctrl.tooltipsVisible')
         div
 
-    ui-view.theme--ignite(
+    ui-view.theme--ignite.theme--ignite-errors-horizontal(
         ignite-loading='configuration'
         ignite-loading-text='{{ $ctrl.loadingText }}'
         ignite-loading-position='top'

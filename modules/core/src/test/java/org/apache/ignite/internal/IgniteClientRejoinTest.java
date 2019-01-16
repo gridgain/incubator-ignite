@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
@@ -35,6 +36,9 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.failure.AbstractFailureHandler;
+import org.apache.ignite.failure.FailureContext;
+import org.apache.ignite.failure.TestFailureHandler;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.plugin.extensions.communication.Message;
@@ -45,10 +49,14 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests client to be able restore connection to cluster if coordination is not available.
  */
+@RunWith(JUnit4.class)
 public class IgniteClientRejoinTest extends GridCommonAbstractTest {
     /** Block. */
     private volatile boolean block;
@@ -111,6 +119,7 @@ public class IgniteClientRejoinTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testClientsReconnectAfterStart() throws Exception {
         Ignite srv1 = startGrid("server1");
 
@@ -188,6 +197,7 @@ public class IgniteClientRejoinTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testClientsReconnect() throws Exception {
         Ignite srv1 = startGrid("server1");
 
@@ -213,11 +223,13 @@ public class IgniteClientRejoinTest extends GridCommonAbstractTest {
                     String nodeName = "client" + idx;
 
                     IgniteConfiguration cfg = getConfiguration(nodeName)
-                        .setFailureHandler((ignite, failureCtx) -> {
-                            // This should _not_ fire when exchange-worker terminates before reconnect.
-                            Runtime.getRuntime().halt(Ignition.KILL_EXIT_CODE);
+                        .setFailureHandler(new AbstractFailureHandler() {
+                            @Override protected boolean handle(Ignite ignite, FailureContext failureCtx) {
+                                // This should _not_ fire when exchange-worker terminates before reconnect.
+                                Runtime.getRuntime().halt(Ignition.KILL_EXIT_CODE);
 
-                            return false;
+                                return false;
+                            }
                         });
 
                     return startGrid(nodeName, optimize(cfg), null);
@@ -262,6 +274,7 @@ public class IgniteClientRejoinTest extends GridCommonAbstractTest {
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testClientsReconnectDisabled() throws Exception {
         clientReconnectDisabled = true;
 
@@ -282,6 +295,8 @@ public class IgniteClientRejoinTest extends GridCommonAbstractTest {
 
         final int CLIENTS_NUM = 5;
 
+        final CountDownLatch failureHndLatch = new CountDownLatch(CLIENTS_NUM);
+
         for (int i = 0; i < CLIENTS_NUM; i++) {
             final int idx = i;
 
@@ -289,7 +304,10 @@ public class IgniteClientRejoinTest extends GridCommonAbstractTest {
                 @Override public Ignite call() throws Exception {
                     latch.await();
 
-                    return startGrid("client" + idx);
+                    String igniteInstanceName = "client" + idx;
+
+                    return startGrid(igniteInstanceName, getConfiguration(igniteInstanceName)
+                        .setFailureHandler(new TestFailureHandler(true, failureHndLatch)));
                 }
             });
 
@@ -308,6 +326,8 @@ public class IgniteClientRejoinTest extends GridCommonAbstractTest {
                 }
             }, IgniteCheckedException.class, null);
         }
+
+        assertTrue(failureHndLatch.await(1000, TimeUnit.MILLISECONDS));
 
         assertEquals(0, srv1.cluster().forClients().nodes().size());
         assertEquals(0, srv2.cluster().forClients().nodes().size());

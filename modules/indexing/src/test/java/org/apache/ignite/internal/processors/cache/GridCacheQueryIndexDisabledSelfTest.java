@@ -30,17 +30,15 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.lang.IgniteBiPredicate;
-import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  */
+@RunWith(JUnit4.class)
 public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest {
-    /** */
-    private static final TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
-
     /** */
     public GridCacheQueryIndexDisabledSelfTest() {
         super(true);
@@ -49,7 +47,6 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
     /**
      * {@inheritDoc}
      */
-    @SuppressWarnings("unchecked")
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
@@ -57,18 +54,13 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
 
         cfg.setCacheConfiguration(ccfg);
 
-        TcpDiscoverySpi disco = new TcpDiscoverySpi();
-
-        disco.setIpFinder(ipFinder);
-
-        cfg.setDiscoverySpi(disco);
-
         return cfg;
     }
 
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testSqlQuery() throws Exception {
         IgniteCache<Integer, SqlValue> cache = grid().getOrCreateCache(SqlValue.class.getSimpleName());
 
@@ -88,6 +80,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testSqlFieldsQuery() throws Exception {
         IgniteCache<Integer, SqlValue> cache = grid().getOrCreateCache(SqlValue.class.getSimpleName());
 
@@ -119,6 +112,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testFullTextQuery() throws Exception {
         IgniteCache<Integer, String> cache = grid().getOrCreateCache(String.class.getSimpleName());
 
@@ -138,6 +132,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testScanLocalQuery() throws Exception {
         IgniteCache<Integer, String> cache = grid().getOrCreateCache(String.class.getSimpleName());
 
@@ -155,6 +150,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testSqlLocalQuery() throws Exception {
         IgniteCache<Integer, SqlValue> cache = grid().getOrCreateCache(SqlValue.class.getSimpleName());
 
@@ -174,6 +170,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testSqlLocalFieldsQuery() throws Exception {
         IgniteCache<Integer, SqlValue> cache = grid().getOrCreateCache(SqlValue.class.getSimpleName());
 
@@ -193,6 +190,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testFullTextLocalQuery() throws Exception {
         IgniteCache<Integer, String> cache = grid().getOrCreateCache(String.class.getSimpleName());
 
@@ -212,6 +210,7 @@ public class GridCacheQueryIndexDisabledSelfTest extends GridCommonAbstractTest 
     /**
      * @throws Exception If failed.
      */
+    @Test
     public void testScanQuery() throws Exception {
         IgniteCache<Integer, String> cache = grid().getOrCreateCache(String.class.getSimpleName());
 
