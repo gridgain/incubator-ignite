@@ -32,6 +32,14 @@
         <!-- Set to true to enable distributed class loading for examples, default is false. -->
         <property name="peerClassLoadingEnabled" value="true"/>
 
+        <property name="clientConnectorConfiguration">
+            <bean class="org.apache.ignite.configuration.ClientConnectorConfiguration">
+                <property name="host" value=""/>
+                <property name="port" value="10800"/>
+                <property name="portRange" value="30"/>
+            </bean>
+        </property>
+
         <!-- Enable task execution events for examples. -->
         <property name="includeEventTypes">
             <list>
