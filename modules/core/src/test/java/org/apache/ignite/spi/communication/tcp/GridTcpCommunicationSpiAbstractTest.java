@@ -45,7 +45,7 @@ abstract class GridTcpCommunicationSpiAbstractTest extends GridAbstractCommunica
     private static final int SPI_COUNT = 3;
 
     /** */
-    public static final int IDLE_CONN_TIMEOUT = 2000;
+    public static final int IDLE_CONN_TIMEOUT = 100;
 
     /** */
     private final boolean useShmem;

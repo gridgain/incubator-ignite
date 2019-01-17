@@ -24,6 +24,7 @@ import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteInClosure;
+import org.apache.ignite.spi.communication.tcp.messages.RecoveryLastReceivedMessage;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.util.nio.GridNioSessionMetaKey.MAX_KEYS_CNT;
@@ -108,6 +109,10 @@ public class GridNioSessionImpl implements GridNioSession {
     /** {@inheritDoc} */
     @Override public GridNioFuture<?> send(Object msg) {
         try {
+            if (msg instanceof RecoveryLastReceivedMessage) {
+                int x = 5;
+            }
+
             resetSendScheduleTime();
 
             return chain().onSessionWrite(this, msg, true, null);

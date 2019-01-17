@@ -491,8 +491,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                     connKey = new ConnectionKey(sndId, msg0.connectionIndex(), msg0.connectCount());
                 }
 
-                if (log.isDebugEnabled())
-                    log.debug("Remote node ID received: " + sndId);
+                log.error("voropava Remote node ID received: " + sndId);
 
                 final ClusterNode rmtNode = getSpiContext().node(sndId);
 
@@ -545,8 +544,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
                 HandshakeMessage msg0 = (HandshakeMessage)msg;
 
-                if (log.isDebugEnabled())
-                    log.debug("Received handshake message [locNodeId=" + locNode.id() + ", rmtNodeId=" + sndId +
+                log.error("voropava Received handshake message [locNodeId=" + locNode.id() + ", rmtNodeId=" + sndId +
                         ", msg=" + msg0 + ']');
 
                 if (usePairedConnections(rmtNode)) {
@@ -555,6 +553,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                     ConnectClosureNew c = new ConnectClosureNew(ses, recoveryDesc, rmtNode);
 
                     boolean reserve = recoveryDesc.tryReserve(msg0.connectCount(), c);
+
+                    log.error("voropava tryReserve " + recoveryDesc +" reserved " + reserve + " paired");
 
                     if (reserve)
                         connectedNew(recoveryDesc, ses, true);
@@ -670,6 +670,8 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                             boolean reserved = recoveryDesc.tryReserve(msg0.connectCount(),
                                 new ConnectClosure(ses, recoveryDesc, rmtNode, connKey, msg0, !hasShmemClient, fut));
 
+                            log.error("voropava tryReserve " + recoveryDesc +" reserved " + reserved);
+
                             if (reserved)
                                 connected(recoveryDesc, ses, rmtNode, msg0.received(), true, !hasShmemClient);
                         }
@@ -737,14 +739,14 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                         if (recovery != null) {
                             RecoveryLastReceivedMessage msg0 = (RecoveryLastReceivedMessage)msg;
 
-                            if (log.isDebugEnabled()) {
-                                log.debug("Received recovery acknowledgement [rmtNode=" + connKey.nodeId() +
-                                    ", connIdx=" + connKey.connectionIndex() +
-                                    ", rcvCnt=" + msg0.received() + ']');
-                            }
+                            log.error("voropava Received recovery acknowledgement [rmtNode=" + connKey.nodeId() +
+                                ", connIdx=" + connKey.connectionIndex() +
+                                ", rcvCnt=" + msg0.received() + ']');
+
 
                             recovery.ackReceived(msg0.received());
-                        }
+                        } else
+                            log.error("voropava recovery null " + msg);
 
                         return;
                     }
@@ -755,11 +757,9 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                             long rcvCnt = recovery.onReceived();
 
                             if (rcvCnt % ackSndThreshold == 0) {
-                                if (log.isDebugEnabled()) {
-                                    log.debug("Send recovery acknowledgement [rmtNode=" + connKey.nodeId() +
+                                log.error("Send recovery acknowledgement [rmtNode=" + connKey.nodeId() +
                                         ", connIdx=" + connKey.connectionIndex() +
                                         ", rcvCnt=" + rcvCnt + ']');
-                                }
 
                                 ses.systemMessage(new RecoveryLastReceivedMessage(rcvCnt));
 
@@ -3632,10 +3632,16 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
                 ByteBuffer handBuff = sslHnd.applicationBuffer();
 
+                log.error("voropava handBuf " + handBuff);
+
+                long totalRead = 0;
+
                 if (handBuff.remaining() < NodeIdMessage.MESSAGE_FULL_SIZE) {
                     buf = ByteBuffer.allocate(1000);
 
                     int read = ch.read(buf);
+
+                    totalRead += read;
 
                     if (read == -1)
                         throw new HandshakeException("Failed to read remote node ID (connection closed).");
@@ -3646,6 +3652,14 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 }
                 else
                     buf = handBuff;
+
+                log.error("voropava first NodeIdMessage.MESSAGE_FULL_SIZE "
+                        + " totalRead " + totalRead
+                        + " recoveryDesc " + recovery
+                        + " recoveryDesc " + sslHnd.handshake()
+                        + " engine " + sslMeta.sslEngine()
+                        + " soTimeout " + ch.socket().getSoTimeout()
+                );
             }
             else {
                 buf = ByteBuffer.allocate(NodeIdMessage.MESSAGE_FULL_SIZE);
@@ -3671,7 +3685,14 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
             if (isSslEnabled()) {
                 assert sslHnd != null;
 
-                ch.write(sslHnd.encrypt(ByteBuffer.wrap(U.IGNITE_HEADER)));
+                ByteBuffer encrypted = sslHnd.encrypt(ByteBuffer.wrap(U.IGNITE_HEADER));
+
+                int actuallyWritten = ch.write(encrypted);
+
+                log.error("voropava IGNITE_HEADER "
+                        + " actuallyWritten " + actuallyWritten
+                        + " expected " + encrypted.limit()
+                );
             }
             else
                 ch.write(ByteBuffer.wrap(U.IGNITE_HEADER));
@@ -3701,8 +3722,7 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                         recovery.received());
                 }
 
-                if (log.isDebugEnabled())
-                    log.debug("Writing handshake message [locNodeId=" + locNode.id() +
+                log.error("voropava Writing handshake message [locNodeId=" + locNode.id() +
                         ", rmtNode=" + rmtNodeId + ", msg=" + msg + ']');
 
                 buf = ByteBuffer.allocate(msgSize);
@@ -3718,7 +3738,14 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 if (isSslEnabled()) {
                     assert sslHnd != null;
 
-                    ch.write(sslHnd.encrypt(buf));
+                    ByteBuffer encrypted = sslHnd.encrypt(buf);
+
+                    int actuallyWritten = ch.write(encrypted);
+
+                    log.error("voropava written recovery " + msg
+                            + " actuallyWritten " + actuallyWritten
+                            + " expected " + encrypted.limit()
+                    );
                 }
                 else
                     ch.write(buf);
@@ -3727,7 +3754,14 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                 if (isSslEnabled()) {
                     assert sslHnd != null;
 
-                    ch.write(sslHnd.encrypt(ByteBuffer.wrap(NodeIdMessage.nodeIdBytesWithType(safeLocalNodeId()))));
+                    ByteBuffer encrypted = sslHnd.encrypt(ByteBuffer.wrap(NodeIdMessage.nodeIdBytesWithType(safeLocalNodeId())));
+
+                    int actuallyWritten = ch.write(encrypted);
+
+                    log.error("voropava written no recovery "
+                            + " actuallyWritten " + actuallyWritten
+                            + " expected " + encrypted.limit()
+                    );
                 }
                 else
                     ch.write(ByteBuffer.wrap(NodeIdMessage.nodeIdBytesWithType(safeLocalNodeId())));
@@ -3746,18 +3780,33 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                     ByteBuffer decode = ByteBuffer.allocate(2 * buf.capacity());
                     decode.order(ByteOrder.nativeOrder());
 
+
+                    int totalRead = 0;
+
                     for (int i = 0; i < RecoveryLastReceivedMessage.MESSAGE_FULL_SIZE; ) {
                         int read = ch.read(buf);
 
-                        if (read == -1)
+                        totalRead += read;
+
+
+
+                        if (read == -1) {
                             throw new HandshakeException("Failed to read remote node recovery handshake " +
-                                "(connection closed).");
+                                    "(connection closed).");
+                        }
 
                         buf.flip();
 
                         ByteBuffer decode0 = sslHnd.decode(buf);
 
                         i += decode0.remaining();
+
+                        log.error("totalRead " + totalRead
+                                + " totalDecoded " + i
+                                + " read " + read
+                                + " decode0 " + decode0
+                                + " decode " + decode
+                        );
 
                         decode = appendAndResizeIfNeeded(decode, decode0);
 

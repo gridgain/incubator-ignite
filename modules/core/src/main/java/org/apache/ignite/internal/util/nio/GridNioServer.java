@@ -1372,6 +1372,8 @@ public class GridNioServer<T> {
                     if (sslNetBuf.hasRemaining()) {
                         ses.addMeta(BUF_META_KEY, sslNetBuf);
 
+                        log.error("voropava sslNetBuf remaining " + sslNetBuf);
+
                         return;
                     }
                 }
@@ -1502,6 +1504,8 @@ public class GridNioServer<T> {
                     ses.addMeta(NIO_OPERATION.ordinal(), req);
 
                     if (buf.hasRemaining()) {
+                        log.error("voropava remaining " + buf);
+
                         ses.addMeta(BUF_META_KEY, buf);
 
                         break;

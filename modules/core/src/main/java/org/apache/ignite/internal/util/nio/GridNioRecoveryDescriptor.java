@@ -208,8 +208,7 @@ public class GridNioRecoveryDescriptor {
      * @param rcvCnt Number of messages received by remote node.
      */
     public void ackReceived(long rcvCnt) {
-        if (log.isDebugEnabled())
-            log.debug("Handle acknowledgment [acked=" + acked + ", rcvCnt=" + rcvCnt +
+        log.error("voropava Handle acknowledgment [acked=" + acked + ", rcvCnt=" + rcvCnt +
                 ", msgReqs=" + msgReqs.size() + ']');
 
         while (acked < rcvCnt) {
