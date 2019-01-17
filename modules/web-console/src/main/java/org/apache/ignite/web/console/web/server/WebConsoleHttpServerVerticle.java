@@ -19,6 +19,7 @@ package org.apache.ignite.web.console.web.server;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
@@ -85,10 +86,19 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
         // Create the HTTP server.
         vertx
             .createHttpServer()
+            .websocketHandler(this::webSocketHandler)
             .requestHandler(router)
             .listen(3000);
 
         handle();
+    }
+
+    private void webSocketHandler(ServerWebSocket ws) {
+        System.out.println(ws.path());
+
+        ws.handler(buf -> {
+            System.out.println("WS handler2: " + buf);
+        });
     }
 
     /**

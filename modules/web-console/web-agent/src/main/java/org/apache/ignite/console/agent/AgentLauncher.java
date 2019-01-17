@@ -28,13 +28,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
+
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
+
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.WebSocket;
+
 import org.apache.ignite.console.agent.handlers.ClusterListener;
 import org.apache.ignite.console.agent.handlers.DatabaseListener;
 import org.apache.ignite.console.agent.handlers.RestListener;
@@ -74,6 +76,10 @@ public class AgentLauncher extends AbstractVerticle {
     /** */
     private final AgentConfiguration cfg;
 
+    /** */
+    private final CountDownLatch startUpLatch = new CountDownLatch(1);
+
+    /** */
     private volatile WebSocket ws;
 
     static {
@@ -84,9 +90,9 @@ public class AgentLauncher extends AbstractVerticle {
         SLF4JBridgeHandler.install();
     }
 
-    /**
-     * On error listener.
-     */
+//    /**
+//     * On error listener.
+//     */
 //    private static final Emitter.Listener onError = args -> {
 //        Throwable e = (Throwable)args[0];
 //
@@ -148,18 +154,17 @@ public class AgentLauncher extends AbstractVerticle {
 //        }
 //    };
 
-    /**
-     * On disconnect listener.
-     */
+//    /**
+//     * On disconnect listener.
+//     */
 //    private static final Emitter.Listener onDisconnect = args -> log.error("Connection closed: {}", args);
 
-    /**
-     * On token reset listener.
-     */
+//    /**
+//     * On token reset listener.
+//     */
 //    private static final Emitter.Listener onLogWarning = args -> log.warn(String.valueOf(args[0]));
 
     /**
-     *
      * @param args Launcher args.
      */
     public AgentLauncher(String[] args) {
@@ -275,15 +280,15 @@ public class AgentLauncher extends AbstractVerticle {
         }
 
         boolean trustAll = Boolean.getBoolean("trust.all");
-        boolean hasServerTrustStore = cfg.serverTrustStore() != null;
+//        boolean hasServerTrustStore = cfg.serverTrustStore() != null;
         boolean hasNodeTrustStore = cfg.nodeTrustStore() != null;
 
-        if (trustAll && hasServerTrustStore) {
-            log.warn("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
-                "Option '-Dtrust.all=true' will be ignored.");
-
-            trustAll = false;
-        }
+//        if (trustAll && hasServerTrustStore) {
+//            log.warn("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
+//                "Option '-Dtrust.all=true' will be ignored.");
+//
+//            trustAll = false;
+//        }
 
         if (trustAll && hasNodeTrustStore) {
             log.warn("Options contains both '--node-trust-store' and '-Dtrust.all=true'. " +
@@ -294,7 +299,6 @@ public class AgentLauncher extends AbstractVerticle {
 
         cfg.nodeURIs(nodeURIs);
     }
-
 
     /**
      * @param fmt Format string.
@@ -322,13 +326,30 @@ public class AgentLauncher extends AbstractVerticle {
         return new Scanner(System.in).nextLine().toCharArray();
     }
 
-
     /** {@inheritDoc} */
-    @Override public void start() throws Exception {
+    @Override public void start() {
+        log.info("Connecting to: {}", cfg.serverUri());
 
+        HttpClient client = vertx.createHttpClient();
 
-//        IO.Options opts = new IO.Options();
-//        opts.path = "/agents";
+        client.websocket(3000, "localhost", "/websocket", websocket -> {
+            System.out.println("Connected to web socket");
+
+            ws = websocket;
+
+            startUpLatch.countDown();
+
+            websocket.handler(data -> {
+                System.out.println("Received data " + data.toString());
+            });
+        });
+    }
+
+    /**
+     *
+     */
+    private void run() throws Exception {
+        startUpLatch.await();
 
         List<String> cipherSuites = cfg.cipherSuites();
 
@@ -358,42 +379,19 @@ public class AgentLauncher extends AbstractVerticle {
 //                if (!F.isEmpty(cipherSuites))
 //                    builder.connectionSpecs(sslConnectionSpec(cipherSuites));
 //            }
-//
-//            OkHttpClient sslFactory = builder.build();
-//
-//            opts.callFactory = sslFactory;
-//            opts.webSocketFactory = sslFactory;
-//            opts.secure = true;
 //        }
 
-        final CountDownLatch latch = new CountDownLatch(1);
-
-        log.info("Connecting to: {}", cfg.serverUri());
-
-        HttpClient client = vertx.createHttpClient();
-
-        client.websocket(9000, "localhost", "/websocket", websocket -> {
-            System.out.println("Connected to web socket");
-
-            ws = websocket;
-
-            latch.countDown();
-
-            websocket.handler(data -> {
-                System.out.println("Received data " + data.toString());
-            });
-        });
-
-        latch.await();
-
-        try (
+//        try (
             RestExecutor restExecutor = new RestExecutor(
                 cfg.nodeKeyStore(), cfg.nodeKeyStorePassword(),
                 cfg.nodeTrustStore(), cfg.nodeTrustStorePassword(),
                 cipherSuites);
 
-            ClusterListener clusterLsnr = new ClusterListener(cfg, ws, restExecutor)
-        ) {
+            ClusterListener clusterLsnr = new ClusterListener(cfg, ws, restExecutor);
+//        ) {
+            clusterLsnr.watch();
+
+
 //            Emitter.Listener onConnect = connectRes -> {
 //                log.info("Connection established.");
 //
@@ -476,7 +474,6 @@ public class AgentLauncher extends AbstractVerticle {
 
             RestListener restHnd = new RestListener(cfg, restExecutor);
 
-
 //            client
 //                .on(EVENT_CONNECT, onConnect)
 //                .on(EVENT_CONNECT_ERROR, onError)
@@ -493,7 +490,7 @@ public class AgentLauncher extends AbstractVerticle {
 //                    if (cfg.tokens().isEmpty()) {
 //                        client.off();
 //
-//                        latch.countDown();
+//                        startUpLatch.countDown();
 //                    }
 //                })
 //                .on(EVENT_SCHEMA_IMPORT_DRIVERS, dbHnd.availableDriversListener())
@@ -503,16 +500,20 @@ public class AgentLauncher extends AbstractVerticle {
 //                .on(EVENT_NODE_REST, restHnd);
 
             // client.connect();
-        }
-        finally {
-            // client.close();
-        }
+//        }
+//        finally {
+//            // client.close();
+//        }
     }
 
     /**
      * @param args Args.
      */
     public static void main(String[] args) throws Exception {
-        Vertx.vertx().deployVerticle(new AgentLauncher(args));
+        AgentLauncher launcher = new AgentLauncher(args);
+
+        Vertx.vertx().deployVerticle(launcher);
+
+        launcher.run();
     }
 }
