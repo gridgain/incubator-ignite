@@ -109,7 +109,7 @@ public class Benchmark {
             throw new IllegalArgumentException("useLocalQueries && currentClientCount != PARAMETERS.getCountOfIgnites()");
 
         ArrayList<Future<Optional<Measure>>> futures = new ArrayList<>(currentClientCount);
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < 2; i++) {
             final int clientID = i;
             futures.add(POOL.submit(() -> {
                 return new ThinClientMock(useLocalQueries,
