@@ -23,16 +23,12 @@ import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.jar.Attributes;
-import java.util.jar.Manifest;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import io.vertx.core.AbstractVerticle;
@@ -43,16 +39,9 @@ import org.apache.ignite.console.agent.handlers.ClusterListener;
 import org.apache.ignite.console.agent.handlers.DatabaseListener;
 import org.apache.ignite.console.agent.handlers.RestListener;
 import org.apache.ignite.console.agent.rest.RestExecutor;
-import org.apache.ignite.internal.util.typedef.F;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
-
-import static org.apache.ignite.console.agent.AgentUtils.fromJSON;
-import static org.apache.ignite.console.agent.AgentUtils.toJSON;
 
 /**
  * Ignite Web Agent launcher.
@@ -85,8 +74,7 @@ public class AgentLauncher extends AbstractVerticle {
     /** */
     private final AgentConfiguration cfg;
 
-    private final AtomicReference<WebSocket> socket = new AtomicReference<>();
-
+    private volatile WebSocket ws;
 
     static {
         // Optionally remove existing handlers attached to j.u.l root logger.
@@ -378,14 +366,25 @@ public class AgentLauncher extends AbstractVerticle {
 //            opts.secure = true;
 //        }
 
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        log.info("Connecting to: {}", cfg.serverUri());
+
         HttpClient client = vertx.createHttpClient();
 
         client.websocket(9000, "localhost", "/websocket", websocket -> {
+            System.out.println("Connected to web socket");
+
+            ws = websocket;
+
+            latch.countDown();
+
             websocket.handler(data -> {
                 System.out.println("Received data " + data.toString());
             });
         });
 
+        latch.await();
 
         try (
             RestExecutor restExecutor = new RestExecutor(
@@ -393,128 +392,120 @@ public class AgentLauncher extends AbstractVerticle {
                 cfg.nodeTrustStore(), cfg.nodeTrustStorePassword(),
                 cipherSuites);
 
-            ClusterListener clusterLsnr = new ClusterListener(cfg, client, restExecutor)
+            ClusterListener clusterLsnr = new ClusterListener(cfg, ws, restExecutor)
         ) {
-            Emitter.Listener onConnect = connectRes -> {
-                log.info("Connection established.");
-
-                JSONObject authMsg = new JSONObject();
-
-                try {
-                    authMsg.put("tokens", toJSON(cfg.tokens()));
-                    authMsg.put("disableDemo", cfg.disableDemo());
-
-                    String clsName = AgentLauncher.class.getSimpleName() + ".class";
-
-                    String clsPath = AgentLauncher.class.getResource(clsName).toString();
-
-                    if (clsPath.startsWith("jar")) {
-                        String manifestPath = clsPath.substring(0, clsPath.lastIndexOf('!') + 1) +
-                            "/META-INF/MANIFEST.MF";
-
-                        Manifest manifest = new Manifest(new URL(manifestPath).openStream());
-
-                        Attributes attr = manifest.getMainAttributes();
-
-                        authMsg.put("ver", attr.getValue("Implementation-Version"));
-                        authMsg.put("bt", attr.getValue("Build-Time"));
-                    }
-
-                    client.emit("agent:auth", authMsg, (Ack) authRes -> {
-                        if (authRes != null) {
-                            if (authRes[0] instanceof String) {
-                                log.error((String)authRes[0]);
-
-                                System.exit(1);
-                            }
-
-                            if (authRes[0] == null && authRes[1] instanceof JSONArray) {
-                                try {
-                                    List<String> activeTokens = fromJSON(authRes[1], List.class);
-
-                                    if (!F.isEmpty(activeTokens)) {
-                                        Collection<String> missedTokens = cfg.tokens();
-
-                                        cfg.tokens(activeTokens);
-
-                                        missedTokens.removeAll(activeTokens);
-
-                                        if (!F.isEmpty(missedTokens)) {
-                                            String tokens = F.concat(missedTokens, ", ");
-
-                                            log.warn("Failed to authenticate with token(s): {}. " +
-                                                "Please reload agent archive or check settings", tokens);
-                                        }
-
-                                        log.info("Authentication success.");
-
-                                        clusterLsnr.watch();
-
-                                        return;
-                                    }
-                                }
-                                catch (Exception e) {
-                                    log.error("Failed to authenticate agent. Please check agent\'s tokens", e);
-
-                                    System.exit(1);
-                                }
-                            }
-                        }
-
-                        log.error("Failed to authenticate agent. Please check agent\'s tokens");
-
-                        System.exit(1);
-                    });
-                }
-                catch (JSONException | IOException e) {
-                    log.error("Failed to construct authentication message", e);
-
-                    client.close();
-                }
-            };
+//            Emitter.Listener onConnect = connectRes -> {
+//                log.info("Connection established.");
+//
+//                JSONObject authMsg = new JSONObject();
+//
+//                try {
+//                    authMsg.put("tokens", toJSON(cfg.tokens()));
+//                    authMsg.put("disableDemo", cfg.disableDemo());
+//
+//                    String clsName = AgentLauncher.class.getSimpleName() + ".class";
+//
+//                    String clsPath = AgentLauncher.class.getResource(clsName).toString();
+//
+//                    if (clsPath.startsWith("jar")) {
+//                        String manifestPath = clsPath.substring(0, clsPath.lastIndexOf('!') + 1) +
+//                            "/META-INF/MANIFEST.MF";
+//
+//                        Manifest manifest = new Manifest(new URL(manifestPath).openStream());
+//
+//                        Attributes attr = manifest.getMainAttributes();
+//
+//                        authMsg.put("ver", attr.getValue("Implementation-Version"));
+//                        authMsg.put("bt", attr.getValue("Build-Time"));
+//                    }
+//
+//                    client.emit("agent:auth", authMsg, (Ack) authRes -> {
+//                        if (authRes != null) {
+//                            if (authRes[0] instanceof String) {
+//                                log.error((String)authRes[0]);
+//
+//                                System.exit(1);
+//                            }
+//
+//                            if (authRes[0] == null && authRes[1] instanceof JSONArray) {
+//                                try {
+//                                    List<String> activeTokens = fromJSON(authRes[1], List.class);
+//
+//                                    if (!F.isEmpty(activeTokens)) {
+//                                        Collection<String> missedTokens = cfg.tokens();
+//
+//                                        cfg.tokens(activeTokens);
+//
+//                                        missedTokens.removeAll(activeTokens);
+//
+//                                        if (!F.isEmpty(missedTokens)) {
+//                                            String tokens = F.concat(missedTokens, ", ");
+//
+//                                            log.warn("Failed to authenticate with token(s): {}. " +
+//                                                "Please reload agent archive or check settings", tokens);
+//                                        }
+//
+//                                        log.info("Authentication success.");
+//
+//                                        clusterLsnr.watch();
+//
+//                                        return;
+//                                    }
+//                                }
+//                                catch (Exception e) {
+//                                    log.error("Failed to authenticate agent. Please check agent\'s tokens", e);
+//
+//                                    System.exit(1);
+//                                }
+//                            }
+//                        }
+//
+//                        log.error("Failed to authenticate agent. Please check agent\'s tokens");
+//
+//                        System.exit(1);
+//                    });
+//                }
+//                catch (JSONException | IOException e) {
+//                    log.error("Failed to construct authentication message", e);
+//
+//                    client.close();
+//                }
+//            };
 
             DatabaseListener dbHnd = new DatabaseListener(cfg);
 
             RestListener restHnd = new RestListener(cfg, restExecutor);
 
-            final CountDownLatch latch = new CountDownLatch(1);
 
-            log.info("Connecting to: {}", cfg.serverUri());
+//            client
+//                .on(EVENT_CONNECT, onConnect)
+//                .on(EVENT_CONNECT_ERROR, onError)
+//                .on(EVENT_ERROR, onError)
+//                .on(EVENT_DISCONNECT, onDisconnect)
+//                .on(EVENT_LOG_WARNING, onLogWarning)
+//                .on(EVENT_RESET_TOKEN, res -> {
+//                    String tok = String.valueOf(res[0]);
+//
+//                    log.warn("Security token has been reset: {}", tok);
+//
+//                    cfg.tokens().remove(tok);
+//
+//                    if (cfg.tokens().isEmpty()) {
+//                        client.off();
+//
+//                        latch.countDown();
+//                    }
+//                })
+//                .on(EVENT_SCHEMA_IMPORT_DRIVERS, dbHnd.availableDriversListener())
+//                .on(EVENT_SCHEMA_IMPORT_SCHEMAS, dbHnd.schemasListener())
+//                .on(EVENT_SCHEMA_IMPORT_METADATA, dbHnd.metadataListener())
+//                .on(EVENT_NODE_VISOR_TASK, restHnd)
+//                .on(EVENT_NODE_REST, restHnd);
 
-            HttpClient client = vertx.createHttpClient();
-
-
-            client
-                .on(EVENT_CONNECT, onConnect)
-                .on(EVENT_CONNECT_ERROR, onError)
-                .on(EVENT_ERROR, onError)
-                .on(EVENT_DISCONNECT, onDisconnect)
-                .on(EVENT_LOG_WARNING, onLogWarning)
-                .on(EVENT_RESET_TOKEN, res -> {
-                    String tok = String.valueOf(res[0]);
-
-                    log.warn("Security token has been reset: {}", tok);
-
-                    cfg.tokens().remove(tok);
-
-                    if (cfg.tokens().isEmpty()) {
-                        client.off();
-
-                        latch.countDown();
-                    }
-                })
-                .on(EVENT_SCHEMA_IMPORT_DRIVERS, dbHnd.availableDriversListener())
-                .on(EVENT_SCHEMA_IMPORT_SCHEMAS, dbHnd.schemasListener())
-                .on(EVENT_SCHEMA_IMPORT_METADATA, dbHnd.metadataListener())
-                .on(EVENT_NODE_VISOR_TASK, restHnd)
-                .on(EVENT_NODE_REST, restHnd);
-
-            client.connect();
-
-            latch.await();
+            // client.connect();
         }
         finally {
-            client.close();
+            // client.close();
         }
     }
 

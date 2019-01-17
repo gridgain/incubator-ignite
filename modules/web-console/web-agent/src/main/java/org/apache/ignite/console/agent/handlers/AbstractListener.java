@@ -17,31 +17,18 @@
 
 package org.apache.ignite.console.agent.handlers;
 
-import io.socket.client.Ack;
-import io.socket.emitter.Emitter;
-import java.io.ByteArrayOutputStream;
 import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.zip.GZIPOutputStream;
-import org.apache.commons.codec.binary.Base64OutputStream;
 import org.apache.ignite.IgniteLogger;
-import org.apache.ignite.console.agent.rest.RestResult;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.ignite.console.agent.AgentUtils.removeCallback;
-import static org.apache.ignite.console.agent.AgentUtils.fromJSON;
-import static org.apache.ignite.console.agent.AgentUtils.safeCallback;
-import static org.apache.ignite.console.agent.AgentUtils.toJSON;
 
 /**
  * Base class for web socket handlers.
  */
-abstract class AbstractListener implements Emitter.Listener {
+abstract class AbstractListener {
     /** */
     final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(AbstractListener.class));
 
@@ -51,64 +38,64 @@ abstract class AbstractListener implements Emitter.Listener {
     /** */
     private ExecutorService pool;
 
-    /** {@inheritDoc} */
-    @SuppressWarnings("unchecked")
-    @Override public final void call(Object... args) {
-        final Ack cb = safeCallback(args);
-
-        args = removeCallback(args);
-
-        try {
-            final Map<String, Object> params;
-
-            if (args == null || args.length == 0)
-                params = Collections.emptyMap();
-            else if (args.length == 1)
-                params = fromJSON(args[0], Map.class);
-            else
-                throw new IllegalArgumentException("Wrong arguments count, must be <= 1: " + Arrays.toString(args));
-
-            if (pool == null)
-                pool = newThreadPool();
-
-            pool.submit(() -> {
-                try {
-                    Object res = execute(params);
-
-                    // TODO IGNITE-6127 Temporary solution until GZip support for socket.io-client-java.
-                    // See: https://github.com/socketio/socket.io-client-java/issues/312
-                    // We can GZip manually for now.
-                    if (res instanceof RestResult) {
-                        RestResult restRes = (RestResult) res;
-
-                        if (restRes.getData() != null) {
-                            ByteArrayOutputStream baos = new ByteArrayOutputStream(4096);
-                            Base64OutputStream b64os = new Base64OutputStream(baos, true, 0, null);
-                            GZIPOutputStream gzip = new GZIPOutputStream(b64os);
-
-                            gzip.write(restRes.getData().getBytes(UTF8));
-
-                            gzip.close();
-
-                            restRes.zipData(baos.toString());
-                        }
-                    }
-
-                    cb.call(null, toJSON(res));
-                }
-                catch (Throwable e) {
-                    log.error("Failed to process event in pool", e);
-
-                    cb.call(e, null);
-                }
-            });
-        }
-        catch (Throwable e) {
-            log.error("Failed to process event", e);
-
-            cb.call(e, null);
-        }
-    }
+//    /** {@inheritDoc} */
+//    @SuppressWarnings("unchecked")
+//    @Override public final void call(Object... args) {
+//        final Ack cb = safeCallback(args);
+//
+//        args = removeCallback(args);
+//
+//        try {
+//            final Map<String, Object> params;
+//
+//            if (args == null || args.length == 0)
+//                params = Collections.emptyMap();
+//            else if (args.length == 1)
+//                params = fromJSON(args[0], Map.class);
+//            else
+//                throw new IllegalArgumentException("Wrong arguments count, must be <= 1: " + Arrays.toString(args));
+//
+//            if (pool == null)
+//                pool = newThreadPool();
+//
+//            pool.submit(() -> {
+//                try {
+//                    Object res = execute(params);
+//
+//                    // TODO IGNITE-6127 Temporary solution until GZip support for socket.io-client-java.
+//                    // See: https://github.com/socketio/socket.io-client-java/issues/312
+//                    // We can GZip manually for now.
+//                    if (res instanceof RestResult) {
+//                        RestResult restRes = (RestResult) res;
+//
+//                        if (restRes.getData() != null) {
+//                            ByteArrayOutputStream baos = new ByteArrayOutputStream(4096);
+//                            Base64OutputStream b64os = new Base64OutputStream(baos, true, 0, null);
+//                            GZIPOutputStream gzip = new GZIPOutputStream(b64os);
+//
+//                            gzip.write(restRes.getData().getBytes(UTF8));
+//
+//                            gzip.close();
+//
+//                            restRes.zipData(baos.toString());
+//                        }
+//                    }
+//
+//                    cb.call(null, toJSON(res));
+//                }
+//                catch (Throwable e) {
+//                    log.error("Failed to process event in pool", e);
+//
+//                    cb.call(e, null);
+//                }
+//            });
+//        }
+//        catch (Throwable e) {
+//            log.error("Failed to process event", e);
+//
+//            cb.call(e, null);
+//        }
+//    }
 
     /**
      * Stop handler.

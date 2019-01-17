@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.WebSocket;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.rest.RestExecutor;
@@ -117,7 +118,7 @@ public class ClusterListener implements AutoCloseable {
     private final AgentConfiguration cfg;
 
     /** */
-    private final HttpClient client;
+    private final WebSocket ws;
 
     /** */
     private final RestExecutor restExecutor;
@@ -129,12 +130,12 @@ public class ClusterListener implements AutoCloseable {
     private ScheduledFuture<?> refreshTask;
 
     /**
-     * @param client Client.
+     * @param ws Client.
      * @param restExecutor REST executor.
      */
-    public ClusterListener(AgentConfiguration cfg, HttpClient client, RestExecutor restExecutor) {
+    public ClusterListener(AgentConfiguration cfg, WebSocket ws, RestExecutor restExecutor) {
         this.cfg = cfg;
-        this.client = client;
+        this.ws = ws;
         this.restExecutor = restExecutor;
     }
 
@@ -146,7 +147,7 @@ public class ClusterListener implements AutoCloseable {
     private void clusterConnect(Collection<UUID> nids) {
         log.info("Connection successfully established to cluster with nodes: " + F.viewReadOnly(nids, ID2ID8));
 
-        client.wemit(EVENT_CLUSTER_CONNECTED, toJSON(nids));
+        ws.writeTextMessage(EVENT_CLUSTER_CONNECTED + toJSON(nids));
     }
 
     /**
@@ -160,7 +161,7 @@ public class ClusterListener implements AutoCloseable {
 
         log.info("Connection to cluster was lost");
 
-        client.emit(EVENT_CLUSTER_DISCONNECTED);
+        ws.writeTextMessage(EVENT_CLUSTER_DISCONNECTED);
     }
 
     /**
@@ -504,7 +505,7 @@ public class ClusterListener implements AutoCloseable {
 
                     top = newTop;
 
-                    client.emit(EVENT_CLUSTER_TOPOLOGY, toJSON(top));
+                    ws.writeTextMessage(EVENT_CLUSTER_TOPOLOGY + toJSON(top));
                 }
                 else {
                     LT.warn(log, res.getError());

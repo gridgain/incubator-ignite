@@ -31,7 +31,6 @@ import java.util.Collections;
 import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsonorg.JsonOrgModule;
-import io.socket.client.Ack;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -65,15 +64,15 @@ public class AgentUtils {
         MAPPER.registerModule(new JsonOrgModule());
     }
 
-    /** */
-    private static final Ack NOOP_CB = new Ack() {
-        @Override public void call(Object... args) {
-            if (args != null && args.length > 0 && args[0] instanceof Throwable)
-                log.error("Failed to execute request on agent.", (Throwable)args[0]);
-            else
-                log.info("Request on agent successfully executed " + Arrays.toString(args));
-        }
-    };
+//    /** */
+//    private static final Ack NOOP_CB = new Ack() {
+//        @Override public void call(Object... args) {
+//            if (args != null && args.length > 0 && args[0] instanceof Throwable)
+//                log.error("Failed to execute request on agent.", (Throwable)args[0]);
+//            else
+//                log.info("Request on agent successfully executed " + Arrays.toString(args));
+//        }
+//    };
 
     /**
      * Default constructor.
@@ -154,29 +153,29 @@ public class AgentUtils {
         return null;
     }
 
-    /**
-     * Get callback from handler arguments.
-     *
-     * @param args Arguments.
-     * @return Callback or noop callback.
-     */
-    public static Ack safeCallback(Object[] args) {
-        boolean hasCb = args != null && args.length > 0 && args[args.length - 1] instanceof Ack;
+//    /**
+//     * Get callback from handler arguments.
+//     *
+//     * @param args Arguments.
+//     * @return Callback or noop callback.
+//     */
+//    public static Ack safeCallback(Object[] args) {
+//        boolean hasCb = args != null && args.length > 0 && args[args.length - 1] instanceof Ack;
+//
+//        return hasCb ? (Ack)args[args.length - 1] : NOOP_CB;
+//    }
 
-        return hasCb ? (Ack)args[args.length - 1] : NOOP_CB;
-    }
-
-    /**
-     * Remove callback from handler arguments.
-     *
-     * @param args Arguments.
-     * @return Arguments without callback.
-     */
-    public static Object[] removeCallback(Object[] args) {
-        boolean hasCb = args != null && args.length > 0 && args[args.length - 1] instanceof Ack;
-
-        return hasCb ? Arrays.copyOf(args, args.length - 1) : args;
-    }
+//    /**
+//     * Remove callback from handler arguments.
+//     *
+//     * @param args Arguments.
+//     * @return Arguments without callback.
+//     */
+//    public static Object[] removeCallback(Object[] args) {
+//        boolean hasCb = args != null && args.length > 0 && args[args.length - 1] instanceof Ack;
+//
+//        return hasCb ? Arrays.copyOf(args, args.length - 1) : args;
+//    }
 
     /**
      * Map java object to JSON object.

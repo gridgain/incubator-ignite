@@ -17,7 +17,6 @@
 
 package org.apache.ignite.console.agent.handlers;
 
-import io.socket.emitter.Emitter;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FilenameFilter;
@@ -242,24 +241,24 @@ public class DatabaseListener {
         }
     }
 
-    /**
-     * Listener for drivers.
-     *
-     * @return Drivers in drivers folder
-     * @see AgentConfiguration#driversFolder
-     */
-    public Emitter.Listener availableDriversListener() {
-        return availableDriversLsnr;
-    }
+//    /**
+//     * Listener for drivers.
+//     *
+//     * @return Drivers in drivers folder
+//     * @see AgentConfiguration#driversFolder()
+//     */
+//    public Emitter.Listener availableDriversListener() {
+//        return availableDriversLsnr;
+//    }
 
-    /**
-     * Listener for schema names.
-     *
-     * @return Collection of schema names.
-     */
-    public Emitter.Listener schemasListener() {
-        return schemasLsnr;
-    }
+//    /**
+//     * Listener for schema names.
+//     *
+//     * @return Collection of schema names.
+//     */
+//    public Emitter.Listener schemasListener() {
+//        return schemasLsnr;
+//    }
 
     /**
      * @param jdbcDriverJarPath JDBC driver JAR path.
@@ -291,14 +290,14 @@ public class DatabaseListener {
         }
     }
 
-    /**
-     * Listener for tables.
-     *
-     * @return Collection of tables.
-     */
-    public Emitter.Listener metadataListener() {
-        return metadataLsnr;
-    }
+//    /**
+//     * Listener for tables.
+//     *
+//     * @return Collection of tables.
+//     */
+//    public Emitter.Listener metadataListener() {
+//        return metadataLsnr;
+//    }
 
     /**
      * Stop handler.
