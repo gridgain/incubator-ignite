@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.internal.client.GridClient;
 import org.apache.ignite.internal.marshaller.optimized.OptimizedMarshaller;
+import org.apache.ignite.internal.processors.metastorage.DistributedMetaStorage;
 import org.apache.ignite.internal.processors.rest.GridRestCommand;
 import org.apache.ignite.internal.util.GridLogThrottle;
 import org.apache.ignite.stream.StreamTransformer;
@@ -263,6 +264,8 @@ public final class IgniteSystemProperties {
      * System property to enable pending transaction tracker.
      * Affects impact of {@link IgniteSystemProperties#IGNITE_DISABLE_WAL_DURING_REBALANCING} property:
      * if this property is set, WAL anyway won't be disabled during rebalancing triggered by baseline topology change.
+     * Now it is not nessessary setting this property before grid starting because enabling of pendingTxTracker happens
+     * automatically if needed, and it should be used for test purposes only.
      */
     public static final String IGNITE_PENDING_TX_TRACKER_ENABLED = "IGNITE_PENDING_TX_TRACKER_ENABLED";
 
@@ -1080,6 +1083,18 @@ public final class IgniteSystemProperties {
      * metrics will be unavailable via JMX too.
      */
     public static final String IGNITE_DISCOVERY_DISABLE_CACHE_METRICS_UPDATE = "IGNITE_DISCOVERY_DISABLE_CACHE_METRICS_UPDATE";
+
+    /**
+     * Maximum number of different partitions to be extracted from between expression within sql query.
+     * In case of limit exceeding all partitions will be used.
+     */
+    public static final String IGNITE_SQL_MAX_EXTRACTED_PARTS_FROM_BETWEEN =
+        "IGNITE_SQL_MAX_EXTRACTED_PARTS_FROM_BETWEEN";
+
+    /**
+     * Maximum amount of bytes that can be stored in history of {@link DistributedMetaStorage} updates.
+     */
+    public static final String IGNITE_GLOBAL_METASTORAGE_HISTORY_MAX_BYTES = "IGNITE_GLOBAL_METASTORAGE_HISTORY_MAX_BYTES";
 
     /**
      * Enforces singleton.

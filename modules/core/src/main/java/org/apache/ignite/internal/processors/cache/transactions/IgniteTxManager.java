@@ -215,7 +215,7 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
     private TxDeadlockDetection txDeadlockDetection;
 
     /** Flag indicates that {@link TxRecord} records will be logged to WAL. */
-    private boolean logTxRecords;
+    private volatile boolean logTxRecords;
 
     /** Pending transactions tracker. */
     private LocalPendingTransactionsTracker pendingTracker;
@@ -297,12 +297,6 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
 
         // todo gg-13416 unhardcode
         this.logTxRecords = IgniteSystemProperties.getBoolean(IGNITE_WAL_LOG_TX_RECORDS, false);
-
-        if (!this.logTxRecords && this.pendingTracker.enabled()) {
-            this.logTxRecords = true;
-
-            U.warn(log, "Transaction wal logging is enabled, because pending transaction tracker is enabled.");
-        }
     }
 
     /**
@@ -2435,6 +2429,20 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
     }
 
     /**
+     * Enables pending transactions tracker.
+     * Also enables transaction wal logging, if it was disabled.
+     */
+    public void trackPendingTxs() {
+        pendingTracker.enable();
+
+        if (!logTxRecords) {
+            logTxRecords = true;
+
+            U.warn(log, "Transaction wal logging is enabled, because pending transaction tracker is enabled.");
+        }
+    }
+
+    /**
      * Marks MVCC transaction as {@link TxState#COMMITTED} or {@link TxState#ABORTED}.
      *
      * @param tx Transaction.
@@ -2448,8 +2456,9 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
             cctx.database().checkpointReadLock();
 
             try {
-                if (cctx.wal() != null)
-                    ptr = cctx.wal().log(newTxRecord(tx));
+                TxRecord rec;
+                if (cctx.wal() != null && (rec = newTxRecord(tx)) != null)
+                    cctx.wal().log(rec);
 
                 cctx.coordinators().updateState(tx.mvccSnapshot, commit ? TxState.COMMITTED : TxState.ABORTED, tx.local());
             }
@@ -2473,8 +2482,9 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
             cctx.database().checkpointReadLock();
 
             try {
-                if (cctx.wal() != null)
-                    cctx.wal().log(newTxRecord(tx));
+                TxRecord rec;
+                if (cctx.wal() != null && (rec = newTxRecord(tx)) != null)
+                    cctx.wal().log(rec);
 
                 cctx.coordinators().updateState(tx.mvccSnapshot, TxState.PREPARED);
             }
@@ -2492,27 +2502,29 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
      */
     @Nullable WALPointer logTxRecord(IgniteTxAdapter tx) {
         // Log tx state change to WAL.
-        if (cctx.wal() != null && logTxRecords) {
+        if (cctx.wal() != null && logTxRecords()) {
             TxRecord txRecord = newTxRecord(tx);
 
-            try {
-                WALPointer ptr = cctx.wal().log(txRecord);
+            if (txRecord != null) {
+                try {
+                    WALPointer ptr = cctx.wal().log(txRecord);
 
-                TransactionState txState = tx.state();
+                    TransactionState txState = tx.state();
 
-                if (txState == PREPARED)
-                    cctx.tm().pendingTxsTracker().onTxPrepared(tx.nearXidVersion());
-                else if (txState == ROLLED_BACK)
-                    cctx.tm().pendingTxsTracker().onTxRolledBack(tx.nearXidVersion());
-                else
-                    cctx.tm().pendingTxsTracker().onTxCommitted(tx.nearXidVersion());
+                    if (txState == PREPARED)
+                        cctx.tm().pendingTxsTracker().onTxPrepared(tx.nearXidVersion());
+                    else if (txState == ROLLED_BACK)
+                        cctx.tm().pendingTxsTracker().onTxRolledBack(tx.nearXidVersion());
+                    else
+                        cctx.tm().pendingTxsTracker().onTxCommitted(tx.nearXidVersion());
 
-                return ptr;
-            }
-            catch (IgniteCheckedException e) {
-                U.error(log, "Failed to log TxRecord: " + txRecord, e);
+                    return ptr;
+                }
+                catch (IgniteCheckedException e) {
+                    U.error(log, "Failed to log TxRecord: " + txRecord, e);
 
-                throw new IgniteException("Failed to log TxRecord: " + txRecord, e);
+                    throw new IgniteException("Failed to log TxRecord: " + txRecord, e);
+                }
             }
         }
 
@@ -2525,15 +2537,19 @@ public class IgniteTxManager extends GridCacheSharedManagerAdapter {
      * @param tx Transaction.
      * @return Tx state record.
      */
-    private TxRecord newTxRecord(IgniteTxAdapter tx) {
+    private @Nullable TxRecord newTxRecord(IgniteTxAdapter tx) {
         BaselineTopology baselineTop = cctx.kernalContext().state().clusterState().baselineTopology();
 
-        Map<Short, Collection<Short>> nodes = tx.consistentIdMapper.mapToCompactIds(tx.topVer, tx.txNodes, baselineTop);
+        if (baselineTop != null && baselineTop.consistentIds().contains(cctx.localNode().consistentId())) {
+            Map<Short, Collection<Short>> nodes = tx.consistentIdMapper.mapToCompactIds(tx.topVer, tx.txNodes, baselineTop);
 
-        if (tx.txState().mvccEnabled())
-            return new MvccTxRecord(tx.state(), tx.nearXidVersion(), tx.writeVersion(), nodes, tx.mvccSnapshot());
-        else
-            return new TxRecord(tx.state(), tx.nearXidVersion(), tx.writeVersion(), nodes);
+            if (tx.txState().mvccEnabled())
+                return new MvccTxRecord(tx.state(), tx.nearXidVersion(), tx.writeVersion(), nodes, tx.mvccSnapshot());
+            else
+                return new TxRecord(tx.state(), tx.nearXidVersion(), tx.writeVersion(), nodes);
+        }
+
+        return null;
     }
 
     /**
