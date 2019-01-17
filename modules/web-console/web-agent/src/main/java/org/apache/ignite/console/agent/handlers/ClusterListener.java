@@ -17,7 +17,6 @@
 
 package org.apache.ignite.console.agent.handlers;
 
-import io.socket.client.Socket;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.util.ArrayList;
@@ -30,11 +29,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.IgniteLogger;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import io.vertx.core.http.HttpClient;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.apache.ignite.console.agent.rest.RestResult;
@@ -119,7 +117,7 @@ public class ClusterListener implements AutoCloseable {
     private final AgentConfiguration cfg;
 
     /** */
-    private final Socket client;
+    private final HttpClient client;
 
     /** */
     private final RestExecutor restExecutor;
@@ -134,7 +132,7 @@ public class ClusterListener implements AutoCloseable {
      * @param client Client.
      * @param restExecutor REST executor.
      */
-    public ClusterListener(AgentConfiguration cfg, Socket client, RestExecutor restExecutor) {
+    public ClusterListener(AgentConfiguration cfg, HttpClient client, RestExecutor restExecutor) {
         this.cfg = cfg;
         this.client = client;
         this.restExecutor = restExecutor;
@@ -148,7 +146,7 @@ public class ClusterListener implements AutoCloseable {
     private void clusterConnect(Collection<UUID> nids) {
         log.info("Connection successfully established to cluster with nodes: " + F.viewReadOnly(nids, ID2ID8));
 
-        client.emit(EVENT_CLUSTER_CONNECTED, toJSON(nids));
+        client.wemit(EVENT_CLUSTER_CONNECTED, toJSON(nids));
     }
 
     /**

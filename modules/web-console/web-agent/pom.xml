@@ -41,9 +41,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.socket</groupId>
-            <artifactId>socket.io-client</artifactId>
-            <version>1.0.0</version>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-core</artifactId>
+            <version>3.6.2</version>
         </dependency>
 
         <dependency>

@@ -19,26 +19,33 @@ package org.apache.ignite.web.console.web.server;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.sockjs.BridgeEvent;
+import io.vertx.ext.web.handler.sockjs.BridgeOptions;
+import io.vertx.ext.web.handler.sockjs.SockJSHandler;
+
+import static io.vertx.ext.bridge.BridgeEventType.PUBLISH;
+import static io.vertx.ext.bridge.BridgeEventType.REGISTER;
+import static io.vertx.ext.bridge.BridgeEventType.SOCKET_CLOSED;
 
 /**
  * Handler
  */
 public class WebConsoleHttpServerVerticle extends AbstractVerticle {
+    /** */
+    private SockJSHandler webSocketsHnd;
+
     /** {@inheritDoc} */
     @Override public void start() {
         // Create a router object.
         Router router = Router.router(vertx);
 
-        // Bind "/" to our hello message.
-        router.route("/").handler(routingContext -> {
-            HttpServerResponse res = routingContext.response();
+        webSocketsHnd = SockJSHandler.create(vertx);
 
-            res
-                .putHeader("content-type", "text/html")
-                .end("<h1>Hello from my first Vert.x 3 application</h1>");
-        });
+        router.route("/websocket/*").handler(webSocketsHnd);
 
         router.route("/api/v1/user").handler(this::handleUser);
         router.route("/api/v1/signup").handler(this::handleSignUp);
@@ -80,6 +87,79 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             .createHttpServer()
             .requestHandler(router)
             .listen(3000);
+
+        handle();
+    }
+
+    /**
+     * xxx
+     */
+    private void handle() {
+        BridgeOptions opts = new BridgeOptions()
+            .addInboundPermitted(new PermittedOptions().setAddress("to.server"))
+            .addOutboundPermitted(new PermittedOptions().setAddress("to.client"));
+
+        webSocketsHnd.bridge(opts, event -> {
+            if (event.type() == PUBLISH)
+                publishEvent(event);
+
+            if (event.type() == REGISTER)
+                registerEvent(event);
+
+            if (event.type() == SOCKET_CLOSED)
+                closeEvent(event);
+
+            //обратите внимание, после обработки события
+            // должен вызываться говорящий сам за себя метод.
+            event.complete(true);
+        });
+    }
+
+    /**
+     *
+     * @param evt xxx
+     */
+    private void registerEvent(BridgeEvent evt) {
+        System.out.println("registerEvent");
+
+        JsonObject rMsg = evt.getRawMessage();
+
+        if (rMsg != null && "web-agent".equals(rMsg.getString("address"))) {
+            System.out.println(rMsg);
+            // new Thread(() -> vertx.eventBus().publish("to.client", "{\"id\": 1}")).start();
+        }
+    }
+
+    /**
+     * @param evt xxx
+     */
+    private void closeEvent(BridgeEvent evt) {
+        System.out.println("closeEvent: " + evt);
+
+        new Thread(() -> vertx.eventBus().publish("to.client", "{\"id\": 3}")).start();
+    }
+
+    /**
+     *
+     * @param evt xxx
+     * @return {@code true}
+     */
+    private boolean publishEvent(BridgeEvent evt) {
+        System.out.println("publishEvent: " + evt);
+
+        JsonObject rMsg = evt.getRawMessage();
+
+        if (rMsg != null && "to.server".equals(rMsg.getString("address"))) {
+            String msg = rMsg.getString("body");
+
+            System.out.println(msg);
+
+            vertx.eventBus().publish("to.client", "{\"id\": 2}");
+
+            return true;
+        }
+        else
+            return false;
     }
 
     /**

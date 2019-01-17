@@ -21,7 +21,7 @@ import {nonEmpty, nonNil} from 'app/utils/lodashMixins';
 import {BehaviorSubject} from 'rxjs';
 import {first, pluck, tap, distinctUntilChanged, map, filter} from 'rxjs/operators';
 
-import SockJS from 'sockjs-client';
+import EventBus from 'vertx3-eventbus-client';
 
 import AgentModal from './AgentModal.service';
 // @ts-ignore
@@ -146,7 +146,7 @@ export default class AgentManager {
     /** @type {Set<ng.IPromise<unknown>>} */
     promises = new Set();
 
-    socket = null;
+    eventBus = null;
 
     static restoreActiveCluster() {
         try {
@@ -216,12 +216,42 @@ export default class AgentManager {
     }
 
     connect() {
-        if (nonNil(this.socket))
+        if (nonNil(this.eventBus))
             return;
 
         const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
-        this.socket = new SockJS("http://localhost:3000");
+        // Create a connection to http://localhost:9999/echo
+        this.eventBus = new EventBus('http://localhost:3000/websocket/');
+
+        // Open the connection
+        this.eventBus.onopen = () => {
+            // set a handler to receive a message
+            this.eventBus.registerHandler('web-agent', (error, message) => {
+                console.log('Received a message: ' + JSON.stringify(message));
+            });
+        };
+
+        this.eventBus.onerror = (err) => {
+            console.log('Problem calling event bus: ' + JSON.stringify(err));
+        };
+
+        // this.socket.onopen = function() {
+        //     console.log('WS opened!');
+        // };
+        //
+        // // On connection close
+        // this.socket.onclose = function() {
+        //     console.log('WS closed!');
+        // };
+
+        // On receive message from server
+        // this.socket.onmessage = function(e) {
+        //     // Get the content
+        //     const content = JSON.parse(e.data);
+        //
+        //     console.log(content);
+        // };
 
         const onDisconnect = () => {
             const conn = this.connectionSbj.getValue();
@@ -235,17 +265,17 @@ export default class AgentManager {
         //
         // this.socket.on('disconnect', onDisconnect);
 
-        this.socket.onmessage('agents:stat', ({clusters, count}) => {
-            const conn = this.connectionSbj.getValue();
-
-            conn.update(this.isDemoMode(), count, clusters);
-
-            this.connectionSbj.next(conn);
-        });
-
-        this.socket.on('cluster:changed', (cluster) => this.updateCluster(cluster));
-
-        this.socket.on('user:notifications', (notification) => this.UserNotifications.notification = notification);
+        // this.socket.onmessage('agents:stat', ({clusters, count}) => {
+        //     const conn = this.connectionSbj.getValue();
+        //
+        //     conn.update(this.isDemoMode(), count, clusters);
+        //
+        //     this.connectionSbj.next(conn);
+        // });
+        //
+        // this.socket.on('cluster:changed', (cluster) => this.updateCluster(cluster));
+        //
+        // this.socket.on('user:notifications', (notification) => this.UserNotifications.notification = notification);
     }
 
     saveToStorage(cluster = this.connectionSbj.getValue().cluster) {
@@ -420,27 +450,29 @@ export default class AgentManager {
      * @private
      */
     _sendToAgent(event, payload = {}) {
-        if (!this.socket)
+        if (!this.eventBus)
             return this.$q.reject('Failed to connect to server');
 
         const latch = this.$q.defer();
 
         const onDisconnect = () => {
-            this.socket.removeListener('disconnect', onDisconnect);
+            // this.socket.removeListener('disconnect', onDisconnect);
 
             latch.reject('Connection to server was closed');
         };
 
-        this.socket.on('disconnect', onDisconnect);
+        // this.socket.on('disconnect', onDisconnect);
 
-        this.socket.emit(event, payload, (err, res) => {
-            this.socket.removeListener('disconnect', onDisconnect);
+        this.eventBus.send({event, payload});
 
-            if (err)
-                return latch.reject(err);
-
-            latch.resolve(res);
-        });
+        // this.socket.emit(event, payload, (err, res) => {
+        //     this.socket.removeListener('disconnect', onDisconnect);
+        //
+        //     if (err)
+        //         return latch.reject(err);
+        //
+        //     latch.resolve(res);
+        // });
 
         return latch.promise;
     }
