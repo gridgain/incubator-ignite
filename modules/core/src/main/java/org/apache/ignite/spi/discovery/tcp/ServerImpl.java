@@ -2552,8 +2552,7 @@ class ServerImpl extends TcpDiscoveryImpl {
          *
          * @return Non-discarded messages iterator.
          */
-        @Override
-        public Iterator<TcpDiscoveryAbstractMessage> iterator() {
+        @Override public Iterator<TcpDiscoveryAbstractMessage> iterator() {
             return new SkipIterator();
         }
 
@@ -3209,7 +3208,47 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                             assert !forceSndPending || msg instanceof TcpDiscoveryNodeLeftMessage;
 
-                            if (failure || forceSndPending || newNextNode) {
+                            if (newNextNode) {
+                                log.debug("DBG: dump recon history and pending message on new next node [" +
+                                    "discardId=" + pendingMsgs.discardId +
+                                    ", customDiscardId=" + pendingMsgs.customDiscardId +
+                                    ", failedNodes=" + failedNodes + ']');
+
+                                synchronized (msgHist.msgs) {
+                                    for (TcpDiscoveryAbstractMessage histMsg : msgHist.msgs) {
+                                        log.debug("DBG: [histMsgId=" + histMsg.id() + ", type=" + histMsg.getClass().getSimpleName() + ']');
+
+                                        if (histMsg instanceof TcpDiscoveryClientReconnectMessage) {
+                                            TcpDiscoveryClientReconnectMessage rec = (TcpDiscoveryClientReconnectMessage)histMsg;
+
+                                            if (rec.pendingMessages() != null) {
+                                                for (TcpDiscoveryAbstractMessage pMsg : rec.pendingMessages()) {
+                                                    log.debug("DBG: reconnect [histMsgId=" + pMsg.id() +
+                                                        ", type=" + pMsg.getClass().getSimpleName() + ']');
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                for (TcpDiscoveryAbstractMessage pendingMsg : pendingMsgs) {
+                                    log.debug("DBG: [pendingMsgId=" + pendingMsg.id() + ", type=" + pendingMsg.getClass().getSimpleName() + ']');
+
+                                    if (pendingMsg instanceof TcpDiscoveryClientReconnectMessage) {
+                                        TcpDiscoveryClientReconnectMessage rec = (TcpDiscoveryClientReconnectMessage)pendingMsg;
+
+                                        if (rec.pendingMessages() != null) {
+                                            for (TcpDiscoveryAbstractMessage pMsg : rec.pendingMessages()) {
+                                                log.debug("DBG: reconnect [pendingMsg=" + pMsg.id() +
+                                                    ", type=" + pMsg.getClass().getSimpleName() + ']');
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Skip forwarding of pending messages to joining node.
+                            if (failure || forceSndPending || (newNextNode && next.order() != 0)) {
                                 if (log.isDebugEnabled())
                                     log.debug("Pending messages will be sent [failure=" + failure +
                                         ", newNextNode=" + newNextNode +
@@ -3251,6 +3290,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                                     if (debugMode)
                                         debugLog(msg, "Pending message has been sent to next node [msgId=" + msg.id() +
                                             ", pendingMsgId=" + pendingMsg.id() + ", next=" + next.id() +
+                                            ", type=" + pendingMsg.getClass().getSimpleName() +
                                             ", res=" + res + ']');
 
                                     // Resetting timeout control object to create a new one for the next bunch of
