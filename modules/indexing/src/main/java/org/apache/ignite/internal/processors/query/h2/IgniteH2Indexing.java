@@ -1794,7 +1794,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             final MvccQueryTracker tracker = mvccTracker == null && qry.mvccEnabled() ?
                 MvccUtils.mvccTracker(ctx.cache().context().cacheContext(qry.cacheIds().get(0)), startTx) : mvccTracker;
 
-            GridNearTxLocal tx = tx(ctx);
+            GridNearTxLocal tx = tracker != null ? tx(ctx) : null;
 
             if (qry.forUpdate())
                 qry.forUpdate(checkActive(tx) != null);
@@ -2440,7 +2440,7 @@ public class IgniteH2Indexing implements GridQueryIndexing {
                 // Legit assertion - we have H2 query flag above.
                 assert parsedStmt instanceof GridSqlQuery;
 
-                loc = parser.isLocalQuery(qry.isReplicatedOnly());
+                loc = parser.isLocalQuery();
             }
 
             if (loc) {

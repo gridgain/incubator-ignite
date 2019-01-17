@@ -35,9 +35,6 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.processors.cache.IgniteCacheProxy;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
-import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
@@ -54,9 +51,6 @@ import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
  */
 @RunWith(JUnit4.class)
 public class IgniteCacheGetRestartTest extends GridCommonAbstractTest {
-    /** */
-    private static final TcpDiscoveryIpFinder ipFinder = new TcpDiscoveryVmIpFinder(true);
-
     /** */
     private static final long TEST_TIME = 60_000;
 
@@ -75,8 +69,6 @@ public class IgniteCacheGetRestartTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
-
-        ((TcpDiscoverySpi)cfg.getDiscoverySpi()).setIpFinder(ipFinder);
 
         ((TcpCommunicationSpi)cfg.getCommunicationSpi()).setSharedMemoryPort(-1);
 
@@ -217,25 +209,28 @@ public class IgniteCacheGetRestartTest extends GridCommonAbstractTest {
 
                         log.info("Restart node [node=" + nodeIdx + ", client=" + clientMode + ']');
 
-                        Ignite ignite = startGrid(nodeIdx);
+                        try {
+                            Ignite ignite = startGrid(nodeIdx);
 
-                        IgniteCache<Object, Object> cache;
+                            IgniteCache<Object, Object> cache;
 
-                        if (clientMode && ccfg.getNearConfiguration() != null)
-                            cache = ignite.createNearCache(ccfg.getName(), new NearCacheConfiguration<>());
-                        else
-                            cache = ignite.cache(ccfg.getName());
+                            if (clientMode && ccfg.getNearConfiguration() != null)
+                                cache = ignite.createNearCache(ccfg.getName(), new NearCacheConfiguration<>());
+                            else
+                                cache = ignite.cache(ccfg.getName());
 
-                        checkGet(cache);
-
-                        IgniteInternalFuture<?> syncFut = ((IgniteCacheProxy)cache).context().preloader().syncFuture();
-
-                        while (!syncFut.isDone() && U.currentTimeMillis() < stopTime)
                             checkGet(cache);
 
-                        checkGet(cache);
+                            IgniteInternalFuture<?> syncFut = ((IgniteCacheProxy)cache).context().preloader().syncFuture();
 
-                        stopGrid(nodeIdx);
+                            while (!syncFut.isDone() && U.currentTimeMillis() < stopTime)
+                                checkGet(cache);
+
+                            checkGet(cache);
+                        }
+                        finally {
+                            stopGrid(nodeIdx);
+                        }
                     }
 
                     return null;

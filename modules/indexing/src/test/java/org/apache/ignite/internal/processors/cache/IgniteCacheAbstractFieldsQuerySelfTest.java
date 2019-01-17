@@ -55,10 +55,6 @@ import org.apache.ignite.internal.processors.query.GridQueryProcessor;
 import org.apache.ignite.internal.processors.query.h2.sql.GridSqlQuerySplitter;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
-import org.apache.ignite.spi.discovery.DiscoverySpi;
-import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
@@ -74,9 +70,6 @@ import static org.apache.ignite.cache.CacheMode.REPLICATED;
  */
 @RunWith(JUnit4.class)
 public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonAbstractTest {
-    /** IP finder. */
-    private static final TcpDiscoveryIpFinder IP_FINDER = new TcpDiscoveryVmIpFinder(true);
-
     /** */
     private static IgniteCache<String, Organization> orgCache;
 
@@ -104,8 +97,6 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
 
         cfg.setPeerClassLoadingEnabled(false);
 
-        cfg.setDiscoverySpi(discovery());
-
         if (hasCache)
             cfg.setCacheConfiguration(cacheConfiguration());
         else
@@ -129,15 +120,6 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
             ccfg.setBackups(1);
 
         return ccfg;
-    }
-
-    /** @return Discovery SPI. */
-    private DiscoverySpi discovery() {
-        TcpDiscoverySpi spi = new TcpDiscoverySpi();
-
-        spi.setIpFinder(IP_FINDER);
-
-        return spi;
     }
 
     /**
@@ -379,7 +361,7 @@ public abstract class IgniteCacheAbstractFieldsQuerySelfTest extends GridCommonA
         for (List<?> row : res)
             X.println("____ : " + row);
 
-        if (cacheMode() == PARTITIONED || (cacheMode() == REPLICATED && !isReplicatedOnly())) {
+        if (cacheMode() == PARTITIONED) {
             assertEquals(2, res.size());
 
             assertTrue(((String)res.get(1).get(0)).contains(GridSqlQuerySplitter.mergeTableIdentifier(0)));

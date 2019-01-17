@@ -31,6 +31,7 @@ import java.util.UUID;
 import javax.cache.expiry.ExpiryPolicy;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorResult;
+import org.apache.ignite.IgniteCacheRestartingException;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -1596,7 +1597,7 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                             }
                             finally {
                                 if (entry != null)
-                                    entry.touch(topVer);
+                                    entry.touch();
                             }
                         }
                     }
@@ -1762,7 +1763,10 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
 
                         try {
                             if (top.stopping()) {
-                                res.addFailedKeys(req.keys(), new CacheStoppedException(name()));
+                                if (ctx.shared().cache().isCacheRestarting(name()))
+                                    res.addFailedKeys(req.keys(), new IgniteCacheRestartingException(name()));
+                                else
+                                    res.addFailedKeys(req.keys(), new CacheStoppedException(name()));
 
                                 completionCb.apply(req, res);
 
@@ -3098,7 +3102,7 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
         for (int i = 0; i < size; i++) {
             GridCacheMapEntry entry = locked.get(i);
             if (entry != null && (skip == null || !skip.contains(entry.key())))
-                entry.touch(topVer);
+                entry.touch();
         }
     }
 
@@ -3378,7 +3382,7 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                         }
                         finally {
                             if (entry != null)
-                                entry.touch(req.topologyVersion());
+                                entry.touch();
                         }
                     }
                 }
