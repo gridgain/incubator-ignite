@@ -222,10 +222,16 @@ export default class AgentManager {
         const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
         // Create a connection to http://localhost:9999/echo
-        this.eventBus = new EventBus('http://localhost:3000/websocket/');
+        this.eventBus = new EventBus('http://localhost:3000/websocket');
 
         // Open the connection
         this.eventBus.onopen = () => {
+            console.log('Connected!');
+
+            this.eventBus.publish('agents:stat', JSON.stringify({count: 0, hasDemo: false, clusters: []}));
+
+            console.log('Connected2!');
+
             // set a handler to receive a message
             this.eventBus.registerHandler('web-agent', (error, message) => {
                 console.log('Received a message: ' + JSON.stringify(message));
@@ -235,6 +241,14 @@ export default class AgentManager {
         this.eventBus.onerror = (err) => {
             console.log('Problem calling event bus: ' + JSON.stringify(err));
         };
+        //
+        // this.eventBus.onclose = (p) => {
+        //     console.log('Event bus closed: ' + JSON.stringify(p));
+        // };
+        //
+        // this.eventBus.onmessage = (m) => {
+        //     console.log('Message: ' + JSON.stringify(m));
+        // };
 
         // this.socket.onopen = function() {
         //     console.log('WS opened!');

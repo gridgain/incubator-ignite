@@ -20,9 +20,11 @@ import './style.scss';
 
 export class ButtonImportModels {
     static $inject = ['ModalImportModels'];
+
     constructor(ModalImportModels) {
         Object.assign(this, {ModalImportModels});
     }
+
     startImport() {
         return this.ModalImportModels.open(this.clusterID);
     }

@@ -24,6 +24,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
@@ -45,6 +46,16 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
         Router router = Router.router(vertx);
 
         webSocketsHnd = SockJSHandler.create(vertx);
+
+        router.route().handler(CorsHandler.create(".*")
+            .allowedMethod(io.vertx.core.http.HttpMethod.GET)
+            .allowedMethod(io.vertx.core.http.HttpMethod.POST)
+            .allowedMethod(io.vertx.core.http.HttpMethod.OPTIONS)
+            .allowCredentials(true)
+            .allowedHeader("Access-Control-Allow-Method")
+            .allowedHeader("Access-Control-Allow-Origin")
+            .allowedHeader("Access-Control-Allow-Credentials")
+            .allowedHeader("Content-Type"));
 
         router.route("/websocket/*").handler(webSocketsHnd);
 
@@ -106,8 +117,8 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      */
     private void handle() {
         BridgeOptions opts = new BridgeOptions()
-            .addInboundPermitted(new PermittedOptions().setAddress("to.server"))
-            .addOutboundPermitted(new PermittedOptions().setAddress("to.client"));
+            .addInboundPermitted(new PermittedOptions().setAddress("web-agent"))
+            .addOutboundPermitted(new PermittedOptions().setAddress("web-agent"));
 
         webSocketsHnd.bridge(opts, event -> {
             if (event.type() == PUBLISH)
@@ -130,7 +141,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param evt xxx
      */
     private void registerEvent(BridgeEvent evt) {
-        System.out.println("registerEvent");
+        System.out.println("registerEvent: " + evt.type());
 
         JsonObject rMsg = evt.getRawMessage();
 
@@ -144,7 +155,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param evt xxx
      */
     private void closeEvent(BridgeEvent evt) {
-        System.out.println("closeEvent: " + evt);
+        System.out.println("closeEvent: " + evt.type());
 
         new Thread(() -> vertx.eventBus().publish("to.client", "{\"id\": 3}")).start();
     }
@@ -155,7 +166,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @return {@code true}
      */
     private boolean publishEvent(BridgeEvent evt) {
-        System.out.println("publishEvent: " + evt);
+        System.out.println("publishEvent: " + evt.type());
 
         JsonObject rMsg = evt.getRawMessage();
 
