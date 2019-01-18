@@ -279,24 +279,6 @@ public class AgentLauncher extends AbstractVerticle {
             return;
         }
 
-        boolean trustAll = Boolean.getBoolean("trust.all");
-//        boolean hasServerTrustStore = cfg.serverTrustStore() != null;
-        boolean hasNodeTrustStore = cfg.nodeTrustStore() != null;
-
-//        if (trustAll && hasServerTrustStore) {
-//            log.warn("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
-//                "Option '-Dtrust.all=true' will be ignored.");
-//
-//            trustAll = false;
-//        }
-
-        if (trustAll && hasNodeTrustStore) {
-            log.warn("Options contains both '--node-trust-store' and '-Dtrust.all=true'. " +
-                "Option '-Dtrust.all=true' will be ignored.");
-
-            trustAll = false;
-        }
-
         cfg.nodeURIs(nodeURIs);
     }
 
@@ -353,15 +335,35 @@ public class AgentLauncher extends AbstractVerticle {
 
         List<String> cipherSuites = cfg.cipherSuites();
 
+//        boolean serverTrustAll = Boolean.getBoolean("trust.all");
+//        boolean hasServerTrustStore = cfg.serverTrustStore() != null;
+
+//        if (serverTrustAll && hasServerTrustStore) {
+//            log.warn("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
+//                "Option '-Dtrust.all=true' will be ignored on connect to Web server.");
+//
+//            serverTrustAll = false;
+//        }
+
+        boolean nodeTrustAll = Boolean.getBoolean("trust.all");
+        boolean hasNodeTrustStore = cfg.nodeTrustStore() != null;
+
+        if (nodeTrustAll && hasNodeTrustStore) {
+            log.warn("Options contains both '--node-trust-store' and '-Dtrust.all=true'. " +
+                "Option '-Dtrust.all=true' will be ignored on connect to cluster.");
+
+            nodeTrustAll = false;
+        }
+
 //        if (
-//            trustAll ||
+//            serverTrustAll ||
 //                hasServerTrustStore ||
 //                cfg.serverKeyStore() != null
 //        ) {
 //            OkHttpClient.Builder builder = new OkHttpClient.Builder();
 //
 //            X509TrustManager serverTrustMgr = trustManager(
-//                trustAll,
+//                serverTrustAll,
 //                cfg.serverTrustStore(),
 //                cfg.serverTrustStorePassword()
 //            );
@@ -383,6 +385,7 @@ public class AgentLauncher extends AbstractVerticle {
 
 //        try (
             RestExecutor restExecutor = new RestExecutor(
+                nodeTrustAll,
                 cfg.nodeKeyStore(), cfg.nodeKeyStorePassword(),
                 cfg.nodeTrustStore(), cfg.nodeTrustStorePassword(),
                 cipherSuites);
