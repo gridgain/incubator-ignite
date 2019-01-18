@@ -49,14 +49,14 @@ public class ServerMock {
             .setIgniteInstanceName("node_" + 0)
             .setPeerClassLoadingEnabled(true)
             .setDiscoverySpi(new TcpDiscoverySpi().setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(Arrays.asList(
-                "172.25.1.11:47500..47509",
-                "172.25.1.12:47500..47509",
-                "172.25.1.13:47500..47509",
-                "172.25.1.14:47500..47509",
-                "172.25.1.15:47500..47509",
-                "172.25.1.16:47500..47509",
-                "172.25.1.17:47500..47509",
-                "172.25.1.18:47500..47509"
+                "172.25.1.11:47500..47510",
+                "172.25.1.12:47500..47510",
+                "172.25.1.13:47500..47510",
+                "172.25.1.14:47500..47510",
+                "172.25.1.15:47500..47510",
+                "172.25.1.16:47500..47510",
+                "172.25.1.17:47500..47510",
+                "172.25.1.18:47500..47510"
             ))))
             .setClientConnectorConfiguration(new ClientConnectorConfiguration()
                 .setHost("0.0.0.0")
