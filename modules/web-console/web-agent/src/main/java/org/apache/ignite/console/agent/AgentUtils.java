@@ -331,4 +331,13 @@ public class AgentUtils {
             }
         };
     }
+
+    /**
+     * @param evt Event
+     * @param data Data
+     * @return JSON
+     */
+    public static String response(String evt, Object data) {
+        return "{\"event\": " + evt + ", \"data\": " + String.valueOf(data) + "}";
+    }
 }

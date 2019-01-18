@@ -49,6 +49,7 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CLUSTER_NAME;
+import static org.apache.ignite.console.agent.AgentUtils.response;
 import static org.apache.ignite.console.agent.AgentUtils.toJSON;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CLIENT_MODE;
@@ -148,7 +149,7 @@ public class ClusterListener implements AutoCloseable {
     private void clusterConnect(Collection<UUID> nids) {
         log.info("Connection successfully established to cluster with nodes: " + F.viewReadOnly(nids, ID2ID8));
 
-        ws.writeTextMessage(EVENT_CLUSTER_CONNECTED + toJSON(nids));
+        ws.writeTextMessage(response(EVENT_CLUSTER_CONNECTED, toJSON(nids)));
     }
 
     /**
@@ -162,7 +163,7 @@ public class ClusterListener implements AutoCloseable {
 
         log.info("Connection to cluster was lost");
 
-        ws.writeTextMessage(EVENT_CLUSTER_DISCONNECTED);
+        ws.writeTextMessage(response(EVENT_CLUSTER_DISCONNECTED, null));
     }
 
     /**
@@ -506,7 +507,7 @@ public class ClusterListener implements AutoCloseable {
 
                     top = newTop;
 
-                    ws.writeTextMessage(EVENT_CLUSTER_TOPOLOGY + toJSON(top));
+                    ws.writeTextMessage(response(EVENT_CLUSTER_TOPOLOGY, toJSON(top)));
                 }
                 else {
                     LT.warn(log, res.getError());
