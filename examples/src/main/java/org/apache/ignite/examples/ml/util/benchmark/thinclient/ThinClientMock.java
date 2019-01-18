@@ -36,7 +36,7 @@ public class ThinClientMock {
     private static final int SCAN_QUERY_HEADER_MESSAGE_SIZE = 25;
     private static final int READ_NEXT_PAGE_MESSAGE_SIZE = 17;
 
-    private static final String HOST = "localhost";
+    private static final String HOST = "172.25.1.16";
     private static final int PORT = 10800;
 
     private final int pageSize;

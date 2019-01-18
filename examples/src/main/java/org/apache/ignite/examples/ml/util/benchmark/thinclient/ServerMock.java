@@ -45,7 +45,21 @@ public class ServerMock {
 
         List<Ignite> ignites = null;
 
-        try (Ignite ignite = Ignition.start("examples/config/example-ignite.xml")) {
+        IgniteConfiguration configuration = new IgniteConfiguration()
+            .setIgniteInstanceName("node_" + 0)
+            .setPeerClassLoadingEnabled(true)
+            .setDiscoverySpi(new TcpDiscoverySpi().setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(Arrays.asList(
+                "172.25.1.13:47500..47509",
+                "172.25.1.15:47500..47509",
+                "172.25.1.16:47500..47509",
+                "172.25.1.17:47500..47509"
+            ))))
+            .setClientConnectorConfiguration(new ClientConnectorConfiguration()
+                .setHost("0.0.0.0")
+                .setPort(10800)
+                .setPortRange(1));
+
+        try (Ignite ignite = Ignition.start(configuration)) {
             if(params.isFillCache()) {
                 CacheConfiguration<Integer, byte[]> cacheConfiguration = new CacheConfiguration<>();
                 cacheConfiguration.setAffinity(new RendezvousAffinityFunction(false, params.getCountOfPartitions()));
