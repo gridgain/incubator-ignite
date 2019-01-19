@@ -168,12 +168,17 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 //            key.writeTextMessage(json.toString());
 //        }));
 
-        // Create the HTTP server.
+        // Create the HTTP server for browsers.
+        vertx
+            .createHttpServer()
+            .requestHandler(router)
+            .listen(3000);
+
+        // Create the HTTP server for agents.
         vertx
             .createHttpServer()
             .websocketHandler(this::webSocketHandler)
-            .requestHandler(router)
-            .listen(3000);
+            .listen(3001);
     }
 
     /**
