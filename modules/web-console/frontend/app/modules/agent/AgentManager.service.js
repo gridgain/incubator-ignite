@@ -21,7 +21,7 @@ import {nonEmpty, nonNil} from 'app/utils/lodashMixins';
 import {BehaviorSubject} from 'rxjs';
 import {first, pluck, tap, distinctUntilChanged, map, filter} from 'rxjs/operators';
 
-import SockJS from 'sockjs-client';
+import EventBus from 'vertx3-eventbus-client';
 
 import AgentModal from './AgentModal.service';
 // @ts-ignore
@@ -146,7 +146,7 @@ export default class AgentManager {
     /** @type {Set<ng.IPromise<unknown>>} */
     promises = new Set();
 
-    socket = null;
+    eventBus = null;
 
     static restoreActiveCluster() {
         try {
@@ -179,6 +179,8 @@ export default class AgentManager {
         this.ClusterLoginSrv = ClusterLoginSrv;
 
         this.clusterVersion = this.Version.webConsole;
+
+        this.browserId = Math.random();
 
         let prevCluster;
 
@@ -216,35 +218,40 @@ export default class AgentManager {
     }
 
     connect() {
-        if (nonNil(this.socket))
+        if (nonNil(this.eventBus))
             return;
 
         const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
-        // Create a connection to http://localhost:9999/echo
-        this.socket = new SockJS('http://localhost:3000/browsers');
+        // Create a connection to backend.
+        this.eventBus = new EventBus('http://127.0.0.1:3000/browsers');
 
         // Open the connection
-        this.socket.onopen = () => {
+        this.eventBus.onopen = () => {
             console.log('Connected!');
 
-            this.socket.send(JSON.stringify({event: 'agents:stat', data: {count: 0, hasDemo: false, clusters: []}}));
+            this.eventBus.registerHandler('agent:stats', (err, msg) => {
+                console.log('agent:stats:msg' + JSON.stringify(msg));
+            });
 
-            console.log('Connected2!');
+            this.eventBus.registerHandler('node:rest', (err, msg) => {
+                console.log(JSON.stringify(msg));
+            });
 
-            // // set a handler to receive a message
-            // this.eventBus.registerHandler('web-agent', (error, message) => {
-            //     console.log('Received a message: ' + JSON.stringify(message));
-            // });
+            this.eventBus.registerHandler('node:visor', (err, msg) => {
+                console.log(JSON.stringify(msg));
+            });
+
+            setInterval(() => this.eventBus.send('browser:info', {browserId: this.browserId}), 3000);
         };
 
-        this.socket.onerror = (err) => {
-            console.log('Problem calling event bus: ' + JSON.stringify(err));
-        };
-
-        this.socket.onclose = (p) => {
-            console.log('Socket closed: ' + JSON.stringify(p));
-        };
+        // this.socket.onerror = (err) => {
+        //     console.log('Problem calling event bus: ' + JSON.stringify(err));
+        // };
+        //
+        // this.socket.onclose = (p) => {
+        //     console.log('Socket closed: ' + JSON.stringify(p));
+        // };
         //
         // this.eventBus.onclose = (p) => {
         //     console.log('Event bus closed: ' + JSON.stringify(p));
@@ -468,7 +475,7 @@ export default class AgentManager {
      * @private
      */
     _sendToAgent(event, data = {}) {
-        if (!this.socket)
+        if (!this.eventBus)
             return this.$q.reject('Failed to connect to server');
 
         const latch = this.$q.defer();
@@ -481,7 +488,7 @@ export default class AgentManager {
 
         // this.socket.on('disconnect', onDisconnect);
 
-        this.socket.send({event, data});
+        this.eventBus.publish(event, {data});
 
         // this.socket.emit(event, data, (err, res) => {
         //     this.socket.removeListener('disconnect', onDisconnect);

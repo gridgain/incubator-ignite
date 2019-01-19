@@ -20,13 +20,20 @@ package org.apache.ignite.web.console.web.server;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.sockjs.BridgeEvent;
+import io.vertx.ext.web.handler.CorsHandler;
+import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
+
+import static io.vertx.core.http.HttpMethod.GET;
+import static io.vertx.core.http.HttpMethod.POST;
 
 /**
  * Handler
@@ -39,10 +46,20 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     private Map<ServerWebSocket, String> agentSockets = new ConcurrentHashMap<>();
 
     /**
-     * @param s Messge to log.
+     * @param s Message to log.
      */
     private void log(Object s) {
         System.out.println(s);
+    }
+
+    /**
+     * @param bopts TODO
+     * @param addr TODO
+     */
+    private void bind(BridgeOptions bopts, String addr) {
+        bopts
+            .addInboundPermitted(new PermittedOptions().setAddress(addr))
+            .addOutboundPermitted(new PermittedOptions().setAddress(addr));
     }
 
     /** {@inheritDoc} */
@@ -50,49 +67,60 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
         // Create a router object.
         Router router = Router.router(vertx);
 
-//        SockJSHandlerOptions sockJsOpts = new SockJSHandlerOptions()
-//            .addDisabledTransport(Transport.EVENT_SOURCE.toString())
-//            .addDisabledTransport(Transport.HTML_FILE.toString())
-//            .addDisabledTransport(Transport.JSON_P.toString())
-//            .addDisabledTransport(Transport.XHR.toString());
+        browsersHandler = SockJSHandler.create(vertx);
 
-        browsersHandler = SockJSHandler.create(vertx); //, sockJsOpts);
+        BridgeOptions bopts = new BridgeOptions();
 
-//        BridgeOptions bopts = new BridgeOptions()
-//            .addInboundPermitted(new PermittedOptions().setAddress("browser:hello"))
-//            .addOutboundPermitted(new PermittedOptions().setAddress("agent:stats"));
-//
-//        browsersHandler.bridge(bopts);
-//
-//        vertx.eventBus().consumer("browser:hello", msg -> {
-//            log(msg.body());
-//        });
-//
-//        vertx.setPeriodic(1000L, t -> {
-//            vertx.eventBus().send("agent:stats", new JsonObject().put("msg", "data-from-server"));
-//        });
+        bind(bopts, "agent:stats");
+        bind(bopts, "browser:info");
+        bind(bopts, "node:rest");
+        bind(bopts, "node:visor");
+        bind(bopts, "schemaImport:drivers");
+        bind(bopts, "schemaImport:schemas");
+        bind(bopts, "schemaImport:metadata");
+
+        browsersHandler.bridge(bopts);
+
+        EventBus eventBus = vertx.eventBus();
+
+        eventBus.consumer("browser:info", msg -> {
+            log("browser:info: " + msg.address() + " " + msg.body());
+        });
+
+        eventBus.consumer("node:rest", msg -> log(msg.body()));
+
+        eventBus.consumer("node:visor", msg -> log(msg.body()));
+
+        eventBus.consumer("schemaImport:drivers", msg -> log(msg.body()));
+
+        eventBus.consumer("schemaImport:schemas", msg -> log(msg.body()));
+
+        eventBus.consumer("schemaImport:metadata", msg -> log(msg.body()));
+
+        vertx.setPeriodic(3000L, t -> {
+            log("Send to browser");
+
+            eventBus.send("agent:stats", "{\"data\": 1}");
+        });
 
         browsersHandler.socketHandler(socket -> {
             log("browsersHandler.socketHandler: " + socket.writeHandlerID() + ", " + socket.uri());
 
-            socket.endHandler(e -> {
-                log("browsersHandler.endHandler: ");
-            });
+            socket.endHandler(e -> log("browsersHandler.endHandler: "));
 
-            socket.handler(data -> {
-                log("browsersHandler.dataHandler: " + data);
-            });
+            socket.handler(data -> log("browsersHandler.dataHandler: " + data));
+
+            socket.exceptionHandler(e -> log("browsersHandler.exceptionHandler: " + e.getMessage()));
         });
 
-//        router.route().handler(CorsHandler.create(".*")
-//            .allowedMethod(io.vertx.core.http.HttpMethod.GET)
-//            .allowedMethod(io.vertx.core.http.HttpMethod.POST)
-//            .allowedMethod(io.vertx.core.http.HttpMethod.OPTIONS)
-//            .allowCredentials(true)
-//            .allowedHeader("Access-Control-Allow-Method")
-//            .allowedHeader("Access-Control-Allow-Origin")
-//            .allowedHeader("Access-Control-Allow-Credentials")
-//            .allowedHeader("Content-Type"));
+        router.route().handler(CorsHandler.create(".*")
+            .allowedMethod(GET)
+            .allowedMethod(POST)
+            .allowCredentials(true)
+            .allowedHeader("Access-Control-Allow-Method")
+            .allowedHeader("Access-Control-Allow-Origin")
+            .allowedHeader("Access-Control-Allow-Credentials")
+            .allowedHeader("Content-Type"));
 
         router.route("/browsers/*").handler(browsersHandler);
 
@@ -131,14 +159,14 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
          */
 
-        vertx.setPeriodic(1000L, t -> agentSockets.forEach((key, value) -> {
-            log("Send message to agent: " + value);
-
-            JsonObject json = new JsonObject();
-            json.put("address", "schemaImport:drivers");
-
-            key.writeTextMessage(json.toString());
-        }));
+//        vertx.setPeriodic(1000L, t -> agentSockets.forEach((key, value) -> {
+//            log("Send message to agent: " + value);
+//
+//            JsonObject json = new JsonObject();
+//            json.put("address", "schemaImport:drivers");
+//
+//            key.writeTextMessage(json.toString());
+//        }));
 
         // Create the HTTP server.
         vertx
@@ -146,34 +174,6 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             .websocketHandler(this::webSocketHandler)
             .requestHandler(router)
             .listen(3000);
-
-        // handle();
-    }
-
-    /**
-     * xxx
-     */
-    private void handle() {
-//        BridgeOptions opts = new BridgeOptions()
-//            .addInboundPermitted(new PermittedOptions().setAddress("web-agent"))
-//            .addOutboundPermitted(new PermittedOptions().setAddress("web-agent"));
-//
-//        browsersHandler.bridge(opts, event -> {
-//            System.out.println("browsersHandler: " + event.type());
-//
-//            if (event.type() == PUBLISH)
-//                publishEvent(event);
-//
-//            if (event.type() == REGISTER)
-//                registerEvent(event);
-//
-//            if (event.type() == SOCKET_CLOSED)
-//                closeEvent(event);
-//
-//            //обратите внимание, после обработки события
-//            // должен вызываться говорящий сам за себя метод.
-//            event.complete(true);
-//        });
     }
 
     /**
@@ -198,53 +198,6 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
             agentSockets.remove(ws);
         });
-    }
-
-    /**
-     *
-     * @param evt xxx
-     */
-    private void registerEvent(BridgeEvent evt) {
-        System.out.println("registerEvent: " + evt.type());
-
-        JsonObject rMsg = evt.getRawMessage();
-
-        if (rMsg != null && "web-agent".equals(rMsg.getString("address"))) {
-            System.out.println(rMsg);
-            // new Thread(() -> vertx.eventBus().publish("to.client", "{\"id\": 1}")).start();
-        }
-    }
-
-    /**
-     * @param evt xxx
-     */
-    private void closeEvent(BridgeEvent evt) {
-        System.out.println("closeEvent: " + evt.type());
-
-        new Thread(() -> vertx.eventBus().publish("to.client", "{\"id\": 3}")).start();
-    }
-
-    /**
-     *
-     * @param evt xxx
-     * @return {@code true}
-     */
-    private boolean publishEvent(BridgeEvent evt) {
-        System.out.println("publishEvent: " + evt.type());
-
-        JsonObject rMsg = evt.getRawMessage();
-
-        if (rMsg != null && "to.server".equals(rMsg.getString("address"))) {
-            String msg = rMsg.getString("body");
-
-            System.out.println(msg);
-
-            vertx.eventBus().publish("to.client", "{\"id\": 2}");
-
-            return true;
-        }
-        else
-            return false;
     }
 
     /**

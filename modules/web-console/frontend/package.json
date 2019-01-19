@@ -94,7 +94,6 @@
     "@types/mocha": "2.2.48",
     "@types/node": "10.5.1",
     "@types/sinon": "4.0.0",
-    "@types/socket.io-client": "1.4.32",
     "@types/ui-grid": "0.0.38",
     "@types/webpack": "4.4.11",
     "@types/webpack-merge": "4.1.3",

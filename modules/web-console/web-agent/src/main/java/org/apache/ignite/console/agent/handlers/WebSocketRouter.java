@@ -103,7 +103,7 @@ public class WebSocketRouter extends AbstractVerticle {
             .setHost(uri.getHost())
             .setPort(uri.getPort())
             .setSsl(ssl)
-            .setURI("/eventbus");
+            .setURI("/web-agents");
 
         vertx.setTimer(1, this::connect);
     }

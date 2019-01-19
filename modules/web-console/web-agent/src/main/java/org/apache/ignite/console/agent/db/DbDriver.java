@@ -15,33 +15,38 @@
  * limitations under the License.
  */
 
-import angular from 'angular';
-import io from 'socket.io-client'; // eslint-disable-line no-unused-vars
+package org.apache.ignite.console.agent.db;
 
-angular
-.module('ignite-console.socket', [
-])
-.provider('igniteSocketFactory', function() {
-    let _options = {};
+/**
+ * Database driver.
+ */
+public class DbDriver {
+    /** */
+    private final String jdbcDriverJar;
+
+    /** */
+    private final String jdbcDriverCls;
 
     /**
-     * @param {Object} options Socket io options.
+     * @param jdbcDriverJar File name of driver jar file.
+     * @param jdbcDriverCls Optional JDBC driver class name.
      */
-    this.set = (options) => {
-        _options = options;
-    };
-
-    function factory(socketFactory) {
-        return function() {
-            const ioSocket = io.connect(_options);
-
-            return socketFactory({ioSocket});
-        };
+    public DbDriver(String jdbcDriverJar, String jdbcDriverCls) {
+        this.jdbcDriverJar = jdbcDriverJar;
+        this.jdbcDriverCls = jdbcDriverCls;
     }
 
-    factory.$inject = ['socketFactory'];
+    /**
+     * @return File name of driver jar file.
+     */
+    public String getJdbcDriverJar() {
+        return jdbcDriverJar;
+    }
 
-    this.$get = factory;
-
-    return this;
-});
+    /**
+     * @return Optional JDBC driver class name.
+     */
+    public String getJdbcDriverClass() {
+        return jdbcDriverCls;
+    }
+}

@@ -19,7 +19,6 @@ package org.apache.ignite.console.agent.handlers;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -34,10 +33,12 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
+import org.apache.ignite.console.agent.db.DbDriver;
 import org.apache.ignite.console.agent.db.DbMetadataReader;
 import org.apache.ignite.console.agent.db.DbSchema;
 import org.apache.ignite.console.agent.db.DbTable;
 import org.apache.ignite.console.demo.AgentMetadataDemo;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
@@ -72,7 +73,8 @@ public class DatabaseListener extends AbstractVerticle {
      * @param cfg Config.
      */
     public DatabaseListener(AgentConfiguration cfg) {
-        driversFolder = resolvePath(cfg.driversFolder() == null ? "jdbc-drivers" : cfg.driversFolder());
+        driversFolder = resolvePath(F.isEmpty(cfg.driversFolder()) ? "jdbc-drivers" : cfg.driversFolder());
+
         dbMetaReader = new DbMetadataReader();
     }
 
@@ -88,17 +90,12 @@ public class DatabaseListener extends AbstractVerticle {
      */
     private void driversHandler(Message<Void> msg) {
         try {
-            List<JdbcDriver> drivers = new ArrayList<>();
+            List<DbDriver> drivers = new ArrayList<>();
 
             if (driversFolder != null) {
-                if (log.isDebugEnabled())
-                    log.debug("Collecting JDBC drivers in folder: " + driversFolder.getPath());
+                log.info("Collecting JDBC drivers in folder: " + driversFolder.getPath());
 
-                File[] list = driversFolder.listFiles(new FilenameFilter() {
-                    @Override public boolean accept(File dir, String name) {
-                        return name.endsWith(".jar");
-                    }
-                });
+                File[] list = driversFolder.listFiles((dir, name) -> name.endsWith(".jar"));
 
                 if (list != null) {
                     for (File file : list) {
@@ -111,17 +108,16 @@ public class DatabaseListener extends AbstractVerticle {
                             try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), UTF_8))) {
                                 String jdbcDriverCls = reader.readLine();
 
-                                drivers.add(new JdbcDriver(file.getName(), jdbcDriverCls));
+                                drivers.add(new DbDriver(file.getName(), jdbcDriverCls));
 
-                                if (log.isDebugEnabled())
-                                    log.debug("Found: [driver=" + file + ", class=" + jdbcDriverCls + "]");
+                                log.info("Found: [driver=" + file + ", class=" + jdbcDriverCls + "]");
                             }
                         }
                         catch (IOException e) {
-                            drivers.add(new JdbcDriver(file.getName(), null));
+                            drivers.add(new DbDriver(file.getName(), null));
 
                             log.info("Found: [driver=" + file + "]");
-                            log.info("Failed to detect driver class: " + e.getMessage());
+                            log.error("Failed to detect driver class: " + e.getMessage());
                         }
                     }
                 }
@@ -167,9 +163,8 @@ public class DatabaseListener extends AbstractVerticle {
 
             jdbcInfo.putAll((Map)args.get("info"));
 
-            if (log.isDebugEnabled())
-                log.debug("Start collecting database schemas [drvJar=" + jdbcDriverJarPath +
-                    ", drvCls=" + jdbcDriverCls + ", jdbcUrl=" + jdbcUrl + "]");
+            log.info("Start collecting database schemas [drvJar=" + jdbcDriverJarPath +
+                ", drvCls=" + jdbcDriverCls + ", jdbcUrl=" + jdbcUrl + "]");
 
             try (Connection conn = connect(jdbcDriverJarPath, jdbcDriverCls, jdbcUrl, jdbcInfo)) {
                 String catalog = conn.getCatalog();
@@ -182,11 +177,10 @@ public class DatabaseListener extends AbstractVerticle {
 
                 Collection<String> schemas = dbMetaReader.schemas(conn);
 
-                if (log.isDebugEnabled())
-                    log.debug("Finished collection of schemas [jdbcUrl=" + jdbcUrl + ", catalog=" + catalog +
-                        ", count=" + schemas.size() + "]");
+                log.info("Collected database schemas [jdbcUrl=" + jdbcUrl + ", catalog=" + catalog +
+                    ", count=" + schemas.size() + "]");
 
-                msg.reply(new DbSchema(catalog, schemas));
+                msg.reply(toJSON(EVENT_SCHEMA_IMPORT_SCHEMAS, new DbSchema(catalog, schemas)));
             }
         }
         catch (Throwable e) {
@@ -233,17 +227,15 @@ public class DatabaseListener extends AbstractVerticle {
 
             boolean tblsOnly = (boolean)args.get("tablesOnly");
 
-            if (log.isDebugEnabled())
-                log.debug("Start collecting database metadata [drvJar=" + jdbcDriverJarPath +
-                    ", drvCls=" + jdbcDriverCls + ", jdbcUrl=" + jdbcUrl + "]");
+            log.info("Start collecting database metadata [drvJar=" + jdbcDriverJarPath +
+                ", drvCls=" + jdbcDriverCls + ", jdbcUrl=" + jdbcUrl + "]");
 
             try (Connection conn = connect(jdbcDriverJarPath, jdbcDriverCls, jdbcUrl, jdbcInfo)) {
                 Collection<DbTable> metadata = dbMetaReader.metadata(conn, schemas, tblsOnly);
 
-                if (log.isDebugEnabled())
-                    log.debug("Finished collection of metadata [jdbcUrl=" + jdbcUrl + ", count=" + metadata.size() + "]");
+                log.info("Collected database metadata [jdbcUrl=" + jdbcUrl + ", count=" + metadata.size() + "]");
 
-                msg.reply(metadata);
+                msg.reply(toJSON(EVENT_SCHEMA_IMPORT_METADATA, metadata));
             }
         }
         catch (Throwable e) {
@@ -268,24 +260,5 @@ public class DatabaseListener extends AbstractVerticle {
             jdbcDriverJarPath = new File(driversFolder, jdbcDriverJarPath).getPath();
 
         return dbMetaReader.connect(jdbcDriverJarPath, jdbcDriverCls, jdbcUrl, jdbcInfo);
-    }
-
-    /**
-     * Wrapper class for later to be transformed to JSON and send to Web Console.
-     */
-    private static class JdbcDriver {
-        /** */
-        public final String jdbcDriverJar;
-        /** */
-        public final String jdbcDriverCls;
-
-        /**
-         * @param jdbcDriverJar File name of driver jar file.
-         * @param jdbcDriverCls Optional JDBC driver class.
-         */
-        JdbcDriver(String jdbcDriverJar, String jdbcDriverCls) {
-            this.jdbcDriverJar = jdbcDriverJar;
-            this.jdbcDriverCls = jdbcDriverCls;
-        }
     }
 }
