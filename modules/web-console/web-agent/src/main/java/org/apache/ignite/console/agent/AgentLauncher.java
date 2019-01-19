@@ -27,19 +27,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
-import java.util.concurrent.CountDownLatch;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 
-import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.WebSocket;
 
 import org.apache.ignite.console.agent.handlers.ClusterListener;
 import org.apache.ignite.console.agent.handlers.DatabaseListener;
-import org.apache.ignite.console.agent.handlers.RestListener;
+import org.apache.ignite.console.agent.handlers.RestHandler;
+import org.apache.ignite.console.agent.handlers.WebSocketRouter;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,39 +45,15 @@ import org.slf4j.bridge.SLF4JBridgeHandler;
 /**
  * Ignite Web Agent launcher.
  */
-public class AgentLauncher extends AbstractVerticle {
+public class AgentLauncher {
     /** */
     private static final Logger log = LoggerFactory.getLogger(AgentLauncher.class);
-
-    /** */
-    private static final String EVENT_SCHEMA_IMPORT_DRIVERS = "schemaImport:drivers";
-
-    /** */
-    private static final String EVENT_SCHEMA_IMPORT_SCHEMAS = "schemaImport:schemas";
-
-    /** */
-    private static final String EVENT_SCHEMA_IMPORT_METADATA = "schemaImport:metadata";
-
-    /** */
-    private static final String EVENT_NODE_VISOR_TASK = "node:visorTask";
-
-    /** */
-    private static final String EVENT_NODE_REST = "node:rest";
 
     /** */
     private static final String EVENT_RESET_TOKEN = "agent:reset:token";
 
     /** */
     private static final String EVENT_LOG_WARNING = "log:warn";
-
-    /** */
-    private final AgentConfiguration cfg;
-
-    /** */
-    private final CountDownLatch startUpLatch = new CountDownLatch(1);
-
-    /** */
-    private volatile WebSocket ws;
 
     static {
         // Optionally remove existing handlers attached to j.u.l root logger.
@@ -166,11 +139,12 @@ public class AgentLauncher extends AbstractVerticle {
 
     /**
      * @param args Launcher args.
+     * @return Agent configuration;
      */
-    public AgentLauncher(String[] args) {
+    private static AgentConfiguration parseArgs(String[] args) {
         log.info("Starting Apache Ignite Web Console Agent...");
 
-        cfg = new AgentConfiguration();
+        AgentConfiguration cfg = new AgentConfiguration();
 
         JCommander jCommander = new JCommander(cfg);
 
@@ -186,7 +160,7 @@ public class AgentLauncher extends AbstractVerticle {
 
             jCommander.usage();
 
-            return;
+            return null;
         }
 
         String prop = cfg.configPath();
@@ -211,7 +185,7 @@ public class AgentLauncher extends AbstractVerticle {
         if (cfg.help()) {
             jCommander.usage();
 
-            return;
+            return null;
         }
 
         System.out.println();
@@ -227,7 +201,7 @@ public class AgentLauncher extends AbstractVerticle {
         catch (URISyntaxException e) {
             log.error("Failed to parse Ignite Web Console uri", e);
 
-            return;
+            return null;
         }
 
         if (cfg.tokens() == null) {
@@ -276,10 +250,12 @@ public class AgentLauncher extends AbstractVerticle {
         if (nodeURIs.isEmpty()) {
             log.error("Failed to find valid URIs for connect to Ignite node via REST. Please check agent settings");
 
-            return;
+            return null;
         }
 
         cfg.nodeURIs(nodeURIs);
+
+        return cfg;
     }
 
     /**
@@ -299,7 +275,7 @@ public class AgentLauncher extends AbstractVerticle {
      * @param fmt Format string.
      * @param args Arguments.
      */
-    private char[] readPassword(String fmt, Object... args) {
+    private static char[] readPassword(String fmt, Object... args) {
         if (System.console() != null)
             return System.console().readPassword(fmt, args);
 
@@ -308,52 +284,11 @@ public class AgentLauncher extends AbstractVerticle {
         return new Scanner(System.in).nextLine().toCharArray();
     }
 
-    /** {@inheritDoc} */
-    @Override public void start() {
-        log.info("Connecting to: {}", cfg.serverUri());
-
-        HttpClient client = vertx.createHttpClient();
-
-        client.websocket(3000, "localhost", "/websocket", websocket -> {
-            System.out.println("Connected to web socket");
-
-            ws = websocket;
-
-            startUpLatch.countDown();
-
-            websocket.handler(data -> {
-                System.out.println("Received data " + data.toString());
-            });
-        });
-    }
 
     /**
      *
      */
-    private void run() throws Exception {
-        startUpLatch.await();
-
-        List<String> cipherSuites = cfg.cipherSuites();
-
-//        boolean serverTrustAll = Boolean.getBoolean("trust.all");
-//        boolean hasServerTrustStore = cfg.serverTrustStore() != null;
-
-//        if (serverTrustAll && hasServerTrustStore) {
-//            log.warn("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
-//                "Option '-Dtrust.all=true' will be ignored on connect to Web server.");
-//
-//            serverTrustAll = false;
-//        }
-
-        boolean nodeTrustAll = Boolean.getBoolean("trust.all");
-        boolean hasNodeTrustStore = cfg.nodeTrustStore() != null;
-
-        if (nodeTrustAll && hasNodeTrustStore) {
-            log.warn("Options contains both '--node-trust-store' and '-Dtrust.all=true'. " +
-                "Option '-Dtrust.all=true' will be ignored on connect to cluster.");
-
-            nodeTrustAll = false;
-        }
+    private void run() {
 
 //        if (
 //            serverTrustAll ||
@@ -382,18 +317,6 @@ public class AgentLauncher extends AbstractVerticle {
 //                    builder.connectionSpecs(sslConnectionSpec(cipherSuites));
 //            }
 //        }
-
-//        try (
-            RestExecutor restExecutor = new RestExecutor(
-                nodeTrustAll,
-                cfg.nodeKeyStore(), cfg.nodeKeyStorePassword(),
-                cfg.nodeTrustStore(), cfg.nodeTrustStorePassword(),
-                cipherSuites);
-
-            ClusterListener clusterLsnr = new ClusterListener(cfg, ws, restExecutor);
-//        ) {
-            clusterLsnr.watch();
-
 
 //            Emitter.Listener onConnect = connectRes -> {
 //                log.info("Connection established.");
@@ -473,10 +396,6 @@ public class AgentLauncher extends AbstractVerticle {
 //                }
 //            };
 
-            DatabaseListener dbHnd = new DatabaseListener(cfg);
-
-            RestListener restHnd = new RestListener(cfg, restExecutor);
-
 //            client
 //                .on(EVENT_CONNECT, onConnect)
 //                .on(EVENT_CONNECT_ERROR, onError)
@@ -513,10 +432,45 @@ public class AgentLauncher extends AbstractVerticle {
      * @param args Args.
      */
     public static void main(String[] args) throws Exception {
-        AgentLauncher launcher = new AgentLauncher(args);
+        AgentConfiguration cfg = parseArgs(args);
 
-        Vertx.vertx().deployVerticle(launcher);
+        if (cfg != null) {
+            Vertx vertx = Vertx.vertx();
 
-        launcher.run();
+            List<String> cipherSuites = cfg.cipherSuites();
+
+//        boolean serverTrustAll = Boolean.getBoolean("trust.all");
+//        boolean hasServerTrustStore = cfg.serverTrustStore() != null;
+
+//        if (serverTrustAll && hasServerTrustStore) {
+//            log.warn("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
+//                "Option '-Dtrust.all=true' will be ignored on connect to Web server.");
+//
+//            serverTrustAll = false;
+//        }
+
+            boolean nodeTrustAll = Boolean.getBoolean("trust.all");
+            boolean hasNodeTrustStore = cfg.nodeTrustStore() != null;
+
+            if (nodeTrustAll && hasNodeTrustStore) {
+                log.warn("Options contains both '--node-trust-store' and '-Dtrust.all=true'. " +
+                    "Option '-Dtrust.all=true' will be ignored on connect to cluster.");
+
+                nodeTrustAll = false;
+            }
+
+            RestExecutor restExecutor = new RestExecutor(
+                nodeTrustAll,
+                cfg.nodeKeyStore(), cfg.nodeKeyStorePassword(),
+                cfg.nodeTrustStore(), cfg.nodeTrustStorePassword(),
+                cipherSuites);
+
+            vertx.deployVerticle(new WebSocketRouter(cfg));
+            vertx.deployVerticle(new DatabaseListener(cfg));
+            vertx.deployVerticle(new ClusterListener(cfg, restExecutor));
+            vertx.deployVerticle(new RestHandler(cfg, restExecutor));
+
+            log.info("Web agent started");
+        }
     }
 }

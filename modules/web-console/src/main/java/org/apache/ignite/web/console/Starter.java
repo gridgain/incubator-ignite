@@ -33,5 +33,7 @@ public class Starter {
         System.out.println("Vertx Started!");
 
         Vertx.vertx().deployVerticle(new WebConsoleHttpServerVerticle());
+
+        System.out.println("Verticles deployed!");
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.web.console.web.server;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.http.ServerWebSocket;
@@ -28,6 +30,8 @@ import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
+import io.vertx.ext.web.handler.sockjs.SockJSHandlerOptions;
+import io.vertx.ext.web.handler.sockjs.Transport;
 
 import static io.vertx.ext.bridge.BridgeEventType.PUBLISH;
 import static io.vertx.ext.bridge.BridgeEventType.REGISTER;
@@ -38,26 +42,68 @@ import static io.vertx.ext.bridge.BridgeEventType.SOCKET_CLOSED;
  */
 public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     /** */
-    private SockJSHandler webSocketsHnd;
+    private SockJSHandler browsersHandler;
+
+    /** */
+    private Map<ServerWebSocket, String> sockets = new ConcurrentHashMap<>();
+
+    /**
+     * @param s Messge to log.
+     */
+    private void log(Object s) {
+        System.out.println(s);
+    }
 
     /** {@inheritDoc} */
     @Override public void start() {
         // Create a router object.
         Router router = Router.router(vertx);
 
-        webSocketsHnd = SockJSHandler.create(vertx);
+//        SockJSHandlerOptions sockJsOpts = new SockJSHandlerOptions()
+//            .addDisabledTransport(Transport.EVENT_SOURCE.toString())
+//            .addDisabledTransport(Transport.HTML_FILE.toString())
+//            .addDisabledTransport(Transport.JSON_P.toString())
+//            .addDisabledTransport(Transport.XHR.toString());
 
-        router.route().handler(CorsHandler.create(".*")
-            .allowedMethod(io.vertx.core.http.HttpMethod.GET)
-            .allowedMethod(io.vertx.core.http.HttpMethod.POST)
-            .allowedMethod(io.vertx.core.http.HttpMethod.OPTIONS)
-            .allowCredentials(true)
-            .allowedHeader("Access-Control-Allow-Method")
-            .allowedHeader("Access-Control-Allow-Origin")
-            .allowedHeader("Access-Control-Allow-Credentials")
-            .allowedHeader("Content-Type"));
+        browsersHandler = SockJSHandler.create(vertx); //, sockJsOpts);
 
-        router.route("/websocket/*").handler(webSocketsHnd);
+//        BridgeOptions bopts = new BridgeOptions()
+//            .addInboundPermitted(new PermittedOptions().setAddress("browser:hello"))
+//            .addOutboundPermitted(new PermittedOptions().setAddress("agent:stats"));
+//
+//        browsersHandler.bridge(bopts);
+//
+//        vertx.eventBus().consumer("browser:hello", msg -> {
+//            log(msg.body());
+//        });
+//
+//        vertx.setPeriodic(1000L, t -> {
+//            vertx.eventBus().send("agent:stats", new JsonObject().put("msg", "data-from-server"));
+//        });
+
+        browsersHandler.socketHandler(socket -> {
+            log("browsersHandler.socketHandler: " + socket.writeHandlerID() + ", " + socket.uri());
+
+            socket.endHandler(e -> {
+                log("browsersHandler.endHandler: ");
+            });
+
+            socket.handler(data -> {
+                log("browsersHandler.dataHandler: " + data);
+            });
+        });
+
+//        router.route().handler(CorsHandler.create(".*")
+//            .allowedMethod(io.vertx.core.http.HttpMethod.GET)
+//            .allowedMethod(io.vertx.core.http.HttpMethod.POST)
+//            .allowedMethod(io.vertx.core.http.HttpMethod.OPTIONS)
+//            .allowCredentials(true)
+//            .allowedHeader("Access-Control-Allow-Method")
+//            .allowedHeader("Access-Control-Allow-Origin")
+//            .allowedHeader("Access-Control-Allow-Credentials")
+//            .allowedHeader("Content-Type"));
+
+        router.route("/browsers/*").handler(browsersHandler);
 
         router.route("/api/v1/user").handler(this::handleUser);
         router.route("/api/v1/signup").handler(this::handleSignUp);
@@ -94,6 +140,12 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
          */
 
+        vertx.setPeriodic(1000L, t -> sockets.forEach((key, value) -> {
+            log("Send message to agent: " + value);
+
+            key.writeTextMessage("Kuk-ku: " + value);
+        }));
+
         // Create the HTTP server.
         vertx
             .createHttpServer()
@@ -101,38 +153,56 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             .requestHandler(router)
             .listen(3000);
 
-        handle();
-    }
-
-    private void webSocketHandler(ServerWebSocket ws) {
-        System.out.println(ws.path());
-
-        ws.handler(buf -> {
-            System.out.println("WS handler2: " + buf);
-        });
+        // handle();
     }
 
     /**
      * xxx
      */
     private void handle() {
-        BridgeOptions opts = new BridgeOptions()
-            .addInboundPermitted(new PermittedOptions().setAddress("web-agent"))
-            .addOutboundPermitted(new PermittedOptions().setAddress("web-agent"));
+//        BridgeOptions opts = new BridgeOptions()
+//            .addInboundPermitted(new PermittedOptions().setAddress("web-agent"))
+//            .addOutboundPermitted(new PermittedOptions().setAddress("web-agent"));
+//
+//        browsersHandler.bridge(opts, event -> {
+//            System.out.println("browsersHandler: " + event.type());
+//
+//            if (event.type() == PUBLISH)
+//                publishEvent(event);
+//
+//            if (event.type() == REGISTER)
+//                registerEvent(event);
+//
+//            if (event.type() == SOCKET_CLOSED)
+//                closeEvent(event);
+//
+//            //обратите внимание, после обработки события
+//            // должен вызываться говорящий сам за себя метод.
+//            event.complete(true);
+//        });
+    }
 
-        webSocketsHnd.bridge(opts, event -> {
-            if (event.type() == PUBLISH)
-                publishEvent(event);
+    /**
+     * @param ws Web socket.
+     */
+    private void webSocketHandler(ServerWebSocket ws) {
+        System.out.println("webSocketHandler: " + ws.path());
 
-            if (event.type() == REGISTER)
-                registerEvent(event);
+        ws.handler(buf -> {
+            JsonObject msg = buf.toJsonObject();
 
-            if (event.type() == SOCKET_CLOSED)
-                closeEvent(event);
+            log("Received via WebSocket: " + msg);
 
-            //обратите внимание, после обработки события
-            // должен вызываться говорящий сам за себя метод.
-            event.complete(true);
+            String agent = msg.getString("agent");
+
+            if (agent != null)
+                sockets.putIfAbsent(ws, agent);
+        });
+
+        ws.closeHandler(p -> {
+            log("Socket closed for agent: " + sockets.get(ws));
+
+            sockets.remove(ws);
         });
     }
 

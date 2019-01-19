@@ -25,14 +25,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.vertx.core.http.WebSocket;
 
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
@@ -49,8 +45,6 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CLUSTER_NAME;
-import static org.apache.ignite.console.agent.AgentUtils.response;
-import static org.apache.ignite.console.agent.AgentUtils.toJSON;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CLIENT_MODE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
@@ -62,7 +56,7 @@ import static org.apache.ignite.internal.visor.util.VisorTaskUtils.splitAddresse
 /**
  * API to transfer topology from Ignite cluster available by node-uri.
  */
-public class ClusterListener implements AutoCloseable {
+public class ClusterListener extends AbstractHandler {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(ClusterListener.class));
 
@@ -120,24 +114,16 @@ public class ClusterListener implements AutoCloseable {
     private final AgentConfiguration cfg;
 
     /** */
-    private final WebSocket ws;
-
-    /** */
     private final RestExecutor restExecutor;
-
-    /** */
-    private static final ScheduledExecutorService pool = Executors.newScheduledThreadPool(1);
 
     /** */
     private ScheduledFuture<?> refreshTask;
 
     /**
-     * @param ws Client.
      * @param restExecutor REST executor.
      */
-    public ClusterListener(AgentConfiguration cfg, WebSocket ws, RestExecutor restExecutor) {
+    public ClusterListener(AgentConfiguration cfg, RestExecutor restExecutor) {
         this.cfg = cfg;
-        this.ws = ws;
         this.restExecutor = restExecutor;
     }
 
@@ -149,7 +135,7 @@ public class ClusterListener implements AutoCloseable {
     private void clusterConnect(Collection<UUID> nids) {
         log.info("Connection successfully established to cluster with nodes: " + F.viewReadOnly(nids, ID2ID8));
 
-        ws.writeTextMessage(response(EVENT_CLUSTER_CONNECTED, toJSON(nids)));
+        // ws.writeTextMessage(response(EVENT_CLUSTER_CONNECTED, toJSON(nids)));
     }
 
     /**
@@ -163,7 +149,7 @@ public class ClusterListener implements AutoCloseable {
 
         log.info("Connection to cluster was lost");
 
-        ws.writeTextMessage(response(EVENT_CLUSTER_DISCONNECTED, null));
+        // ws.writeTextMessage(response(EVENT_CLUSTER_DISCONNECTED, null));
     }
 
     /**
@@ -180,14 +166,7 @@ public class ClusterListener implements AutoCloseable {
     public void watch() {
         safeStopRefresh();
 
-        refreshTask = pool.scheduleWithFixedDelay(watchTask, 0L, REFRESH_FREQ, TimeUnit.MILLISECONDS);
-    }
-
-    /** {@inheritDoc} */
-    @Override public void close() {
-        refreshTask.cancel(true);
-
-        pool.shutdownNow();
+        // refreshTask = pool.scheduleWithFixedDelay(watchTask, 0L, REFRESH_FREQ, TimeUnit.MILLISECONDS);
     }
 
     /** */
@@ -507,7 +486,7 @@ public class ClusterListener implements AutoCloseable {
 
                     top = newTop;
 
-                    ws.writeTextMessage(response(EVENT_CLUSTER_TOPOLOGY, toJSON(top)));
+                    // ws.writeTextMessage(response(EVENT_CLUSTER_TOPOLOGY, toJSON(top)));
                 }
                 else {
                     LT.warn(log, res.getError());

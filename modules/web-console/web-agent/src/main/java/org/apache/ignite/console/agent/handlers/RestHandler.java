@@ -30,7 +30,13 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 /**
  * API to translate REST requests to Ignite cluster.
  */
-public class RestListener extends AbstractListener {
+public class RestHandler extends AbstractHandler {
+    /** */
+    private static final String EVENT_NODE_VISOR_TASK = "node:visorTask";
+
+    /** */
+    private static final String EVENT_NODE_REST = "node:rest";
+
     /** */
     private final AgentConfiguration cfg;
 
@@ -41,7 +47,7 @@ public class RestListener extends AbstractListener {
      * @param cfg Config.
      * @param restExecutor REST executor.
      */
-    public RestListener(AgentConfiguration cfg, RestExecutor restExecutor) {
+    public RestHandler(AgentConfiguration cfg, RestExecutor restExecutor) {
         this.cfg = cfg;
         this.restExecutor = restExecutor;
     }
@@ -52,7 +58,7 @@ public class RestListener extends AbstractListener {
     }
 
     /** {@inheritDoc} */
-    @Override public Object execute(Map<String, Object> args) {
+    public Object execute(Map<String, Object> args) {
         if (log.isDebugEnabled())
             log.debug("Start parse REST command args: " + args);
 

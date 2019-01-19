@@ -18,9 +18,9 @@
 package org.apache.ignite.console.agent.handlers;
 
 import java.nio.charset.Charset;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import io.vertx.core.AbstractVerticle;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
@@ -28,15 +28,18 @@ import org.slf4j.LoggerFactory;
 /**
  * Base class for web socket handlers.
  */
-abstract class AbstractListener {
+abstract class AbstractHandler extends AbstractVerticle {
     /** */
-    final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(AbstractListener.class));
+    final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(AbstractHandler.class));
 
     /** UTF8 charset. */
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
     /** */
-    private ExecutorService pool;
+    protected static final String ROUTER_ADDR = "router";
+
+    /** */
+    protected static final int FAILED = 500;
 
 //    /** {@inheritDoc} */
 //    @SuppressWarnings("unchecked")
@@ -98,14 +101,6 @@ abstract class AbstractListener {
 //    }
 
     /**
-     * Stop handler.
-     */
-    public void stop() {
-        if (pool != null)
-            pool.shutdownNow();
-    }
-
-    /**
      * Creates a thread pool that can schedule commands to run after a given delay, or to execute periodically.
      *
      * @return Newly created thread pool.
@@ -114,10 +109,10 @@ abstract class AbstractListener {
         return Executors.newSingleThreadExecutor();
     }
 
-    /**
-     * Execute command with specified arguments.
-     *
-     * @param args Map with method args.
-     */
-    public abstract Object execute(Map<String, Object> args) throws Exception;
+//    /**
+//     * Execute command with specified arguments.
+//     *
+//     * @param args Map with method args.
+//     */
+//    public abstract Object execute(Map<String, Object> args) throws Exception;
 }

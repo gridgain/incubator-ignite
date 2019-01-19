@@ -21,7 +21,7 @@ import {nonEmpty, nonNil} from 'app/utils/lodashMixins';
 import {BehaviorSubject} from 'rxjs';
 import {first, pluck, tap, distinctUntilChanged, map, filter} from 'rxjs/operators';
 
-import EventBus from 'vertx3-eventbus-client';
+import SockJS from 'sockjs-client';
 
 import AgentModal from './AgentModal.service';
 // @ts-ignore
@@ -146,7 +146,7 @@ export default class AgentManager {
     /** @type {Set<ng.IPromise<unknown>>} */
     promises = new Set();
 
-    eventBus = null;
+    socket = null;
 
     static restoreActiveCluster() {
         try {
@@ -216,30 +216,34 @@ export default class AgentManager {
     }
 
     connect() {
-        if (nonNil(this.eventBus))
+        if (nonNil(this.socket))
             return;
 
         const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
         // Create a connection to http://localhost:9999/echo
-        this.eventBus = new EventBus('http://localhost:3000/websocket');
+        this.socket = new SockJS('http://localhost:3000/browsers');
 
         // Open the connection
-        this.eventBus.onopen = () => {
+        this.socket.onopen = () => {
             console.log('Connected!');
 
-            this.eventBus.publish('agents:stat', JSON.stringify({count: 0, hasDemo: false, clusters: []}));
+            this.socket.send(JSON.stringify({event: 'agents:stat', data: {count: 0, hasDemo: false, clusters: []}}));
 
             console.log('Connected2!');
 
-            // set a handler to receive a message
-            this.eventBus.registerHandler('web-agent', (error, message) => {
-                console.log('Received a message: ' + JSON.stringify(message));
-            });
+            // // set a handler to receive a message
+            // this.eventBus.registerHandler('web-agent', (error, message) => {
+            //     console.log('Received a message: ' + JSON.stringify(message));
+            // });
         };
 
-        this.eventBus.onerror = (err) => {
+        this.socket.onerror = (err) => {
             console.log('Problem calling event bus: ' + JSON.stringify(err));
+        };
+
+        this.socket.onclose = (p) => {
+            console.log('Socket closed: ' + JSON.stringify(p));
         };
         //
         // this.eventBus.onclose = (p) => {
@@ -459,12 +463,12 @@ export default class AgentManager {
     /**
      *
      * @param {String} event
-     * @param {Object} [payload]
+     * @param {Object} [data]
      * @returns {ng.IPromise}
      * @private
      */
-    _sendToAgent(event, payload = {}) {
-        if (!this.eventBus)
+    _sendToAgent(event, data = {}) {
+        if (!this.socket)
             return this.$q.reject('Failed to connect to server');
 
         const latch = this.$q.defer();
@@ -477,9 +481,9 @@ export default class AgentManager {
 
         // this.socket.on('disconnect', onDisconnect);
 
-        this.eventBus.send({event, payload});
+        this.socket.send({event, data});
 
-        // this.socket.emit(event, payload, (err, res) => {
+        // this.socket.emit(event, data, (err, res) => {
         //     this.socket.removeListener('disconnect', onDisconnect);
         //
         //     if (err)
