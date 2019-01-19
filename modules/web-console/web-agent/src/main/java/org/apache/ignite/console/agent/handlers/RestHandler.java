@@ -18,19 +18,22 @@
 package org.apache.ignite.console.agent.handlers;
 
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import io.vertx.core.AbstractVerticle;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
-import org.apache.ignite.console.agent.rest.RestExecutor;
-import org.apache.ignite.console.agent.rest.RestResult;
 import org.apache.ignite.console.demo.AgentClusterDemo;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.logger.slf4j.Slf4jLogger;
+import org.slf4j.LoggerFactory;
 
 /**
  * API to translate REST requests to Ignite cluster.
  */
-public class RestHandler extends AbstractHandler {
+public class RestHandler extends AbstractVerticle {
+    /** */
+    private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(RestHandler.class));
+
     /** */
     private static final String EVENT_NODE_VISOR_TASK = "node:visorTask";
 
@@ -40,21 +43,11 @@ public class RestHandler extends AbstractHandler {
     /** */
     private final AgentConfiguration cfg;
 
-    /** */
-    private final RestExecutor restExecutor;
-
     /**
      * @param cfg Config.
-     * @param restExecutor REST executor.
      */
-    public RestHandler(AgentConfiguration cfg, RestExecutor restExecutor) {
+    public RestHandler(AgentConfiguration cfg) {
         this.cfg = cfg;
-        this.restExecutor = restExecutor;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected ExecutorService newThreadPool() {
-        return Executors.newCachedThreadPool();
     }
 
     /** {@inheritDoc} */
@@ -89,10 +82,10 @@ public class RestHandler extends AbstractHandler {
                         return RestResult.fail(404, "Failed to send request because of embedded node for demo mode is not started yet.");
                 }
 
-                return restExecutor.sendRequest(AgentClusterDemo.getDemoUrl(), params, headers);
+                return null; // restExecutor.sendRequest(AgentClusterDemo.getDemoUrl(), params, headers);
             }
 
-            return restExecutor.sendRequest(this.cfg.nodeURIs(), params, headers);
+            return null; // restExecutor.sendRequest(this.cfg.nodeURIs(), params, headers);
         }
         catch (Throwable e) {
             U.error(log, "Failed to execute REST command with parameters: " + params, e);

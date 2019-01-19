@@ -32,6 +32,9 @@ import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.ConnectorConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.console.agent.AgentConfiguration;
+import org.apache.ignite.console.agent.handlers.RestExecutor;
+import org.apache.ignite.console.agent.handlers.RestResult;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.F;
@@ -177,17 +180,25 @@ public class RestExecutorSelfTest {
         String trustStorePwd,
         List<String> cipherSuites
     ) throws Exception {
-        try(
-            Ignite ignite = Ignition.getOrStart(nodeCfg);
-            RestExecutor exec = new RestExecutor(false, keyStore, keyStorePwd, trustStore, trustStorePwd, cipherSuites)
-        ) {
+        try(Ignite ignite = Ignition.getOrStart(nodeCfg)) {
+            AgentConfiguration cfg = new AgentConfiguration();
+
+            cfg
+                .nodeKeyStore(keyStore)
+                .nodeKeyStorePassword(keyStorePwd)
+                .nodeTrustStore(keyStore)
+                .nodeTrustStorePassword(keyStorePwd)
+                .cipherSuites(cipherSuites);
+
+            RestExecutor exec = new RestExecutor(cfg);
+
             Map<String, Object> params = new HashMap<>();
             params.put("cmd", "top");
             params.put("attr", false);
             params.put("mtr", false);
             params.put("caches", false);
 
-            RestResult res = exec.sendRequest(Collections.singletonList(uri), params, null);
+            RestResult res = null; // exec.sendRequest(Collections.singletonList(uri), params, null);
 
             JsonNode json = toJson(res);
 

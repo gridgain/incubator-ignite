@@ -27,25 +27,32 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.Message;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.db.DbMetadataReader;
 import org.apache.ignite.console.agent.db.DbSchema;
 import org.apache.ignite.console.agent.db.DbTable;
 import org.apache.ignite.console.demo.AgentMetadataDemo;
-import org.apache.log4j.Logger;
+import org.apache.ignite.logger.slf4j.Slf4jLogger;
+import org.slf4j.LoggerFactory;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.console.agent.AgentUtils.GENERAL_ERR_CODE;
 import static org.apache.ignite.console.agent.AgentUtils.resolvePath;
+import static org.apache.ignite.console.agent.AgentUtils.toJSON;
 
 /**
  * API to extract database metadata.
  */
-public class DatabaseListener extends AbstractHandler {
+public class DatabaseListener extends AbstractVerticle {
+    /** */
+    private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(DatabaseListener.class));
+
     /** */
     private static final String EVENT_SCHEMA_IMPORT_DRIVERS = "schemaImport:drivers";
 
@@ -54,10 +61,6 @@ public class DatabaseListener extends AbstractHandler {
 
     /** */
     private static final String EVENT_SCHEMA_IMPORT_METADATA = "schemaImport:metadata";
-
-
-    /** */
-    private static final Logger log = Logger.getLogger(DatabaseListener.class.getName());
 
     /** */
     private final File driversFolder;
@@ -84,56 +87,55 @@ public class DatabaseListener extends AbstractHandler {
      * @param msg Message.
      */
     private void driversHandler(Message<Void> msg) {
-        if (driversFolder == null) {
-            log.info("JDBC drivers folder not specified, returning empty list");
+        try {
+            List<JdbcDriver> drivers = new ArrayList<>();
 
-            msg.reply(Collections.emptyList());
+            if (driversFolder != null) {
+                if (log.isDebugEnabled())
+                    log.debug("Collecting JDBC drivers in folder: " + driversFolder.getPath());
 
-            return;
-        }
+                File[] list = driversFolder.listFiles(new FilenameFilter() {
+                    @Override public boolean accept(File dir, String name) {
+                        return name.endsWith(".jar");
+                    }
+                });
 
-        if (log.isDebugEnabled())
-            log.debug("Collecting JDBC drivers in folder: " + driversFolder.getPath());
+                if (list != null) {
+                    for (File file : list) {
+                        try {
+                            boolean win = System.getProperty("os.name").contains("win");
 
-        File[] list = driversFolder.listFiles(new FilenameFilter() {
-            @Override public boolean accept(File dir, String name) {
-                return name.endsWith(".jar");
-            }
-        });
+                            URL url = new URL("jar", null,
+                                "file:" + (win ? "/" : "") + file.getPath() + "!/META-INF/services/java.sql.Driver");
 
-        if (list == null) {
-            log.info("JDBC drivers folder has no files, returning empty list");
+                            try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), UTF_8))) {
+                                String jdbcDriverCls = reader.readLine();
 
-            msg.reply(Collections.emptyList());
-        }
+                                drivers.add(new JdbcDriver(file.getName(), jdbcDriverCls));
 
-        List<JdbcDriver> drivers = new ArrayList<>();
+                                if (log.isDebugEnabled())
+                                    log.debug("Found: [driver=" + file + ", class=" + jdbcDriverCls + "]");
+                            }
+                        }
+                        catch (IOException e) {
+                            drivers.add(new JdbcDriver(file.getName(), null));
 
-        for (File file : list) {
-            try {
-                boolean win = System.getProperty("os.name").contains("win");
-
-                URL url = new URL("jar", null,
-                    "file:" + (win ? "/" : "") + file.getPath() + "!/META-INF/services/java.sql.Driver");
-
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), UTF_8))) {
-                    String jdbcDriverCls = reader.readLine();
-
-                    drivers.add(new JdbcDriver(file.getName(), jdbcDriverCls));
-
-                    if (log.isDebugEnabled())
-                        log.debug("Found: [driver=" + file + ", class=" + jdbcDriverCls + "]");
+                            log.info("Found: [driver=" + file + "]");
+                            log.info("Failed to detect driver class: " + e.getMessage());
+                        }
+                    }
                 }
+                else
+                    log.info("JDBC drivers folder has no files, returning empty list");
             }
-            catch (IOException e) {
-                drivers.add(new JdbcDriver(file.getName(), null));
+            else
+                log.info("JDBC drivers folder not specified, returning empty list");
 
-                log.info("Found: [driver=" + file + "]");
-                log.info("Failed to detect driver class: " + e.getMessage());
-            }
+            msg.reply(toJSON(EVENT_SCHEMA_IMPORT_DRIVERS, drivers));
         }
-
-        msg.reply(drivers);
+        catch (Throwable e) {
+            msg.fail(GENERAL_ERR_CODE, e.getMessage());
+        }
     }
 
     /**
@@ -188,7 +190,7 @@ public class DatabaseListener extends AbstractHandler {
             }
         }
         catch (Throwable e) {
-            msg.fail(FAILED, "Failed to collect DB schemas");
+            msg.fail(GENERAL_ERR_CODE, "Failed to collect DB schemas");
         }
     }
 
@@ -245,7 +247,7 @@ public class DatabaseListener extends AbstractHandler {
             }
         }
         catch (Throwable e) {
-            msg.fail(FAILED, "Failed to collect DB metadata");
+            msg.fail(GENERAL_ERR_CODE, "Failed to collect DB metadata");
         }
     }
 

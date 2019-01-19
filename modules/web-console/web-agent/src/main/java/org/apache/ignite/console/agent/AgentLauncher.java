@@ -33,11 +33,11 @@ import com.beust.jcommander.ParameterException;
 
 import io.vertx.core.Vertx;
 
+import io.vertx.core.VertxOptions;
 import org.apache.ignite.console.agent.handlers.ClusterListener;
 import org.apache.ignite.console.agent.handlers.DatabaseListener;
 import org.apache.ignite.console.agent.handlers.RestHandler;
 import org.apache.ignite.console.agent.handlers.WebSocketRouter;
-import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -130,7 +130,7 @@ public class AgentLauncher {
 //    /**
 //     * On disconnect listener.
 //     */
-//    private static final Emitter.Listener onDisconnect = args -> log.error("Connection closed: {}", args);
+//    private static final Emitter.Listener onDisconnect = args -> log.error("Connection closed: " + args);
 
 //    /**
 //     * On token reset listener.
@@ -171,7 +171,7 @@ public class AgentLauncher {
             File f = AgentUtils.resolvePath(prop);
 
             if (f == null)
-                log.warn("Failed to find agent property file: {}", prop);
+                log.warn("Failed to find agent property file: " + prop);
             else
                 propCfg.load(f.toURI().toURL());
         }
@@ -241,7 +241,7 @@ public class AgentLauncher {
                 new URI(nodeURI);
             }
             catch (URISyntaxException ignored) {
-                log.warn("Failed to parse Ignite node URI: {}.", nodeURI);
+                log.warn("Failed to parse Ignite node URI: " + nodeURI);
 
                 nodeURIs.remove(i);
             }
@@ -365,8 +365,8 @@ public class AgentLauncher {
 //                                        if (!F.isEmpty(missedTokens)) {
 //                                            String tokens = F.concat(missedTokens, ", ");
 //
-//                                            log.warn("Failed to authenticate with token(s): {}. " +
-//                                                "Please reload agent archive or check settings", tokens);
+//                                            log.warn("Failed to authenticate with token(s): " + tokens + ". " +
+//                                                "Please reload agent archive or check settings");
 //                                        }
 //
 //                                        log.info("Authentication success.");
@@ -405,7 +405,7 @@ public class AgentLauncher {
 //                .on(EVENT_RESET_TOKEN, res -> {
 //                    String tok = String.valueOf(res[0]);
 //
-//                    log.warn("Security token has been reset: {}", tok);
+//                    log.warn("Security token has been reset: " + tok);
 //
 //                    cfg.tokens().remove(tok);
 //
@@ -435,42 +435,14 @@ public class AgentLauncher {
         AgentConfiguration cfg = parseArgs(args);
 
         if (cfg != null) {
-            Vertx vertx = Vertx.vertx();
+            VertxOptions opts = new VertxOptions().setBlockedThreadCheckInterval(Integer.MAX_VALUE);
 
-            List<String> cipherSuites = cfg.cipherSuites();
-
-//        boolean serverTrustAll = Boolean.getBoolean("trust.all");
-//        boolean hasServerTrustStore = cfg.serverTrustStore() != null;
-
-//        if (serverTrustAll && hasServerTrustStore) {
-//            log.warn("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
-//                "Option '-Dtrust.all=true' will be ignored on connect to Web server.");
-//
-//            serverTrustAll = false;
-//        }
-
-            boolean nodeTrustAll = Boolean.getBoolean("trust.all");
-            boolean hasNodeTrustStore = cfg.nodeTrustStore() != null;
-
-            if (nodeTrustAll && hasNodeTrustStore) {
-                log.warn("Options contains both '--node-trust-store' and '-Dtrust.all=true'. " +
-                    "Option '-Dtrust.all=true' will be ignored on connect to cluster.");
-
-                nodeTrustAll = false;
-            }
-
-            RestExecutor restExecutor = new RestExecutor(
-                nodeTrustAll,
-                cfg.nodeKeyStore(), cfg.nodeKeyStorePassword(),
-                cfg.nodeTrustStore(), cfg.nodeTrustStorePassword(),
-                cipherSuites);
+            Vertx vertx = Vertx.vertx(opts);
 
             vertx.deployVerticle(new WebSocketRouter(cfg));
             vertx.deployVerticle(new DatabaseListener(cfg));
-            vertx.deployVerticle(new ClusterListener(cfg, restExecutor));
-            vertx.deployVerticle(new RestHandler(cfg, restExecutor));
-
-            log.info("Web agent started");
+            vertx.deployVerticle(new ClusterListener(cfg));
+            vertx.deployVerticle(new RestHandler(cfg));
         }
     }
 }

@@ -273,9 +273,12 @@ public class AgentConfiguration {
 
     /**
      * @param nodeKeyStore Path to node key store.
+     * @return {@code this} for chaining.
      */
-    public void nodeKeyStore(String nodeKeyStore) {
+    public AgentConfiguration nodeKeyStore(String nodeKeyStore) {
         this.nodeKeyStore = nodeKeyStore;
+
+        return this;
     }
 
     /**
@@ -287,9 +290,12 @@ public class AgentConfiguration {
 
     /**
      * @param nodeKeyStorePass Node key store password.
+     * @return {@code this} for chaining.
      */
-    public void nodeKeyStorePassword(String nodeKeyStorePass) {
+    public AgentConfiguration nodeKeyStorePassword(String nodeKeyStorePass) {
         this.nodeKeyStorePass = nodeKeyStorePass;
+
+        return this;
     }
 
     /**
@@ -301,9 +307,12 @@ public class AgentConfiguration {
 
     /**
      * @param nodeTrustStore Path to node trust store.
+     * @return {@code this} for chaining.
      */
-    public void nodeTrustStore(String nodeTrustStore) {
+    public AgentConfiguration nodeTrustStore(String nodeTrustStore) {
         this.nodeTrustStore = nodeTrustStore;
+
+        return this;
     }
 
     /**
@@ -315,9 +324,12 @@ public class AgentConfiguration {
 
     /**
      * @param nodeTrustStorePass Node trust store password.
+     * @return {@code this} for chaining.
      */
-    public void nodeTrustStorePassword(String nodeTrustStorePass) {
+    public AgentConfiguration nodeTrustStorePassword(String nodeTrustStorePass) {
         this.nodeTrustStorePass = nodeTrustStorePass;
+
+        return this;
     }
 
     /**
@@ -385,9 +397,12 @@ public class AgentConfiguration {
 
     /**
      * @param cipherSuites SSL cipher suites.
+     * @return {@code this} for chaining.
      */
-    public void cipherSuites(List<String> cipherSuites) {
+    public AgentConfiguration cipherSuites(List<String> cipherSuites) {
         this.cipherSuites = cipherSuites;
+
+        return this;
     }
 
     /**

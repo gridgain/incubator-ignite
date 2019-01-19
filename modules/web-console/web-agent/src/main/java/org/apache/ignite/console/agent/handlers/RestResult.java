@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.agent.rest;
+package org.apache.ignite.console.agent.handlers;
 
 /**
  * Request result.

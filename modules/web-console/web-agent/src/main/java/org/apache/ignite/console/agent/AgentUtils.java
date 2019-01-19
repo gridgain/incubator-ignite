@@ -27,7 +27,6 @@ import java.security.KeyStore;
 import java.security.ProtectionDomain;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsonorg.JsonOrgModule;
@@ -39,7 +38,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
-import okhttp3.ConnectionSpec;
+import io.vertx.core.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.ssl.SSLContextWrapper;
 import org.apache.log4j.Logger;
@@ -55,6 +54,9 @@ public class AgentUtils {
 
     /** */
     private static final char[] EMPTY_PWD = new char[0];
+
+    /** Error code to return on failures. */
+    public static final int GENERAL_ERR_CODE = 500;
 
     /** JSON object mapper. */
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -180,15 +182,13 @@ public class AgentUtils {
     /**
      * Map java object to JSON object.
      *
-     * @param obj Java object.
+     * @param addr Address at event bus.
+     * @param data Data.
      * @return {@link JSONObject} or {@link JSONArray}.
      * @throws IllegalArgumentException If conversion fails due to incompatible type.
      */
-    public static Object toJSON(Object obj) {
-        if (obj instanceof Iterable)
-            return MAPPER.convertValue(obj, JSONArray.class);
-
-        return MAPPER.convertValue(obj, JSONObject.class);
+    public static JsonObject toJSON(String addr, Object data) {
+        return JsonObject.mapFrom(new VertxEventBusResponse(addr, data));
     }
 
     /**
@@ -299,16 +299,16 @@ public class AgentUtils {
         return ctx.getSocketFactory();
     }
 
-    /**
-     * Create SSL configuration.
-     *
-     * @param cipherSuites SSL cipher suites.
-     */
-    public static List<ConnectionSpec> sslConnectionSpec(List<String> cipherSuites) {
-        return Collections.singletonList(new ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
-            .cipherSuites(cipherSuites.toArray(new String[0]))
-            .build());
-    }
+//    /**
+//     * Create SSL configuration.
+//     *
+//     * @param cipherSuites SSL cipher suites.
+//     */
+//    public static List<ConnectionSpec> sslConnectionSpec(List<String> cipherSuites) {
+//        return Collections.singletonList(new ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
+//            .cipherSuites(cipherSuites.toArray(new String[0]))
+//            .build());
+//    }
 
     /**
      * Create a trust manager that trusts all certificates.
@@ -338,6 +338,40 @@ public class AgentUtils {
      * @return JSON
      */
     public static String response(String evt, Object data) {
-        return "{\"event\": " + evt + ", \"data\": " + String.valueOf(data) + "}";
+        return "{\"event\": " + evt + ", \"data\": " + data + "}";
+    }
+
+    /**
+     * DTO class for Vertx event bus.
+     */
+    private static class VertxEventBusResponse {
+        /** */
+        private final String addr;
+
+        /** */
+        private final Object data;
+
+        /**
+         * @param addr Event bus address.
+         * @param data Optional data.
+         */
+        VertxEventBusResponse(String addr, Object data) {
+            this.addr = addr;
+            this.data = data;
+        }
+
+        /**
+         * @return Event bus address.
+         */
+        public String getAddress() {
+            return addr;
+        }
+
+        /**
+         * @return Response data.
+         */
+        public Object getData() {
+            return data;
+        }
     }
 }

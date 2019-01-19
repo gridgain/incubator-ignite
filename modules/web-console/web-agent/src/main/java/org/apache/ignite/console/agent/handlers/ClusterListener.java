@@ -30,10 +30,9 @@ import java.util.concurrent.ScheduledFuture;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.vertx.core.AbstractVerticle;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
-import org.apache.ignite.console.agent.rest.RestExecutor;
-import org.apache.ignite.console.agent.rest.RestResult;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.typedef.F;
@@ -56,7 +55,7 @@ import static org.apache.ignite.internal.visor.util.VisorTaskUtils.splitAddresse
 /**
  * API to transfer topology from Ignite cluster available by node-uri.
  */
-public class ClusterListener extends AbstractHandler {
+public class ClusterListener extends AbstractVerticle {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(ClusterListener.class));
 
@@ -114,17 +113,13 @@ public class ClusterListener extends AbstractHandler {
     private final AgentConfiguration cfg;
 
     /** */
-    private final RestExecutor restExecutor;
-
-    /** */
     private ScheduledFuture<?> refreshTask;
 
     /**
-     * @param restExecutor REST executor.
+     * @param cfg Web agent configuration.
      */
-    public ClusterListener(AgentConfiguration cfg, RestExecutor restExecutor) {
+    public ClusterListener(AgentConfiguration cfg) {
         this.cfg = cfg;
-        this.restExecutor = restExecutor;
     }
 
     /**
@@ -381,7 +376,7 @@ public class ClusterListener extends AbstractHandler {
                 params.put("password", cfg.nodePassword());
             }
 
-            RestResult res = restExecutor.sendRequest(cfg.nodeURIs(), params, null);
+            RestResult res = null; // restExecutor.sendRequest(cfg.nodeURIs(), params, null);
 
             switch (res.getStatus()) {
                 case STATUS_SUCCESS:

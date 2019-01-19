@@ -23,19 +23,10 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeEvent;
-import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
-import io.vertx.ext.web.handler.sockjs.SockJSHandlerOptions;
-import io.vertx.ext.web.handler.sockjs.Transport;
-
-import static io.vertx.ext.bridge.BridgeEventType.PUBLISH;
-import static io.vertx.ext.bridge.BridgeEventType.REGISTER;
-import static io.vertx.ext.bridge.BridgeEventType.SOCKET_CLOSED;
 
 /**
  * Handler
@@ -45,7 +36,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     private SockJSHandler browsersHandler;
 
     /** */
-    private Map<ServerWebSocket, String> sockets = new ConcurrentHashMap<>();
+    private Map<ServerWebSocket, String> agentSockets = new ConcurrentHashMap<>();
 
     /**
      * @param s Messge to log.
@@ -140,10 +131,13 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
          */
 
-        vertx.setPeriodic(1000L, t -> sockets.forEach((key, value) -> {
+        vertx.setPeriodic(1000L, t -> agentSockets.forEach((key, value) -> {
             log("Send message to agent: " + value);
 
-            key.writeTextMessage("Kuk-ku: " + value);
+            JsonObject json = new JsonObject();
+            json.put("address", "schemaImport:drivers");
+
+            key.writeTextMessage(json.toString());
         }));
 
         // Create the HTTP server.
@@ -193,16 +187,16 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
             log("Received via WebSocket: " + msg);
 
-            String agent = msg.getString("agent");
+            String agent = msg.getString("agentId");
 
             if (agent != null)
-                sockets.putIfAbsent(ws, agent);
+                agentSockets.putIfAbsent(ws, agent);
         });
 
         ws.closeHandler(p -> {
-            log("Socket closed for agent: " + sockets.get(ws));
+            log("Socket closed for agent: " + agentSockets.get(ws));
 
-            sockets.remove(ws);
+            agentSockets.remove(ws);
         });
     }
 

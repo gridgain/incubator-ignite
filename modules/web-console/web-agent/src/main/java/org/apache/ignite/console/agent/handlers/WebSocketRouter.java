@@ -17,52 +17,140 @@
 
 package org.apache.ignite.console.agent.handlers;
 
+import java.net.URI;
 import java.util.UUID;
-import io.vertx.core.buffer.Buffer;
+import io.vertx.core.AbstractVerticle;
 import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.http.RequestOptions;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.net.JksOptions;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
+import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.LT;
+import org.apache.ignite.logger.slf4j.Slf4jLogger;
+import org.slf4j.LoggerFactory;
 
 /**
- *
+ * Router that listen for web socket and redirect messages to event bus.
  */
-public class WebSocketRouter extends AbstractHandler {
+public class WebSocketRouter extends AbstractVerticle {
+    /** */
+    private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(WebSocketRouter.class));
+
     /** */
     private final AgentConfiguration cfg;
 
     /** */
-    private final String id = UUID.randomUUID().toString();
+    private final JsonObject agentId;
+
+    /** */
+    private HttpClient client;
+
+    /** */
+    private RequestOptions conOpts;
 
     /**
      * @param cfg Configuration.
      */
     public WebSocketRouter(AgentConfiguration cfg) {
         this.cfg = cfg;
+
+        agentId = new JsonObject();
+        agentId.put("agentId", UUID.randomUUID().toString());
     }
 
 
     /** {@inheritDoc} */
-    @Override public void start() {
-        log.info("Connecting to: {}", cfg.serverUri());
+    @Override public void start() throws Exception {
+        log.info("Web Agent: " + agentId);
+        log.info("Connecting to: " + cfg.serverUri());
 
-        HttpClient client = vertx.createHttpClient();
+        boolean serverTrustAll = Boolean.getBoolean("trust.all");
+        boolean hasServerTrustStore = cfg.serverTrustStore() != null;
 
-        client.websocket(3000, "localhost", "/eventbus", ws -> {
-            System.out.println("Connected to web socket");
+        if (serverTrustAll && hasServerTrustStore) {
+            log.warning("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
+                "Option '-Dtrust.all=true' will be ignored on connect to Web server.");
 
-            ws.handler(data -> {
-                System.out.println("Received data " + data.toString());
+            serverTrustAll = false;
+        }
+
+        HttpClientOptions httpOptions = new HttpClientOptions();
+
+        boolean ssl = serverTrustAll || hasServerTrustStore || cfg.serverKeyStore() != null;
+
+        if (ssl) {
+            httpOptions
+                .setSsl(true)
+                .setTrustAll(serverTrustAll)
+                .setKeyStoreOptions(new JksOptions()
+                    .setPath(cfg.serverKeyStore())
+                    .setPassword(cfg.serverKeyStorePassword()))
+                .setTrustStoreOptions(new JksOptions()
+                    .setPath(cfg.serverTrustStore())
+                    .setPassword(cfg.serverTrustStorePassword()));
+
+            cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
+        }
+
+        client = vertx.createHttpClient(httpOptions);
+
+        URI uri = new URI(cfg.serverUri());
+
+        conOpts = new RequestOptions()
+            .setHost(uri.getHost())
+            .setPort(uri.getPort())
+            .setSsl(ssl)
+            .setURI("/eventbus");
+
+        vertx.setTimer(1, this::connect);
+    }
+
+    /**
+     * Connect to server.
+     *
+     * @param tid Timer ID.
+     */
+    private void connect(long tid) {
+        client.websocket(conOpts,
+            ws -> {
+                log.info("Connected to server: " + ws.remoteAddress());
+
+                ws.handler(data -> {
+                    JsonObject json = data.toJsonObject();
+
+                    String addr = json.getString("address");
+
+                    if (F.isEmpty(addr))
+                        log.error("Unexpected request: " + json);
+                    else
+                        vertx.eventBus().send(addr, json.getJsonObject("data"), msg -> {
+                            if (msg.failed())
+                                log.error("Failed to process: " + json + ", reason: " + msg.cause().getMessage());
+                            else {
+                                String response = String.valueOf(msg.result().body());
+
+                                ws.writeTextMessage(response);
+                            }
+                        });
+
+                    log.info("Received data " + data.toString());
+                });
+
+                ws.closeHandler(p -> {
+                    log.warning("Connection closed: " + ws.remoteAddress());
+
+                    vertx.setTimer(1, this::connect);
+                });
+
+                ws.writeTextMessage(agentId.toString());
+            },
+            e -> {
+                LT.warn(log, e.getMessage());
+
+                vertx.setTimer(3000, this::connect);
             });
-
-            ws.closeHandler(p -> {
-                System.out.println("Closed!");
-            });
-
-            JsonObject json = new JsonObject();
-            json.put("agent", id);
-
-            ws.writeTextMessage(json.toString());
-        });
-
     }
 }
