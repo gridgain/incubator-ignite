@@ -31,6 +31,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
@@ -44,6 +46,8 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CLUSTER_NAME;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_CLUSTER_DISCONNECTED;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_REST;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CLIENT_MODE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
@@ -78,15 +82,6 @@ public class ClusterListener extends AbstractVerticle {
     private static final String EVT_THROTTLE_CNTR_KEY = "WEB_AGENT_" + UUID.randomUUID().toString();
 
     /** */
-    private static final String EVENT_CLUSTER_CONNECTED = "cluster:connected";
-
-    /** */
-    private static final String EVENT_CLUSTER_TOPOLOGY = "cluster:topology";
-
-    /** */
-    private static final String EVENT_CLUSTER_DISCONNECTED = "cluster:disconnected";
-
-    /** */
     private static final String EXPIRED_SES_ERROR_MSG = "Failed to handle request - unknown session token (maybe expired session)";
 
     /** */
@@ -100,9 +95,6 @@ public class ClusterListener extends AbstractVerticle {
 
     /** Latest topology snapshot. */
     private TopologySnapshot top;
-
-    /** */
-    private final WatchTask watchTask = new WatchTask();
 
     /** */
     private static final IgniteClosure<UUID, String> ID2ID8 = new IgniteClosure<UUID, String>() {
@@ -127,7 +119,7 @@ public class ClusterListener extends AbstractVerticle {
 
     /** {@inheritDoc} */
     @Override public void start() {
-        vertx.setTimer(REFRESH_FREQ, this::watch);
+        vertx.setTimer(1, this::watch);
     }
 
     /**
@@ -152,7 +144,7 @@ public class ClusterListener extends AbstractVerticle {
 
         log.info("Connection to cluster was lost");
 
-        // ws.writeTextMessage(response(EVENT_CLUSTER_DISCONNECTED, null));
+        vertx.eventBus().publish(EVENT_CLUSTER_DISCONNECTED, null);
     }
 
     /**
@@ -190,23 +182,6 @@ public class ClusterListener extends AbstractVerticle {
             default:
                 return res;
         }
-    }
-
-    /**
-     * Collect topology.
-     *
-     * @return REST result.
-     * @throws IOException If failed to collect topology.
-     */
-    private RestResult topology() throws IOException {
-        Map<String, Object> params = U.newHashMap(4);
-
-        params.put("cmd", "top");
-        params.put("attr", true);
-        params.put("mtr", false);
-        params.put("caches", false);
-
-        return restCommand(params);
     }
 
     /**
@@ -258,43 +233,51 @@ public class ClusterListener extends AbstractVerticle {
      * @param tid Timer ID.
      */
     public void watch(long tid) {
-        try {
-            RestResult res = topology();
+        JsonObject params = new JsonObject();
+        params.put("cmd", "top");
+        params.put("attr", true);
+        params.put("mtr", false);
+        params.put("caches", false);
 
-            if (res.getStatus() == STATUS_SUCCESS) {
-                List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
-                    new TypeReference<List<GridClientNodeBean>>() {});
+        vertx.eventBus().send(EVENT_NODE_REST, params, asynRes -> {
+            if (asynRes.succeeded()) {
+                Message<Object> res = asynRes.result();
 
-                TopologySnapshot newTop = new TopologySnapshot(nodes);
+                if (res.getStatus() == STATUS_SUCCESS) {
+                    List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
+                        new TypeReference<List<GridClientNodeBean>>() {});
 
-                if (newTop.differentCluster(top))
-                    log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
-                else if (newTop.topologyChanged(top))
-                    log.info("Cluster topology changed, new topology: " + newTop.nid8());
+                    TopologySnapshot newTop = new TopologySnapshot(nodes);
 
-                boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
+                    if (newTop.differentCluster(top))
+                        log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
+                    else if (newTop.topologyChanged(top))
+                        log.info("Cluster topology changed, new topology: " + newTop.nid8());
 
-                newTop.setActive(active);
-                newTop.setSecured(!F.isEmpty(res.getSessionToken()));
+                    boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
 
-                top = newTop;
+                    newTop.setActive(active);
+                    newTop.setSecured(!F.isEmpty(res.getSessionToken()));
 
-                // ws.writeTextMessage(response(EVENT_CLUSTER_TOPOLOGY, toJSON(top)));
+                    top = newTop;
+
+                    // ws.writeTextMessage(response(EVENT_CLUSTER_TOPOLOGY, toJSON(top)));
+                }
+                else {
+                    LT.warn(log, res.getError());
+
+                    clusterDisconnect();
+                }
+
             }
             else {
-                LT.warn(log, res.getError());
+                log.error("WatchTask failed", asynRes.cause());
 
                 clusterDisconnect();
             }
-        }
-        catch (ConnectException ignored) {
-            clusterDisconnect();
-        }
-        catch (Throwable e) {
-            log.error("WatchTask failed", e);
 
-            clusterDisconnect();
-        }
+            vertx.setTimer(REFRESH_FREQ, this::watch);
+        });
     }
 
     /** */

@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
@@ -80,9 +81,11 @@ public class DatabaseListener extends AbstractVerticle {
 
     /** {@inheritDoc} */
     @Override public void start() {
-        vertx.eventBus().consumer(EVENT_SCHEMA_IMPORT_DRIVERS, this::driversHandler);
-        vertx.eventBus().consumer(EVENT_SCHEMA_IMPORT_SCHEMAS, this::schemasHandler);
-        vertx.eventBus().consumer(EVENT_SCHEMA_IMPORT_METADATA, this::metadataHandler);
+        EventBus eventBus = vertx.eventBus();
+
+        eventBus.consumer(EVENT_SCHEMA_IMPORT_DRIVERS, this::driversHandler);
+        eventBus.consumer(EVENT_SCHEMA_IMPORT_SCHEMAS, this::schemasHandler);
+        eventBus.consumer(EVENT_SCHEMA_IMPORT_METADATA, this::metadataHandler);
     }
 
     /**
