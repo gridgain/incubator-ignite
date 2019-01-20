@@ -86,6 +86,12 @@ public class ClusterListener extends AbstractVerticle {
     /** */
     private static final String EVENT_CLUSTER_DISCONNECTED = "cluster:disconnected";
 
+    /** */
+    private static final String EXPIRED_SES_ERROR_MSG = "Failed to handle request - unknown session token (maybe expired session)";
+
+    /** */
+    private String sesTok;
+
     /** Topology refresh frequency. */
     private static final long REFRESH_FREQ = 3000L;
 
@@ -112,14 +118,16 @@ public class ClusterListener extends AbstractVerticle {
     /** */
     private final AgentConfiguration cfg;
 
-    /** */
-    private ScheduledFuture<?> refreshTask;
-
     /**
      * @param cfg Web agent configuration.
      */
     public ClusterListener(AgentConfiguration cfg) {
         this.cfg = cfg;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void start() {
+        vertx.setTimer(REFRESH_FREQ, this::watch);
     }
 
     /**
@@ -148,20 +156,145 @@ public class ClusterListener extends AbstractVerticle {
     }
 
     /**
-     * Stop refresh task.
+     * Execute REST command under agent user.
+     *
+     * @param params Command params.
+     * @return Command result.
+     * @throws IOException If failed to execute.
      */
-    private void safeStopRefresh() {
-        if (refreshTask != null)
-            refreshTask.cancel(true);
+    private RestResult restCommand(Map<String, Object> params) throws IOException {
+        if (!F.isEmpty(sesTok))
+            params.put("sessionToken", sesTok);
+        else if (!F.isEmpty(cfg.nodeLogin()) && !F.isEmpty(cfg.nodePassword())) {
+            params.put("user", cfg.nodeLogin());
+            params.put("password", cfg.nodePassword());
+        }
+
+        RestResult res = null; // restExecutor.sendRequest(cfg.nodeURIs(), params, null);
+
+        switch (res.getStatus()) {
+            case STATUS_SUCCESS:
+                sesTok = res.getSessionToken();
+
+                return res;
+
+            case STATUS_FAILED:
+                if (res.getError().startsWith(EXPIRED_SES_ERROR_MSG)) {
+                    sesTok = null;
+
+                    params.remove("sessionToken");
+
+                    return restCommand(params);
+                }
+
+            default:
+                return res;
+        }
+    }
+
+    /**
+     * Collect topology.
+     *
+     * @return REST result.
+     * @throws IOException If failed to collect topology.
+     */
+    private RestResult topology() throws IOException {
+        Map<String, Object> params = U.newHashMap(4);
+
+        params.put("cmd", "top");
+        params.put("attr", true);
+        params.put("mtr", false);
+        params.put("caches", false);
+
+        return restCommand(params);
+    }
+
+    /**
+     * @param ver Cluster version.
+     * @param nid Node ID.
+     * @return Cluster active state.
+     * @throws IOException If failed to collect cluster active state.
+     */
+    private boolean active(IgniteProductVersion ver, UUID nid) throws IOException {
+        // 1.x clusters are always active.
+        if (ver.compareTo(IGNITE_2_0) < 0)
+            return true;
+
+        Map<String, Object> params = U.newHashMap(10);
+
+        boolean v23 = ver.compareTo(IGNITE_2_3) >= 0;
+
+        if (v23)
+            params.put("cmd", "currentState");
+        else {
+            params.put("cmd", "exe");
+            params.put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask");
+            params.put("p1", nid);
+            params.put("p2", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTask");
+            params.put("p3", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTaskArg");
+            params.put("p4", false);
+            params.put("p5", EVT_LAST_ORDER_KEY);
+            params.put("p6", EVT_THROTTLE_CNTR_KEY);
+
+            if (ver.compareTo(IGNITE_2_1) >= 0)
+                params.put("p7", false);
+            else {
+                params.put("p7", 10);
+                params.put("p8", false);
+            }
+        }
+
+        RestResult res = restCommand(params);
+
+        if (res.getStatus() == STATUS_SUCCESS)
+            return v23 ? Boolean.valueOf(res.getData()) : res.getData().contains("\"active\":true");
+
+        throw new IOException(res.getError());
     }
 
     /**
      * Start watch cluster.
+     *
+     * @param tid Timer ID.
      */
-    public void watch() {
-        safeStopRefresh();
+    public void watch(long tid) {
+        try {
+            RestResult res = topology();
 
-        // refreshTask = pool.scheduleWithFixedDelay(watchTask, 0L, REFRESH_FREQ, TimeUnit.MILLISECONDS);
+            if (res.getStatus() == STATUS_SUCCESS) {
+                List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
+                    new TypeReference<List<GridClientNodeBean>>() {});
+
+                TopologySnapshot newTop = new TopologySnapshot(nodes);
+
+                if (newTop.differentCluster(top))
+                    log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
+                else if (newTop.topologyChanged(top))
+                    log.info("Cluster topology changed, new topology: " + newTop.nid8());
+
+                boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
+
+                newTop.setActive(active);
+                newTop.setSecured(!F.isEmpty(res.getSessionToken()));
+
+                top = newTop;
+
+                // ws.writeTextMessage(response(EVENT_CLUSTER_TOPOLOGY, toJSON(top)));
+            }
+            else {
+                LT.warn(log, res.getError());
+
+                clusterDisconnect();
+            }
+        }
+        catch (ConnectException ignored) {
+            clusterDisconnect();
+        }
+        catch (Throwable e) {
+            log.error("WatchTask failed", e);
+
+            clusterDisconnect();
+        }
     }
 
     /** */
@@ -350,153 +483,6 @@ public class ClusterListener extends AbstractVerticle {
          */
         boolean topologyChanged(TopologySnapshot prev) {
             return prev != null && !prev.nids.equals(nids);
-        }
-    }
-
-    /** */
-    private class WatchTask implements Runnable {
-        /** */
-        private static final String EXPIRED_SES_ERROR_MSG = "Failed to handle request - unknown session token (maybe expired session)";
-
-        /** */
-        private String sesTok;
-
-        /**
-         * Execute REST command under agent user.
-         *
-         * @param params Command params.
-         * @return Command result.
-         * @throws IOException If failed to execute.
-         */
-        private RestResult restCommand(Map<String, Object> params) throws IOException {
-            if (!F.isEmpty(sesTok))
-                params.put("sessionToken", sesTok);
-            else if (!F.isEmpty(cfg.nodeLogin()) && !F.isEmpty(cfg.nodePassword())) {
-                params.put("user", cfg.nodeLogin());
-                params.put("password", cfg.nodePassword());
-            }
-
-            RestResult res = null; // restExecutor.sendRequest(cfg.nodeURIs(), params, null);
-
-            switch (res.getStatus()) {
-                case STATUS_SUCCESS:
-                    sesTok = res.getSessionToken();
-
-                    return res;
-
-                case STATUS_FAILED:
-                    if (res.getError().startsWith(EXPIRED_SES_ERROR_MSG)) {
-                        sesTok = null;
-
-                        params.remove("sessionToken");
-
-                        return restCommand(params);
-                    }
-
-                default:
-                    return res;
-            }
-        }
-
-        /**
-         * Collect topology.
-         *
-         * @return REST result.
-         * @throws IOException If failed to collect topology.
-         */
-        private RestResult topology() throws IOException {
-            Map<String, Object> params = U.newHashMap(4);
-
-            params.put("cmd", "top");
-            params.put("attr", true);
-            params.put("mtr", false);
-            params.put("caches", false);
-
-            return restCommand(params);
-        }
-
-        /**
-         * @param ver Cluster version.
-         * @param nid Node ID.
-         * @return Cluster active state.
-         * @throws IOException If failed to collect cluster active state.
-         */
-        public boolean active(IgniteProductVersion ver, UUID nid) throws IOException {
-            // 1.x clusters are always active.
-            if (ver.compareTo(IGNITE_2_0) < 0)
-                return true;
-
-            Map<String, Object> params = U.newHashMap(10);
-
-            boolean v23 = ver.compareTo(IGNITE_2_3) >= 0;
-
-            if (v23)
-                params.put("cmd", "currentState");
-            else {
-                params.put("cmd", "exe");
-                params.put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask");
-                params.put("p1", nid);
-                params.put("p2", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTask");
-                params.put("p3", "org.apache.ignite.internal.visor.node.VisorNodeDataCollectorTaskArg");
-                params.put("p4", false);
-                params.put("p5", EVT_LAST_ORDER_KEY);
-                params.put("p6", EVT_THROTTLE_CNTR_KEY);
-
-                if (ver.compareTo(IGNITE_2_1) >= 0)
-                    params.put("p7", false);
-                else {
-                    params.put("p7", 10);
-                    params.put("p8", false);
-                }
-            }
-
-            RestResult res = restCommand(params);
-
-            if (res.getStatus() == STATUS_SUCCESS)
-                return v23 ? Boolean.valueOf(res.getData()) : res.getData().contains("\"active\":true");
-
-            throw new IOException(res.getError());
-        }
-
-        /** {@inheritDoc} */
-        @Override public void run() {
-            try {
-                RestResult res = topology();
-
-                if (res.getStatus() == STATUS_SUCCESS) {
-                    List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
-                        new TypeReference<List<GridClientNodeBean>>() {});
-
-                    TopologySnapshot newTop = new TopologySnapshot(nodes);
-
-                    if (newTop.differentCluster(top))
-                        log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
-                    else if (newTop.topologyChanged(top))
-                        log.info("Cluster topology changed, new topology: " + newTop.nid8());
-
-                    boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
-
-                    newTop.setActive(active);
-                    newTop.setSecured(!F.isEmpty(res.getSessionToken()));
-
-                    top = newTop;
-
-                    // ws.writeTextMessage(response(EVENT_CLUSTER_TOPOLOGY, toJSON(top)));
-                }
-                else {
-                    LT.warn(log, res.getError());
-
-                    clusterDisconnect();
-                }
-            }
-            catch (ConnectException ignored) {
-                clusterDisconnect();
-            }
-            catch (Throwable e) {
-                log.error("WatchTask failed", e);
-
-                clusterDisconnect();
-            }
         }
     }
 }

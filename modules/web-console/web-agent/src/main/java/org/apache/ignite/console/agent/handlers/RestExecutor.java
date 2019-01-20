@@ -19,6 +19,7 @@ package org.apache.ignite.console.agent.handlers;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Map;
@@ -30,9 +31,20 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.RequestOptions;
+import io.vertx.core.net.JksOptions;
+import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.client.WebClientOptions;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
+import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +52,9 @@ import org.slf4j.LoggerFactory;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
+import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_AUTH_FAILED;
+import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_FAILED;
+import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
 
 /**
  * API to translate REST requests to Ignite cluster.
@@ -51,8 +66,8 @@ public class RestExecutor {
     /** JSON object mapper. */
     private static final ObjectMapper MAPPER = new GridJettyObjectMapper();
 
-    // /** */
-    // private final HttpClient httpClient;
+     /** */
+     private final WebClient webClient;
 
     /** Index of alive node URI. */
     private final Map<List<String>, Integer> startIdxs = U.newHashMap(2);
@@ -64,17 +79,7 @@ public class RestExecutor {
      * @throws GeneralSecurityException If failed to initialize SSL.
      * @throws IOException If failed to load content of key stores.
      */
-    public RestExecutor(AgentConfiguration cfg
-    ) throws GeneralSecurityException, IOException {
-//        boolean trustAll,
-//        String keyStorePath,
-//        String keyStorePwd,
-//        String trustStorePath,
-//        String trustStorePwd,
-//        List<String> cipherSuites
-
-
-
+    public RestExecutor(AgentConfiguration cfg) throws GeneralSecurityException, IOException {
         boolean nodeTrustAll = Boolean.getBoolean("trust.all");
         boolean hasNodeTrustStore = cfg.nodeTrustStore() != null;
 
@@ -85,148 +90,145 @@ public class RestExecutor {
             nodeTrustAll = false;
         }
 
-//        httpClient = ver
-//
-//        Dispatcher dispatcher = new Dispatcher();
-//
-//        dispatcher.setMaxRequests(Integer.MAX_VALUE);
-//        dispatcher.setMaxRequestsPerHost(Integer.MAX_VALUE);
-//
-//        OkHttpClient.Builder builder = new OkHttpClient.Builder()
-//            .readTimeout(0, TimeUnit.MILLISECONDS)
-//            .dispatcher(dispatcher);
-//
-//        X509TrustManager trustMgr = trustManager(trustAll, trustStorePath, trustStorePwd);
-//
-//        SSLSocketFactory sslSocketFactory = sslSocketFactory(
-//            keyStorePath, keyStorePwd,
-//            trustMgr,
-//            cipherSuites
-//        );
+        WebClientOptions httpOptions = new WebClientOptions();
 
-//        if (sslSocketFactory != null) {
-//            builder.sslSocketFactory(sslSocketFactory, trustMgr);
-//
-//            if (!F.isEmpty(cipherSuites))
-//                builder.connectionSpecs(sslConnectionSpec(cipherSuites));
-//        }
-//
-//        httpClient = builder.build();
+        boolean ssl = nodeTrustAll || hasNodeTrustStore || cfg.nodeKeyStore() != null;
+
+        if (ssl) {
+            httpOptions
+                .setSsl(true)
+                .setTrustAll(nodeTrustAll)
+                .setKeyStoreOptions(new JksOptions()
+                    .setPath(cfg.nodeKeyStore())
+                    .setPassword(cfg.nodeKeyStorePassword()))
+                .setTrustStoreOptions(new JksOptions()
+                    .setPath(cfg.nodeTrustStore())
+                    .setPassword(cfg.nodeTrustStorePassword()));
+
+            cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
+        }
+
+        webClient = WebClient.create(Vertx.vertx(), httpOptions);
     }
 
-//    /**
-//     * Stop HTTP client.
-//     */
-//    @Override public void close() {
-//        if (httpClient != null) {
-//            httpClient.dispatcher().executorService().shutdown();
-//
-//            httpClient.dispatcher().cancelAll();
-//        }
-//    }
+    /** */
+    private RestResult parseResponse(AsyncResult<HttpResponse<Buffer>> asyncRes) throws IOException {
+        if (asyncRes.succeeded()) {
+            HttpResponse<Buffer> res = asyncRes.result();
 
-//    /** */
-//    private RestResult parseResponse(Response res) throws IOException {
-//        if (res.isSuccessful()) {
-//            RestResponseHolder holder = MAPPER.readValue(res.body().byteStream(), RestResponseHolder.class);
-//
-//            int status = holder.getSuccessStatus();
-//
-//            if (status == STATUS_SUCCESS)
-//                return RestResult.success(holder.getResponse(), holder.getSessionToken());
-//
-//            return RestResult.fail(status, holder.getError());
-//        }
-//
-//        if (res.code() == 401)
-//            return RestResult.fail(STATUS_AUTH_FAILED, "Failed to authenticate in cluster. " +
-//                "Please check agent\'s login and password or node port.");
-//
-//        if (res.code() == 404)
-//            return RestResult.fail(STATUS_FAILED, "Failed connect to cluster.");
-//
-//        return RestResult.fail(STATUS_FAILED, "Failed to execute REST command: " + res);
-//    }
+            RestResponseHolder holder = MAPPER.readValue(res.body().getBytes(), RestResponseHolder.class);
 
-//    /** */
-//    private RestResult sendRequest(String url, Map<String, Object> params, Map<String, Object> headers) throws IOException {
-//        HttpUrl httpUrl = HttpUrl
-//            .parse(url)
-//            .newBuilder()
-//            .addPathSegment("ignite")
-//            .build();
-//
-//        final Request.Builder reqBuilder = new Request.Builder();
-//
-//        if (headers != null) {
-//            for (Map.Entry<String, Object> entry : headers.entrySet())
-//                if (entry.getValue() != null)
-//                    reqBuilder.addHeader(entry.getKey(), entry.getValue().toString());
-//        }
-//
-//        FormBody.Builder bodyParams = new FormBody.Builder();
-//
-//        if (params != null) {
-//            for (Map.Entry<String, Object> entry : params.entrySet()) {
-//                if (entry.getValue() != null)
-//                    bodyParams.add(entry.getKey(), entry.getValue().toString());
-//            }
-//        }
-//
-//        reqBuilder.url(httpUrl).post(bodyParams.build());
-//
-//        try (Response resp = httpClient.newCall(reqBuilder.build()).execute()) {
-//            return parseResponse(resp);
-//        }
-//    }
+            int status = holder.getSuccessStatus();
 
-//    /**
-//     * Send request to cluster.
-//     *
-//     * @param nodeURIs List of cluster nodes URIs.
-//     * @param params Map with reques params.
-//     * @param headers Map with reques headers.
-//     * @return Response from cluster.
-//     * @throws IOException If failed to send request to cluster.
-//     */
-//    public RestResult sendRequest(
-//        List<String> nodeURIs,
-//        Map<String, Object> params,
-//        Map<String, Object> headers
-//    ) throws IOException {
-//        Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);
-//
-//        int urlsCnt = nodeURIs.size();
-//
-//        for (int i = 0;  i < urlsCnt; i++) {
-//            Integer currIdx = (startIdx + i) % urlsCnt;
-//
-//            String nodeUrl = nodeURIs.get(currIdx);
-//
-//            try {
-//                RestResult res = sendRequest(nodeUrl, params, headers);
-//
-//                // If first attempt failed then throttling should be cleared.
-//                if (i > 0)
-//                    LT.clear();
-//
-//                LT.info(log, "Connected to cluster [url=" + nodeUrl + "]");
-//
-//                startIdxs.put(nodeURIs, currIdx);
-//
-//                return res;
-//            }
-//            catch (ConnectException ignored) {
-//                LT.warn(log, "Failed connect to cluster [url=" + nodeUrl + "]");
-//            }
-//        }
-//
-//        LT.warn(log, "Failed connect to cluster. " +
-//            "Please ensure that nodes have [ignite-rest-http] module in classpath " +
-//            "(was copied from libs/optional to libs folder).");
-//
-//        throw new ConnectException("Failed connect to cluster [urls=" + nodeURIs + ", parameters=" + params + "]");
-//    }
+            if (status == STATUS_SUCCESS)
+                return RestResult.success(holder.getResponse(), holder.getSessionToken());
+
+            return RestResult.fail(status, holder.getError());
+        }
+
+        if (res.code() == 401)
+            return RestResult.fail(STATUS_AUTH_FAILED, "Failed to authenticate in cluster. " +
+                "Please check agent\'s login and password or node port.");
+
+        if (res.code() == 404)
+            return RestResult.fail(STATUS_FAILED, "Failed connect to cluster.");
+
+        return RestResult.fail(STATUS_FAILED, "Failed to execute REST command: " + res);
+    }
+
+    /** */
+    private RestResult sendRequest(String url, Map<String, Object> params) throws Exception {
+        URI uri = new URI(url);
+
+        HttpRequest<Buffer> req = webClient.post(uri.getPort(), uri.getHost(), "/ignite");
+
+        params.forEach((key, value) -> req.addQueryParam(key, value));
+
+        req.send(res -> {
+            if (res.succeeded()) {
+
+            }
+        });
+
+        RequestOptions opts = new RequestOptions();
+
+        HttpClientRequest req = httpClient.post(opts);
+
+        req.
+
+
+        HttpUrl httpUrl = HttpUrl
+            .parse(url)
+            .newBuilder()
+            .addPathSegment("ignite")
+            .build();
+
+        final Request.Builder reqBuilder = new Request.Builder();
+
+        if (headers != null) {
+            for (Map.Entry<String, Object> entry : headers.entrySet())
+                if (entry.getValue() != null)
+                    reqBuilder.addHeader(entry.getKey(), entry.getValue().toString());
+        }
+
+        FormBody.Builder bodyParams = new FormBody.Builder();
+
+        if (params != null) {
+            for (Map.Entry<String, Object> entry : params.entrySet()) {
+                if (entry.getValue() != null)
+                    bodyParams.add(entry.getKey(), entry.getValue().toString());
+            }
+        }
+
+        reqBuilder.url(httpUrl).post(bodyParams.build());
+
+        try (Response resp = httpClient.newCall(reqBuilder.build()).execute()) {
+            return parseResponse(resp);
+        }
+    }
+
+    /**
+     * Send request to cluster.
+     *
+     * @param nodeURIs List of cluster nodes URIs.
+     * @param params Map with request params.
+     * @return Response from cluster.
+     * @throws IOException If failed to send request to cluster.
+     */
+    public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params) throws IOException {
+        Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);
+
+        int urlsCnt = nodeURIs.size();
+
+        for (int i = 0;  i < urlsCnt; i++) {
+            Integer currIdx = (startIdx + i) % urlsCnt;
+
+            String nodeUrl = nodeURIs.get(currIdx);
+
+            try {
+                RestResult res = sendRequest(nodeUrl, params);
+
+                // If first attempt failed then throttling should be cleared.
+                if (i > 0)
+                    LT.clear();
+
+                LT.info(log, "Connected to cluster [url=" + nodeUrl + "]");
+
+                startIdxs.put(nodeURIs, currIdx);
+
+                return res;
+            }
+            catch (ConnectException ignored) {
+                LT.warn(log, "Failed connect to cluster [url=" + nodeUrl + "]");
+            }
+        }
+
+        LT.warn(log, "Failed connect to cluster. " +
+            "Please ensure that nodes have [ignite-rest-http] module in classpath " +
+            "(was copied from libs/optional to libs folder).");
+
+        throw new ConnectException("Failed connect to cluster [urls=" + nodeURIs + ", parameters=" + params + "]");
+    }
 
     /**
      * REST response holder Java bean.
