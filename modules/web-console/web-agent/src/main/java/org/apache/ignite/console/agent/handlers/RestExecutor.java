@@ -113,9 +113,9 @@ public class RestExecutor {
 
     /** */
     private RestResult parseResponse(AsyncResult<HttpResponse<Buffer>> asyncRes) throws IOException {
-        if (asyncRes.succeeded()) {
-            HttpResponse<Buffer> res = asyncRes.result();
+        HttpResponse<Buffer> res = asyncRes.result();
 
+        if (asyncRes.succeeded()) {
             RestResponseHolder holder = MAPPER.readValue(res.body().getBytes(), RestResponseHolder.class);
 
             int status = holder.getSuccessStatus();
@@ -126,11 +126,11 @@ public class RestExecutor {
             return RestResult.fail(status, holder.getError());
         }
 
-        if (res.code() == 401)
+        if (res.statusCode() == 401)
             return RestResult.fail(STATUS_AUTH_FAILED, "Failed to authenticate in cluster. " +
                 "Please check agent\'s login and password or node port.");
 
-        if (res.code() == 404)
+        if (res.statusCode() == 404)
             return RestResult.fail(STATUS_FAILED, "Failed connect to cluster.");
 
         return RestResult.fail(STATUS_FAILED, "Failed to execute REST command: " + res);
