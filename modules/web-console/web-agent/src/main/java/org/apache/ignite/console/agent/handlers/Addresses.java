@@ -21,6 +21,9 @@ package org.apache.ignite.console.agent.handlers;
  * Contains event bus addresses.
  */
 public interface Addresses {
+    /** Error code to return on failures. */
+    public static final int EVENT_FAILED = 500;
+
     /** */
     public static final String EVENT_NODE_REST = "node:rest";
 
@@ -35,4 +38,10 @@ public interface Addresses {
 
     /** */
     public static final String EVENT_CLUSTER_DISCONNECTED = "cluster:disconnected";
+
+    /** */
+    public static final String EVENT_RESET_TOKEN = "agent:reset:token";
+
+    /** */
+    public static final String EVENT_LOG_WARNING = "log:warn";
 }

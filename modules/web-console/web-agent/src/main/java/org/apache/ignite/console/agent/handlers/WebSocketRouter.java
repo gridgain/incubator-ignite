@@ -49,6 +49,9 @@ public class WebSocketRouter extends AbstractVerticle {
     private HttpClient client;
 
     /** */
+    private volatile long curTimer;
+
+    /** */
     private RequestOptions conOpts;
 
     /**
@@ -105,7 +108,14 @@ public class WebSocketRouter extends AbstractVerticle {
             .setSsl(ssl)
             .setURI("/web-agents");
 
-        vertx.setTimer(1, this::connect);
+        curTimer = vertx.setTimer(1, this::connect);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        vertx.cancelTimer(curTimer);
+
+        client.close();
     }
 
     /**
@@ -142,7 +152,7 @@ public class WebSocketRouter extends AbstractVerticle {
                 ws.closeHandler(p -> {
                     log.warning("Connection closed: " + ws.remoteAddress());
 
-                    vertx.setTimer(1, this::connect);
+                    curTimer = vertx.setTimer(1, this::connect);
                 });
 
                 ws.writeTextMessage(agentId.toString());
@@ -150,7 +160,7 @@ public class WebSocketRouter extends AbstractVerticle {
             e -> {
                 LT.warn(log, e.getMessage());
 
-                vertx.setTimer(3000, this::connect);
+                curTimer = vertx.setTimer(3000, this::connect);
             });
     }
 }

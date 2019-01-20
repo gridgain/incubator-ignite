@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.agent.handlers;
+package org.apache.ignite.console.agent.rest;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.net.ConnectException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -30,12 +31,11 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import io.vertx.core.AbstractVerticle;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
@@ -44,6 +44,7 @@ import io.vertx.ext.web.client.WebClientOptions;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
+import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
@@ -51,8 +52,6 @@ import org.slf4j.LoggerFactory;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_REST;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_VISOR_TASK;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_AUTH_FAILED;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_FAILED;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
@@ -60,32 +59,29 @@ import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS
 /**
  * API to translate REST requests to Ignite cluster.
  */
-public class RestHandler extends AbstractVerticle {
+public class RestExecutor implements AutoCloseable {
     /** */
-    private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(RestHandler.class));
-
-    /** */
-    private final AgentConfiguration cfg;
+    private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(RestExecutor.class));
 
     /** JSON object mapper. */
     private static final ObjectMapper MAPPER = new GridJettyObjectMapper();
 
     /** */
-    private WebClient webClient;
+    private final AgentConfiguration cfg;
+
+    /** */
+    private final WebClient webClient;
 
     /** Index of alive node URI. */
     private final Map<List<String>, Integer> startIdxs = U.newHashMap(2);
 
-
     /**
+     * Constructor.
+     *
      * @param cfg Config.
      */
-    public RestHandler(AgentConfiguration cfg) {
+    public RestExecutor(AgentConfiguration cfg) {
         this.cfg = cfg;
-    }
-
-    /** {@inheritDoc} */
-    @Override public void start() {
         boolean nodeTrustAll = Boolean.getBoolean("trust.all");
         boolean hasNodeTrustStore = cfg.nodeTrustStore() != null;
 
@@ -114,164 +110,127 @@ public class RestHandler extends AbstractVerticle {
             cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
         }
 
-        webClient = WebClient.create(vertx, httpOptions);
-
-        EventBus eventBus = vertx.eventBus();
-
-        eventBus.consumer(EVENT_NODE_REST, this::handleNodeRest);
-        eventBus.consumer(EVENT_NODE_VISOR_TASK, this::handleNodeVisor);
+        webClient = WebClient.create(Vertx.vertx(), httpOptions);
     }
 
-    /**
-     * @param msg Message.
-     */
-    private void handleNodeRest(Message<Void> msg) {
-
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void handleNodeVisor(Message<Void> msg) {
-
-    }
-
-//    /** {@inheritDoc} */
-//    public Object execute(Map<String, Object> args) {
-//        if (log.isDebugEnabled())
-//            log.debug("Start parse REST command args: " + args);
-//
-//        Map<String, Object> params = null;
-//
-//        if (args.containsKey("params"))
-//            params = (Map<String, Object>)args.get("params");
-//
-//        if (!args.containsKey("demo"))
-//            throw new IllegalArgumentException("Missing demo flag in arguments: " + args);
-//
-//        boolean demo = (boolean)args.get("demo");
-//
-//        if (F.isEmpty((String)args.get("token")))
-//            return RestResult.fail(401, "Request does not contain user token.");
-//
-//        Map<String, Object> headers = null;
-//
-//        if (args.containsKey("headers"))
-//            headers = (Map<String, Object>)args.get("headers");
-//
-//        try {
-//            if (demo) {
-//                if (AgentClusterDemo.getDemoUrl() == null) {
-//                    AgentClusterDemo.tryStart().await();
-//
-//                    if (AgentClusterDemo.getDemoUrl() == null)
-//                        return RestResult.fail(404, "Failed to send request because of embedded node for demo mode is not started yet.");
-//                }
-//
-//                return null; // restExecutor.sendRequest(AgentClusterDemo.getDemoUrl(), params, headers);
-//            }
-//
-//            return null; // restExecutor.sendRequest(this.cfg.nodeURIs(), params, headers);
-//        }
-//        catch (Throwable e) {
-//            U.error(log, "Failed to execute REST command with parameters: " + params, e);
-//
-//            return RestResult.fail(404, e.getMessage());
-//        }
-//    }
-
-
-    /** */
-    private RestResult parseResponse(AsyncResult<HttpResponse<Buffer>> asyncRes) {
+    /** {@inheritDoc} */
+    @Override public void close() {
+        webClient.close();
     }
 
     /** */
-    private Future<RestResult> sendRequest(String url, Map<String, Object> params) throws Exception {
+    private void parseResponse(Future<RestResult> fut, AsyncResult<HttpResponse<Buffer>> asyncRes) {
+        if (asyncRes.succeeded()) {
+            HttpResponse<Buffer> response = asyncRes.result();
+
+            switch (response.statusCode()) {
+                case 200:
+                    try {
+                        RestResponseHolder holder = MAPPER.readValue(response.body().getBytes(), RestResponseHolder.class);
+
+                        int status = holder.getSuccessStatus();
+
+                        fut.complete(status == STATUS_SUCCESS
+                            ? RestResult.success(holder.getResponse(), holder.getSessionToken())
+                            : RestResult.fail(status, holder.getError()));
+                    }
+                    catch (IOException e) {
+                        fut.fail(e);
+                    }
+
+                    break;
+
+                case 401:
+                    fut.complete(RestResult.fail(STATUS_AUTH_FAILED, "Failed to authenticate in cluster. " +
+                        "Please check agent\'s login and password or node port."));
+
+                    break;
+
+                case 404:
+                    fut.complete(RestResult.fail(STATUS_FAILED, "Failed connect to cluster."));
+
+                    break;
+
+                default:
+                    fut.complete(RestResult.fail(STATUS_FAILED, "Failed to execute REST command [code=" +
+                        response.statusCode() + ", msg=" + response.statusMessage() + "]"));
+            }
+        }
+        else
+            fut.fail(asyncRes.cause());
+    }
+
+    /** */
+    private RestResult sendRequest(String url, JsonObject params) throws Throwable {
         Future<RestResult> fut = Future.future();
 
         URI uri = new URI(url);
 
-        HttpRequest<Buffer> req = webClient.post(uri.getPort(), uri.getHost(), "/ignite");
+        HttpRequest<Buffer> req = webClient
+            .post(uri.getPort(), uri.getHost(), "/ignite");
 
-        params.forEach((key, value) -> req.addQueryParam(key, value.toString()));
+        params.forEach(entry -> req.addQueryParam(entry.getKey(), entry.getValue().toString()));
 
-        req.send(asyncRes -> {
-            HttpResponse<Buffer> response = asyncRes.result();
+        req.send(asyncRes -> parseResponse(fut, asyncRes));
 
-            RestResult res;
-
-            if (asyncRes.succeeded()) {
-                try {
-                    RestResponseHolder holder = MAPPER.readValue(response.body().getBytes(), RestResponseHolder.class);
-
-                    int status = holder.getSuccessStatus();
-
-                    res = status == STATUS_SUCCESS
-                        ? RestResult.success(holder.getResponse(), holder.getSessionToken())
-                        : RestResult.fail(status, holder.getError());
-                }
-                catch (Throwable e) {
-                    res = RestResult.fail(STATUS_FAILED, e.getMessage());
-                }
-
-                if (response.statusCode() == 401)
-                    return RestResult.fail(STATUS_AUTH_FAILED, "Failed to authenticate in cluster. " +
-                        "Please check agent\'s login and password or node port.");
-
-                if (response.statusCode() == 404)
-                    return RestResult.fail(STATUS_FAILED, "Failed connect to cluster.");
-
-                return RestResult.fail(STATUS_FAILED, "Failed to execute REST command: " + response);
+        while (!fut.isComplete()) {
+            try {
+                Thread.sleep(10);
             }
-            else
-                fut.fail(asyncRes.cause());
-        });
+            catch (InterruptedException e) {
+                return RestResult.fail(STATUS_FAILED, e.getMessage());
+            }
+        }
 
-        return fut;
+        if (fut.failed())
+            throw fut.cause();
+
+        return fut.result();
     }
 
-//    /**
-//     * Send request to cluster.
-//     *
-//     * @param nodeURIs List of cluster nodes URIs.
-//     * @param params Map with request params.
-//     * @return Response from cluster.
-//     * @throws IOException If failed to send request to cluster.
-//     */
-//    public RestResult sendRequest(List<String> nodeURIs, Map<String, Object> params) throws IOException {
-//        Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);
-//
-//        int urlsCnt = nodeURIs.size();
-//
-//        for (int i = 0;  i < urlsCnt; i++) {
-//            Integer currIdx = (startIdx + i) % urlsCnt;
-//
-//            String nodeUrl = nodeURIs.get(currIdx);
-//
-//            try {
-//                RestResult res = sendRequest(nodeUrl, params);
-//
-//                // If first attempt failed then throttling should be cleared.
-//                if (i > 0)
-//                    LT.clear();
-//
-//                LT.info(log, "Connected to cluster [url=" + nodeUrl + "]");
-//
-//                startIdxs.put(nodeURIs, currIdx);
-//
-//                return res;
-//            }
-//            catch (ConnectException ignored) {
-//                LT.warn(log, "Failed connect to cluster [url=" + nodeUrl + "]");
-//            }
-//        }
-//
-//        LT.warn(log, "Failed connect to cluster. " +
-//            "Please ensure that nodes have [ignite-rest-http] module in classpath " +
-//            "(was copied from libs/optional to libs folder).");
-//
-//        throw new ConnectException("Failed connect to cluster [urls=" + nodeURIs + ", parameters=" + params + "]");
-//    }
+    /**
+     * Send request to cluster.
+     *
+     * @param params Map with request params.
+     * @return Response from cluster.
+     * @throws ConnectException if failed to connect to cluster.
+     */
+    public RestResult sendRequest(JsonObject params) throws ConnectException {
+        List<String> nodeURIs = cfg.nodeURIs();
+
+        Integer startIdx = startIdxs.getOrDefault(nodeURIs, 0);
+
+        int urlsCnt = nodeURIs.size();
+
+        for (int i = 0;  i < urlsCnt; i++) {
+            Integer currIdx = (startIdx + i) % urlsCnt;
+
+            String nodeUrl = nodeURIs.get(currIdx);
+
+            try {
+                RestResult res = sendRequest(nodeUrl, params);
+
+                // If first attempt failed then throttling should be cleared.
+                if (i > 0)
+                    LT.clear();
+
+                LT.info(log, "Connected to cluster [url=" + nodeUrl + "]");
+
+                startIdxs.put(nodeURIs, currIdx);
+
+                return res;
+            }
+            catch (Throwable ignored) {
+                LT.warn(log, "Failed connect to cluster [url=" + nodeUrl + "]");
+            }
+        }
+
+        LT.warn(log, "Failed connect to cluster. " +
+            "Please ensure that nodes have [ignite-rest-http] module in classpath " +
+            "(was copied from libs/optional to libs folder).");
+
+        throw new ConnectException("Failed connect to cluster [urls=" + nodeURIs + ", parameters=" + params + "]");
+    }
 
     /**
      * REST response holder Java bean.
@@ -438,5 +397,4 @@ public class RestHandler extends AbstractVerticle {
             return p.getValueAsString();
         }
     }
-
 }

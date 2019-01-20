@@ -36,8 +36,9 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import org.apache.ignite.console.agent.handlers.ClusterListener;
 import org.apache.ignite.console.agent.handlers.DatabaseListener;
-import org.apache.ignite.console.agent.handlers.RestHandler;
+import org.apache.ignite.console.agent.handlers.RestListener;
 import org.apache.ignite.console.agent.handlers.WebSocketRouter;
+import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -49,12 +50,6 @@ public class AgentLauncher {
     /** */
     private static final Logger log = LoggerFactory.getLogger(AgentLauncher.class);
 
-    /** */
-    private static final String EVENT_RESET_TOKEN = "agent:reset:token";
-
-    /** */
-    private static final String EVENT_LOG_WARNING = "log:warn";
-
     static {
         // Optionally remove existing handlers attached to j.u.l root logger.
         SLF4JBridgeHandler.removeHandlersForRootLogger();
@@ -62,80 +57,6 @@ public class AgentLauncher {
         // Add SLF4JBridgeHandler to j.u.l's root logger.
         SLF4JBridgeHandler.install();
     }
-
-//    /**
-//     * On error listener.
-//     */
-//    private static final Emitter.Listener onError = args -> {
-//        Throwable e = (Throwable)args[0];
-//
-//        ConnectException ce = X.cause(e, ConnectException.class);
-//
-//        if (ce != null)
-//            log.error("Failed to establish connection to server (connection refused).");
-//        else {
-//            Exception ignore = X.cause(e, SSLHandshakeException.class);
-//
-//            if (ignore != null) {
-//                log.error("Failed to establish SSL connection to server, due to errors with SSL handshake:", e);
-//                log.error("Add to environment variable JVM_OPTS parameter \"-Dtrust.all=true\" to skip certificate validation in case of using self-signed certificate.");
-//
-//                System.exit(1);
-//            }
-//
-//            ignore = X.cause(e, UnknownHostException.class);
-//
-//            if (ignore != null) {
-//                log.error("Failed to establish connection to server, due to errors with DNS or missing proxy settings.", e);
-//                log.error("Documentation for proxy configuration can be found here: http://apacheignite.readme.io/docs/web-agent#section-proxy-configuration");
-//
-//                System.exit(1);
-//            }
-//
-//            ignore = X.cause(e, IOException.class);
-//
-//            if (ignore != null && "404".equals(ignore.getMessage())) {
-//                log.error("Failed to receive response from server (connection refused).");
-//
-//                return;
-//            }
-//
-//            if (ignore != null && "407".equals(ignore.getMessage())) {
-//                log.error("Failed to establish connection to server, due to proxy requires authentication.");
-//
-//                String userName = System.getProperty("https.proxyUsername", System.getProperty("http.proxyUsername"));
-//
-//                if (userName == null || userName.trim().isEmpty())
-//                    userName = readLine("Enter proxy user name: ");
-//                else
-//                    System.out.println("Read username from system properties: " + userName);
-//
-//                char[] pwd = readPassword("Enter proxy password: ");
-//
-//                final PasswordAuthentication pwdAuth = new PasswordAuthentication(userName, pwd);
-//
-//                Authenticator.setDefault(new Authenticator() {
-//                    @Override protected PasswordAuthentication getPasswordAuthentication() {
-//                        return pwdAuth;
-//                    }
-//                });
-//
-//                return;
-//            }
-//
-//            log.error("Connection error.", e);
-//        }
-//    };
-
-//    /**
-//     * On disconnect listener.
-//     */
-//    private static final Emitter.Listener onDisconnect = args -> log.error("Connection closed: " + args);
-
-//    /**
-//     * On token reset listener.
-//     */
-//    private static final Emitter.Listener onLogWarning = args -> log.warn(String.valueOf(args[0]));
 
     /**
      * @param args Launcher args.
@@ -284,154 +205,10 @@ public class AgentLauncher {
         return new Scanner(System.in).nextLine().toCharArray();
     }
 
-
-    /**
-     *
-     */
-    private void run() {
-
-//        if (
-//            serverTrustAll ||
-//                hasServerTrustStore ||
-//                cfg.serverKeyStore() != null
-//        ) {
-//            OkHttpClient.Builder builder = new OkHttpClient.Builder();
-//
-//            X509TrustManager serverTrustMgr = trustManager(
-//                serverTrustAll,
-//                cfg.serverTrustStore(),
-//                cfg.serverTrustStorePassword()
-//            );
-//
-//            SSLSocketFactory sslSocketFactory = sslSocketFactory(
-//                cfg.serverKeyStore(),
-//                cfg.serverKeyStorePassword(),
-//                serverTrustMgr,
-//                cipherSuites
-//            );
-//
-//            if (sslSocketFactory != null) {
-//                builder.sslSocketFactory(sslSocketFactory, serverTrustMgr);
-//
-//                if (!F.isEmpty(cipherSuites))
-//                    builder.connectionSpecs(sslConnectionSpec(cipherSuites));
-//            }
-//        }
-
-//            Emitter.Listener onConnect = connectRes -> {
-//                log.info("Connection established.");
-//
-//                JSONObject authMsg = new JSONObject();
-//
-//                try {
-//                    authMsg.put("tokens", toJSON(cfg.tokens()));
-//                    authMsg.put("disableDemo", cfg.disableDemo());
-//
-//                    String clsName = AgentLauncher.class.getSimpleName() + ".class";
-//
-//                    String clsPath = AgentLauncher.class.getResource(clsName).toString();
-//
-//                    if (clsPath.startsWith("jar")) {
-//                        String manifestPath = clsPath.substring(0, clsPath.lastIndexOf('!') + 1) +
-//                            "/META-INF/MANIFEST.MF";
-//
-//                        Manifest manifest = new Manifest(new URL(manifestPath).openStream());
-//
-//                        Attributes attr = manifest.getMainAttributes();
-//
-//                        authMsg.put("ver", attr.getValue("Implementation-Version"));
-//                        authMsg.put("bt", attr.getValue("Build-Time"));
-//                    }
-//
-//                    client.emit("agent:auth", authMsg, (Ack) authRes -> {
-//                        if (authRes != null) {
-//                            if (authRes[0] instanceof String) {
-//                                log.error((String)authRes[0]);
-//
-//                                System.exit(1);
-//                            }
-//
-//                            if (authRes[0] == null && authRes[1] instanceof JSONArray) {
-//                                try {
-//                                    List<String> activeTokens = fromJSON(authRes[1], List.class);
-//
-//                                    if (!F.isEmpty(activeTokens)) {
-//                                        Collection<String> missedTokens = cfg.tokens();
-//
-//                                        cfg.tokens(activeTokens);
-//
-//                                        missedTokens.removeAll(activeTokens);
-//
-//                                        if (!F.isEmpty(missedTokens)) {
-//                                            String tokens = F.concat(missedTokens, ", ");
-//
-//                                            log.warn("Failed to authenticate with token(s): " + tokens + ". " +
-//                                                "Please reload agent archive or check settings");
-//                                        }
-//
-//                                        log.info("Authentication success.");
-//
-//                                        clusterLsnr.watch();
-//
-//                                        return;
-//                                    }
-//                                }
-//                                catch (Exception e) {
-//                                    log.error("Failed to authenticate agent. Please check agent\'s tokens", e);
-//
-//                                    System.exit(1);
-//                                }
-//                            }
-//                        }
-//
-//                        log.error("Failed to authenticate agent. Please check agent\'s tokens");
-//
-//                        System.exit(1);
-//                    });
-//                }
-//                catch (JSONException | IOException e) {
-//                    log.error("Failed to construct authentication message", e);
-//
-//                    client.close();
-//                }
-//            };
-
-//            client
-//                .on(EVENT_CONNECT, onConnect)
-//                .on(EVENT_CONNECT_ERROR, onError)
-//                .on(EVENT_ERROR, onError)
-//                .on(EVENT_DISCONNECT, onDisconnect)
-//                .on(EVENT_LOG_WARNING, onLogWarning)
-//                .on(EVENT_RESET_TOKEN, res -> {
-//                    String tok = String.valueOf(res[0]);
-//
-//                    log.warn("Security token has been reset: " + tok);
-//
-//                    cfg.tokens().remove(tok);
-//
-//                    if (cfg.tokens().isEmpty()) {
-//                        client.off();
-//
-//                        startUpLatch.countDown();
-//                    }
-//                })
-//                .on(EVENT_SCHEMA_IMPORT_DRIVERS, dbHnd.availableDriversListener())
-//                .on(EVENT_SCHEMA_IMPORT_SCHEMAS, dbHnd.schemasListener())
-//                .on(EVENT_SCHEMA_IMPORT_METADATA, dbHnd.metadataListener())
-//                .on(EVENT_NODE_VISOR_TASK, restHnd)
-//                .on(EVENT_NODE_REST, restHnd);
-
-            // client.connect();
-//        }
-//        finally {
-//            // client.close();
-//        }
-    }
-
     /**
      * @param args Args.
      */
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         AgentConfiguration cfg = parseArgs(args);
 
         if (cfg != null) {
@@ -439,10 +216,12 @@ public class AgentLauncher {
 
             Vertx vertx = Vertx.vertx(opts);
 
+            RestExecutor restExecutor = new RestExecutor(cfg);
+
             vertx.deployVerticle(new WebSocketRouter(cfg));
             vertx.deployVerticle(new DatabaseListener(cfg));
-            vertx.deployVerticle(new ClusterListener(cfg));
-            vertx.deployVerticle(new RestHandler(cfg));
+            vertx.deployVerticle(new ClusterListener(cfg, restExecutor));
+            vertx.deployVerticle(new RestListener(restExecutor));
         }
     }
 }

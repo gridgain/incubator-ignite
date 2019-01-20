@@ -25,16 +25,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ScheduledFuture;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
+import org.apache.ignite.console.agent.rest.RestExecutor;
+import org.apache.ignite.console.agent.rest.RestResult;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
 import org.apache.ignite.internal.util.typedef.F;
@@ -47,7 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CLUSTER_NAME;
 import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_CLUSTER_DISCONNECTED;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_REST;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_CLUSTER_TOPOLOGY;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CLIENT_MODE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
@@ -110,16 +110,28 @@ public class ClusterListener extends AbstractVerticle {
     /** */
     private final AgentConfiguration cfg;
 
+    /** */
+    private final RestExecutor restExecutor;
+
+    /** */
+    private volatile long curTimer;
+
     /**
      * @param cfg Web agent configuration.
      */
-    public ClusterListener(AgentConfiguration cfg) {
+    public ClusterListener(AgentConfiguration cfg, RestExecutor restExecutor) {
         this.cfg = cfg;
+        this.restExecutor = restExecutor;
     }
 
     /** {@inheritDoc} */
     @Override public void start() {
-        vertx.setTimer(1, this::watch);
+        curTimer = vertx.setTimer(1, this::watch);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void stop() {
+        vertx.cancelTimer(curTimer);
     }
 
     /**
@@ -154,7 +166,7 @@ public class ClusterListener extends AbstractVerticle {
      * @return Command result.
      * @throws IOException If failed to execute.
      */
-    private RestResult restCommand(Map<String, Object> params) throws IOException {
+    private RestResult restCommand(JsonObject params) throws IOException {
         if (!F.isEmpty(sesTok))
             params.put("sessionToken", sesTok);
         else if (!F.isEmpty(cfg.nodeLogin()) && !F.isEmpty(cfg.nodePassword())) {
@@ -162,7 +174,7 @@ public class ClusterListener extends AbstractVerticle {
             params.put("password", cfg.nodePassword());
         }
 
-        RestResult res = null; // restExecutor.sendRequest(cfg.nodeURIs(), params, null);
+        RestResult res = restExecutor.sendRequest(params);
 
         switch (res.getStatus()) {
             case STATUS_SUCCESS:
@@ -195,7 +207,7 @@ public class ClusterListener extends AbstractVerticle {
         if (ver.compareTo(IGNITE_2_0) < 0)
             return true;
 
-        Map<String, Object> params = U.newHashMap(10);
+        JsonObject params = new JsonObject();
 
         boolean v23 = ver.compareTo(IGNITE_2_3) >= 0;
 
@@ -224,7 +236,24 @@ public class ClusterListener extends AbstractVerticle {
         if (res.getStatus() == STATUS_SUCCESS)
             return v23 ? Boolean.valueOf(res.getData()) : res.getData().contains("\"active\":true");
 
-        throw new IOException(res.getError());
+        return false;
+    }
+
+    /**
+     * Collect topology.
+     *
+     * @return REST result.
+     * @throws IOException If failed to collect cluster topology.
+     */
+    private RestResult topology() throws IOException {
+        JsonObject params = new JsonObject();
+
+        params.put("cmd", "top");
+        params.put("attr", true);
+        params.put("mtr", false);
+        params.put("caches", false);
+
+        return restCommand(params);
     }
 
     /**
@@ -233,51 +262,46 @@ public class ClusterListener extends AbstractVerticle {
      * @param tid Timer ID.
      */
     public void watch(long tid) {
-        JsonObject params = new JsonObject();
-        params.put("cmd", "top");
-        params.put("attr", true);
-        params.put("mtr", false);
-        params.put("caches", false);
+        try {
+            RestResult res = topology();
 
-        vertx.eventBus().send(EVENT_NODE_REST, params, asynRes -> {
-            if (asynRes.succeeded()) {
-                Message<Object> res = asynRes.result();
+            if (res.getStatus() == STATUS_SUCCESS) {
+                List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
+                    new TypeReference<List<GridClientNodeBean>>() {});
 
-                if (res.getStatus() == STATUS_SUCCESS) {
-                    List<GridClientNodeBean> nodes = MAPPER.readValue(res.getData(),
-                        new TypeReference<List<GridClientNodeBean>>() {});
+                TopologySnapshot newTop = new TopologySnapshot(nodes);
 
-                    TopologySnapshot newTop = new TopologySnapshot(nodes);
+                if (newTop.differentCluster(top))
+                    log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
+                else if (newTop.topologyChanged(top))
+                    log.info("Cluster topology changed, new topology: " + newTop.nid8());
 
-                    if (newTop.differentCluster(top))
-                        log.info("Connection successfully established to cluster with nodes: " + newTop.nid8());
-                    else if (newTop.topologyChanged(top))
-                        log.info("Cluster topology changed, new topology: " + newTop.nid8());
+                boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
 
-                    boolean active = active(newTop.clusterVersion(), F.first(newTop.getNids()));
+                newTop.setActive(active);
+                newTop.setSecured(!F.isEmpty(res.getSessionToken()));
 
-                    newTop.setActive(active);
-                    newTop.setSecured(!F.isEmpty(res.getSessionToken()));
+                top = newTop;
 
-                    top = newTop;
-
-                    // ws.writeTextMessage(response(EVENT_CLUSTER_TOPOLOGY, toJSON(top)));
-                }
-                else {
-                    LT.warn(log, res.getError());
-
-                    clusterDisconnect();
-                }
-
+                vertx.eventBus().send(EVENT_CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
             }
             else {
-                log.error("WatchTask failed", asynRes.cause());
+                LT.warn(log, res.getError());
 
                 clusterDisconnect();
             }
+        }
+        catch (ConnectException ignored) {
+            clusterDisconnect();
+        }
+        catch (Throwable e) {
+            log.error("WatchTask failed", e);
 
-            vertx.setTimer(REFRESH_FREQ, this::watch);
-        });
+            clusterDisconnect();
+        }
+        finally {
+            curTimer = vertx.setTimer(REFRESH_FREQ, this::watch);
+        }
     }
 
     /** */
