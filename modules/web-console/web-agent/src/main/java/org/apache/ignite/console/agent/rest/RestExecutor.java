@@ -44,6 +44,7 @@ import io.vertx.ext.web.client.WebClientOptions;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
@@ -107,7 +108,8 @@ public class RestExecutor implements AutoCloseable {
                     .setPath(cfg.nodeTrustStore())
                     .setPassword(cfg.nodeTrustStorePassword()));
 
-            cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
+            if (!F.isEmpty(cfg.cipherSuites()))
+                cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
         }
 
         webClient = WebClient.create(Vertx.vertx(), httpOptions);

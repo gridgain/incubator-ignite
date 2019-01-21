@@ -95,7 +95,8 @@ public class WebSocketRouter extends AbstractVerticle {
                     .setPath(cfg.serverTrustStore())
                     .setPassword(cfg.serverTrustStorePassword()));
 
-            cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
+            if (!F.isEmpty(cfg.cipherSuites()))
+                cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
         }
 
         client = vertx.createHttpClient(httpOptions);

@@ -232,6 +232,11 @@ export default class AgentManager {
 
             this.eventBus.registerHandler('agent:stats', (err, msg) => {
                 console.log('agent:stats:msg' + JSON.stringify(msg));
+
+                const data = msg.body;
+                const conn = this.connectionSbj.getValue();
+                conn.update(false, data.count, data.clusters); // this.isDemoMode()
+                this.connectionSbj.next(conn);
             });
 
             this.eventBus.registerHandler('node:rest', (err, msg) => {

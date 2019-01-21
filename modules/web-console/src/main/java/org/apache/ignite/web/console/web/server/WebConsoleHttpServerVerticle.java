@@ -21,9 +21,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.http.ServerWebSocket;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
@@ -97,12 +97,6 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
         eventBus.consumer("schemaImport:metadata", msg -> log(msg.body()));
 
-        vertx.setPeriodic(3000L, t -> {
-            log("Send to browser");
-
-            eventBus.send("agent:stats", "{\"data\": 1}");
-        });
-
         browsersHandler.socketHandler(socket -> {
             log("browsersHandler.socketHandler: " + socket.writeHandlerID() + ", " + socket.uri());
 
@@ -167,6 +161,15 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 //
 //            key.writeTextMessage(json.toString());
 //        }));
+
+        vertx.setPeriodic(3000L, t -> {
+            JsonObject json = new JsonObject();
+            json.put("count", agentSockets.size());
+            json.put("hasDemo", false);
+            json.put("clusters", new JsonArray());
+
+            eventBus.send("agent:stats", json);
+        });
 
         // Create the HTTP server for browsers.
         vertx
