@@ -1041,7 +1041,7 @@ export class ModalImportModels {
                                     label: drv.jdbcDriverJar,
                                     value: {
                                         jdbcDriverJar: drv.jdbcDriverJar,
-                                        jdbcDriverClass: drv.jdbcDriverCls
+                                        jdbcDriverClass: drv.jdbcDriverClass
                                     }
                                 });
                             });

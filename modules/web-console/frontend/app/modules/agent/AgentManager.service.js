@@ -246,8 +246,6 @@ export default class AgentManager {
             this.eventBus.registerHandler('node:visor', (err, msg) => {
                 console.log(JSON.stringify(msg));
             });
-
-            setInterval(() => this.eventBus.send('browser:info', {browserId: this.browserId}), 3000);
         };
 
         // this.socket.onerror = (err) => {
@@ -485,24 +483,12 @@ export default class AgentManager {
 
         const latch = this.$q.defer();
 
-        const onDisconnect = () => {
-            // this.socket.removeListener('disconnect', onDisconnect);
+        this.eventBus.send(event, {data}, (err, res) => {
+            if (err)
+                latch.reject(err);
 
-            latch.reject('Connection to server was closed');
-        };
-
-        // this.socket.on('disconnect', onDisconnect);
-
-        this.eventBus.publish(event, {data});
-
-        // this.socket.emit(event, data, (err, res) => {
-        //     this.socket.removeListener('disconnect', onDisconnect);
-        //
-        //     if (err)
-        //         return latch.reject(err);
-        //
-        //     latch.resolve(res);
-        // });
+            latch.resolve(res.body.data);
+        });
 
         return latch.promise;
     }

@@ -45,6 +45,9 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     /** */
     private Map<ServerWebSocket, String> agentSockets = new ConcurrentHashMap<>();
 
+    /** */
+    private Map<ServerWebSocket, JsonObject> agentResponses = new ConcurrentHashMap<>();
+
     /**
      * @param s Message to log.
      */
@@ -91,7 +94,35 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
         eventBus.consumer("node:visor", msg -> log(msg.body()));
 
-        eventBus.consumer("schemaImport:drivers", msg -> log(msg.body()));
+        eventBus.consumer("schemaImport:drivers", msg -> {
+            log("schemaImport:drivers: " +  msg.body());
+
+            vertx.executeBlocking(
+                fut -> {
+                    ServerWebSocket sock = agentSockets.keySet().iterator().next();
+                    JsonObject json = new JsonObject();
+                    json.put("address", "schemaImport:drivers");
+                    sock.writeTextMessage(json.toString());
+
+                    JsonObject res = agentResponses.get(sock);
+
+                    while(res == null) {
+                        try {
+                            Thread.sleep(10);
+                        }
+                        catch (InterruptedException e) {
+                            fut.fail(e);
+                        }
+
+                        res = agentResponses.get(sock);
+                    }
+
+                    fut.complete(res);
+                },
+                async -> {
+                    msg.reply(async.result());
+                });
+        });
 
         eventBus.consumer("schemaImport:schemas", msg -> log(msg.body()));
 
@@ -199,6 +230,8 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
             if (agent != null)
                 agentSockets.putIfAbsent(ws, agent);
+            else
+                agentResponses.put(ws, msg);
         });
 
         ws.closeHandler(p -> {
