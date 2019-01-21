@@ -18,7 +18,6 @@
 package org.apache.ignite.web.console;
 
 import io.vertx.core.Vertx;
-import org.apache.ignite.web.console.web.server.WebConsoleHttpServerVerticle;
 
 /**
  * Web Console starter.

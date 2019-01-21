@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.web.console.web.server;
+package org.apache.ignite.web.console;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -69,16 +69,6 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      */
     private void log(Object s) {
         System.out.println(s);
-    }
-
-    /**
-     * @param bopts TODO
-     * @param addr TODO
-     */
-    private void bind(BridgeOptions bopts, String addr) {
-        bopts
-            .addInboundPermitted(new PermittedOptions().setAddress(addr))
-            .addOutboundPermitted(new PermittedOptions().setAddress(addr));
     }
 
     /**
@@ -140,6 +130,16 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
         }
     }
 
+
+    /**
+     * @param bopts TODO
+     * @param addr TODO
+     */
+    private void bind(BridgeOptions bopts, String addr) {
+        bopts
+            .addInboundPermitted(new PermittedOptions().setAddress(addr))
+            .addOutboundPermitted(new PermittedOptions().setAddress(addr));
+    }
 
     /** {@inheritDoc} */
     @Override public void start() {
@@ -203,15 +203,15 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
         eventBus.consumer("schemaImport:metadata", msg -> log(msg.body()));
 
-        browsersHandler.socketHandler(socket -> {
-            log("browsersHandler.socketHandler: " + socket.writeHandlerID() + ", " + socket.uri());
-
-            socket.endHandler(e -> log("browsersHandler.endHandler: "));
-
-            socket.handler(data -> log("browsersHandler.dataHandler: " + data));
-
-            socket.exceptionHandler(e -> log("browsersHandler.exceptionHandler: " + e.getMessage()));
-        });
+//        browsersHandler.socketHandler(socket -> {
+//            log("browsersHandler.socketHandler: " + socket.writeHandlerID() + ", " + socket.uri());
+//
+//            socket.endHandler(e -> log("browsersHandler.endHandler: "));
+//
+//            socket.handler(data -> log("browsersHandler.dataHandler: " + data));
+//
+//            socket.exceptionHandler(e -> log("browsersHandler.exceptionHandler: " + e.getMessage()));
+//        });
 
         // Create a router object.
         Router router = Router.router(vertx);
@@ -285,30 +285,14 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             eventBus.send("agent:stats", json);
         });
 
-        HttpServerOptions opts = new HttpServerOptions()
-            .setHost("localhost")
-            .setReuseAddress(true)
-            .setReusePort(true);
-
-        // Create the HTTP server for browsers.
-        vertx
-            .createHttpServer(opts)
-            .requestHandler(router)
-//            .websocketHandler(ws -> {
-//                System.out.println("webSocketHandler1: " + ws.path());
-//            })
-            .listen(3000);
-
-        Router router2 = Router.router(vertx);
-
-        router2.route("/web-agents/*").handler(ctx -> {
+        router.route("/web-agents/*").handler(ctx -> {
             log("/web-agents/*");
         });
 
-        // Create the HTTP server for agents.
+        // Create the HTTP server for browsers.
         vertx
-            .createHttpServer(opts)
-            .requestHandler(router2)
+            .createHttpServer()
+            .requestHandler(router)
             .websocketHandler(this::webSocketHandler)
             .listen(3000);
     }
