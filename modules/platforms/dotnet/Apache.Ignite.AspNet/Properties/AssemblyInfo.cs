@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Licensed to the Apache Software Foundation (ASF) under one or more
 * contributor license agreements.  See the NOTICE file distributed with
 * this work for additional information regarding copyright ownership.
@@ -33,8 +33,8 @@ using System.Runtime.InteropServices;
 
 [assembly: Guid("13ea96fc-cc83-4164-a7c0-4f30ed797460")]
 
-[assembly: AssemblyVersion("2.5.3.32797")]
-[assembly: AssemblyFileVersion("2.5.3.32797")]
+[assembly: AssemblyVersion("2.5.3.32800")]
+[assembly: AssemblyFileVersion("2.5.3.32800")]
 [assembly: AssemblyInformationalVersion("2.5.3")]
 
 [assembly: CLSCompliant(true)]
