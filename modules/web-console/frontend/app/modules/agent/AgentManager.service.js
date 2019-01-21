@@ -224,7 +224,7 @@ export default class AgentManager {
         const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
         // Create a connection to backend.
-        this.eventBus = new EventBus('http://127.0.0.1:3000/browsers');
+        this.eventBus = new EventBus('http://localhost:3000/browsers');
 
         // Open the connection
         this.eventBus.onopen = () => {

@@ -17,10 +17,16 @@
 
 package org.apache.ignite.web.console.web.server;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonArray;
@@ -31,6 +37,13 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.DataRegionConfiguration;
+import org.apache.ignite.configuration.DataStorageConfiguration;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
 import static io.vertx.core.http.HttpMethod.GET;
 import static io.vertx.core.http.HttpMethod.POST;
@@ -39,6 +52,9 @@ import static io.vertx.core.http.HttpMethod.POST;
  * Handler
  */
 public class WebConsoleHttpServerVerticle extends AbstractVerticle {
+    /** */
+    private Ignite ignite;
+
     /** */
     private SockJSHandler browsersHandler;
 
@@ -65,10 +81,69 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             .addOutboundPermitted(new PermittedOptions().setAddress(addr));
     }
 
+    /**
+     * Start Ignite.
+     */
+    private void startIgnite() throws SQLException {
+        IgniteConfiguration cfg = new IgniteConfiguration();
+
+        cfg.setIgniteInstanceName("Cluster");
+
+        TcpDiscoverySpi discovery = new TcpDiscoverySpi();
+
+        TcpDiscoveryVmIpFinder ipFinder = new TcpDiscoveryVmIpFinder();
+
+        ipFinder.setAddresses(Collections.singletonList("127.0.0.1:47500"));
+
+        discovery.setIpFinder(ipFinder);
+
+        cfg.setDiscoverySpi(discovery);
+
+        DataStorageConfiguration dataStorageCfg = new DataStorageConfiguration();
+
+        DataRegionConfiguration dataRegionCfg = new DataRegionConfiguration();
+
+        dataRegionCfg.setPersistenceEnabled(true);
+
+        dataStorageCfg.setDefaultDataRegionConfiguration(dataRegionCfg);
+
+        cfg.setDataStorageConfiguration(dataStorageCfg);
+
+        ignite = Ignition.getOrStart(cfg);
+
+        ignite.cluster().active(true);
+
+        // Open JDBC connection
+        try (Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1/")) {
+            log("JDBC: Connected to Ignite.");
+
+            // Create database objects.
+            try (Statement stmt = conn.createStatement()) {
+                // Create reference City table based on REPLICATED template.
+                stmt.executeUpdate("CREATE TABLE user (" +
+                    " username VARCHAR(255) PRIMARY KEY," +
+                    " password VARCHAR(255) NOT NULL, " +
+                    " password_salt VARCHAR(255) NOT NULL)" +
+                    " WITH \"template=replicated\"");
+
+                stmt.executeUpdate("CREATE TABLE user_roles (" +
+                    " username VARCHAR(255) PRIMARY KEY," +
+                    " role VARCHAR(255) NOT NULL" +
+                    " WITH \"template=replicated\"");
+
+                stmt.executeUpdate("CREATE TABLE roles_perms (" +
+                    " role  VARCHAR(255) NOT PRIMARY KEY," +
+                    " perm  VARCHAR(255) NOT NULL" +
+                    " WITH \"template=replicated\"");
+
+            }
+        }
+    }
+
+
     /** {@inheritDoc} */
     @Override public void start() {
-        // Create a router object.
-        Router router = Router.router(vertx);
+        // startIgnite();
 
         browsersHandler = SockJSHandler.create(vertx);
 
@@ -138,6 +213,14 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             socket.exceptionHandler(e -> log("browsersHandler.exceptionHandler: " + e.getMessage()));
         });
 
+        // Create a router object.
+        Router router = Router.router(vertx);
+
+//        // We need cookies, sessions and request bodies
+//        router.route().handler(CookieHandler.create());
+//        router.route().handler(BodyHandler.create());
+//        router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
+
         router.route().handler(CorsHandler.create(".*")
             .allowedMethod(GET)
             .allowedMethod(POST)
@@ -202,24 +285,39 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             eventBus.send("agent:stats", json);
         });
 
+        HttpServerOptions opts = new HttpServerOptions()
+            .setHost("localhost")
+            .setReuseAddress(true)
+            .setReusePort(true);
+
         // Create the HTTP server for browsers.
         vertx
-            .createHttpServer()
+            .createHttpServer(opts)
             .requestHandler(router)
+//            .websocketHandler(ws -> {
+//                System.out.println("webSocketHandler1: " + ws.path());
+//            })
             .listen(3000);
+
+        Router router2 = Router.router(vertx);
+
+        router2.route("/web-agents/*").handler(ctx -> {
+            log("/web-agents/*");
+        });
 
         // Create the HTTP server for agents.
         vertx
-            .createHttpServer()
+            .createHttpServer(opts)
+            .requestHandler(router2)
             .websocketHandler(this::webSocketHandler)
-            .listen(3001);
+            .listen(3000);
     }
 
     /**
      * @param ws Web socket.
      */
     private void webSocketHandler(ServerWebSocket ws) {
-        System.out.println("webSocketHandler: " + ws.path());
+        System.out.println("webSocketHandler2: " + ws.path());
 
         ws.handler(buf -> {
             JsonObject msg = buf.toJsonObject();

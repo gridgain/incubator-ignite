@@ -141,9 +141,9 @@ public class WebSocketRouter extends AbstractVerticle {
                             if (msg.failed())
                                 log.error("Failed to process: " + json + ", reason: " + msg.cause().getMessage());
                             else {
-                                String response = String.valueOf(msg.result().body());
+                                String res = String.valueOf(msg.result().body());
 
-                                ws.writeTextMessage(response);
+                                ws.writeTextMessage(res);
                             }
                         });
 
