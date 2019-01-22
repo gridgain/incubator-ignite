@@ -24,7 +24,7 @@ import io.vertx.core.json.JsonObject;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.apache.ignite.console.agent.rest.RestResult;
 
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_FAILED;
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_REST;
 import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_VISOR_TASK;
 
@@ -69,7 +69,7 @@ public class RestListener extends AbstractVerticle {
                 if (asyncRes.succeeded())
                     msg.reply(asyncRes.result());
                 else
-                    msg.fail(EVENT_FAILED, asyncRes.cause().getMessage());
+                    msg.fail(HTTP_INTERNAL_ERROR, asyncRes.cause().getMessage());
             });
     }
 }

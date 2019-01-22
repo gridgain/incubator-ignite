@@ -43,10 +43,10 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.console.agent.AgentUtils.resolvePath;
 import static org.apache.ignite.console.agent.AgentUtils.toJSON;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_FAILED;
 
 /**
  * API to extract database metadata.
@@ -133,7 +133,7 @@ public class DatabaseListener extends AbstractVerticle {
             msg.reply(toJSON(EVENT_SCHEMA_IMPORT_DRIVERS, drivers));
         }
         catch (Throwable e) {
-            msg.fail(EVENT_FAILED, e.getMessage());
+            msg.fail(HTTP_INTERNAL_ERROR, e.getMessage());
         }
     }
 
@@ -187,7 +187,7 @@ public class DatabaseListener extends AbstractVerticle {
             }
         }
         catch (Throwable e) {
-            msg.fail(EVENT_FAILED, "Failed to collect DB schemas");
+            msg.fail(HTTP_INTERNAL_ERROR, "Failed to collect DB schemas");
         }
     }
 
@@ -242,7 +242,7 @@ public class DatabaseListener extends AbstractVerticle {
             }
         }
         catch (Throwable e) {
-            msg.fail(EVENT_FAILED, "Failed to collect DB metadata");
+            msg.fail(HTTP_INTERNAL_ERROR, "Failed to collect DB metadata");
         }
     }
 

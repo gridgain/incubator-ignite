@@ -17,10 +17,7 @@
 
 package org.apache.ignite.web.console;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
@@ -30,24 +27,36 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.http.ServerWebSocket;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.auth.User;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.Session;
+import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.CorsHandler;
+import io.vertx.ext.web.handler.SessionHandler;
+import io.vertx.ext.web.handler.UserSessionHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
+import io.vertx.ext.web.sstore.LocalSessionStore;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.web.console.auth.IgniteAuth;
 
 import static io.vertx.core.http.HttpMethod.GET;
 import static io.vertx.core.http.HttpMethod.POST;
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 /**
  * Handler
@@ -58,6 +67,9 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
     /** */
     private Ignite ignite;
+
+    /** */
+    private IgniteAuth auth;
 
     /** */
     private SockJSHandler browsersHandler;
@@ -84,7 +96,9 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
         IgniteConfiguration cfg = new IgniteConfiguration();
 
-        cfg.setIgniteInstanceName("Cluster");
+        cfg.setIgniteInstanceName("Web Console backend");
+        cfg.setMetricsLogFrequency(0);
+        cfg.setLocalHost("127.0.0.1");
 
         TcpDiscoverySpi discovery = new TcpDiscoverySpi();
 
@@ -100,7 +114,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
         DataRegionConfiguration dataRegionCfg = new DataRegionConfiguration();
 
-        dataRegionCfg.setPersistenceEnabled(true);
+        // dataRegionCfg.setPersistenceEnabled(true);
 
         dataStorageCfg.setDefaultDataRegionConfiguration(dataRegionCfg);
 
@@ -110,32 +124,8 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
         ignite.cluster().active(true);
 
-        // Open JDBC connection
-        try (Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1/")) {
-            log("JDBC: Connected to Ignite.");
-
-            // Create database objects.
-            try (Statement stmt = conn.createStatement()) {
-                // Create reference City table based on REPLICATED template.
-                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS user (" +
-                    "username VARCHAR PRIMARY KEY, " +
-                    "password VARCHAR NOT NULL, " +
-                    "password_salt VARCHAR NOT NULL) " +
-                    "WITH \"template=replicated\"");
-
-                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS user_roles (" +
-                    "username VARCHAR NOT NULL, " +
-                    "role VARCHAR NOT NULL, " +
-                    "dummy INT, " +
-                    "PRIMARY KEY (username, role))" +
-                    "WITH \"template=replicated\"");
-
-                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS roles_perms (" +
-                    "role  VARCHAR PRIMARY KEY, " +
-                    "perm  VARCHAR NOT NULL)" +
-                    "WITH \"template=replicated\"");
-            }
-        }
+        IgniteCache<Object, Object> cache = ignite.getOrCreateCache("users");
+        cache.put("kuaw26@mail.ru", "1");
 
         log("Ignite started: " + (System.currentTimeMillis() - start));
     }
@@ -217,10 +207,15 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
         // Create a router object.
         Router router = Router.router(vertx);
 
-//        // We need cookies, sessions and request bodies
-//        router.route().handler(CookieHandler.create());
-//        router.route().handler(BodyHandler.create());
-//        router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
+        auth = IgniteAuth.create(vertx, ignite);
+
+        // We need cookies, sessions and request bodies.
+        router.route().handler(CookieHandler.create());
+        router.route().handler(BodyHandler.create());
+        router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
+
+        // We need a user session handler too to make sure the user is stored in the session between requests.
+        router.route().handler(UserSessionHandler.create(auth));
 
         router.route().handler(CorsHandler.create(".*")
             .allowedMethod(GET)
@@ -294,10 +289,28 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
         vertx
             .createHttpServer()
             .requestHandler(router)
-            .websocketHandler(this::webSocketHandler)
+            //.websocketHandler(this::webSocketHandler)
             .listen(3000);
 
         log("Web Server started: " + (System.currentTimeMillis() - start));
+    }
+
+    /**
+     * @param status Status to send.
+     * @param ctx Context.
+     */
+    private void sendStatus(int status, RoutingContext ctx) {
+        ctx.response().setStatusCode(status).end();
+    }
+
+    /**
+     * @param json JSON object to send.
+     * @param ctx Context.
+     */
+    private void sendJson(JsonObject json, RoutingContext ctx) {
+        ctx.response()
+            .putHeader("content-type", "application/json")
+            .end(Json.encode(json));
     }
 
     /**
@@ -330,38 +343,54 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleUser(RoutingContext ctx) {
-        log(ctx.request().uri());
+        User user = ctx.user();
 
-        HttpServerResponse res = ctx.response();
-
-        res
-            .putHeader("content-type", "application/json")
-            .end("{\"_id\":\"5683a8e9824d152c044e6281\",\"email\":\"kuaw26@mail.ru\",\"firstName\":\"Alexey\",\"lastName\":\"Kuznetsov\",\"company\":\"GridGain\",\"country\":\"Russia\",\"industry\":\"Other\",\"admin\":true,\"token\":\"NEHYtRKsPHhXT5rrIOJ4\",\"registered\":\"2017-12-21T16:14:37.369Z\",\"lastLogin\":\"2019-01-16T03:51:05.479Z\",\"lastActivity\":\"2019-01-16T03:51:06.084Z\",\"lastEvent\":\"2018-05-23T12:26:29.570Z\",\"demoCreated\":true}");
+        if (user == null)
+            sendStatus(HTTP_UNAUTHORIZED, ctx);
+        else
+            sendJson(user.principal(), ctx);
     }
 
     /**
      * @param ctx Context
      */
     private void handleSignUp(RoutingContext ctx) {
-        log(ctx.request().uri());
+        JsonObject body = ctx.getBodyAsJson();
+
+        auth.authenticate(body, asynRes -> {
+            if (asynRes.succeeded())
+                ctx.response().setStatusCode(HTTP_OK);
+
+        });
 
         HttpServerResponse res = ctx.response();
 
         res.
-            setStatusCode(200);
+            setStatusCode(HTTP_OK);
     }
 
     /**
      * @param ctx Context
      */
     private void handleSignIn(RoutingContext ctx) {
-        log(ctx.request().uri());
+        log("SignIn");
+
+        JsonObject data = ctx.getBody().toJsonObject();
+
+        log("SignIn: " + data);
+
+        IgniteCache<String, String> users = ignite.cache("users");
+        String user = users.get(data.getString("email"));
 
         HttpServerResponse res = ctx.response();
 
-        res
-            .putHeader("content-type", "application/json")
-            .end("{\"_id\":\"5683a8e9824d152c044e6281\"}");
+        if (user == null)
+            res.setStatusCode(HTTP_UNAUTHORIZED).end("Invalid email or password");
+        else {
+            logged = true;
+
+            res.setStatusCode(HTTP_OK).end();
+        }
     }
 
     /**
@@ -370,11 +399,11 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     private void handleLogout(RoutingContext ctx) {
         log(ctx.request().uri());
 
+        logged = false;
+
         HttpServerResponse res = ctx.response();
 
-        res
-            .putHeader("content-type", "application/json")
-            .end("{\"_id\":\"5683a8e9824d152c044e6281\"}");
+        res.setStatusCode(HTTP_OK).end();
     }
 
     /**

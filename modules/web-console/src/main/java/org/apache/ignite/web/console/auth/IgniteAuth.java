@@ -15,30 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.agent.handlers;
+package org.apache.ignite.web.console.auth;
+
+import io.vertx.core.Vertx;
+import io.vertx.ext.auth.AuthProvider;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.web.console.auth.impl.IgniteAuthImpl;
 
 /**
- * Contains event bus addresses.
+ * Ignite based authentication.
  */
-public interface Addresses {
-    /** */
-    public static final String EVENT_NODE_REST = "node:rest";
-
-    /** */
-    public static final String EVENT_NODE_VISOR_TASK = "node:visorTask";
-
-    /** */
-    public static final String EVENT_CLUSTER_CONNECTED = "cluster:connected";
-
-    /** */
-    public static final String EVENT_CLUSTER_TOPOLOGY = "cluster:topology";
-
-    /** */
-    public static final String EVENT_CLUSTER_DISCONNECTED = "cluster:disconnected";
-
-    /** */
-    public static final String EVENT_RESET_TOKEN = "agent:reset:token";
-
-    /** */
-    public static final String EVENT_LOG_WARNING = "log:warn";
+public interface IgniteAuth extends AuthProvider {
+    /**
+     * @param vertx Vertx.
+     * @param ignite Ignite.
+     * @return Authenticator.
+     */
+    public static IgniteAuth create(Vertx vertx, Ignite ignite) {
+        return new IgniteAuthImpl(vertx, ignite);
+    }
 }
