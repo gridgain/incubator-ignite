@@ -18,6 +18,7 @@
 package org.apache.ignite.web.console;
 
 import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 
 /**
  * Web Console starter.
@@ -31,7 +32,9 @@ public class Starter {
     public static void main(String... args) {
         System.out.println("Vertx Started!");
 
-        Vertx.vertx().deployVerticle(new WebConsoleHttpServerVerticle());
+        Vertx.vertx(new VertxOptions()
+            .setBlockedThreadCheckInterval(1000 * 60 * 60))
+            .deployVerticle(new WebConsoleHttpServerVerticle());
 
         System.out.println("Verticles deployed!");
     }

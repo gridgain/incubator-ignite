@@ -21,12 +21,13 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonArray;
@@ -53,6 +54,9 @@ import static io.vertx.core.http.HttpMethod.POST;
  */
 public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     /** */
+    private static final SimpleDateFormat DEBUG_DATE_FMT = new SimpleDateFormat("HH:mm:ss,SSS");
+
+    /** */
     private Ignite ignite;
 
     /** */
@@ -68,13 +72,16 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param s Message to log.
      */
     private void log(Object s) {
-        System.out.println(s);
+        System.out.println('[' + DEBUG_DATE_FMT.format(new Date(System.currentTimeMillis())) + "] [" +
+            Thread.currentThread().getName() + ']' + ' ' + s);
     }
 
     /**
      * Start Ignite.
      */
     private void startIgnite() throws SQLException {
+        long start = System.currentTimeMillis();
+
         IgniteConfiguration cfg = new IgniteConfiguration();
 
         cfg.setIgniteInstanceName("Cluster");
@@ -110,26 +117,28 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             // Create database objects.
             try (Statement stmt = conn.createStatement()) {
                 // Create reference City table based on REPLICATED template.
-                stmt.executeUpdate("CREATE TABLE user (" +
-                    " username VARCHAR(255) PRIMARY KEY," +
-                    " password VARCHAR(255) NOT NULL, " +
-                    " password_salt VARCHAR(255) NOT NULL)" +
-                    " WITH \"template=replicated\"");
+                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS user (" +
+                    "username VARCHAR PRIMARY KEY, " +
+                    "password VARCHAR NOT NULL, " +
+                    "password_salt VARCHAR NOT NULL) " +
+                    "WITH \"template=replicated\"");
 
-                stmt.executeUpdate("CREATE TABLE user_roles (" +
-                    " username VARCHAR(255) PRIMARY KEY," +
-                    " role VARCHAR(255) NOT NULL" +
-                    " WITH \"template=replicated\"");
+                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS user_roles (" +
+                    "username VARCHAR NOT NULL, " +
+                    "role VARCHAR NOT NULL, " +
+                    "dummy INT, " +
+                    "PRIMARY KEY (username, role))" +
+                    "WITH \"template=replicated\"");
 
-                stmt.executeUpdate("CREATE TABLE roles_perms (" +
-                    " role  VARCHAR(255) NOT PRIMARY KEY," +
-                    " perm  VARCHAR(255) NOT NULL" +
-                    " WITH \"template=replicated\"");
-
+                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS roles_perms (" +
+                    "role  VARCHAR PRIMARY KEY, " +
+                    "perm  VARCHAR NOT NULL)" +
+                    "WITH \"template=replicated\"");
             }
         }
-    }
 
+        log("Ignite started: " + (System.currentTimeMillis() - start));
+    }
 
     /**
      * @param bopts TODO
@@ -142,8 +151,10 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
-        // startIgnite();
+    @Override public void start() throws Exception {
+        startIgnite();
+
+        long start = System.currentTimeMillis();
 
         browsersHandler = SockJSHandler.create(vertx);
 
@@ -202,16 +213,6 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
         eventBus.consumer("schemaImport:schemas", msg -> log(msg.body()));
 
         eventBus.consumer("schemaImport:metadata", msg -> log(msg.body()));
-
-//        browsersHandler.socketHandler(socket -> {
-//            log("browsersHandler.socketHandler: " + socket.writeHandlerID() + ", " + socket.uri());
-//
-//            socket.endHandler(e -> log("browsersHandler.endHandler: "));
-//
-//            socket.handler(data -> log("browsersHandler.dataHandler: " + data));
-//
-//            socket.exceptionHandler(e -> log("browsersHandler.exceptionHandler: " + e.getMessage()));
-//        });
 
         // Create a router object.
         Router router = Router.router(vertx);
@@ -295,13 +296,15 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             .requestHandler(router)
             .websocketHandler(this::webSocketHandler)
             .listen(3000);
+
+        log("Web Server started: " + (System.currentTimeMillis() - start));
     }
 
     /**
      * @param ws Web socket.
      */
     private void webSocketHandler(ServerWebSocket ws) {
-        System.out.println("webSocketHandler2: " + ws.path());
+        log("webSocketHandler2: " + ws.path());
 
         ws.handler(buf -> {
             JsonObject msg = buf.toJsonObject();
@@ -327,7 +330,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleUser(RoutingContext ctx) {
-        System.out.println(ctx.request().uri());
+        log(ctx.request().uri());
 
         HttpServerResponse res = ctx.response();
 
@@ -340,7 +343,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleSignUp(RoutingContext ctx) {
-        System.out.println(ctx.request().uri());
+        log(ctx.request().uri());
 
         HttpServerResponse res = ctx.response();
 
@@ -352,7 +355,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleSignIn(RoutingContext ctx) {
-        System.out.println(ctx.request().uri());
+        log(ctx.request().uri());
 
         HttpServerResponse res = ctx.response();
 
@@ -365,7 +368,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleLogout(RoutingContext ctx) {
-        System.out.println(ctx.request().uri());
+        log(ctx.request().uri());
 
         HttpServerResponse res = ctx.response();
 
@@ -378,7 +381,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handlePasswordForgot(RoutingContext ctx) {
-        System.out.println(ctx.request().uri());
+        log(ctx.request().uri());
 
         HttpServerResponse res = ctx.response();
 
@@ -391,7 +394,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handlePasswordReset(RoutingContext ctx) {
-        System.out.println(ctx.request().uri());
+        log(ctx.request().uri());
 
         HttpServerResponse res = ctx.response();
 
@@ -404,7 +407,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handlePasswordValidateToken(RoutingContext ctx) {
-        System.out.println(ctx.request().uri());
+        log(ctx.request().uri());
 
         HttpServerResponse res = ctx.response();
 
@@ -417,7 +420,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleActivationResend(RoutingContext ctx) {
-        System.out.println(ctx.request().uri());
+        log(ctx.request().uri());
 
         HttpServerResponse res = ctx.response();
 
@@ -430,7 +433,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleClusters(RoutingContext ctx) {
-        System.out.println(ctx.request().uri());
+        log(ctx.request().uri());
 
         HttpServerResponse res = ctx.response();
 
@@ -443,7 +446,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleActivitiesPage(RoutingContext ctx) {
-        System.out.println(ctx.request().uri());
+        log(ctx.request().uri());
 
         HttpServerResponse res = ctx.response();
 

@@ -223,6 +223,8 @@ export default class AgentManager {
 
         const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
+        const start = Date.now();
+
         console.log('Connecting...');
 
         // Create a connection to backend.
@@ -230,7 +232,7 @@ export default class AgentManager {
 
         // Open the connection
         this.eventBus.onopen = () => {
-            console.log('Connected!');
+            console.log('Connected: ' + (Date.now() - start));
 
             this.eventBus.registerHandler('agent:stats', (err, msg) => {
                 console.log('agent:stats:msg' + JSON.stringify(msg));
