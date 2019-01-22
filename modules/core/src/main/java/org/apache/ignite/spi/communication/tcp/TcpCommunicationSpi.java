@@ -521,11 +521,9 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
                         ses.close();
                     }
                     else {
-                        ses.send(new RecoveryLastReceivedMessage(NEED_WAIT)).listen(new CI1<IgniteInternalFuture<?>>() {
-                            @Override public void apply(IgniteInternalFuture<?> fut) {
-                                ses.close();
-                            }
-                        });
+                        log.error("voropava NEED_WAIT for " + sndId);
+
+                        ses.send(new RecoveryLastReceivedMessage(NEED_WAIT));
                     }
 
                     return;
