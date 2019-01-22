@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import javax.cache.CacheException;
 import org.apache.ignite.IgniteTransactions;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.cluster.ClusterTopologyException;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.transactions.Transaction;
@@ -272,5 +274,41 @@ public class IgniteBenchmarkUtils {
             res.add(port);
 
         return res;
+    }
+
+    /**
+     *
+     * @param cfg Benchmark configuration.
+     */
+    public static void setArgsFromProperties(BenchmarkConfiguration cfg, IgniteBenchmarkArguments args){
+        Map<String, String> customProps = cfg.customProperties();
+
+        if(customProps.get("IGNITE_CONFIG") != null)
+            args.configuration(customProps.get("IGNITE_CONFIG"));
+
+        if(customProps.get("BACKUPS") != null)
+            args.backups(Integer.valueOf(customProps.get("BACKUPS")));
+
+        if(args.nodes() == 1){
+            if (customProps.get("NODES_NUM") != null)
+                args.nodes(Integer.valueOf(customProps.get("BACKUPS")));
+            else {
+                int nodesNum = 0;
+
+                String sHosts = customProps.get("SERVER_HOSTS");
+                String dHosts = customProps.get("DRIVER_HOSTS");
+
+                if (sHosts != null)
+                    nodesNum += sHosts.split(",").length;
+
+                if (dHosts != null)
+                    nodesNum += dHosts.split(",").length;
+
+                args.nodes(nodesNum);
+            }
+        }
+
+        if(customProps.get("SYNC_MODE") != null)
+            args.syncMode(CacheWriteSynchronizationMode.valueOf(customProps.get("SYNC_MODE")));
     }
 }

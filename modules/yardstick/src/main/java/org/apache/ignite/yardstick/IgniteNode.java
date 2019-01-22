@@ -99,6 +99,8 @@ public class IgniteNode implements BenchmarkServer {
 
         BenchmarkUtils.jcommander(cfg.commandLineArguments(), args, "<ignite-node>");
 
+        IgniteBenchmarkUtils.setArgsFromProperties(cfg, args);
+
         if (args.clientNodesAfterId() >= 0 && cfg.memberId() > args.clientNodesAfterId())
             clientMode = true;
 

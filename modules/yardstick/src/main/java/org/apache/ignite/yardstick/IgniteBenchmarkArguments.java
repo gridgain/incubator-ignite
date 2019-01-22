@@ -406,6 +406,14 @@ public class IgniteBenchmarkArguments {
         return syncMode;
     }
 
+    /**
+     *
+     * @param syncMode New synchronization mode.
+     */
+    public void syncMode(CacheWriteSynchronizationMode syncMode) {
+        this.syncMode = syncMode;
+    }
+
     /** With what cache atomicity mode to create tables. */
     @Nullable public CacheAtomicityMode atomicMode() {
         return atomicMode;
@@ -416,6 +424,13 @@ public class IgniteBenchmarkArguments {
      */
     public int backups() {
         return backups;
+    }
+
+    /**
+     * @param backups New backups.
+     */
+    public void backups(int backups) {
+        this.backups = backups;
     }
 
     /**
@@ -430,6 +445,13 @@ public class IgniteBenchmarkArguments {
      */
     public int nodes() {
         return nodes;
+    }
+
+    /**
+     * @param nodes New nodes.
+     */
+    public void nodes(int nodes) {
+        this.nodes = nodes;
     }
 
     /**
@@ -483,6 +505,14 @@ public class IgniteBenchmarkArguments {
      */
     public String configuration() {
         return cfg;
+    }
+
+    /**
+     *
+     * @param cfg Configuration file.
+     */
+    public void configuration(String cfg) {
+        this.cfg = cfg;
     }
 
     /**

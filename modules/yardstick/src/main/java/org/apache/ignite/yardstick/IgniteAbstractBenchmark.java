@@ -18,6 +18,7 @@
 package org.apache.ignite.yardstick;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
@@ -58,6 +59,8 @@ public abstract class IgniteAbstractBenchmark extends BenchmarkDriverAdapter {
         super.setUp(cfg);
 
         jcommander(cfg.commandLineArguments(), args, "<ignite-driver>");
+
+        IgniteBenchmarkUtils.setArgsFromProperties(cfg, args);
 
         if (Ignition.state() != IgniteState.STARTED) {
             node = new IgniteNode(args.isClientOnly() && !args.isNearCache());
