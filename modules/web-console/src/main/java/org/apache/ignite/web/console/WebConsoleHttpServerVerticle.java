@@ -17,7 +17,6 @@
 
 package org.apache.ignite.web.console;
 
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
@@ -34,7 +33,6 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.Session;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.CorsHandler;
@@ -72,7 +70,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     private IgniteAuth auth;
 
     /** */
-    private SockJSHandler browsersHandler;
+    private SockJSHandler webSocketsHandler;
 
     /** */
     private Map<ServerWebSocket, String> agentSockets = new ConcurrentHashMap<>();
@@ -91,7 +89,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     /**
      * Start Ignite.
      */
-    private void startIgnite() throws SQLException {
+    private void startIgnite() {
         long start = System.currentTimeMillis();
 
         IgniteConfiguration cfg = new IgniteConfiguration();
@@ -141,30 +139,46 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     }
 
     /** {@inheritDoc} */
-    @Override public void start() throws Exception {
+    @Override public void start() {
         startIgnite();
 
         long start = System.currentTimeMillis();
 
-        browsersHandler = SockJSHandler.create(vertx);
+        webSocketsHandler = SockJSHandler.create(vertx);
 
-        BridgeOptions bopts = new BridgeOptions();
+//        BridgeOptions bopts = new BridgeOptions();
+//
+//        bind(bopts, "agent:stats");
+//        bind(bopts, "browser:info");
+//        bind(bopts, "node:rest");
+//        bind(bopts, "node:visor");
+//        bind(bopts, "schemaImport:drivers");
+//        bind(bopts, "schemaImport:schemas");
+//        bind(bopts, "schemaImport:metadata");
 
-        bind(bopts, "agent:stats");
-        bind(bopts, "browser:info");
-        bind(bopts, "node:rest");
-        bind(bopts, "node:visor");
-        bind(bopts, "schemaImport:drivers");
-        bind(bopts, "schemaImport:schemas");
-        bind(bopts, "schemaImport:metadata");
+        BridgeOptions allAccessOptions =
+            new BridgeOptions()
+                .addInboundPermitted(new PermittedOptions())
+                .addOutboundPermitted(new PermittedOptions());
 
-        browsersHandler.bridge(bopts);
+        webSocketsHandler.bridge(allAccessOptions, be -> {
+            log("bridge:" + be.type());
+
+            be.complete(true);
+        });
+
+
+//            socketHandler(socket -> {
+//            log("socketHandler: " + socket.writeHandlerID());
+//
+//            socket.handler(buf -> {
+//               log("Data received: " + socket.writeHandlerID() + ", " + buf.toString());
+//            });
+//        });
 
         EventBus eventBus = vertx.eventBus();
 
-        eventBus.consumer("browser:info", msg -> {
-            log("browser:info: " + msg.address() + " " + msg.body());
-        });
+        eventBus.consumer("browser:info", msg -> log("browser:info: " + msg.address() + " " + msg.body()));
 
         eventBus.consumer("node:rest", msg -> log(msg.body()));
 
@@ -195,9 +209,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
                     fut.complete(res);
                 },
-                async -> {
-                    msg.reply(async.result());
-                });
+                async -> msg.reply(async.result()));
         });
 
         eventBus.consumer("schemaImport:schemas", msg -> log(msg.body()));
@@ -226,7 +238,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             .allowedHeader("Access-Control-Allow-Credentials")
             .allowedHeader("Content-Type"));
 
-        router.route("/browsers/*").handler(browsersHandler);
+        router.route("/eventbus/*").handler(webSocketsHandler);
 
         router.route("/api/v1/user").handler(this::handleUser);
         router.route("/api/v1/signup").handler(this::handleSignUp);
@@ -281,10 +293,6 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
             eventBus.send("agent:stats", json);
         });
 
-        router.route("/web-agents/*").handler(ctx -> {
-            log("/web-agents/*");
-        });
-
         // Create the HTTP server for browsers.
         vertx
             .createHttpServer()
@@ -296,11 +304,20 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
     }
 
     /**
-     * @param status Status to send.
      * @param ctx Context.
+     * @param status Status to send.
      */
-    private void sendStatus(int status, RoutingContext ctx) {
+    private void sendStatus(RoutingContext ctx, int status) {
         ctx.response().setStatusCode(status).end();
+    }
+
+    /**
+     * @param ctx Context.
+     * @param status Status to send.
+     * @param msg Message to send.
+     */
+    private void sendStatus(RoutingContext ctx, int status, String msg) {
+        ctx.response().setStatusCode(status).end(msg);
     }
 
     /**
@@ -346,7 +363,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
         User user = ctx.user();
 
         if (user == null)
-            sendStatus(HTTP_UNAUTHORIZED, ctx);
+            sendStatus(ctx, HTTP_UNAUTHORIZED);
         else
             sendJson(user.principal(), ctx);
     }
@@ -373,37 +390,24 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleSignIn(RoutingContext ctx) {
-        log("SignIn");
+        auth.authenticate(ctx.getBody().toJsonObject(), asyncRes -> {
+            if (asyncRes.succeeded()) {
+                ctx.setUser(asyncRes.result());
 
-        JsonObject data = ctx.getBody().toJsonObject();
-
-        log("SignIn: " + data);
-
-        IgniteCache<String, String> users = ignite.cache("users");
-        String user = users.get(data.getString("email"));
-
-        HttpServerResponse res = ctx.response();
-
-        if (user == null)
-            res.setStatusCode(HTTP_UNAUTHORIZED).end("Invalid email or password");
-        else {
-            logged = true;
-
-            res.setStatusCode(HTTP_OK).end();
-        }
+                sendStatus(ctx, HTTP_OK);
+            }
+            else
+                sendStatus(ctx, HTTP_UNAUTHORIZED, "Invalid email or password: " + asyncRes.cause().getMessage());
+        });
     }
 
     /**
      * @param ctx Context
      */
     private void handleLogout(RoutingContext ctx) {
-        log(ctx.request().uri());
+        ctx.clearUser();
 
-        logged = false;
-
-        HttpServerResponse res = ctx.response();
-
-        res.setStatusCode(HTTP_OK).end();
+        sendStatus(ctx, HTTP_OK);
     }
 
     /**

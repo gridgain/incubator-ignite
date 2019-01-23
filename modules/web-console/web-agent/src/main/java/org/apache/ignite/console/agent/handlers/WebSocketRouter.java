@@ -32,6 +32,8 @@ import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_CLUSTER_TOPOLOGY;
+
 /**
  * Router that listen for web socket and redirect messages to event bus.
  */
@@ -107,7 +109,7 @@ public class WebSocketRouter extends AbstractVerticle {
             .setHost(uri.getHost())
             .setPort(uri.getPort())
             .setSsl(ssl)
-            .setURI("/web-agents");
+            .setURI("/eventbus");
 
         curTimer = vertx.setTimer(1, this::connect);
     }
@@ -125,6 +127,10 @@ public class WebSocketRouter extends AbstractVerticle {
      * @param tid Timer ID.
      */
     private void connect(long tid) {
+//        vertx.eventBus().consumer(EVENT_CLUSTER_TOPOLOGY, msg -> {
+//            log.info(EVENT_CLUSTER_TOPOLOGY + msg.body());
+//        });
+
         client.websocket(conOpts,
             ws -> {
                 log.info("Connected to server: " + ws.remoteAddress());

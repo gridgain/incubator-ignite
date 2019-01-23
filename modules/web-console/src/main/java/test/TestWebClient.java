@@ -22,8 +22,10 @@ import java.util.Date;
 import java.util.UUID;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.RequestOptions;
+import io.vertx.core.http.WebSocketFrame;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.internal.util.typedef.F;
 
@@ -33,7 +35,7 @@ public class TestWebClient extends AbstractVerticle {
     private static final SimpleDateFormat DEBUG_DATE_FMT = new SimpleDateFormat("HH:mm:ss,SSS");
 
     /** */
-    private static JsonObject agentId;
+    private static String AGENT_ID = UUID.randomUUID().toString();
 
     /** */
     private HttpClient client;
@@ -46,14 +48,11 @@ public class TestWebClient extends AbstractVerticle {
 
     /** */
     public static void main(String... args) {
-        log("Starting...");
-
-        agentId = new JsonObject();
-        agentId.put("agentId", UUID.randomUUID().toString());
+        log("Starting client...");
 
         Vertx.vertx().deployVerticle(new TestWebClient());
 
-        log("Started!");
+        log("Started client!");
     }
 
     /** {@inheritDoc} */
@@ -72,7 +71,7 @@ public class TestWebClient extends AbstractVerticle {
         RequestOptions conOpts = new RequestOptions()
             .setHost("localhost")
             .setPort(3000)
-            .setURI("/web-agents");
+            .setURI("/eventbus/websocket");
 
         client.websocket(conOpts,
             ws -> {
@@ -105,7 +104,15 @@ public class TestWebClient extends AbstractVerticle {
                     vertx.setTimer(1, this::connect);
                 });
 
-                ws.writeTextMessage(agentId.toString());
+                JsonObject agentId = new JsonObject()
+                    .put("agentId", AGENT_ID);
+
+                JsonObject json = new JsonObject()
+                    .put("type", "send")
+                    .put("address", "agent:info")
+                    .put("body", agentId);
+
+                ws.write(json.toBuffer());
             },
             e -> {
                 log(e.getMessage());

@@ -48,7 +48,21 @@ public class IgniteUser extends AbstractUser {
 
     /** {@inheritDoc} */
     @Override public JsonObject principal() {
-        return new JsonObject().put("username", "ignite");
+        return new JsonObject()
+            .put("_id", "5683a8e9824d152c044e6281")
+            .put("email", "kuaw26@mail.ru")
+            .put("firstName", "Alexey")
+            .put("lastName", "Kuznetsov")
+            .put("company", "GridGain")
+            .put("country", "Russia")
+            .put("industry", "Other")
+            .put("admin", true)
+            .put("token", "NEHYtRKsPHhXT5rrIOJ4")
+            .put("registered", "2017-12-21T16:14:37.369Z")
+            .put("lastLogin", "2019-01-16T03:51:05.479Z")
+            .put("lastActivity", "2019-01-16T03:51:06.084Z")
+            .put("lastEvent", "2018-05-23T12:26:29.570Z")
+            .put("demoCreated", "true");
     }
 
     /** {@inheritDoc} */

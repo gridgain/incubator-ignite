@@ -223,12 +223,13 @@ export default class AgentManager {
 
         const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
-        const start = Date.now();
+        let start = Date.now();
 
         console.log('Connecting...');
 
         // Create a connection to backend.
-        this.eventBus = new EventBus('http://localhost:3000/browsers');
+        this.eventBus = new EventBus('http://localhost:9000/eventbus');
+        this.eventBus.enableReconnect(true);
 
         // Open the connection
         this.eventBus.onopen = () => {
@@ -250,6 +251,12 @@ export default class AgentManager {
             this.eventBus.registerHandler('node:visor', (err, msg) => {
                 console.log(JSON.stringify(msg));
             });
+        };
+
+        this.eventBus.onclose = () => {
+            console.log('Connect to server failed.');
+
+            start = Date.now();
         };
 
         // this.socket.onerror = (err) => {

@@ -6,11 +6,11 @@
 </head>
 <body>
 <script>
-  const eb = new EventBus("http://localhost:3000/browsers/");
+  const eb = new EventBus("http://localhost:3000/eventbus/");
 
   const start = Date.now();
 
-  console.log("Connecting...")
+  console.log("Connecting...");
 
   eb.onopen = function () {
     console.log("Connected: " + (Date.now() - start));
