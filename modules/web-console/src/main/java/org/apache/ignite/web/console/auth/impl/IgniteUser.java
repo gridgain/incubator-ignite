@@ -62,7 +62,7 @@ public class IgniteUser extends AbstractUser {
             .put("lastLogin", "2019-01-16T03:51:05.479Z")
             .put("lastActivity", "2019-01-16T03:51:06.084Z")
             .put("lastEvent", "2018-05-23T12:26:29.570Z")
-            .put("demoCreated", "true");
+            .put("demoCreated", true);
     }
 
     /** {@inheritDoc} */
