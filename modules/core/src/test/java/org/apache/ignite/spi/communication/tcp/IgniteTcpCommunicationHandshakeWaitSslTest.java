@@ -15,38 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.processors.cache.mvcc;
+package org.apache.ignite.spi.communication.tcp;
 
-import org.apache.ignite.internal.util.typedef.internal.S;
-
-import java.io.Serializable;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.testframework.GridTestUtils;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
- * MVCC discovery data to be shared between nodes on join.
+ * Testing {@link IgniteTcpCommunicationHandshakeWaitTest} with SSL enabled.
  */
-public class MvccDiscoveryData implements Serializable {
-    /** */
-    private static final long serialVersionUID = 0L;
-
-    /** Current coordinator. */
-    private MvccCoordinator crd;
-
-    /**
-     * @param crd Coordinator.
-     */
-    public MvccDiscoveryData(MvccCoordinator crd) {
-        this.crd = crd;
-    }
-
-    /**
-     * @return Current coordinator.
-     */
-    public MvccCoordinator coordinator() {
-        return crd;
-    }
-
+@RunWith(JUnit4.class)
+public class IgniteTcpCommunicationHandshakeWaitSslTest extends IgniteTcpCommunicationHandshakeWaitTest {
     /** {@inheritDoc} */
-    @Override public String toString() {
-        return S.toString(MvccDiscoveryData.class, this);
+    @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
+        IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
+
+        cfg.setSslContextFactory(GridTestUtils.sslFactory());
+
+        return cfg;
     }
 }
