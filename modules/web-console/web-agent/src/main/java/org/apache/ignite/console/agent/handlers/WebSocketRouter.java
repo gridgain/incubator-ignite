@@ -34,8 +34,11 @@ import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_CLUSTER_TOPOLOGY;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_REST;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_VISOR;
 import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_DRIVERS;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_METADATA;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_SCHEMAS;
 
 /**
  * Router that listen for web socket and redirect messages to event bus.
@@ -166,15 +169,15 @@ public class WebSocketRouter extends AbstractVerticle {
      * @param tid Timer ID.
      */
     private void connect(long tid) {
-//        vertx.eventBus().consumer(EVENT_CLUSTER_TOPOLOGY, msg -> {
-//            log.info(EVENT_CLUSTER_TOPOLOGY + msg.body());
-//        });
-
         client.websocket(conOpts,
             ws -> {
                 log.info("Connected to server: " + ws.remoteAddress());
 
                 register(ws, EVENT_SCHEMA_IMPORT_DRIVERS);
+                register(ws, EVENT_SCHEMA_IMPORT_SCHEMAS);
+                register(ws, EVENT_SCHEMA_IMPORT_METADATA);
+                register(ws, EVENT_NODE_REST);
+                register(ws, EVENT_NODE_VISOR);
 
                 ws.handler(data -> {
                     JsonObject json = data.toJsonObject();
@@ -187,12 +190,8 @@ public class WebSocketRouter extends AbstractVerticle {
                         vertx.eventBus().send(addr, json.getJsonObject("data"), msg -> {
                             if (msg.failed())
                                 log.error("Failed to process: " + json + ", reason: " + msg.cause().getMessage());
-                            else {
-                                String res = String.valueOf(msg.result().body());
-
-                                send();
-                                ws.writeTextMessage(res);
-                            }
+                            else
+                                send(ws, json.getString("replyAddress"), (JsonObject)msg.result().body());
                         });
 
                     log.info("Received data " + data.toString());

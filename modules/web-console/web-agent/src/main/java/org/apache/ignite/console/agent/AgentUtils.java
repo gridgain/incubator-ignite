@@ -23,7 +23,6 @@ import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsonorg.JsonOrgModule;
-import io.vertx.core.json.JsonObject;
 import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -123,18 +122,6 @@ public class AgentUtils {
     }
 
     /**
-     * Map java object to JSON object.
-     *
-     * @param addr Address at event bus.
-     * @param data Data.
-     * @return {@link JSONObject} or {@link JSONArray}.
-     * @throws IllegalArgumentException If conversion fails due to incompatible type.
-     */
-    public static JsonObject toJSON(String addr, Object data) {
-        return JsonObject.mapFrom(new VertxEventBusResponse(addr, data));
-    }
-
-    /**
      * Map JSON object to java object.
      *
      * @param obj {@link JSONObject} or {@link JSONArray}.
@@ -144,39 +131,5 @@ public class AgentUtils {
      */
     public static <T> T fromJSON(Object obj, Class<T> toValType) throws IllegalArgumentException {
         return MAPPER.convertValue(obj, toValType);
-    }
-
-    /**
-     * DTO class for Vertx event bus.
-     */
-    private static class VertxEventBusResponse {
-        /** */
-        private final String addr;
-
-        /** */
-        private final Object data;
-
-        /**
-         * @param addr Event bus address.
-         * @param data Optional data.
-         */
-        VertxEventBusResponse(String addr, Object data) {
-            this.addr = addr;
-            this.data = data;
-        }
-
-        /**
-         * @return Event bus address.
-         */
-        public String getAddress() {
-            return addr;
-        }
-
-        /**
-         * @return Response data.
-         */
-        public Object getData() {
-            return data;
-        }
     }
 }

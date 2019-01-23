@@ -180,8 +180,6 @@ export default class AgentManager {
 
         this.clusterVersion = this.Version.webConsole;
 
-        this.browserId = Math.random();
-
         let prevCluster;
 
         this.currentCluster$ = this.connectionSbj.pipe(
@@ -223,98 +221,36 @@ export default class AgentManager {
 
         const options = this.isDemoMode() ? {query: 'IgniteDemoMode=true'} : {};
 
-        let start = Date.now();
-
-        console.log('Connecting...');
-
         // Create a connection to backend.
         this.eventBus = new EventBus('http://localhost:9000/eventbus');
         this.eventBus.enableReconnect(true);
 
         // Open the connection
         this.eventBus.onopen = () => {
-            console.log('Connected: ' + (Date.now() - start));
-
             this.eventBus.registerHandler('agent:stats', (err, msg) => {
-                console.log('agent:stats:msg' + JSON.stringify(msg));
-
                 const data = msg.body;
+
                 const conn = this.connectionSbj.getValue();
-                conn.update(false, data.count, data.clusters); // this.isDemoMode()
+
+                conn.update(false, data.count, data.clusters); // TODO IGNITE-5617 this.isDemoMode()
+
                 this.connectionSbj.next(conn);
             });
 
-            this.eventBus.registerHandler('node:rest', (err, msg) => {
-                console.log(JSON.stringify(msg));
-            });
+            this.eventBus.registerHandler('cluster:changed', (err, cluster) => this.updateCluster(cluster));
 
-            this.eventBus.registerHandler('node:visor', (err, msg) => {
-                console.log(JSON.stringify(msg));
-            });
+            this.eventBus.registerHandler('user:notifications', (err, notification) => this.UserNotifications.notification = notification);
         };
 
         this.eventBus.onclose = () => {
-            console.log('Connect to server failed.');
+            console.log('Disconnected from server.');
 
-            start = Date.now();
-        };
-
-        // this.socket.onerror = (err) => {
-        //     console.log('Problem calling event bus: ' + JSON.stringify(err));
-        // };
-        //
-        // this.socket.onclose = (p) => {
-        //     console.log('Socket closed: ' + JSON.stringify(p));
-        // };
-        //
-        // this.eventBus.onclose = (p) => {
-        //     console.log('Event bus closed: ' + JSON.stringify(p));
-        // };
-        //
-        // this.eventBus.onmessage = (m) => {
-        //     console.log('Message: ' + JSON.stringify(m));
-        // };
-
-        // this.socket.onopen = function() {
-        //     console.log('WS opened!');
-        // };
-        //
-        // // On connection close
-        // this.socket.onclose = function() {
-        //     console.log('WS closed!');
-        // };
-
-        // On receive message from server
-        // this.socket.onmessage = function(e) {
-        //     // Get the content
-        //     const content = JSON.parse(e.data);
-        //
-        //     console.log(content);
-        // };
-
-        const onDisconnect = () => {
             const conn = this.connectionSbj.getValue();
 
             conn.disconnect();
 
             this.connectionSbj.next(conn);
         };
-
-        // this.socket.on('connect_error', onDisconnect);
-        //
-        // this.socket.on('disconnect', onDisconnect);
-
-        // this.socket.onmessage('agents:stat', ({clusters, count}) => {
-        //     const conn = this.connectionSbj.getValue();
-        //
-        //     conn.update(this.isDemoMode(), count, clusters);
-        //
-        //     this.connectionSbj.next(conn);
-        // });
-        //
-        // this.socket.on('cluster:changed', (cluster) => this.updateCluster(cluster));
-        //
-        // this.socket.on('user:notifications', (notification) => this.UserNotifications.notification = notification);
     }
 
     saveToStorage(cluster = this.connectionSbj.getValue().cluster) {
@@ -482,30 +418,31 @@ export default class AgentManager {
     }
 
     /**
+     * Send message.
      *
-     * @param {String} event
-     * @param {Object} [data]
+     * @param {String} address
+     * @param {Object} message
      * @returns {ng.IPromise}
      * @private
      */
-    _sendToAgent(event, data = {}) {
+    _sendToAgent(address, message = {}) {
         if (!this.eventBus)
             return this.$q.reject('Failed to connect to server');
 
         const latch = this.$q.defer();
 
-        this.eventBus.send(event, {data}, (err, res) => {
+        this.eventBus.send(address, message, {}, (err, res) => {
             if (err)
                 latch.reject(err);
 
-            latch.resolve(res.body.data);
+            latch.resolve(res.body);
         });
 
         return latch.promise;
     }
 
     drivers() {
-        return this._sendToAgent('agent:schemaImport:drivers');
+        return this._sendToAgent('schemaImport:drivers');
     }
 
     /**

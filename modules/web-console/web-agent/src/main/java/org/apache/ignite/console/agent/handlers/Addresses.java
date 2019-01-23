@@ -22,19 +22,19 @@ package org.apache.ignite.console.agent.handlers;
  */
 public interface Addresses {
     /** */
-    public static final String EVENT_SCHEMA_IMPORT_DRIVERS = "agent:schemaImport:drivers";
+    public static final String EVENT_SCHEMA_IMPORT_DRIVERS = "schemaImport:drivers";
 
     /** */
-    public static final String EVENT_SCHEMA_IMPORT_SCHEMAS = "agent:schemaImport:schemas";
+    public static final String EVENT_SCHEMA_IMPORT_SCHEMAS = "schemaImport:schemas";
 
     /** */
-    public static final String EVENT_SCHEMA_IMPORT_METADATA = "agent:schemaImport:metadata";
+    public static final String EVENT_SCHEMA_IMPORT_METADATA = "schemaImport:metadata";
 
     /** */
     public static final String EVENT_NODE_REST = "node:rest";
 
     /** */
-    public static final String EVENT_NODE_VISOR_TASK = "node:visorTask";
+    public static final String EVENT_NODE_VISOR = "node:visor";
 
     /** */
     public static final String EVENT_CLUSTER_CONNECTED = "cluster:connected";

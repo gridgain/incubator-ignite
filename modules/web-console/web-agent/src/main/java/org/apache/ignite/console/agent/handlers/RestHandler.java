@@ -26,19 +26,19 @@ import org.apache.ignite.console.agent.rest.RestResult;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_REST;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_VISOR_TASK;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_VISOR;
 
 /**
- * API to translate REST requests to Ignite cluster.
+ * Handler that translate REST requests to Ignite cluster.
  */
-public class RestListener extends AbstractVerticle {
+public class RestHandler extends AbstractVerticle {
     /** */
     private final RestExecutor restExecutor;
 
     /**
      * @param restExecutor Rest executor.
      */
-    public RestListener(RestExecutor restExecutor) {
+    public RestHandler(RestExecutor restExecutor) {
         this.restExecutor = restExecutor;
     }
 
@@ -47,7 +47,7 @@ public class RestListener extends AbstractVerticle {
         EventBus eventBus = vertx.eventBus();
 
         eventBus.consumer(EVENT_NODE_REST, this::handleRest);
-        eventBus.consumer(EVENT_NODE_VISOR_TASK, this::handleRest);
+        eventBus.consumer(EVENT_NODE_VISOR, this::handleRest);
     }
 
     /**

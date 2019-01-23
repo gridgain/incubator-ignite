@@ -53,12 +53,15 @@ import org.slf4j.LoggerFactory;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_AUTH_FAILED;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_FAILED;
 import static org.apache.ignite.internal.processors.rest.GridRestResponse.STATUS_SUCCESS;
 
 /**
- * API to translate REST requests to Ignite cluster.
+ * API to execute REST requests to Ignite cluster.
  */
 public class RestExecutor implements AutoCloseable {
     /** */
@@ -126,7 +129,7 @@ public class RestExecutor implements AutoCloseable {
             HttpResponse<Buffer> response = asyncRes.result();
 
             switch (response.statusCode()) {
-                case 200:
+                case HTTP_OK:
                     try {
                         RestResponseHolder holder = MAPPER.readValue(response.body().getBytes(), RestResponseHolder.class);
 
@@ -142,13 +145,13 @@ public class RestExecutor implements AutoCloseable {
 
                     break;
 
-                case 401:
+                case HTTP_UNAUTHORIZED:
                     fut.complete(RestResult.fail(STATUS_AUTH_FAILED, "Failed to authenticate in cluster. " +
                         "Please check agent\'s login and password or node port."));
 
                     break;
 
-                case 404:
+                case HTTP_NOT_FOUND:
                     fut.complete(RestResult.fail(STATUS_FAILED, "Failed connect to cluster."));
 
                     break;

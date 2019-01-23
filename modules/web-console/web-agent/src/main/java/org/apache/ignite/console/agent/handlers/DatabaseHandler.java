@@ -32,6 +32,7 @@ import java.util.Properties;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
 import org.apache.ignite.console.agent.db.DbDriver;
@@ -46,17 +47,16 @@ import org.slf4j.LoggerFactory;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.console.agent.AgentUtils.resolvePath;
-import static org.apache.ignite.console.agent.AgentUtils.toJSON;
 import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_DRIVERS;
 import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_METADATA;
 import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_SCHEMAS;
 
 /**
- * API to extract database metadata.
+ * Handler extract database metadata for "Metadata import" dialog on Web Console.
  */
-public class DatabaseListener extends AbstractVerticle {
+public class DatabaseHandler extends AbstractVerticle {
     /** */
-    private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(DatabaseListener.class));
+    private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(DatabaseHandler.class));
 
     /** */
     private final File driversFolder;
@@ -67,7 +67,7 @@ public class DatabaseListener extends AbstractVerticle {
     /**
      * @param cfg Config.
      */
-    public DatabaseListener(AgentConfiguration cfg) {
+    public DatabaseHandler(AgentConfiguration cfg) {
         driversFolder = resolvePath(F.isEmpty(cfg.driversFolder()) ? "jdbc-drivers" : cfg.driversFolder());
 
         dbMetaReader = new DbMetadataReader();
@@ -124,7 +124,7 @@ public class DatabaseListener extends AbstractVerticle {
             else
                 log.info("JDBC drivers folder not specified, returning empty list");
 
-            msg.reply(toJSON(EVENT_SCHEMA_IMPORT_DRIVERS, drivers));
+            msg.reply(JsonObject.mapFrom(drivers));
         }
         catch (Throwable e) {
             msg.fail(HTTP_INTERNAL_ERROR, e.getMessage());
@@ -177,7 +177,7 @@ public class DatabaseListener extends AbstractVerticle {
                 log.info("Collected database schemas [jdbcUrl=" + jdbcUrl + ", catalog=" + catalog +
                     ", count=" + schemas.size() + "]");
 
-                msg.reply(toJSON(EVENT_SCHEMA_IMPORT_SCHEMAS, new DbSchema(catalog, schemas)));
+                msg.reply(JsonObject.mapFrom(new DbSchema(catalog, schemas)));
             }
         }
         catch (Throwable e) {
@@ -232,7 +232,7 @@ public class DatabaseListener extends AbstractVerticle {
 
                 log.info("Collected database metadata [jdbcUrl=" + jdbcUrl + ", count=" + metadata.size() + "]");
 
-                msg.reply(toJSON(EVENT_SCHEMA_IMPORT_METADATA, metadata));
+                msg.reply(JsonObject.mapFrom(metadata));
             }
         }
         catch (Throwable e) {

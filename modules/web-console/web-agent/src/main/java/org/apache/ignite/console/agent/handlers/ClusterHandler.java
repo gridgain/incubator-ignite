@@ -57,11 +57,11 @@ import static org.apache.ignite.internal.visor.util.VisorTaskUtils.sortAddresses
 import static org.apache.ignite.internal.visor.util.VisorTaskUtils.splitAddresses;
 
 /**
- * API to transfer topology from Ignite cluster available by node-uri.
+ * API to transfer topology from Ignite cluster to Web Console.
  */
-public class ClusterListener extends AbstractVerticle {
+public class ClusterHandler extends AbstractVerticle {
     /** */
-    private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(ClusterListener.class));
+    private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(ClusterHandler.class));
 
     /** */
     private static final IgniteProductVersion IGNITE_2_0 = IgniteProductVersion.fromString("2.0.0");
@@ -119,7 +119,7 @@ public class ClusterListener extends AbstractVerticle {
     /**
      * @param cfg Web agent configuration.
      */
-    public ClusterListener(AgentConfiguration cfg, RestExecutor restExecutor) {
+    public ClusterHandler(AgentConfiguration cfg, RestExecutor restExecutor) {
         this.cfg = cfg;
         this.restExecutor = restExecutor;
     }

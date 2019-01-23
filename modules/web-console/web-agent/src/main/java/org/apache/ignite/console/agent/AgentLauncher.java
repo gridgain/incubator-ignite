@@ -34,9 +34,9 @@ import com.beust.jcommander.ParameterException;
 import io.vertx.core.Vertx;
 
 import io.vertx.core.VertxOptions;
-import org.apache.ignite.console.agent.handlers.ClusterListener;
-import org.apache.ignite.console.agent.handlers.DatabaseListener;
-import org.apache.ignite.console.agent.handlers.RestListener;
+import org.apache.ignite.console.agent.handlers.ClusterHandler;
+import org.apache.ignite.console.agent.handlers.DatabaseHandler;
+import org.apache.ignite.console.agent.handlers.RestHandler;
 import org.apache.ignite.console.agent.handlers.WebSocketRouter;
 import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.slf4j.Logger;
@@ -219,9 +219,9 @@ public class AgentLauncher {
             RestExecutor restExecutor = new RestExecutor(cfg);
 
             vertx.deployVerticle(new WebSocketRouter(cfg));
-            vertx.deployVerticle(new DatabaseListener(cfg));
-            vertx.deployVerticle(new ClusterListener(cfg, restExecutor));
-            vertx.deployVerticle(new RestListener(restExecutor));
+            vertx.deployVerticle(new DatabaseHandler(cfg));
+            vertx.deployVerticle(new ClusterHandler(cfg, restExecutor));
+            vertx.deployVerticle(new RestHandler(restExecutor));
         }
     }
 }
