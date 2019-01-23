@@ -20,9 +20,11 @@ package org.apache.ignite.console.agent.handlers;
 import java.net.URI;
 import java.util.UUID;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.RequestOptions;
+import io.vertx.core.http.WebSocket;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
 import org.apache.ignite.IgniteLogger;
@@ -42,10 +44,18 @@ public class WebSocketRouter extends AbstractVerticle {
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(WebSocketRouter.class));
 
     /** */
-    private final AgentConfiguration cfg;
+    private static final JsonObject AGENT_ID = new JsonObject().put("agentId", UUID.randomUUID().toString());
 
     /** */
-    private final JsonObject agentId;
+    private static final Buffer PING = new JsonObject()
+        .put("address", "info")
+        .put("type", "ping")
+        .put("body", "ping")
+        .toBuffer();
+
+    /** */
+    private final AgentConfiguration cfg;
+
 
     /** */
     private HttpClient client;
@@ -61,15 +71,12 @@ public class WebSocketRouter extends AbstractVerticle {
      */
     public WebSocketRouter(AgentConfiguration cfg) {
         this.cfg = cfg;
-
-        agentId = new JsonObject();
-        agentId.put("agentId", UUID.randomUUID().toString());
     }
 
 
     /** {@inheritDoc} */
     @Override public void start() throws Exception {
-        log.info("Web Agent: " + agentId);
+        log.info("Web Agent: " + AGENT_ID);
         log.info("Connecting to: " + cfg.serverUri());
 
         boolean serverTrustAll = Boolean.getBoolean("trust.all");
@@ -109,7 +116,7 @@ public class WebSocketRouter extends AbstractVerticle {
             .setHost(uri.getHost())
             .setPort(uri.getPort())
             .setSsl(ssl)
-            .setURI("/eventbus");
+            .setURI("/eventbus/websocket");
 
         curTimer = vertx.setTimer(1, this::connect);
     }
@@ -119,6 +126,22 @@ public class WebSocketRouter extends AbstractVerticle {
         vertx.cancelTimer(curTimer);
 
         client.close();
+    }
+
+    /**
+     * Send message to event bus.
+     *
+     * @param ws Web socket.
+     * @param addr Address on event bus.
+     * @param data Data to send.
+     */
+    private void send(WebSocket ws, String addr, JsonObject data) {
+        JsonObject json = new JsonObject()
+            .put("address", addr)
+            .put("type", "send")
+            .put("body", data);
+
+        ws.write(json.toBuffer());
     }
 
     /**
@@ -156,13 +179,18 @@ public class WebSocketRouter extends AbstractVerticle {
                     log.info("Received data " + data.toString());
                 });
 
+                long pingTimer = vertx.setPeriodic(3000, v -> ws.write(PING));
+
                 ws.closeHandler(p -> {
                     log.warning("Connection closed: " + ws.remoteAddress());
+
+                    vertx.cancelTimer(pingTimer);
 
                     curTimer = vertx.setTimer(1, this::connect);
                 });
 
-                ws.writeTextMessage(agentId.toString());
+
+                send(ws, "agent:id", AGENT_ID);
             },
             e -> {
                 LT.warn(log, e.getMessage());

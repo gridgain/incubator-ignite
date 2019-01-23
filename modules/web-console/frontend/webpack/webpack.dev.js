@@ -71,12 +71,7 @@ module.exports = merge(commonCfg, {
         contentBase: path.resolve('build'),
         inline: true,
         proxy: {
-            '/browsers': {
-                target: backendUrl,
-                ws: true,
-                secure: false
-            },
-            '/web-agents': {
+            '/eventbus': {
                 target: backendUrl,
                 ws: true,
                 secure: false

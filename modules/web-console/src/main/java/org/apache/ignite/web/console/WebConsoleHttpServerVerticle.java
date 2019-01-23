@@ -30,6 +30,7 @@ import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
+import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -53,6 +54,7 @@ import org.apache.ignite.web.console.auth.IgniteAuth;
 
 import static io.vertx.core.http.HttpMethod.GET;
 import static io.vertx.core.http.HttpMethod.POST;
+import static io.vertx.ext.bridge.BridgeEventType.REGISTER;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
@@ -140,7 +142,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
     /** {@inheritDoc} */
     @Override public void start() {
-        startIgnite();
+        // startIgnite();
 
         long start = System.currentTimeMillis();
 
@@ -162,11 +164,12 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
                 .addOutboundPermitted(new PermittedOptions());
 
         webSocketsHandler.bridge(allAccessOptions, be -> {
-            log("bridge:" + be.type());
+            if (be.type() == REGISTER) {
+                log("bridge:" + be.type() + ": " + be.getRawMessage());
 
-            be.complete(true);
+                be.complete(true);
+            }
         });
-
 
 //            socketHandler(socket -> {
 //            log("socketHandler: " + socket.writeHandlerID());
@@ -178,43 +181,45 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 
         EventBus eventBus = vertx.eventBus();
 
-        eventBus.consumer("browser:info", msg -> log("browser:info: " + msg.address() + " " + msg.body()));
+        eventBus.consumer("agent:id", msg -> log(msg.address() + " " + msg.body()));
 
-        eventBus.consumer("node:rest", msg -> log(msg.body()));
+        eventBus.consumer("browser:info", msg -> log(msg.address() + " " + msg.body()));
 
-        eventBus.consumer("node:visor", msg -> log(msg.body()));
+        eventBus.consumer("node:rest", msg -> log(msg.address() + " " + msg.body()));
 
-        eventBus.consumer("schemaImport:drivers", msg -> {
-            log("schemaImport:drivers: " +  msg.body());
+        eventBus.consumer("node:visor", msg -> log(msg.address() + " " + msg.body()));
 
-            vertx.executeBlocking(
-                fut -> {
-                    ServerWebSocket sock = agentSockets.keySet().iterator().next();
-                    JsonObject json = new JsonObject();
-                    json.put("address", "schemaImport:drivers");
-                    sock.writeTextMessage(json.toString());
-
-                    JsonObject res = agentResponses.get(sock);
-
-                    while(res == null) {
-                        try {
-                            Thread.sleep(10);
-                        }
-                        catch (InterruptedException e) {
-                            fut.fail(e);
-                        }
-
-                        res = agentResponses.get(sock);
-                    }
-
-                    fut.complete(res);
-                },
-                async -> msg.reply(async.result()));
-        });
-
-        eventBus.consumer("schemaImport:schemas", msg -> log(msg.body()));
-
-        eventBus.consumer("schemaImport:metadata", msg -> log(msg.body()));
+//        eventBus.consumer("schemaImport:drivers", msg -> {
+//            log("schemaImport:drivers: " +  msg.body());
+//
+//            vertx.executeBlocking(
+//                fut -> {
+//                    ServerWebSocket sock = agentSockets.keySet().iterator().next();
+//                    JsonObject json = new JsonObject();
+//                    json.put("address", "schemaImport:drivers");
+//                    sock.writeTextMessage(json.toString());
+//
+//                    JsonObject res = agentResponses.get(sock);
+//
+//                    while(res == null) {
+//                        try {
+//                            Thread.sleep(10);
+//                        }
+//                        catch (InterruptedException e) {
+//                            fut.fail(e);
+//                        }
+//
+//                        res = agentResponses.get(sock);
+//                    }
+//
+//                    fut.complete(res);
+//                },
+//                async -> msg.reply(async.result()));
+//        });
+//
+//        eventBus.consumer("schemaImport:schemas", msg -> log(msg.body()));
+//
+//        eventBus.consumer("schemaImport:metadata", msg -> log(msg.body()));
 
         // Create a router object.
         Router router = Router.router(vertx);
@@ -297,7 +302,6 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
         vertx
             .createHttpServer()
             .requestHandler(router)
-            //.websocketHandler(this::webSocketHandler)
             .listen(3000);
 
         log("Web Server started: " + (System.currentTimeMillis() - start));
