@@ -918,7 +918,7 @@ public abstract class GridAbstractTest extends TestCase {
             }
         }
         else
-            return startRemoteGrid(igniteInstanceName, null, ctx);
+            return startRemoteGrid(igniteInstanceName, cfg, ctx);
     }
 
     /**
@@ -1015,7 +1015,9 @@ public abstract class GridAbstractTest extends TestCase {
             throw new UnsupportedOperationException("Starting of grid at another jvm by context doesn't supported.");
 
         if (cfg == null)
-            cfg = optimize(getConfiguration(igniteInstanceName));
+            cfg = getConfiguration(igniteInstanceName);
+
+        cfg = optimize(cfg);
 
         if (locNode != null) {
             DiscoverySpi discoverySpi = locNode.configuration().getDiscoverySpi();

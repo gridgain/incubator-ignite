@@ -1713,7 +1713,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                 proc.start();
         }
         catch (IgniteCheckedException e) {
-            throw new IgniteCheckedException("Failed to start processor: " + proc, e);
+            throw new IgniteCheckedException("Failed to start processor: " + proc + " igCfg: " + ctx.config(), e);
         }
     }
 

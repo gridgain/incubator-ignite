@@ -126,7 +126,7 @@ public class IgniteNodeRunner {
             if (resetDiscovery)
                 cfg0.setDiscoverySpi(null);
 
-            cfg0.setWorkDirectory(U.defaultWorkDirectory());
+            //cfg0.setWorkDirectory(U.defaultWorkDirectory());
             cfg0.setMBeanServer(null);
             cfg0.setGridLogger(null);
 
