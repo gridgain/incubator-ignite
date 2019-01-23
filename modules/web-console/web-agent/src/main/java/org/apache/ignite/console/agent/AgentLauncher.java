@@ -32,8 +32,8 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 
 import io.vertx.core.Vertx;
-
 import io.vertx.core.VertxOptions;
+
 import org.apache.ignite.console.agent.handlers.ClusterHandler;
 import org.apache.ignite.console.agent.handlers.DatabaseHandler;
 import org.apache.ignite.console.agent.handlers.RestHandler;
@@ -56,6 +56,19 @@ public class AgentLauncher {
 
         // Add SLF4JBridgeHandler to j.u.l's root logger.
         SLF4JBridgeHandler.install();
+    }
+
+    /**
+     * @param fmt Format string.
+     * @param args Arguments.
+     */
+    private static char[] readPassword(String fmt, Object... args) {
+        if (System.console() != null)
+            return System.console().readPassword(fmt, args);
+
+        System.out.print(String.format(fmt, args));
+
+        return new Scanner(System.in).nextLine().toCharArray();
     }
 
     /**
@@ -177,32 +190,6 @@ public class AgentLauncher {
         cfg.nodeURIs(nodeURIs);
 
         return cfg;
-    }
-
-    /**
-     * @param fmt Format string.
-     * @param args Arguments.
-     */
-    private String readLine(String fmt, Object... args) {
-        if (System.console() != null)
-            return System.console().readLine(fmt, args);
-
-        System.out.print(String.format(fmt, args));
-
-        return new Scanner(System.in).nextLine();
-    }
-
-    /**
-     * @param fmt Format string.
-     * @param args Arguments.
-     */
-    private static char[] readPassword(String fmt, Object... args) {
-        if (System.console() != null)
-            return System.console().readPassword(fmt, args);
-
-        System.out.print(String.format(fmt, args));
-
-        return new Scanner(System.in).nextLine().toCharArray();
     }
 
     /**

@@ -103,7 +103,7 @@ public abstract class DatabaseMetadataDialect {
 
         idx.setName(idxName);
         idx.setIndexType(QueryIndexType.SORTED);
-        idx.setFields(new LinkedHashMap<String, Boolean>());
+        idx.setFields(new LinkedHashMap<>());
 
         return idx;
     }

@@ -21,11 +21,7 @@ import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsonorg.JsonOrgModule;
 import org.apache.log4j.Logger;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 /**
  * Utility methods.
@@ -33,14 +29,6 @@ import org.json.JSONObject;
 public class AgentUtils {
     /** */
     private static final Logger log = Logger.getLogger(AgentUtils.class.getName());
-
-    /** JSON object mapper. */
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
-    static {
-        // Register special module with basic serializers.
-        MAPPER.registerModule(new JsonOrgModule());
-    }
 
     /**
      * Default constructor.
@@ -53,7 +41,7 @@ public class AgentUtils {
      * @param path Path to normalize.
      * @return Normalized file path.
      */
-    public static String normalizePath(String path) {
+    private static String normalizePath(String path) {
         return path != null ? path.replace('\\', '/') : null;
     }
 
@@ -119,17 +107,5 @@ public class AgentUtils {
             return file;
 
         return null;
-    }
-
-    /**
-     * Map JSON object to java object.
-     *
-     * @param obj {@link JSONObject} or {@link JSONArray}.
-     * @param toValType Expected value type.
-     * @return Mapped object type of {@link T}.
-     * @throws IllegalArgumentException If conversion fails due to incompatible type.
-     */
-    public static <T> T fromJSON(Object obj, Class<T> toValType) throws IllegalArgumentException {
-        return MAPPER.convertValue(obj, toValType);
     }
 }

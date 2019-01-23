@@ -154,9 +154,12 @@ public class AgentConfiguration {
 
     /**
      * @param tokens Tokens.
+     * @return {@code this} for chaining.
      */
-    public void tokens(List<String> tokens) {
+    public AgentConfiguration tokens(List<String> tokens) {
         this.tokens = tokens;
+
+        return this;
     }
 
     /**
@@ -168,9 +171,12 @@ public class AgentConfiguration {
 
     /**
      * @param srvUri URI.
+     * @return {@code this} for chaining.
      */
-    public void serverUri(String srvUri) {
+    public AgentConfiguration serverUri(String srvUri) {
         this.srvUri = srvUri;
+
+        return this;
     }
 
     /**
@@ -182,9 +188,12 @@ public class AgentConfiguration {
 
     /**
      * @param nodeURIs Node URIs.
+     * @return {@code this} for chaining.
      */
-    public void nodeURIs(List<String> nodeURIs) {
+    public AgentConfiguration nodeURIs(List<String> nodeURIs) {
         this.nodeURIs = nodeURIs;
+
+        return this;
     }
 
     /**
@@ -196,9 +205,12 @@ public class AgentConfiguration {
 
     /**
      * @param nodeLogin User name for agent to authenticate on node.
+     * @return {@code this} for chaining.
      */
-    public void nodeLogin(String nodeLogin) {
+    public AgentConfiguration nodeLogin(String nodeLogin) {
         this.nodeLogin = nodeLogin;
+
+        return this;
     }
 
     /**
@@ -210,9 +222,12 @@ public class AgentConfiguration {
 
     /**
      * @param nodePwd Agent password to authenticate on node.
+     * @return {@code this} for chaining.
      */
-    public void nodePassword(String nodePwd) {
+    public AgentConfiguration nodePassword(String nodePwd) {
         this.nodePwd = nodePwd;
+
+        return this;
     }
 
     /**
@@ -224,9 +239,12 @@ public class AgentConfiguration {
 
     /**
      * @param demoNodeUri Demo node URI.
+     * @return {@code this} for chaining.
      */
-    public void demoNodeUri(String demoNodeUri) {
+    public AgentConfiguration demoNodeUri(String demoNodeUri) {
         this.demoNodeUri = demoNodeUri;
+
+        return this;
     }
 
     /**
@@ -245,9 +263,12 @@ public class AgentConfiguration {
 
     /**
      * @param driversFolder Driver folder.
+     * @return {@code this} for chaining.
      */
-    public void driversFolder(String driversFolder) {
+    public AgentConfiguration driversFolder(String driversFolder) {
         this.driversFolder = driversFolder;
+
+        return this;
     }
 
     /**
@@ -259,9 +280,12 @@ public class AgentConfiguration {
 
     /**
      * @param disableDemo Disable demo mode.
+     * @return {@code this} for chaining.
      */
-    public void disableDemo(Boolean disableDemo) {
+    public AgentConfiguration disableDemo(Boolean disableDemo) {
         this.disableDemo = disableDemo;
+
+        return this;
     }
 
     /**
@@ -341,9 +365,12 @@ public class AgentConfiguration {
 
     /**
      * @param srvKeyStore Path to server key store.
+     * @return {@code this} for chaining.
      */
-    public void serverKeyStore(String srvKeyStore) {
+    public AgentConfiguration serverKeyStore(String srvKeyStore) {
         this.srvKeyStore = srvKeyStore;
+
+        return this;
     }
 
     /**
@@ -355,9 +382,12 @@ public class AgentConfiguration {
 
     /**
      * @param srvKeyStorePass Server key store password.
+     * @return {@code this} for chaining.
      */
-    public void serverKeyStorePassword(String srvKeyStorePass) {
+    public AgentConfiguration serverKeyStorePassword(String srvKeyStorePass) {
         this.srvKeyStorePass = srvKeyStorePass;
+
+        return this;
     }
 
     /**
@@ -369,9 +399,12 @@ public class AgentConfiguration {
 
     /**
      * @param srvTrustStore Path to server trust store.
+     * @return {@code this} for chaining.
      */
-    public void serverTrustStore(String srvTrustStore) {
+    public AgentConfiguration serverTrustStore(String srvTrustStore) {
         this.srvTrustStore = srvTrustStore;
+
+        return this;
     }
 
     /**
@@ -383,9 +416,12 @@ public class AgentConfiguration {
 
     /**
      * @param srvTrustStorePass Server trust store password.
+     * @return {@code this} for chaining.
      */
-    public void serverTrustStorePassword(String srvTrustStorePass) {
+    public AgentConfiguration serverTrustStorePassword(String srvTrustStorePass) {
         this.srvTrustStorePass = srvTrustStorePass;
+
+        return this;
     }
 
     /**
