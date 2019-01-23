@@ -505,7 +505,7 @@ export default class AgentManager {
     }
 
     drivers() {
-        return this._sendToAgent('schemaImport:drivers');
+        return this._sendToAgent('agent:schemaImport:drivers');
     }
 
     /**

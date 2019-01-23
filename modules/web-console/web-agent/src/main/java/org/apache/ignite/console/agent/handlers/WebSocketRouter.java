@@ -35,6 +35,7 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_CLUSTER_TOPOLOGY;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_DRIVERS;
 
 /**
  * Router that listen for web socket and redirect messages to event bus.
@@ -137,9 +138,24 @@ public class WebSocketRouter extends AbstractVerticle {
      */
     private void send(WebSocket ws, String addr, JsonObject data) {
         JsonObject json = new JsonObject()
-            .put("address", addr)
             .put("type", "send")
+            .put("address", addr)
             .put("body", data);
+
+        ws.write(json.toBuffer());
+    }
+
+    /**
+     * Send message to event bus.
+     *
+     * @param ws Web socket.
+     * @param addr Address to register.
+     */
+    private void register(WebSocket ws, String addr) {
+        JsonObject json = new JsonObject()
+            .put("type", "register")
+            .put("address", addr)
+            .put("headers", "{}");
 
         ws.write(json.toBuffer());
     }
@@ -158,6 +174,8 @@ public class WebSocketRouter extends AbstractVerticle {
             ws -> {
                 log.info("Connected to server: " + ws.remoteAddress());
 
+                register(ws, EVENT_SCHEMA_IMPORT_DRIVERS);
+
                 ws.handler(data -> {
                     JsonObject json = data.toJsonObject();
 
@@ -172,6 +190,7 @@ public class WebSocketRouter extends AbstractVerticle {
                             else {
                                 String res = String.valueOf(msg.result().body());
 
+                                send();
                                 ws.writeTextMessage(res);
                             }
                         });

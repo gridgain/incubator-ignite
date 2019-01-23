@@ -55,6 +55,7 @@ import org.apache.ignite.web.console.auth.IgniteAuth;
 import static io.vertx.core.http.HttpMethod.GET;
 import static io.vertx.core.http.HttpMethod.POST;
 import static io.vertx.ext.bridge.BridgeEventType.REGISTER;
+import static io.vertx.ext.bridge.BridgeEventType.SOCKET_PING;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
@@ -164,7 +165,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
                 .addOutboundPermitted(new PermittedOptions());
 
         webSocketsHandler.bridge(allAccessOptions, be -> {
-            if (be.type() == REGISTER) {
+            if (be.type() != SOCKET_PING) {
                 log("bridge:" + be.type() + ": " + be.getRawMessage());
 
                 be.complete(true);
@@ -290,10 +291,10 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
 //        }));
 
         vertx.setPeriodic(3000L, t -> {
-            JsonObject json = new JsonObject();
-            json.put("count", agentSockets.size());
-            json.put("hasDemo", false);
-            json.put("clusters", new JsonArray());
+            JsonObject json = new JsonObject()
+                .put("count", 1) // agentSockets.size())
+                .put("hasDemo", false)
+                .put("clusters", new JsonArray());
 
             eventBus.send("agent:stats", json);
         });
@@ -330,7 +331,7 @@ public class WebConsoleHttpServerVerticle extends AbstractVerticle {
      */
     private void sendJson(JsonObject json, RoutingContext ctx) {
         ctx.response()
-            .putHeader("content-type", "application/json")
+            .putHeader("content-type", "application/json; charset=UTF-8")
             .end(Json.encode(json));
     }
 

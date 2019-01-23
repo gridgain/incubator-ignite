@@ -47,6 +47,9 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.console.agent.AgentUtils.resolvePath;
 import static org.apache.ignite.console.agent.AgentUtils.toJSON;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_DRIVERS;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_METADATA;
+import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_SCHEMAS;
 
 /**
  * API to extract database metadata.
@@ -54,15 +57,6 @@ import static org.apache.ignite.console.agent.AgentUtils.toJSON;
 public class DatabaseListener extends AbstractVerticle {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(DatabaseListener.class));
-
-    /** */
-    private static final String EVENT_SCHEMA_IMPORT_DRIVERS = "schemaImport:drivers";
-
-    /** */
-    private static final String EVENT_SCHEMA_IMPORT_SCHEMAS = "schemaImport:schemas";
-
-    /** */
-    private static final String EVENT_SCHEMA_IMPORT_METADATA = "schemaImport:metadata";
 
     /** */
     private final File driversFolder;
