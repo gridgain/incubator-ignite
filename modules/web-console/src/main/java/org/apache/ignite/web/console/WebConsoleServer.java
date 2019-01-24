@@ -24,7 +24,6 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -34,7 +33,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
-import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.handler.UserSessionHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
@@ -42,6 +40,7 @@ import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.LocalSessionStore;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
@@ -49,12 +48,10 @@ import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.web.console.auth.IgniteAuth;
 
-import static io.vertx.core.http.HttpMethod.GET;
-import static io.vertx.core.http.HttpMethod.POST;
-import static io.vertx.ext.bridge.BridgeEventType.SOCKET_PING;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  * Web Console server.
@@ -91,8 +88,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
         TcpDiscoveryVmIpFinder ipFinder = new TcpDiscoveryVmIpFinder();
 
-        ipFinder.setAddresses(Collections.singletonList("127.0.0.1:47600"));
+        ipFinder.setAddresses(Collections.singletonList("127.0.0.1:60800"));
 
+        discovery.setLocalPort(60800);
         discovery.setIpFinder(ipFinder);
 
         cfg.setDiscoverySpi(discovery);
@@ -107,6 +105,13 @@ public class WebConsoleServer extends AbstractVerticle {
 
         cfg.setDataStorageConfiguration(dataStorageCfg);
 
+        CacheConfiguration accountsCfg = new CacheConfiguration("accounts");
+        accountsCfg.setCacheMode(REPLICATED);
+
+        cfg.setCacheConfiguration(accountsCfg);
+
+        cfg.setConnectorConfiguration(null);
+
         ignite = Ignition.getOrStart(cfg);
 
         ignite.cluster().active(true);
@@ -116,7 +121,7 @@ public class WebConsoleServer extends AbstractVerticle {
     @Override public void start() {
         long start = System.currentTimeMillis();
 
-        // startIgnite();
+        startIgnite();
 
         SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
 
@@ -125,18 +130,11 @@ public class WebConsoleServer extends AbstractVerticle {
                 .addInboundPermitted(new PermittedOptions())
                 .addOutboundPermitted(new PermittedOptions());
 
-        sockJsHnd.bridge(allAccessOptions, be -> {
-            if (be.type() != SOCKET_PING) {
-                log("bridge:" + be.type() + ": " + be.getRawMessage());
-
-                be.complete(true);
-            }
-        });
+        sockJsHnd.bridge(allAccessOptions);
 
         EventBus eventBus = vertx.eventBus();
 
         eventBus.consumer("agent:id", msg -> log(msg.address() + " " + msg.body()));
-
         eventBus.consumer("browser:info", msg -> log(msg.address() + " " + msg.body()));
 
         // Create a router object.
@@ -152,14 +150,14 @@ public class WebConsoleServer extends AbstractVerticle {
         // We need a user session handler too to make sure the user is stored in the session between requests.
         router.route().handler(UserSessionHandler.create(auth));
 
-        router.route().handler(CorsHandler.create(".*")
-            .allowedMethod(GET)
-            .allowedMethod(POST)
-            .allowCredentials(true)
-            .allowedHeader("Access-Control-Allow-Method")
-            .allowedHeader("Access-Control-Allow-Origin")
-            .allowedHeader("Access-Control-Allow-Credentials")
-            .allowedHeader("Content-Type"));
+//        router.route().handler(CorsHandler.create(".*")
+//            .allowedMethod(GET)
+//            .allowedMethod(POST)
+//            .allowCredentials(true)
+//            .allowedHeader("Access-Control-Allow-Method")
+//            .allowedHeader("Access-Control-Allow-Origin")
+//            .allowedHeader("Access-Control-Allow-Credentials")
+//            .allowedHeader("Content-Type"));
 
         router.route("/eventbus/*").handler(sockJsHnd);
 
@@ -247,18 +245,16 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleSignUp(RoutingContext ctx) {
-        JsonObject body = ctx.getBodyAsJson();
+        JsonObject authInfo = ctx.getBodyAsJson();
 
-        auth.authenticate(body, asyncRes -> {
+        authInfo.put("signup", true);
+
+        auth.authenticate(authInfo, asyncRes -> {
             if (asyncRes.succeeded())
-                ctx.response().setStatusCode(HTTP_OK);
-
+                sendStatus(ctx, HTTP_OK);
+            else
+                sendStatus(ctx, HTTP_UNAUTHORIZED, asyncRes.cause().getMessage());
         });
-
-        HttpServerResponse res = ctx.response();
-
-        res.
-            setStatusCode(HTTP_OK);
     }
 
     /**

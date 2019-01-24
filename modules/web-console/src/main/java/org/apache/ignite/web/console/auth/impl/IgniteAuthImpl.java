@@ -17,24 +17,42 @@
 
 package org.apache.ignite.web.console.auth.impl;
 
-import java.security.NoSuchAlgorithmException;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.time.ZonedDateTime;
+import java.util.UUID;
 import javax.crypto.SecretKeyFactory;
-import javax.xml.bind.DatatypeConverter;
+import javax.crypto.spec.PBEKeySpec;
+import javax.naming.AuthenticationException;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.auth.PRNG;
 import io.vertx.ext.auth.User;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.web.console.auth.IgniteAuth;
+import org.apache.ignite.web.console.dto.Account;
 
 /**
  * Authentication with storing user information in Ignite.
  */
 public class IgniteAuthImpl implements IgniteAuth {
     /** */
+    private static final int ITERATIONS = 25000;
+
+    /** */
+    private static final int KEY_LEN = 512 * 8;
+
+    /** */
     private final Ignite ignite;
+
+    /** */
+    private final PRNG prnd;
 
     /**
      * @param vertx Vertex.
@@ -42,20 +60,147 @@ public class IgniteAuthImpl implements IgniteAuth {
      */
     public IgniteAuthImpl(Vertx vertx, Ignite ignite) {
         this.ignite = ignite;
+        this.prnd = new PRNG(vertx);
+    }
+
+    /**
+     * @return
+     */
+    private String salt() {
+        byte[] salt = new byte[32];
+
+        prnd.nextBytes(salt);
+
+        return Hex.encodeHexString(salt);
+    }
+
+    /**
+     * TODO javadocs
+     *
+     * @param pwd
+     * @param salt
+     * @return
+     * @throws GeneralSecurityException
+     */
+    private String computeHash(String pwd, String salt) throws GeneralSecurityException {
+        PBEKeySpec spec = new PBEKeySpec(
+            pwd.toCharArray(),
+            salt.getBytes(StandardCharsets.UTF_8), // For compatibility with hasing on previous implementation on NodeJS.
+            ITERATIONS,
+            KEY_LEN);
+
+        SecretKeyFactory skf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+
+        byte[] hash = skf.generateSecret(spec).getEncoded();
+
+        return Hex.encodeHexString(hash);
+    }
+
+    /**
+     *
+     * @param json
+     * @param key
+     * @return
+     */
+    private String checkMandatoryField(JsonObject json, String key) throws AuthenticationException {
+        String val = json.getString(key);
+
+        if (F.isEmpty(val))
+            throw new AuthenticationException("Mandatoty field missing: " + key);
+
+        return key;
+    }
+
+    /**
+     *
+     * @param authInfo
+     * @throws AuthenticationException
+     */
+    private void checkMandatoryFields(JsonObject authInfo) throws AuthenticationException {
+        checkMandatoryField(authInfo, "email");
+        checkMandatoryField(authInfo, "password");
+    }
+
+    /**
+     *
+     * @param authInfo
+     * @return Account.
+     * @throws Exception
+     */
+    private Account signUp(JsonObject authInfo) throws Exception {
+        checkMandatoryFields(authInfo);
+
+        IgniteCache<String, Account> cache = ignite.cache("accounts");
+
+        String email = authInfo.getString("email");
+
+        Account account = cache.get(email);
+
+        if (account != null)
+            throw new AuthenticationException("Account already exists");
+
+        account = new Account();
+
+        account._id = "5b9b5ad477670d001936692a"; // FIX!!!
+        account.email = authInfo.getString("email");
+        account.firstName = authInfo.getString("firstName");
+        account.lastName = authInfo.getString("lastName");
+        account.company = authInfo.getString("company");
+        account.country = authInfo.getString("country");
+        account.industry = authInfo.getString("industry");
+        account.admin = true; // authInfo.getBoolean("admin");
+        account.token = UUID.randomUUID().toString(); // ???
+        account.resetPasswordToken = UUID.randomUUID().toString(); // ???
+        account.registered = ZonedDateTime.now().toString();
+        account.lastLogin = "";
+        account.lastActivity = "";
+        account.lastEvent = "";
+        account.demoCreated = false;
+        account.salt = salt();
+        account.hash = computeHash(authInfo.getString("password"), account.salt);
+
+        cache.put(email, account);
+
+        return account;
+    }
+
+    /**
+     *
+     * @param authInfo
+     * @return Account.
+     * @throws Exception
+     */
+    private Account signIn(JsonObject authInfo) throws Exception {
+        checkMandatoryFields(authInfo);
+
+        String email = authInfo.getString("email");
+
+        IgniteCache<String, Account> cache = ignite.cache("accounts");
+
+        Account account = cache.get(email);
+
+        if (account == null)
+            throw new AuthenticationException("Invalid email or password");
+
+        String hash = computeHash(account.salt, authInfo.getString("password"));
+
+        if (!hash.equals(account.hash))
+            throw new AuthenticationException("Invalid email or password");
+
+        return account;
     }
 
     /** {@inheritDoc} */
     @Override public void authenticate(JsonObject authInfo, Handler<AsyncResult<User>> asyncResHnd) {
         try {
-            SecretKeyFactory f = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            Account account = (authInfo.getBoolean("signup"))
+                ? signUp(authInfo)
+                : signIn(authInfo);
 
-            byte[] salt = DatatypeConverter.parseHexBinary("a6fe2057bf1e2286c3ff4184fb44d28b068c0308017bfcea7b7a65a871a049b6");
-            byte[] hash = DatatypeConverter.parseHexBinary("754b34b06796a900870d1f18f1bb3b702b1e61c9b85a8f0512d35bc9d57e0bdcc09fe195609f8bf804354d0b759c7ad7d9b2edd8ff2f0d106bd5a954f311f88da8d7274c82643034daac1ef1908e728ef2ea423ab027ecf933989dcb8676db7b268f52632ec9eb6bdaae7063cec3c91593347db17e1916704ae161aa6811e61eab24829ed0b4ee47ccd54eaa1d37d3e964d7014490f85629a9eb945473ff11f238a8a77b4e43750187ac3f03f97a34d074afaf7301115232448ebfe17ccedc8152213d2219797de458c9cf47ffc09cce3821a619244e219f82999b52fe4efa121832d42092442cfa1331783c0c097a29a92a5d07896fdcb0be998c6e44b8d654493506ca3d164e761f10a57696111e740e131129404cefd4cfe4363cedf15c0a7fd4f433de6f157ce6f14ff754b3a0a0a09b9fb565d72f29441076e1c93f1a334f453ca580688d955baaba73a797f2f582c7cb5e1addeda9af273e3bf0348aba44c1c2ddaf356a565bfd1b90521ee31eb0f51c256876b33c5ec6cfcb22a2fae2f2fc1dc2128e0e856fa1389c30fcf38b60b21b31a9504f00e84a089eaf9b999aec73df6699e9b4980d4cde17d9fb30d5246591690d81489221de9e30e6c83de454491a5119103a99d97ec59aa0da3d19e69d0a12782ff630e2935792ddb97c7b07e1d1c87180043c8c09ee7842c77a607565e7bfde402f9e0bb919f0869fd938");
+            asyncResHnd.handle(Future.succeededFuture(new IgniteUser(account.json())));
         }
-        catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
+        catch (Throwable e) {
+            asyncResHnd.handle(Future.failedFuture(e));
         }
-
-        asyncResHnd.handle(Future.succeededFuture(new IgniteUser("ignite")));
     }
 }

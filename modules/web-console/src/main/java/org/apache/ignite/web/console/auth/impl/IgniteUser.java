@@ -29,16 +29,13 @@ import io.vertx.ext.auth.AuthProvider;
  */
 public class IgniteUser extends AbstractUser {
     /** */
-    private final String userName;
-
-    /** */
-    private IgniteAuthImpl authProvider;
+    private final JsonObject principal;
 
     /**
-     * @param userName User name.
+     * @param principal Principal.
      */
-    public IgniteUser(String userName) {
-        this.userName = userName;
+    public IgniteUser(JsonObject principal) {
+        this.principal = principal;
     }
 
     /** {@inheritDoc} */
@@ -48,35 +45,12 @@ public class IgniteUser extends AbstractUser {
 
     /** {@inheritDoc} */
     @Override public JsonObject principal() {
-        return new JsonObject()
-            .put("_id", "5683a8e9824d152c044e6281")
-            .put("email", "kuaw26@mail.ru")
-            .put("firstName", "Alexey")
-            .put("lastName", "Kuznetsov")
-            .put("company", "GridGain")
-            .put("country", "Russia")
-            .put("industry", "Other")
-            .put("admin", true)
-            .put("token", "NEHYtRKsPHhXT5rrIOJ4")
-            .put("registered", "2017-12-21T16:14:37.369Z")
-            .put("lastLogin", "2019-01-16T03:51:05.479Z")
-            .put("lastActivity", "2019-01-16T03:51:06.084Z")
-            .put("lastEvent", "2018-05-23T12:26:29.570Z")
-            .put("demoCreated", true);
+        return principal;
     }
 
     /** {@inheritDoc} */
     @Override public void setAuthProvider(AuthProvider authProvider) {
-        if (authProvider instanceof IgniteAuthImpl)
-            this.authProvider = (IgniteAuthImpl)authProvider;
-        else
-            throw new IllegalArgumentException("Not a IgniteAuthImpl");
-    }
-
-    /**
-     * @return User name.
-     */
-    public String getUserName() {
-        return userName;
+        if (!(authProvider instanceof IgniteAuthImpl))
+            throw new IllegalStateException("Not a IgniteAuthImpl");
     }
 }
