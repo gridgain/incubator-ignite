@@ -52,7 +52,7 @@ public class IgniteAuthImpl implements IgniteAuth {
     private final Ignite ignite;
 
     /** */
-    private final PRNG prnd;
+    private final PRNG rnd;
 
     /**
      * @param vertx Vertex.
@@ -60,32 +60,33 @@ public class IgniteAuthImpl implements IgniteAuth {
      */
     public IgniteAuthImpl(Vertx vertx, Ignite ignite) {
         this.ignite = ignite;
-        this.prnd = new PRNG(vertx);
+        this.rnd = new PRNG(vertx);
     }
 
     /**
-     * @return
+     * @return Salt for hashing.
      */
     private String salt() {
         byte[] salt = new byte[32];
 
-        prnd.nextBytes(salt);
+        rnd.nextBytes(salt);
 
         return Hex.encodeHexString(salt);
     }
 
     /**
-     * TODO javadocs
+     * Compute password hash.
      *
-     * @param pwd
-     * @param salt
-     * @return
-     * @throws GeneralSecurityException
+     * @param pwd Password to hash.
+     * @param salt Salt to use.
+     * @return Computed hash.
+     * @throws GeneralSecurityException If failed to compute hash.
      */
     private String computeHash(String pwd, String salt) throws GeneralSecurityException {
+        // TODO IGNITE-5617: How about re-hash on first successful compare.
         PBEKeySpec spec = new PBEKeySpec(
             pwd.toCharArray(),
-            salt.getBytes(StandardCharsets.UTF_8), // For compatibility with hasing on previous implementation on NodeJS.
+            salt.getBytes(StandardCharsets.UTF_8), // For compatibility with hashing data imported from NodeJS.
             ITERATIONS,
             KEY_LEN);
 
@@ -97,24 +98,20 @@ public class IgniteAuthImpl implements IgniteAuth {
     }
 
     /**
-     *
-     * @param json
-     * @param key
-     * @return
+     * @param authInfo JSON object with authentication info.
+     * @param key Key of mandatory field to check.
+     * @throws AuthenticationException If mandatory field is empty.
      */
-    private String checkMandatoryField(JsonObject json, String key) throws AuthenticationException {
-        String val = json.getString(key);
+    private void checkMandatoryField(JsonObject authInfo, String key) throws AuthenticationException {
+        String val = authInfo.getString(key);
 
         if (F.isEmpty(val))
-            throw new AuthenticationException("Mandatoty field missing: " + key);
-
-        return key;
+            throw new AuthenticationException("Mandatory field missing: " + key);
     }
 
     /**
-     *
-     * @param authInfo
-     * @throws AuthenticationException
+     * @param authInfo JSON object with authentication info.
+     * @throws AuthenticationException If mandatory fields are empty.
      */
     private void checkMandatoryFields(JsonObject authInfo) throws AuthenticationException {
         checkMandatoryField(authInfo, "email");
@@ -122,10 +119,9 @@ public class IgniteAuthImpl implements IgniteAuth {
     }
 
     /**
-     *
-     * @param authInfo
-     * @return Account.
-     * @throws Exception
+     * @param authInfo JSON object with authentication info.
+     * @return New account.
+     * @throws Exception If sign up failed
      */
     private Account signUp(JsonObject authInfo) throws Exception {
         checkMandatoryFields(authInfo);
@@ -141,16 +137,16 @@ public class IgniteAuthImpl implements IgniteAuth {
 
         account = new Account();
 
-        account._id = "5b9b5ad477670d001936692a"; // FIX!!!
+        account._id = "5b9b5ad477670d001936692a"; // TODO IGNITE-5617 we need Java ID-s.
         account.email = authInfo.getString("email");
         account.firstName = authInfo.getString("firstName");
         account.lastName = authInfo.getString("lastName");
         account.company = authInfo.getString("company");
         account.country = authInfo.getString("country");
         account.industry = authInfo.getString("industry");
-        account.admin = true; // authInfo.getBoolean("admin");
-        account.token = UUID.randomUUID().toString(); // ???
-        account.resetPasswordToken = UUID.randomUUID().toString(); // ???
+        account.admin = authInfo.getBoolean("admin", false);
+        account.token = UUID.randomUUID().toString(); // TODO IGNITE-5617 How to generate token?
+        account.resetPasswordToken = UUID.randomUUID().toString(); // TODO IGNITE-5617 How to generate resetPasswordToken?
         account.registered = ZonedDateTime.now().toString();
         account.lastLogin = "";
         account.lastActivity = "";
@@ -166,9 +162,9 @@ public class IgniteAuthImpl implements IgniteAuth {
 
     /**
      *
-     * @param authInfo
-     * @return Account.
-     * @throws Exception
+     * @param authInfo JSON object with authentication info.
+     * @return Account for signed in user..
+     * @throws Exception If failed to sign in.
      */
     private Account signIn(JsonObject authInfo) throws Exception {
         checkMandatoryFields(authInfo);
@@ -182,7 +178,7 @@ public class IgniteAuthImpl implements IgniteAuth {
         if (account == null)
             throw new AuthenticationException("Invalid email or password");
 
-        String hash = computeHash(account.salt, authInfo.getString("password"));
+        String hash = computeHash(authInfo.getString("password"), account.salt);
 
         if (!hash.equals(account.hash))
             throw new AuthenticationException("Invalid email or password");
@@ -193,7 +189,7 @@ public class IgniteAuthImpl implements IgniteAuth {
     /** {@inheritDoc} */
     @Override public void authenticate(JsonObject authInfo, Handler<AsyncResult<User>> asyncResHnd) {
         try {
-            Account account = (authInfo.getBoolean("signup"))
+            Account account = (authInfo.getBoolean("signup", false))
                 ? signUp(authInfo)
                 : signIn(authInfo);
 

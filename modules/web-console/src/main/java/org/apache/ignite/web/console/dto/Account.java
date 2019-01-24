@@ -20,7 +20,7 @@ package org.apache.ignite.web.console.dto;
 import io.vertx.core.json.JsonObject;
 
 /**
- * Data transfet object for account.
+ * Data transfer object for account.
  */
 public class Account {
     /** */
@@ -83,8 +83,8 @@ public class Account {
             .put("email", email)
             .put("firstName", firstName)
             .put("lastName", lastName)
-            .put("company", country)
-            .put("country", company)
+            .put("company", company)
+            .put("country", country)
             .put("industry", industry)
             .put("admin", admin)
             .put("token", token)
