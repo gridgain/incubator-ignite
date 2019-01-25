@@ -495,7 +495,7 @@ export default class AgentManager {
                             return this.pool.postMessage({payload: res.data, useBigIntJson});
                         }
 
-                        return res;
+                        return JSON.parse(res.data);
 
                     case SuccessStatus.STATUS_FAILED:
                         if (res.error.startsWith('Failed to handle request - unknown session token (maybe expired session)')) {
