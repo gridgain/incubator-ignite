@@ -26,7 +26,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import io.vertx.core.AbstractVerticle;
@@ -51,6 +50,7 @@ import static org.apache.ignite.console.agent.AgentUtils.resolvePath;
 /**
  * Handler extract database metadata for "Metadata import" dialog on Web Console.
  */
+@SuppressWarnings("JavaAbbreviationUsage")
 public class DatabaseHandler extends AbstractVerticle {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(DatabaseHandler.class));
@@ -144,37 +144,16 @@ public class DatabaseHandler extends AbstractVerticle {
      */
     private void schemasHandler(Message<JsonObject> msg) {
         try {
-            String jdbcDriverJarPath = null;
-
             JsonObject args = msg.body();
 
-            if (args.containsKey("jdbcDriverJar"))
-                jdbcDriverJarPath = args.getString("jdbcDriverJar");
+            log.info("Collecting database schemas...");
 
-            if (!args.containsKey("jdbcDriverClass"))
-                throw new IllegalArgumentException("Missing driverClass in arguments: " + args);
-
-            String jdbcDriverCls = args.getString("jdbcDriverClass");
-
-            if (!args.containsKey("jdbcUrl"))
-                throw new IllegalArgumentException("Missing url in arguments: " + args);
-
-            String jdbcUrl = args.getString("jdbcUrl");
-
-            if (!args.containsKey("info"))
-                throw new IllegalArgumentException("Missing info in arguments: " + args);
-
-            Properties jdbcInfo = new Properties();
-
-            jdbcInfo.putAll(args.getJsonObject("info").getMap());
-
-            log.info("Start collecting database schemas [drvJar=" + jdbcDriverJarPath +
-                ", drvCls=" + jdbcDriverCls + ", jdbcUrl=" + jdbcUrl + "]");
-
-            try (Connection conn = connect(jdbcDriverJarPath, jdbcDriverCls, jdbcUrl, jdbcInfo)) {
+            try (Connection conn = connect(args)) {
                 String catalog = conn.getCatalog();
 
                 if (catalog == null) {
+                    String jdbcUrl = args.getString("jdbcUrl");
+
                     String[] parts = jdbcUrl.split("[/:=]");
 
                     catalog = parts.length > 0 ? parts[parts.length - 1] : "NONE";
@@ -182,8 +161,7 @@ public class DatabaseHandler extends AbstractVerticle {
 
                 Collection<String> schemas = dbMetaReader.schemas(conn);
 
-                log.info("Collected database schemas [jdbcUrl=" + jdbcUrl + ", catalog=" + catalog +
-                    ", count=" + schemas.size() + "]");
+                log.info("Collected database schemas:" + schemas.size());
 
                 msg.reply(JsonObject.mapFrom(new DbSchema(catalog, schemas)));
             }
@@ -196,73 +174,72 @@ public class DatabaseHandler extends AbstractVerticle {
     /**
      * @param msg Message.
      */
-    private void metadataHandler(Message<Map<String, Object>> msg) {
+    @SuppressWarnings("unchecked")
+    private void metadataHandler(Message<JsonObject> msg) {
         try {
-            String jdbcDriverJarPath = null;
-
-            Map<String, Object> args = msg.body();
-
-            if (args.containsKey("jdbcDriverJar"))
-                jdbcDriverJarPath = args.get("jdbcDriverJar").toString();
-
-            if (!args.containsKey("jdbcDriverClass"))
-                throw new IllegalArgumentException("Missing driverClass in arguments: " + args);
-
-            String jdbcDriverCls = args.get("jdbcDriverClass").toString();
-
-            if (!args.containsKey("jdbcUrl"))
-                throw new IllegalArgumentException("Missing url in arguments: " + args);
-
-            String jdbcUrl = args.get("jdbcUrl").toString();
-
-            if (!args.containsKey("info"))
-                throw new IllegalArgumentException("Missing info in arguments: " + args);
-
-            Properties jdbcInfo = new Properties();
-
-            jdbcInfo.putAll((Map)args.get("info"));
+            JsonObject args = msg.body();
 
             if (!args.containsKey("schemas"))
                 throw new IllegalArgumentException("Missing schemas in arguments: " + args);
 
-            List<String> schemas = (List<String>)args.get("schemas");
+            List schemas = args.getJsonArray("schemas").getList();
 
             if (!args.containsKey("tablesOnly"))
                 throw new IllegalArgumentException("Missing tablesOnly in arguments: " + args);
 
-            boolean tblsOnly = (boolean)args.get("tablesOnly");
+            boolean tblsOnly = args.getBoolean("tablesOnly", true);
 
-            log.info("Start collecting database metadata [drvJar=" + jdbcDriverJarPath +
-                ", drvCls=" + jdbcDriverCls + ", jdbcUrl=" + jdbcUrl + "]");
+            log.info("Collecting database metadata...");
 
-            try (Connection conn = connect(jdbcDriverJarPath, jdbcDriverCls, jdbcUrl, jdbcInfo)) {
+            try (Connection conn = connect(args)) {
                 Collection<DbTable> metadata = dbMetaReader.metadata(conn, schemas, tblsOnly);
 
-                log.info("Collected database metadata [jdbcUrl=" + jdbcUrl + ", count=" + metadata.size() + "]");
+                log.info("Collected database metadata: " + metadata.size());
 
                 msg.reply(new JsonArray(metadata.stream().map(JsonObject::mapFrom).collect(Collectors.toList())));
             }
         }
         catch (Throwable e) {
-            msg.fail(HTTP_INTERNAL_ERROR, "Failed to collect DB metadata");
+            msg.fail(HTTP_INTERNAL_ERROR, "Failed to collect DB metadata: " + e.getMessage());
         }
     }
 
     /**
-     * @param jdbcDriverJarPath JDBC driver JAR path.
-     * @param jdbcDriverCls JDBC driver class.
-     * @param jdbcUrl JDBC URL.
-     * @param jdbcInfo Properties to connect to database.
+     * @param args Connection arguments.
      * @return Connection to database.
      * @throws SQLException If failed to connect.
      */
-    private Connection connect(String jdbcDriverJarPath, String jdbcDriverCls, String jdbcUrl,
-        Properties jdbcInfo) throws SQLException {
+    private Connection connect(JsonObject args) throws SQLException {
+        String jdbcDriverJarPath = null;
+
+        if (args.containsKey("jdbcDriverJar"))
+            jdbcDriverJarPath = args.getString("jdbcDriverJar");
+
+        if (!args.containsKey("jdbcDriverClass"))
+            throw new IllegalArgumentException("Missing driverClass in arguments: " + args);
+
+        String jdbcDriverCls = args.getString("jdbcDriverClass");
+
+        if (!args.containsKey("jdbcUrl"))
+            throw new IllegalArgumentException("Missing url in arguments: " + args);
+
+        String jdbcUrl = args.getString("jdbcUrl");
+
+        if (!args.containsKey("info"))
+            throw new IllegalArgumentException("Missing info in arguments: " + args);
+
+        Properties jdbcInfo = new Properties();
+
+        jdbcInfo.putAll(args.getJsonObject("info").getMap());
+
         if (AgentMetadataDemo.isTestDriveUrl(jdbcUrl))
             return AgentMetadataDemo.testDrive();
 
         if (!new File(jdbcDriverJarPath).isAbsolute() && driversFolder != null)
             jdbcDriverJarPath = new File(driversFolder, jdbcDriverJarPath).getPath();
+
+        log.info("Connecting to database[drvJar=" + jdbcDriverJarPath +
+            ", drvCls=" + jdbcDriverCls + ", jdbcUrl=" + jdbcUrl + "]");
 
         return dbMetaReader.connect(jdbcDriverJarPath, jdbcDriverCls, jdbcUrl, jdbcInfo);
     }
