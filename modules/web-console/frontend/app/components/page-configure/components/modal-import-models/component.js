@@ -966,7 +966,7 @@ export class ModalImportModels {
                     return _.isEmpty($scope.importDomain.schemas) || !!get('importDomain.schemasToUse.length')($scope);
 
                 case 'tables':
-                    return !!$scope.importDomain.tablesToUse.length;
+                    return !_.isNil($scope.importDomain.tablesToUse) && !!$scope.importDomain.tablesToUse.length;
 
                 default:
                     return true;

@@ -435,6 +435,10 @@ export default class AgentManager {
             if (err)
                 latch.reject(err);
 
+            // TODO IGNITE-5617 Workaround of sending errors from web agent.
+            if (res.body.err)
+                latch.reject(res.body.err);
+
             latch.resolve(res.body);
         });
 

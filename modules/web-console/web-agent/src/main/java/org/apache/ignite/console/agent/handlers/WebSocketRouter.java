@@ -20,6 +20,9 @@ package org.apache.ignite.console.agent.handlers;
 import java.net.URI;
 import java.util.UUID;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.RequestOptions;
@@ -33,9 +36,12 @@ import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
+import static io.vertx.core.buffer.Buffer.buffer;
+
 /**
  * Router that listen for web socket and redirect messages to event bus.
  */
+@SuppressWarnings("JavaAbbreviationUsage")
 public class WebSocketRouter extends AbstractVerticle {
     /** */
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(WebSocketRouter.class));
@@ -44,16 +50,11 @@ public class WebSocketRouter extends AbstractVerticle {
     private static final JsonObject AGENT_ID = new JsonObject().put("agentId", UUID.randomUUID().toString());
 
     /** */
-    private static final String MSG_TYPE_REGISTER = "register";
-
-    /** */
-    private static final String MSG_TYPE_PING = "ping";
-
-    /** */
-    private static final String MSG_TYPE_SEND = "send";
-
-    /** */
-    private static final String MSG_TYPE_ERROR = "err";
+    private static final Buffer PING = new JsonObject()
+        .put("address", "info")
+        .put("type", "ping")
+        .put("body", "ping")
+        .toBuffer();
 
     /** */
     private final AgentConfiguration cfg;
@@ -131,21 +132,39 @@ public class WebSocketRouter extends AbstractVerticle {
     }
 
     /**
+     * Register consumer on event bus.
+     *
+     * @param ws Web socket.
+     * @param addr Consumer address on event bus.
+     */
+    private void register(WebSocket ws, String addr) {
+        JsonObject json = new JsonObject()
+            .put("type", "register")
+            .put("address", addr)
+            .put("headers", "{}");
+
+        ws.write(buffer(json.encode()));
+    }
+
+    /**
      * Send message to event bus.
      *
      * @param ws Web socket.
      * @param addr Address on event bus.
-     * @param data Data to send.
+     * @param asynRes Result to send.
      */
-    private void send(WebSocket ws, String type, String addr, Object data) {
+    private void send(WebSocket ws, String addr, AsyncResult<Message<Object>> asynRes) {
         JsonObject json = new JsonObject()
-            .put("type", type)
-            .put("address", addr);
+            .put("address", addr)
+            .put("type", "send");
 
-        if (data != null)
-            json.put("body", data);
+        Object body = asynRes.succeeded()
+            ? asynRes.result().body()
+            : new JsonObject().put("err", asynRes.cause().getMessage());
 
-        ws.write(json.toBuffer());
+            json.put("body", body);
+
+        ws.write(buffer(json.encode()));
     }
 
     /**
@@ -159,11 +178,11 @@ public class WebSocketRouter extends AbstractVerticle {
             ws -> {
                 log.info("Connected to server: " + ws.remoteAddress());
 
-                send(ws, MSG_TYPE_REGISTER, Addresses.SCHEMA_IMPORT_DRIVERS, null);
-                send(ws, MSG_TYPE_REGISTER, Addresses.SCHEMA_IMPORT_SCHEMAS, null);
-                send(ws, MSG_TYPE_REGISTER, Addresses.SCHEMA_IMPORT_METADATA, null);
-                send(ws, MSG_TYPE_REGISTER, Addresses.NODE_REST, null);
-                send(ws, MSG_TYPE_REGISTER, Addresses.NODE_VISOR, null);
+                register(ws, Addresses.SCHEMA_IMPORT_DRIVERS);
+                register(ws, Addresses.SCHEMA_IMPORT_SCHEMAS);
+                register(ws, Addresses.SCHEMA_IMPORT_METADATA);
+                register(ws, Addresses.NODE_REST);
+                register(ws, Addresses.NODE_VISOR);
 
                 ws.handler(data -> {
                     JsonObject json = data.toJsonObject();
@@ -173,24 +192,15 @@ public class WebSocketRouter extends AbstractVerticle {
                     if (F.isEmpty(addr))
                         log.error("Unexpected request: " + json);
                     else
-                        vertx.eventBus().send(addr, json.getJsonObject("body"), msg -> {
-                            String replyAddr = json.getString("replyAddress");
-
-                            if (msg.failed()) {
-                                String err = msg.cause().getMessage();
-
-                                log.error("Failed to process: " + json + ", reason: " + err);
-
-                                send(ws, MSG_TYPE_ERROR, replyAddr, err);
-                            }
-                            else
-                                send(ws, MSG_TYPE_SEND, replyAddr, msg.result().body());
-                        });
+                        vertx.eventBus().send(
+                            addr,
+                            json.getJsonObject("body"),
+                            asyncRes -> send(ws, json.getString("replyAddress"), asyncRes));
 
                     log.info("Received data " + data.toString());
                 });
 
-                long pingTimer = vertx.setPeriodic(3000, v -> send(ws, MSG_TYPE_PING, Addresses.INFO, "ping"));
+                long pingTimer = vertx.setPeriodic(3000, v -> ws.write(PING));
 
                 ws.closeHandler(p -> {
                     log.warning("Connection closed: " + ws.remoteAddress());
@@ -201,7 +211,7 @@ public class WebSocketRouter extends AbstractVerticle {
                 });
 
 
-                send(ws, MSG_TYPE_SEND, "agent:id", AGENT_ID);
+                // send(ws, "agent:id", Future.succeededFuture(Message AGENT_ID));
             },
             e -> {
                 LT.warn(log, e.getMessage());
