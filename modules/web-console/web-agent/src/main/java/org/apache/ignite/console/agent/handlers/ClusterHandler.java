@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,7 +41,6 @@ import org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJetty
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.apache.ignite.lang.IgniteClosure;
 import org.apache.ignite.lang.IgniteProductVersion;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
@@ -95,17 +95,6 @@ public class ClusterHandler extends AbstractVerticle {
     private TopologySnapshot top;
 
     /** */
-    private static final IgniteClosure<UUID, String> ID2ID8 = new IgniteClosure<UUID, String>() {
-        @Override public String apply(UUID nid) {
-            return U.id8(nid).toUpperCase();
-        }
-
-        @Override public String toString() {
-            return "Node ID to ID8 transformer closure.";
-        }
-    };
-
-    /** */
     private final AgentConfiguration cfg;
 
     /** */
@@ -138,9 +127,10 @@ public class ClusterHandler extends AbstractVerticle {
      * @param nids Cluster nodes IDs.
      */
     private void clusterConnect(Collection<UUID> nids) {
-        log.info("Connection successfully established to cluster with nodes: " + F.viewReadOnly(nids, ID2ID8));
+        log.info("Connection successfully established to cluster with nodes: " +
+            nids.stream().map(U::id8).collect(Collectors.joining(",", "[", "]")));
 
-        // ws.writeTextMessage(response(EVENT_CLUSTER_CONNECTED, toJSON(nids)));
+        vertx.eventBus().send(Addresses.CLUSTER_CONNECTED, nids);
     }
 
     /**
@@ -154,7 +144,7 @@ public class ClusterHandler extends AbstractVerticle {
 
         log.info("Connection to cluster was lost");
 
-        vertx.eventBus().publish(Addresses.EVENT_CLUSTER_DISCONNECTED, null);
+        vertx.eventBus().publish(Addresses.CLUSTER_DISCONNECTED, null);
     }
 
     /**
@@ -281,7 +271,7 @@ public class ClusterHandler extends AbstractVerticle {
 
                 top = newTop;
 
-                vertx.eventBus().send(Addresses.EVENT_CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
+                vertx.eventBus().send(Addresses.CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
             }
             else {
                 LT.warn(log, res.getError());
@@ -303,6 +293,7 @@ public class ClusterHandler extends AbstractVerticle {
     }
 
     /** */
+    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     private static class TopologySnapshot {
         /** */
         private String clusterId;
@@ -468,10 +459,10 @@ public class ClusterHandler extends AbstractVerticle {
         }
 
         /**
-         * @return Collection of short UUIDs.
+         * @return String with short node UUIDs.
          */
-        Collection<String> nid8() {
-            return F.viewReadOnly(nids, ID2ID8);
+        String nid8() {
+            return nids.stream().map(nid -> U.id8(nid).toUpperCase()).collect(Collectors.joining(",", "[", "]"));
         }
 
         /**

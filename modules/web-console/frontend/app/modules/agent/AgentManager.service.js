@@ -227,7 +227,7 @@ export default class AgentManager {
 
         // Open the connection
         this.eventBus.onopen = () => {
-            this.eventBus.registerHandler('agent:stats', (err, msg) => {
+            this.eventBus.registerHandler('agents:stat', (err, msg) => {
                 const data = msg.body;
 
                 const conn = this.connectionSbj.getValue();

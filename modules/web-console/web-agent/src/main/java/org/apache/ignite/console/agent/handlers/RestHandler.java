@@ -55,9 +55,11 @@ public class RestHandler extends AbstractVerticle {
         vertx.executeBlocking(
             fut -> {
                 try {
-                    RestResult res = restExecutor.sendRequest(msg.body());
+                    JsonObject params = msg.body().getJsonObject("params");
 
-                    fut.complete(res);
+                    RestResult res = restExecutor.sendRequest(params);
+
+                    fut.complete(JsonObject.mapFrom(res));
                 }
                 catch (Throwable e) {
                     fut.fail(e);

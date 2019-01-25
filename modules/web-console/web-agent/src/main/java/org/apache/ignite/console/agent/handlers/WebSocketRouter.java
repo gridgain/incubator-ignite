@@ -20,9 +20,8 @@ package org.apache.ignite.console.agent.handlers;
 import java.net.URI;
 import java.util.UUID;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.AsyncResult;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.RequestOptions;
@@ -47,7 +46,7 @@ public class WebSocketRouter extends AbstractVerticle {
     private static final IgniteLogger log = new Slf4jLogger(LoggerFactory.getLogger(WebSocketRouter.class));
 
     /** */
-    private static final JsonObject AGENT_ID = new JsonObject().put("agentId", UUID.randomUUID().toString());
+    private static final String AGENT_ID = UUID.randomUUID().toString();
 
     /** */
     private static final Buffer PING = new JsonObject()
@@ -79,7 +78,7 @@ public class WebSocketRouter extends AbstractVerticle {
 
     /** {@inheritDoc} */
     @Override public void start() throws Exception {
-        log.info("Web Agent: " + AGENT_ID);
+        log.info("Web Agent ID: " + AGENT_ID);
         log.info("Connecting to: " + cfg.serverUri());
 
         boolean serverTrustAll = Boolean.getBoolean("trust.all");
@@ -151,18 +150,13 @@ public class WebSocketRouter extends AbstractVerticle {
      *
      * @param ws Web socket.
      * @param addr Address on event bus.
-     * @param asynRes Result to send.
+     * @param data Data to send.
      */
-    private void send(WebSocket ws, String addr, AsyncResult<Message<Object>> asynRes) {
+    private void send(WebSocket ws, String addr, Object data) {
         JsonObject json = new JsonObject()
             .put("address", addr)
-            .put("type", "send");
-
-        Object body = asynRes.succeeded()
-            ? asynRes.result().body()
-            : new JsonObject().put("err", asynRes.cause().getMessage());
-
-            json.put("body", body);
+            .put("type", "send")
+            .put("body", data);
 
         ws.write(buffer(json.encode()));
     }
@@ -184,6 +178,14 @@ public class WebSocketRouter extends AbstractVerticle {
                 register(ws, Addresses.NODE_REST);
                 register(ws, Addresses.NODE_VISOR);
 
+                MessageConsumer c1 = vertx.eventBus().consumer(Addresses.CLUSTER_TOPOLOGY, msg -> {
+                    JsonObject json = new JsonObject()
+                        .put("agentId", AGENT_ID)
+                        .put("top", msg.body());
+
+                    send(ws, Addresses.CLUSTER_TOPOLOGY, json);
+                });
+
                 ws.handler(data -> {
                     JsonObject json = data.toJsonObject();
 
@@ -195,7 +197,13 @@ public class WebSocketRouter extends AbstractVerticle {
                         vertx.eventBus().send(
                             addr,
                             json.getJsonObject("body"),
-                            asyncRes -> send(ws, json.getString("replyAddress"), asyncRes));
+                            asyncRes -> {
+                                Object body = asyncRes.succeeded()
+                                    ? asyncRes.result().body()
+                                    : new JsonObject().put("err", asyncRes.cause().getMessage());
+
+                                send(ws, json.getString("replyAddress"), body);
+                            });
 
                     log.info("Received data " + data.toString());
                 });
@@ -206,12 +214,12 @@ public class WebSocketRouter extends AbstractVerticle {
                     log.warning("Connection closed: " + ws.remoteAddress());
 
                     vertx.cancelTimer(pingTimer);
+                    c1.unregister();
 
                     curTimer = vertx.setTimer(1, this::connect);
                 });
 
-
-                // send(ws, "agent:id", Future.succeededFuture(Message AGENT_ID));
+                // send(ws, "agent:id", AGENT_ID);
             },
             e -> {
                 LT.warn(log, e.getMessage());

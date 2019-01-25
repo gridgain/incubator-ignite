@@ -40,13 +40,13 @@ public interface Addresses {
     public static final String NODE_VISOR = "node:visor";
 
     /** */
-    public static final String EVENT_CLUSTER_CONNECTED = "cluster:connected";
+    public static final String CLUSTER_CONNECTED = "cluster:connected";
 
     /** */
-    public static final String EVENT_CLUSTER_TOPOLOGY = "cluster:topology";
+    public static final String CLUSTER_TOPOLOGY = "cluster:topology";
 
     /** */
-    public static final String EVENT_CLUSTER_DISCONNECTED = "cluster:disconnected";
+    public static final String CLUSTER_DISCONNECTED = "cluster:disconnected";
 
     /** */
     public static final String EVENT_RESET_TOKEN = "agent:reset:token";

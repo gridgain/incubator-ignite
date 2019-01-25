@@ -20,10 +20,14 @@ package org.apache.ignite.web.console;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -56,6 +60,7 @@ import static org.apache.ignite.cache.CacheMode.REPLICATED;
 /**
  * Web Console server.
  */
+@SuppressWarnings("JavaAbbreviationUsage")
 public class WebConsoleServer extends AbstractVerticle {
     /** */
     private static final SimpleDateFormat DEBUG_DATE_FMT = new SimpleDateFormat("HH:mm:ss,SSS");
@@ -65,6 +70,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /** */
     private IgniteAuth auth;
+
+    /** */
+    private Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
 
     /**
      * @param s Message to log.
@@ -138,8 +146,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
         EventBus eventBus = vertx.eventBus();
 
-        eventBus.consumer("agent:id", msg -> log(msg.address() + " " + msg.body()));
-        eventBus.consumer("browser:info", msg -> log(msg.address() + " " + msg.body()));
+//        eventBus.consumer("agent:id", msg -> log(msg.address() + " " + msg.body()));
+//        eventBus.consumer("browser:info", msg -> log(msg.address() + " " + msg.body()));
+        eventBus.consumer("cluster:topology", this::handleClusterTopology);
 
         // Create a router object.
         Router router = Router.router(vertx);
@@ -175,16 +184,7 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.route("/api/v1/activities").handler(this::handleDummy);
 
-        vertx.setPeriodic(3000L, t -> {
-            JsonObject json = new JsonObject()
-                .put("count", 1) // agentSockets.size()) // TODO: how to handle agent sockets?
-                .put("hasDemo", false)
-                .put("clusters", new JsonArray());
-
-            eventBus.send("agent:stats", json);
-        });
-
-        // Create the HTTP server for browsers.
+        // Start HTTP server for browsers and web agents.
         vertx
             .createHttpServer()
             .requestHandler(router)
@@ -277,6 +277,38 @@ public class WebConsoleServer extends AbstractVerticle {
      */
     private void handleDummy(RoutingContext ctx) {
         sendStatus(ctx, HTTP_NOT_FOUND);
+    }
+
+    /**
+     * Handle cluster topology event.
+     *
+     * @param msg Message with data.
+     */
+    private void handleClusterTopology(Message<JsonObject> msg) {
+        JsonObject data = msg.body();
+
+        String agentId = data.getString("agentId");
+
+        JsonObject newTop = data.getJsonObject("top");
+
+        JsonObject oldTop = clusters.get(agentId);
+
+        // TODO IGNITE-5617 Implement better detection of changed cluster
+        JsonArray oldNids = oldTop != null ? oldTop.getJsonArray("nids") : new JsonArray();
+        JsonArray newNids = newTop.getJsonArray("nids");
+
+        if (!oldNids.equals(newNids)) {
+            newTop.put("id", UUID.randomUUID().toString()); // TODO IGNITE-5617 quick hack for prototype.
+
+            clusters.put(agentId, newTop);
+
+            JsonObject json = new JsonObject()
+                .put("count", clusters.size())
+                .put("hasDemo", false)
+                .put("clusters", new JsonArray().add(newTop)); // TODO IGNITE-5617 quick hack for prototype.
+
+            vertx.eventBus().send("agents:stat", json);
+        }
     }
 
     /**
