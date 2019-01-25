@@ -25,8 +25,6 @@ import org.apache.ignite.console.agent.rest.RestExecutor;
 import org.apache.ignite.console.agent.rest.RestResult;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_REST;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_NODE_VISOR;
 
 /**
  * Handler that translate REST requests to Ignite cluster.
@@ -46,8 +44,8 @@ public class RestHandler extends AbstractVerticle {
     @Override public void start() {
         EventBus eventBus = vertx.eventBus();
 
-        eventBus.consumer(EVENT_NODE_REST, this::handleRest);
-        eventBus.consumer(EVENT_NODE_VISOR, this::handleRest);
+        eventBus.consumer(Addresses.NODE_REST, this::handleRest);
+        eventBus.consumer(Addresses.NODE_VISOR, this::handleRest);
     }
 
     /**

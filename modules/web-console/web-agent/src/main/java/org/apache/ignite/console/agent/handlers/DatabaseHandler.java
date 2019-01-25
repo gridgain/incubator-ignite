@@ -24,18 +24,18 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Collectors;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.console.agent.AgentConfiguration;
-import org.apache.ignite.console.agent.db.DbDriver;
 import org.apache.ignite.console.agent.db.DbMetadataReader;
 import org.apache.ignite.console.agent.db.DbSchema;
 import org.apache.ignite.console.agent.db.DbTable;
@@ -47,9 +47,6 @@ import org.slf4j.LoggerFactory;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.console.agent.AgentUtils.resolvePath;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_DRIVERS;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_METADATA;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_SCHEMA_IMPORT_SCHEMAS;
 
 /**
  * Handler extract database metadata for "Metadata import" dialog on Web Console.
@@ -77,9 +74,20 @@ public class DatabaseHandler extends AbstractVerticle {
     @Override public void start() {
         EventBus eventBus = vertx.eventBus();
 
-        eventBus.consumer(EVENT_SCHEMA_IMPORT_DRIVERS, this::driversHandler);
-        eventBus.consumer(EVENT_SCHEMA_IMPORT_SCHEMAS, this::schemasHandler);
-        eventBus.consumer(EVENT_SCHEMA_IMPORT_METADATA, this::metadataHandler);
+        eventBus.consumer(Addresses.SCHEMA_IMPORT_DRIVERS, this::driversHandler);
+        eventBus.consumer(Addresses.SCHEMA_IMPORT_SCHEMAS, this::schemasHandler);
+        eventBus.consumer(Addresses.SCHEMA_IMPORT_METADATA, this::metadataHandler);
+    }
+
+    /**
+     * @param jdbcDriverJar File name of driver jar file.
+     * @param jdbcDriverCls Optional JDBC driver class name.
+     * @return JSON for driver info.
+     */
+    private JsonObject driver(String jdbcDriverJar, String jdbcDriverCls) {
+        return new JsonObject()
+            .put("jdbcDriverJar", jdbcDriverJar)
+            .put("jdbcDriverClass", jdbcDriverCls);
     }
 
     /**
@@ -87,7 +95,7 @@ public class DatabaseHandler extends AbstractVerticle {
      */
     private void driversHandler(Message<Void> msg) {
         try {
-            List<DbDriver> drivers = new ArrayList<>();
+            JsonArray drivers = new JsonArray();
 
             if (driversFolder != null) {
                 log.info("Collecting JDBC drivers in folder: " + driversFolder.getPath());
@@ -105,13 +113,13 @@ public class DatabaseHandler extends AbstractVerticle {
                             try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), UTF_8))) {
                                 String jdbcDriverCls = reader.readLine();
 
-                                drivers.add(new DbDriver(file.getName(), jdbcDriverCls));
+                                drivers.add(driver(file.getName(), jdbcDriverCls));
 
                                 log.info("Found: [driver=" + file + ", class=" + jdbcDriverCls + "]");
                             }
                         }
                         catch (IOException e) {
-                            drivers.add(new DbDriver(file.getName(), null));
+                            drivers.add(driver(file.getName(), null));
 
                             log.info("Found: [driver=" + file + "]");
                             log.error("Failed to detect driver class: " + e.getMessage());
@@ -124,7 +132,7 @@ public class DatabaseHandler extends AbstractVerticle {
             else
                 log.info("JDBC drivers folder not specified, returning empty list");
 
-            msg.reply(JsonObject.mapFrom(drivers));
+            msg.reply(drivers);
         }
         catch (Throwable e) {
             msg.fail(HTTP_INTERNAL_ERROR, e.getMessage());
@@ -134,31 +142,31 @@ public class DatabaseHandler extends AbstractVerticle {
     /**
      * @param msg Message.
      */
-    private void schemasHandler(Message<Map<String, Object>> msg) {
+    private void schemasHandler(Message<JsonObject> msg) {
         try {
             String jdbcDriverJarPath = null;
 
-            Map<String, Object> args = msg.body();
+            JsonObject args = msg.body();
 
             if (args.containsKey("jdbcDriverJar"))
-                jdbcDriverJarPath = args.get("jdbcDriverJar").toString();
+                jdbcDriverJarPath = args.getString("jdbcDriverJar");
 
             if (!args.containsKey("jdbcDriverClass"))
                 throw new IllegalArgumentException("Missing driverClass in arguments: " + args);
 
-            String jdbcDriverCls = args.get("jdbcDriverClass").toString();
+            String jdbcDriverCls = args.getString("jdbcDriverClass");
 
             if (!args.containsKey("jdbcUrl"))
                 throw new IllegalArgumentException("Missing url in arguments: " + args);
 
-            String jdbcUrl = args.get("jdbcUrl").toString();
+            String jdbcUrl = args.getString("jdbcUrl");
 
             if (!args.containsKey("info"))
                 throw new IllegalArgumentException("Missing info in arguments: " + args);
 
             Properties jdbcInfo = new Properties();
 
-            jdbcInfo.putAll((Map)args.get("info"));
+            jdbcInfo.putAll(args.getJsonObject("info").getMap());
 
             log.info("Start collecting database schemas [drvJar=" + jdbcDriverJarPath +
                 ", drvCls=" + jdbcDriverCls + ", jdbcUrl=" + jdbcUrl + "]");
@@ -232,7 +240,7 @@ public class DatabaseHandler extends AbstractVerticle {
 
                 log.info("Collected database metadata [jdbcUrl=" + jdbcUrl + ", count=" + metadata.size() + "]");
 
-                msg.reply(JsonObject.mapFrom(metadata));
+                msg.reply(new JsonArray(metadata.stream().map(JsonObject::mapFrom).collect(Collectors.toList())));
             }
         }
         catch (Throwable e) {

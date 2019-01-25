@@ -130,7 +130,11 @@ public class WebConsoleServer extends AbstractVerticle {
                 .addInboundPermitted(new PermittedOptions())
                 .addOutboundPermitted(new PermittedOptions());
 
-        sockJsHnd.bridge(allAccessOptions);
+        sockJsHnd.bridge(allAccessOptions, be -> {
+            log(be.type() + ": " + be.getRawMessage());
+
+            be.complete(true);
+        });
 
         EventBus eventBus = vertx.eventBus();
 
@@ -142,22 +146,10 @@ public class WebConsoleServer extends AbstractVerticle {
 
         auth = IgniteAuth.create(vertx, ignite);
 
-        // We need cookies, sessions and request bodies.
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
         router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
-
-        // We need a user session handler too to make sure the user is stored in the session between requests.
         router.route().handler(UserSessionHandler.create(auth));
-
-//        router.route().handler(CorsHandler.create(".*")
-//            .allowedMethod(GET)
-//            .allowedMethod(POST)
-//            .allowCredentials(true)
-//            .allowedHeader("Access-Control-Allow-Method")
-//            .allowedHeader("Access-Control-Allow-Origin")
-//            .allowedHeader("Access-Control-Allow-Credentials")
-//            .allowedHeader("Content-Type"));
 
         router.route("/eventbus/*").handler(sockJsHnd);
 
@@ -179,7 +171,6 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/configuration/caches").handler(this::handleDummy);
         router.route("/api/v1/configuration/igfs").handler(this::handleDummy);
         router.route("/api/v1/configuration").handler(this::handleDummy);
-
         router.route("/api/v1/notebooks").handler(this::handleDummy);
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.route("/api/v1/activities").handler(this::handleDummy);

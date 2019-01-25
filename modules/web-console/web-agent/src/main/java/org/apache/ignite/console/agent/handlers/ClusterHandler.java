@@ -46,8 +46,6 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CLUSTER_NAME;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_CLUSTER_DISCONNECTED;
-import static org.apache.ignite.console.agent.handlers.Addresses.EVENT_CLUSTER_TOPOLOGY;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CLIENT_MODE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IPS;
@@ -156,7 +154,7 @@ public class ClusterHandler extends AbstractVerticle {
 
         log.info("Connection to cluster was lost");
 
-        vertx.eventBus().publish(EVENT_CLUSTER_DISCONNECTED, null);
+        vertx.eventBus().publish(Addresses.EVENT_CLUSTER_DISCONNECTED, null);
     }
 
     /**
@@ -283,7 +281,7 @@ public class ClusterHandler extends AbstractVerticle {
 
                 top = newTop;
 
-                vertx.eventBus().send(EVENT_CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
+                vertx.eventBus().send(Addresses.EVENT_CLUSTER_TOPOLOGY, JsonObject.mapFrom(top));
             }
             else {
                 LT.warn(log, res.getError());
