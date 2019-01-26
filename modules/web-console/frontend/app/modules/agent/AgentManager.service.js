@@ -436,10 +436,17 @@ export default class AgentManager {
                 latch.reject(err);
 
             // TODO IGNITE-5617 Workaround of sending errors from web agent.
-            if (res.body.err)
-                latch.reject(res.body.err);
+            if (res.body) {
+                if (res.body.err)
+                    latch.reject(res.body.err);
 
-            latch.resolve(res.body);
+                latch.resolve(res.body);
+            }
+            else {
+                console.log('NO BODY: ' + address + ', ' + message + ', ' + res);
+
+                latch.resolve(res);
+            }
         });
 
         return latch.promise;
@@ -495,7 +502,9 @@ export default class AgentManager {
                             return this.pool.postMessage({payload: res.data, useBigIntJson});
                         }
 
-                        return JSON.parse(res.data);
+                        const data = JSON.parse(res.data);
+
+                        return data.result ? data.result : data;
 
                     case SuccessStatus.STATUS_FAILED:
                         if (res.error.startsWith('Failed to handle request - unknown session token (maybe expired session)')) {
