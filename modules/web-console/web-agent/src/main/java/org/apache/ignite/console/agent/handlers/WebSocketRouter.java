@@ -153,12 +153,17 @@ public class WebSocketRouter extends AbstractVerticle {
      * @param data Data to send.
      */
     private void send(WebSocket ws, String addr, Object data) {
-        JsonObject json = new JsonObject()
-            .put("address", addr)
-            .put("type", "send")
-            .put("body", data);
+        try {
+            JsonObject json = new JsonObject()
+                .put("address", addr)
+                .put("type", "send")
+                .put("body", data);
 
-        ws.write(buffer(json.encode()));
+            ws.write(buffer(json.encode()));
+        }
+        catch (Throwable e) {
+            log.warning("Failed to send: " + addr + ", " + e.getMessage() + ", " + data);
+        }
     }
 
     /**

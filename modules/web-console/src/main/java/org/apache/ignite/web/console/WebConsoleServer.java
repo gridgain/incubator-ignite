@@ -17,6 +17,7 @@
 
 package org.apache.ignite.web.console;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,6 +52,7 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.web.console.auth.IgniteAuth;
@@ -107,8 +109,11 @@ public class WebConsoleServer extends AbstractVerticle {
         IgniteConfiguration cfg = new IgniteConfiguration();
 
         cfg.setIgniteInstanceName("Web Console backend");
+        cfg.setConsistentId("web-console-backend");
         cfg.setMetricsLogFrequency(0);
         cfg.setLocalHost("127.0.0.1");
+
+        cfg.setWorkDirectory(new File(U.getIgniteHome(), "work-web-console").getAbsolutePath());
 
         TcpDiscoverySpi discovery = new TcpDiscoverySpi();
 
@@ -159,7 +164,7 @@ public class WebConsoleServer extends AbstractVerticle {
         sockJsHnd.bridge(allAccessOptions, be -> {
             JsonObject msg = be.getRawMessage();
 
-            // log(be.type() + ": " + msg);
+            log(be.type() + ": " + msg);
 
             if (msg != null && "node:visor".equalsIgnoreCase(msg.getString("address"))) {
                if (msg.containsKey("body")) {

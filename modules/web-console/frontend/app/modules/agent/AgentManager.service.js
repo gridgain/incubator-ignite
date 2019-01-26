@@ -436,17 +436,21 @@ export default class AgentManager {
                 latch.reject(err);
 
             // TODO IGNITE-5617 Workaround of sending errors from web agent.
-            if (res.body) {
-                if (res.body.err)
-                    latch.reject(res.body.err);
+            if (res) {
+                if (res.body) {
+                    if (res.body.err)
+                        latch.reject(res.body.err);
 
-                latch.resolve(res.body);
-            }
-            else {
-                console.log('NO BODY: ' + address + ', ' + message + ', ' + res);
+                    latch.resolve(res.body);
+                }
+                else {
+                    console.log('NO BODY: ' + address + ', ' + JSON.stringify(message) + ', ' + res);
 
-                latch.resolve(res);
+                    latch.resolve(res);
+                }
             }
+            else
+                console.log('NO DATA: ' + address + ', ' + JSON.stringify(message) + ', ' + res);
         });
 
         return latch.promise;
