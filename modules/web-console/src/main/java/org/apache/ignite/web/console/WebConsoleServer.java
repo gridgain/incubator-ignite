@@ -264,7 +264,6 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/profile").handler(this::handleDummy);
         router.route("/api/v1/demo").handler(this::handleDummy);
         router.route("/api/v1/configuration/clusters").handler(this::handleDummy);
-        router.route("/api/v1/configuration/clusters").handler(this::handleDummy);
         router.route("/api/v1/configuration/domains").handler(this::handleDummy);
         router.route("/api/v1/configuration/caches").handler(this::handleDummy);
         router.route("/api/v1/configuration/igfs").handler(this::handleDummy);
@@ -532,7 +531,7 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleDummy(RoutingContext ctx) {
-        sendStatus(ctx, HTTP_NOT_FOUND);
+        sendStatus(ctx, HTTP_OK, "[]");
     }
 
     /**
