@@ -58,7 +58,6 @@ public class WebSocketRouter extends AbstractVerticle {
     /** */
     private final AgentConfiguration cfg;
 
-
     /** */
     private HttpClient client;
 
@@ -91,7 +90,9 @@ public class WebSocketRouter extends AbstractVerticle {
             serverTrustAll = false;
         }
 
-        HttpClientOptions httpOptions = new HttpClientOptions();
+        HttpClientOptions httpOptions = new HttpClientOptions()
+            .setTryUseCompression(true)
+            .setTryUsePerMessageWebsocketCompression(true);
 
         boolean ssl = serverTrustAll || hasServerTrustStore || cfg.serverKeyStore() != null;
 
@@ -131,6 +132,15 @@ public class WebSocketRouter extends AbstractVerticle {
     }
 
     /**
+     * Write data to web socket.
+     * @param ws Web socket.
+     * @param data Data to send over socket.
+     */
+    private void write(WebSocket ws, Buffer data) {
+        ws.writeBinaryMessage(data);
+    }
+
+    /**
      * Register consumer on event bus.
      *
      * @param ws Web socket.
@@ -142,7 +152,7 @@ public class WebSocketRouter extends AbstractVerticle {
             .put("address", addr)
             .put("headers", "{}");
 
-        ws.write(buffer(json.encode()));
+        write(ws, buffer(json.encode()));
     }
 
     /**
@@ -159,10 +169,10 @@ public class WebSocketRouter extends AbstractVerticle {
                 .put("type", "send")
                 .put("body", data);
 
-            ws.write(buffer(json.encode()));
+            write(ws, buffer(json.encode()));
         }
         catch (Throwable e) {
-            log.warning("Failed to send: " + addr + ", " + e.getMessage() + ", " + data);
+            log.error("Failed to send message to address: " + addr, e);
         }
     }
 
@@ -210,10 +220,10 @@ public class WebSocketRouter extends AbstractVerticle {
                                 send(ws, json.getString("replyAddress"), body);
                             });
 
-                    log.info("Received data " + data.toString());
+                    // log.info("Received data " + data.toString());
                 });
 
-                long pingTimer = vertx.setPeriodic(3000, v -> ws.write(PING));
+                long pingTimer = vertx.setPeriodic(3000, v -> write(ws, PING));
 
                 ws.closeHandler(p -> {
                     log.warning("Connection closed: " + ws.remoteAddress());
@@ -224,6 +234,7 @@ public class WebSocketRouter extends AbstractVerticle {
                     curTimer = vertx.setTimer(1, this::connect);
                 });
 
+                ws.exceptionHandler(e -> log.error("EXCEPTION ON SOCKET", e));
                 // send(ws, "agent:id", AGENT_ID);
             },
             e -> {

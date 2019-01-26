@@ -45,38 +45,13 @@ public class RestHandler extends AbstractVerticle {
         EventBus eventBus = vertx.eventBus();
 
         eventBus.consumer(Addresses.NODE_REST, this::handleRest);
-        eventBus.consumer(Addresses.NODE_VISOR, this::handleVisor);
+        eventBus.consumer(Addresses.NODE_VISOR, this::handleRest);
     }
 
     /**
      * @param msg Message.
      */
     private void handleRest(Message<JsonObject> msg) {
-        vertx.executeBlocking(
-            fut -> {
-                try {
-                    JsonObject params = msg.body().getJsonObject("params");
-
-                    RestResult res = restExecutor.sendRequest(params);
-
-                    fut.complete(JsonObject.mapFrom(res));
-                }
-                catch (Throwable e) {
-                    fut.fail(e);
-                }
-            },
-            asyncRes -> {
-                if (asyncRes.succeeded())
-                    msg.reply(asyncRes.result());
-                else
-                    msg.fail(HTTP_INTERNAL_ERROR, asyncRes.cause().getMessage());
-            });
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void handleVisor(Message<JsonObject> msg) {
         vertx.executeBlocking(
             fut -> {
                 try {

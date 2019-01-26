@@ -31,6 +31,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -164,12 +165,10 @@ public class WebConsoleServer extends AbstractVerticle {
         sockJsHnd.bridge(allAccessOptions, be -> {
             JsonObject msg = be.getRawMessage();
 
-            log(be.type() + ": " + msg);
+            // log(be.type() + ": " + msg);
 
             if (msg != null && "node:visor".equalsIgnoreCase(msg.getString("address"))) {
                if (msg.containsKey("body")) {
-                   log("Visor !!!!");
-
                    JsonObject body = msg.getJsonObject("body");
 
                    JsonObject params = body.getJsonObject("params");
@@ -197,7 +196,7 @@ public class WebConsoleServer extends AbstractVerticle {
 
                        msg.put("body", body);
 
-                       log("Updated msg: " + msg);
+                       // log("Updated msg: " + msg);
                    }
                }
             }
@@ -234,8 +233,12 @@ public class WebConsoleServer extends AbstractVerticle {
 //        });
 
         // Start HTTP server for browsers and web agents.
+        HttpServerOptions httpOpts = new HttpServerOptions()
+            .setCompressionSupported(true)
+            .setPerMessageWebsocketCompressionSupported(true);
+
         vertx
-            .createHttpServer()
+            .createHttpServer(httpOpts)
             .requestHandler(router)
             .listen(3000);
 
