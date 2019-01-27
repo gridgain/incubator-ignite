@@ -50,7 +50,7 @@ public class WebSocketRouter extends AbstractVerticle {
 
     /** */
     private static final Buffer PING = new JsonObject()
-        .put("address", "info")
+        .put("address", Addresses.INFO)
         .put("type", "ping")
         .put("body", "ping")
         .toBuffer();

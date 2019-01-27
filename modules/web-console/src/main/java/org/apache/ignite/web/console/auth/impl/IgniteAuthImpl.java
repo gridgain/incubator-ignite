@@ -35,6 +35,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.web.console.Consts;
 import org.apache.ignite.web.console.auth.IgniteAuth;
 import org.apache.ignite.web.console.dto.Account;
 
@@ -126,7 +127,7 @@ public class IgniteAuthImpl implements IgniteAuth {
     private Account signUp(JsonObject authInfo) throws Exception {
         checkMandatoryFields(authInfo);
 
-        IgniteCache<String, Account> cache = ignite.cache("accounts");
+        IgniteCache<String, Account> cache = ignite.cache(Consts.ACCOUNTS_CACHE_NAME);
 
         String email = authInfo.getString("email");
 
@@ -171,7 +172,7 @@ public class IgniteAuthImpl implements IgniteAuth {
 
         String email = authInfo.getString("email");
 
-        IgniteCache<String, Account> cache = ignite.cache("accounts");
+        IgniteCache<String, Account> cache = ignite.cache(Consts.ACCOUNTS_CACHE_NAME);
 
         Account account = cache.get(email);
 
