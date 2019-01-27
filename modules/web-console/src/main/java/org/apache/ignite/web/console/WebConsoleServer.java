@@ -21,9 +21,11 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.cache.Cache;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
@@ -45,7 +47,9 @@ import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.LocalSessionStore;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -144,10 +148,13 @@ public class WebConsoleServer extends AbstractVerticle {
         CacheConfiguration accountsCfg = new CacheConfiguration(Consts.ACCOUNTS_CACHE_NAME);
         accountsCfg.setCacheMode(REPLICATED);
 
+        CacheConfiguration spacesCfg = new CacheConfiguration(Consts.SPACES_CACHE_NAME);
+        accountsCfg.setCacheMode(REPLICATED);
+
         CacheConfiguration notebooksCfg = new CacheConfiguration(Consts.NOTEBOOKS_CACHE_NAME);
         accountsCfg.setCacheMode(REPLICATED);
 
-        cfg.setCacheConfiguration(accountsCfg, notebooksCfg);
+        cfg.setCacheConfiguration(accountsCfg, spacesCfg, notebooksCfg);
 
         cfg.setConnectorConfiguration(null);
 
@@ -367,14 +374,46 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleNotebooks(RoutingContext ctx) {
-        sendStatus(ctx, HTTP_OK, "[]");
+        IgniteCache<String, String> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+
+        List<Cache.Entry<String, String>> list = cache.query(new ScanQuery<String, String>()).getAll();
+
+        JsonArray json = new JsonArray();
+
+        list.forEach(entry -> json.add(entry.getValue()));
+
+        sendStatus(ctx, HTTP_OK, json.encode());
     }
 
     /**
      * @param ctx Context
      */
     private void handleNotebookSave(RoutingContext ctx) {
-        sendStatus(ctx, HTTP_OK, "[]");
+        User user = ctx.user();
+
+        if (user == null)
+            sendStatus(ctx, HTTP_UNAUTHORIZED, "User not found");
+        else {
+            JsonObject account = user.principal();
+
+            JsonObject notebook = ctx.getBody().toJsonObject();
+
+            IgniteCache<String, String> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+
+            String _id = notebook.getString("_id");
+
+            if (F.isEmpty(_id)) {
+                _id = UUID.randomUUID().toString();
+
+                notebook.put("_id", _id);
+            }
+
+            String json = notebook.encode();
+
+            cache.put(_id, json);
+
+            sendStatus(ctx, HTTP_OK, json);
+        }
     }
 
     /**

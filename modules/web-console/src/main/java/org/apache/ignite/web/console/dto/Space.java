@@ -15,18 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.web.console;
+package org.apache.ignite.web.console.dto;
 
 /**
- * Contains Web Server wide constants.
+ * DTO for space.
  */
-public interface Consts {
+public class Space {
     /** */
-    public static final String ACCOUNTS_CACHE_NAME = "web-console-accounts";
+    public String _id;
 
     /** */
-    public static final String SPACES_CACHE_NAME = "web-console-spaces";
+    public String name;
 
     /** */
-    public static final String NOTEBOOKS_CACHE_NAME = "web-console-notebooks";
+    public boolean demo;
+
+    /** */
+    public String owner;
 }

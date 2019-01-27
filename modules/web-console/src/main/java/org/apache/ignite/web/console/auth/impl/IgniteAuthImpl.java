@@ -38,6 +38,7 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.web.console.Consts;
 import org.apache.ignite.web.console.auth.IgniteAuth;
 import org.apache.ignite.web.console.dto.Account;
+import org.apache.ignite.web.console.dto.Space;
 
 /**
  * Authentication with storing user information in Ignite.
@@ -138,7 +139,7 @@ public class IgniteAuthImpl implements IgniteAuth {
 
         account = new Account();
 
-        account._id = "5b9b5ad477670d001936692a"; // TODO IGNITE-5617 we need Java ID-s.
+        account._id = UUID.randomUUID().toString();
         account.email = authInfo.getString("email");
         account.firstName = authInfo.getString("firstName");
         account.lastName = authInfo.getString("lastName");
@@ -157,6 +158,14 @@ public class IgniteAuthImpl implements IgniteAuth {
         account.hash = computeHash(authInfo.getString("password"), account.salt);
 
         cache.put(email, account);
+
+        Space space = new Space();
+        space._id = UUID.randomUUID().toString();
+        space.name = "Personal space";
+        space.demo = false;
+        space.owner = account._id;
+
+        ignite.cache(Consts.SPACES_CACHE_NAME).put(space._id, space);
 
         return account;
     }
