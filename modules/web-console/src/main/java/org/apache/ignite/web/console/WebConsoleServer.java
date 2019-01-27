@@ -19,13 +19,11 @@ package org.apache.ignite.web.console;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
@@ -52,13 +50,11 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.web.console.auth.IgniteAuth;
 
-import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
@@ -162,47 +158,7 @@ public class WebConsoleServer extends AbstractVerticle {
                 .addInboundPermitted(new PermittedOptions())
                 .addOutboundPermitted(new PermittedOptions());
 
-        sockJsHnd.bridge(allAccessOptions, be -> {
-            JsonObject msg = be.getRawMessage();
-
-            // log(be.type() + ": " + msg);
-
-            if (msg != null && "node:visor".equalsIgnoreCase(msg.getString("address"))) {
-               if (msg.containsKey("body")) {
-                   JsonObject body = msg.getJsonObject("body");
-
-                   JsonObject params = body.getJsonObject("params");
-
-                   String taskId = params.getString("taskId");
-
-                   if (!F.isEmpty(taskId)) {
-                       VisorTaskDescriptor desc = visorTasks.get(taskId);
-
-                       JsonObject exeParams =  new JsonObject()
-                           .put("cmd", "exe")
-                           .put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask")
-                           .put("p1", params.getString("nids"))
-                           .put("p2", desc.getTaskClass());
-
-                       AtomicInteger idx = new AtomicInteger(3);
-
-                       Arrays.stream(desc.getArgumentsClasses()).forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
-
-                       JsonArray args = params.getJsonArray("args");
-
-                       args.forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
-
-                       body.put("params", exeParams);
-
-                       msg.put("body", body);
-
-                       // log("Updated msg: " + msg);
-                   }
-               }
-            }
-
-            be.complete(true);
-        });
+        sockJsHnd.bridge(allAccessOptions);
 
         EventBus eventBus = vertx.eventBus();
 
