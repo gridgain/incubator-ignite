@@ -406,6 +406,7 @@ public class WebConsoleServer extends AbstractVerticle {
                 _id = UUID.randomUUID().toString();
 
                 notebook.put("_id", _id);
+                notebook.put("paragraphs", new JsonArray());
             }
 
             String json = notebook.encode();
