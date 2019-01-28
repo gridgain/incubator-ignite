@@ -19,18 +19,19 @@ package org.apache.ignite.web.console;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.cache.Cache;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
-import io.vertx.core.eventbus.DeliveryContext;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpServerOptions;
@@ -38,6 +39,7 @@ import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
+import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -45,6 +47,7 @@ import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.handler.UserSessionHandler;
+import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.LocalSessionStore;
@@ -91,6 +94,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /** */
     private IgniteAuth auth;
+
+    /** */
+    private Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
 
     /** */
     private Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
@@ -180,13 +186,9 @@ public class WebConsoleServer extends AbstractVerticle {
                 .addInboundPermitted(new PermittedOptions())
                 .addOutboundPermitted(new PermittedOptions());
 
-        sockJsHnd.bridge(allAccessOptions);
+        sockJsHnd.bridge(allAccessOptions, this::handleNodeVisorMessages);
 
-        EventBus eventBus = vertx.eventBus();
-
-//        eventBus.consumer("agent:id", msg -> log(msg.address() + " " + msg.body()));
-//        eventBus.consumer("browser:info", msg -> log(msg.address() + " " + msg.body()));
-        eventBus.consumer("cluster:topology", this::handleClusterTopology);
+        vertx.eventBus().consumer("cluster:topology", this::handleClusterTopology);
 
         // Create a router object.
         Router router = Router.router(vertx);
@@ -202,13 +204,7 @@ public class WebConsoleServer extends AbstractVerticle {
 
         registerRestRoutes(router);
 
-//        eventBus.addOutboundInterceptor(ctx -> {
-//            Message<Object> msg = ctx.message();
-//
-//            log("interceptor" + msg.address() + msg.body());
-//        });
-
-        eventBus.addOutboundInterceptor(this::handleEventBusOutboundMessages);
+        registerVisorTasks();
 
         // Start HTTP server for browsers and web agents.
         HttpServerOptions httpOpts = new HttpServerOptions()
@@ -221,15 +217,6 @@ public class WebConsoleServer extends AbstractVerticle {
             .listen(3000);
 
         log("Web Console started: " + (System.currentTimeMillis() - start));
-    }
-
-    /**
-     * @param ctx
-     */
-    private void handleEventBusOutboundMessages(DeliveryContext ctx) {
-        log("INTERCEPTED [addr=" + ctx.message().address() + ", replyAddr=" + ctx.message().replyAddress() + ", body=" + ctx.body());
-
-        ctx.next();
     }
 
     /**
@@ -292,6 +279,149 @@ public class WebConsoleServer extends AbstractVerticle {
      */
     private String drVisor(String shortName) {
         return VISOR_DR + shortName;
+    }
+
+    /**
+     * @param taskId Task ID.
+     * @param taskCls Task class name.
+     * @param argCls Arguments classes names.
+     */
+    private void registerVisorTask(String taskId, String taskCls, String... argCls) {
+        visorTasks.put(taskId, new VisorTaskDescriptor(taskCls, argCls));
+    }
+
+    /**
+     * Register Visor tasks.
+     */
+    private void registerVisorTasks() {
+        registerVisorTask("querySql", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArg"));
+        registerVisorTask("querySqlV2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV2"));
+        registerVisorTask("querySqlV3", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV3"));
+        registerVisorTask("querySqlX2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryTaskArg"));
+
+        registerVisorTask("queryScanX2", igniteVisor("query.VisorScanQueryTask"), igniteVisor("query.VisorScanQueryTaskArg"));
+
+        registerVisorTask("queryFetch", igniteVisor("query.VisorQueryNextPageTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.lang.String", "java.lang.Integer");
+        registerVisorTask("queryFetchX2", igniteVisor("query.VisorQueryNextPageTask"), igniteVisor("query.VisorQueryNextPageTaskArg"));
+
+        registerVisorTask("queryFetchFirstPage", igniteVisor("query.VisorQueryFetchFirstPageTask"), igniteVisor("query.VisorQueryNextPageTaskArg"));
+
+        registerVisorTask("queryClose", igniteVisor("query.VisorQueryCleanupTask"), "java.util.Map", "java.util.UUID", "java.util.Set");
+        registerVisorTask("queryCloseX2", igniteVisor("query.VisorQueryCleanupTask"), igniteVisor("query.VisorQueryCleanupTaskArg"));
+
+        registerVisorTask("toggleClusterState", igniteVisor("misc.VisorChangeGridActiveStateTask"), igniteVisor("misc.VisorChangeGridActiveStateTaskArg"));
+
+        registerVisorTask("cacheNamesCollectorTask", igniteVisor("cache.VisorCacheNamesCollectorTask"), "java.lang.Void");
+
+        registerVisorTask("cacheNodesTask", igniteVisor("cache.VisorCacheNodesTask"), "java.lang.String");
+        registerVisorTask("cacheNodesTaskX2", igniteVisor("cache.VisorCacheNodesTask"), igniteVisor("cache.VisorCacheNodesTaskArg"));
+
+        // ---------- GG ---------------
+
+        registerVisorTask("collectCacheRebalance",
+            igniteVisor("node.VisorCacheRebalanceCollectorTask"),
+            igniteVisor("node.VisorCacheRebalanceCollectorTaskArg"));
+
+        registerVisorTask("collectorTask", igniteVisor("node.VisorNodeDataCollectorTask"),
+            igniteVisor("node.VisorNodeDataCollectorTaskArg"));
+        registerVisorTask("ggCollectorTask", gridgainVisor("node.VisorGridGainNodeDataCollectorTask"),
+            igniteVisor("node.VisorNodeDataCollectorTaskArg"));
+
+        registerVisorTask("queryRunning", igniteVisor("query.VisorCollectRunningQueriesTask"), "java.lang.Long");
+        registerVisorTask("queryRunningX2", igniteVisor("query.VisorRunningQueriesCollectorTask"), igniteVisor("query.VisorRunningQueriesCollectorTaskArg"));
+
+        registerVisorTask("queryCancel", igniteVisor("query.VisorCancelQueriesTask"), "java.util.Collection", "java.lang.Long");
+        registerVisorTask("queryCancelX2", igniteVisor("query.VisorQueryCancelTask"), igniteVisor("query.VisorQueryCancelTaskArg"));
+
+        registerVisorTask("sessionCancel", igniteVisor("compute.VisorComputeCancelSessionsTask"),
+            igniteVisor("compute.VisorComputeCancelSessionsTaskArg"), "java.util.Set", "org.apache.ignite.lang.IgniteUuid");
+
+        registerVisorTask("toggleTaskMonitoring", igniteVisor("compute.VisorComputeToggleMonitoringTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.lang.String", "java.lang.Boolean");
+        registerVisorTask("toggleTaskMonitoringX2", igniteVisor("compute.VisorComputeToggleMonitoringTask"), igniteVisor("compute.VisorComputeToggleMonitoringTaskArg"));
+
+        registerVisorTask("queryDetailMetrics", igniteVisor("cache.VisorCacheQueryDetailMetricsCollectorTask"), "java.lang.Long");
+        registerVisorTask("queryDetailMetricsX2", igniteVisor("query.VisorQueryDetailMetricsCollectorTask"), igniteVisor("query.VisorQueryDetailMetricsCollectorTaskArg"));
+
+        registerVisorTask("queryResetDetailMetrics", igniteVisor("cache.VisorCacheResetQueryDetailMetricsTask"), "java.lang.Void");
+        registerVisorTask("queryResetDetailMetricsX2", igniteVisor("query.VisorQueryResetDetailMetricsTask"), "java.lang.Void");
+
+        registerVisorTask("services", igniteVisor("service.VisorServiceTask"), "java.lang.Void");
+
+        registerVisorTask("serviceCancel", igniteVisor("service.VisorCancelServiceTask"), "java.lang.String");
+        registerVisorTask("serviceCancelX2", igniteVisor("service.VisorCancelServiceTask"), igniteVisor("service.VisorCancelServiceTaskArg"));
+
+        registerVisorTask("nodeConfiguration", igniteVisor("node.VisorNodeConfigurationCollectorTask"), "java.lang.Void");
+        registerVisorTask("ggNodeConfiguration", gridgainVisor("node.VisorGridGainNodeConfigurationCollectorTask"), "java.lang.Void");
+
+        registerVisorTask("nodeGc", igniteVisor("node.VisorNodeGcTask"), "java.lang.Void");
+
+        registerVisorTask("nodePing", igniteVisor("node.VisorNodePingTask"), "java.util.UUID");
+        registerVisorTask("nodePingX2", igniteVisor("node.VisorNodePingTask"), igniteVisor("node.VisorNodePingTaskArg"));
+
+        registerVisorTask("nodeThreadDump", igniteVisor("debug.VisorThreadDumpTask"), "java.lang.Void");
+
+        registerVisorTask("nodeStop", igniteVisor("node.VisorNodeStopTask"), "java.lang.Void");
+
+        registerVisorTask("nodeRestart", igniteVisor("node.VisorNodeRestartTask"), "java.lang.Void");
+
+        registerVisorTask("cacheConfiguration", igniteVisor("cache.VisorCacheConfigurationCollectorTask"), "java.util.Collection", "org.apache.ignite.lang.IgniteUuid");
+        registerVisorTask("cacheConfigurationX2", igniteVisor("cache.VisorCacheConfigurationCollectorTask"), igniteVisor("cache.VisorCacheConfigurationCollectorTaskArg"));
+
+        registerVisorTask("ggCacheConfiguration", gridgainVisor("cache.VisorGridGainCacheConfigurationCollectorTask"), "java.util.Collection", "org.apache.ignite.lang.IgniteUuid");
+        registerVisorTask("ggCacheConfigurationX2", gridgainVisor("cache.VisorGridGainCacheConfigurationCollectorTask"), igniteVisor("cache.VisorCacheConfigurationCollectorTaskArg"));
+
+        registerVisorTask("cacheStart", igniteVisor("cache.VisorCacheStartTask"), igniteVisor("cache.VisorCacheStartTask$VisorCacheStartArg"));
+        registerVisorTask("cacheStartX2", igniteVisor("cache.VisorCacheStartTask"), igniteVisor("cache.VisorCacheStartTaskArg"));
+
+        registerVisorTask("cacheClear", igniteVisor("cache.VisorCacheClearTask"), "java.lang.String");
+        registerVisorTask("cacheClearX2", igniteVisor("cache.VisorCacheClearTask"), igniteVisor("cache.VisorCacheClearTaskArg"));
+
+        registerVisorTask("cacheStop", igniteVisor("cache.VisorCacheStopTask"), "java.lang.String");
+        registerVisorTask("cacheStopX2", igniteVisor("cache.VisorCacheStopTask"), igniteVisor("cache.VisorCacheStopTaskArg"));
+        registerVisorTask("cacheStopX3", igniteVisor("cache.VisorCacheStopTask"), igniteVisor("cache.VisorCacheStopTaskArg"), "java.util.List", "java.lang.String");
+
+        registerVisorTask("cachePartitions", igniteVisor("cache.VisorCachePartitionsTask"), "java.lang.String");
+        registerVisorTask("cachePartitionsX2", igniteVisor("cache.VisorCachePartitionsTask"), igniteVisor("cache.VisorCachePartitionsTaskArg"));
+
+        registerVisorTask("cacheResetMetrics", igniteVisor("cache.VisorCacheResetMetricsTask"), "java.lang.String");
+        registerVisorTask("cacheResetMetricsX2", igniteVisor("cache.VisorCacheResetMetricsTask"), igniteVisor("cache.VisorCacheResetMetricsTaskArg"));
+
+        registerVisorTask("cacheRebalance", igniteVisor("cache.VisorCacheRebalanceTask"), "java.util.Set", "java.lang.String");
+        registerVisorTask("cacheRebalanceX2", igniteVisor("cache.VisorCacheRebalanceTask"), igniteVisor("cache.VisorCacheRebalanceTaskArg"), "java.util.Set", "java.lang.String");
+
+        registerVisorTask("cacheToggleStatistics", igniteVisor("cache.VisorCacheToggleStatisticsTask"), igniteVisor("cache.VisorCacheToggleStatisticsTaskArg"));
+
+        registerVisorTask("updateLicense", gridgainVisor("license.VisorLicenseUpdateTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.util.UUID", "java.lang.String");
+        registerVisorTask("updateLicenseX2", gridgainVisor("license.VisorLicenseUpdateTask"), gridgainVisor("license.VisorLicenseUpdateTaskArg"));
+
+        registerVisorTask("changeClusterActiveState", igniteVisor("misc.VisorChangeGridActiveStateTask"), igniteVisor("misc.VisorChangeGridActiveStateTaskArg"));
+
+        registerVisorTask("checkSnapshots", snapshotsVisor("VisorCheckSnapshotsChangesTask"), "java.lang.Void");
+        registerVisorTask("collectSnapshots", snapshotsVisor("VisorListSnapshotsTask"), snapshotsVisor("VisorSnapshotInfo"));
+        registerVisorTask("snapshotCreate", snapshotsVisor("VisorCreateSnapshotTask"), snapshotsVisor("VisorSnapshotInfo"));
+        registerVisorTask("snapshotRestore", snapshotsVisor("VisorRestoreSnapshotTask"), snapshotsVisor("VisorSnapshotInfo"));
+        registerVisorTask("snapshotDelete", snapshotsVisor("VisorDeleteSnapshotTask"), snapshotsVisor("VisorSnapshotInfo"));
+        registerVisorTask("snapshotMove", snapshotsVisor("VisorMoveSnapshotTask"), snapshotsVisor("VisorSnapshotInfo"));
+        registerVisorTask("snapshotsStatus", snapshotsVisor("VisorSnapshotsStatusTask"), "java.lang.Void");
+        registerVisorTask("snapshotCancel", snapshotsVisor("VisorCancelSnapshotOperationTask"), snapshotsVisor("VisorCancelSnapshotOperationTaskArg"));
+
+        registerVisorTask("collectSchedules", snapshotsVisor("VisorCollectSnapshotSchedulesTask"), "java.lang.Void");
+        registerVisorTask("scheduleSnapshotOperation", snapshotsVisor("VisorScheduleSnapshotOperationTask"), snapshotsVisor("VisorSnapshotSchedule"));
+        registerVisorTask("toggleSnapshotScheduleEnabledState", snapshotsVisor("VisorToggleSnapshotScheduleEnabledStateTask"), snapshotsVisor("VisorSnapshotSchedule"));
+        registerVisorTask("deleteSnapshotSchedule", snapshotsVisor("VisorDeleteSnapshotScheduleTask"), snapshotsVisor("VisorSnapshotSchedule"));
+
+        registerVisorTask("latestTextFiles", igniteVisor("file.VisorLatestTextFilesTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.lang.String", "java.lang.String");
+        registerVisorTask("latestTextFilesX2", igniteVisor("file.VisorLatestTextFilesTask"), igniteVisor("file.VisorLatestTextFilesTaskArg"));
+
+        registerVisorTask("fileBlockTask", igniteVisor("file.VisorFileBlockTask"), igniteVisor("file.VisorFileBlockTask$VisorFileBlockArg"));
+        registerVisorTask("fileBlockTaskX2", igniteVisor("file.VisorFileBlockTask"), igniteVisor("file.VisorFileBlockTaskArg"));
+
+        registerVisorTask("baseline", igniteVisor("baseline.VisorBaselineTask"), igniteVisor("baseline.VisorBaselineTaskArg"));
+        registerVisorTask("baselineView", igniteVisor("baseline.VisorBaselineViewTask"), "java.lang.Void");
+
+        registerVisorTask("drResetMetrics", drVisor("VisorDrResetMetricsTask"), "java.lang.Void");
+        registerVisorTask("drBootstrap", drVisor("VisorDrSenderCacheBootstrapTask"), drVisor("VisorDrSenderCacheBootstrapTaskArg"));
+        registerVisorTask("drChangeReplicationState", drVisor("VisorDrSenderCacheChangeReplicationStateTask"), drVisor("VisorDrSenderCacheChangeReplicationStateTaskArg"));
     }
 
     /**
@@ -419,7 +549,7 @@ public class WebConsoleServer extends AbstractVerticle {
         if (user == null)
             sendStatus(ctx, HTTP_UNAUTHORIZED, "User not found");
         else {
-            JsonObject account = user.principal();
+            // JsonObject account = user.principal();
 
             JsonObject notebook = ctx.getBody().toJsonObject();
 
@@ -488,6 +618,87 @@ public class WebConsoleServer extends AbstractVerticle {
             .put("clusters", new JsonArray().add(oldTop)); // TODO IGNITE-5617 quick hack for prototype.
 
         vertx.eventBus().send("agents:stat", json);
+    }
+
+    /**
+     * @param be Bridge event
+     */
+    private void handleNodeVisorMessages(BridgeEvent be) {
+        if (be.type() == BridgeEventType.SEND) {
+            JsonObject msg = be.getRawMessage();
+
+            if (msg != null) {
+                String address = msg.getString("address");
+
+                if ("node:visor".equals(address)) {
+                    JsonObject body = msg.getJsonObject("body");
+
+                    if (body != null) {
+                        JsonObject params = body.getJsonObject("params");
+
+                        String taskId = params.getString("taskId");
+
+                        if (!F.isEmpty(taskId)) {
+                            VisorTaskDescriptor desc = visorTasks.get(taskId);
+
+                            JsonObject exeParams =  new JsonObject()
+                                .put("cmd", "exe")
+                                .put("name", "org.apache.ignite.internal.visor.compute.VisorGatewayTask")
+                                .put("p1", params.getString("nids"))
+                                .put("p2", desc.getTaskClass());
+
+                            AtomicInteger idx = new AtomicInteger(3);
+
+                            Arrays.stream(desc.getArgumentsClasses()).forEach(arg ->  exeParams.put("p" + idx.getAndIncrement(), arg));
+
+                            JsonArray args = params.getJsonArray("args");
+
+                            args.forEach(arg -> exeParams.put("p" + idx.getAndIncrement(), arg));
+
+                            body.put("params", exeParams);
+
+                            msg.put("body", body);
+                        }
+                    }
+                }
+            }
+        }
+
+        be.complete(true);
+    }
+
+    /**
+     * Visor task descriptor.
+     */
+    private static class VisorTaskDescriptor {
+        /** */
+        private final String taskCls;
+
+        /** */
+        private final String[] argCls;
+
+        /**
+         * @param taskCls Visor task class.
+         * @param argCls Visor task arguments classes.
+         */
+        private VisorTaskDescriptor(String taskCls, String[] argCls) {
+            this.taskCls = taskCls;
+            this.argCls = argCls;
+        }
+
+        /**
+         * @return Visor task class.
+         */
+        public String getTaskClass() {
+            return taskCls;
+        }
+
+        /**
+         * @return Visor task arguments classes.
+         */
+        public String[] getArgumentsClasses() {
+            return argCls;
+        }
     }
 
     /**
