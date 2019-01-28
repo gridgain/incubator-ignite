@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import javax.cache.Cache;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
@@ -378,11 +379,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
         List<Cache.Entry<String, String>> list = cache.query(new ScanQuery<String, String>()).getAll();
 
-        JsonArray json = new JsonArray();
+        String res = list.stream().map(Cache.Entry::getValue).collect(Collectors.joining(",", "[", "]"));
 
-        list.forEach(entry -> json.add(entry.getValue()));
-
-        sendStatus(ctx, HTTP_OK, json.encode());
+        sendStatus(ctx, HTTP_OK, res);
     }
 
     /**
