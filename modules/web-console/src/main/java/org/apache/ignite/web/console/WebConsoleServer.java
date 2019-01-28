@@ -30,6 +30,7 @@ import javax.cache.Cache;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.eventbus.DeliveryContext;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpServerOptions;
@@ -207,6 +208,8 @@ public class WebConsoleServer extends AbstractVerticle {
 //            log("interceptor" + msg.address() + msg.body());
 //        });
 
+        eventBus.addOutboundInterceptor(this::handleEventBusOutboundMessages);
+
         // Start HTTP server for browsers and web agents.
         HttpServerOptions httpOpts = new HttpServerOptions()
             .setCompressionSupported(true)
@@ -218,6 +221,15 @@ public class WebConsoleServer extends AbstractVerticle {
             .listen(3000);
 
         log("Web Console started: " + (System.currentTimeMillis() - start));
+    }
+
+    /**
+     * @param ctx
+     */
+    private void handleEventBusOutboundMessages(DeliveryContext ctx) {
+        log("INTERCEPTED [addr=" + ctx.message().address() + ", replyAddr=" + ctx.message().replyAddress() + ", body=" + ctx.body());
+
+        ctx.next();
     }
 
     /**
@@ -297,6 +309,20 @@ public class WebConsoleServer extends AbstractVerticle {
      */
     private void sendStatus(RoutingContext ctx, int status, String msg) {
         ctx.response().setStatusCode(status).end(msg);
+    }
+
+    /**
+     * @param ctx Context.
+     * @param status Status to send.
+     * @param data Data to send.
+     */
+    private void sendResult(RoutingContext ctx, int status, String data) {
+        ctx
+            .response()
+            .setStatusCode(status)
+//            .putHeader(HttpHeaders.CACHE_CONTROL, HttpHeaderValues.NO_CACHE)
+//            .putHeader(HttpHeaders.CACHE_CONTROL, HttpHeaderValues.NO_STORE)
+            .end(data);
     }
 
     /**
@@ -381,7 +407,7 @@ public class WebConsoleServer extends AbstractVerticle {
 
         String res = list.stream().map(Cache.Entry::getValue).collect(Collectors.joining(",", "[", "]"));
 
-        sendStatus(ctx, HTTP_OK, res);
+        sendResult(ctx, HTTP_OK, res);
     }
 
     /**
@@ -453,13 +479,15 @@ public class WebConsoleServer extends AbstractVerticle {
 
             clusters.put(agentId, newTop);
 
-            JsonObject json = new JsonObject()
-                .put("count", clusters.size())
-                .put("hasDemo", false)
-                .put("clusters", new JsonArray().add(newTop)); // TODO IGNITE-5617 quick hack for prototype.
-
-            vertx.eventBus().send("agents:stat", json);
+            oldTop = newTop;
         }
+
+        JsonObject json = new JsonObject()
+            .put("count", clusters.size())
+            .put("hasDemo", false)
+            .put("clusters", new JsonArray().add(oldTop)); // TODO IGNITE-5617 quick hack for prototype.
+
+        vertx.eventBus().send("agents:stat", json);
     }
 
     /**
