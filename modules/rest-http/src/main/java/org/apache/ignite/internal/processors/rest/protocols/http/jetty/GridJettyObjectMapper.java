@@ -124,8 +124,9 @@ public class GridJettyObjectMapper extends ObjectMapper {
         }
     }
 
+    // TODO IGNITE-5617 quick hack for prototype.
     /** Custom serializer for {@link Throwable} */
-    private static final JsonSerializer<Throwable> THROWABLE_SERIALIZER = new JsonSerializer<Throwable>() {
+    public static final JsonSerializer<Throwable> THROWABLE_SERIALIZER = new JsonSerializer<Throwable>() {
         /**
          * @param e Exception to write.
          * @param gen JSON generator.
@@ -173,16 +174,18 @@ public class GridJettyObjectMapper extends ObjectMapper {
         }
     };
 
+    // TODO IGNITE-5617 quick hack for prototype.
     /** Custom serializer for {@link IgniteUuid} */
-    private static final JsonSerializer<IgniteUuid> IGNITE_UUID_SERIALIZER = new JsonSerializer<IgniteUuid>() {
+    public static final JsonSerializer<IgniteUuid> IGNITE_UUID_SERIALIZER = new JsonSerializer<IgniteUuid>() {
         /** {@inheritDoc} */
         @Override public void serialize(IgniteUuid uid, JsonGenerator gen, SerializerProvider ser) throws IOException {
             gen.writeString(uid.toString());
         }
     };
 
+    // TODO IGNITE-5617 quick hack for prototype.
     /** Custom serializer for {@link IgniteBiTuple} */
-    private static final JsonSerializer<IgniteBiTuple> IGNITE_TUPLE_SERIALIZER = new JsonSerializer<IgniteBiTuple>() {
+    public static final JsonSerializer<IgniteBiTuple> IGNITE_TUPLE_SERIALIZER = new JsonSerializer<IgniteBiTuple>() {
         /** {@inheritDoc} */
         @Override public void serialize(IgniteBiTuple t, JsonGenerator gen, SerializerProvider ser) throws IOException {
             gen.writeStartObject();
@@ -194,8 +197,9 @@ public class GridJettyObjectMapper extends ObjectMapper {
         }
     };
 
+    // TODO IGNITE-5617 quick hack for prototype.
     /** Custom serializer for {@link GridCacheSqlMetadata} */
-    private static final JsonSerializer<GridCacheSqlMetadata> IGNITE_SQL_METADATA_SERIALIZER = new JsonSerializer<GridCacheSqlMetadata>() {
+    public static final JsonSerializer<GridCacheSqlMetadata> IGNITE_SQL_METADATA_SERIALIZER = new JsonSerializer<GridCacheSqlMetadata>() {
         /** {@inheritDoc} */
         @Override public void serialize(GridCacheSqlMetadata m, JsonGenerator gen, SerializerProvider ser) throws IOException {
             gen.writeStartObject();
@@ -211,8 +215,9 @@ public class GridJettyObjectMapper extends ObjectMapper {
         }
     };
 
+    // TODO IGNITE-5617 quick hack for prototype.
     /** Custom serializer for {@link GridCacheSqlIndexMetadata} */
-    private static final JsonSerializer<GridCacheSqlIndexMetadata> IGNITE_SQL_INDEX_METADATA_SERIALIZER = new JsonSerializer<GridCacheSqlIndexMetadata>() {
+    public static final JsonSerializer<GridCacheSqlIndexMetadata> IGNITE_SQL_INDEX_METADATA_SERIALIZER = new JsonSerializer<GridCacheSqlIndexMetadata>() {
         /** {@inheritDoc} */
         @Override public void serialize(GridCacheSqlIndexMetadata idx, JsonGenerator gen, SerializerProvider ser) throws IOException {
             gen.writeStartObject();
@@ -226,8 +231,9 @@ public class GridJettyObjectMapper extends ObjectMapper {
         }
     };
 
-    /** Custom serializer for {@link GridCacheSqlIndexMetadata} */
-    private static final JsonSerializer<BinaryObjectImpl> IGNITE_BINARY_OBJECT_SERIALIZER = new JsonSerializer<BinaryObjectImpl>() {
+    // TODO IGNITE-5617 quick hack for prototype.
+    /** Custom serializer for {@link BinaryObjectImpl} */
+    public static final JsonSerializer<BinaryObjectImpl> IGNITE_BINARY_OBJECT_SERIALIZER = new JsonSerializer<BinaryObjectImpl>() {
         /** {@inheritDoc} */
         @Override public void serialize(BinaryObjectImpl bin, JsonGenerator gen, SerializerProvider ser) throws IOException {
             try {
