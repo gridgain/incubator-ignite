@@ -35,6 +35,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.cache.Cache;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
@@ -131,6 +133,12 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /** */
     private static final String CLUSTER_ID = UUID.randomUUID().toString();
+
+    /** */
+    private static final List<CharSequence> CACHE_CONTROL = Arrays.asList(
+        HttpHeaderValues.NO_CACHE,
+        HttpHeaderValues.NO_STORE,
+        HttpHeaderValues.MUST_REVALIDATE);
 
     /** */
     private Ignite ignite;
@@ -539,9 +547,10 @@ public class WebConsoleServer extends AbstractVerticle {
     private void sendResult(RoutingContext ctx, int status, String data) {
         ctx
             .response()
+            .putHeader(HttpHeaderNames.CACHE_CONTROL, CACHE_CONTROL)
+            .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
+            .putHeader(HttpHeaderNames.EXPIRES, "0")
             .setStatusCode(status)
-//            .putHeader(HttpHeaders.CACHE_CONTROL, HttpHeaderValues.NO_CACHE)
-//            .putHeader(HttpHeaders.CACHE_CONTROL, HttpHeaderValues.NO_STORE)
             .end(data);
     }
 
@@ -561,7 +570,7 @@ public class WebConsoleServer extends AbstractVerticle {
      */
     private void sendJson(JsonObject json, RoutingContext ctx) {
         ctx.response()
-            .putHeader("content-type", "application/json; charset=UTF-8")
+            .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
             .end(Json.encode(json));
     }
 
