@@ -106,6 +106,10 @@ label.switcher--ignite {
                 background-color: $color-inactive-secondary;
             }
         }
+
+        &[disabled="disabled"] + div {
+            cursor: not-allowed !important;
+        }
     }
 }
 
