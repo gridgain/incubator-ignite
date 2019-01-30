@@ -28,12 +28,14 @@ import {ServiceBootstrapComponent} from './components/serviceBootstrap';
 export {ServiceBootstrapComponent};
 import {PageProfile} from './components/page-profile/component';
 export {PageProfile};
+import {IgniteIcon} from './components/igniteIcon.component';
 
 import {ReactiveFormsModule} from '@angular/forms';
 
 export const declarations = [
     ServiceBootstrapComponent,
-    PageProfile
+    PageProfile,
+    IgniteIcon
 ];
 
 export const entryComponents = [
@@ -50,6 +52,11 @@ export const providers = [
     {
         provide: 'User',
         useFactory: (i) => i.get('User'),
+        deps: ['$injector']
+    },
+    {
+        provide: 'IgniteIcons',
+        useFactory: (i) => i.get('IgniteIcons'),
         deps: ['$injector']
     }
 ];
