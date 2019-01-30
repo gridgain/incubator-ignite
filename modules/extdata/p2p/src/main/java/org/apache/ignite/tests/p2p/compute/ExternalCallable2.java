@@ -18,10 +18,8 @@
 package org.apache.ignite.tests.p2p.compute;
 
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.resources.IgniteInstanceResource;
-import org.apache.ignite.resources.LoggerResource;
 
 /**
  */
@@ -30,14 +28,11 @@ public class ExternalCallable2 implements IgniteCallable {
     @IgniteInstanceResource
     Ignite ignite;
 
-    /** Logger. */
-    @LoggerResource
-    private IgniteLogger log;
-
     /** */
     private int param;
 
     /**
+     *
      */
     public ExternalCallable2() {
         // No-op.
@@ -52,8 +47,10 @@ public class ExternalCallable2 implements IgniteCallable {
 
     /** {@inheritDoc} */
     @Override public Object call() {
-        log.info("!!!!! I am job_2 " + param + " on " + ignite.name());
+        System.err.println("!!!!! I am job_2 " + param + " on " + ignite.name());
 
         return 42;
     }
 }
+
+

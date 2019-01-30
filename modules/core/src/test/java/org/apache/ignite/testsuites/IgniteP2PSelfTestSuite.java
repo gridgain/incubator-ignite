@@ -74,7 +74,6 @@ public class IgniteP2PSelfTestSuite extends TestSuite {
         suite.addTest(new TestSuite(GridP2PMissedResourceCacheSizeSelfTest.class));
         suite.addTest(new TestSuite(GridP2PContinuousDeploymentSelfTest.class));
         suite.addTest(new TestSuite(DeploymentClassLoaderCallableTest.class));
-        suite.addTest(new TestSuite(P2PStreamingClassLoaderTest.class));
         suite.addTest(new TestSuite(SharedDeploymentTest.class));
         GridTestUtils.addTestIfNeeded(suite, GridDeploymentMessageCountSelfTest.class, ignoredTests);
 
