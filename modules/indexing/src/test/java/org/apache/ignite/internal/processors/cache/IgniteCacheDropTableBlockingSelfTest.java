@@ -205,6 +205,51 @@ public class IgniteCacheDropTableBlockingSelfTest extends GridCommonAbstractTest
         getTheCache().query(DROP_TAB).getAll();
     }
 
+
+    @Test
+    public void testWithoutCreate() throws Exception {
+        IgniteCache cache = grid(IGNITE_NAME).createCache(newCacheConfiguration());
+
+        final SqlFieldsQuery CREATE_TAB = new SqlFieldsQuery(
+            "CREATE TABLE TEST_DROP_AND_CREATE (id INT PRIMARY KEY, name VARCHAR)").setSchema(CACHE_NAME);
+
+        final SqlFieldsQuery DROP_TAB = new SqlFieldsQuery("DROP TABLE TEST_DROP_AND_CREATE").setSchema(CACHE_NAME);
+
+        cache.query(CREATE_TAB).getAll();
+
+        for (int i = 0; i < 10; i++)
+            cache.query(
+                new SqlFieldsQuery("INSERT INTO TEST_DROP_AND_CREATE VALUES (?, ?)")
+                    .setArgs(i, "Name#" + i)
+                    .setSchema(CACHE_NAME)
+            );
+
+        // 1. Run hanging SELECT:
+        Thread hangingSel = new Thread(() ->
+            cache.query(
+                new SqlFieldsQuery("SELECT * FROM TEST_DROP_AND_CREATE WHERE ID = notifyQueryStartedAndSleep(1)")
+                    .setSchema(CACHE_NAME)
+            ).getAll()
+        );
+
+        hangingSel.start();
+
+        TestFunctions.qryStarted.await();
+
+        //2.
+        Thread hangingDrop1 = new Thread(() -> getTheCache().query(DROP_TAB).getAll());
+
+        hangingDrop1.start();
+
+
+        Thread.sleep(1);
+
+        getTheCache().query(DROP_TAB).getAll();
+    }
+
+
+
+
     private IgniteCache<Object, Object> getTheCache() {
         return grid(IGNITE_NAME).cache(CACHE_NAME);
     }
