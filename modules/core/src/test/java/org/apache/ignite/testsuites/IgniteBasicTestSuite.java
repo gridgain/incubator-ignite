@@ -45,6 +45,8 @@ import org.apache.ignite.internal.MarshallerContextLockingSelfTest;
 import org.apache.ignite.internal.TransactionsMXBeanImplTest;
 import org.apache.ignite.internal.managers.IgniteDiagnosticMessagesMultipleConnectionsTest;
 import org.apache.ignite.internal.managers.IgniteDiagnosticMessagesTest;
+import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentV2Test;
+import org.apache.ignite.internal.processors.affinity.GridAffinityAssignmentV2TestNoOptimizations;
 import org.apache.ignite.internal.processors.affinity.GridAffinityProcessorMemoryLeakTest;
 import org.apache.ignite.internal.processors.affinity.GridAffinityProcessorRendezvousSelfTest;
 import org.apache.ignite.internal.processors.cache.CacheRebalanceConfigValidationTest;
@@ -75,6 +77,7 @@ import org.apache.ignite.internal.processors.odbc.OdbcConfigurationValidationSel
 import org.apache.ignite.internal.processors.odbc.OdbcEscapeSequenceSelfTest;
 import org.apache.ignite.internal.processors.service.ClosureServiceClientsNodesTest;
 import org.apache.ignite.internal.product.GridProductVersionSelfTest;
+import org.apache.ignite.internal.util.BitSetIntSetTest;
 import org.apache.ignite.internal.util.GridCleanerTest;
 import org.apache.ignite.internal.util.nio.IgniteExceptionInNioWorkerSelfTest;
 import org.apache.ignite.marshaller.DynamicProxySerializationMultiJvmSelfTest;
@@ -83,6 +86,7 @@ import org.apache.ignite.messaging.GridMessagingNoPeerClassLoadingSelfTest;
 import org.apache.ignite.messaging.GridMessagingSelfTest;
 import org.apache.ignite.messaging.IgniteMessagingSendAsyncTest;
 import org.apache.ignite.messaging.IgniteMessagingWithClientTest;
+import org.apache.ignite.plugin.PluginNodeValidationTest;
 import org.apache.ignite.plugin.security.SecurityPermissionSetBuilderTest;
 import org.apache.ignite.spi.GridSpiLocalHostInjectionTest;
 import org.apache.ignite.startup.properties.NotStringSystemPropertyTest;
@@ -139,6 +143,8 @@ public class IgniteBasicTestSuite {
 
         GridTestUtils.addTestIfNeeded(suite, GridReleaseTypeSelfTest.class, ignoredTests);
         suite.addTest(new JUnit4TestAdapter(GridProductVersionSelfTest.class));
+        suite.addTest(new JUnit4TestAdapter(GridAffinityAssignmentV2Test.class));
+        suite.addTest(new JUnit4TestAdapter(GridAffinityAssignmentV2TestNoOptimizations.class));
         suite.addTest(new JUnit4TestAdapter(GridAffinityProcessorRendezvousSelfTest.class));
         suite.addTest(new JUnit4TestAdapter(GridAffinityProcessorMemoryLeakTest.class));
         suite.addTest(new JUnit4TestAdapter(GridClosureProcessorSelfTest.class));
@@ -194,6 +200,7 @@ public class IgniteBasicTestSuite {
         suite.addTest(new JUnit4TestAdapter(CacheFreeListImplSelfTest.class));
         suite.addTest(new JUnit4TestAdapter(DataRegionMetricsSelfTest.class));
         suite.addTest(new JUnit4TestAdapter(SwapPathConstructionSelfTest.class));
+        suite.addTest(new JUnit4TestAdapter(BitSetIntSetTest.class));
 
         suite.addTest(new JUnit4TestAdapter(IgniteMarshallerCacheFSRestoreTest.class));
         suite.addTest(new JUnit4TestAdapter(IgniteMarshallerCacheClassNameConflictTest.class));
@@ -220,6 +227,8 @@ public class IgniteBasicTestSuite {
         suite.addTest(new JUnit4TestAdapter(CacheRebalanceConfigValidationTest.class));
 
         suite.addTest(new JUnit4TestAdapter(ListeningTestLoggerTest.class));
+
+        suite.addTest(new JUnit4TestAdapter(PluginNodeValidationTest.class));
 
         return suite;
     }
