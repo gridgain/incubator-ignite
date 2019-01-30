@@ -1965,7 +1965,8 @@ public class GridCacheUtils {
      * @return {@code true} if value should keep binary, and {@code false} otherwise.
      */
     public static boolean keepBinaryForCacheInterceptor(GridCacheContext<?, ?> cctx, boolean keepBinary) {
-        assert cctx.config().getInterceptor() != null : cctx.config().getName();
+        if (cctx.config().getInterceptor() == null)
+            return keepBinary;
 
         return keepBinary && !(cctx.config().getInterceptor() instanceof CacheInterceptorDeserialize);
     }

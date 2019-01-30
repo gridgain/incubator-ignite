@@ -1451,7 +1451,9 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
         V val = get(key, !keepBinary, false);
 
         if (ctx.config().getInterceptor() != null) {
-            key = keepBinary ? (K)ctx.unwrapBinaryIfNeeded(key, true, false) : key;
+            boolean keepBinaryIntercept = CU.keepBinaryForCacheInterceptor(ctx, keepBinary);
+
+            key = keepBinary ? (K)ctx.unwrapBinaryIfNeeded(key, keepBinaryIntercept, false) : key;
 
             val = (V)ctx.config().getInterceptor().onGet(key, val);
         }
