@@ -21,9 +21,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class BinaryCacheInterceptorClientsTest extends CacheInterceptorClientsAbstractTest {
+public class ObjectCacheInterceptorClientsTest extends CacheInterceptorClientsAbstractTest {
 
-    public BinaryCacheInterceptorClientsTest() {
-        super(true);
+    public ObjectCacheInterceptorClientsTest() {
+        super(false);
     }
 }

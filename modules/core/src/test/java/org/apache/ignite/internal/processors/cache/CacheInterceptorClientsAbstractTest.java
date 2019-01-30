@@ -22,11 +22,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-import javax.cache.Cache;
+import javax.cache.Cache.Entry;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteBinary;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.cache.CacheAtomicityMode;
@@ -41,10 +39,10 @@ import org.apache.ignite.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.failure.StopNodeOrHaltFailureHandler;
-import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -54,21 +52,23 @@ import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbstractTest {
 
-    protected static final String SERVER_NODE_NAME = "server-node";
+    private static final int POPULATE_DATA_SIZE = 100;
 
-    protected static final String ATOMIC_CACHE_NAME_REPLICATED = "atomic-cache-rep";
+    private static final String SERVER_NODE_NAME = "server-node";
 
-    protected static final String ATOMIC_CACHE_NAME_PARTITIONED = "atomic-cache-part";
+    private static final String ATOMIC_CACHE_NAME_REPLICATED = "atomic-cache-rep";
 
-    protected static final String ATOMIC_CACHE_NAME_LOCAL = "atomic-cache-loc";
+    private static final String ATOMIC_CACHE_NAME_PARTITIONED = "atomic-cache-part";
 
-    protected static final String TX_CACHE_NAME_REPLICATED = "tx-cache-rep";
+    private static final String ATOMIC_CACHE_NAME_LOCAL = "atomic-cache-loc";
 
-    protected static final String TX_CACHE_NAME_PARTITIONED = "tx-cache-part";
+    private static final String TX_CACHE_NAME_REPLICATED = "tx-cache-rep";
 
-    protected static final String TX_CACHE_NAME_LOCAL = "tx-cache-loc";
+    private static final String TX_CACHE_NAME_PARTITIONED = "tx-cache-part";
 
-    protected static final Collection<String> CACHE_NAMES;
+    private static final String TX_CACHE_NAME_LOCAL = "tx-cache-loc";
+
+    private static final Collection<String> CACHE_NAMES;
 
     static {
         Set<String> set = new HashSet<>();
@@ -84,9 +84,15 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
         CACHE_NAMES = Collections.unmodifiableCollection(set);
     }
 
-    protected Ignite thickClient;
+    private final boolean binary;
 
-    protected IgniteClient thinClient;
+    private Ignite fatClient;
+
+    private IgniteClient thinClient;
+
+    protected CacheInterceptorClientsAbstractTest(boolean binary) {
+        this.binary = binary;
+    }
 
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
@@ -115,17 +121,23 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
 
         IgniteConfiguration thickClientCfg = getConfiguration("thick-client").setClientMode(true);
 
-        startGrid(SERVER_NODE_NAME);
+        Ignite ignite = startGrid(SERVER_NODE_NAME);
 
-        thickClient = startGrid(thickClientCfg);
+        fatClient = startGrid(thickClientCfg);
 
-        thickClient.cluster().active(true);
+        ignite.cluster().active(true);
 
         ClientConnectorConfiguration ccfg = grid(SERVER_NODE_NAME).configuration().getClientConnectorConfiguration();
 
         ClientConfiguration thinClientCfg = new ClientConfiguration().setAddresses("127.0.0.1:" + ccfg.getPort());
 
         thinClient = Ignition.startClient(thinClientCfg);
+    }
+
+    private CacheConfiguration createCacheCfg(String name, CacheMode cMode, CacheAtomicityMode aMode) {
+        CacheConfiguration cfg = new CacheConfiguration().setName(name).setCacheMode(cMode).setAtomicityMode(aMode);
+
+        return cfg.setInterceptor(binary ? new NoopBinaryInterceptor() : new NoopDeserializedInterceptor());
     }
 
     /** {@inheritDoc} */
@@ -135,79 +147,96 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
         stopAllGrids();
     }
 
+    /** {@inheritDoc} */
     @Override protected void beforeTest() throws Exception {
         super.beforeTest();
 
         populateData();
     }
 
+    /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
         super.afterTest();
 
         CACHE_NAMES.forEach(c -> grid(SERVER_NODE_NAME).cache(c).clear());
     }
 
-    protected ClientCache thinCache(String cacheName) {
-        if(binary())
+    @Test
+    public void testGet() {
+        Object k = convertToBinaryIfNeeded(new Key(0));
+
+        for(String cacheName : CACHE_NAMES) {
+            Object vs = serverCache(cacheName).get(k);
+            Object vfc = fatClientCache(cacheName).get(k);
+            Object vtc = thinClientCache(cacheName).get(k);
+
+            assertEquals(cacheName, vs, vfc);
+            assertEquals(cacheName, vs, vtc);
+        }
+    }
+
+    private void populateData() {
+        for (String cacheName : CACHE_NAMES) {
+            for (int i = 0; i < POPULATE_DATA_SIZE; i++) {
+                Object k = convertToBinaryIfNeeded(new Key(i));
+                Object v = convertToBinaryIfNeeded(new Value(cacheName + i));
+
+                serverCache(cacheName).put(k, v);
+            }
+        }
+    }
+
+    private Object convertToBinaryIfNeeded(Object o) {
+        return binary ? grid(SERVER_NODE_NAME).context().cacheObjects().binary().toBinary(o) : o;
+    }
+
+    private ClientCache thinClientCache(String cacheName) {
+        if (binary)
             return thinClient.cache(cacheName).withKeepBinary();
         else
             return thinClient.cache(cacheName);
     }
 
-    protected IgniteCache thickCache(String cacheName) {
-        if(binary())
-            return thickClient.cache(cacheName).withKeepBinary();
+    private IgniteCache fatClientCache(String cacheName) {
+        if (binary)
+            return fatClient.cache(cacheName).withKeepBinary();
         else
-            return thickClient.cache(cacheName);
+            return fatClient.cache(cacheName);
     }
 
-    protected CacheConfiguration createCacheCfg(String name, CacheMode cMode, CacheAtomicityMode aMode) {
-        CacheConfiguration cfg = new CacheConfiguration().setName(name).setCacheMode(cMode).setAtomicityMode(aMode);
-
-        return cfg.setInterceptor(binary() ?  new NoopBinaryInterceptor() : new NoopDeserializedInterceptor());
+    private IgniteCache serverCache(String cacheName) {
+        if (binary)
+            return grid(SERVER_NODE_NAME).cache(cacheName).withKeepBinary();
+        else
+            return grid(SERVER_NODE_NAME).cache(cacheName);
     }
 
-    private void populateData() throws IgniteCheckedException {
-        IgniteBinary binary = grid(SERVER_NODE_NAME).context().cacheObjects().binary();
-        for (String cacheName : CACHE_NAMES) {
-            IgniteCache cache = grid(SERVER_NODE_NAME).cache(cacheName);
+    private static class Key {
+        private final int id;
 
-            for (int i = 0; i < 1000; i++) {
-                Value v = new Value(cacheName + i);
+        public Key(int id) {
+            this.id = id;
+        }
 
-                if (binary())
-                    cache.withKeepBinary().put(createBinaryKey(i, cacheName), binary.toBinary(v));
-                else
-                    cache.put(i, v);
-            }
+        @Override public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
+            Key key = (Key)o;
+            return id == key.id;
+        }
+
+        @Override public int hashCode() {
+            return Objects.hash(id);
+        }
+
+        @Override public String toString() {
+            return id + "";
         }
     }
 
-    protected BinaryObject createBinary(Value v) {
-        return grid(SERVER_NODE_NAME).context().cacheObjects().binary().toBinary(v);
-    }
-
-    protected KeyCacheObject createBinaryKey(Integer i, String cacheName) throws IgniteCheckedException {
-        GridKernalContext ctx = grid(SERVER_NODE_NAME).context();
-
-        CacheConfiguration cfg = ctx.cache().cacheConfiguration(cacheName);
-
-        return ctx.cacheObjects().toCacheKeyObject(ctx.cacheObjects().contextForCache(cfg), null, i, true);
-    }
-
-    protected Value fromBinary(BinaryObject o) {
-        return o.deserialize();
-    }
-
-    protected Integer fromBinaryKey(KeyCacheObjectImpl k, String cacheName) throws IgniteCheckedException {
-        CacheConfiguration cfg = grid(SERVER_NODE_NAME).context().cache().cacheConfiguration(cacheName);
-
-        return k.value(grid(SERVER_NODE_NAME).context().cacheObjects().contextForCache(cfg), false);
-    }
-
-    protected abstract boolean binary();
-
-    protected static class Value {
+    private static class Value {
         private final String v;
 
         public Value(String v) {
@@ -233,38 +262,44 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
         @Override public int hashCode() {
             return Objects.hash(v);
         }
+
+        @Override public String toString() {
+            return v;
+        }
     }
 
-    private static class NoopDeserializedInterceptor extends CacheInterceptorDeserializeAdapter<Integer, Value> {
+    private static class NoopDeserializedInterceptor extends CacheInterceptorDeserializeAdapter<Key, Value> {
         /** {@inheritDoc} */
-        @Nullable @Override public Value onGet(Integer key, Value val) {
+        @Nullable @Override public Value onGet(Key key, Value val) {
             return super.onGet(key, val);
         }
 
         /** {@inheritDoc} */
-        @Nullable @Override public Value onBeforePut(Cache.Entry<Integer, Value> entry, Value newVal) {
+        @Nullable @Override public Value onBeforePut(Entry<Key, Value> entry, Value newVal) {
             return super.onBeforePut(entry, newVal);
         }
 
         /** {@inheritDoc} */
-        @Override public void onAfterPut(Cache.Entry<Integer, Value> entry) {
+        @Override public void onAfterPut(Entry<Key, Value> entry) {
             super.onAfterPut(entry);
         }
 
         /** {@inheritDoc} */
-        @Override public @Nullable IgniteBiTuple<Boolean, Value> onBeforeRemove(Cache.Entry<Integer, Value> entry) {
+        @Override public @Nullable IgniteBiTuple<Boolean, Value> onBeforeRemove(Entry<Key, Value> entry) {
             return super.onBeforeRemove(entry);
         }
 
         /** {@inheritDoc} */
-        @Override public void onAfterRemove(Cache.Entry<Integer, Value> entry) {
+        @Override public void onAfterRemove(Entry<Key, Value> entry) {
             super.onAfterRemove(entry);
         }
     }
 
-    private static class NoopBinaryInterceptor extends CacheInterceptorAdapter<KeyCacheObject, BinaryObject> {
+    private static class NoopBinaryInterceptor extends CacheInterceptorAdapter<BinaryObject, BinaryObject> {
         /** {@inheritDoc} */
-        @Nullable @Override public BinaryObject onGet(KeyCacheObject key, BinaryObject val) {
+        @Nullable @Override public BinaryObject onGet(BinaryObject key, BinaryObject val) {
+            checkKey(key);
+
             checkValue(val);
 
             return super.onGet(key, val);
@@ -272,15 +307,20 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
 
         /** {@inheritDoc} */
         @Nullable @Override
-        public BinaryObject onBeforePut(Cache.Entry<KeyCacheObject, BinaryObject> entry, BinaryObject newVal) {
+        public BinaryObject onBeforePut(Entry<BinaryObject, BinaryObject> entry, BinaryObject newVal) {
+            checkKey(entry.getKey());
+
             checkValue(entry.getValue());
+
             checkValue(newVal);
 
             return super.onBeforePut(entry, newVal);
         }
 
         /** {@inheritDoc} */
-        @Override public void onAfterPut(Cache.Entry<KeyCacheObject, BinaryObject> entry) {
+        @Override public void onAfterPut(Entry<BinaryObject, BinaryObject> entry) {
+            checkKey(entry.getKey());
+
             checkValue(entry.getValue());
 
             super.onAfterPut(entry);
@@ -288,17 +328,29 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
 
         /** {@inheritDoc} */
         @Override
-        public @Nullable IgniteBiTuple<Boolean, BinaryObject> onBeforeRemove(Cache.Entry<KeyCacheObject, BinaryObject> entry) {
+        public @Nullable IgniteBiTuple<Boolean, BinaryObject> onBeforeRemove(Entry<BinaryObject, BinaryObject> entry) {
+            checkKey(entry.getKey());
+
             checkValue(entry.getValue());
 
             return super.onBeforeRemove(entry);
         }
 
         /** {@inheritDoc} */
-        @Override public void onAfterRemove(Cache.Entry<KeyCacheObject, BinaryObject> entry) {
+        @Override public void onAfterRemove(Entry<BinaryObject, BinaryObject> entry) {
+            checkKey(entry.getKey());
+
             checkValue(entry.getValue());
 
             super.onAfterRemove(entry);
+        }
+
+        private void checkKey(BinaryObject key) {
+            if (key != null) {
+                Object deserKey = key.deserialize();
+
+                assertTrue(deserKey.getClass().getName(), deserKey instanceof Key);
+            }
         }
 
         private void checkValue(BinaryObject obj) {
