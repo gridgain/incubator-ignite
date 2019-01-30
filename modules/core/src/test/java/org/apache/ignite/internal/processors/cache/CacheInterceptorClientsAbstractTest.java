@@ -119,6 +119,8 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
     @Override protected void beforeTestsStarted() throws Exception {
         super.beforeTestsStarted();
 
+        cleanPersistenceDir();
+
         IgniteConfiguration thickClientCfg = getConfiguration("thick-client").setClientMode(true);
 
         Ignite ignite = startGrid(SERVER_NODE_NAME);
@@ -145,6 +147,8 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
         super.afterTestsStopped();
 
         stopAllGrids();
+
+        cleanPersistenceDir();
     }
 
     /** {@inheritDoc} */
@@ -165,13 +169,13 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
     public void testGet() {
         Object k = convertToBinaryIfNeeded(new Key(0));
 
-        for(String cacheName : CACHE_NAMES) {
-            Object vs = serverCache(cacheName).get(k);
-            Object vfc = fatClientCache(cacheName).get(k);
-            Object vtc = thinClientCache(cacheName).get(k);
+        for (String cacheName : CACHE_NAMES) {
+            Object serverVal = convertFromBinaryIfNeeded(serverCache(cacheName).get(k));
+            Object fatClientVal = convertFromBinaryIfNeeded(fatClientCache(cacheName).get(k));
+            Object thinClientVal = convertFromBinaryIfNeeded(thinClientCache(cacheName).get(k));
 
-            assertEquals(cacheName, vs, vfc);
-            assertEquals(cacheName, vs, vtc);
+            assertEquals(cacheName, serverVal, fatClientVal);
+            assertEquals(cacheName, serverVal, thinClientVal);
         }
     }
 
@@ -188,6 +192,19 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
 
     private Object convertToBinaryIfNeeded(Object o) {
         return binary ? grid(SERVER_NODE_NAME).context().cacheObjects().binary().toBinary(o) : o;
+    }
+
+    private Object convertFromBinaryIfNeeded(Object o) {
+        if(binary) {
+            assertTrue(o.getClass().getName(), o instanceof BinaryObject);
+
+            return ((BinaryObject)o).deserialize();
+        }
+        else {
+            assertTrue(o.getClass().getName(), o instanceof Key || o instanceof Value);
+
+            return o;
+        }
     }
 
     private ClientCache thinClientCache(String cacheName) {
@@ -218,6 +235,7 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
             this.id = id;
         }
 
+        /** {@inheritDoc} */
         @Override public boolean equals(Object o) {
             if (this == o)
                 return true;
@@ -227,10 +245,12 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
             return id == key.id;
         }
 
+        /** {@inheritDoc} */
         @Override public int hashCode() {
             return Objects.hash(id);
         }
 
+        /** {@inheritDoc} */
         @Override public String toString() {
             return id + "";
         }
@@ -247,6 +267,7 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
             return v;
         }
 
+        /** {@inheritDoc} */
         @Override public boolean equals(Object o) {
             if (this == o)
                 return true;
@@ -259,10 +280,12 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
             return Objects.equals(v, value.v);
         }
 
+        /** {@inheritDoc} */
         @Override public int hashCode() {
             return Objects.hash(v);
         }
 
+        /** {@inheritDoc} */
         @Override public String toString() {
             return v;
         }
