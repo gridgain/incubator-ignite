@@ -277,7 +277,7 @@ public class DiscoveryDataPacket implements Serializable {
 
         for (Map.Entry<Integer, byte[]> binEntry : src.entrySet()) {
             try {
-                Serializable compData = marsh.unmarshal(binEntry.getValue(), clsLdr);
+                Serializable compData = U.unmarshalZip(marsh, binEntry.getValue(), clsLdr);
                 res.put(binEntry.getKey(), compData);
             }
             catch (IgniteCheckedException e) {
@@ -311,7 +311,7 @@ public class DiscoveryDataPacket implements Serializable {
 
         for (Map.Entry<Integer, Serializable> entry : src.entrySet()) {
             try {
-                target.put(entry.getKey(), marsh.marshal(entry.getValue()));
+                target.put(entry.getKey(), U.zip(marsh.marshal(entry.getValue()), 1));
             }
             catch (IgniteCheckedException e) {
                 U.error(log, "Failed to marshal discovery data " +
