@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.auth.impl;
+package org.apache.ignite.console.auth;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
@@ -50,7 +50,7 @@ public class IgniteUser extends AbstractUser {
 
     /** {@inheritDoc} */
     @Override public void setAuthProvider(AuthProvider authProvider) {
-        if (!(authProvider instanceof IgniteAuthImpl))
+        if (!(authProvider instanceof IgniteAuth))
             throw new IllegalStateException("Not a IgniteAuthImpl");
     }
 }

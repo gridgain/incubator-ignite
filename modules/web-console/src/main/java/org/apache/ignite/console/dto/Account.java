@@ -77,7 +77,7 @@ public class Account {
     /**
      * @return Public view of account.
      */
-    public JsonObject json() {
+    public JsonObject principal() {
         return new JsonObject()
             .put("_id", _id)
             .put("email", email)

@@ -17,16 +17,23 @@
 
 package org.apache.ignite.console;
 
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
+import org.apache.ignite.console.verticles.WebConsoleVerticle;
+
 /**
- * Contains Web Server wide constants.
+ * Web Console Launcher.
  */
-public interface Consts {
-    /** */
-    public static final String ACCOUNTS_CACHE_NAME = "web-console-accounts";
-
-    /** */
-    public static final String SPACES_CACHE_NAME = "web-console-spaces";
-
-    /** */
-    public static final String NOTEBOOKS_CACHE_NAME = "web-console-notebooks";
+public class WebConsoleLauncher extends AbstractVerticle {
+    /**
+     * Main entry point.
+     *
+     * @param args Arguments.
+     */
+    public static void main(String... args) {
+        Vertx.vertx(new VertxOptions()
+            .setBlockedThreadCheckInterval(1000 * 60 * 60))
+            .deployVerticle(new WebConsoleVerticle(true));
+    }
 }

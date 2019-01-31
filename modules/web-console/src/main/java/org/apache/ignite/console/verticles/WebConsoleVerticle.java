@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
+package org.apache.ignite.console.verticles;
 
-import java.io.File;
 import java.net.InetAddress;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -38,8 +37,6 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Vertx;
-import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpServerOptions;
@@ -59,17 +56,14 @@ import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.LocalSessionStore;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCompute;
-import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.cluster.ClusterMetrics;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.configuration.DataRegionConfiguration;
-import org.apache.ignite.configuration.DataStorageConfiguration;
-import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.console.common.Consts;
+import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.binary.BinaryObjectImpl;
@@ -81,19 +75,14 @@ import org.apache.ignite.internal.processors.rest.client.message.GridClientCache
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeMetricsBean;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.visor.compute.VisorGatewayTask;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
-import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
-import org.apache.ignite.console.auth.IgniteAuth;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.apache.ignite.cache.CacheMode.REPLICATED;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BINARY_CONFIGURATION;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CACHE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_NODE_CONSISTENT_ID;
@@ -115,7 +104,7 @@ import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.Gr
  * Web Console server.
  */
 @SuppressWarnings("JavaAbbreviationUsage")
-public class WebConsoleServer extends AbstractVerticle {
+public class WebConsoleVerticle extends AbstractVerticle {
     /** */
     private static final SimpleDateFormat DEBUG_DATE_FMT = new SimpleDateFormat("HH:mm:ss,SSS");
 
@@ -139,9 +128,6 @@ public class WebConsoleServer extends AbstractVerticle {
         HttpHeaderValues.NO_CACHE,
         HttpHeaderValues.NO_STORE,
         HttpHeaderValues.MUST_REVALIDATE);
-
-    /** */
-    private Ignite ignite;
 
     /** */
     private IgniteAuth auth;
@@ -180,60 +166,8 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param embedded Whether Web Console run in embedded mode.
      */
-    public WebConsoleServer(boolean embedded) {
+    public WebConsoleVerticle(boolean embedded) {
         this.embedded = embedded;
-    }
-
-    /**
-     * Start Ignite.
-     */
-    private void startIgnite() {
-        IgniteConfiguration cfg = new IgniteConfiguration();
-
-        cfg.setIgniteInstanceName("Web Console backend");
-        cfg.setConsistentId("web-console-backend");
-        cfg.setMetricsLogFrequency(0);
-        cfg.setLocalHost("127.0.0.1");
-
-        cfg.setWorkDirectory(new File(U.getIgniteHome(), "work-web-console").getAbsolutePath());
-
-        TcpDiscoverySpi discovery = new TcpDiscoverySpi();
-
-        TcpDiscoveryVmIpFinder ipFinder = new TcpDiscoveryVmIpFinder();
-
-        ipFinder.setAddresses(Collections.singletonList("127.0.0.1:60800"));
-
-        discovery.setLocalPort(60800);
-        discovery.setIpFinder(ipFinder);
-
-        cfg.setDiscoverySpi(discovery);
-
-        DataStorageConfiguration dataStorageCfg = new DataStorageConfiguration();
-
-        DataRegionConfiguration dataRegionCfg = new DataRegionConfiguration();
-
-        dataRegionCfg.setPersistenceEnabled(true);
-
-        dataStorageCfg.setDefaultDataRegionConfiguration(dataRegionCfg);
-
-        cfg.setDataStorageConfiguration(dataStorageCfg);
-
-        CacheConfiguration accountsCfg = new CacheConfiguration(Consts.ACCOUNTS_CACHE_NAME);
-        accountsCfg.setCacheMode(REPLICATED);
-
-        CacheConfiguration spacesCfg = new CacheConfiguration(Consts.SPACES_CACHE_NAME);
-        accountsCfg.setCacheMode(REPLICATED);
-
-        CacheConfiguration notebooksCfg = new CacheConfiguration(Consts.NOTEBOOKS_CACHE_NAME);
-        accountsCfg.setCacheMode(REPLICATED);
-
-        cfg.setCacheConfiguration(accountsCfg, spacesCfg, notebooksCfg);
-
-        cfg.setConnectorConfiguration(null);
-
-        ignite = Ignition.getOrStart(cfg);
-
-        ignite.cluster().active(true);
     }
 
     /** {@inheritDoc} */
@@ -241,8 +175,6 @@ public class WebConsoleServer extends AbstractVerticle {
         long start = System.currentTimeMillis();
 
         log("Embedded mode: " + embedded);
-
-        startIgnite();
 
         SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
 
@@ -258,7 +190,7 @@ public class WebConsoleServer extends AbstractVerticle {
         // Create a router object.
         Router router = Router.router(vertx);
 
-        auth = IgniteAuth.create(vertx, ignite);
+        auth = IgniteAuth.create(vertx);
 
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
@@ -1062,18 +994,5 @@ public class WebConsoleServer extends AbstractVerticle {
         public String[] getArgumentsClasses() {
             return argCls;
         }
-    }
-
-    /**
-     * Main entry point.
-     *
-     * @param args Arguments.
-     */
-    public static void main(String... args) {
-        log("Web Console starting...");
-
-        Vertx.vertx(new VertxOptions()
-            .setBlockedThreadCheckInterval(1000 * 60 * 60))
-            .deployVerticle(new WebConsoleServer(true));
     }
 }
