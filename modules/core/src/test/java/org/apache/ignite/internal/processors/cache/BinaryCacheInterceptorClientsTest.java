@@ -24,6 +24,6 @@ import org.junit.runners.JUnit4;
 public class BinaryCacheInterceptorClientsTest extends CacheInterceptorClientsAbstractTest {
 
     public BinaryCacheInterceptorClientsTest() {
-        super(true);
+        super(true, true);
     }
 }

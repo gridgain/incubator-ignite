@@ -86,12 +86,15 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
 
     private final boolean binary;
 
+    private final boolean interceptor;
+
     private Ignite fatClient;
 
     private IgniteClient thinClient;
 
-    protected CacheInterceptorClientsAbstractTest(boolean binary) {
+    protected CacheInterceptorClientsAbstractTest(boolean binary, boolean interceptor) {
         this.binary = binary;
+        this.interceptor = interceptor;
     }
 
     /** {@inheritDoc} */
@@ -139,7 +142,10 @@ public abstract class CacheInterceptorClientsAbstractTest extends GridCommonAbst
     private CacheConfiguration createCacheCfg(String name, CacheMode cMode, CacheAtomicityMode aMode) {
         CacheConfiguration cfg = new CacheConfiguration().setName(name).setCacheMode(cMode).setAtomicityMode(aMode);
 
-        return cfg.setInterceptor(binary ? new NoopBinaryInterceptor() : new NoopDeserializedInterceptor());
+        if(interceptor)
+            return cfg.setInterceptor(binary ? new NoopBinaryInterceptor() : new NoopDeserializedInterceptor());
+        else
+            return cfg;
     }
 
     /** {@inheritDoc} */
