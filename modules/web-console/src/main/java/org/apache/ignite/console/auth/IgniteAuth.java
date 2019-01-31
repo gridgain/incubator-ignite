@@ -21,22 +21,17 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
-import javax.naming.AuthenticationException;
+import javax.inject.Inject;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
-import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.PRNG;
 import io.vertx.ext.auth.User;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.ignite.IgniteCache;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.console.common.Consts;
-import org.apache.ignite.console.dto.Account;
 
 /**
  * Authentication with storing user information in Ignite.
@@ -51,21 +46,29 @@ public class IgniteAuth implements AuthProvider {
     /** */
     private final Vertx vertx;
 
-    /**
-     * @param vertx Vertx.
-     * @return Authenticator.
-     */
-    public static IgniteAuth create(Vertx vertx) {
-        return new IgniteAuth(vertx);
-    }
+    /** */
+    private PRNG rnd;
 
     /**
      * @param vertx Vertex.
      */
+    @Inject
     public IgniteAuth(Vertx vertx) {
         this.vertx = vertx;
+
+        rnd = new PRNG(vertx);
     }
 
+    /**
+     * @return Salt for hashing.
+     */
+    private String salt() {
+        byte[] salt = new byte[32];
+
+        rnd.nextBytes(salt);
+
+        return Hex.encodeHexString(salt);
+    }
     /**
      * Compute password hash.
      *
@@ -92,7 +95,9 @@ public class IgniteAuth implements AuthProvider {
     /** {@inheritDoc} */
     @Override public void authenticate(JsonObject authInfo, Handler<AsyncResult<User>> asyncResHnd) {
         try {
-            checkMandatoryFields(authInfo);
+            // checkMandatoryFields(authInfo);
+
+            // TODO IGNITE-5617 vertx.executeBlocking(); Auth is a possibly long operation
 
             String addr = authInfo.getBoolean("signup", false) ? Addresses.IGNITE_SIGN_UP : Addresses.IGNITE_SIGN_IN;
 

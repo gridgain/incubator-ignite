@@ -35,8 +35,9 @@
     <url>http://ignite.apache.org</url>
 
     <properties>
+        <guice.version>4.2.2</guice.version>
         <vertx.version>3.6.2</vertx.version>
-        <node.version>v8.11.4</node.version>
+        <node.version>v10.15.1</node.version>
         <docker.registry.host>docker.io</docker.registry.host>
         <docker.repository>apacheignite</docker.repository>
         <docker.backend.image>web-console-backend</docker.backend.image>
@@ -54,6 +55,18 @@
 
         <!-- Third-party dependencies -->
         <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>${commons.codec.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+            <version>${guice.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-core</artifactId>
             <version>${vertx.version}</version>
@@ -65,23 +78,17 @@
             <version>${vertx.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>commons-codec</groupId>
-            <artifactId>commons-codec</artifactId>
-            <version>${commons.codec.version}</version>
-        </dependency>
-
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-hadoop</artifactId>
+            <artifactId>ignite-aws</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-aws</artifactId>
+            <artifactId>ignite-hadoop</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -146,18 +153,6 @@
                             </execution>
 
                             <execution>
-                                <id>download dependencies for backend</id>
-                                <goals>
-                                    <goal>npm</goal>
-                                </goals>
-
-                                <configuration>
-                                    <workingDirectory>backend</workingDirectory>
-                                    <arguments>install --no-optional --production</arguments>
-                                </configuration>
-                            </execution>
-
-                            <execution>
                                 <id>build frontend</id>
                                 <goals>
                                     <goal>npm</goal>
@@ -171,20 +166,6 @@
                                     <environmentVariables>
                                         <NODE_ENV>production</NODE_ENV>
                                     </environmentVariables>
-                                </configuration>
-                            </execution>
-
-                            <execution>
-                                <id>build backend</id>
-                                <goals>
-                                    <goal>npm</goal>
-                                </goals>
-
-                                <phase>compile</phase>
-
-                                <configuration>
-                                    <workingDirectory>backend</workingDirectory>
-                                    <arguments>run build</arguments>
                                 </configuration>
                             </execution>
                         </executions>
@@ -210,22 +191,6 @@
                                     </filesets>
                                 </configuration>
                             </execution>
-
-                            <execution>
-                                <id>clean-backend-build</id>
-                                <goals>
-                                    <goal>clean</goal>
-                                </goals>
-                                <phase>process-resources</phase>
-                                <configuration>
-                                    <excludeDefaultDirectories>true</excludeDefaultDirectories>
-                                    <filesets>
-                                        <fileset>
-                                            <directory>${project.basedir}/backend/build</directory>
-                                        </fileset>
-                                    </filesets>
-                                </configuration>
-                            </execution>
                         </executions>
                     </plugin>
 
@@ -247,63 +212,6 @@
                                 </exclusions>
                             </dependency>
                         </dependencies>
-                        <executions>
-                            <execution>
-                                <id>fixed-getos-logic-path</id>
-                                <goals>
-                                    <goal>run</goal>
-                                </goals>
-                                <phase>process-resources</phase>
-                                <configuration>
-
-                                    <tasks>
-                                        <taskdef resource="net/sf/antcontrib/antlib.xml"/>
-                                        <if>
-                                            <available
-                                                file="${project.basedir}/backend/node_modules/mongodb-download/node_modules/getos/index.js"/>
-                                            <then>
-                                                <replace dir="${project.basedir}/backend/node_modules/mongodb-download/node_modules/getos"
-                                                         token='"./logic/"' value='__dirname+"/logic/"'>
-                                                    <include name="index.js"/>
-                                                </replace>
-                                            </then>
-                                        </if>
-                                    </tasks>
-                                </configuration>
-                            </execution>
-
-                            <execution>
-                                <id>fixed-rhel-detection</id>
-                                <goals>
-                                    <goal>run</goal>
-                                </goals>
-                                <phase>process-resources</phase>
-                                <configuration>
-                                    <target>
-                                        <replace dir="${project.basedir}/backend/node_modules/mongodb-download/built"
-                                                 token="/rhel/" value="/Red Hat Linux/i.test(os.dist) || /rhel/">
-                                            <include name="mongodb-download.js"/>
-                                        </replace>
-                                    </target>
-                                </configuration>
-                            </execution>
-
-                            <execution>
-                                <id>fixed-download-url</id>
-                                <goals>
-                                    <goal>run</goal>
-                                </goals>
-                                <phase>process-resources</phase>
-                                <configuration>
-                                    <target>
-                                        <replace dir="${project.basedir}/backend/node_modules/mongodb-download/built"
-                                                 token="https://downloads.mongodb.org" value="https://fastdl.mongodb.org">
-                                            <include name="mongodb-download.js"/>
-                                        </replace>
-                                    </target>
-                                </configuration>
-                            </execution>
-                        </executions>
                     </plugin>
 
                     <plugin>

@@ -15,48 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.verticles;
+package org.apache.ignite.console.di;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
-import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.eventbus.Message;
-import io.vertx.ext.auth.PRNG;
+import com.google.inject.AbstractModule;
+import com.google.inject.Scopes;
+import io.vertx.core.Vertx;
+import io.vertx.ext.auth.AuthProvider;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.console.auth.IgniteAuth;
 
 /**
- *
+ * Module that will configure DI.
  */
-public class CryptoVerticle extends AbstractVerticle {
+public class Bindings extends AbstractModule {
     /** */
-    private PRNG rnd;
+    private final Ignite ignite;
 
-    /** {@inheritDoc} */
-    @Override public void start() throws Exception {
-        rnd = new PRNG(vertx);
-
-        EventBus bus = vertx.eventBus();
-
-        bus.consumer("crypto:salt", this::handleSalt);
-        bus.consumer("crypto:hash", this::handleHash);
-    }
+    /** */
+    private final Vertx vertx;
 
     /**
-     *
-     * @param msg
+     * @param ignite Ignite instance.
+     * @param vertx Vertx instance.
      */
-    private void handleHash(Message<String> msg) {
-        msg.reply("Hash!");
-    }
-
-    /**
-     * @param msg Message.
-     */
-    private void handleSalt(Message<String> msg) {
-        msg.reply("Salt!");
+    public Bindings(Ignite ignite, Vertx vertx) {
+        this.ignite = ignite;
+        this.vertx = vertx;
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() {
-        rnd.close();
+    @Override protected void configure() {
+        bind(Ignite.class).toInstance(ignite);
+        bind(Vertx.class).toInstance(vertx);
+
+        bind(AuthProvider.class).to(IgniteAuth.class).in(Scopes.SINGLETON);
     }
 }

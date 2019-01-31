@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.cache.Cache;
+import javax.inject.Inject;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
@@ -43,6 +44,7 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
@@ -130,13 +132,13 @@ public class WebConsoleVerticle extends AbstractVerticle {
         HttpHeaderValues.MUST_REVALIDATE);
 
     /** */
-    private IgniteAuth auth;
-
-    /** */
     private Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
 
     /** */
     private Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
+
+    /** */
+    private AuthProvider auth;
 
     /** */
     private boolean embedded;
@@ -164,9 +166,11 @@ public class WebConsoleVerticle extends AbstractVerticle {
     }
 
     /**
+     * @param auth Auth provider.
      * @param embedded Whether Web Console run in embedded mode.
      */
-    public WebConsoleVerticle(boolean embedded) {
+    public WebConsoleVerticle(AuthProvider auth, boolean embedded) {
+        this.auth = auth;
         this.embedded = embedded;
     }
 
@@ -190,7 +194,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
         // Create a router object.
         Router router = Router.router(vertx);
 
-        auth = IgniteAuth.create(vertx);
+//        auth = IgniteAuth.create(vertx);
 
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
@@ -229,10 +233,10 @@ public class WebConsoleVerticle extends AbstractVerticle {
              top.add(new JsonObject()
                 .put("id", CLUSTER_ID)
                 .put("name", "EMBBEDED")
-                .put("nids", new JsonArray().add(ignite.cluster().localNode().id().toString()))
-                .put("addresses", new JsonArray().add("192.168.0.10"))
-                .put("clusterVersion", ignite.version().toString())
-                .put("active", ignite.cluster().active())
+//                .put("nids", new JsonArray().add(ignite.cluster().localNode().id().toString()))
+//                .put("addresses", new JsonArray().add("192.168.0.10"))
+//                .put("clusterVersion", ignite.version().toString())
+//                .put("active", ignite.cluster().active())
                 .put("secured", false)
              );
 
@@ -562,7 +566,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleNotebooks(RoutingContext ctx) {
-        IgniteCache<String, String> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+        IgniteCache<String, String> cache = null; // ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
 
         List<Cache.Entry<String, String>> list = cache.query(new ScanQuery<String, String>()).getAll();
 
@@ -584,7 +588,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
 
             JsonObject notebook = ctx.getBody().toJsonObject();
 
-            IgniteCache<String, String> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+            IgniteCache<String, String> cache = null; // ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
 
             String _id = notebook.getString("_id");
 
@@ -666,7 +670,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
             boolean mtr = params.getBoolean("mtr", false);
             boolean caches = params.getBoolean("caches", false);
 
-            GridKernalContext ctx = ((IgniteEx)ignite).context();
+            GridKernalContext ctx = null; // ((IgniteEx)ignite).context();
 
             Collection<ClusterNode> allNodes = F.concat(false,
                 ctx.discovery().allNodes(), ctx.discovery().daemonNodes());
@@ -886,7 +890,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
             for (int i = 0; i < sz; i++)
                 args.add(String.valueOf(execParams.getValue("p" + (i + 1))));
 
-            IgniteCompute compute = ignite.compute();
+            IgniteCompute compute = null; // ignite.compute();
 
             Object res = compute.execute(VisorGatewayTask.class, args.toArray());
 

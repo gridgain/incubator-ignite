@@ -17,9 +17,16 @@
 
 package org.apache.ignite.console;
 
+import com.google.inject.Guice;
+import com.google.inject.Injector;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.ext.auth.AuthProvider;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.console.di.Bindings;
 import org.apache.ignite.console.verticles.WebConsoleVerticle;
 
 /**
@@ -32,8 +39,15 @@ public class WebConsoleLauncher extends AbstractVerticle {
      * @param args Arguments.
      */
     public static void main(String... args) {
-        Vertx.vertx(new VertxOptions()
-            .setBlockedThreadCheckInterval(1000 * 60 * 60))
-            .deployVerticle(new WebConsoleVerticle(true));
+        Ignite ignite = Ignition.getOrStart(new IgniteConfiguration());
+
+        Vertx vertx = Vertx.vertx(new VertxOptions()
+            .setBlockedThreadCheckInterval(1000 * 60 * 60));
+
+        Injector injector = Guice.createInjector(new Bindings(ignite, vertx));
+
+        AuthProvider auth = injector.getInstance(AuthProvider.class);
+
+        vertx.deployVerticle(new WebConsoleVerticle(auth, true));
     }
 }

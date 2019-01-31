@@ -149,16 +149,7 @@ public class IgniteVerticle extends AbstractVerticle {
         checkMandatoryAuthField(authInfo, "password");
     }
 
-    /**
-     * @return Salt for hashing.
-     */
-    private String salt() {
-        byte[] salt = new byte[32];
 
-        rnd.nextBytes(salt);
-
-        return Hex.encodeHexString(salt);
-    }
 
     /**
      * TODO IGNITE-5617 Do this method in transaction?
@@ -194,8 +185,8 @@ public class IgniteVerticle extends AbstractVerticle {
         account.lastActivity = "";
         account.lastEvent = "";
         account.demoCreated = false;
-        account.salt = salt();
-        account.hash = computeHash(authInfo.getString("password"), account.salt);
+        account.salt = "salt()";
+        account.hash = "hash"; // computeHash(authInfo.getString("password"), account.salt);
 
         cache.put(email, account);
 
@@ -229,7 +220,7 @@ public class IgniteVerticle extends AbstractVerticle {
             if (account == null)
                 msg.fail(500, "Invalid email or password");
 
-            String hash = computeHash(authInfo.getString("password"), account.salt);
+            String hash = "hash"; // computeHash(authInfo.getString("password"), account.salt);
 
             if (!hash.equals(account.hash))
                 throw new AuthenticationException("Invalid email or password");
