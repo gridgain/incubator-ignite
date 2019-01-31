@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.web.console;
+package org.apache.ignite.console;
 
 import java.io.File;
 import java.net.InetAddress;
@@ -87,7 +87,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
-import org.apache.ignite.web.console.auth.IgniteAuth;
+import org.apache.ignite.console.auth.IgniteAuth;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;

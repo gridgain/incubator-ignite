@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.web.console.auth;
-
-import io.vertx.core.Vertx;
-import io.vertx.ext.auth.AuthProvider;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.web.console.auth.impl.IgniteAuthImpl;
+package org.apache.ignite.console.dto;
 
 /**
- * Ignite based authentication.
+ * DTO for space.
  */
-public interface IgniteAuth extends AuthProvider {
-    /**
-     * @param vertx Vertx.
-     * @param ignite Ignite.
-     * @return Authenticator.
-     */
-    public static IgniteAuth create(Vertx vertx, Ignite ignite) {
-        return new IgniteAuthImpl(vertx, ignite);
-    }
+public class Space {
+    /** */
+    public String _id;
+
+    /** */
+    public String name;
+
+    /** */
+    public boolean demo;
+
+    /** */
+    public String owner;
 }

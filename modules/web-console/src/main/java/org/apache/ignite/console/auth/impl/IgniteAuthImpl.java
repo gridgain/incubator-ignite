@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.web.console.auth.impl;
+package org.apache.ignite.console.auth.impl;
 
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -35,10 +35,10 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.web.console.Consts;
-import org.apache.ignite.web.console.auth.IgniteAuth;
-import org.apache.ignite.web.console.dto.Account;
-import org.apache.ignite.web.console.dto.Space;
+import org.apache.ignite.console.Consts;
+import org.apache.ignite.console.auth.IgniteAuth;
+import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.dto.Space;
 
 /**
  * Authentication with storing user information in Ignite.

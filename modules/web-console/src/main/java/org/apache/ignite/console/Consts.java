@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.web.console;
+package org.apache.ignite.console;
 
 /**
  * Contains Web Server wide constants.

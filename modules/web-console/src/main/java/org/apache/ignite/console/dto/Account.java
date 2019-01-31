@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.web.console.dto;
+package org.apache.ignite.console.dto;
 
 import io.vertx.core.json.JsonObject;
 

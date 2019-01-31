@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.web.console.auth.impl;
+package org.apache.ignite.console.auth.impl;
 
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
