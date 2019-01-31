@@ -304,6 +304,8 @@ public class IgniteBenchmarkUtils {
                 if (dHosts != null)
                     nodesNum += dHosts.split(",").length;
 
+                BenchmarkUtils.println(String.format("Setting nodes num as %d", nodesNum));
+
                 args.nodes(nodesNum);
             }
         }
