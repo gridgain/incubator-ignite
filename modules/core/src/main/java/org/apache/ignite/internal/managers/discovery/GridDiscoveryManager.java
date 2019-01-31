@@ -879,7 +879,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
                 long start = U.currentTimeMillis();
 
-                log.info("Starting collecting discovery data bag");
+                log.info("DBG: Starting collecting discovery data bag");
 
                 if (ctx.localNodeId().equals(dataBag.joiningNodeId())) {
                     for (GridComponent c : ctx.components()) {
@@ -887,7 +887,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
                         c.collectJoiningNodeData(dataBag);
 
-                        log.info("Component " + c.getClass().getSimpleName() + " collected joining node data bag in " +
+                        log.info("DBG: Component " + c.getClass().getSimpleName() + " collected joining node data bag in " +
                                 (U.currentTimeMillis() - joinDataStart) + "ms");
                     }
                 }
@@ -897,7 +897,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
                         c.collectGridNodeData(dataBag);
 
-                        log.info("Component " + c.getClass().getSimpleName() + " collected grid data bag in " +
+                        log.info("DBG: Component " + c.getClass().getSimpleName() + " collected grid data bag in " +
                                 (U.currentTimeMillis() - gridDataStart) + "ms");
                     }
                 }
@@ -913,7 +913,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
                 long start = U.currentTimeMillis();
 
-                log.info("Starting processing discovery data bag");
+                log.info("DBG: Starting processing discovery data bag");
 
                 if (ctx.localNodeId().equals(dataBag.joiningNodeId())) {
                     // NodeAdded msg reached joining node after round-trip over the ring.
@@ -928,7 +928,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
                             c.onGridDataReceived(dataBag.gridDiscoveryData(c.discoveryDataType().ordinal()));
 
-                            log.info("Component " + c.getClass().getSimpleName() + " processed received grid data bag in " +
+                            log.info("DBG: Component " + c.getClass().getSimpleName() + " processed received grid data bag in " +
                                     (U.currentTimeMillis() - onDataRec) + "ms");
                         }
                     }
@@ -946,7 +946,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
                     stateProc.onJoiningNodeDataReceived(data0);
 
-                    log.info("Cluster state processor processed received joining node data bag in " + (U.currentTimeMillis() - onJoinData) + "ms");
+                    log.info("DBG: Cluster state processor processed received joining node data bag in " + (U.currentTimeMillis() - onJoinData) + "ms");
 
                     for (GridComponent c : ctx.components()) {
                         if (c.discoveryDataType() != null && c != stateProc) {
@@ -958,7 +958,7 @@ public class GridDiscoveryManager extends GridManagerAdapter<DiscoverySpi> {
 
                                 c.onJoiningNodeDataReceived(data);
 
-                                log.info("Component " + c.getClass().getSimpleName() +
+                                log.info("DBG: Component " + c.getClass().getSimpleName() +
                                         " processed joining node data bag in " + (U.currentTimeMillis() - onJoinData) + "ms");
                             }
                         }

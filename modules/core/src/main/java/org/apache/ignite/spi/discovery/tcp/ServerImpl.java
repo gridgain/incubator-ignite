@@ -5425,8 +5425,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                     notifyDiscoveryListener(msg, waitForNotification);
                 }
 
-                if (msg.verified())
-                    msg.message(null, msg.messageBytes());
+                msg.message(null, msg.messageBytes());
 
                 if (sendMessageToRemotes(msg))
                     sendMessageAcrossRing(msg);
@@ -6108,7 +6107,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                         else if (msg instanceof TcpDiscoveryJoinRequestMessage) {
                             TcpDiscoveryJoinRequestMessage req = (TcpDiscoveryJoinRequestMessage)msg;
 
-                            log.info("Receiving join request msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
+                            log.info("DBG: Received msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
 
                             if (!req.responded()) {
                                 boolean ok = processJoinRequestMessage(req, clientMsgWrk);
@@ -6297,9 +6296,9 @@ class ServerImpl extends TcpDiscoveryImpl {
                             ((TcpDiscoveryRingLatencyCheckMessage) msg).onRead();
                         }
                         else if (msg instanceof TcpDiscoveryNodeAddedMessage)
-                            log.info("Receiving node added msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
+                            log.info("DBG: Received msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
                         else if (msg instanceof TcpDiscoveryNodeAddFinishedMessage)
-                            log.info("Receiving node addFinished msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
+                            log.info("DBG: Received msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cis.getCount()));
 
                         TcpDiscoveryClientMetricsUpdateMessage metricsUpdateMsg = null;
 

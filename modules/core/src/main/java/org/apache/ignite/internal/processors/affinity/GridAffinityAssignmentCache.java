@@ -203,7 +203,7 @@ public class GridAffinityAssignmentCache {
 
         GridAffinityAssignmentV2 assignment = new GridAffinityAssignmentV2(topVer, affAssignment, idealAssignment);
 
-        affCache.put(topVer, new HistoryAffinityAssignment(assignment));
+        affCache.put(topVer, new HistoryAffinityAssignment(assignment, backups));
         head.set(assignment);
 
         for (Map.Entry<AffinityTopologyVersion, AffinityReadyFuture> entry : readyFuts.entrySet()) {
@@ -441,7 +441,7 @@ public class GridAffinityAssignmentCache {
 
         GridAffinityAssignmentV2 assignmentCpy = new GridAffinityAssignmentV2(topVer, aff);
 
-        affCache.put(topVer, new HistoryAffinityAssignment(assignmentCpy));
+        affCache.put(topVer, new HistoryAffinityAssignment(assignmentCpy, backups));
         head.set(assignmentCpy);
 
         for (Map.Entry<AffinityTopologyVersion, AffinityReadyFuture> entry : readyFuts.entrySet()) {

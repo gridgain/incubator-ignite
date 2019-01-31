@@ -105,9 +105,8 @@ public class GridAffinityAssignmentV2 extends IgniteDataTransferObject implement
 
         this.topVer = topVer;
         this.assignment = Collections.unmodifiableList(assignment);
-        this.idealAssignment = Collections.unmodifiableList(
-            idealAssignment.equals(assignment) ? assignment : idealAssignment
-        );
+        this.idealAssignment =
+            idealAssignment.equals(assignment) ? assignment : Collections.unmodifiableList(idealAssignment);
 
         // Temporary mirrors with modifiable partition's collections.
         Map<UUID, Set<Integer>> tmpPrimary = new HashMap<>();
