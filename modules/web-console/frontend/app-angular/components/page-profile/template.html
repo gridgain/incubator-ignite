@@ -19,32 +19,33 @@
     <div><h1>User profile</h1></div>        
 </header>
 <form [formGroup]='form' (submit)='saveUser()' id='user'>
-    <label class='span-1'>
-        <span>First name:</span>
-        <input type="text" formControlName='firstName'>
-    </label>
-    <label class='span-1'>
-        <span>Last name:</span>
-        <input type="text" formControlName='lastName'>
-    </label>
-    <label class='span-2'>
-        <span>Email:</span>
-        <input type="email" formControlName='email'>
-    </label>
-    <label class='span-1'>
-        <span>Phone:</span>
-        <input type="tel" formControlName='phone'>
-    </label>
-    <label class='span-1'>
-        <span>Country/Region:</span>
-        <select formControlName='country'>
+    <form-field class='span-1'>
+        <form-field-hint>Foo Bar</form-field-hint>
+        <label for='firstName'>First name</label>
+        <input type="text" formControlName='firstName' id='firstName'>
+    </form-field>
+    <form-field class='span-1'>
+        <label for='lastName'>Last name</label>
+        <input type="text" formControlName='lastName' id='lastName'>
+    </form-field>
+    <form-field class='span-2'>
+        <label>Email</label>
+        <input type="email" formControlName='email'>        
+    </form-field>
+    <form-field class='span-1'>
+        <label for='phone'>Phone</label>
+        <input type="tel" formControlName='phone' id='phone' placeholder='Input phone (ex.: +15417543010)'>
+    </form-field>
+    <form-field class='span-1'>
+        <label for='country'>Country/Region</label>
+        <select formControlName='country' id='country'>
             <option *ngFor='let country of countries' [value]="country.value">{{country.label}}</option>
         </select>
-    </label>
-    <label class='span-2'>
-        <span>Company:</span>
-        <input type="text" formControlName='company'>
-    </label>
+    </form-field>
+    <form-field class='span-2'>
+        <label for='company'>Company</label>
+        <input type="text" formControlName='company' id='company'>
+    </form-field>
 </form>
 <footer>
     <a class="btn-ignite btn-ignite--link-success" uiSref="default-state">Cancel</a>

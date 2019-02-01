@@ -21,10 +21,23 @@ import templateUrl from 'file-loader!./template.html';
 import './style.scss';
 import {default as CountriesFactory, Country} from 'app/services/Countries.service';
 import {default as UserFactory, User} from 'app/modules/user/User.service';
+import {
+    FORM_FIELD_OPTIONS, FormFieldRequiredMarkerStyles, FormFielErrorStyles
+} from '../formField.component';
 
 @Component({
     selector: 'page-profile-angular',
-    templateUrl
+    templateUrl,
+    viewProviders: [
+        {
+            provide: FORM_FIELD_OPTIONS,
+            useValue: {
+                requiredMarkerStyle: FormFieldRequiredMarkerStyles.OPTIONAL,
+                // requiredMarkerStyle: FormFieldRequiredMarkerStyles.REQUIRED,
+                errorStyle: FormFielErrorStyles.ICON
+            }
+        }
+    ]
 })
 export class PageProfile implements OnInit {
     static parameters = [
@@ -49,7 +62,7 @@ export class PageProfile implements OnInit {
     form = new FormGroup({
         firstName: new FormControl('', [Validators.required]),
         lastName: new FormControl('', [Validators.required]),
-        email: new FormControl('', [Validators.email]),
+        email: new FormControl('', [Validators.required, Validators.email]),
         phone: new FormControl('', []),
         country: new FormControl('', [Validators.required]),
         company: new FormControl('', [Validators.required])

@@ -17,22 +17,18 @@
 
 page-profile-angular {
     display: block;
+    max-width: 800px;
 
     form {
         display: grid;
         grid-template-columns: 1fr 1fr;
+        grid-gap: 10px;
 
         .span-1 {
             grid-column: span 1;
         }
         .span-2 {
             grid-column: span 2;
-        }
-
-        label {
-            display: grid;
-            grid-template-columns: 1fr;
-            grid-template-rows: auto auto;
         }
     }
 }

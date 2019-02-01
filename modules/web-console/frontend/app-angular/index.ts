@@ -32,6 +32,7 @@ import {PageProfile} from './components/page-profile/component';
 export {PageProfile};
 import {IgniteIcon} from './components/igniteIcon.component';
 import {FormFieldTooltip} from './components/formFieldTooltip.component';
+import {FormFieldComponents} from './components/formField.component';
 
 import {ReactiveFormsModule} from '@angular/forms';
 
@@ -39,7 +40,8 @@ export const declarations = [
     ServiceBootstrapComponent,
     PageProfile,
     IgniteIcon,
-    FormFieldTooltip
+    FormFieldTooltip,
+    ...FormFieldComponents
 ];
 
 export const entryComponents = [
