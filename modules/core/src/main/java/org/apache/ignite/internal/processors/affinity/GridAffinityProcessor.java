@@ -411,8 +411,6 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
             cctx.awaitStarted();
 
-            AffinityAssignment assign0 = cctx.affinity().assignment(topVer);
-
             try {
                 cctx.gate().enter();
             }
@@ -421,11 +419,10 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             }
 
             try {
-                // using legacy GridAffinityAssignment for compatibility.
                 AffinityInfo info = new AffinityInfo(
                     cctx.config().getAffinity(),
                     cctx.config().getAffinityMapper(),
-                    new GridAffinityAssignment(topVer, assign0.assignment(), assign0.idealAssignment()),
+                    cctx.affinity().assignment(topVer),
                     cctx.cacheObjectContext()
                 );
 
@@ -549,7 +546,15 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
 
         CacheConfiguration ccfg = ctx.cache().cacheConfiguration(cacheName);
 
-        return new AffinityInfo(f, m, t.get3(), ctx.cacheObjects().contextForCache(ccfg));
+        return new AffinityInfo(
+                f,
+                m,
+                new GridAffinityAssignmentV2(
+                        t.get3().topologyVersion(),
+                        t.get3().assignment(),
+                        t.get3().idealAssignment()
+                ),
+                ctx.cacheObjects().contextForCache(ccfg));
     }
 
     /**
@@ -640,7 +645,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         private AffinityKeyMapper mapper;
 
         /** Assignment. */
-        private GridAffinityAssignment assignment;
+        private AffinityAssignment assignment;
 
         /** */
         private CacheObjectContext cacheObjCtx;
@@ -653,7 +658,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
          */
         private AffinityInfo(AffinityFunction affFunc,
             AffinityKeyMapper mapper,
-            GridAffinityAssignment assignment,
+            AffinityAssignment assignment,
             CacheObjectContext cacheObjCtx) {
             this.affFunc = affFunc;
             this.mapper = mapper;
@@ -682,7 +687,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
         /**
          * @return Affinity assignment.
          */
-        private GridAffinityAssignment assignment() {
+        private AffinityAssignment assignment() {
             return assignment;
         }
 
@@ -899,7 +904,7 @@ public class GridAffinityProcessor extends GridProcessorAdapter {
             ctx.gateway().readLock();
 
             try {
-                GridAffinityAssignment assignment = cache().assignment();
+                AffinityAssignment assignment = cache().assignment();
 
                 int[] primary = U.toIntArray(assignment.primaryPartitions(n.id()));
                 int[] backup = U.toIntArray(assignment.backupPartitions(n.id()));
