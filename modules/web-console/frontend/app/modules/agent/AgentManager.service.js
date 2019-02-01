@@ -431,6 +431,8 @@ export default class AgentManager {
 
         const latch = this.$q.defer();
 
+        // TODO IGNITE-5617 Need handle disconnect on send.
+
         this.eventBus.send(address, message, {}, (err, res) => {
             if (err)
                 latch.reject(err);
