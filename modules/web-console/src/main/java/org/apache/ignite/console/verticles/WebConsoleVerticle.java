@@ -33,7 +33,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.cache.Cache;
-import javax.inject.Inject;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
@@ -44,7 +43,6 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
@@ -58,14 +56,16 @@ import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.LocalSessionStore;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCompute;
 import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.cluster.ClusterMetrics;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.console.common.Consts;
 import org.apache.ignite.console.auth.IgniteAuth;
+import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.console.common.Consts;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.binary.BinaryObjectImpl;
@@ -138,7 +138,10 @@ public class WebConsoleVerticle extends AbstractVerticle {
     private Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
 
     /** */
-    private AuthProvider auth;
+    private final Ignite ignite;
+
+    /** */
+    private final IgniteAuth auth;
 
     /** */
     private boolean embedded;
@@ -166,10 +169,12 @@ public class WebConsoleVerticle extends AbstractVerticle {
     }
 
     /**
+     * @param ignite Ignite.
      * @param auth Auth provider.
      * @param embedded Whether Web Console run in embedded mode.
      */
-    public WebConsoleVerticle(AuthProvider auth, boolean embedded) {
+    public WebConsoleVerticle(Ignite ignite, IgniteAuth auth, boolean embedded) {
+        this.ignite = ignite;
         this.auth = auth;
         this.embedded = embedded;
     }
@@ -191,10 +196,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
 
         registerEventBusConsumers();
 
-        // Create a router object.
         Router router = Router.router(vertx);
-
-//        auth = IgniteAuth.create(vertx);
 
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
@@ -225,18 +227,18 @@ public class WebConsoleVerticle extends AbstractVerticle {
         EventBus eventBus = vertx.eventBus();
 
         if (embedded) {
-            eventBus.consumer("node:rest", this::handleEmbeddedNodeRest);
-            eventBus.consumer("node:visor", this::handleEmbeddedNodeVisor);
+            eventBus.consumer(Addresses.NODE_REST, this::handleEmbeddedNodeRest);
+            eventBus.consumer(Addresses.NODE_VISOR, this::handleEmbeddedNodeVisor);
 
             // TODO IGNITE-5617 quick hack for prototype.
             JsonArray top = new JsonArray();
              top.add(new JsonObject()
                 .put("id", CLUSTER_ID)
                 .put("name", "EMBBEDED")
-//                .put("nids", new JsonArray().add(ignite.cluster().localNode().id().toString()))
-//                .put("addresses", new JsonArray().add("192.168.0.10"))
-//                .put("clusterVersion", ignite.version().toString())
-//                .put("active", ignite.cluster().active())
+                .put("nids", new JsonArray().add(ignite.cluster().localNode().id().toString()))
+                .put("addresses", new JsonArray().add("192.168.0.10"))
+                .put("clusterVersion", ignite.version().toString())
+                .put("active", ignite.cluster().active())
                 .put("secured", false)
              );
 
@@ -247,10 +249,10 @@ public class WebConsoleVerticle extends AbstractVerticle {
 
             clusters.put(CLUSTER_ID, desc);
 
-            vertx.setPeriodic(3000, tid -> eventBus.send("agents:stat", desc)); // TODO IGNITE-5617 quick hack for prototype.
+            vertx.setPeriodic(3000, tid -> eventBus.send(Addresses.AGENTS_STATUS, desc)); // TODO IGNITE-5617 quick hack for prototype.
         }
         else
-            eventBus.consumer("cluster:topology", this::handleClusterTopology);
+            eventBus.consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
     }
 
     /**
@@ -566,7 +568,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleNotebooks(RoutingContext ctx) {
-        IgniteCache<String, String> cache = null; // ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+        IgniteCache<String, String> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
 
         List<Cache.Entry<String, String>> list = cache.query(new ScanQuery<String, String>()).getAll();
 
@@ -588,7 +590,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
 
             JsonObject notebook = ctx.getBody().toJsonObject();
 
-            IgniteCache<String, String> cache = null; // ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+            IgniteCache<String, String> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
 
             String _id = notebook.getString("_id");
 
@@ -652,7 +654,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
             .put("hasDemo", false)
             .put("clusters", new JsonArray().add(oldTop)); // TODO IGNITE-5617 quick hack for prototype.
 
-        vertx.eventBus().send("agents:stat", json);
+        vertx.eventBus().send(Addresses.AGENTS_STATUS, json);
     }
 
     /**
@@ -670,7 +672,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
             boolean mtr = params.getBoolean("mtr", false);
             boolean caches = params.getBoolean("caches", false);
 
-            GridKernalContext ctx = null; // ((IgniteEx)ignite).context();
+            GridKernalContext ctx = ((IgniteEx)ignite).context();
 
             Collection<ClusterNode> allNodes = F.concat(false,
                 ctx.discovery().allNodes(), ctx.discovery().daemonNodes());
@@ -890,7 +892,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
             for (int i = 0; i < sz; i++)
                 args.add(String.valueOf(execParams.getValue("p" + (i + 1))));
 
-            IgniteCompute compute = null; // ignite.compute();
+            IgniteCompute compute = ignite.compute();
 
             Object res = compute.execute(VisorGatewayTask.class, args.toArray());
 

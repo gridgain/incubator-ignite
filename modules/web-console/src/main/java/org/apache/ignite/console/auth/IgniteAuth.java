@@ -19,9 +19,12 @@ package org.apache.ignite.console.auth;
 
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.time.ZonedDateTime;
+import java.util.UUID;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
-import javax.inject.Inject;
+import javax.security.auth.login.AccountException;
+import javax.security.auth.login.CredentialException;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -31,7 +34,12 @@ import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.PRNG;
 import io.vertx.ext.auth.User;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
+import org.apache.ignite.console.common.Consts;
+import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.dto.Space;
+import org.apache.ignite.internal.util.typedef.F;
 
 /**
  * Authentication with storing user information in Ignite.
@@ -44,17 +52,20 @@ public class IgniteAuth implements AuthProvider {
     private static final int KEY_LEN = 512 * 8;
 
     /** */
-    private final Vertx vertx;
+    private static final String E_INVALID_CREDENTIALS = "Invalid email or password";
+
+    /** */
+    private final Ignite ignite;
 
     /** */
     private PRNG rnd;
 
     /**
+     * @param ignite Ignite.
      * @param vertx Vertex.
      */
-    @Inject
-    public IgniteAuth(Vertx vertx) {
-        this.vertx = vertx;
+    public IgniteAuth(Ignite ignite, Vertx vertx) {
+        this.ignite = ignite;
 
         rnd = new PRNG(vertx);
     }
@@ -95,21 +106,105 @@ public class IgniteAuth implements AuthProvider {
     /** {@inheritDoc} */
     @Override public void authenticate(JsonObject authInfo, Handler<AsyncResult<User>> asyncResHnd) {
         try {
-            // checkMandatoryFields(authInfo);
+            checkCredentials(authInfo);
 
             // TODO IGNITE-5617 vertx.executeBlocking(); Auth is a possibly long operation
 
-            String addr = authInfo.getBoolean("signup", false) ? Addresses.IGNITE_SIGN_UP : Addresses.IGNITE_SIGN_IN;
+            Account account = authInfo.getBoolean("signup", false)
+                ? signUp(authInfo)
+                : signIn(authInfo);
 
-            vertx.eventBus().<JsonObject>send(addr, authInfo, asyncRes -> {
-                if (asyncRes.succeeded())
-                    asyncResHnd.handle(Future.succeededFuture(new IgniteUser(asyncRes.result().body())));
-                else
-                    asyncResHnd.handle(Future.failedFuture(asyncRes.cause()));
-            });
+            asyncResHnd.handle(Future.succeededFuture(new IgniteUser(account.principal())));
+
         }
         catch (Throwable e) {
             asyncResHnd.handle(Future.failedFuture(e));
         }
+    }
+
+    /**
+     * @param authInfo JSON object with authentication info.
+     * @throws CredentialException If email or password not found.
+     */
+    private void checkCredentials(JsonObject authInfo) throws CredentialException {
+        String email = authInfo.getString("email");
+        String pwd = authInfo.getString("password");
+
+        if (F.isEmpty(email) || F.isEmpty(pwd))
+            throw new CredentialException(E_INVALID_CREDENTIALS);
+    }
+
+    /**
+     * TODO IGNITE-5617 Do this method in transaction?
+     * Sign up.
+     *
+     * @param authInfo JSON with authentication info.
+     * @return Accout
+     * @throws GeneralSecurityException If failed to authenticate.
+     */
+    private Account signUp(JsonObject authInfo) throws GeneralSecurityException {
+        IgniteCache<String, Account> cache = ignite.cache(Consts.ACCOUNTS_CACHE_NAME);
+
+        String email = authInfo.getString("email");
+
+        Account account = cache.get(email);
+
+        if (account != null)
+            throw new AccountException("Account already exists");
+
+        account = new Account();
+
+        account._id = UUID.randomUUID().toString();
+        account.email = authInfo.getString("email");
+        account.firstName = authInfo.getString("firstName");
+        account.lastName = authInfo.getString("lastName");
+        account.company = authInfo.getString("company");
+        account.country = authInfo.getString("country");
+        account.industry = authInfo.getString("industry");
+        account.admin = authInfo.getBoolean("admin", false);
+        account.token = UUID.randomUUID().toString(); // TODO IGNITE-5617 How to generate token?
+        account.resetPasswordToken = UUID.randomUUID().toString(); // TODO IGNITE-5617 How to generate resetPasswordToken?
+        account.registered = ZonedDateTime.now().toString();
+        account.lastLogin = "";
+        account.lastActivity = "";
+        account.lastEvent = "";
+        account.demoCreated = false;
+        account.salt = salt();
+        account.hash = computeHash(authInfo.getString("password"), account.salt);
+
+        cache.put(email, account);
+
+        Space space = new Space();
+        space._id = UUID.randomUUID().toString();
+        space.name = "Personal space";
+        space.demo = false;
+        space.owner = account._id;
+
+        ignite.cache(Consts.SPACES_CACHE_NAME).put(space._id, space);
+
+        return account;
+    }
+
+    /**
+     * @param authInfo JSON with authentication info.
+     * @return Accout
+     * @throws GeneralSecurityException If failed to authenticate.
+     */
+    private Account signIn(JsonObject authInfo) throws GeneralSecurityException {
+        String email = authInfo.getString("email");
+
+        IgniteCache<String, Account> cache = ignite.cache(Consts.ACCOUNTS_CACHE_NAME);
+
+        Account account = cache.get(email);
+
+        if (account == null)
+            throw new CredentialException(E_INVALID_CREDENTIALS);
+
+        String hash = computeHash(authInfo.getString("password"), account.salt);
+
+        if (!hash.equals(account.hash))
+            throw new CredentialException(E_INVALID_CREDENTIALS);
+
+        return account;
     }
 }

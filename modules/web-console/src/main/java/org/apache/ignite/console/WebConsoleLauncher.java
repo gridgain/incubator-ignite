@@ -17,17 +17,25 @@
 
 package org.apache.ignite.console;
 
-import com.google.inject.Guice;
-import com.google.inject.Injector;
+import java.io.File;
+import java.util.Collections;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
-import io.vertx.ext.auth.AuthProvider;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.configuration.DataRegionConfiguration;
+import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.console.di.Bindings;
+import org.apache.ignite.console.auth.IgniteAuth;
+import org.apache.ignite.console.common.Consts;
 import org.apache.ignite.console.verticles.WebConsoleVerticle;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+
+import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
  * Web Console Launcher.
@@ -39,15 +47,69 @@ public class WebConsoleLauncher extends AbstractVerticle {
      * @param args Arguments.
      */
     public static void main(String... args) {
-        Ignite ignite = Ignition.getOrStart(new IgniteConfiguration());
+        Ignite ignite = startIgnite();
 
         Vertx vertx = Vertx.vertx(new VertxOptions()
             .setBlockedThreadCheckInterval(1000 * 60 * 60));
 
-        Injector injector = Guice.createInjector(new Bindings(ignite, vertx));
+        IgniteAuth auth = new IgniteAuth(ignite, vertx);
 
-        AuthProvider auth = injector.getInstance(AuthProvider.class);
+        vertx.deployVerticle(new WebConsoleVerticle(ignite, auth, true));
+    }
 
-        vertx.deployVerticle(new WebConsoleVerticle(auth, true));
+    /**
+     * Start Ignite.
+     *
+     * @return Ignite instance.
+     */
+    private static Ignite startIgnite() {
+        IgniteConfiguration cfg = new IgniteConfiguration();
+
+        cfg.setIgniteInstanceName("Web Console backend");
+        cfg.setConsistentId("web-console-backend");
+        cfg.setMetricsLogFrequency(0);
+        cfg.setLocalHost("127.0.0.1");
+
+        cfg.setWorkDirectory(new File(U.getIgniteHome(), "work-web-console").getAbsolutePath());
+
+        TcpDiscoverySpi discovery = new TcpDiscoverySpi();
+
+        TcpDiscoveryVmIpFinder ipFinder = new TcpDiscoveryVmIpFinder();
+
+        ipFinder.setAddresses(Collections.singletonList("127.0.0.1:60800"));
+
+        discovery.setLocalPort(60800);
+        discovery.setIpFinder(ipFinder);
+
+        cfg.setDiscoverySpi(discovery);
+
+        DataStorageConfiguration dataStorageCfg = new DataStorageConfiguration();
+
+        DataRegionConfiguration dataRegionCfg = new DataRegionConfiguration();
+
+        dataRegionCfg.setPersistenceEnabled(true);
+
+        dataStorageCfg.setDefaultDataRegionConfiguration(dataRegionCfg);
+
+        cfg.setDataStorageConfiguration(dataStorageCfg);
+
+        CacheConfiguration accountsCfg = new CacheConfiguration(Consts.ACCOUNTS_CACHE_NAME);
+        accountsCfg.setCacheMode(REPLICATED);
+
+        CacheConfiguration spacesCfg = new CacheConfiguration(Consts.SPACES_CACHE_NAME);
+        accountsCfg.setCacheMode(REPLICATED);
+
+        CacheConfiguration notebooksCfg = new CacheConfiguration(Consts.NOTEBOOKS_CACHE_NAME);
+        accountsCfg.setCacheMode(REPLICATED);
+
+        cfg.setCacheConfiguration(accountsCfg, spacesCfg, notebooksCfg);
+
+        cfg.setConnectorConfiguration(null);
+
+        Ignite ignite = Ignition.getOrStart(cfg);
+
+        ignite.cluster().active(true);
+
+        return ignite;
     }
 }

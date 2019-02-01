@@ -22,8 +22,14 @@ package org.apache.ignite.console.common;
  */
 public interface Addresses {
     /** */
-    public static final String IGNITE_SIGN_UP = "ignite:signup";
+    public static final String AGENTS_STATUS = "agents:stat";
 
     /** */
-    public static final String IGNITE_SIGN_IN = "ignite:signin";
+    public static final String NODE_REST = "node:rest";
+
+    /** */
+    public static final String NODE_VISOR = "node:visor";
+
+    /** */
+    public static final String CLUSTER_TOPOLOGY = "cluster:topology";
 }
