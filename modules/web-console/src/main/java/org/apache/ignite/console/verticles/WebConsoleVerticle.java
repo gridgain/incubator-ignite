@@ -230,26 +230,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
             eventBus.consumer(Addresses.NODE_REST, this::handleEmbeddedNodeRest);
             eventBus.consumer(Addresses.NODE_VISOR, this::handleEmbeddedNodeVisor);
 
-            // TODO IGNITE-5617 quick hack for prototype.
-            JsonArray top = new JsonArray();
-             top.add(new JsonObject()
-                .put("id", CLUSTER_ID)
-                .put("name", "EMBBEDED")
-                .put("nids", new JsonArray().add(ignite.cluster().localNode().id().toString()))
-                .put("addresses", new JsonArray().add("192.168.0.10"))
-                .put("clusterVersion", ignite.version().toString())
-                .put("active", ignite.cluster().active())
-                .put("secured", false)
-             );
-
-            JsonObject desc = new JsonObject()
-                .put("count", 1)
-                .put("hasDemo", false)
-                .put("clusters", top);
-
-            clusters.put(CLUSTER_ID, desc);
-
-            vertx.setPeriodic(3000, tid -> eventBus.send(Addresses.AGENTS_STATUS, desc)); // TODO IGNITE-5617 quick hack for prototype.
+            vertx.setPeriodic(3000, this::handleEmbeddedClusterTopology);
         }
         else
             eventBus.consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
@@ -655,6 +636,33 @@ public class WebConsoleVerticle extends AbstractVerticle {
             .put("clusters", new JsonArray().add(oldTop)); // TODO IGNITE-5617 quick hack for prototype.
 
         vertx.eventBus().send(Addresses.AGENTS_STATUS, json);
+    }
+
+    /**
+     * @param tid Timer ID.
+     */
+    private void handleEmbeddedClusterTopology(long tid) {
+        JsonObject desc = clusters.computeIfAbsent(CLUSTER_ID, key -> {
+            JsonArray top = new JsonArray();
+
+            top.add(new JsonObject()
+                .put("id", CLUSTER_ID)
+                .put("name", "EMBBEDED")
+                .put("nids", new JsonArray().add(ignite.cluster().localNode().id().toString()))
+                .put("addresses", new JsonArray().add("192.168.0.10"))
+                .put("clusterVersion", ignite.version().toString())
+                .put("active", ignite.cluster().active())
+                .put("secured", false)
+            );
+
+            return new JsonObject()
+                .put("count", 1)
+                .put("hasDemo", false)
+                .put("clusters", top);
+
+        });
+
+        vertx.eventBus().send(Addresses.AGENTS_STATUS, desc);
     }
 
     /**

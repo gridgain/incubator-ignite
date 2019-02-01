@@ -508,7 +508,7 @@ export default class AgentManager {
 
                         const data = JSON.parse(res.data);
 
-                        return data.result ? data.result : data;
+                        return data;
 
                     case SuccessStatus.STATUS_FAILED:
                         if (res.error.startsWith('Failed to handle request - unknown session token (maybe expired session)')) {

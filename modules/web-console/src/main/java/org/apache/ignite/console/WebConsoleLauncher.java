@@ -54,7 +54,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
         IgniteAuth auth = new IgniteAuth(ignite, vertx);
 
-        vertx.deployVerticle(new WebConsoleVerticle(ignite, auth, true));
+        vertx.deployVerticle(new WebConsoleVerticle(ignite, auth, false));
     }
 
     /**
