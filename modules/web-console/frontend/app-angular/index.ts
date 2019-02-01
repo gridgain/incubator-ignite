@@ -17,25 +17,29 @@
 
 import 'core-js/es7/reflect';
 import 'zone.js/dist/zone';
+import './style.scss';
 
 import {NgModule, Inject} from '@angular/core';
 import {BrowserModule} from '@angular/platform-browser';
 import {UIRouterUpgradeModule} from '@uirouter/angular-hybrid';
 import { UIRouter } from '@uirouter/angular';
 import { UpgradeModule } from '@angular/upgrade/static';
+import {NgxPopperModule} from 'ngx-popper';
 
 import {ServiceBootstrapComponent} from './components/serviceBootstrap';
 export {ServiceBootstrapComponent};
 import {PageProfile} from './components/page-profile/component';
 export {PageProfile};
 import {IgniteIcon} from './components/igniteIcon.component';
+import {FormFieldTooltip} from './components/formFieldTooltip.component';
 
 import {ReactiveFormsModule} from '@angular/forms';
 
 export const declarations = [
     ServiceBootstrapComponent,
     PageProfile,
-    IgniteIcon
+    IgniteIcon,
+    FormFieldTooltip
 ];
 
 export const entryComponents = [
@@ -68,7 +72,12 @@ import {states} from './states';
         BrowserModule,
         ReactiveFormsModule,
         UpgradeModule,
-        UIRouterUpgradeModule.forRoot({states})
+        UIRouterUpgradeModule.forRoot({states}),
+        NgxPopperModule.forRoot({
+            applyClass: 'ignite-popper',
+            appendTo: 'body',
+            boundariesElement: 'ui-view.content'
+        })
     ],
     providers,
     declarations,
