@@ -109,6 +109,9 @@ public class WebSocketRouter extends AbstractVerticle {
 
             if (!F.isEmpty(cfg.cipherSuites()))
                 cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
+
+            if (serverTrustAll)
+                httpOptions.setVerifyHost(false);
         }
 
         client = vertx.createHttpClient(httpOptions);

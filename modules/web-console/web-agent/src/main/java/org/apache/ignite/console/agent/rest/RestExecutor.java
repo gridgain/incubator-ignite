@@ -113,6 +113,9 @@ public class RestExecutor implements AutoCloseable {
 
             if (!F.isEmpty(cfg.cipherSuites()))
                 cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
+
+            if (nodeTrustAll)
+                httpOptions.setVerifyHost(false);
         }
 
         webClient = WebClient.create(Vertx.vertx(), httpOptions);
