@@ -26,6 +26,8 @@
     padding: 12px;
     border-radius: 4px;
     max-width: 400px;
+    // Above app header
+    z-index: 11;
 
     &[x-placement^="right"] {
         margin-left: var(--target-margin);

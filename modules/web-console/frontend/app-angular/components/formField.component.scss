@@ -17,6 +17,31 @@
 
 form-field {
     --required-label-gap: 0.25em;
+    --overlay-item-width: 31px;
+
+    &.form-field__icon-error {
+        display: grid;
+        grid-template-areas: 'title title' 'control error-icon' 'error-inline error-inline';
+        grid-template-columns: auto 36px;
+
+        .angular-form-field__label {
+            grid-area: title;
+        }
+
+        .angular-form-field__input {
+            grid-column: control / error-icon;
+            grid-row: control;
+
+            input {
+                padding-right: var(--overlay-item-width);
+            }
+        }
+
+        form-field-errors {
+            grid-area: error-icon;
+            z-index: 1;
+        }
+    }
 
     input, select {
         box-sizing: border-box;

@@ -1305,13 +1305,13 @@ input[type="number"] {
     -moz-appearance: textfield;
 }
 
-input.ng-dirty.ng-invalid, button.ng-dirty.ng-invalid {
-    border-color: $ignite-invalid-color;
+// input.ng-dirty.ng-invalid, button.ng-dirty.ng-invalid {
+//     border-color: $ignite-invalid-color;
 
-    :focus {
-        border-color: $ignite-invalid-color;
-    }
-}
+//     :focus {
+//         border-color: $ignite-invalid-color;
+//     }
+// }
 
 .form-control-feedback {
     display: inline-block;

@@ -16,7 +16,7 @@
  */
 
 import {AfterViewInit, Injectable, ContentChild, Inject, Component, Directive, ViewEncapsulation, ViewChild, HostBinding, ElementRef, Host, Optional, Input} from '@angular/core';
-import {FormControlDirective, FormControlName} from '@angular/forms';
+import {FormControlDirective, FormControlName, FormControl} from '@angular/forms';
 import './formField.component.scss';
 import {PopperContent} from 'ngx-popper';
 
@@ -25,9 +25,9 @@ export enum FormFieldRequiredMarkerStyles {
     REQUIRED
 }
 
-export enum FormFielErrorStyles {
-    INLINE,
-    ICON
+export enum FormFieldErrorStyles {
+    INLINE = 'inline',
+    ICON = 'icon'
 }
 
 @Injectable({
@@ -35,7 +35,15 @@ export enum FormFielErrorStyles {
 })
 export class FORM_FIELD_OPTIONS {
     requiredMarkerStyle: FormFieldRequiredMarkerStyles = FormFieldRequiredMarkerStyles.REQUIRED
-    errorStyle: FormFielErrorStyles = FormFielErrorStyles.ICON
+    errorStyle: FormFieldErrorStyles = FormFieldErrorStyles.ICON
+}
+
+@Injectable({
+    providedIn: 'root'
+})
+export class VALIDATION_MESSAGES {
+    required = 'Value is required'
+    email = 'Email has invalid format'
 }
 
 @Component({
@@ -51,10 +59,57 @@ class FormFieldHint {
     popper: PopperContent
 }
 
-enum FormFieldRequiredClassname {
-    REQUIRED = 'form-field__required',
-    OPTIONAL = 'form-field__optional'
+@Component({
+    selector: 'form-field-errors',
+    template: `
+        <div *ngIf='errorStyle === "inline"' class='inline'>
+            {{getErrorMessage(errorType)}}
+        </div>
+        <div *ngIf='errorStyle === "icon"' class='icon'>
+            <ignite-icon
+                name='attention'
+                [popper]='getErrorMessage(errorType)'
+                popperApplyClass='ignite-popper,ignite-popper__error'
+                popperTrigger='hover'
+                popperPlacement='top'
+                popperAppendTo='body'
+            ></ignite-icon>
+        </div>
+    `,
+    styles: [`
+        :host {
+            display: block;
+        }
+        .inline {
+            padding: 5px 10px 0px;
+            color: #ee2b27;
+            font-size: 12px;
+            line-height: 14px;
+        }
+        .icon {
+            color: #ee2b27;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    `]
+})
+export class FormFieldErrors<T extends {[errorType: string]: string}> {
+    @Input()
+    errorStyle: FormFieldErrorStyles
+    @Input()
+    extraErrorMessages: T
+    @Input()
+    errorType: keyof T
+    static parameters = [[new Inject(VALIDATION_MESSAGES)]]
+    constructor(private defaultMessages: VALIDATION_MESSAGES) {}
+    getErrorMessage(errorType: keyof T): string {
+        return this.defaultMessages[errorType];
+    }
 }
+
 
 @Component({
     selector: 'form-field',
@@ -66,13 +121,12 @@ enum FormFieldRequiredClassname {
         <div class="angular-form-field__input">
             <ng-content select='input,select'></ng-content>
         </div>
-    `,
-    styles: [`
-        :host {
-
-        }
-    `]
-    // encapsulation: ViewEncapsulation.ShadowDom
+        <form-field-errors
+            *ngIf='(control.dirty || control.touched) && control.invalid'
+            [errorStyle]='options.errorStyle'
+            [errorType]='_getErrorType(control.control)'
+        ></form-field-errors>
+    `
 })
 export class FormField implements AfterViewInit {
     static parameters = [[new Inject(FORM_FIELD_OPTIONS)]]
@@ -88,6 +142,14 @@ export class FormField implements AfterViewInit {
     isRequired: boolean
     @HostBinding('class.form-field__optional')
     isOptional: boolean
+    @HostBinding('class.form-field__icon-error')
+    get isIconError() {
+        return this.options.errorStyle === FormFieldErrorStyles.ICON;
+    }
+    @HostBinding('class.form-field__inline-error')
+    get isInlineError() {
+        return this.options.errorStyle === FormFieldErrorStyles.INLINE;
+    }
 
     // @ContentChild()
 
@@ -97,6 +159,9 @@ export class FormField implements AfterViewInit {
         this.isRequired = this.options.requiredMarkerStyle === FormFieldRequiredMarkerStyles.REQUIRED && hasRequired;
     }
 
+    _getErrorType(control: FormControl): string {
+        return control.errors ? Object.entries(control.errors).filter(([key, invalid]) => invalid).map(([key]) => key).pop() : void 0;
+    }
 }
 
-export const FormFieldComponents = [FormFieldHint, FormField];
+export const FormFieldComponents = [FormFieldHint, FormFieldErrors, FormField];

@@ -22,7 +22,7 @@ import './style.scss';
 import {default as CountriesFactory, Country} from 'app/services/Countries.service';
 import {default as UserFactory, User} from 'app/modules/user/User.service';
 import {
-    FORM_FIELD_OPTIONS, FormFieldRequiredMarkerStyles, FormFielErrorStyles
+    FORM_FIELD_OPTIONS, FormFieldRequiredMarkerStyles, FormFieldErrorStyles
 } from '../formField.component';
 
 @Component({
@@ -34,7 +34,8 @@ import {
             useValue: {
                 requiredMarkerStyle: FormFieldRequiredMarkerStyles.OPTIONAL,
                 // requiredMarkerStyle: FormFieldRequiredMarkerStyles.REQUIRED,
-                errorStyle: FormFielErrorStyles.ICON
+                errorStyle: FormFieldErrorStyles.ICON
+                // errorStyle: FormFieldErrorStyles.INLINE
             }
         }
     ]
