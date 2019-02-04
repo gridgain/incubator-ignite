@@ -33,9 +33,6 @@ public class RestResult {
     /** Session token string representation. */
     private String sesTok;
 
-    /** Flag of zipped data. */
-    private boolean zipped;
-
     /**
      * @param status REST http code.
      * @param error The field contains description of error if server could not handle the request.
@@ -94,21 +91,5 @@ public class RestResult {
      */
     public String getSessionToken() {
         return sesTok;
-    }
-
-    /**
-     * @param data Set zipped data.
-     */
-    public void zipData(String data) {
-        zipped = true;
-
-        this.data = data;
-    }
-
-    /**
-     * @return {@code true if data is zipped and Base64 encoded.}
-     */
-    public boolean isZipped() {
-        return zipped;
     }
 }

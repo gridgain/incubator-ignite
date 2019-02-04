@@ -18,12 +18,10 @@
 package org.apache.ignite.console.verticles;
 
 import java.net.InetAddress;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -108,19 +106,7 @@ import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.Gr
 @SuppressWarnings("JavaAbbreviationUsage")
 public class WebConsoleVerticle extends AbstractVerticle {
     /** */
-    private static final SimpleDateFormat DEBUG_DATE_FMT = new SimpleDateFormat("HH:mm:ss,SSS");
-
-    /** */
     private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
-
-    /** */
-    private static final String VISOR_GRIDGAIN = "org.gridgain.grid.internal.visor.";
-
-    /** */
-    private static final String VISOR_SNAPSHOT = "org.gridgain.grid.internal.visor.database.snapshot.";
-
-    /** */
-    private static final String VISOR_DR = "org.gridgain.grid.internal.visor.dr.";
 
     /** */
     private static final String CLUSTER_ID = UUID.randomUUID().toString();
@@ -163,9 +149,8 @@ public class WebConsoleVerticle extends AbstractVerticle {
     /**
      * @param s Message to log.
      */
-    private static void log(Object s) {
-        System.out.println("[" + DEBUG_DATE_FMT.format(new Date(System.currentTimeMillis())) + "] [" +
-            Thread.currentThread().getName() + "]" + " " + s);
+    protected void log(Object s) {
+        ignite.log().info(String.valueOf(s));
     }
 
     /**
@@ -270,32 +255,8 @@ public class WebConsoleVerticle extends AbstractVerticle {
      * @param shortName Class short name.
      * @return Full class name.
      */
-    private String igniteVisor(String shortName) {
+    protected String igniteVisor(String shortName) {
         return VISOR_IGNITE + shortName;
-    }
-
-    /**
-     * @param shortName Class short name.
-     * @return Full class name.
-     */
-    private String gridgainVisor(String shortName) {
-        return VISOR_GRIDGAIN + shortName;
-    }
-
-    /**
-     * @param shortName Class short name.
-     * @return Full class name.
-     */
-    private String snapshotsVisor(String shortName) {
-        return VISOR_SNAPSHOT + shortName;
-    }
-
-    /**
-     * @param shortName Class short name.
-     * @return Full class name.
-     */
-    private String drVisor(String shortName) {
-        return VISOR_DR + shortName;
     }
 
     /**
@@ -303,14 +264,14 @@ public class WebConsoleVerticle extends AbstractVerticle {
      * @param taskCls Task class name.
      * @param argCls Arguments classes names.
      */
-    private void registerVisorTask(String taskId, String taskCls, String... argCls) {
+    protected void registerVisorTask(String taskId, String taskCls, String... argCls) {
         visorTasks.put(taskId, new VisorTaskDescriptor(taskCls, argCls));
     }
 
     /**
      * Register Visor tasks.
      */
-    private void registerVisorTasks() {
+    protected void registerVisorTasks() {
         registerVisorTask("querySql", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArg"));
         registerVisorTask("querySqlV2", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV2"));
         registerVisorTask("querySqlV3", igniteVisor("query.VisorQueryTask"), igniteVisor("query.VisorQueryArgV3"));
@@ -332,113 +293,6 @@ public class WebConsoleVerticle extends AbstractVerticle {
 
         registerVisorTask("cacheNodesTask", igniteVisor("cache.VisorCacheNodesTask"), "java.lang.String");
         registerVisorTask("cacheNodesTaskX2", igniteVisor("cache.VisorCacheNodesTask"), igniteVisor("cache.VisorCacheNodesTaskArg"));
-
-        // ---------- GG ---------------
-
-        registerVisorTask("collectCacheRebalance",
-            igniteVisor("node.VisorCacheRebalanceCollectorTask"),
-            igniteVisor("node.VisorCacheRebalanceCollectorTaskArg"));
-
-        registerVisorTask("collectorTask", igniteVisor("node.VisorNodeDataCollectorTask"),
-            igniteVisor("node.VisorNodeDataCollectorTaskArg"));
-        registerVisorTask("ggCollectorTask", gridgainVisor("node.VisorGridGainNodeDataCollectorTask"),
-            igniteVisor("node.VisorNodeDataCollectorTaskArg"));
-
-        registerVisorTask("queryRunning", igniteVisor("query.VisorCollectRunningQueriesTask"), "java.lang.Long");
-        registerVisorTask("queryRunningX2", igniteVisor("query.VisorRunningQueriesCollectorTask"), igniteVisor("query.VisorRunningQueriesCollectorTaskArg"));
-
-        registerVisorTask("queryCancel", igniteVisor("query.VisorCancelQueriesTask"), "java.util.Collection", "java.lang.Long");
-        registerVisorTask("queryCancelX2", igniteVisor("query.VisorQueryCancelTask"), igniteVisor("query.VisorQueryCancelTaskArg"));
-
-        registerVisorTask("sessionCancel", igniteVisor("compute.VisorComputeCancelSessionsTask"),
-            igniteVisor("compute.VisorComputeCancelSessionsTaskArg"), "java.util.Set", "org.apache.ignite.lang.IgniteUuid");
-
-        registerVisorTask("toggleTaskMonitoring", igniteVisor("compute.VisorComputeToggleMonitoringTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.lang.String", "java.lang.Boolean");
-        registerVisorTask("toggleTaskMonitoringX2", igniteVisor("compute.VisorComputeToggleMonitoringTask"), igniteVisor("compute.VisorComputeToggleMonitoringTaskArg"));
-
-        registerVisorTask("queryDetailMetrics", igniteVisor("cache.VisorCacheQueryDetailMetricsCollectorTask"), "java.lang.Long");
-        registerVisorTask("queryDetailMetricsX2", igniteVisor("query.VisorQueryDetailMetricsCollectorTask"), igniteVisor("query.VisorQueryDetailMetricsCollectorTaskArg"));
-
-        registerVisorTask("queryResetDetailMetrics", igniteVisor("cache.VisorCacheResetQueryDetailMetricsTask"), "java.lang.Void");
-        registerVisorTask("queryResetDetailMetricsX2", igniteVisor("query.VisorQueryResetDetailMetricsTask"), "java.lang.Void");
-
-        registerVisorTask("services", igniteVisor("service.VisorServiceTask"), "java.lang.Void");
-
-        registerVisorTask("serviceCancel", igniteVisor("service.VisorCancelServiceTask"), "java.lang.String");
-        registerVisorTask("serviceCancelX2", igniteVisor("service.VisorCancelServiceTask"), igniteVisor("service.VisorCancelServiceTaskArg"));
-
-        registerVisorTask("nodeConfiguration", igniteVisor("node.VisorNodeConfigurationCollectorTask"), "java.lang.Void");
-        registerVisorTask("ggNodeConfiguration", gridgainVisor("node.VisorGridGainNodeConfigurationCollectorTask"), "java.lang.Void");
-
-        registerVisorTask("nodeGc", igniteVisor("node.VisorNodeGcTask"), "java.lang.Void");
-
-        registerVisorTask("nodePing", igniteVisor("node.VisorNodePingTask"), "java.util.UUID");
-        registerVisorTask("nodePingX2", igniteVisor("node.VisorNodePingTask"), igniteVisor("node.VisorNodePingTaskArg"));
-
-        registerVisorTask("nodeThreadDump", igniteVisor("debug.VisorThreadDumpTask"), "java.lang.Void");
-
-        registerVisorTask("nodeStop", igniteVisor("node.VisorNodeStopTask"), "java.lang.Void");
-
-        registerVisorTask("nodeRestart", igniteVisor("node.VisorNodeRestartTask"), "java.lang.Void");
-
-        registerVisorTask("cacheConfiguration", igniteVisor("cache.VisorCacheConfigurationCollectorTask"), "java.util.Collection", "org.apache.ignite.lang.IgniteUuid");
-        registerVisorTask("cacheConfigurationX2", igniteVisor("cache.VisorCacheConfigurationCollectorTask"), igniteVisor("cache.VisorCacheConfigurationCollectorTaskArg"));
-
-        registerVisorTask("ggCacheConfiguration", gridgainVisor("cache.VisorGridGainCacheConfigurationCollectorTask"), "java.util.Collection", "org.apache.ignite.lang.IgniteUuid");
-        registerVisorTask("ggCacheConfigurationX2", gridgainVisor("cache.VisorGridGainCacheConfigurationCollectorTask"), igniteVisor("cache.VisorCacheConfigurationCollectorTaskArg"));
-
-        registerVisorTask("cacheStart", igniteVisor("cache.VisorCacheStartTask"), igniteVisor("cache.VisorCacheStartTask$VisorCacheStartArg"));
-        registerVisorTask("cacheStartX2", igniteVisor("cache.VisorCacheStartTask"), igniteVisor("cache.VisorCacheStartTaskArg"));
-
-        registerVisorTask("cacheClear", igniteVisor("cache.VisorCacheClearTask"), "java.lang.String");
-        registerVisorTask("cacheClearX2", igniteVisor("cache.VisorCacheClearTask"), igniteVisor("cache.VisorCacheClearTaskArg"));
-
-        registerVisorTask("cacheStop", igniteVisor("cache.VisorCacheStopTask"), "java.lang.String");
-        registerVisorTask("cacheStopX2", igniteVisor("cache.VisorCacheStopTask"), igniteVisor("cache.VisorCacheStopTaskArg"));
-        registerVisorTask("cacheStopX3", igniteVisor("cache.VisorCacheStopTask"), igniteVisor("cache.VisorCacheStopTaskArg"), "java.util.List", "java.lang.String");
-
-        registerVisorTask("cachePartitions", igniteVisor("cache.VisorCachePartitionsTask"), "java.lang.String");
-        registerVisorTask("cachePartitionsX2", igniteVisor("cache.VisorCachePartitionsTask"), igniteVisor("cache.VisorCachePartitionsTaskArg"));
-
-        registerVisorTask("cacheResetMetrics", igniteVisor("cache.VisorCacheResetMetricsTask"), "java.lang.String");
-        registerVisorTask("cacheResetMetricsX2", igniteVisor("cache.VisorCacheResetMetricsTask"), igniteVisor("cache.VisorCacheResetMetricsTaskArg"));
-
-        registerVisorTask("cacheRebalance", igniteVisor("cache.VisorCacheRebalanceTask"), "java.util.Set", "java.lang.String");
-        registerVisorTask("cacheRebalanceX2", igniteVisor("cache.VisorCacheRebalanceTask"), igniteVisor("cache.VisorCacheRebalanceTaskArg"), "java.util.Set", "java.lang.String");
-
-        registerVisorTask("cacheToggleStatistics", igniteVisor("cache.VisorCacheToggleStatisticsTask"), igniteVisor("cache.VisorCacheToggleStatisticsTaskArg"));
-
-        registerVisorTask("updateLicense", gridgainVisor("license.VisorLicenseUpdateTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.util.UUID", "java.lang.String");
-        registerVisorTask("updateLicenseX2", gridgainVisor("license.VisorLicenseUpdateTask"), gridgainVisor("license.VisorLicenseUpdateTaskArg"));
-
-        registerVisorTask("changeClusterActiveState", igniteVisor("misc.VisorChangeGridActiveStateTask"), igniteVisor("misc.VisorChangeGridActiveStateTaskArg"));
-
-        registerVisorTask("checkSnapshots", snapshotsVisor("VisorCheckSnapshotsChangesTask"), "java.lang.Void");
-        registerVisorTask("collectSnapshots", snapshotsVisor("VisorListSnapshotsTask"), snapshotsVisor("VisorSnapshotInfo"));
-        registerVisorTask("snapshotCreate", snapshotsVisor("VisorCreateSnapshotTask"), snapshotsVisor("VisorSnapshotInfo"));
-        registerVisorTask("snapshotRestore", snapshotsVisor("VisorRestoreSnapshotTask"), snapshotsVisor("VisorSnapshotInfo"));
-        registerVisorTask("snapshotDelete", snapshotsVisor("VisorDeleteSnapshotTask"), snapshotsVisor("VisorSnapshotInfo"));
-        registerVisorTask("snapshotMove", snapshotsVisor("VisorMoveSnapshotTask"), snapshotsVisor("VisorSnapshotInfo"));
-        registerVisorTask("snapshotsStatus", snapshotsVisor("VisorSnapshotsStatusTask"), "java.lang.Void");
-        registerVisorTask("snapshotCancel", snapshotsVisor("VisorCancelSnapshotOperationTask"), snapshotsVisor("VisorCancelSnapshotOperationTaskArg"));
-
-        registerVisorTask("collectSchedules", snapshotsVisor("VisorCollectSnapshotSchedulesTask"), "java.lang.Void");
-        registerVisorTask("scheduleSnapshotOperation", snapshotsVisor("VisorScheduleSnapshotOperationTask"), snapshotsVisor("VisorSnapshotSchedule"));
-        registerVisorTask("toggleSnapshotScheduleEnabledState", snapshotsVisor("VisorToggleSnapshotScheduleEnabledStateTask"), snapshotsVisor("VisorSnapshotSchedule"));
-        registerVisorTask("deleteSnapshotSchedule", snapshotsVisor("VisorDeleteSnapshotScheduleTask"), snapshotsVisor("VisorSnapshotSchedule"));
-
-        registerVisorTask("latestTextFiles", igniteVisor("file.VisorLatestTextFilesTask"), "org.apache.ignite.lang.IgniteBiTuple", "java.lang.String", "java.lang.String");
-        registerVisorTask("latestTextFilesX2", igniteVisor("file.VisorLatestTextFilesTask"), igniteVisor("file.VisorLatestTextFilesTaskArg"));
-
-        registerVisorTask("fileBlockTask", igniteVisor("file.VisorFileBlockTask"), igniteVisor("file.VisorFileBlockTask$VisorFileBlockArg"));
-        registerVisorTask("fileBlockTaskX2", igniteVisor("file.VisorFileBlockTask"), igniteVisor("file.VisorFileBlockTaskArg"));
-
-        registerVisorTask("baseline", igniteVisor("baseline.VisorBaselineTask"), igniteVisor("baseline.VisorBaselineTaskArg"));
-        registerVisorTask("baselineView", igniteVisor("baseline.VisorBaselineViewTask"), "java.lang.Void");
-
-        registerVisorTask("drResetMetrics", drVisor("VisorDrResetMetricsTask"), "java.lang.Void");
-        registerVisorTask("drBootstrap", drVisor("VisorDrSenderCacheBootstrapTask"), drVisor("VisorDrSenderCacheBootstrapTaskArg"));
-        registerVisorTask("drChangeReplicationState", drVisor("VisorDrSenderCacheChangeReplicationStateTask"), drVisor("VisorDrSenderCacheChangeReplicationStateTaskArg"));
     }
 
     /**
