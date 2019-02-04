@@ -95,6 +95,7 @@ module.exports.factory = function(settings, mongo, AgentSocket) {
             this.clusterVersion = top.clusterVersion;
             this.active = top.active;
             this.secured = top.secured;
+            this.demoEnabled = true;
         }
 
         isSameCluster(top) {
@@ -109,6 +110,7 @@ module.exports.factory = function(settings, mongo, AgentSocket) {
             this.clusterVersion = top.clusterVersion;
             this.active = top.active;
             this.secured = top.secured;
+            this.demoEnabled = this.demoEnabled && top.demoEnabled;
         }
 
         same(top) {
@@ -244,11 +246,22 @@ module.exports.factory = function(settings, mongo, AgentSocket) {
             });
 
             sock.on('disconnect', () => {
+                const clusterSocks = [];
+                const clusterId = _.get(agentSocket, 'cluster.id');
+
                 _.forEach(accounts, (account) => {
-                    _.pull(this._agentSockets.get(account), agentSocket);
+                    const socks = this._agentSockets.get(account);
+
+                    _.pull(socks, agentSocket);
+
+                    if (clusterId)
+                        clusterSocks.push(..._.filter(socks, (sock) => sock.cluster.id === clusterId));
 
                     this._browsersHnd.agentStats(account);
                 });
+
+                if (clusterSocks)
+                    _.set(agentSocket.cluster, 'demoEnabled', !_.find(clusterSocks, (sock) => !sock.demo.enabled));
             });
 
             sock.on('cluster:topology', (top) => {
@@ -259,6 +272,8 @@ module.exports.factory = function(settings, mongo, AgentSocket) {
                 }
 
                 const cluster = this.getOrCreateCluster(top);
+
+                cluster.demoEnabled = demoEnabled && (_.isNil(cluster.demoEnabled) ? true : cluster.demoEnabled);
 
                 _.forEach(this.topLsnrs, (lsnr) => lsnr(agentSocket, cluster, top));
 
@@ -347,7 +362,7 @@ module.exports.factory = function(settings, mongo, AgentSocket) {
 
                                     cb(null, activeTokens);
 
-                                    return this.onConnect(sock, accounts, activeTokens, disableDemo);
+                                    return this.onConnect(sock, accounts, activeTokens, !disableDemo);
                                 })
                                 // TODO IGNITE-1379 send error to web master.
                                 .catch(() => cb(`Invalid token(s): ${tokens.join(',')}. Please reload agent archive or check settings`));
@@ -368,8 +383,17 @@ module.exports.factory = function(settings, mongo, AgentSocket) {
             if (_.isEmpty(socks))
                 return Promise.reject(new Error('Failed to find connected agent for this account'));
 
-            if (demo || _.isNil(clusterId))
+            if (_.isNil(clusterId))
                 return Promise.resolve(_.head(socks));
+
+            if (demo) {
+                const sock = _.find(socks, (sock) => sock.demo.enabled);
+
+                if (sock)
+                    return Promise.resolve(sock);
+
+                return Promise.reject(new Error('Demo is disabled by administrator for that instance of Web agent'));
+            }
 
             const sock = _.find(socks, (agentSock) => _.get(agentSock, 'cluster.id') === clusterId);
 

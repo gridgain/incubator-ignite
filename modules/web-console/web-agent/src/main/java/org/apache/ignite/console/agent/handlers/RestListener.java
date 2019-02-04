@@ -77,7 +77,10 @@ public class RestListener extends AbstractListener {
         try {
             if (demo) {
                 if (AgentClusterDemo.getDemoUrl() == null) {
-                    AgentClusterDemo.tryStart().await();
+                    if (!cfg.disableDemo())
+                        AgentClusterDemo.tryStart().await();
+                    else
+                        return RestResult.fail(404, "Starting of demo mode is not allowed by administrator.");
 
                     if (AgentClusterDemo.getDemoUrl() == null)
                         return RestResult.fail(404, "Failed to send request because of embedded node for demo mode is not started yet.");
