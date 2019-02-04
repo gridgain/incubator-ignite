@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import {AfterViewInit, Injectable, ContentChild, Inject, Component, Directive, ViewEncapsulation, ViewChild, HostBinding, ElementRef, Host, Optional, Input} from '@angular/core';
+import {TemplateRef, AfterViewInit, Injectable, ContentChild, ContentChildren, Inject, Component, Directive, ViewEncapsulation, ViewChild, HostBinding, ElementRef, Host, Optional, Input} from '@angular/core';
 import {FormControlDirective, FormControlName, FormControl} from '@angular/forms';
 import './formField.component.scss';
 import {PopperContent} from 'ngx-popper';
@@ -62,13 +62,21 @@ class FormFieldHint {
 @Component({
     selector: 'form-field-errors',
     template: `
+        <ng-template #validationMessage>
+            <ng-template *ngIf='extraErrorMessages[errorType]' [ngTemplateOutlet]='extraErrorMessages[errorType]'></ng-template>
+            <ng-container *ngIf='!extraErrorMessages[errorType] && defaultMessages[errorType]'>{{defaultMessages[errorType]}}</ng-container>
+            <ng-container *ngIf='!extraErrorMessages[errorType] && !defaultMessages[errorType]'>Value is invalid: {{errorType}}</ng-container>
+        </ng-template>
         <div *ngIf='errorStyle === "inline"' class='inline'>
-            {{getErrorMessage(errorType)}}
+            <ng-container *ngTemplateOutlet='validationMessage'></ng-container>
         </div>
         <div *ngIf='errorStyle === "icon"' class='icon'>
+            <popper-content #popper>
+                <ng-container *ngTemplateOutlet='validationMessage'></ng-container>
+            </popper-content>
             <ignite-icon
                 name='attention'
-                [popper]='getErrorMessage(errorType)'
+                [popper]='popper'
                 popperApplyClass='ignite-popper,ignite-popper__error'
                 popperTrigger='hover'
                 popperPlacement='top'
@@ -100,16 +108,12 @@ export class FormFieldErrors<T extends {[errorType: string]: string}> {
     @Input()
     errorStyle: FormFieldErrorStyles
     @Input()
-    extraErrorMessages: T
+    extraErrorMessages: T = {} as T
     @Input()
     errorType: keyof T
     static parameters = [[new Inject(VALIDATION_MESSAGES)]]
     constructor(private defaultMessages: VALIDATION_MESSAGES) {}
-    getErrorMessage(errorType: keyof T): string {
-        return this.defaultMessages[errorType];
-    }
 }
-
 
 @Component({
     selector: 'form-field',
@@ -125,12 +129,15 @@ export class FormFieldErrors<T extends {[errorType: string]: string}> {
             *ngIf='(control.dirty || control.touched) && control.invalid'
             [errorStyle]='options.errorStyle'
             [errorType]='_getErrorType(control.control)'
+            [extraErrorMessages]='extraMessages'
         ></form-field-errors>
     `
 })
 export class FormField implements AfterViewInit {
     static parameters = [[new Inject(FORM_FIELD_OPTIONS)]]
     constructor(private options: FORM_FIELD_OPTIONS) {}
+
+    extraMessages = {}
 
     @ContentChild(FormControlName)
     control: FormControlName
@@ -151,8 +158,6 @@ export class FormField implements AfterViewInit {
         return this.options.errorStyle === FormFieldErrorStyles.INLINE;
     }
 
-    // @ContentChild()
-
     ngAfterViewInit() {
         const hasRequired: boolean = this.control && this.control.control.validator && this.control.control.validator({}).required;
         this.isOptional = this.options.requiredMarkerStyle === FormFieldRequiredMarkerStyles.OPTIONAL && !hasRequired;
@@ -162,6 +167,33 @@ export class FormField implements AfterViewInit {
     _getErrorType(control: FormControl): string {
         return control.errors ? Object.entries(control.errors).filter(([key, invalid]) => invalid).map(([key]) => key).pop() : void 0;
     }
+
+    addExtraErrorMessage(key, message) {
+        this.extraMessages = {
+            ...this.extraMessages,
+            [key]: message
+        };
+    }
 }
 
-export const FormFieldComponents = [FormFieldHint, FormFieldErrors, FormField];
+@Component({
+    selector: 'form-field-error',
+    template: `<ng-template #errorTemplate><ng-content></ng-content></ng-template>`
+})
+export class FormFieldError implements AfterViewInit {
+    @Input()
+    error: string
+
+    @ViewChild('errorTemplate')
+    template: TemplateRef<any>
+
+    static parameters = [[new Inject(ElementRef)], [new Inject(FormField)]]
+    constructor(private ref: ElementRef, private formField: FormField) {}
+    ngAfterViewInit() {
+        this.formField.addExtraErrorMessage(this.error, this.template);
+    }
+}
+
+
+
+export const FormFieldComponents = [FormFieldHint, FormFieldErrors, FormFieldError, FormField];
