@@ -18,7 +18,7 @@
 <header class="header-with-selector">
     <div><h1>User profile</h1></div>        
 </header>
-<form [formGroup]='form' (submit)='saveUser()' id='user'>
+<form [formGroup]='form' (ngSubmit)='saveUser()' id='user' scrollToFirstInvalid>
     <form-field class='span-1'>
         <form-field-hint>Foo Bar</form-field-hint>
         <label for='firstName'>First name</label>

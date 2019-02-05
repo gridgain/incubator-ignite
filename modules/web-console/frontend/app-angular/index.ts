@@ -33,6 +33,7 @@ export {PageProfile};
 import {IgniteIcon} from './components/igniteIcon.component';
 import {FormFieldTooltip} from './components/formFieldTooltip.component';
 import {FormFieldComponents} from './components/formField.component';
+import {ScrollToFirstInvalid} from './components/scrollToFirstInvalid.directive';
 
 import {ReactiveFormsModule} from '@angular/forms';
 
@@ -41,6 +42,7 @@ export const declarations = [
     PageProfile,
     IgniteIcon,
     FormFieldTooltip,
+    ScrollToFirstInvalid,
     ...FormFieldComponents
 ];
 
