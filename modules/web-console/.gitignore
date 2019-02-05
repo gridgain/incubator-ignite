@@ -1,4 +1,4 @@
 .npmrc
 build/
 node_modules/
-package-lock.json
+backend/package-lock.json
