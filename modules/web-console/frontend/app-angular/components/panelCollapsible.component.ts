@@ -101,6 +101,7 @@ import {Component, Input, Output, EventEmitter} from '@angular/core';
     `]
 })
 export class PanelCollapsible {
+    @Input()
     opened: boolean = false
 
     @Output()
