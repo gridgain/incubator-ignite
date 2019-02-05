@@ -123,15 +123,20 @@ export class FormFieldErrors<T extends {[errorType: string]: string}> {
             <form-field-tooltip *ngIf='hint' [content]='hint.popper'></form-field-tooltip>
         </div>
         <div class="angular-form-field__input">
-            <ng-content select='input,select'></ng-content>
+            <ng-content></ng-content>
         </div>
         <form-field-errors
-            *ngIf='(control.dirty || control.touched) && control.invalid'
+            *ngIf='(control?.dirty || control?.touched) && control?.invalid'
             [errorStyle]='options.errorStyle'
-            [errorType]='_getErrorType(control.control)'
+            [errorType]='_getErrorType(control?.control)'
             [extraErrorMessages]='extraMessages'
         ></form-field-errors>
-    `
+    `,
+    styles: [`
+        .angular-form-field__input {
+            position: relative;
+        }
+    `]
 })
 export class FormField implements AfterViewInit {
     static parameters = [[new Inject(FORM_FIELD_OPTIONS)]]
