@@ -45,12 +45,13 @@
         <label for='company'>Company</label>
         <input type="text" formControlName='company' id='company'>
     </form-field>
-    <panel-collapsible-angular class='span-2' #securityTokenPanel>
+    <panel-collapsible-angular class='span-2' #securityTokenPanel opened='true'>
         <span panelTitle>{{ securityTokenPanel.opened ? 'Cancel security token changing...' : 'Show security token...' }}</span>
         <div class='form-grid'>
             <form-field class="span-1">
                 <form-field-hint>The security token is used for authentication of Web agent</form-field-hint>
                 <label for="securityToken">Security Token</label>
+                <copy-to-clipboard-button [value]='form.value.token'>Copy security token to clipboard</copy-to-clipboard-button>
                 <input
                     id='securityToken'
                     type="text"

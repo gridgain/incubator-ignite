@@ -35,6 +35,7 @@ import {FormFieldTooltip} from './components/formFieldTooltip.component';
 import {FormFieldComponents} from './components/formField.component';
 import {ScrollToFirstInvalid} from './components/scrollToFirstInvalid.directive';
 import {PanelCollapsible} from './components/panelCollapsible.component';
+import {CopyToClipboardButton} from './components/copyToClipboardButton.component';
 
 import {ReactiveFormsModule} from '@angular/forms';
 
@@ -45,6 +46,7 @@ export const declarations = [
     FormFieldTooltip,
     ScrollToFirstInvalid,
     PanelCollapsible,
+    CopyToClipboardButton,
     ...FormFieldComponents
 ];
 
@@ -67,6 +69,11 @@ export const providers = [
     {
         provide: 'IgniteIcons',
         useFactory: (i) => i.get('IgniteIcons'),
+        deps: ['$injector']
+    },
+    {
+        provide: 'IgniteCopyToClipboard',
+        useFactory: (i) => i.get('IgniteCopyToClipboard'),
         deps: ['$injector']
     }
 ];
