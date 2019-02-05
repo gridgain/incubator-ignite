@@ -31,4 +31,13 @@ page-profile-angular {
             grid-column: span 2;
         }
     }
+
+    footer {
+        display: flex;
+        justify-content: flex-end;
+
+        .btn-ignite + .btn-ignite {
+            margin-left: 10px;
+        }
+    }
 }
