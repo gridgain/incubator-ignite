@@ -17,47 +17,25 @@
 
 package org.apache.ignite.console.dto;
 
-import java.util.UUID;
-
 /**
- * General purpose data object.
+ * Supported data types.
  */
-public abstract class DataObject extends AbstractDto {
+public enum PropertyType {
     /** */
-    private UUID space;
+    ARRAY,
 
     /** */
-    private String json;
+    BOOLEAN,
 
-    /**
-     * Default constructor.
-     */
-    protected DataObject() {
-        // No-op.
-    }
+    /** */
+    NUMBER,
 
-    /**
-     * Full constructor.
-     *
-     * @param space User space.
-     * @param json JSON encoded payload.
-     */
-    protected DataObject(UUID space, String json) {
-        this.space = space;
-        this.json = json;
-    }
+    /** */
+    OBJECT,
 
-    /**
-     * @return User space.
-     */
-    public UUID space() {
-        return space;
-    }
+    /** */
+    STRING,
 
-    /**
-     * @return JSON encoded payload.
-     */
-    public String json() {
-        return json;
-    }
+    /** */
+    UUID
 }

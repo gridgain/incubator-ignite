@@ -21,7 +21,7 @@ import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 
 /**
- * DTO for space.
+ * DTO for User space.
  */
 public class Space extends AbstractDto {
     /** */
@@ -37,16 +37,16 @@ public class Space extends AbstractDto {
      * Default constructor.
      */
     public Space() {
-
+        // No-op.
     }
 
     /**
      * Full constructor.
      *
-     * @param id
-     * @param name
-     * @param owner
-     * @param demo
+     * @param id Space ID.
+     * @param name Space name.
+     * @param owner Reference to owner account.
+     * @param demo Flag of demo space.
      */
     public Space(
         UUID id,

@@ -15,28 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.agent;
-
-import java.io.IOException;
+package org.apache.ignite.console.dto;
 
 /**
- * This class extends {@link IOException} and represents an authentication failure to the proxy.
+ * DTO for queries notebook.
  */
-public class ProxyAuthException extends IOException {
-    /** */
-    private static final long serialVersionUID = 0L;
-
-    /**
-     * {@inheritDoc}
-     */
-    public ProxyAuthException(String msg) {
-        super(msg);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public ProxyAuthException(String msg, Throwable ex) {
-        super(msg, ex);
-    }
+public class Notebook extends DataObject {
 }

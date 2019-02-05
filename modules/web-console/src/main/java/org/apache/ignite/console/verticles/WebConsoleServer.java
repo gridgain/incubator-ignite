@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -64,6 +65,8 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.common.Consts;
+import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.dto.Schemas;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.binary.BinaryObjectImpl;
@@ -75,9 +78,11 @@ import org.apache.ignite.internal.processors.rest.client.message.GridClientCache
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeBean;
 import org.apache.ignite.internal.processors.rest.client.message.GridClientNodeMetricsBean;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.visor.compute.VisorGatewayTask;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.transactions.Transaction;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
@@ -99,12 +104,14 @@ import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.Gr
 import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper.IGNITE_TUPLE_SERIALIZER;
 import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper.IGNITE_UUID_SERIALIZER;
 import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper.THROWABLE_SERIALIZER;
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 
 /**
  * Web Console server.
  */
 @SuppressWarnings("JavaAbbreviationUsage")
-public class WebConsoleVerticle extends AbstractVerticle {
+public class WebConsoleServer extends AbstractVerticle {
     /** */
     private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
 
@@ -118,10 +125,10 @@ public class WebConsoleVerticle extends AbstractVerticle {
         HttpHeaderValues.MUST_REVALIDATE);
 
     /** */
-    private Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
+    private final Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
 
     /** */
-    private Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
+    private final Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
 
     /** */
     private final Ignite ignite;
@@ -158,7 +165,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
      * @param auth Auth provider.
      * @param embedded Whether Web Console run in embedded mode.
      */
-    public WebConsoleVerticle(Ignite ignite, IgniteAuth auth, boolean embedded) {
+    public WebConsoleServer(Ignite ignite, IgniteAuth auth, boolean embedded) {
         this.ignite = ignite;
         this.auth = auth;
         this.embedded = embedded;
@@ -207,7 +214,9 @@ public class WebConsoleVerticle extends AbstractVerticle {
         log("Web Console started: " + (System.currentTimeMillis() - start));
     }
 
-    /** // TODO IGNITE-5617  Javadocs */
+    /**
+     * Register event bus consumers.
+     */
     private void registerEventBusConsumers() {
         EventBus eventBus = vertx.eventBus();
 
@@ -421,26 +430,40 @@ public class WebConsoleVerticle extends AbstractVerticle {
         if (user == null)
             sendStatus(ctx, HTTP_UNAUTHORIZED, "User not found");
         else {
-            // JsonObject account = user.principal();
+            JsonObject rawData = ctx.getBody().toJsonObject();
 
-            JsonObject notebook = ctx.getBody().toJsonObject();
+            JsonObject notebookSchema = Schemas.INSTANCE.schema(Notebook.class);
 
-            IgniteCache<String, String> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+            Set<String> rawFlds = rawData.fieldNames();
 
-            String _id = notebook.getString("_id");
+            // Remove unknown fields.
+            for (String fld : rawFlds) {
+                if (!notebookSchema.containsKey(fld)) {
+                    rawData.remove(fld);
 
-            if (F.isEmpty(_id)) {
-                _id = UUID.randomUUID().toString();
-
-                notebook.put("_id", _id);
-                notebook.put("paragraphs", new JsonArray());
+                    log("Removed unknown field: " + fld);
+                }
             }
 
-            String json = notebook.encode();
+            try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
+                UUID _id = rawData.containsKey("_id") ? UUID.fromString(rawData.getString("_id")) : UUID.randomUUID();
 
-            cache.put(_id, json);
+                Notebook notebook = new Notebook();
+                notebook.id(_id);
 
-            sendStatus(ctx, HTTP_OK, json);
+                IgniteCache<UUID, Notebook> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+
+                cache.put(_id, notebook);
+
+                tx.commit();
+
+                String json = notebook.json();
+
+                sendStatus(ctx, HTTP_OK, json);
+            }
+            catch (Throwable e) {
+                ignite.log().error("Failed to save notebook", e);
+            }
         }
     }
 
@@ -496,27 +519,33 @@ public class WebConsoleVerticle extends AbstractVerticle {
      * @param tid Timer ID.
      */
     private void handleEmbeddedClusterTopology(long tid) {
-        JsonObject desc = clusters.computeIfAbsent(CLUSTER_ID, key -> {
-            JsonArray top = new JsonArray();
+        try {
+            JsonObject desc = clusters.computeIfAbsent(CLUSTER_ID, key -> {
+                JsonArray top = new JsonArray();
 
-            top.add(new JsonObject()
-                .put("id", CLUSTER_ID)
-                .put("name", "EMBBEDED")
-                .put("nids", new JsonArray().add(ignite.cluster().localNode().id().toString()))
-                .put("addresses", new JsonArray().add("192.168.0.10"))
-                .put("clusterVersion", ignite.version().toString())
-                .put("active", ignite.cluster().active())
-                .put("secured", false)
-            );
+                top.add(new JsonObject()
+                    .put("id", CLUSTER_ID)
+                    .put("name", "EMBEDDED")
+                    .put("nids", new JsonArray().add(ignite.cluster().localNode().id().toString()))
+                    .put("addresses", new JsonArray().add("192.168.0.10"))
+                    .put("clusterVersion", ignite.version().toString())
+                    .put("active", ignite.cluster().active())
+                    .put("secured", false)
+                );
 
-            return new JsonObject()
-                .put("count", 1)
-                .put("hasDemo", false)
-                .put("clusters", top);
+                return new JsonObject()
+                    .put("count", 1)
+                    .put("hasDemo", false)
+                    .put("clusters", top);
+            });
 
-        });
+            // TODO IGNITE-5617  Update cluster.active if ignite.cluster().active() state changed!
 
-        vertx.eventBus().send(Addresses.AGENTS_STATUS, desc);
+            vertx.eventBus().send(Addresses.AGENTS_STATUS, desc);
+        }
+        catch (Throwable ignore) {
+            LT.info(ignite.log(), "Embedded Web Console awaits for cluster activation...");
+        }
     }
 
     /**

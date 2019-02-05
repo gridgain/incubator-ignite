@@ -18,6 +18,7 @@
 package org.apache.ignite.console;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Collections;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
@@ -30,11 +31,12 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Consts;
-import org.apache.ignite.console.verticles.WebConsoleVerticle;
+import org.apache.ignite.console.verticles.WebConsoleServer;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
+import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
@@ -54,12 +56,17 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
         IgniteAuth auth = new IgniteAuth(ignite, vertx);
 
-        vertx.deployVerticle(new WebConsoleVerticle(ignite, auth, false));
+        vertx.deployVerticle(new WebConsoleServer(ignite, auth, false));
     }
 
+    /**
+     * @param name Cache name.
+     * @return Cache config.
+     */
     private static CacheConfiguration cacheCfg(String name) {
         CacheConfiguration ccfg = new CacheConfiguration(name);
         ccfg.setCacheMode(REPLICATED);
+        ccfg.setAtomicityMode(TRANSACTIONAL);
 
         return ccfg;
     }
@@ -100,22 +107,17 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
         cfg.setDataStorageConfiguration(dataStorageCfg);
 
-        CacheConfiguration accountsCfg = new CacheConfiguration(Consts.ACCOUNTS_CACHE_NAME);
-        accountsCfg.setCacheMode(REPLICATED);
-
-        CacheConfiguration spacesCfg = new CacheConfiguration(Consts.SPACES_CACHE_NAME);
-        accountsCfg.setCacheMode(REPLICATED);
-
-        CacheConfiguration notebooksCfg = new CacheConfiguration(Consts.NOTEBOOKS_CACHE_NAME);
-        accountsCfg.setCacheMode(REPLICATED);
-
-        cfg.setCacheConfiguration(accountsCfg, spacesCfg, notebooksCfg);
-
         cfg.setConnectorConfiguration(null);
 
         Ignite ignite = Ignition.getOrStart(cfg);
 
         ignite.cluster().active(true);
+
+        ignite.getOrCreateCaches(Arrays.asList(
+            cacheCfg(Consts.ACCOUNTS_CACHE_NAME),
+            cacheCfg(Consts.SPACES_CACHE_NAME),
+            cacheCfg(Consts.NOTEBOOKS_CACHE_NAME)
+        ));
 
         return ignite;
     }
