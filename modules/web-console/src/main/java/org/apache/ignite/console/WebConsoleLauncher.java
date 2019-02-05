@@ -57,6 +57,13 @@ public class WebConsoleLauncher extends AbstractVerticle {
         vertx.deployVerticle(new WebConsoleVerticle(ignite, auth, false));
     }
 
+    private static CacheConfiguration cacheCfg(String name) {
+        CacheConfiguration ccfg = new CacheConfiguration(name);
+        ccfg.setCacheMode(REPLICATED);
+
+        return ccfg;
+    }
+
     /**
      * Start Ignite.
      *

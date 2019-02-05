@@ -17,69 +17,152 @@
 
 package org.apache.ignite.console.dto;
 
+import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 
 /**
- * Data transfer object for account.
+ * Data transfer object for this.
  */
-public class Account {
+public class Account extends AbstractDto {
     /** */
-    public String _id;
+    private String email;
 
     /** */
-    public String email;
+    private String firstName;
 
     /** */
-    public String firstName;
+    private String lastName;
 
     /** */
-    public String lastName;
+    private String company;
 
     /** */
-    public String company;
+    private String country;
 
     /** */
-    public String country;
+    private String industry;
 
     /** */
-    public String industry;
+    private boolean admin;
 
     /** */
-    public boolean admin;
+    private String token;
 
     /** */
-    public String token;
+    private String resetPasswordToken;
 
     /** */
-    public String resetPasswordToken;
+    private String registered;
 
     /** */
-    public String registered;
+    private String lastLogin;
 
     /** */
-    public String lastLogin;
+    private String lastActivity;
 
     /** */
-    public String lastActivity;
+    private String lastEvent;
 
     /** */
-    public String lastEvent;
+    private boolean demoCreated;
 
     /** */
-    public boolean demoCreated;
+    private String salt;
 
     /** */
-    public String salt;
-
-    /** */
-    public String hash;
+    private String hash;
 
     /**
-     * @return Public view of account.
+     * Default constructor.
      */
-    public JsonObject principal() {
-        return new JsonObject()
-            .put("_id", _id)
+    public Account() {
+        
+    }
+
+    /**
+     * Full construcor.
+     *
+     * @param id
+     * @param email
+     * @param firstName
+     * @param lastName
+     * @param company
+     * @param country
+     * @param industry
+     * @param admin
+     * @param token
+     * @param resetPasswordToken
+     * @param registered
+     * @param lastLogin
+     * @param lastActivity
+     * @param lastEvent
+     * @param demoCreated
+     * @param salt
+     * @param hash
+     */
+    public Account(
+        UUID id,
+        String email,
+        String firstName,
+        String lastName,
+        String company,
+        String country,
+        String industry,
+        boolean admin,
+        String token,
+        String resetPasswordToken,
+        String registered,
+        String lastLogin,
+        String lastActivity,
+        String lastEvent,
+        boolean demoCreated,
+        String salt,
+        String hash
+    ) {
+        this.id = id;
+        this.email = email;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.company = company;
+        this.country = country;
+        this.industry = industry;
+        this.admin = admin;
+        this.token = token;
+        this.resetPasswordToken = resetPasswordToken;
+        this.registered = registered;
+        this.lastLogin = lastLogin;
+        this.lastActivity = lastActivity;
+        this.lastEvent = lastEvent;
+        this.demoCreated = demoCreated;
+        this.salt = salt;
+        this.hash = hash;
+    }
+
+    /**
+     * @return Account e-mail.
+     */
+    public String email() {
+        return email;
+    }
+
+    /**
+     * @return Account salt.
+     */
+    public String salt() {
+        return salt;
+    }
+
+    /**
+     * @return Account hash.
+     */
+    public String hash() {
+        return hash;
+    }
+
+    /** {@inheritDoc} */
+    @Override public JsonObject toJson() {
+        return super.toJson()
+            .put("_id", id.toString())
             .put("email", email)
             .put("firstName", firstName)
             .put("lastName", lastName)

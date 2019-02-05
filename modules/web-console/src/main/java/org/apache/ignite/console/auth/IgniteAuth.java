@@ -114,7 +114,7 @@ public class IgniteAuth implements AuthProvider {
                 ? signUp(authInfo)
                 : signIn(authInfo);
 
-            asyncResHnd.handle(Future.succeededFuture(new IgniteUser(account.principal())));
+            asyncResHnd.handle(Future.succeededFuture(new IgniteUser(account.toJson())));
 
         }
         catch (Throwable e) {
@@ -152,35 +152,39 @@ public class IgniteAuth implements AuthProvider {
         if (account != null)
             throw new AccountException("Account already exists");
 
-        account = new Account();
+        String salt = salt();
+        String hash = computeHash(authInfo.getString("password"), salt);
 
-        account._id = UUID.randomUUID().toString();
-        account.email = authInfo.getString("email");
-        account.firstName = authInfo.getString("firstName");
-        account.lastName = authInfo.getString("lastName");
-        account.company = authInfo.getString("company");
-        account.country = authInfo.getString("country");
-        account.industry = authInfo.getString("industry");
-        account.admin = authInfo.getBoolean("admin", false);
-        account.token = UUID.randomUUID().toString(); // TODO IGNITE-5617 How to generate token?
-        account.resetPasswordToken = UUID.randomUUID().toString(); // TODO IGNITE-5617 How to generate resetPasswordToken?
-        account.registered = ZonedDateTime.now().toString();
-        account.lastLogin = "";
-        account.lastActivity = "";
-        account.lastEvent = "";
-        account.demoCreated = false;
-        account.salt = salt();
-        account.hash = computeHash(authInfo.getString("password"), account.salt);
+        account = new Account(
+            UUID.randomUUID(),
+            authInfo.getString("email"),
+            authInfo.getString("firstName"),
+            authInfo.getString("lastName"),
+            authInfo.getString("company"),
+            authInfo.getString("country"),
+            authInfo.getString("industry"),
+            authInfo.getBoolean("admin", false),
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            ZonedDateTime.now().toString(),
+            "",
+            "",
+            "",
+            false,
+            salt,
+            hash
+        );
 
         cache.put(email, account);
 
-        Space space = new Space();
-        space._id = UUID.randomUUID().toString();
-        space.name = "Personal space";
-        space.demo = false;
-        space.owner = account._id;
+        Space space = new Space(
+            UUID.randomUUID(),
+            "Personal space",
+            account.id(),
+            false
+        );
 
-        ignite.cache(Consts.SPACES_CACHE_NAME).put(space._id, space);
+        ignite.cache(Consts.SPACES_CACHE_NAME).put(space.id(), space);
 
         return account;
     }
@@ -200,9 +204,9 @@ public class IgniteAuth implements AuthProvider {
         if (account == null)
             throw new CredentialException(E_INVALID_CREDENTIALS);
 
-        String hash = computeHash(authInfo.getString("password"), account.salt);
+        String hash = computeHash(authInfo.getString("password"), account.salt());
 
-        if (!hash.equals(account.hash))
+        if (!hash.equals(account.hash()))
             throw new CredentialException(E_INVALID_CREDENTIALS);
 
         return account;

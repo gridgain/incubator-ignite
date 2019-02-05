@@ -21,50 +21,30 @@ import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 
 /**
- * DTO for space.
+ * Base class for DTO objects.
  */
-public class Space extends AbstractDto {
+public abstract class AbstractDto {
     /** */
-    private String name;
-
-    /** */
-    private UUID owner;
-
-    /** */
-    private boolean demo;
+    protected UUID id;
 
     /**
-     * Default constructor.
+     * @return Object ID.
      */
-    public Space() {
-
+    public UUID id() {
+        return id;
     }
 
     /**
-     * Full constructor.
-     *
-     * @param id
-     * @param name
-     * @param owner
-     * @param demo
+     * @param id Object ID.
      */
-    public Space(
-        UUID id,
-        String name,
-        UUID owner,
-        boolean demo
-    ) {
+    public void id(UUID id) {
         this.id = id;
-        this.name = name;
-        this.owner = owner;
-        this.demo = demo;
     }
 
-    /** {@inheritDoc} */
-    @Override public JsonObject toJson() {
-        return super.toJson()
-            .put("name", name)
-            .put("owner", owner.toString())
-            .put("demo", demo);
+    /**
+     * @return JSON object suitable to pass over wire.
+     */
+    public JsonObject toJson() {
+        return new JsonObject().put("_id", id.toString());
     }
 }
