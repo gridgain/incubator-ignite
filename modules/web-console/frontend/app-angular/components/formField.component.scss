@@ -18,11 +18,12 @@
 form-field {
     --required-label-gap: 0.25em;
     --overlay-item-width: 31px;
+    --input-height: 36px;
 
     &.form-field__icon-error {
         display: grid;
         grid-template-areas: 'title title' 'control error-icon' 'error-inline error-inline';
-        grid-template-columns: auto 36px;
+        grid-template-columns: auto var(--input-height);
 
         .angular-form-field__label {
             grid-area: title;
@@ -31,8 +32,9 @@ form-field {
         .angular-form-field__input {
             grid-column: control / error-icon;
             grid-row: control;
+            position: relative;
 
-            input {
+            input.ng-invalid {
                 padding-right: var(--overlay-item-width);
             }
         }
@@ -45,7 +47,7 @@ form-field {
 
     input, select {
         box-sizing: border-box;
-        height: 36px;
+        height: var(input-height);
         padding: 9px 10px;
         border: solid 1px #c5c5c5;
         border-radius: 4px;
