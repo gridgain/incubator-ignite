@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-import ObjectID from 'bson-objectid';
 import omit from 'lodash/fp/omit';
+import uuidv4 from 'uuid/v4';
+
 import {DomainModel, IndexField, ShortDomainModel, Index, Field, KeyField, ValueField} from '../types';
 
 export default class Models {
@@ -30,7 +31,7 @@ export default class Models {
 
     getBlankModel(): DomainModel {
         return {
-            _id: ObjectID.generate(),
+            _id: uuidv4(),
             generatePojo: true,
             caches: [],
             queryKeyFields: [],
@@ -64,7 +65,7 @@ export default class Models {
     normalize = omit(['__v', 'space']);
 
     addIndexField(fields: IndexField[]) {
-        return fields[fields.push({_id: ObjectID.generate(), direction: true}) - 1];
+        return fields[fields.push({_id: uuidv4(), direction: true}) - 1];
     }
 
     addIndex(model: DomainModel) {
@@ -75,7 +76,7 @@ export default class Models {
             model.indexes = [];
 
         model.indexes.push({
-            _id: ObjectID.generate(),
+            _id: uuidv4(),
             name: '',
             indexType: 'SORTED',
             fields: []

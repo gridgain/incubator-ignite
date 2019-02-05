@@ -112,7 +112,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
     private static final String CLUSTER_ID = UUID.randomUUID().toString();
 
     /** */
-    private static final List<CharSequence> CACHE_CONTROL = Arrays.asList(
+    private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
         HttpHeaderValues.NO_CACHE,
         HttpHeaderValues.NO_STORE,
         HttpHeaderValues.MUST_REVALIDATE);
@@ -320,7 +320,7 @@ public class WebConsoleVerticle extends AbstractVerticle {
     private void sendResult(RoutingContext ctx, int status, String data) {
         ctx
             .response()
-            .putHeader(HttpHeaderNames.CACHE_CONTROL, CACHE_CONTROL)
+            .putHeader(HttpHeaderNames.CACHE_CONTROL, HTTP_CACHE_CONTROL)
             .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
             .putHeader(HttpHeaderNames.EXPIRES, "0")
             .setStatusCode(status)

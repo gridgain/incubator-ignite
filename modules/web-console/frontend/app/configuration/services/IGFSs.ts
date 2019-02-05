@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-import ObjectID from 'bson-objectid';
 import omit from 'lodash/fp/omit';
 import get from 'lodash/get';
+import uuidv4 from 'uuid/v4';
 
 export default class IGFSs {
     static $inject = ['$http'];
@@ -37,7 +37,7 @@ export default class IGFSs {
 
     getBlankIGFS() {
         return {
-            _id: ObjectID.generate(),
+            _id: uuidv4(),
             ipcEndpointEnabled: true,
             fragmentizerEnabled: true,
             colocateMetadata: true,

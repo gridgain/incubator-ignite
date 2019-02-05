@@ -17,13 +17,15 @@
 
 import templateUrl from './template.tpl.pug';
 import './style.scss';
+
 import _ from 'lodash';
-import naturalCompare from 'natural-compare-lite';
 import find from 'lodash/fp/find';
 import get from 'lodash/fp/get';
+import naturalCompare from 'natural-compare-lite';
 import {race, timer, merge, of, from, combineLatest} from 'rxjs';
 import {tap, filter, take, pluck, switchMap} from 'rxjs/operators';
-import ObjectID from 'bson-objectid';
+import uuidv4 from 'uuid/v4';
+
 import {uniqueName} from 'app/utils/uniqueName';
 import {defaultNames} from '../../defaultNames';
 
@@ -746,7 +748,7 @@ export class ModalImportModels {
                     skip: false,
                     table,
                     newDomainModel: {
-                        _id: ObjectID.generate(),
+                        _id: uuidv4(),
                         caches: [],
                         generatePojo
                     }
@@ -805,7 +807,7 @@ export class ModalImportModels {
 
                     // const siblingCaches = batch.filter((a) => a.newCache).map((a) => a.newCache);
                     const siblingCaches = [];
-                    newCache._id = ObjectID.generate();
+                    newCache._id = uuidv4();
                     newCache.name = uniqueName(typeName + 'Cache', this.caches.concat(siblingCaches));
                     newCache.domains = [batchAction.newDomainModel._id];
                     batchAction.newDomainModel.caches = [newCache._id];

@@ -16,10 +16,11 @@
  */
 
 import get from 'lodash/get';
-import {from} from 'rxjs';
-import ObjectID from 'bson-objectid/objectid';
-import {uniqueName} from 'app/utils/uniqueName';
 import omit from 'lodash/fp/omit';
+import {from} from 'rxjs';
+import uuidv4 from 'uuid/v4';
+
+import {uniqueName} from 'app/utils/uniqueName';
 import {DiscoveryKinds, ShortDomainModel, ShortCluster, FailoverSPIs, LoadBalancingKinds} from '../types';
 import {Menu} from 'app/types';
 
@@ -136,7 +137,7 @@ export default class Clusters {
 
     getBlankCluster() {
         return {
-            _id: ObjectID.generate(),
+            _id: uuidv4(),
             activeOnStart: true,
             cacheSanityCheckEnabled: true,
             atomicConfiguration: {},
@@ -288,7 +289,7 @@ export default class Clusters {
     };
 
     makeBlankDataRegionConfiguration() {
-        return {_id: ObjectID.generate()};
+        return {_id: uuidv4()};
     }
 
     addDataRegionConfiguration(cluster) {
@@ -408,7 +409,7 @@ export default class Clusters {
     ];
 
     makeBlankMemoryPolicy() {
-        return {_id: ObjectID.generate()};
+        return {_id: uuidv4()};
     }
 
     addMemoryPolicy(cluster) {
@@ -485,7 +486,7 @@ export default class Clusters {
     };
 
     makeBlankServiceConfiguration() {
-        return {_id: ObjectID.generate()};
+        return {_id: uuidv4()};
     }
 
     addServiceConfiguration(cluster) {
@@ -520,7 +521,7 @@ export default class Clusters {
 
     addExecutorConfiguration(cluster) {
         if (!cluster.executorConfiguration) cluster.executorConfiguration = [];
-        const item = {_id: ObjectID.generate(), name: ''};
+        const item = {_id: uuidv4(), name: ''};
         cluster.executorConfiguration.push(item);
         return item;
     }
@@ -579,7 +580,7 @@ export default class Clusters {
 
     addBinaryTypeConfiguration(cluster) {
         if (!cluster.binaryConfiguration.typeConfigurations) cluster.binaryConfiguration.typeConfigurations = [];
-        const item = {_id: ObjectID.generate()};
+        const item = {_id: uuidv4()};
         cluster.binaryConfiguration.typeConfigurations.push(item);
         return item;
     }
