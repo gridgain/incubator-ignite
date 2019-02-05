@@ -18,9 +18,8 @@
 <header class="header-with-selector">
     <div><h1>User profile</h1></div>        
 </header>
-<form [formGroup]='form' (ngSubmit)='saveUser()' id='user' scrollToFirstInvalid>
+<form [formGroup]='form' (ngSubmit)='saveUser()' id='user' scrollToFirstInvalid class="form-grid">
     <form-field class='span-1'>
-        <form-field-hint>Foo Bar</form-field-hint>
         <label for='firstName'>First name</label>
         <input type="text" formControlName='firstName' id='firstName'>
     </form-field>
@@ -46,6 +45,37 @@
         <label for='company'>Company</label>
         <input type="text" formControlName='company' id='company'>
     </form-field>
+    <panel-collapsible-angular class='span-2' #securityTokenPanel>
+        <span panelTitle>{{ securityTokenPanel.opened ? 'Cancel security token changing...' : 'Show security token...' }}</span>
+        <div class='form-grid'>
+            <form-field class="span-1">
+                <form-field-hint>The security token is used for authentication of Web agent</form-field-hint>
+                <label for="securityToken">Security Token</label>
+                <input
+                    id='securityToken'
+                    type="text"
+                    placeholder='No security token. Please regenerate.'
+                    formControlName='token'
+                >
+            </form-field>
+            <span class="span-1">
+                <a (click)='generateToken()'>Generate Random Security Token?</a>
+            </span>
+        </div>
+    </panel-collapsible-angular>
+    <panel-collapsible-angular #passwordChangePanel class='span-2'>
+        <span panelTitle>{{ passwordChangePanel.opened? 'Cancel password changing...' : 'Change password...' }}</span>
+        <div class="form-grid" *ngIf='passwordChangePanel.opened'>
+            <form-field class='span-2'>
+                <label for="newPassword">New password</label>
+                <input type="password" formControlName='password' autofocus="true" id='newPassword'>
+            </form-field>
+            <form-field class='span-2'>
+                <label for="oldPassword">Confirm password</label>
+                <input type="password" formControlName='oldPassword' id='oldPassword'>
+            </form-field>
+        </div>
+    </panel-collapsible-angular>
 </form>
 <footer>
     <a class="btn-ignite btn-ignite--link-success" uiSref="default-state">Cancel</a>

@@ -34,6 +34,7 @@ import {IgniteIcon} from './components/igniteIcon.component';
 import {FormFieldTooltip} from './components/formFieldTooltip.component';
 import {FormFieldComponents} from './components/formField.component';
 import {ScrollToFirstInvalid} from './components/scrollToFirstInvalid.directive';
+import {PanelCollapsible} from './components/panelCollapsible.component';
 
 import {ReactiveFormsModule} from '@angular/forms';
 
@@ -43,6 +44,7 @@ export const declarations = [
     IgniteIcon,
     FormFieldTooltip,
     ScrollToFirstInvalid,
+    PanelCollapsible,
     ...FormFieldComponents
 ];
 

@@ -19,7 +19,7 @@ page-profile-angular {
     display: block;
     max-width: 800px;
 
-    form {
+    .form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         grid-gap: 10px;

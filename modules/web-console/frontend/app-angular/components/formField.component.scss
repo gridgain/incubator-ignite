@@ -55,6 +55,10 @@ form-field {
         line-height: 16px;
         width: 100%;
 
+        &[disabled] {
+            opacity: 0.5;
+        }
+
         &::placeholder {
             color: rgba(66, 66, 66, 0.5);
             text-align: left;
