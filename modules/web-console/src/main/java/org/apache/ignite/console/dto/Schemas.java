@@ -22,6 +22,9 @@ import java.util.Map;
 import io.vertx.core.json.JsonObject;
 
 import static org.apache.ignite.console.dto.PropertyType.ARRAY;
+import static org.apache.ignite.console.dto.PropertyType.BOOLEAN;
+import static org.apache.ignite.console.dto.PropertyType.NUMBER;
+import static org.apache.ignite.console.dto.PropertyType.OBJECT;
 import static org.apache.ignite.console.dto.PropertyType.STRING;
 import static org.apache.ignite.console.dto.PropertyType.UUID;
 
@@ -46,7 +49,22 @@ public class Schemas {
             .put("expandedParagraphs", ARRAY)
             .put("paragraphs", new JsonObject()
                 .put("name", STRING)
-                .put("query", STRING));
+                .put("query", STRING)
+                .put("result", STRING)
+                .put("pageSize", NUMBER)
+                .put("timeLineSpan", STRING)
+                .put("maxPages", NUMBER)
+                .put("cacheName", STRING)
+                .put("useAsDefaultSchema", BOOLEAN)
+                .put("chartsOptions", OBJECT)
+                .put("rate", new JsonObject()
+                    .put("value", NUMBER)
+                    .put("unit", NUMBER))
+                .put("qryType", STRING)
+                .put("nonCollocatedJoins", BOOLEAN)
+                .put("enforceJoinOrder", BOOLEAN)
+                .put("lazy", BOOLEAN)
+                .put("collocated", BOOLEAN));
 
         schemas.put(Notebook.class, notebookSchema);
     }

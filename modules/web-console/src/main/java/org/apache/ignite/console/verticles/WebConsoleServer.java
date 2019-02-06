@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -436,17 +437,35 @@ public class WebConsoleServer extends AbstractVerticle {
      *
      * @param rawData Data object.
      * @param schema Schema.
+     * @return Sanitized object.
      */
-    private void sanitize(JsonObject rawData, JsonObject schema) {
-        Set<String> rawFlds = rawData.fieldNames();
+    private JsonObject sanitize(JsonObject rawData, JsonObject schema) {
+        Set<String> rawFlds = new HashSet<>(rawData.fieldNames());
 
         for (String fld : rawFlds) {
-            if (!schema.containsKey(fld)) {
-                rawData.remove(fld);
+            if (schema.containsKey(fld)) {
+                Object childSchema = schema.getValue(fld);
 
-                log("Removed unknown field: " + fld);
+                if (childSchema instanceof JsonObject) {
+                    Object child = rawData.getValue(fld);
+
+                    if (child instanceof JsonArray) {
+                        JsonArray rawItems = (JsonArray)child;
+                        JsonArray sanitizedItems = new JsonArray();
+
+                        rawItems.forEach(item -> sanitizedItems.add(sanitize((JsonObject)item, (JsonObject)childSchema)));
+                        rawData.put(fld, sanitizedItems);
+                    }
+
+                    if (child instanceof JsonObject)
+                        rawData.put(fld, sanitize((JsonObject)child, (JsonObject)childSchema));
+                }
             }
+            else
+                rawData.remove(fld);
         }
+
+        return rawData;
     }
 
     /**
@@ -462,10 +481,15 @@ public class WebConsoleServer extends AbstractVerticle {
 
             JsonObject notebookSchema = Schemas.INSTANCE.schema(Notebook.class);
 
-            sanitize(rawData, notebookSchema);
+            rawData = sanitize(rawData, notebookSchema);
 
             try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
-                UUID _id = rawData.containsKey("_id") ? UUID.fromString(rawData.getString("_id")) : UUID.randomUUID();
+                boolean exists = rawData.containsKey("_id");
+                
+                UUID _id = exists ? UUID.fromString(rawData.getString("_id")) : UUID.randomUUID();
+
+                if (!exists)
+                    rawData.put("_id", _id.toString());
 
                 Notebook notebook = new Notebook();
                 notebook.id(_id);
