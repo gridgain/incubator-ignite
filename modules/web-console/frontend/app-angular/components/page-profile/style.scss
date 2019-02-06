@@ -32,12 +32,17 @@ page-profile-angular {
         }
     }
 
-    footer {
+    .security-token-generate-button-container {
+        align-items: flex-end;
         display: flex;
-        justify-content: flex-end;
+        padding-bottom: 9px;
+    }
 
-        .btn-ignite + .btn-ignite {
-            margin-left: 10px;
-        }
+    footer {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: max-content;
+        justify-content: flex-end;
+        grid-gap: 10px;
     }
 }
