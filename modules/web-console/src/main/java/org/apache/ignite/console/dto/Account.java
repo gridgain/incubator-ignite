@@ -80,25 +80,25 @@ public class Account extends AbstractDto {
     }
 
     /**
-     * Full construcor.
+     * Full constructor.
      *
-     * @param id
-     * @param email
-     * @param firstName
-     * @param lastName
-     * @param company
-     * @param country
-     * @param industry
-     * @param admin
-     * @param token
-     * @param resetPasswordToken
-     * @param registered
-     * @param lastLogin
-     * @param lastActivity
-     * @param lastEvent
-     * @param demoCreated
-     * @param salt
-     * @param hash
+     * @param id ID.
+     * @param email E_mail.
+     * @param firstName First name.
+     * @param lastName Last name.
+     * @param company Company name.
+     * @param country Country name.
+     * @param industry Industry name.
+     * @param admin Admin flag.
+     * @param token Web agent token.
+     * @param resetPasswordToken Reset password token.
+     * @param registered Registered flag.
+     * @param lastLogin Last login date.
+     * @param lastActivity  Last activity date.
+     * @param lastEvent  Last event date.
+     * @param demoCreated Demo created flag.
+     * @param salt Password salt.
+     * @param hash Password hash.
      */
     public Account(
         UUID id,
@@ -119,7 +119,8 @@ public class Account extends AbstractDto {
         String salt,
         String hash
     ) {
-        this.id = id;
+        super(id);
+
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -157,6 +158,13 @@ public class Account extends AbstractDto {
      */
     public String hash() {
         return hash;
+    }
+
+    /**
+     * @return Reset password token.
+     */
+    public String getResetPasswordToken() {
+        return resetPasswordToken;
     }
 
     /** {@inheritDoc} */

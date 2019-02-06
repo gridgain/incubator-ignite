@@ -19,14 +19,6 @@ package org.apache.ignite.console.dto;
 
 import java.util.HashMap;
 import java.util.Map;
-import io.vertx.core.json.JsonObject;
-
-import static org.apache.ignite.console.dto.PropertyType.ARRAY;
-import static org.apache.ignite.console.dto.PropertyType.BOOLEAN;
-import static org.apache.ignite.console.dto.PropertyType.NUMBER;
-import static org.apache.ignite.console.dto.PropertyType.OBJECT;
-import static org.apache.ignite.console.dto.PropertyType.STRING;
-import static org.apache.ignite.console.dto.PropertyType.UUID;
 
 /**
  * Registry with DTO objects metadata.
@@ -36,35 +28,39 @@ public class Schemas {
     public static final Schemas INSTANCE = new Schemas();
 
     /** */
-    private final Map<Class, JsonObject> schemas = new HashMap<>();
+    private final Map<Class, Properties> schemas = new HashMap<>();
 
     /**
      * Register schemas.
      */
     private Schemas() {
-        JsonObject notebookSchema = new JsonObject()
-            .put("_id", UUID)
-            .put("space", STRING)
-            .put("name", STRING)
-            .put("expandedParagraphs", ARRAY)
-            .put("paragraphs", new JsonObject()
-                .put("name", STRING)
-                .put("query", STRING)
-                .put("result", STRING)
-                .put("pageSize", NUMBER)
-                .put("timeLineSpan", STRING)
-                .put("maxPages", NUMBER)
-                .put("cacheName", STRING)
-                .put("useAsDefaultSchema", BOOLEAN)
-                .put("chartsOptions", OBJECT)
-                .put("rate", new JsonObject()
-                    .put("value", NUMBER)
-                    .put("unit", NUMBER))
-                .put("qryType", STRING)
-                .put("nonCollocatedJoins", BOOLEAN)
-                .put("enforceJoinOrder", BOOLEAN)
-                .put("lazy", BOOLEAN)
-                .put("collocated", BOOLEAN));
+        Properties notebookSchema = new Properties()
+            .addUuid("_id")
+            .addString("space")
+            .addString("name")
+            .addArray("expandedParagraphs")
+            .addChild("paragraphs", new Properties()
+                .addString("name")
+                .addString("query")
+                .addString("result")
+                .addNumber("pageSize")
+                .addString("timeLineSpan")
+                .addNumber("maxPages")
+                .addString("cacheName")
+                .addBoolean("useAsDefaultSchema")
+                .addChild("chartsOptions", new Properties()
+                    .addChild("barChart", new Properties()
+                        .addBoolean("stacked"))
+                    .addChild("areaChart", new Properties()
+                        .addString("style")))
+                .addChild("rate", new Properties()
+                    .addNumber("value")
+                    .addNumber("unit"))
+                .addString("qryType")
+                .addBoolean("nonCollocatedJoins")
+                .addBoolean("enforceJoinOrder")
+                .addBoolean("lazy")
+                .addBoolean("collocated"));
 
         schemas.put(Notebook.class, notebookSchema);
     }
@@ -73,7 +69,7 @@ public class Schemas {
      * @param cls DTO class.
      * @return Schema descriptor.
      */
-    public JsonObject schema(Class cls) {
+    public Properties schema(Class cls) {
         return schemas.get(cls);
     }
 }

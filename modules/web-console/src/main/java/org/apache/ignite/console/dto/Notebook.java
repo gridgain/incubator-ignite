@@ -17,8 +17,20 @@
 
 package org.apache.ignite.console.dto;
 
+import java.util.UUID;
+
 /**
  * DTO for queries notebook.
  */
 public class Notebook extends DataObject {
+    /**
+     * Full constructor.
+     *
+     * @param id ID.
+     * @param space Space ID.
+     * @param json JSON payload.
+     */
+    public Notebook(UUID id, UUID space, String json) {
+        super(id, space, json);
+    }
 }

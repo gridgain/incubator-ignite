@@ -28,6 +28,22 @@ public abstract class AbstractDto {
     protected UUID id;
 
     /**
+     * Default constructor.
+     */
+    protected AbstractDto() {
+        // No-op.
+    }
+
+    /**
+     * Full constructor.
+     *
+     * @param id ID.
+     */
+    protected AbstractDto(UUID id) {
+        this.id = id;
+    }
+
+    /**
      * @return Object ID.
      */
     public UUID id() {

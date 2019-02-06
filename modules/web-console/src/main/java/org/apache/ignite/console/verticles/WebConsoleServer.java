@@ -68,6 +68,7 @@ import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.common.Consts;
 import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.dto.Properties;
 import org.apache.ignite.console.dto.Schemas;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteEx;
@@ -439,26 +440,28 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param schema Schema.
      * @return Sanitized object.
      */
-    private JsonObject sanitize(JsonObject rawData, JsonObject schema) {
+    private JsonObject sanitize(JsonObject rawData, Properties schema) {
         Set<String> rawFlds = new HashSet<>(rawData.fieldNames());
 
         for (String fld : rawFlds) {
             if (schema.containsKey(fld)) {
                 Object childSchema = schema.getValue(fld);
 
-                if (childSchema instanceof JsonObject) {
+                if (childSchema instanceof Properties) {
                     Object child = rawData.getValue(fld);
 
                     if (child instanceof JsonArray) {
                         JsonArray rawItems = (JsonArray)child;
                         JsonArray sanitizedItems = new JsonArray();
 
-                        rawItems.forEach(item -> sanitizedItems.add(sanitize((JsonObject)item, (JsonObject)childSchema)));
+                        rawItems.forEach(item -> sanitizedItems.add(sanitize((JsonObject)item, (Properties)childSchema)));
                         rawData.put(fld, sanitizedItems);
                     }
-
-                    if (child instanceof JsonObject)
-                        rawData.put(fld, sanitize((JsonObject)child, (JsonObject)childSchema));
+                    else if (child instanceof JsonObject)
+                        rawData.put(fld, sanitize((JsonObject)child, (Properties)childSchema));
+                    else
+                        throw new IllegalStateException("Expected array or object, but found: " +
+                            (child != null ? child.getClass().getName() : "null"));
                 }
             }
             else
@@ -479,7 +482,7 @@ public class WebConsoleServer extends AbstractVerticle {
         else {
             JsonObject rawData = ctx.getBody().toJsonObject();
 
-            JsonObject notebookSchema = Schemas.INSTANCE.schema(Notebook.class);
+            Properties notebookSchema = Schemas.INSTANCE.schema(Notebook.class);
 
             rawData = sanitize(rawData, notebookSchema);
 
@@ -491,9 +494,7 @@ public class WebConsoleServer extends AbstractVerticle {
                 if (!exists)
                     rawData.put("_id", _id.toString());
 
-                Notebook notebook = new Notebook();
-                notebook.id(_id);
-                notebook.json(rawData.encode());
+                Notebook notebook = new Notebook(_id, null, rawData.encode());
 
                 IgniteCache<UUID, Notebook> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
 
@@ -507,6 +508,8 @@ public class WebConsoleServer extends AbstractVerticle {
             }
             catch (Throwable e) {
                 ignite.log().error("Failed to save notebook", e);
+
+                sendStatus(ctx, HTTP_INTERNAL_ERROR, "Failed to save notebook: " + errorMessage(e));
             }
         }
     }

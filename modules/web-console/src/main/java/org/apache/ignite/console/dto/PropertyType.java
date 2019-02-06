@@ -31,9 +31,6 @@ public enum PropertyType {
     NUMBER,
 
     /** */
-    OBJECT,
-
-    /** */
     STRING,
 
     /** */

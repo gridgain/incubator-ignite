@@ -20,7 +20,7 @@ package org.apache.ignite.console.dto;
 import java.util.UUID;
 
 /**
- * General purpose data object.
+ * Abstract data object.
  */
 public abstract class DataObject extends AbstractDto {
     /** */
@@ -39,10 +39,13 @@ public abstract class DataObject extends AbstractDto {
     /**
      * Full constructor.
      *
+     * @param id ID.
      * @param space User space.
      * @param json JSON encoded payload.
      */
-    protected DataObject(UUID space, String json) {
+    protected DataObject(UUID id, UUID space, String json) {
+        super(id);
+
         this.space = space;
         this.json = json;
     }
