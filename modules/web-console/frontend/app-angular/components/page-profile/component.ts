@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-import {tap} from 'rxjs/operators';
+import {merge, combineLatest} from 'rxjs';
+import {tap, pairwise, startWith, distinctUntilChanged, pluck} from 'rxjs/operators';
 import {Component, Inject, OnInit, OnDestroy, ViewChild, ElementRef} from '@angular/core';
 import {FormGroup, FormControl, Validators, Validator, AbstractControl} from '@angular/forms';
 import templateUrl from 'file-loader!./template.html';
@@ -84,18 +85,19 @@ export class PageProfile implements OnInit, OnDestroy {
         confirmPassword: new FormControl('', []),
         token: new FormControl({value: '', disabled: true}, [Validators.required])
     })
-    subscriber = this.form.valueChanges.pipe(tap(((value) => {
-        if (value.passwordPanelOpened) {
-            this.form.get('newPassword').setValidators([Validators.required]);
-            this.form.get('confirmPassword').setValidators([Validators.required]);
-        } else {
-            this.form.get('newPassword').clearValidators();
-            this.form.get('confirmPassword').clearValidators();
-        }
-        if (value.newPassword !== value.confirmPassword) {
-            this.form.get('confirmPassword').setErrors({
-                passwordMatch: true
-            });
-        }
-    }))).subscribe();
+    subscriber = merge(
+        combineLatest(
+            this.form.get('passwordPanelOpened').valueChanges.pipe(startWith(this.form.get('passwordPanelOpened').value)),
+            this.form.get('newPassword').valueChanges.pipe(startWith(this.form.get('newPassword').value))
+        ).pipe(
+            tap(([panelOpened, newPassword]) => {
+                const requiredIfOpen = (c) => !panelOpened ? null : Validators.required(c);
+                const passwordMatch = (c) => newPassword === c.value ? null : {passwordMatch: true};
+                this.form.get('newPassword').setValidators([requiredIfOpen]);
+                this.form.get('newPassword').updateValueAndValidity({emitEvent: false});
+                this.form.get('confirmPassword').setValidators([requiredIfOpen, passwordMatch]);
+                this.form.get('confirmPassword').updateValueAndValidity();
+            })
+        )
+    ).subscribe();
 }
