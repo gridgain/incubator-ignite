@@ -32,7 +32,9 @@ export class ScrollToFirstInvalid {
             if (invalidEl) {
                 this.scrollIntoView(invalidEl);
                 invalidEl.focus();
-                this.maybeShowValidationErrorPopover(invalidEl);
+                invalidEl.blur();
+                invalidEl.focus();
+                setTimeout(() => this.maybeShowValidationErrorPopover(invalidEl), 0);
             }
         }
     }
