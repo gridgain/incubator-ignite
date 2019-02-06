@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-import {Component, Input, Output, EventEmitter} from '@angular/core';
+import {Component, Input, EventEmitter, forwardRef} from '@angular/core';
+import {NG_VALUE_ACCESSOR, ControlValueAccessor} from '@angular/forms';
 
 @Component({
     selector: 'panel-collapsible-angular',
@@ -98,20 +99,21 @@ import {Component, Input, Output, EventEmitter} from '@angular/core';
             border-top: 1px solid #dddddd;
             padding: 15px 20px;
         }
-    `]
+    `],
+    providers: [{
+        provide: NG_VALUE_ACCESSOR,
+        useExisting: forwardRef(() => PanelCollapsible),
+        multi: true
+    }]
 })
-export class PanelCollapsible {
+export class PanelCollapsible implements ControlValueAccessor {
     @Input()
     opened: boolean = false
 
-    @Output()
-    panelOpen = new EventEmitter()
-
-    @Output()
-    panelClose = new EventEmitter()
-
     @Input()
     disabled: string
+
+    private _onChange?: (value: PanelCollapsible['opened']) => void
 
     toggle() {
         if (this.opened)
@@ -123,12 +125,22 @@ export class PanelCollapsible {
     open() {
         if (this.disabled) return;
         this.opened = true;
-        this.panelOpen.emit();
+        if (this._onChange) this._onChange(this.opened);
     }
 
     close() {
         if (this.disabled) return;
         this.opened = false;
-        this.panelClose.emit();
+        if (this._onChange) this._onChange(this.opened);
     }
+
+    writeValue(value: PanelCollapsible['opened']) {
+        this.opened = value;
+    }
+
+    registerOnChange(fn) {
+        this._onChange = fn;
+    }
+
+    registerOnTouched() {}
 }

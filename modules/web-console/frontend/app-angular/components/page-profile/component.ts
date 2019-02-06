@@ -69,6 +69,6 @@ export class PageProfile implements OnInit {
         company: new FormControl('', [Validators.required]),
         token: new FormControl({value: '', disabled: true}, [Validators.required]),
         password: new FormControl('', [Validators.required]),
-        oldPassword: new FormControl('', [Validators.required])
+        passwordPanelOpened: new FormControl(true, []),
     })
 }
