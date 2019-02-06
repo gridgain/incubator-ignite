@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-import {Component, Inject, OnInit} from '@angular/core';
-import {FormGroup, FormControl, Validators} from '@angular/forms';
+import {tap} from 'rxjs/operators';
+import {Component, Inject, OnInit, OnDestroy, ViewChild, ElementRef} from '@angular/core';
+import {FormGroup, FormControl, Validators, Validator, AbstractControl} from '@angular/forms';
 import templateUrl from 'file-loader!./template.html';
 import './style.scss';
 import {default as CountriesFactory, Country} from 'app/services/Countries.service';
@@ -40,13 +41,20 @@ import {
         }
     ]
 })
-export class PageProfile implements OnInit {
+export class PageProfile implements OnInit, OnDestroy {
     static parameters = [
         [new Inject('IgniteCountries')],
         [new Inject('User')]
     ]
+
     countries: Country[]
     user: User
+
+    @ViewChild('passwordEl')
+    set passwordEl(el: ElementRef<HTMLInputElement>) {
+        if (el) el.nativeElement.focus();
+    }
+
     constructor(
         Countries: ReturnType<typeof CountriesFactory>,
         private User: ReturnType<typeof UserFactory>
@@ -57,9 +65,13 @@ export class PageProfile implements OnInit {
         this.user = await this.User.read();
         this.form.patchValue(this.user);
     }
+    ngOnDestroy() {
+        this.subscriber.unsubscribe();
+    }
     saveUser() {
         console.log(this.form.getRawValue());
     }
+
     form = new FormGroup({
         firstName: new FormControl('', [Validators.required]),
         lastName: new FormControl('', [Validators.required]),
@@ -67,8 +79,23 @@ export class PageProfile implements OnInit {
         phone: new FormControl('', []),
         country: new FormControl('', [Validators.required]),
         company: new FormControl('', [Validators.required]),
-        token: new FormControl({value: '', disabled: true}, [Validators.required]),
-        password: new FormControl('', [Validators.required]),
-        passwordPanelOpened: new FormControl(true, []),
+        passwordPanelOpened: new FormControl(false, []),
+        newPassword: new FormControl('', []),
+        confirmPassword: new FormControl('', []),
+        token: new FormControl({value: '', disabled: true}, [Validators.required])
     })
+    subscriber = this.form.valueChanges.pipe(tap(((value) => {
+        if (value.passwordPanelOpened) {
+            this.form.get('newPassword').setValidators([Validators.required]);
+            this.form.get('confirmPassword').setValidators([Validators.required]);
+        } else {
+            this.form.get('newPassword').clearValidators();
+            this.form.get('confirmPassword').clearValidators();
+        }
+        if (value.newPassword !== value.confirmPassword) {
+            this.form.get('confirmPassword').setErrors({
+                passwordMatch: true
+            });
+        }
+    }))).subscribe();
 }

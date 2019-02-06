@@ -45,7 +45,7 @@
         <label for='company'>Company</label>
         <input type="text" formControlName='company' id='company'>
     </form-field>
-    <panel-collapsible-angular class='span-2' #securityTokenPanel opened='true'>
+    <panel-collapsible-angular class='span-2' #securityTokenPanel>
         <span panelTitle>{{ securityTokenPanel.opened ? 'Cancel security token changing...' : 'Show security token...' }}</span>
         <div class='form-grid'>
             <form-field class="span-1">
@@ -64,16 +64,16 @@
             </span>
         </div>
     </panel-collapsible-angular>
-    <panel-collapsible-angular #passwordChangePanel class='span-2'>
+    <panel-collapsible-angular #passwordChangePanel class='span-2' formControlName='passwordPanelOpened'>
         <span panelTitle>{{ passwordChangePanel.opened? 'Cancel password changing...' : 'Change password...' }}</span>
-        <div class="form-grid" *ngIf='passwordChangePanel.opened'>
+        <div class="form-grid" *ngIf='form.value.passwordPanelOpened'>
             <form-field class='span-2'>
                 <label for="newPassword">New password</label>
-                <input type="password" formControlName='password' autofocus="true" id='newPassword'>
+                <input type="text" formControlName='newPassword' a_utofocus="true" id='newPassword' autocomplete='off' #passwordEl>
             </form-field>
             <form-field class='span-2'>
-                <label for="oldPassword">Confirm password</label>
-                <input type="password" formControlName='oldPassword' id='oldPassword'>
+                <label for="confirmPassword">Confirm password</label>
+                <input type="text" formControlName='confirmPassword' id='confirmPassword' autocomplete='off'>
             </form-field>
         </div>
     </panel-collapsible-angular>

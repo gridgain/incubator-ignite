@@ -44,6 +44,7 @@ export class FORM_FIELD_OPTIONS {
 export class VALIDATION_MESSAGES {
     required = 'Value is required'
     email = 'Email has invalid format'
+    passwordMatch = 'Passwords do not match'
 }
 
 @Component({
@@ -164,7 +165,7 @@ export class FormField implements AfterViewInit {
     }
 
     ngAfterViewInit() {
-        const hasRequired: boolean = this.control && this.control.control.validator && this.control.control.validator({}).required;
+        const hasRequired: boolean = this.control && this.control.control && this.control.control.validator && this.control.control.validator({}).required;
         this.isOptional = this.options.requiredMarkerStyle === FormFieldRequiredMarkerStyles.OPTIONAL && !hasRequired;
         this.isRequired = this.options.requiredMarkerStyle === FormFieldRequiredMarkerStyles.REQUIRED && hasRequired;
     }
