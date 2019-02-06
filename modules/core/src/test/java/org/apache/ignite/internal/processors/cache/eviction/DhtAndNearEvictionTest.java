@@ -67,7 +67,7 @@ public class DhtAndNearEvictionTest extends GridCommonAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
-        MvccFeatureChecker.failIfNotSupported(MvccFeatureChecker.Feature.EVICTION);
+        MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.EVICTION);
 
         super.beforeTestsStarted();
     }
@@ -99,7 +99,7 @@ public class DhtAndNearEvictionTest extends GridCommonAbstractTest {
      */
     @Test
     public void testConcurrentWritesAndReadsWithReadThrough() throws Exception {
-        MvccFeatureChecker.failIfNotSupported(MvccFeatureChecker.Feature.CACHE_STORE);
+        MvccFeatureChecker.skipIfNotSupported(MvccFeatureChecker.Feature.CACHE_STORE);
 
         startGrid(0);
         startGrid(1);
