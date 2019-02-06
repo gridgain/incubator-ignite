@@ -22,12 +22,11 @@ import _ from 'lodash';
 import find from 'lodash/fp/find';
 import get from 'lodash/fp/get';
 import naturalCompare from 'natural-compare-lite';
-import {race, timer, merge, of, from, combineLatest} from 'rxjs';
-import {tap, filter, take, pluck, switchMap} from 'rxjs/operators';
-import uuidv4 from 'uuid/v4';
-
+import {race, timer, merge, of, from, combineLatest, EMPTY} from 'rxjs';
+import {tap, filter, take, pluck, switchMap, map} from 'rxjs/operators';
 import {uniqueName} from 'app/utils/uniqueName';
 import {defaultNames} from '../../defaultNames';
+import uuidv4 from 'uuid/v4';
 
 // eslint-disable-next-line
 import {UIRouter} from '@uirouter/angularjs'
@@ -96,14 +95,13 @@ export class ModalImportModels {
     /** @type {ng.ICompiledExpression} */
     onHide;
 
-    static $inject = ['$uiRouter', 'ConfigSelectors', 'ConfigEffects', 'ConfigureState', '$http', 'IgniteConfirm', 'IgniteConfirmBatch', 'IgniteFocus', 'SqlTypes', 'JavaTypes', 'IgniteMessages', '$scope', '$rootScope', 'AgentManager', 'IgniteActivitiesData', 'IgniteLoading', 'IgniteFormUtils', 'IgniteLegacyUtils'];
+    static $inject = ['$uiRouter', 'ConfigSelectors', 'ConfigEffects', 'ConfigureState', 'IgniteConfirm', 'IgniteConfirmBatch', 'IgniteFocus', 'SqlTypes', 'JavaTypes', 'IgniteMessages', '$scope', '$rootScope', 'AgentManager', 'IgniteActivitiesData', 'IgniteLoading', 'IgniteFormUtils', 'IgniteLegacyUtils'];
 
     /**
      * @param {UIRouter} $uiRouter
      * @param {ConfigSelectors} ConfigSelectors
      * @param {ConfigEffects} ConfigEffects
      * @param {ConfigureState} ConfigureState
-     * @param {ng.IHttpService} $http
      * @param {IgniteConfirmBatch} ConfirmBatch
      * @param {SqlTypes} SqlTypes
      * @param {JavaTypes} JavaTypes
@@ -112,10 +110,9 @@ export class ModalImportModels {
      * @param {AgentManager} agentMgr
      * @param {ActivitiesData} ActivitiesData
      */
-    constructor($uiRouter, ConfigSelectors, ConfigEffects, ConfigureState, $http, Confirm, ConfirmBatch, Focus, SqlTypes, JavaTypes, Messages, $scope, $root, agentMgr, ActivitiesData, Loading, FormUtils, LegacyUtils) {
+    constructor($uiRouter, ConfigSelectors, ConfigEffects, ConfigureState, Confirm, ConfirmBatch, Focus, SqlTypes, JavaTypes, Messages, $scope, $root, agentMgr, ActivitiesData, Loading, FormUtils, LegacyUtils) {
         this.$uiRouter = $uiRouter;
         this.ConfirmBatch = ConfirmBatch;
-        this.$http = $http;
         this.ConfigSelectors = ConfigSelectors;
         this.ConfigEffects = ConfigEffects;
         this.ConfigureState = ConfigureState;
@@ -261,14 +258,14 @@ export class ModalImportModels {
     }
 
     $onDestroy() {
-        this.subscription.unsubscribe();
+        this.subscribers$.unsubscribe();
         if (this.onCacheSelectSubcription) this.onCacheSelectSubcription.unsubscribe();
         if (this.saveSubscription) this.saveSubscription.unsubscribe();
     }
 
     $onInit() {
         // Restores old behavior
-        const {$http, Confirm, ConfirmBatch, Focus, SqlTypes, JavaTypes, Messages, $scope, $root, agentMgr, ActivitiesData, Loading, FormUtils, LegacyUtils} = this;
+        const {Confirm, ConfirmBatch, Focus, SqlTypes, JavaTypes, Messages, $scope, $root, agentMgr, ActivitiesData, Loading, FormUtils, LegacyUtils} = this;
 
         /**
          * Convert some name to valid java package name.
@@ -319,7 +316,7 @@ export class ModalImportModels {
             }
             this.$scope.$watch('importCommon.action', this._fillCommonCachesOrTemplates(this.$scope.importCommon), true);
             this.$scope.importCommon.action = IMPORT_DM_NEW_CACHE;
-        })).subscribe();
+        }));
 
         // New
         this.loadedCaches = {
@@ -1008,63 +1005,84 @@ export class ModalImportModels {
 
         $scope.importDomain.loadingOptions = LOADING_JDBC_DRIVERS;
 
-        agentMgr.startAgentWatch('Back', this.$uiRouter.globals.current.name)
-            .then(() => {
-                ActivitiesData.post({
-                    group: 'configuration',
-                    action: 'configuration/import/model'
-                });
-
-                return true;
-            })
-            .then(() => {
-                if (demo) {
-                    $scope.ui.packageNameUserInput = $scope.ui.packageName;
-                    $scope.ui.packageName = 'model';
-
-                    return;
-                }
-
-                // Get available JDBC drivers via agent.
-                Loading.start('importDomainFromDb');
-
-                $scope.jdbcDriverJars = [];
-                $scope.ui.selectedJdbcDriverJar = {};
-
-                return agentMgr.drivers()
-                    .then((drivers) => {
-                        $scope.ui.packageName = $scope.ui.packageNameUserInput;
-
-                        if (drivers && drivers.length > 0) {
-                            drivers = _.sortBy(drivers, 'jdbcDriverJar');
-
-                            _.forEach(drivers, (drv) => {
-                                $scope.jdbcDriverJars.push({
-                                    label: drv.jdbcDriverJar,
-                                    value: {
-                                        jdbcDriverJar: drv.jdbcDriverJar,
-                                        jdbcDriverClass: drv.jdbcDriverClass
-                                    }
-                                });
-                            });
-
-                            $scope.ui.selectedJdbcDriverJar = $scope.jdbcDriverJars[0].value;
-
-                            $scope.importDomain.action = 'connect';
-                            $scope.importDomain.tables = [];
-                            this.selectedTables = [];
-                        }
-                        else {
-                            $scope.importDomain.jdbcDriversNotFound = true;
-                            $scope.importDomain.button = 'Cancel';
-                        }
-                    })
-                    .then(() => {
-                        $scope.importDomain.info = INFO_CONNECT_TO_DB;
-
-                        Loading.finish('importDomainFromDb');
+        const fetchDomainData = () => {
+            return agentMgr.awaitAgent()
+                .then(() => {
+                    ActivitiesData.post({
+                        group: 'configuration',
+                        action: 'configuration/import/model'
                     });
-            });
+
+                    return true;
+                })
+                .then(() => {
+                    if (demo) {
+                        $scope.ui.packageNameUserInput = $scope.ui.packageName;
+                        $scope.ui.packageName = 'model';
+
+                        return;
+                    }
+
+                    // Get available JDBC drivers via agent.
+                    Loading.start('importDomainFromDb');
+
+                    $scope.jdbcDriverJars = [];
+                    $scope.ui.selectedJdbcDriverJar = {};
+
+                    return agentMgr.drivers()
+                        .then((drivers) => {
+                            $scope.ui.packageName = $scope.ui.packageNameUserInput;
+
+                            if (drivers && drivers.length > 0) {
+                                drivers = _.sortBy(drivers, 'jdbcDriverJar');
+
+                                _.forEach(drivers, (drv) => {
+                                    $scope.jdbcDriverJars.push({
+                                        label: drv.jdbcDriverJar,
+                                        value: {
+                                            jdbcDriverJar: drv.jdbcDriverJar,
+                                            jdbcDriverClass: drv.jdbcDriverClass
+                                        }
+                                    });
+                                });
+
+                                $scope.ui.selectedJdbcDriverJar = $scope.jdbcDriverJars[0].value;
+
+                                $scope.importDomain.action = 'connect';
+                                $scope.importDomain.tables = [];
+                                this.selectedTables = [];
+                            }
+                            else {
+                                $scope.importDomain.jdbcDriversNotFound = true;
+                                $scope.importDomain.button = 'Cancel';
+                            }
+                        })
+                        .then(() => {
+                            $scope.importDomain.info = INFO_CONNECT_TO_DB;
+
+                            Loading.finish('importDomainFromDb');
+                        });
+                });
+        };
+
+        this.agentIsAvailable$ = this.agentMgr.connectionSbj.pipe(
+            pluck('state'),
+            map((state) => state !== 'AGENT_DISCONNECTED')
+        );
+
+        this.domainData$ = this.agentIsAvailable$.pipe(
+            switchMap((agentIsAvailable) => {
+                if (!agentIsAvailable)
+                    return of(EMPTY);
+
+                return from(fetchDomainData());
+            })
+        );
+
+        this.subscribers$ = merge(
+            this.subscription,
+            this.domainData$
+        ).subscribe();
 
         $scope.$watch('ui.selectedJdbcDriverJar', function(val) {
             if (val && !$scope.importDomain.demo) {
