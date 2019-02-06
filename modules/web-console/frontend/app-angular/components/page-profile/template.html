@@ -51,7 +51,7 @@
             <form-field class="span-1">
                 <form-field-hint>The security token is used for authentication of Web agent</form-field-hint>
                 <label for="securityToken">Security Token</label>
-                <copy-to-clipboard-button [value]='form.value.token'>Copy security token to clipboard</copy-to-clipboard-button>
+                <copy-to-clipboard-button formFieldOverlay [value]='form.value.token'>Copy security token to clipboard</copy-to-clipboard-button>
                 <input
                     id='securityToken'
                     type="text"
@@ -69,14 +69,17 @@
         <div class="form-grid" *ngIf='form.value.passwordPanelOpened'>
             <form-field class='span-2'>
                 <label for="newPassword">New password</label>
-                <input type="text" formControlName='newPassword' a_utofocus="true" id='newPassword' autocomplete='off' #passwordEl>
+                <password-visibility-toggle-button-angular formFieldOverlay [passwordEl]='passwordEl'></password-visibility-toggle-button-angular>
+                <input type="password" formControlName='newPassword' id='newPassword' #passwordEl>
             </form-field>
             <form-field class='span-2'>
                 <label for="confirmPassword">Confirm password</label>
-                <input type="text" formControlName='confirmPassword' id='confirmPassword' autocomplete='off'>
+                <password-visibility-toggle-button-angular formFieldOverlay [passwordEl]='confirmPasswordEl'></password-visibility-toggle-button-angular>
+                <input type="password" formControlName='confirmPassword' id='confirmPassword' #confirmPasswordEl>
             </form-field>
         </div>
     </panel-collapsible-angular>
+    <pre>{{form.value|json}}</pre>
 </form>
 <hr>
 <footer>

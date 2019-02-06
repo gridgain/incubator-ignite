@@ -119,23 +119,37 @@ export class FormFieldErrors<T extends {[errorType: string]: string}> {
 @Component({
     selector: 'form-field',
     template: `
+        <ng-template #errors>
+            <form-field-errors
+                *ngIf='(control?.dirty || control?.touched) && control?.invalid'
+                [errorStyle]='options.errorStyle'
+                [errorType]='_getErrorType(control?.control)'
+                [extraErrorMessages]='extraMessages'
+            ></form-field-errors>
+        </ng-template>
         <div class="angular-form-field__label">
             <ng-content select="label"></ng-content>
             <form-field-tooltip *ngIf='hint' [content]='hint.popper'></form-field-tooltip>
         </div>
-        <div class="angular-form-field__input">
+        <div class="angular-form-field__input" [attr.data-overlay-items-count]='overlayEl.childElementCount'>
             <ng-content></ng-content>
         </div>
-        <form-field-errors
-            *ngIf='(control?.dirty || control?.touched) && control?.invalid'
-            [errorStyle]='options.errorStyle'
-            [errorType]='_getErrorType(control?.control)'
-            [extraErrorMessages]='extraMessages'
-        ></form-field-errors>
+        <div class="input-overlay" #overlayEl>
+            <ng-container *ngIf='options.errorStyle === "icon"'>
+                <ng-container *ngTemplateOutlet='errors'></ng-container>
+            </ng-container>
+            <ng-content select='[formFieldOverlay]'></ng-content>
+        </div>
+        <ng-container *ngIf='options.errorStyle === "inline"'>
+            <ng-container *ngTemplateOutlet='errors'></ng-container>
+        </ng-container>
     `,
     styles: [`
         .angular-form-field__input {
             position: relative;
+        }
+        .input-overlay {
+            display: grid;
         }
     `]
 })

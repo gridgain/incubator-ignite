@@ -17,32 +17,45 @@
 
 form-field {
     --required-label-gap: 0.25em;
-    --overlay-item-width: 31px;
     --input-height: 36px;
+    --overlay-item-width: 16px;
+    --overlay-item-gap: 10px;
 
     &.form-field__icon-error {
         display: grid;
-        grid-template-areas: 'title title' 'control error-icon' 'error-inline error-inline';
-        grid-template-columns: auto var(--input-height);
+        grid-template-areas: 'title title' 'control overlay' 'error-inline error-inline';
+        grid-template-columns: auto min-content;
 
         .angular-form-field__label {
             grid-area: title;
         }
 
         .angular-form-field__input {
-            grid-column: control / error-icon;
+            grid-column: control / overlay;
             grid-row: control;
-            position: relative;
-
-            input.ng-invalid {
-                padding-right: var(--overlay-item-width);
-            }
         }
+    }
 
-        form-field-errors {
-            grid-area: error-icon;
-            z-index: 1;
+    .angular-form-field__input[data-overlay-items-count="1"] {
+        input {
+            padding-right: calc(1 * (var(--overlay-item-width) + var(--overlay-item-gap)) + var(--overlay-item-gap));
         }
+    }
+
+    .angular-form-field__input[data-overlay-items-count="2"] {
+        input {
+            padding-right: calc(2 * (var(--overlay-item-width) + var(--overlay-item-gap)) + var(--overlay-item-gap));
+        }
+    }
+
+    .input-overlay {
+        grid-area: overlay;
+        display: grid;
+        grid-auto-columns: var(--overlay-item-width);
+        grid-auto-flow: column;
+        padding-right: var(--overlay-item-gap);
+        grid-gap: var(--overlay-item-gap);
+        z-index: 2;
     }
 
     input, select {

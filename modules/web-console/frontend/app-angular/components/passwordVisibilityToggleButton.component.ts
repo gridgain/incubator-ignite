@@ -15,23 +15,22 @@
  * limitations under the License.
  */
 
-import {Component, Input, Inject} from '@angular/core';
-import {default as IgniteCopyToClipboardFactory} from 'app/services/CopyToClipboard.service';
+import {Component, Input, ElementRef} from '@angular/core';
 
 @Component({
-    selector: 'copy-to-clipboard-button',
+    selector: 'password-visibility-toggle-button-angular',
     template: `
         <button
-            (click)='copy()'
-            [popper]='content'
-            popperApplyClass='ignite-popper,ignite-popper__tooltip'
-            popperTrigger='hover'
-            popperAppendTo='body'
             type='button'
+            (click)='toggleVisibility()'
+            [popper]='isVisible ? "Hide password" : "Show password"'
+            popperApplyClass='ignite-popper,ignite-popper__tooltip'
+            popperAppendTo='body'
+            popperTrigger='hover'
+            popperPlacement='top'
         >
-            <ignite-icon name='copy'></ignite-icon>
+            <ignite-icon [name]='isVisible ? "eyeOpened" : "eyeClosed"'></ignite-icon>
         </button>
-        <popper-content #content><ng-content></ng-content></popper-content>
     `,
     styles: [`
         :host {
@@ -51,14 +50,13 @@ import {default as IgniteCopyToClipboardFactory} from 'app/services/CopyToClipbo
         }
     `]
 })
-export class CopyToClipboardButton {
+export class PasswordVisibilityToggleButton {
     @Input()
-    value: string
-
-    private copy() {
-        this.IgniteCopyToClipboard.copy(this.value);
+    passwordEl: HTMLInputElement
+    isVisible: boolean = false
+    toggleVisibility() {
+        this.isVisible = !this.isVisible;
+        this.passwordEl.setAttribute('type', this.isVisible ? 'text' : 'password');
     }
-
-    static parameters = [[new Inject('IgniteCopyToClipboard')]]
-    constructor(private IgniteCopyToClipboard: ReturnType<typeof IgniteCopyToClipboardFactory>) {}
 }
+
