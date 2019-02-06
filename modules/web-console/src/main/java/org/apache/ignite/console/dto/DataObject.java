@@ -60,4 +60,11 @@ public abstract class DataObject extends AbstractDto {
     public String json() {
         return json;
     }
+
+    /**
+     * @param json JSON encoded payload.
+     */
+    public void json(String json) {
+        this.json = json;
+    }
 }

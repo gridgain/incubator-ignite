@@ -36,6 +36,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpServerOptions;
@@ -326,7 +327,7 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param status Status to send.
      * @param data Data to send.
      */
-    private void sendResult(RoutingContext ctx, int status, String data) {
+    private void sendResult(RoutingContext ctx, int status, Buffer data) {
         ctx
             .response()
             .putHeader(HttpHeaderNames.CACHE_CONTROL, HTTP_CACHE_CONTROL)
@@ -334,6 +335,15 @@ public class WebConsoleServer extends AbstractVerticle {
             .putHeader(HttpHeaderNames.EXPIRES, "0")
             .setStatusCode(status)
             .end(data);
+    }
+
+    /**
+     * @param ctx Context.
+     * @param status Status to send.
+     * @param data Data to send.
+     */
+    private void sendResult(RoutingContext ctx, int status, String data) {
+        sendResult(ctx, status, Buffer.buffer(data));
     }
 
     /**
@@ -412,13 +422,31 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleNotebooks(RoutingContext ctx) {
-        IgniteCache<String, String> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+        IgniteCache<UUID, Notebook> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
 
-        List<Cache.Entry<String, String>> list = cache.query(new ScanQuery<String, String>()).getAll();
+        List<Cache.Entry<UUID, Notebook>> list = cache.query(new ScanQuery<UUID, Notebook>()).getAll();
 
-        String res = list.stream().map(Cache.Entry::getValue).collect(Collectors.joining(",", "[", "]"));
+        String res = list.stream().map(entry -> entry.getValue().json()).collect(Collectors.joining(",", "[", "]"));
 
         sendResult(ctx, HTTP_OK, res);
+    }
+
+    /**
+     * Sanitize raw data.
+     *
+     * @param rawData Data object.
+     * @param schema Schema.
+     */
+    private void sanitize(JsonObject rawData, JsonObject schema) {
+        Set<String> rawFlds = rawData.fieldNames();
+
+        for (String fld : rawFlds) {
+            if (!schema.containsKey(fld)) {
+                rawData.remove(fld);
+
+                log("Removed unknown field: " + fld);
+            }
+        }
     }
 
     /**
@@ -434,22 +462,14 @@ public class WebConsoleServer extends AbstractVerticle {
 
             JsonObject notebookSchema = Schemas.INSTANCE.schema(Notebook.class);
 
-            Set<String> rawFlds = rawData.fieldNames();
-
-            // Remove unknown fields.
-            for (String fld : rawFlds) {
-                if (!notebookSchema.containsKey(fld)) {
-                    rawData.remove(fld);
-
-                    log("Removed unknown field: " + fld);
-                }
-            }
+            sanitize(rawData, notebookSchema);
 
             try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
                 UUID _id = rawData.containsKey("_id") ? UUID.fromString(rawData.getString("_id")) : UUID.randomUUID();
 
                 Notebook notebook = new Notebook();
                 notebook.id(_id);
+                notebook.json(rawData.encode());
 
                 IgniteCache<UUID, Notebook> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
 
@@ -459,7 +479,7 @@ public class WebConsoleServer extends AbstractVerticle {
 
                 String json = notebook.json();
 
-                sendStatus(ctx, HTTP_OK, json);
+                sendResult(ctx, HTTP_OK, json);
             }
             catch (Throwable e) {
                 ignite.log().error("Failed to save notebook", e);

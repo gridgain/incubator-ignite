@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+import _ from 'lodash';
+
 import headerTemplate from '../../../../../app/primitives/ui-grid-header/index.tpl.pug';
 
 export class NotebooksListCtrl {
@@ -119,7 +121,7 @@ export class NotebooksListCtrl {
     }
 
     _countParagraphs(notebook, queryType = 'query') {
-        return notebook.paragraphs.filter((paragraph) => paragraph.qryType === queryType).length || 0;
+        return _.filter(notebook.paragraphs, (paragraph) => paragraph.qryType === queryType).length;
     }
 
     _onSelectionChanged() {
