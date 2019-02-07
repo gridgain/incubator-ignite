@@ -21,7 +21,7 @@
 <form [formGroup]='form' (ngSubmit)='saveUser()' id='user' scrollToFirstInvalid class="form-grid">
     <form-field class='span-1'>
         <label for='firstName'>First name</label>
-        <input type="text" formControlName='firstName' id='firstName'>
+        <input type="text" formControlName='firstName' id='firstName' autofocus>
     </form-field>
     <form-field class='span-1'>
         <label for='lastName'>Last name</label>

@@ -67,11 +67,6 @@ export class PageProfile implements OnInit, OnDestroy {
     countries: Country[]
     user: User
 
-    @ViewChild('passwordEl')
-    set passwordEl(el: ElementRef<HTMLInputElement>) {
-        if (el) el.nativeElement.focus();
-    }
-
     async ngOnInit() {
         this.user = await this.User.read();
         this.form.patchValue(this.user);

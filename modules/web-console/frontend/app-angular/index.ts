@@ -37,6 +37,7 @@ import {ScrollToFirstInvalid} from './components/scrollToFirstInvalid.directive'
 import {PanelCollapsible} from './components/panelCollapsible.component';
 import {CopyToClipboardButton} from './components/copyToClipboardButton.component';
 import {PasswordVisibilityToggleButton} from './components/passwordVisibilityToggleButton.component';
+import {Autofocus} from './components/autofocus.directive';
 
 import {ReactiveFormsModule} from '@angular/forms';
 
@@ -49,6 +50,7 @@ export const declarations = [
     PanelCollapsible,
     CopyToClipboardButton,
     PasswordVisibilityToggleButton,
+    Autofocus,
     ...FormFieldComponents
 ];
 
