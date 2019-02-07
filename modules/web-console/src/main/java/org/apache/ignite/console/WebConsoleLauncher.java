@@ -114,9 +114,10 @@ public class WebConsoleLauncher extends AbstractVerticle {
         ignite.cluster().active(true);
 
         ignite.getOrCreateCaches(Arrays.asList(
-            cacheCfg(Consts.ACCOUNTS_CACHE_NAME),
-            cacheCfg(Consts.SPACES_CACHE_NAME),
-            cacheCfg(Consts.NOTEBOOKS_CACHE_NAME)
+            cacheCfg(Consts.ACCOUNTS_CACHE),
+            cacheCfg(Consts.SPACES_CACHE),
+            cacheCfg(Consts.NOTEBOOKS_CACHE),
+            cacheCfg(Consts.ACCOUNT_NOTEBOOKS_CACHE)
         ));
 
         return ignite;

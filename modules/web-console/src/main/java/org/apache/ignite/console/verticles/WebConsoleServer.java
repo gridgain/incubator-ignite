@@ -17,22 +17,20 @@
 
 package org.apache.ignite.console.verticles;
 
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import javax.cache.Cache;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
@@ -60,15 +58,14 @@ import io.vertx.ext.web.sstore.LocalSessionStore;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCompute;
-import org.apache.ignite.cache.query.ScanQuery;
 import org.apache.ignite.cluster.ClusterMetrics;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.common.Consts;
+import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Notebook;
-import org.apache.ignite.console.dto.Properties;
 import org.apache.ignite.console.dto.Schemas;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteEx;
@@ -86,6 +83,7 @@ import org.apache.ignite.internal.visor.compute.VisorGatewayTask;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.transactions.Transaction;
+import org.jetbrains.annotations.Nullable;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
@@ -113,7 +111,7 @@ import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 /**
  * Web Console server.
  */
-@SuppressWarnings("JavaAbbreviationUsage")
+@SuppressWarnings({"JavaAbbreviationUsage", "unused", "NonFinalStaticVariableUsedInClassInitialization", "Duplicates"})
 public class WebConsoleServer extends AbstractVerticle {
     /** */
     private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
@@ -126,6 +124,9 @@ public class WebConsoleServer extends AbstractVerticle {
         HttpHeaderValues.NO_CACHE,
         HttpHeaderValues.NO_STORE,
         HttpHeaderValues.MUST_REVALIDATE);
+
+    /** */
+    private static final Buffer EMPTY_ARRAY = Buffer.buffer("[]");
 
     /** */
     private final Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
@@ -159,8 +160,16 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param s Message to log.
      */
-    protected void log(Object s) {
+    protected void logInfo(Object s) {
         ignite.log().info(String.valueOf(s));
+    }
+
+    /**
+     * @param msg Message to log.
+     * @param e Error to log.
+     */
+    protected void logError(String msg, Throwable e) {
+        ignite.log().error(msg, e);
     }
 
     /**
@@ -178,7 +187,7 @@ public class WebConsoleServer extends AbstractVerticle {
     @Override public void start() {
         long start = System.currentTimeMillis();
 
-        log("Embedded mode: " + embedded);
+        logInfo("Embedded mode: " + embedded);
 
         SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
 
@@ -214,7 +223,7 @@ public class WebConsoleServer extends AbstractVerticle {
             .requestHandler(router)
             .listen(3000);
 
-        log("Web Console started: " + (System.currentTimeMillis() - start));
+        logInfo("Web Console started: " + (System.currentTimeMillis() - start));
     }
 
     /**
@@ -243,22 +252,28 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/signup").handler(this::handleSignUp);
         router.route("/api/v1/signin").handler(this::handleSignIn);
         router.route("/api/v1/logout").handler(this::handleLogout);
+
         router.route("/api/v1/password/forgot").handler(this::handleDummy);
         router.route("/api/v1/password/reset").handler(this::handleDummy);
         router.route("/api/v1/password/validate/token").handler(this::handleDummy);
+
         router.route("/api/v1/activation/resend").handler(this::handleDummy);
         router.route("/api/v1/activities/page").handler(this::handleDummy);
+
         router.route("/api/v1/admin").handler(this::handleDummy);
         router.route("/api/v1/profile").handler(this::handleDummy);
         router.route("/api/v1/demo").handler(this::handleDummy);
+
         router.route("/api/v1/configuration/clusters").handler(this::handleDummy);
         router.route("/api/v1/configuration/domains").handler(this::handleDummy);
         router.route("/api/v1/configuration/caches").handler(this::handleDummy);
         router.route("/api/v1/configuration/igfs").handler(this::handleDummy);
         router.route("/api/v1/configuration").handler(this::handleDummy);
-        router.get("/api/v1/notebooks").handler(this::handleNotebooks);
+
+        router.get("/api/v1/notebooks").handler(this::handleNotebooksLoad);
         router.post("/api/v1/notebooks/save").handler(this::handleNotebookSave);
-        router.post("/api/v1/notebooks/delete").handler(this::handleNotebookDelete);
+        router.post("/api/v1/notebooks/remove").handler(this::handleNotebookRemove);
+
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.route("/api/v1/activities").handler(this::handleDummy);
     }
@@ -308,6 +323,16 @@ public class WebConsoleServer extends AbstractVerticle {
     }
 
     /**
+     * @param cause Error.
+     * @return Error message or exception class name.
+     */
+    private String errorMessage(Throwable cause) {
+        String msg = cause.getMessage();
+
+        return F.isEmpty(msg) ? cause.getClass().getName() : msg;
+    }
+
+    /**
      * @param ctx Context.
      * @param status Status to send.
      */
@@ -326,58 +351,62 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /**
      * @param ctx Context.
-     * @param status Status to send.
      * @param data Data to send.
      */
-    private void sendResult(RoutingContext ctx, int status, Buffer data) {
+    private void sendResult(RoutingContext ctx, Buffer data) {
         ctx
             .response()
+            .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
             .putHeader(HttpHeaderNames.CACHE_CONTROL, HTTP_CACHE_CONTROL)
             .putHeader(HttpHeaderNames.PRAGMA, HttpHeaderValues.NO_CACHE)
             .putHeader(HttpHeaderNames.EXPIRES, "0")
-            .setStatusCode(status)
+            .setStatusCode(HTTP_OK)
             .end(data);
     }
 
     /**
      * @param ctx Context.
-     * @param status Status to send.
      * @param data Data to send.
      */
-    private void sendResult(RoutingContext ctx, int status, String data) {
-        sendResult(ctx, status, Buffer.buffer(data));
+    private void sendResult(RoutingContext ctx, JsonObject data) {
+        sendResult(ctx, data.toBuffer());
     }
 
     /**
-     * @param cause Error.
-     * @return Error message or exception class name.
-     */
-    private String errorMessage(Throwable cause) {
-        String msg = cause.getMessage();
-
-       return F.isEmpty(msg) ? cause.getClass().getName() : msg;
-    }
-
-    /**
-     * @param json JSON object to send.
      * @param ctx Context.
+     * @param msg Error message to send.
+     * @param e Error to send.
      */
-    private void sendJson(JsonObject json, RoutingContext ctx) {
-        ctx.response()
-            .putHeader(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
-            .end(Json.encode(json));
+    private void sendError(RoutingContext ctx, String msg, Throwable e) {
+        logError(msg, e);
+
+        sendStatus(ctx, HTTP_INTERNAL_ERROR, msg + ": " + errorMessage(e));
+    }
+
+    /**
+     * Get the authenticated user (if any).
+     * If user not found, send {@link HttpURLConnection#HTTP_UNAUTHORIZED}.
+     *
+     * @param ctx Context
+     * @return User or {@code null} if the current user is not authenticated.
+     */
+    @Nullable private User checkUser(RoutingContext ctx) {
+        User user = ctx.user();
+
+        if (user == null)
+            sendStatus(ctx, HTTP_UNAUTHORIZED);
+
+        return user;
     }
 
     /**
      * @param ctx Context
      */
     private void handleUser(RoutingContext ctx) {
-        User user = ctx.user();
+        User user = checkUser(ctx);
 
-        if (user == null)
-            sendStatus(ctx, HTTP_UNAUTHORIZED);
-        else
-            sendJson(user.principal(), ctx);
+        if (user != null)
+            sendResult(ctx, user.principal());
     }
 
     /**
@@ -390,7 +419,7 @@ public class WebConsoleServer extends AbstractVerticle {
 
         auth.authenticate(authInfo, asyncRes -> {
             if (asyncRes.succeeded())
-                sendStatus(ctx, HTTP_OK);
+                sendResult(ctx, asyncRes.result().principal());
             else
                 sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
         });
@@ -421,95 +450,144 @@ public class WebConsoleServer extends AbstractVerticle {
     }
 
     /**
-     * @param ctx Context
+     * Convert query data to JSON array.
+     *
+     * @param data Query data.
+     * @return Buffer with JSON array.
      */
-    private void handleNotebooks(RoutingContext ctx) {
-        IgniteCache<UUID, Notebook> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+    private Buffer toJsonArray(Collection<? extends DataObject> data) {
+        if (data.isEmpty())
+            return EMPTY_ARRAY;
 
-        List<Cache.Entry<UUID, Notebook>> list = cache.query(new ScanQuery<UUID, Notebook>()).getAll();
+        Buffer buf = Buffer.buffer(4096);
 
-        String res = list.stream().map(entry -> entry.getValue().json()).collect(Collectors.joining(",", "[", "]"));
+        buf.appendString("[");
 
-        sendResult(ctx, HTTP_OK, res);
+        data.forEach(item -> {
+            if (buf.length() > 1)
+                buf.appendString(",");
+
+            buf.appendString(item.json());
+        });
+
+        buf.appendString("]");
+
+        return buf;
     }
 
     /**
-     * Sanitize raw data.
+     * @param ctx Context
+     */
+    private void handleNotebooksLoad(RoutingContext ctx) {
+        User user = checkUser(ctx);
+
+        if (user != null) {
+            UUID userId = getId(user.principal());
+
+            // TODO IGNITE-5617 check userId != null
+
+            IgniteCache<UUID, Notebook> notebooksCache = ignite.cache(Consts.NOTEBOOKS_CACHE);
+            IgniteCache<UUID, TreeSet<UUID>> lookupCache = ignite.cache(Consts.ACCOUNT_NOTEBOOKS_CACHE);
+
+            Buffer buf = EMPTY_ARRAY;
+
+            try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
+                TreeSet<UUID> notebookIds = lookupCache.get(userId);
+
+                if (!F.isEmpty(notebookIds)) {
+                    Map<UUID, Notebook> notebooks = notebooksCache.getAll(notebookIds);
+
+                    buf = toJsonArray(notebooks.values());
+                }
+
+            }
+
+            sendResult(ctx, buf);
+        }
+    }
+
+    /**
+     * @param rawData Data object.
+     * @return ID or {@code null} if object has no ID.
+     */
+    @Nullable private UUID getId(JsonObject rawData) {
+        boolean hasId = rawData.containsKey("_id");
+
+        return hasId ? UUID.fromString(rawData.getString("_id")) : null;
+    }
+
+    /**
+     * Ensure that object has ID.
      *
      * @param rawData Data object.
-     * @param schema Schema.
-     * @return Sanitized object.
+     * @return Object ID.
      */
-    private JsonObject sanitize(JsonObject rawData, Properties schema) {
-        Set<String> rawFlds = new HashSet<>(rawData.fieldNames());
+    private UUID ensureId(JsonObject rawData) {
+        UUID id = getId(rawData);
 
-        for (String fld : rawFlds) {
-            if (schema.containsKey(fld)) {
-                Object childSchema = schema.getValue(fld);
+        if (id == null) {
+            id = UUID.randomUUID();
 
-                if (childSchema instanceof Properties) {
-                    Object child = rawData.getValue(fld);
-
-                    if (child instanceof JsonArray) {
-                        JsonArray rawItems = (JsonArray)child;
-                        JsonArray sanitizedItems = new JsonArray();
-
-                        rawItems.forEach(item -> sanitizedItems.add(sanitize((JsonObject)item, (Properties)childSchema)));
-                        rawData.put(fld, sanitizedItems);
-                    }
-                    else if (child instanceof JsonObject)
-                        rawData.put(fld, sanitize((JsonObject)child, (Properties)childSchema));
-                    else
-                        throw new IllegalStateException("Expected array or object, but found: " +
-                            (child != null ? child.getClass().getName() : "null"));
-                }
-            }
-            else
-                rawData.remove(fld);
+            rawData.put("_id", id.toString());
         }
 
-        return rawData;
+        return id;
     }
 
     /**
      * @param ctx Context
      */
     private void handleNotebookSave(RoutingContext ctx) {
-        User user = ctx.user();
+        User user = checkUser(ctx);
 
-        if (user == null)
-            sendStatus(ctx, HTTP_UNAUTHORIZED, "User not found");
-        else {
-            JsonObject rawData = ctx.getBody().toJsonObject();
+        if (user != null) {
+            try {
+                JsonObject rawData = Schemas.sanitize(Notebook.class, ctx.getBody().toJsonObject());
 
-            Properties notebookSchema = Schemas.INSTANCE.schema(Notebook.class);
+                UUID userId = getId(user.principal());
 
-            rawData = sanitize(rawData, notebookSchema);
+                // TODO IGNITE-5617 check userId != null
 
-            try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
-                boolean exists = rawData.containsKey("_id");
-                
-                UUID _id = exists ? UUID.fromString(rawData.getString("_id")) : UUID.randomUUID();
+                UUID notebookId = ensureId(rawData);
 
-                if (!exists)
-                    rawData.put("_id", _id.toString());
+                String notebookName = rawData.getString("name");
 
-                Notebook notebook = new Notebook(_id, null, rawData.encode());
+                Notebook notebook = new Notebook(notebookId, null, notebookName, rawData.encode());
 
-                IgniteCache<UUID, Notebook> cache = ignite.cache(Consts.NOTEBOOKS_CACHE_NAME);
+                IgniteCache<UUID, Notebook> notebooksCache = ignite.cache(Consts.NOTEBOOKS_CACHE);
+                IgniteCache<UUID, TreeSet<UUID>> lookupCache = ignite.cache(Consts.ACCOUNT_NOTEBOOKS_CACHE);
 
-                cache.put(_id, notebook);
+                try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
+                    TreeSet<UUID> lookupIds = lookupCache.get(userId);
 
-                tx.commit();
+                    if (!F.isEmpty(lookupIds)) {
+                        boolean exists = notebooksCache
+                            .getAll(lookupIds)
+                            .values()
+                            .stream()
+                            .anyMatch(n -> n.name().equals(notebookName));
 
-                String json = notebook.json();
+                        if (exists)
+                            throw new IllegalStateException("Notebook with name '" + notebookName + "' already exits");
+                    }
 
-                sendResult(ctx, HTTP_OK, json);
+                    if (lookupIds == null)
+                        lookupIds = new TreeSet<>();
+
+                    lookupIds.add(notebookId);
+
+                    lookupCache.put(userId, lookupIds);
+                    notebooksCache.put(notebookId, notebook);
+
+                    tx.commit();
+
+                    String json = notebook.json();
+
+                    sendResult(ctx, Buffer.buffer(json));
+                }
             }
             catch (Throwable e) {
-                ignite.log().error("Failed to save notebook", e);
-
-                sendStatus(ctx, HTTP_INTERNAL_ERROR, "Failed to save notebook: " + errorMessage(e));
+                sendError(ctx, "Failed to save notebook", e);
             }
         }
     }
@@ -517,8 +595,33 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param ctx Context
      */
-    private void handleNotebookDelete(RoutingContext ctx) {
-        sendStatus(ctx, HTTP_OK, "[]");
+    private void handleNotebookRemove(RoutingContext ctx) {
+        User user = checkUser(ctx);
+
+        if (user != null) {
+            try {
+                IgniteCache<UUID, Notebook> cache = ignite.cache(Consts.NOTEBOOKS_CACHE);
+
+                UUID id = getId(ctx.getBodyAsJson());
+
+                if (id == null)
+                    throw new IllegalStateException("Notebook id can not be undefined or null");
+
+                try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
+                    boolean removed = cache.remove(id);
+
+                    tx.commit();
+
+                    JsonObject json = new JsonObject()
+                        .put("rowsAffected", removed ? 1 : 0);
+
+                    sendResult(ctx, json);
+                }
+            }
+            catch (Throwable e) {
+                sendError(ctx, "Failed to delete notebook", e);
+            }
+        }
     }
 
     /**
@@ -909,7 +1012,11 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * Visor task descriptor.
      */
+    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     private static class VisorTaskDescriptor {
+        /** */
+        private static final String[] EMPTY = new String[0];
+
         /** */
         private final String taskCls;
 
@@ -922,7 +1029,7 @@ public class WebConsoleServer extends AbstractVerticle {
          */
         private VisorTaskDescriptor(String taskCls, String[] argCls) {
             this.taskCls = taskCls;
-            this.argCls = argCls != null ? argCls : new String[0];
+            this.argCls = argCls != null ? argCls : EMPTY;
         }
 
         /**

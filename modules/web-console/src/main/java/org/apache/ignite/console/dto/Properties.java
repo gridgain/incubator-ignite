@@ -17,7 +17,10 @@
 
 package org.apache.ignite.console.dto;
 
-import io.vertx.core.json.JsonObject;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.console.dto.PropertyType.ARRAY;
 import static org.apache.ignite.console.dto.PropertyType.BOOLEAN;
@@ -28,7 +31,10 @@ import static org.apache.ignite.console.dto.PropertyType.UUID;
 /**
  * Class that holds metadata about DTO types.
  */
-public class Properties extends JsonObject {
+public class Properties {
+    /** */
+    private Map<String, Object> props = new HashMap<>();
+
     /**
      * Add property.
      *
@@ -37,7 +43,7 @@ public class Properties extends JsonObject {
      * @return {@code this} for chaining.
      */
     private Properties addProperty(String key, PropertyType type) {
-        put(key, type);
+        props.put(key, type);
 
         return this;
     }
@@ -100,8 +106,31 @@ public class Properties extends JsonObject {
      * @return {@code this} for chaining.
      */
     public Properties addChild(String key, Properties child) {
-        put(key, child);
+        props.put(key, child);
 
         return this;
+    }
+
+    /**
+     * @param key Key to check.
+     * @return {@code true} if schema has property.
+     */
+    public boolean hasPropery(String key) {
+        return props.containsKey(key);
+    }
+
+    /**
+     * Get child schema.
+     *
+     * @param key Key.
+     * @return Child schema.
+     */
+    @Nullable public Properties childSchema(String key) {
+        Object v = props.get(key);
+
+        if (v instanceof Properties)
+            return (Properties) v;
+
+        return null;
     }
 }

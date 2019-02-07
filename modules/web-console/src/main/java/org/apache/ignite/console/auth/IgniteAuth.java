@@ -143,7 +143,7 @@ public class IgniteAuth implements AuthProvider {
      * @throws GeneralSecurityException If failed to authenticate.
      */
     private Account signUp(JsonObject authInfo) throws GeneralSecurityException {
-        IgniteCache<String, Account> cache = ignite.cache(Consts.ACCOUNTS_CACHE_NAME);
+        IgniteCache<String, Account> cache = ignite.cache(Consts.ACCOUNTS_CACHE);
 
         String email = authInfo.getString("email");
 
@@ -184,7 +184,7 @@ public class IgniteAuth implements AuthProvider {
             false
         );
 
-        ignite.cache(Consts.SPACES_CACHE_NAME).put(space.id(), space);
+        ignite.cache(Consts.SPACES_CACHE).put(space.id(), space);
 
         return account;
     }
@@ -197,7 +197,7 @@ public class IgniteAuth implements AuthProvider {
     private Account signIn(JsonObject authInfo) throws GeneralSecurityException {
         String email = authInfo.getString("email");
 
-        IgniteCache<String, Account> cache = ignite.cache(Consts.ACCOUNTS_CACHE_NAME);
+        IgniteCache<String, Account> cache = ignite.cache(Consts.ACCOUNTS_CACHE);
 
         Account account = cache.get(email);
 

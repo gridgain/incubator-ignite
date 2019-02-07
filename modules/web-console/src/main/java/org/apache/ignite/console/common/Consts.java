@@ -22,11 +22,14 @@ package org.apache.ignite.console.common;
  */
 public interface Consts {
     /** */
-    public static final String ACCOUNTS_CACHE_NAME = "web-console-accounts";
+    public static final String ACCOUNTS_CACHE = "wc_accounts";
 
     /** */
-    public static final String SPACES_CACHE_NAME = "web-console-spaces";
+    public static final String SPACES_CACHE = "wc_spaces";
 
     /** */
-    public static final String NOTEBOOKS_CACHE_NAME = "web-console-notebooks";
+    public static final String NOTEBOOKS_CACHE = "wc_notebooks";
+
+    /** */
+    public static final String ACCOUNT_NOTEBOOKS_CACHE = "wc_account_notebooks";
 }

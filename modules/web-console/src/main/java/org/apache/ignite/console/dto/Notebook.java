@@ -23,14 +23,27 @@ import java.util.UUID;
  * DTO for queries notebook.
  */
 public class Notebook extends DataObject {
+    /** */
+    private String name;
+
     /**
      * Full constructor.
      *
      * @param id ID.
      * @param space Space ID.
+     * @param name Notebook name.
      * @param json JSON payload.
      */
-    public Notebook(UUID id, UUID space, String json) {
+    public Notebook(UUID id, UUID space, String name, String json) {
         super(id, space, json);
+
+        this.name = name;
+    }
+
+    /**
+     * @return name Notebook name.
+     */
+    public String name() {
+        return name;
     }
 }

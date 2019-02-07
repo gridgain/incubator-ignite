@@ -18,14 +18,18 @@
 package org.apache.ignite.console.dto;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 
 /**
  * Registry with DTO objects metadata.
  */
 public class Schemas {
     /** Singleton instance to use. */
-    public static final Schemas INSTANCE = new Schemas();
+    private static final Schemas INSTANCE = new Schemas();
 
     /** */
     private final Map<Class, Properties> schemas = new HashMap<>();
@@ -71,5 +75,56 @@ public class Schemas {
      */
     public Properties schema(Class cls) {
         return schemas.get(cls);
+    }
+
+    /**
+     * Sanitize raw data.
+     *
+     * @param schema Schema.
+     * @param rawData Data object.
+     * @return Sanitized object.
+     */
+    private static JsonObject sanitize0(Properties schema, JsonObject rawData) {
+        Set<String> rawFlds = new HashSet<>(rawData.fieldNames());
+
+        for (String fld : rawFlds) {
+            if (schema.hasPropery(fld)) {
+                Properties childSchema = schema.childSchema(fld);
+
+                if (childSchema != null) {
+                    Object child = rawData.getValue(fld);
+
+                    if (child instanceof JsonArray) {
+                        JsonArray rawItems = (JsonArray)child;
+                        JsonArray sanitizedItems = new JsonArray();
+
+                        rawItems.forEach(item -> sanitizedItems.add(sanitize0(childSchema, (JsonObject)item)));
+                        rawData.put(fld, sanitizedItems);
+                    }
+                    else if (child instanceof JsonObject)
+                        rawData.put(fld, sanitize0(childSchema, (JsonObject)child));
+                    else
+                        throw new IllegalStateException("Expected array or object, but found: " +
+                            (child != null ? child.getClass().getName() : "null"));
+                }
+            }
+            else
+                rawData.remove(fld);
+        }
+
+        return rawData;
+    }
+
+    /**
+     * Sanitize raw data.
+     *
+     * @param cls Class of data object.
+     * @param rawData Data object.
+     * @return Sanitized object.
+     */
+    public static JsonObject sanitize(Class cls, JsonObject rawData) {
+        Properties schema = INSTANCE.schema(Notebook.class);
+
+        return sanitize0(schema, rawData);
     }
 }
