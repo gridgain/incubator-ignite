@@ -68,7 +68,6 @@ export class PageProfile implements OnInit, OnDestroy {
         if (el) el.nativeElement.focus();
     }
 
-
     async ngOnInit() {
         this.user = await this.User.read();
         this.form.patchValue(this.user);
@@ -76,8 +75,22 @@ export class PageProfile implements OnInit, OnDestroy {
     ngOnDestroy() {
         this.subscriber.unsubscribe();
     }
-    saveUser() {
-        console.log(this.form.getRawValue());
+    async saveUser(): Promise<void> {
+        if (this.form.invalid) return;
+        await this.User.save(this.prepareFormValue(this.form));
+        this.form.get('passwordPanelOpened').setValue(false);
+    }
+    prepareFormValue(form: PageProfile['form']): Partial<User> {
+        return {
+            firstName: form.value.firstName,
+            lastName: form.value.lastName,
+            email: form.value.email,
+            phone: form.value.phone,
+            country: form.value.country,
+            company: form.value.company,
+            token: form.value.token,
+            ...form.value.passwordPanelOpened ? {password: form.value.newPassword} : {}
+        };
     }
     async generateToken() {
         try {

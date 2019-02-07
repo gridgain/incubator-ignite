@@ -23,6 +23,8 @@ import {ReplaySubject} from 'rxjs';
  * @prop {boolean} admin
  * @prop {string} country
  * @prop {string} email
+ * @prop {string?} phone
+ * @prop {string?} company
  * @prop {string} firstName
  * @prop {string} lastName
  * @prop {string} lastActivity
@@ -37,8 +39,9 @@ import {ReplaySubject} from 'rxjs';
  * @param {ng.IRootScopeService} $root
  * @param {import('@uirouter/angularjs').StateService} $state
  * @param {ng.IHttpService} $http
+ * @param {ReturnType<typeof import('app/services/Messages.service').default>} IgniteMessages
  */
-export default function User($q, $injector, $root, $state, $http) {
+export default function User($q, $injector, $root, $state, $http, IgniteMessages) {
     /** @type {ng.IPromise<User>} */
     let user;
 
@@ -78,8 +81,22 @@ export default function User($q, $injector, $root, $state, $http) {
             delete $root.IgniteDemoMode;
 
             sessionStorage.removeItem('IgniteDemoMode');
+        },
+        /**
+         * @param {Partial<User>} user
+         * @returns {Promise<void>}
+         */
+        async save(user) {
+            try {
+                await $http.post('/api/v1/profile/save', user);
+                await this.load();
+                IgniteMessages.showInfo('Profile saved.');
+                $root.$broadcast('user', user);
+            } catch (e) {
+                IgniteMessages.showError('Failed to save profile: ', e);
+            }
         }
     };
 }
 
-User.$inject = ['$q', '$injector', '$rootScope', '$state', '$http'];
+User.$inject = ['$q', '$injector', '$rootScope', '$state', '$http', 'IgniteMessages'];
