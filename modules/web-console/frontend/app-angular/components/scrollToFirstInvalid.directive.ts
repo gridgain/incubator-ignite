@@ -48,7 +48,7 @@ export class ScrollToFirstInvalid {
     }
 
     private findFirstInvalid(): HTMLInputElement | null {
-        return this.el.nativeElement.querySelector('.ng-invalid');
+        return this.el.nativeElement.querySelector('.ng-invalid:not(panel-collapsible-angular)');
     }
 
     private scrollIntoView(el: Element): void {
