@@ -29,6 +29,10 @@ import {
     FORM_FIELD_OPTIONS, FormFieldRequiredMarkerStyles, FormFieldErrorStyles
 } from '../formField.component';
 
+const passwordMatch = (newPassword: string) => (confirmPassword: FormControl) => newPassword === confirmPassword.value
+    ? null
+    : {passwordMatch: true};
+
 @Component({
     selector: 'page-profile-angular',
     templateUrl,
@@ -114,16 +118,28 @@ export class PageProfile implements OnInit, OnDestroy {
         token: new FormControl({value: '', disabled: true}, [Validators.required])
     })
     subscriber = merge(
-        combineLatest(
+        combineLatest<[boolean, string]>(
             this.form.get('passwordPanelOpened').valueChanges.pipe(startWith(this.form.get('passwordPanelOpened').value)),
             this.form.get('newPassword').valueChanges.pipe(startWith(this.form.get('newPassword').value))
         ).pipe(
             tap(([panelOpened, newPassword]) => {
-                const requiredIfOpen = (c) => !panelOpened ? null : Validators.required(c);
-                const passwordMatch = (c) => newPassword === c.value ? null : {passwordMatch: true};
-                this.form.get('newPassword').setValidators([requiredIfOpen]);
+                console.log({panelOpened, newPassword});
+                if (panelOpened) {
+                    this.form.get('newPassword').enable({emitEvent: false});
+                    this.form.get('confirmPassword').enable({emitEvent: false});
+                } else {
+                    this.form.get('newPassword').disable({emitEvent: false});
+                    this.form.get('confirmPassword').disable({emitEvent: false});
+                }
+
+                this.form.get('newPassword').setValidators([
+                    Validators.required
+                ]);
                 this.form.get('newPassword').updateValueAndValidity({emitEvent: false});
-                this.form.get('confirmPassword').setValidators([requiredIfOpen, passwordMatch]);
+                this.form.get('confirmPassword').setValidators([
+                    Validators.required,
+                    passwordMatch(newPassword)
+                ]);
                 this.form.get('confirmPassword').updateValueAndValidity();
             })
         )
