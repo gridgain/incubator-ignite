@@ -23,6 +23,8 @@ import templateUrl from 'file-loader!./template.html';
 import './style.scss';
 import {default as CountriesFactory, Country} from 'app/services/Countries.service';
 import {default as UserFactory, User} from 'app/modules/user/User.service';
+import {Confirm} from 'app/services/Confirm.service';
+import {default as LegacyUtilsFactory} from 'app/services/LegacyUtils.service';
 import {
     FORM_FIELD_OPTIONS, FormFieldRequiredMarkerStyles, FormFieldErrorStyles
 } from '../formField.component';
@@ -45,8 +47,18 @@ import {
 export class PageProfile implements OnInit, OnDestroy {
     static parameters = [
         [new Inject('IgniteCountries')],
-        [new Inject('User')]
+        [new Inject('User')],
+        [new Inject('Confirm')],
+        [new Inject('IgniteLegacyUtils')]
     ]
+    constructor(
+        Countries: ReturnType<typeof CountriesFactory>,
+        private User: ReturnType<typeof UserFactory>,
+        private Confirm: Confirm,
+        private LegacyUtils: ReturnType<typeof LegacyUtilsFactory>
+    ) {
+        this.countries = Countries.getAll();
+    }
 
     countries: Country[]
     user: User
@@ -56,12 +68,7 @@ export class PageProfile implements OnInit, OnDestroy {
         if (el) el.nativeElement.focus();
     }
 
-    constructor(
-        Countries: ReturnType<typeof CountriesFactory>,
-        private User: ReturnType<typeof UserFactory>
-    ) {
-        this.countries = Countries.getAll();
-    }
+
     async ngOnInit() {
         this.user = await this.User.read();
         this.form.patchValue(this.user);
@@ -71,6 +78,14 @@ export class PageProfile implements OnInit, OnDestroy {
     }
     saveUser() {
         console.log(this.form.getRawValue());
+    }
+    async generateToken() {
+        try {
+            await this.Confirm.confirm('Are you sure you want to change security token?<br>If you change the token you will need to restart the agent.');
+            this.form.get('token').setValue(this.LegacyUtils.randomString(20));
+        } catch (e) {
+            // no-op
+        }
     }
 
     form = new FormGroup({

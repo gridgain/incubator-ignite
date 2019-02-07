@@ -58,27 +58,17 @@ export const entryComponents = [
 ];
 
 export const providers = [
-    {
-        provide: 'IgniteCountries',
-        useFactory: (i) => i.get('IgniteCountries'),
-        deps: ['$injector']
-    },
-    {
-        provide: 'User',
-        useFactory: (i) => i.get('User'),
-        deps: ['$injector']
-    },
-    {
-        provide: 'IgniteIcons',
-        useFactory: (i) => i.get('IgniteIcons'),
-        deps: ['$injector']
-    },
-    {
-        provide: 'IgniteCopyToClipboard',
-        useFactory: (i) => i.get('IgniteCopyToClipboard'),
-        deps: ['$injector']
-    }
-];
+    'IgniteLegacyUtils',
+    'Confirm',
+    'IgniteCountries',
+    'User',
+    'IgniteIcons',
+    'IgniteCopyToClipboard'
+].map((token) => ({
+    provide: token,
+    useFactory: (i) => i.get(token),
+    deps: ['$injector']
+}));
 
 import {states} from './states';
 
