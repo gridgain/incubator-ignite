@@ -24,8 +24,11 @@ import java.io.ObjectOutput;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.Consumer;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.util.typedef.F;
@@ -58,6 +61,9 @@ public class IdleVerifyResultV2 extends VisorDataTransferObject {
     /** Moving partitions. */
     private Map<PartitionKeyV2, List<PartitionHashRecordV2>> movingPartitions;
 
+    /** All partitions. */
+    private Map<PartitionKeyV2, List<PartitionHashRecordV2>> allPartitions;
+
     /** Exceptions. */
     private Map<ClusterNode, Exception> exceptions;
 
@@ -71,11 +77,13 @@ public class IdleVerifyResultV2 extends VisorDataTransferObject {
         Map<PartitionKeyV2, List<PartitionHashRecordV2>> cntrConflicts,
         Map<PartitionKeyV2, List<PartitionHashRecordV2>> hashConflicts,
         Map<PartitionKeyV2, List<PartitionHashRecordV2>> movingPartitions,
+        Map<PartitionKeyV2, List<PartitionHashRecordV2>> allPartitions,
         Map<ClusterNode, Exception> exceptions
     ) {
         this.cntrConflicts = cntrConflicts;
         this.hashConflicts = hashConflicts;
         this.movingPartitions = movingPartitions;
+        this.allPartitions = allPartitions;
         this.exceptions = exceptions;
     }
 
@@ -95,6 +103,7 @@ public class IdleVerifyResultV2 extends VisorDataTransferObject {
         U.writeMap(out, cntrConflicts);
         U.writeMap(out, hashConflicts);
         U.writeMap(out, movingPartitions);
+        U.writeMap(out, allPartitions);
         U.writeMap(out, exceptions);
     }
 
@@ -104,6 +113,7 @@ public class IdleVerifyResultV2 extends VisorDataTransferObject {
         cntrConflicts = U.readMap(in);
         hashConflicts = U.readMap(in);
         movingPartitions = U.readMap(in);
+        allPartitions = U.readMap(in);
 
         if (protoVer >= V2)
             exceptions = U.readMap(in);
@@ -131,6 +141,13 @@ public class IdleVerifyResultV2 extends VisorDataTransferObject {
     }
 
     /**
+     * @return All partitions.
+     */
+    public Map<PartitionKeyV2, List<PartitionHashRecordV2>> allPartitions() {
+        return allPartitions;
+    }
+
+    /**
      * @return <code>true</code> if any conflicts were discovered during idle_verify check.
      */
     public boolean hasConflicts() {
@@ -142,6 +159,30 @@ public class IdleVerifyResultV2 extends VisorDataTransferObject {
      */
     public Map<ClusterNode, Exception> exceptions() {
         return exceptions;
+    }
+
+    /**
+     * @param printer Printer.
+     */
+    public void dumpAllPartitions(Consumer<String> printer) {
+        printer.accept("All partitions:\n");
+
+        Map<PartitionKeyV2, List<PartitionHashRecordV2>> sortedPartitions = new TreeMap<>(
+            Comparator.comparingInt(PartitionKeyV2::groupId).thenComparingInt(PartitionKeyV2::partitionId));
+
+        sortedPartitions.putAll(allPartitions());
+
+        for (Map.Entry<PartitionKeyV2, List<PartitionHashRecordV2>> entry : sortedPartitions.entrySet()) {
+            printer.accept("Partition: " + entry.getKey() + "\n");
+
+            List<PartitionHashRecordV2> sortedHashRecords = new ArrayList<>(entry.getValue());
+
+            sortedHashRecords.sort(Comparator.comparing(o -> o.consistentId().toString()));
+
+            printer.accept("Partition instances: " + sortedHashRecords + "\n");
+        }
+
+        printer.accept("\n");
     }
 
     /**

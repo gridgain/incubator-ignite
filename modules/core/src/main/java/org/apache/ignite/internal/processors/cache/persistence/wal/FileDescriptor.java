@@ -65,7 +65,7 @@ public class FileDescriptor implements Comparable<FileDescriptor>, AbstractWalRe
 
         assert fileName.contains(WAL_SEGMENT_FILE_EXT);
 
-        this.idx = idx == null ? Long.parseLong(fileName.substring(0, WAL_SEGMENT_FILE_NAME_LENGTH)) : idx;
+        this.idx = idx == null ? Long.parseLong(fileName.substring(0, fileName.indexOf(".wal"))) : idx;
     }
 
     /**

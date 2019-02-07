@@ -151,7 +151,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
     private static final byte[] FILL_BUF = new byte[1024 * 1024];
 
     /** Pattern for segment file names. */
-    public static final Pattern WAL_NAME_PATTERN = Pattern.compile("\\d{16}\\.wal");
+    public static final Pattern WAL_NAME_PATTERN = Pattern.compile("\\d{1,16}\\.wal");
 
     /** Pattern for WAL temp files - these files will be cleared at startup. */
     public static final Pattern WAL_TEMP_NAME_PATTERN = Pattern.compile("\\d{16}\\.wal\\.tmp");
