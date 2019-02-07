@@ -51,7 +51,7 @@
             <form-field class="span-1">
                 <form-field-hint>The security token is used for authentication of Web agent</form-field-hint>
                 <label for="securityToken">Security Token</label>
-                <copy-to-clipboard-button formFieldOverlay [value]='form.value.token'>Copy security token to clipboard</copy-to-clipboard-button>
+                <copy-to-clipboard-button formFieldOverlay [value]='form.controls.token.value'>Copy security token to clipboard</copy-to-clipboard-button>
                 <input
                     id='securityToken'
                     type="text"
