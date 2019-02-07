@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-import {merge, combineLatest} from 'rxjs';
-import {tap, pairwise, startWith, distinctUntilChanged, pluck} from 'rxjs/operators';
-import {Component, Inject, OnInit, OnDestroy, ViewChild, ElementRef} from '@angular/core';
-import {FormGroup, FormControl, Validators, Validator, AbstractControl} from '@angular/forms';
+import {merge} from 'rxjs';
+import {tap} from 'rxjs/operators';
+import {Component, Inject, OnInit, OnDestroy} from '@angular/core';
+import {FormGroup, FormControl, Validators, FormBuilder} from '@angular/forms';
 import templateUrl from 'file-loader!./template.html';
 import './style.scss';
 import {default as CountriesFactory, Country} from 'app/services/Countries.service';
@@ -33,6 +33,8 @@ const passwordMatch = (newPassword: string) => (confirmPassword: FormControl) =>
     ? null
     : {passwordMatch: true};
 
+const disableFormGroup = (fg: FormGroup) => {fg.disable(); return fg;};
+
 @Component({
     selector: 'page-profile-angular',
     templateUrl,
@@ -41,9 +43,7 @@ const passwordMatch = (newPassword: string) => (confirmPassword: FormControl) =>
             provide: FORM_FIELD_OPTIONS,
             useValue: {
                 requiredMarkerStyle: FormFieldRequiredMarkerStyles.OPTIONAL,
-                // requiredMarkerStyle: FormFieldRequiredMarkerStyles.REQUIRED,
                 errorStyle: FormFieldErrorStyles.ICON
-                // errorStyle: FormFieldErrorStyles.INLINE
             }
         }
     ]
@@ -53,13 +53,15 @@ export class PageProfile implements OnInit, OnDestroy {
         [new Inject('IgniteCountries')],
         [new Inject('User')],
         [new Inject('Confirm')],
-        [new Inject('IgniteLegacyUtils')]
+        [new Inject('IgniteLegacyUtils')],
+        [new Inject(FormBuilder)]
     ]
     constructor(
         Countries: ReturnType<typeof CountriesFactory>,
         private User: ReturnType<typeof UserFactory>,
         private Confirm: Confirm,
-        private LegacyUtils: ReturnType<typeof LegacyUtilsFactory>
+        private LegacyUtils: ReturnType<typeof LegacyUtilsFactory>,
+        private fb: FormBuilder
     ) {
         this.countries = Countries.getAll();
     }
@@ -88,7 +90,7 @@ export class PageProfile implements OnInit, OnDestroy {
             country: form.value.country,
             company: form.value.company,
             token: form.value.token,
-            ...form.value.passwordPanelOpened ? {password: form.value.newPassword} : {}
+            ...form.value.passwordPanelOpened ? {password: form.value.password.new} : {}
         };
     }
     async generateToken() {
@@ -99,43 +101,32 @@ export class PageProfile implements OnInit, OnDestroy {
             // no-op
         }
     }
-
-    form = new FormGroup({
-        firstName: new FormControl('', [Validators.required]),
-        lastName: new FormControl('', [Validators.required]),
-        email: new FormControl('', [Validators.required, Validators.email]),
-        phone: new FormControl('', []),
-        country: new FormControl('', [Validators.required]),
-        company: new FormControl('', [Validators.required]),
-        passwordPanelOpened: new FormControl(false, []),
-        newPassword: new FormControl('', []),
-        confirmPassword: new FormControl('', []),
-        token: new FormControl({value: '', disabled: true}, [Validators.required])
+    form = this.fb.group({
+        firstName: ['', Validators.required],
+        lastName: ['', Validators.required],
+        email: ['', [Validators.required, Validators.email]],
+        phone: '',
+        country: ['', Validators.required],
+        company: ['', Validators.required],
+        password: disableFormGroup(this.fb.group({
+            new: ['', Validators.required],
+            confirm: ''
+        })),
+        passwordPanelOpened: false,
+        token: this.fb.control({value: '', disabled: true}, [Validators.required])
     })
     subscriber = merge(
-        combineLatest<[boolean, string]>(
-            this.form.get('passwordPanelOpened').valueChanges.pipe(startWith(this.form.get('passwordPanelOpened').value)),
-            this.form.get('newPassword').valueChanges.pipe(startWith(this.form.get('newPassword').value))
-        ).pipe(
-            tap(([panelOpened, newPassword]) => {
-                console.log({panelOpened, newPassword});
-                if (panelOpened) {
-                    this.form.get('newPassword').enable({emitEvent: false});
-                    this.form.get('confirmPassword').enable({emitEvent: false});
-                } else {
-                    this.form.get('newPassword').disable({emitEvent: false});
-                    this.form.get('confirmPassword').disable({emitEvent: false});
-                }
-
-                this.form.get('newPassword').setValidators([
-                    Validators.required
-                ]);
-                this.form.get('newPassword').updateValueAndValidity({emitEvent: false});
-                this.form.get('confirmPassword').setValidators([
-                    Validators.required,
-                    passwordMatch(newPassword)
-                ]);
-                this.form.get('confirmPassword').updateValueAndValidity();
+        this.form.get('passwordPanelOpened').valueChanges.pipe(
+            tap((opened: boolean) => {
+                this.form.get('password')[opened ? 'enable' : 'disable']();
+                this.form.get('password').updateValueAndValidity();
+                if (opened) this.form.get('password').reset();
+            })
+        ),
+        this.form.get('password.new').valueChanges.pipe(
+            tap((newPassword: string) => {
+                this.form.get('password.confirm').setValidators([Validators.required, passwordMatch(newPassword)]);
+                this.form.get('password.confirm').updateValueAndValidity();
             })
         )
     ).subscribe();

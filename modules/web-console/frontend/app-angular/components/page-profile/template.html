@@ -64,18 +64,18 @@
             </span>
         </div>
     </panel-collapsible-angular>
-    <panel-collapsible-angular #passwordChangePanel class='span-2' formControlName='passwordPanelOpened'>
-        <span panelTitle>{{ passwordChangePanel.opened? 'Cancel password changing...' : 'Change password...' }}</span>
+    <panel-collapsible-angular class='span-2' formControlName='passwordPanelOpened' [formGroup]='form.controls.password'>
+        <span panelTitle>{{ form.value.passwordPanelOpened ? 'Cancel password changing...' : 'Change password...' }}</span>
         <div class="form-grid" *ngIf='form.value.passwordPanelOpened'>
             <form-field class='span-2'>
                 <label for="newPassword">New password</label>
                 <password-visibility-toggle-button-angular formFieldOverlay [passwordEl]='passwordEl'></password-visibility-toggle-button-angular>
-                <input type="password" formControlName='newPassword' id='newPassword' #passwordEl>
+                <input type="password" formControlName='new' id='newPassword' #passwordEl autofocus>
             </form-field>
             <form-field class='span-2'>
                 <label for="confirmPassword">Confirm password</label>
                 <password-visibility-toggle-button-angular formFieldOverlay [passwordEl]='confirmPasswordEl'></password-visibility-toggle-button-angular>
-                <input type="password" formControlName='confirmPassword' id='confirmPassword' #confirmPasswordEl>
+                <input type="password" formControlName='confirm' id='confirmPassword' #confirmPasswordEl>
             </form-field>
         </div>
     </panel-collapsible-angular>
