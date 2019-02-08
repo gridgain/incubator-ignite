@@ -2302,17 +2302,23 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
 
             this.sock = sock;
             this.endTime = endTime;
+
+            log.debug("SocketTimeoutObject() addr: " + sock.getInetAddress() + " endTime: " + endTime);
         }
 
         /**
          * @return {@code True} if object has not yet been processed.
          */
         boolean cancel() {
+            log.debug("SocketTimeoutObject#cancel() addr: " + sock.getInetAddress() + " endTime: " + endTime + " done: " + done.get());
+
             return done.compareAndSet(false, true);
         }
 
         /** {@inheritDoc} */
         @Override public void onTimeout() {
+            log.debug("SocketTimeoutObject#timeout() addr: " + sock.getInetAddress() + " endTime: " + endTime + " done: " + done.get());
+
             if (done.compareAndSet(false, true)) {
                 // Close socket - timeout occurred.
                 U.closeQuiet(sock);

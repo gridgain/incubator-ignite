@@ -3218,11 +3218,17 @@ class ServerImpl extends TcpDiscoveryImpl {
                                 if (latencyCheck && log.isInfoEnabled())
                                     log.info("Latency check message has been written to socket: " + msg.id());
 
+                                long timeout = timeoutHelper.nextTimeoutChunk(spi.getSocketTimeout());
+
+                                log.debug("Try to write message to the socket. " + msg.id() + " timeout: " + timeout + " spi: " + spi.getSocketTimeout());
+
                                 spi.writeToSocket(newNextNode ? newNext : next,
                                     sock,
                                     out,
                                     msg,
-                                    timeoutHelper.nextTimeoutChunk(spi.getSocketTimeout()));
+                                    timeout);
+
+                                log.debug("Try to write message to the socket. " + msg.id() + " timeout: " + timeout + " spi: " + spi.getSocketTimeout() + " success!");
 
                                 long tstamp0 = U.currentTimeMillis();
 
