@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.verticles;
+package org.apache.ignite.console;
 
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -56,17 +55,14 @@ import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.LocalSessionStore;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCompute;
 import org.apache.ignite.cluster.ClusterMetrics;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.common.Consts;
-import org.apache.ignite.console.dto.DataObject;
-import org.apache.ignite.console.dto.Notebook;
-import org.apache.ignite.console.dto.Schemas;
+import org.apache.ignite.console.db.dto.Notebook;
+import org.apache.ignite.console.db.store.NotebooksStore;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.binary.BinaryObjectImpl;
@@ -82,13 +78,13 @@ import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.visor.compute.VisorGatewayTask;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+import static org.apache.ignite.console.common.Utils.toJsonArray;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BINARY_CONFIGURATION;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CACHE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_NODE_CONSISTENT_ID;
@@ -105,8 +101,6 @@ import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.Gr
 import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper.IGNITE_TUPLE_SERIALIZER;
 import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper.IGNITE_UUID_SERIALIZER;
 import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.GridJettyObjectMapper.THROWABLE_SERIALIZER;
-import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
-import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 
 /**
  * Web Console server.
@@ -126,9 +120,6 @@ public class WebConsoleServer extends AbstractVerticle {
         HttpHeaderValues.MUST_REVALIDATE);
 
     /** */
-    private static final Buffer EMPTY_ARRAY = Buffer.buffer("[]");
-
-    /** */
     private final Map<String, VisorTaskDescriptor> visorTasks = new ConcurrentHashMap<>();
 
     /** */
@@ -139,6 +130,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /** */
     private final IgniteAuth auth;
+
+    /** */
+    private final NotebooksStore notebooksStore;
 
     /** */
     private boolean embedded;
@@ -181,6 +175,8 @@ public class WebConsoleServer extends AbstractVerticle {
         this.ignite = ignite;
         this.auth = auth;
         this.embedded = embedded;
+
+        notebooksStore = new NotebooksStore(ignite);
     }
 
     /** {@inheritDoc} */
@@ -450,88 +446,16 @@ public class WebConsoleServer extends AbstractVerticle {
     }
 
     /**
-     * Convert query data to JSON array.
-     *
-     * @param data Query data.
-     * @return Buffer with JSON array.
-     */
-    private Buffer toJsonArray(Collection<? extends DataObject> data) {
-        if (data.isEmpty())
-            return EMPTY_ARRAY;
-
-        Buffer buf = Buffer.buffer(4096);
-
-        buf.appendString("[");
-
-        data.forEach(item -> {
-            if (buf.length() > 1)
-                buf.appendString(",");
-
-            buf.appendString(item.json());
-        });
-
-        buf.appendString("]");
-
-        return buf;
-    }
-
-    /**
      * @param ctx Context
      */
     private void handleNotebooksLoad(RoutingContext ctx) {
         User user = checkUser(ctx);
 
         if (user != null) {
-            UUID userId = getId(user.principal());
+            List<Notebook> notebooks = notebooksStore.list(user.principal());
 
-            // TODO IGNITE-5617 check userId != null
-
-            IgniteCache<UUID, Notebook> notebooksCache = ignite.cache(Consts.NOTEBOOKS_CACHE);
-            IgniteCache<UUID, TreeSet<UUID>> lookupCache = ignite.cache(Consts.ACCOUNT_NOTEBOOKS_CACHE);
-
-            Buffer buf = EMPTY_ARRAY;
-
-            try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
-                TreeSet<UUID> notebookIds = lookupCache.get(userId);
-
-                if (!F.isEmpty(notebookIds)) {
-                    Map<UUID, Notebook> notebooks = notebooksCache.getAll(notebookIds);
-
-                    buf = toJsonArray(notebooks.values());
-                }
-
-            }
-
-            sendResult(ctx, buf);
+            sendResult(ctx, toJsonArray(notebooks));
         }
-    }
-
-    /**
-     * @param rawData Data object.
-     * @return ID or {@code null} if object has no ID.
-     */
-    @Nullable private UUID getId(JsonObject rawData) {
-        boolean hasId = rawData.containsKey("_id");
-
-        return hasId ? UUID.fromString(rawData.getString("_id")) : null;
-    }
-
-    /**
-     * Ensure that object has ID.
-     *
-     * @param rawData Data object.
-     * @return Object ID.
-     */
-    private UUID ensureId(JsonObject rawData) {
-        UUID id = getId(rawData);
-
-        if (id == null) {
-            id = UUID.randomUUID();
-
-            rawData.put("_id", id.toString());
-        }
-
-        return id;
     }
 
     /**
@@ -542,49 +466,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
         if (user != null) {
             try {
-                JsonObject rawData = Schemas.sanitize(Notebook.class, ctx.getBody().toJsonObject());
+                Notebook notebook = notebooksStore.put(user.principal(), ctx.getBodyAsJson());
 
-                UUID userId = getId(user.principal());
-
-                // TODO IGNITE-5617 check userId != null
-
-                UUID notebookId = ensureId(rawData);
-
-                String notebookName = rawData.getString("name");
-
-                Notebook notebook = new Notebook(notebookId, null, notebookName, rawData.encode());
-
-                IgniteCache<UUID, Notebook> notebooksCache = ignite.cache(Consts.NOTEBOOKS_CACHE);
-                IgniteCache<UUID, TreeSet<UUID>> lookupCache = ignite.cache(Consts.ACCOUNT_NOTEBOOKS_CACHE);
-
-                try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
-                    TreeSet<UUID> lookupIds = lookupCache.get(userId);
-
-                    if (!F.isEmpty(lookupIds)) {
-                        boolean exists = notebooksCache
-                            .getAll(lookupIds)
-                            .values()
-                            .stream()
-                            .anyMatch(n -> n.name().equals(notebookName));
-
-                        if (exists)
-                            throw new IllegalStateException("Notebook with name '" + notebookName + "' already exits");
-                    }
-
-                    if (lookupIds == null)
-                        lookupIds = new TreeSet<>();
-
-                    lookupIds.add(notebookId);
-
-                    lookupCache.put(userId, lookupIds);
-                    notebooksCache.put(notebookId, notebook);
-
-                    tx.commit();
-
-                    String json = notebook.json();
-
-                    sendResult(ctx, Buffer.buffer(json));
-                }
+                sendResult(ctx, Buffer.buffer(notebook.json()));
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to save notebook", e);
@@ -600,23 +484,12 @@ public class WebConsoleServer extends AbstractVerticle {
 
         if (user != null) {
             try {
-                IgniteCache<UUID, Notebook> cache = ignite.cache(Consts.NOTEBOOKS_CACHE);
+                boolean removed = notebooksStore.remove(user.principal(), ctx.getBodyAsJson());
 
-                UUID id = getId(ctx.getBodyAsJson());
+                JsonObject json = new JsonObject()
+                    .put("rowsAffected", removed ? 1 : 0);
 
-                if (id == null)
-                    throw new IllegalStateException("Notebook id can not be undefined or null");
-
-                try(Transaction tx = ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE)) {
-                    boolean removed = cache.remove(id);
-
-                    tx.commit();
-
-                    JsonObject json = new JsonObject()
-                        .put("rowsAffected", removed ? 1 : 0);
-
-                    sendResult(ctx, json);
-                }
+                sendResult(ctx, json);
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to delete notebook", e);

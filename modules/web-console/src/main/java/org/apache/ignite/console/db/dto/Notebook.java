@@ -15,59 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.dto;
+package org.apache.ignite.console.db.dto;
 
 import java.util.UUID;
 
 /**
- * Abstract data object.
+ * DTO for queries notebook.
  */
-public abstract class DataObject extends AbstractDto {
+public class Notebook extends DataObject {
     /** */
-    private UUID space;
-
-    /** */
-    private String json;
-
-    /**
-     * Default constructor.
-     */
-    protected DataObject() {
-        // No-op.
-    }
+    private String name;
 
     /**
      * Full constructor.
      *
      * @param id ID.
-     * @param space User space.
-     * @param json JSON encoded payload.
+     * @param space Space ID.
+     * @param name Notebook name.
+     * @param json JSON payload.
      */
-    protected DataObject(UUID id, UUID space, String json) {
-        super(id);
+    public Notebook(UUID id, UUID space, String name, String json) {
+        super(id, space, json);
 
-        this.space = space;
-        this.json = json;
+        this.name = name;
     }
 
     /**
-     * @return User space.
+     * @return name Notebook name.
      */
-    public UUID space() {
-        return space;
-    }
-
-    /**
-     * @return JSON encoded payload.
-     */
-    public String json() {
-        return json;
-    }
-
-    /**
-     * @param json JSON encoded payload.
-     */
-    public void json(String json) {
-        this.json = json;
+    public String name() {
+        return name;
     }
 }

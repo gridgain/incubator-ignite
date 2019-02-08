@@ -26,10 +26,4 @@ public interface Consts {
 
     /** */
     public static final String SPACES_CACHE = "wc_spaces";
-
-    /** */
-    public static final String NOTEBOOKS_CACHE = "wc_notebooks";
-
-    /** */
-    public static final String ACCOUNT_NOTEBOOKS_CACHE = "wc_account_notebooks";
 }

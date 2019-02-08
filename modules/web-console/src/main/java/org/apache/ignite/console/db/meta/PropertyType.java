@@ -15,35 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.dto;
-
-import java.util.UUID;
+package org.apache.ignite.console.db.meta;
 
 /**
- * DTO for queries notebook.
+ * Supported data types.
  */
-public class Notebook extends DataObject {
+public enum PropertyType {
     /** */
-    private String name;
+    ARRAY,
 
-    /**
-     * Full constructor.
-     *
-     * @param id ID.
-     * @param space Space ID.
-     * @param name Notebook name.
-     * @param json JSON payload.
-     */
-    public Notebook(UUID id, UUID space, String name, String json) {
-        super(id, space, json);
+    /** */
+    BOOLEAN,
 
-        this.name = name;
-    }
+    /** */
+    NUMBER,
 
-    /**
-     * @return name Notebook name.
-     */
-    public String name() {
-        return name;
-    }
+    /** */
+    STRING,
+
+    /** */
+    UUID
 }

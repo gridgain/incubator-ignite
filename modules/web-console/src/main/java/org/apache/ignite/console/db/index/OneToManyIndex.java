@@ -15,54 +15,64 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db;
+package org.apache.ignite.console.db.index;
 
 import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteCache;
-import org.apache.ignite.configuration.CacheConfiguration;
-
-import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
-import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
- * Helper class to support unique indexes.
+ * Helper class to support one to many relation.
  */
-public class UniqueIndex {
-    /** */
-    private final IgniteCache<String, Boolean> cache;
-
+public class OneToManyIndex extends AbstractIndex<UUID, TreeSet<UUID>> {
     /**
      * Constructor.
      *
      * @param ignite Ignite.
-     * @param idxName Index name.
+     * @param parent Parent entity name.
+     * @param child Child entity name.
      */
-    public UniqueIndex(Ignite ignite, String idxName) {
-        CacheConfiguration<String, Boolean> ccfg = new CacheConfiguration<>(idxName);
-        ccfg.setCacheMode(REPLICATED);
-        ccfg.setAtomicityMode(TRANSACTIONAL);
-
-        cache = ignite.getOrCreateCache(ccfg);
+    public OneToManyIndex(Ignite ignite, String parent, String child) {
+        super(ignite, "wc_" + parent + "_to_" + child);
     }
 
     /**
-     * @param key
+     * @param id
+     * @return
      */
-    public void put(String key) {
-        cache.put(key, Boolean.TRUE);
+    public TreeSet<UUID> getIds(UUID id) {
+        TreeSet<UUID> ids = cache().get(id);
+
+        if (ids == null)
+            ids = new TreeSet<>();
+
+        return ids;
     }
 
     /**
      *
-     * @param key
+     * @param id
+     * @param ids
      */
-    public void remove(String key) {
-        cache.remove(key);
+    public void setIds(UUID id, TreeSet<UUID> ids) {
+        cache().put(id, ids);
     }
 
-    public boolean contains(String key) {
-        return cache.containsKey(key);
+    /**
+     *
+     * @param id
+     * @param childId
+     */
+    public void put(UUID id, UUID childId) {
+        // cache().put(id, ids);
+    }
+
+    /**
+     *
+     * @param id
+     * @param childId
+     */
+    public void remove(UUID id, UUID childId) {
+
     }
 }

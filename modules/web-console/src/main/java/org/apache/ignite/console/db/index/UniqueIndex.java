@@ -15,24 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.dto;
+package org.apache.ignite.console.db.index;
+
+import org.apache.ignite.Ignite;
 
 /**
- * Supported data types.
+ * Helper class to support unique indexes.
  */
-public enum PropertyType {
-    /** */
-    ARRAY,
+public class UniqueIndex extends AbstractIndex<String, Boolean> {
+    /**
+     * Constructor.
+     *
+     * @param ignite Ignite.
+     * @param idxName Index name.
+     */
+    public UniqueIndex(Ignite ignite, String idxName) {
+        super(ignite, idxName);
+    }
 
-    /** */
-    BOOLEAN,
+    /**
+     * @param key
+     */
+    public void put(String key) {
+        cache().put(key, Boolean.TRUE);
+    }
 
-    /** */
-    NUMBER,
+    /**
+     *
+     * @param keyParts
+     */
+    public void remove(Object... keyParts) {
+        // cache().remove(key);
+    }
 
-    /** */
-    STRING,
-
-    /** */
-    UUID
+    public boolean contains(String key) {
+        return cache().containsKey(key);
+    }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console;
+package org.apache.ignite.test;
 
 import java.io.File;
 import java.util.Arrays;
@@ -29,9 +29,9 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.console.WebConsoleServer;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Consts;
-import org.apache.ignite.console.verticles.WebConsoleServer;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
@@ -115,9 +115,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
         ignite.getOrCreateCaches(Arrays.asList(
             cacheCfg(Consts.ACCOUNTS_CACHE),
-            cacheCfg(Consts.SPACES_CACHE),
-            cacheCfg(Consts.NOTEBOOKS_CACHE),
-            cacheCfg(Consts.ACCOUNT_NOTEBOOKS_CACHE)
+            cacheCfg(Consts.SPACES_CACHE)
         ));
 
         return ignite;

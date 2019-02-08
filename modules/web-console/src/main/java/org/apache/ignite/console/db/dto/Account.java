@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.dto;
+package org.apache.ignite.console.db.dto;
 
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 
 /**
- * Data transfer object for this.
+ * DTO for Account.
  */
+@SuppressWarnings("JavaAbbreviationUsage")
 public class Account extends AbstractDto {
     /** */
     private String email;
@@ -168,8 +169,9 @@ public class Account extends AbstractDto {
     }
 
     /** {@inheritDoc} */
-    @Override public JsonObject toJson() {
-        return super.toJson()
+    public JsonObject toJson() {
+        return new JsonObject()
+            .put("_id", id.toString())
             .put("_id", id.toString())
             .put("email", email)
             .put("firstName", firstName)

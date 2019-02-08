@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db;
+package org.apache.ignite.console.db.index;
 
-import java.util.TreeSet;
-import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -27,46 +25,38 @@ import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
- * Helper class to support one to many relation.
+ * Base class for indexes.
  */
-public class LookupIndex {
+public abstract class AbstractIndex<K, V> {
     /** */
-    private final IgniteCache<UUID, TreeSet<UUID>> cache;
+    private final Ignite ignite;
+
+    /** */
+    private final String cacheName;
 
     /**
-     * Constructor.
-     *
      * @param ignite Ignite.
-     * @param parent Parent entity name.
-     * @param child Child entity name.
+     * @param cacheName Cache name.
      */
-    public LookupIndex(Ignite ignite, String parent, String child) {
-        CacheConfiguration<UUID, TreeSet<UUID>> ccfg = new CacheConfiguration<>(parent + "_" + child + "_lookup");
-        ccfg.setCacheMode(REPLICATED);
-        ccfg.setAtomicityMode(TRANSACTIONAL);
-
-        cache = ignite.getOrCreateCache(ccfg);
+    protected AbstractIndex(Ignite ignite, String cacheName) {
+        this.ignite = ignite;
+        this.cacheName = cacheName;
     }
 
     /**
-     * @param id
-     * @return
+     * @return Index underlying cache.
      */
-    public TreeSet<UUID> getIds(UUID id) {
-        TreeSet<UUID> ids = cache.get(id);
+    protected IgniteCache<K, V> cache() {
+        IgniteCache<K, V> cache = ignite.cache(cacheName);
 
-        if (ids == null)
-            ids = new TreeSet<>();
+        if (cache == null) {
+            CacheConfiguration<K, V> ccfg = new CacheConfiguration<>(cacheName);
+            ccfg.setAtomicityMode(TRANSACTIONAL);
+            ccfg.setCacheMode(REPLICATED);
 
-        return ids;
-    }
+            cache = ignite.getOrCreateCache(ccfg);
+        }
 
-    /**
-     *
-     * @param id
-     * @param ids
-     */
-    public void setIds(UUID id, TreeSet<UUID> ids) {
-        cache.put(id, ids);
+        return cache;
     }
 }

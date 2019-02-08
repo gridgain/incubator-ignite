@@ -14,53 +14,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ignite.console.common;
 
-package org.apache.ignite.console.dto;
-
-import java.util.UUID;
-import io.vertx.core.json.JsonObject;
+import java.util.Collection;
+import io.vertx.core.buffer.Buffer;
+import org.apache.ignite.console.db.dto.DataObject;
 
 /**
- * Base class for DTO objects.
+ * Utilities.
  */
-public abstract class AbstractDto {
+public class Utils {
     /** */
-    protected UUID id;
+    private static final Buffer EMPTY_ARRAY = Buffer.buffer("[]");
 
     /**
-     * Default constructor.
-     */
-    protected AbstractDto() {
-        // No-op.
-    }
-
-    /**
-     * Full constructor.
+     * Convert query data to JSON array.
      *
-     * @param id ID.
+     * @param data Query data.
+     * @return Buffer with JSON array.
      */
-    protected AbstractDto(UUID id) {
-        this.id = id;
-    }
+    public static Buffer toJsonArray(Collection<? extends DataObject> data) {
+        if (data.isEmpty())
+            return EMPTY_ARRAY;
 
-    /**
-     * @return Object ID.
-     */
-    public UUID id() {
-        return id;
-    }
+        Buffer buf = Buffer.buffer(4096);
 
-    /**
-     * @param id Object ID.
-     */
-    public void id(UUID id) {
-        this.id = id;
-    }
+        buf.appendString("[");
 
-    /**
-     * @return JSON object suitable to pass over wire.
-     */
-    public JsonObject toJson() {
-        return new JsonObject().put("_id", id.toString());
+        data.forEach(item -> {
+            if (buf.length() > 1)
+                buf.appendString(",");
+
+            buf.appendString(item.json());
+        });
+
+        buf.appendString("]");
+
+        return buf;
     }
 }
