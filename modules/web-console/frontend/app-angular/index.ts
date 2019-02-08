@@ -88,7 +88,8 @@ import {states} from './states';
     ],
     providers,
     declarations,
-    entryComponents
+    entryComponents,
+    exports: declarations
 })
 export class IgniteWebConsoleModule {
     static parameters = [[new Inject(UIRouter)]]
