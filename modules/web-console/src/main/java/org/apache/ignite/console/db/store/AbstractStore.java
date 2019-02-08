@@ -62,6 +62,25 @@ public abstract class AbstractStore<K, V> extends CacheHolder<K, V> {
     }
 
     /**
+     * Ensure that object has ID.
+     * If not, ID will be generated and added to object.
+     *
+     * @param rawData Data object.
+     * @return Object ID.
+     */
+    protected UUID ensureId(JsonObject rawData) {
+        UUID id = getId(rawData);
+
+        if (id == null) {
+            id = UUID.randomUUID();
+
+            rawData.put("_id", id.toString());
+        }
+
+        return id;
+    }
+
+    /**
      * @param user User.
      * @return User ID.
      */

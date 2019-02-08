@@ -24,7 +24,7 @@ import org.apache.ignite.console.db.core.CacheHolder;
 /**
  * Index for unique constraint.
  */
-public class UniqueIndex extends CacheHolder<String, Boolean> {
+public class UniqueIndex extends CacheHolder<String, UUID> {
     /**
      * Constructor.
      *
@@ -59,9 +59,10 @@ public class UniqueIndex extends CacheHolder<String, Boolean> {
      *
      * @param key Key.
      * @param payload Unique payload.
-     * @return {@code true} if value was added to index.
+     * @param owner Current owner of unique value.
+     * @return Previous value from index.
      */
-    public boolean putIfAbsent(UUID key, Object payload) {
-        return cache().putIfAbsent(makeKey(key, payload), Boolean.TRUE);
+    public UUID getAndPutIfAbsent(UUID key, Object payload, UUID owner) {
+        return cache().getAndPutIfAbsent(makeKey(key, payload), owner);
     }
 }

@@ -27,6 +27,7 @@ import org.apache.ignite.console.db.dto.Notebook;
 import org.apache.ignite.console.db.index.OneToManyIndex;
 import org.apache.ignite.console.db.index.UniqueIndex;
 import org.apache.ignite.console.db.meta.Schemas;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 
 /**
@@ -84,26 +85,19 @@ public class NotebooksStore extends AbstractStore<UUID, Notebook> {
 
         rawData = Schemas.sanitize(Notebook.class, rawData);
 
-        UUID notebookId = getId(rawData);
-
-        boolean newItem = false;
-
-        if (notebookId == null) {
-            newItem = true;
-
-            notebookId = UUID.randomUUID();
-
-            rawData.put("_id", notebookId.toString());
-        }
+        UUID notebookId = ensureId(rawData);
 
         String notebookName = rawData.getString("name");
+
+        if (F.isEmpty(notebookName))
+            throw new IllegalStateException("Notebook name is empty");
 
         Notebook notebook = new Notebook(notebookId, null, notebookName, rawData.encode());
 
         try(Transaction tx = txStart()) {
-            // TODO IGNITE-5617 handle rename to existing name.
+            UUID prevId = uniqueNotebookNameIdx.getAndPutIfAbsent(userId, notebookName, notebookId);
 
-            if (newItem && !uniqueNotebookNameIdx.putIfAbsent(userId, notebookName))
+            if (prevId != null && !notebookId.equals(prevId))
                 throw new IllegalStateException("Notebook with name '" + notebookName + "' already exits");
 
             accountNotebooksIdx.put(userId, notebookId);
