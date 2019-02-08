@@ -104,10 +104,12 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAbstractMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryAuthFailedMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryCheckFailedMessage;
+import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryClientReconnectMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryDuplicateIdMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryEnsureDelivery;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryJoinRequestMessage;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_CONSISTENT_ID_BY_HOST_WITHOUT_PORT;
 import static org.apache.ignite.IgniteSystemProperties.getBoolean;
@@ -223,7 +225,6 @@ import static org.apache.ignite.IgniteSystemProperties.getBoolean;
  * For information about Spring framework visit <a href="http://www.springframework.org/">www.springframework.org</a>
  * @see DiscoverySpi
  */
-@SuppressWarnings("NonPrivateFieldAccessedInSynchronizedContext")
 @IgniteSpiMultipleInstancesSupport(true)
 @DiscoverySpiOrderSupport(true)
 @DiscoverySpiHistorySupport(true)
@@ -302,7 +303,6 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
     protected long netTimeout = DFLT_NETWORK_TIMEOUT;
 
     /** Join timeout. */
-    @SuppressWarnings("RedundantFieldInitialization")
     protected long joinTimeout = DFLT_JOIN_TIMEOUT;
 
     /** Thread priority for all threads started by SPI. */
@@ -360,21 +360,18 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
     protected int locPortRange = DFLT_PORT_RANGE;
 
     /** Reconnect attempts count. */
-    @SuppressWarnings({"FieldAccessedSynchronizedAndUnsynchronized"})
     private int reconCnt = DFLT_RECONNECT_CNT;
 
     /** Delay between attempts to connect to the cluster. */
     private long reconDelay = DFLT_RECONNECT_DELAY;
 
     /** Statistics print frequency. */
-    @SuppressWarnings({"FieldAccessedSynchronizedAndUnsynchronized", "RedundantFieldInitialization"})
     protected long statsPrintFreq = DFLT_STATS_PRINT_FREQ;
 
     /** Maximum message acknowledgement timeout. */
     private long maxAckTimeout = DFLT_MAX_ACK_TIMEOUT;
 
     /** IP finder clean frequency. */
-    @SuppressWarnings({"FieldAccessedSynchronizedAndUnsynchronized"})
     protected long ipFinderCleanFreq = DFLT_IP_FINDER_CLEAN_FREQ;
 
     /** Node authenticator. */
@@ -423,6 +420,9 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
     /** */
     private IgniteDiscoverySpiInternalListener internalLsnr;
 
+    /** For test purposes. */
+    private boolean skipAddrsRandomization = false;
+
     /**
      * Gets current SPI state.
      *
@@ -452,6 +452,10 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
 
     /** {@inheritDoc} */
     @Override public Collection<ClusterNode> getRemoteNodes() {
+        // Return empty nodes for resolving compatibility until implementation started.
+        if (impl == null)
+            return Collections.emptyList();
+
         return impl.getRemoteNodes();
     }
 
@@ -1171,7 +1175,6 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
      * @return {@link LinkedHashSet} of internal and external addresses of provided node.
      *      Internal addresses placed before external addresses.
      */
-    @SuppressWarnings("TypeMayBeWeakened")
     LinkedHashSet<InetSocketAddress> getNodeAddresses(TcpDiscoveryNode node) {
         LinkedHashSet<InetSocketAddress> res = new LinkedHashSet<>(node.socketAddresses());
 
@@ -1190,7 +1193,6 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
      *      Internal addresses placed before external addresses.
      *      Internal addresses will be sorted with {@code inetAddressesComparator(sameHost)}.
      */
-    @SuppressWarnings("TypeMayBeWeakened")
     LinkedHashSet<InetSocketAddress> getNodeAddresses(TcpDiscoveryNode node, boolean sameHost) {
         List<InetSocketAddress> addrs = U.arrayList(node.socketAddresses());
 
@@ -1498,18 +1500,25 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
 
         assert remAddr != null;
 
-        InetSocketAddress resolved = remAddr.isUnresolved() ?
-            new InetSocketAddress(InetAddress.getByName(remAddr.getHostName()), remAddr.getPort()) : remAddr;
+        try {
+            InetSocketAddress resolved = remAddr.isUnresolved() ?
+                new InetSocketAddress(InetAddress.getByName(remAddr.getHostName()), remAddr.getPort()) : remAddr;
 
-        InetAddress addr = resolved.getAddress();
+            InetAddress addr = resolved.getAddress();
 
-        assert addr != null;
+            assert addr != null;
 
-        sock.connect(resolved, (int)timeoutHelper.nextTimeoutChunk(sockTimeout));
+            sock.connect(resolved, (int)timeoutHelper.nextTimeoutChunk(sockTimeout));
 
-        writeToSocket(sock, null, U.IGNITE_HEADER, timeoutHelper.nextTimeoutChunk(sockTimeout));
+            writeToSocket(sock, null, U.IGNITE_HEADER, timeoutHelper.nextTimeoutChunk(sockTimeout));
 
-        return sock;
+            return sock;
+        } catch (IOException | IgniteSpiOperationTimeoutException e) {
+            if (sock != null)
+                U.closeQuiet(sock);
+
+            throw e;
+        }
     }
 
     /**
@@ -1519,18 +1528,25 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
      * @throws IOException If failed.
      */
     Socket createSocket() throws IOException {
-        Socket sock;
+        Socket sock = null;
 
-        if (isSslEnabled())
-            sock = sslSockFactory.createSocket();
-        else
-            sock = new Socket();
+        try {
+            if (isSslEnabled())
+                sock = sslSockFactory.createSocket();
+            else
+                sock = new Socket();
 
-        sock.bind(new InetSocketAddress(locHost, 0));
+            sock.bind(new InetSocketAddress(locHost, 0));
 
-        sock.setTcpNoDelay(true);
+            sock.setTcpNoDelay(true);
 
-        return sock;
+            return sock;
+        } catch (IOException e) {
+            if (sock != null)
+                U.closeQuiet(sock);
+
+            throw e;
+        }
     }
 
     /**
@@ -1595,6 +1611,7 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
     /**
      * @param msg Message.
      */
+    @TestOnly
     protected void startMessageProcess(TcpDiscoveryAbstractMessage msg) {
         // No-op, intended for usage in tests.
     }
@@ -1632,8 +1649,13 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
         OutputStream out,
         TcpDiscoveryAbstractMessage msg,
         long timeout) throws IOException, IgniteCheckedException {
-        if (internalLsnr != null && msg instanceof TcpDiscoveryJoinRequestMessage)
-            internalLsnr.beforeJoin(locNode, log);
+        if (internalLsnr != null) {
+            if (msg instanceof TcpDiscoveryJoinRequestMessage)
+                internalLsnr.beforeJoin(locNode, log);
+
+            if (msg instanceof TcpDiscoveryClientReconnectMessage)
+                internalLsnr.beforeReconnect(locNode, log);
+        }
 
         assert sock != null;
         assert msg != null;
@@ -1867,7 +1889,7 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
             }
         }
 
-        if (!res.isEmpty())
+        if (!res.isEmpty() && !skipAddrsRandomization)
             Collections.shuffle(res);
 
         return res;
@@ -2195,7 +2217,7 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
     }
 
     /** {@inheritDoc} */
-    public void clientReconnect() throws IgniteSpiException {
+    @Override public void clientReconnect() throws IgniteSpiException {
         impl.reconnect();
     }
 
@@ -2282,7 +2304,7 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
      * <p>
      * This method is intended for test purposes only.
      */
-    public void simulateNodeFailure() {
+    @Override public void simulateNodeFailure() {
         impl.simulateNodeFailure();
     }
 
