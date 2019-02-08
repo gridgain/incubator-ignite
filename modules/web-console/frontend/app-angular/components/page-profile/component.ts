@@ -89,7 +89,7 @@ export class PageProfile implements OnInit, OnDestroy {
             phone: form.value.phone,
             country: form.value.country,
             company: form.value.company,
-            token: form.value.token,
+            token: form.controls.token.value,
             ...form.value.passwordPanelOpened ? {password: form.value.password.new} : {}
         };
     }
