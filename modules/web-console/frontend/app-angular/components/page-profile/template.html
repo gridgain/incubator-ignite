@@ -29,7 +29,7 @@
     </form-field>
     <form-field class='span-2'>
         <label for='email'>Email</label>
-        <input type="email" formControlName='email' id='email'>
+        <input type="email" formControlName='email' id='email' autocomplete="username email">
     </form-field>
     <form-field class='span-1'>
         <label for='phone'>Phone</label>
@@ -67,15 +67,18 @@
     <panel-collapsible-angular class='span-2' formControlName='passwordPanelOpened' [formGroup]='form.controls.password'>
         <span panelTitle>{{ form.value.passwordPanelOpened ? 'Cancel password changing...' : 'Change password...' }}</span>
         <div class="form-grid" *ngIf='form.value.passwordPanelOpened'>
+            <!-- https://www.chromium.org/developers/design-documents/create-amazing-password-forms -->
+            <!-- https://stackoverflow.com/a/48736294/333777 -->
+            <input type="text" name="email" [value]='form.value.email' autocomplete="username email" style="display: none;">
             <form-field class='span-2'>
                 <label for="newPassword">New password</label>
                 <password-visibility-toggle-button-angular formFieldOverlay [passwordEl]='passwordEl'></password-visibility-toggle-button-angular>
-                <input type="password" formControlName='new' id='newPassword' #passwordEl autofocus>
+                <input type="password" formControlName='new' id='newPassword' #passwordEl autofocus autocomplete="new-password">
             </form-field>
             <form-field class='span-2'>
                 <label for="confirmPassword">Confirm password</label>
                 <password-visibility-toggle-button-angular formFieldOverlay [passwordEl]='confirmPasswordEl'></password-visibility-toggle-button-angular>
-                <input type="password" formControlName='confirm' id='confirmPassword' #confirmPasswordEl>
+                <input type="password" formControlName='confirm' id='confirmPassword' #confirmPasswordEl autocomplete="new-password">
             </form-field>
         </div>
     </panel-collapsible-angular>
