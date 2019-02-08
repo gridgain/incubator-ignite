@@ -19,6 +19,7 @@ package org.apache.ignite.console.common;
 import java.util.Collection;
 import io.vertx.core.buffer.Buffer;
 import org.apache.ignite.console.db.dto.DataObject;
+import org.apache.ignite.internal.util.typedef.F;
 
 /**
  * Utilities.
@@ -34,7 +35,7 @@ public class Utils {
      * @return Buffer with JSON array.
      */
     public static Buffer toJsonArray(Collection<? extends DataObject> data) {
-        if (data.isEmpty())
+        if (F.isEmpty(data))
             return EMPTY_ARRAY;
 
         Buffer buf = Buffer.buffer(4096);

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console.db.index;
 
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -34,6 +35,9 @@ public abstract class AbstractIndex<K, V> {
     /** */
     private final String cacheName;
 
+    /** */
+    private final AtomicReference<IgniteCache<K, V>> cacheHolder = new AtomicReference<>();
+
     /**
      * @param ignite Ignite.
      * @param cacheName Cache name.
@@ -46,8 +50,8 @@ public abstract class AbstractIndex<K, V> {
     /**
      * @return Index underlying cache.
      */
-    protected IgniteCache<K, V> cache() {
-        IgniteCache<K, V> cache = ignite.cache(cacheName);
+    public IgniteCache<K, V> cache() {
+        IgniteCache<K, V> cache = cacheHolder.get();
 
         if (cache == null) {
             CacheConfiguration<K, V> ccfg = new CacheConfiguration<>(cacheName);
@@ -55,6 +59,8 @@ public abstract class AbstractIndex<K, V> {
             ccfg.setCacheMode(REPLICATED);
 
             cache = ignite.getOrCreateCache(ccfg);
+
+            cacheHolder.set(cache);
         }
 
         return cache;

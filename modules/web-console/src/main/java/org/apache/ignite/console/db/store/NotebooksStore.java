@@ -17,15 +17,16 @@
 
 package org.apache.ignite.console.db.store;
 
-import java.util.List;
+import java.util.Collection;
+import java.util.TreeSet;
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.console.db.meta.Schemas;
+import org.apache.ignite.console.db.dto.Notebook;
 import org.apache.ignite.console.db.index.OneToManyIndex;
 import org.apache.ignite.console.db.index.UniqueIndex;
-import org.apache.ignite.console.db.dto.Notebook;
+import org.apache.ignite.console.db.meta.Schemas;
 import org.apache.ignite.transactions.Transaction;
 
 /**
@@ -52,17 +53,33 @@ public class NotebooksStore extends AbstractStore<UUID, Notebook> {
         uniqueNotebookNameIdx = new UniqueIndex(ignite, "uniqueNotebookNameIdx");
     }
 
+    /**
+     * TODO IGNITE-5617 Dirty hack to create caches.
+     */
+    @Override public NotebooksStore prepare() {
+        super.prepare();
+
+        accountNotebooksIdx.cache();
+        uniqueNotebookNameIdx.cache();
+
+        return this;
+    }
+
     /** {@inheritDoc} */
-    @Override public List<Notebook> list(JsonObject user) {
+    @Override public Collection<Notebook> list(JsonObject user) {
         UUID userId = getUserId(user);
 
+        Collection<Notebook> notebooks;
+
         try(Transaction tx = txStart()) {
-            accountNotebooksIdx.getIds(userId);
+            TreeSet<UUID> notebookIds = accountNotebooksIdx.getIds(userId);
+
+            notebooks = cache().getAll(notebookIds).values();
 
             tx.commit();
         }
 
-        return null;
+        return notebooks;
     }
 
     /** {@inheritDoc} */
@@ -78,10 +95,9 @@ public class NotebooksStore extends AbstractStore<UUID, Notebook> {
         Notebook notebook = new Notebook(notebookId, null, notebookName, rawData.encode());
 
         try(Transaction tx = txStart()) {
-            if (uniqueNotebookNameIdx.contains(notebookName))
+            if (!uniqueNotebookNameIdx.putIfAbsent(userId, notebookName))
                 throw new IllegalStateException("Notebook with name '" + notebookName + "' already exits");
 
-            uniqueNotebookNameIdx.put(notebookName);
             accountNotebooksIdx.put(userId, notebookId);
 
             tx.commit();
@@ -108,7 +124,7 @@ public class NotebooksStore extends AbstractStore<UUID, Notebook> {
 
             if (notebook != null) {
                 accountNotebooksIdx.remove(userId, notebookId);
-                uniqueNotebookNameIdx.remove(userId, notebookId, notebook.name());
+                uniqueNotebookNameIdx.remove(userId, notebook.name());
 
                 removed = true;
             }

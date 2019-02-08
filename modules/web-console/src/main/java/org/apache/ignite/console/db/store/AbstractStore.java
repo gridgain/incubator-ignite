@@ -17,7 +17,7 @@
 
 package org.apache.ignite.console.db.store;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
@@ -49,6 +49,16 @@ public abstract class AbstractStore<K, V> {
     protected AbstractStore(Ignite ignite, String cacheName) {
         this.ignite = ignite;
         this.cacheName = cacheName;
+    }
+
+    /**
+     * TODO IGNITE-5617 hack.
+     * @return
+     */
+    public AbstractStore<K, V> prepare() {
+        cache();
+
+        return this;
     }
 
     /**
@@ -121,7 +131,7 @@ public abstract class AbstractStore<K, V> {
      * @param user User.
      * @return List of objects.
      */
-    public abstract List<V> list(JsonObject user);
+    public abstract Collection<V> list(JsonObject user);
 
     /**
      * Put object to store.

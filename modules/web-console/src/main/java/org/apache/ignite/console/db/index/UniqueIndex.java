@@ -17,10 +17,11 @@
 
 package org.apache.ignite.console.db.index;
 
+import java.util.UUID;
 import org.apache.ignite.Ignite;
 
 /**
- * Helper class to support unique indexes.
+ * Index for unique constraint.
  */
 public class UniqueIndex extends AbstractIndex<String, Boolean> {
     /**
@@ -34,21 +35,32 @@ public class UniqueIndex extends AbstractIndex<String, Boolean> {
     }
 
     /**
-     * @param key
+     * @param key Key.
+     * @param payload Unique payload.
+     * @return String to put into cache.
      */
-    public void put(String key) {
-        cache().put(key, Boolean.TRUE);
+    private String makeKey(UUID key, Object payload) {
+        return key.toString() + payload;
     }
 
     /**
+     * Remove value from index.
      *
-     * @param keyParts
+     * @param key Key.
+     * @param payload Unique payload.
      */
-    public void remove(Object... keyParts) {
-        // cache().remove(key);
+    public void remove(UUID key, Object payload) {
+        cache().remove(makeKey(key, payload));
     }
 
-    public boolean contains(String key) {
-        return cache().containsKey(key);
+    /**
+     * Put key in index if it is not already there.
+     *
+     * @param key Key.
+     * @param payload Unique payload.
+     * @return {@code true} if value was added to index.
+     */
+    public boolean putIfAbsent(UUID key, Object payload) {
+        return cache().putIfAbsent(makeKey(key, payload), Boolean.TRUE);
     }
 }

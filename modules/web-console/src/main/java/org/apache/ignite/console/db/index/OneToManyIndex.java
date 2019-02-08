@@ -22,7 +22,7 @@ import java.util.UUID;
 import org.apache.ignite.Ignite;
 
 /**
- * Helper class to support one to many relation.
+ * Index for one to many relation.
  */
 public class OneToManyIndex extends AbstractIndex<UUID, TreeSet<UUID>> {
     /**
@@ -33,46 +33,47 @@ public class OneToManyIndex extends AbstractIndex<UUID, TreeSet<UUID>> {
      * @param child Child entity name.
      */
     public OneToManyIndex(Ignite ignite, String parent, String child) {
-        super(ignite, "wc_" + parent + "_to_" + child);
+        super(ignite, "wc_" + parent + "_to_" + child + "_idx");
     }
 
     /**
-     * @param id
-     * @return
+     * @param parentId Parent ID.
+     * @return Set of children IDs.
      */
-    public TreeSet<UUID> getIds(UUID id) {
-        TreeSet<UUID> ids = cache().get(id);
+    public TreeSet<UUID> getIds(UUID parentId) {
+        TreeSet<UUID> childrenIds = cache().get(parentId);
 
-        if (ids == null)
-            ids = new TreeSet<>();
+        if (childrenIds == null)
+            childrenIds = new TreeSet<>();
 
-        return ids;
+        return childrenIds;
     }
 
     /**
+     * Put child ID to index.
      *
-     * @param id
-     * @param ids
+     * @param parentId Parent ID.
+     * @param childId Child ID.
      */
-    public void setIds(UUID id, TreeSet<UUID> ids) {
-        cache().put(id, ids);
+    public void put(UUID parentId, UUID childId) {
+        TreeSet<UUID> childrenIds = getIds(parentId);
+
+        childrenIds.add(childId);
+
+        cache().put(parentId, childrenIds);
     }
 
     /**
+     * Remove child ID from index.
      *
-     * @param id
-     * @param childId
+     * @param parentId Parent ID.
+     * @param childId Child ID.
      */
-    public void put(UUID id, UUID childId) {
-        // cache().put(id, ids);
-    }
+    public void remove(UUID parentId, UUID childId) {
+        TreeSet<UUID> childrenIds = getIds(parentId);
 
-    /**
-     *
-     * @param id
-     * @param childId
-     */
-    public void remove(UUID id, UUID childId) {
+        childrenIds.remove(childId);
 
+        cache().put(parentId, childrenIds);
     }
 }
