@@ -53,16 +53,12 @@ public class NotebooksStore extends AbstractStore<UUID, Notebook> {
         uniqueNotebookNameIdx = new UniqueIndex(ignite, "uniqueNotebookNameIdx");
     }
 
-    /**
-     * TODO IGNITE-5617 Dirty hack to create caches.
-     */
-    @Override public NotebooksStore prepare() {
+    /** {@inheritDoc} */
+    @Override public void prepare() {
         super.prepare();
 
-        accountNotebooksIdx.cache();
-        uniqueNotebookNameIdx.cache();
-
-        return this;
+        accountNotebooksIdx.prepare();
+        uniqueNotebookNameIdx.prepare();
     }
 
     /** {@inheritDoc} */
@@ -88,17 +84,31 @@ public class NotebooksStore extends AbstractStore<UUID, Notebook> {
 
         rawData = Schemas.sanitize(Notebook.class, rawData);
 
-        UUID notebookId = ensureId(rawData);
+        UUID notebookId = getId(rawData);
+
+        boolean newItem = false;
+
+        if (notebookId == null) {
+            newItem = true;
+
+            notebookId = UUID.randomUUID();
+
+            rawData.put("_id", notebookId.toString());
+        }
 
         String notebookName = rawData.getString("name");
 
         Notebook notebook = new Notebook(notebookId, null, notebookName, rawData.encode());
 
         try(Transaction tx = txStart()) {
-            if (!uniqueNotebookNameIdx.putIfAbsent(userId, notebookName))
+            // TODO IGNITE-5617 handle rename to existing name.
+
+            if (newItem && !uniqueNotebookNameIdx.putIfAbsent(userId, notebookName))
                 throw new IllegalStateException("Notebook with name '" + notebookName + "' already exits");
 
             accountNotebooksIdx.put(userId, notebookId);
+
+            cache().put(notebookId, notebook);
 
             tx.commit();
         }
@@ -128,7 +138,6 @@ public class NotebooksStore extends AbstractStore<UUID, Notebook> {
 
                 removed = true;
             }
-
 
             tx.commit();
         }

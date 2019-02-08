@@ -453,7 +453,6 @@ public class WebConsoleServer extends AbstractVerticle {
 
         if (user != null) {
             Collection<Notebook> notebooks = notebooksStore
-                .prepare()
                 .list(user.principal());
 
             sendResult(ctx, toJsonArray(notebooks));
@@ -469,7 +468,6 @@ public class WebConsoleServer extends AbstractVerticle {
         if (user != null) {
             try {
                 Notebook notebook = notebooksStore
-                    .prepare()
                     .put(user.principal(), ctx.getBodyAsJson());
 
                 sendResult(ctx, Buffer.buffer(notebook.json()));
@@ -489,7 +487,6 @@ public class WebConsoleServer extends AbstractVerticle {
         if (user != null) {
             try {
                 boolean removed = notebooksStore
-                    .prepare()
                     .remove(user.principal(), ctx.getBodyAsJson());
 
                 JsonObject json = new JsonObject()

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-import _ from 'lodash';
 import bigIntJSON from 'json-bigint';
 
 /** This worker parse to JSON from string. */
@@ -27,5 +26,5 @@ onmessage = function(e) {
         ? bigIntJSON({storeAsString: true}).parse(data.payload)
         : JSON.parse(data.payload);
 
-    postMessage(_.get(res, 'result', res));
+    postMessage(res);
 };

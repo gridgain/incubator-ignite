@@ -20,11 +20,12 @@ package org.apache.ignite.console.db.index;
 import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.db.core.CacheHolder;
 
 /**
  * Index for one to many relation.
  */
-public class OneToManyIndex extends AbstractIndex<UUID, TreeSet<UUID>> {
+public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
     /**
      * Constructor.
      *

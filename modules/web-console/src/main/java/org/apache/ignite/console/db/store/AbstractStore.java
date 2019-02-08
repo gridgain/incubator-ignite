@@ -21,13 +21,10 @@ import java.util.Collection;
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteCache;
-import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.console.db.core.CacheHolder;
 import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
-import static org.apache.ignite.cache.CacheMode.REPLICATED;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
 
@@ -35,53 +32,22 @@ import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
  * Base class for data object store.
  */
 @SuppressWarnings("Duplicates")
-public abstract class AbstractStore<K, V> {
-    /** */
-    private final Ignite ignite;
-
-    /** */
-    private final String cacheName;
-
+public abstract class AbstractStore<K, V> extends CacheHolder<K, V> {
     /**
      * @param ignite Ignite.
      * @param cacheName Cache name.
      */
     protected AbstractStore(Ignite ignite, String cacheName) {
-        this.ignite = ignite;
-        this.cacheName = cacheName;
-    }
-
-    /**
-     * TODO IGNITE-5617 hack.
-     * @return
-     */
-    public AbstractStore<K, V> prepare() {
-        cache();
-
-        return this;
-    }
-
-    /**
-     * @return Index underlying cache.
-     */
-    protected IgniteCache<K, V> cache() {
-        IgniteCache<K, V> cache = ignite.cache(cacheName);
-
-        if (cache == null) {
-            CacheConfiguration<K, V> ccfg = new CacheConfiguration<>(cacheName);
-            ccfg.setAtomicityMode(TRANSACTIONAL);
-            ccfg.setCacheMode(REPLICATED);
-
-            cache = ignite.getOrCreateCache(ccfg);
-        }
-
-        return cache;
+        super(ignite, cacheName);
     }
 
     /**
      * @return Transaction.
      */
     protected Transaction txStart() {
+        if (!ready())
+            prepare();
+
         return ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE);
     }
 
@@ -93,25 +59,6 @@ public abstract class AbstractStore<K, V> {
         boolean hasId = rawData.containsKey("_id");
 
         return hasId ? UUID.fromString(rawData.getString("_id")) : null;
-    }
-
-    /**
-     * Ensure that object has ID.
-     * If not, ID will be generated and added to object.
-     *
-     * @param rawData Data object.
-     * @return Object ID.
-     */
-    protected UUID ensureId(JsonObject rawData) {
-        UUID id = getId(rawData);
-
-        if (id == null) {
-            id = UUID.randomUUID();
-
-            rawData.put("_id", id.toString());
-        }
-
-        return id;
     }
 
     /**

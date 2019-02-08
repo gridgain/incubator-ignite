@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.index;
+package org.apache.ignite.console.db.core;
 
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
@@ -26,31 +26,48 @@ import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
 
 /**
- * Base class for indexes.
+ * Cache holder.
+ *
+ * @param <K>
+ * @param <V>
  */
-public abstract class AbstractIndex<K, V> {
+public abstract class CacheHolder<K, V> {
     /** */
-    private final Ignite ignite;
+    protected final Ignite ignite;
 
     /** */
-    private final String cacheName;
+    protected final String cacheName;
 
     /** */
-    private final AtomicReference<IgniteCache<K, V>> cacheHolder = new AtomicReference<>();
+    protected final AtomicReference<IgniteCache<K, V>> cacheHolder = new AtomicReference<>();
 
     /**
      * @param ignite Ignite.
      * @param cacheName Cache name.
      */
-    protected AbstractIndex(Ignite ignite, String cacheName) {
+    protected CacheHolder(Ignite ignite, String cacheName) {
         this.ignite = ignite;
         this.cacheName = cacheName;
     }
 
     /**
-     * @return Index underlying cache.
+     * @return {@code true} if cache ready.
      */
-    public IgniteCache<K, V> cache() {
+    protected boolean ready() {
+        return cacheHolder.get() != null;
+    }
+
+    /**
+     * Prepare holder.
+     */
+    public void prepare() {
+        cache();
+    }
+
+    /**
+     * @return Underlying cache.
+     */
+    protected IgniteCache<K, V> cache() {
         IgniteCache<K, V> cache = cacheHolder.get();
 
         if (cache == null) {

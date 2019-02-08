@@ -19,11 +19,12 @@ package org.apache.ignite.console.db.index;
 
 import java.util.UUID;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.db.core.CacheHolder;
 
 /**
  * Index for unique constraint.
  */
-public class UniqueIndex extends AbstractIndex<String, Boolean> {
+public class UniqueIndex extends CacheHolder<String, Boolean> {
     /**
      * Constructor.
      *
