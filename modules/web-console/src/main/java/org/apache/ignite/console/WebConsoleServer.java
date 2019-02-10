@@ -264,20 +264,23 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/profile").handler(this::handleDummy);
         router.route("/api/v1/demo").handler(this::handleDummy);
 
-        router.route("/api/v1/configuration/domains").handler(this::handleDummy);
-        router.route("/api/v1/configuration/caches").handler(this::handleDummy);
-        router.route("/api/v1/configuration/igfs").handler(this::handleDummy);
-        router.route("/api/v1/configuration").handler(this::handleDummy);
-
         router.get("/api/v1/configuration/clusters").handler(clustersRouter::loadShortList);
-        router.put("/api/v1/configuration/clusters").handler(clustersRouter::save);
+        router.get("/api/v1/configuration/clusters/:id").handler(clustersRouter::getCluster);
+        router.get("/api/v1/configuration/clusters/:id/caches").handler(clustersRouter::getClusterCaches);
+        router.put("/api/v1/configuration/clusters").handler(clustersRouter::saveAdvanced);
+        router.put("/api/v1/configuration/clusters/basic").handler(clustersRouter::saveBasic);
+        router.post("/api/v1/configuration/clusters/remove").handler(clustersRouter::remove);
+
+        // router.route("/api/v1/configuration/domains").handler(this::handleDummy);
+        // router.route("/api/v1/configuration/caches").handler(this::handleDummy);
+        //  router.route("/api/v1/configuration/igfs").handler(this::handleDummy);
 
         router.get("/api/v1/notebooks").handler(notebooksRouter::load);
         router.post("/api/v1/notebooks/save").handler(notebooksRouter::save);
         router.post("/api/v1/notebooks/remove").handler(notebooksRouter::remove);
 
         router.route("/api/v1/downloads").handler(this::handleDummy);
-        router.route("/api/v1/activities").handler(this::handleDummy);
+        router.post("/api/v1/activities/page").handler(this::handleDummy);
     }
 
     /**

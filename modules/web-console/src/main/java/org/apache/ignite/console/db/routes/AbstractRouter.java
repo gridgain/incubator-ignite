@@ -20,7 +20,9 @@ package org.apache.ignite.console.db.routes;
 import java.net.HttpURLConnection;
 import java.util.Arrays;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.buffer.Buffer;
@@ -29,6 +31,7 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.core.CacheHolder;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -78,6 +81,26 @@ public abstract class AbstractRouter<K, V> extends CacheHolder<K, V> {
     }
 
     /**
+     * @param rawData Data object.
+     * @param key Key with IDs.
+     * @return Set of IDs
+     */
+    protected TreeSet<UUID> getIds(JsonObject rawData, String key) {
+        TreeSet<UUID> ids = new TreeSet<>();
+
+        if (rawData.containsKey(key)) {
+            rawData
+                .getJsonArray(key)
+                .stream()
+                .map(item -> UUID.fromString(item.toString()))
+                .sequential()
+                .collect(Collectors.toCollection(() -> ids));
+        }
+
+        return ids;
+    }
+
+    /**
      * Ensure that object has ID.
      * If not, ID will be generated and added to object.
      *
@@ -107,6 +130,20 @@ public abstract class AbstractRouter<K, V> extends CacheHolder<K, V> {
             throw new IllegalStateException("User ID not found");
 
         return userId;
+    }
+
+    /**
+     * @param ctx Context.
+     * @param paramName Parameter name.
+     * @return Parameter value
+     */
+    protected String getParam(RoutingContext ctx, String paramName) {
+        String param = ctx.request().getParam(paramName);
+
+        if (F.isEmpty(param))
+            throw new IllegalStateException("Parameter not found: " + paramName);
+
+        return param;
     }
 
     /**

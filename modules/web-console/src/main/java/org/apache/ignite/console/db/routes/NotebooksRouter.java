@@ -24,7 +24,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteCache;
 import org.apache.ignite.console.db.dto.Notebook;
 import org.apache.ignite.console.db.index.OneToManyIndex;
 import org.apache.ignite.console.db.index.UniqueIndex;
@@ -158,9 +157,7 @@ public class NotebooksRouter extends AbstractRouter<UUID, Notebook> {
                 int removedCnt = 0;
 
                 try(Transaction tx = txStart()) {
-                    IgniteCache<UUID, Notebook> cache = cache();
-
-                    Notebook notebook = cache.getAndRemove(notebookId);
+                    Notebook notebook = cache().getAndRemove(notebookId);
 
                     if (notebook != null) {
                         accountNotebooksIdx.removeChild(userId, notebookId);
