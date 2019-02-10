@@ -433,7 +433,7 @@ public abstract class GridDhtTxAbstractEnlistFuture<T> extends GridCacheFutureAd
 
                     assert entryProc != null || !op.isInvoke();
 
-                    boolean needOldVal = cctx.shared().mvccCaching().continuousQueryListeners(cctx, tx, key) != null;
+                    boolean needOldVal = tx.txState().useMvccCaching(cctx.cacheId());
 
                     GridCacheUpdateTxResult res;
 
@@ -702,7 +702,7 @@ public abstract class GridDhtTxAbstractEnlistFuture<T> extends GridCacheFutureAd
                 batches.put(node.id(), batch = new Batch(node));
 
             if (moving && hist0 == null) {
-                assert !F.isEmpty(hist);
+                assert !F.isEmpty(hist) || val == null;
 
                 hist0 = fetchHistoryInfo(key, hist);
             }
