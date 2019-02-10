@@ -61,8 +61,8 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.db.dto.Notebook;
-import org.apache.ignite.console.db.store.NotebooksStore;
+import org.apache.ignite.console.db.routes.ClustersRouter;
+import org.apache.ignite.console.db.routes.NotebooksRouter;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.binary.BinaryObjectImpl;
@@ -84,7 +84,7 @@ import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.apache.ignite.console.common.Utils.toJsonArray;
+import static org.apache.ignite.console.common.Utils.errorMessage;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BINARY_CONFIGURATION;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_CACHE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_NODE_CONSISTENT_ID;
@@ -132,7 +132,10 @@ public class WebConsoleServer extends AbstractVerticle {
     private final IgniteAuth auth;
 
     /** */
-    private final NotebooksStore notebooksStore;
+    private final ClustersRouter clustersRouter;
+
+    /** */
+    private final NotebooksRouter notebooksRouter;
 
     /** */
     private boolean embedded;
@@ -176,7 +179,8 @@ public class WebConsoleServer extends AbstractVerticle {
         this.auth = auth;
         this.embedded = embedded;
 
-        notebooksStore = new NotebooksStore(ignite);
+        clustersRouter = new ClustersRouter(ignite);
+        notebooksRouter = new NotebooksRouter(ignite);
     }
 
     /** {@inheritDoc} */
@@ -260,15 +264,17 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/profile").handler(this::handleDummy);
         router.route("/api/v1/demo").handler(this::handleDummy);
 
-        router.route("/api/v1/configuration/clusters").handler(this::handleDummy);
         router.route("/api/v1/configuration/domains").handler(this::handleDummy);
         router.route("/api/v1/configuration/caches").handler(this::handleDummy);
         router.route("/api/v1/configuration/igfs").handler(this::handleDummy);
         router.route("/api/v1/configuration").handler(this::handleDummy);
 
-        router.get("/api/v1/notebooks").handler(this::handleNotebooksLoad);
-        router.post("/api/v1/notebooks/save").handler(this::handleNotebookSave);
-        router.post("/api/v1/notebooks/remove").handler(this::handleNotebookRemove);
+        router.get("/api/v1/configuration/clusters").handler(clustersRouter::loadShortList);
+        router.put("/api/v1/configuration/clusters").handler(clustersRouter::save);
+
+        router.get("/api/v1/notebooks").handler(notebooksRouter::load);
+        router.post("/api/v1/notebooks/save").handler(notebooksRouter::save);
+        router.post("/api/v1/notebooks/remove").handler(notebooksRouter::remove);
 
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.route("/api/v1/activities").handler(this::handleDummy);
@@ -316,16 +322,6 @@ public class WebConsoleServer extends AbstractVerticle {
 
         registerVisorTask("cacheNodesTask", igniteVisor("cache.VisorCacheNodesTask"), "java.lang.String");
         registerVisorTask("cacheNodesTaskX2", igniteVisor("cache.VisorCacheNodesTask"), igniteVisor("cache.VisorCacheNodesTaskArg"));
-    }
-
-    /**
-     * @param cause Error.
-     * @return Error message or exception class name.
-     */
-    private String errorMessage(Throwable cause) {
-        String msg = cause.getMessage();
-
-        return F.isEmpty(msg) ? cause.getClass().getName() : msg;
     }
 
     /**
@@ -446,58 +442,10 @@ public class WebConsoleServer extends AbstractVerticle {
     }
 
     /**
-     * @param ctx Context
+     * @param ctx Context.
      */
-    private void handleNotebooksLoad(RoutingContext ctx) {
-        User user = checkUser(ctx);
-
-        if (user != null) {
-            Collection<Notebook> notebooks = notebooksStore
-                .list(user.principal());
-
-            sendResult(ctx, toJsonArray(notebooks));
-        }
-    }
-
-    /**
-     * @param ctx Context
-     */
-    private void handleNotebookSave(RoutingContext ctx) {
-        User user = checkUser(ctx);
-
-        if (user != null) {
-            try {
-                Notebook notebook = notebooksStore
-                    .put(user.principal(), ctx.getBodyAsJson());
-
-                sendResult(ctx, Buffer.buffer(notebook.json()));
-            }
-            catch (Throwable e) {
-                sendError(ctx, "Failed to save notebook", e);
-            }
-        }
-    }
-
-    /**
-     * @param ctx Context
-     */
-    private void handleNotebookRemove(RoutingContext ctx) {
-        User user = checkUser(ctx);
-
-        if (user != null) {
-            try {
-                boolean removed = notebooksStore
-                    .remove(user.principal(), ctx.getBodyAsJson());
-
-                JsonObject json = new JsonObject()
-                    .put("rowsAffected", removed ? 1 : 0);
-
-                sendResult(ctx, json);
-            }
-            catch (Throwable e) {
-                sendError(ctx, "Failed to delete notebook", e);
-            }
-        }
+    private void handleClustersLoad(RoutingContext ctx) {
+        // loadDataObjects(ctx, clustersRouter);
     }
 
     /**

@@ -65,12 +65,21 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
     }
 
     /**
+     * Remove parent ID from index.
+     *
+     * @param parentId Parent ID.
+     */
+    public void remove(UUID parentId) {
+        cache().remove(parentId);
+    }
+
+    /**
      * Remove child ID from index.
      *
      * @param parentId Parent ID.
      * @param childId Child ID.
      */
-    public void remove(UUID parentId, UUID childId) {
+    public void removeChild(UUID parentId, UUID childId) {
         TreeSet<UUID> childrenIds = getIds(parentId);
 
         childrenIds.remove(childId);

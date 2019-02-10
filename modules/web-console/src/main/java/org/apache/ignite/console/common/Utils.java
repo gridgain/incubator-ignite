@@ -28,6 +28,17 @@ public class Utils {
     /** */
     private static final Buffer EMPTY_ARRAY = Buffer.buffer("[]");
 
+
+    /**
+     * @param cause Error.
+     * @return Error message or exception class name.
+     */
+    public static String errorMessage(Throwable cause) {
+        String msg = cause.getMessage();
+
+        return F.isEmpty(msg) ? cause.getClass().getName() : msg;
+    }
+
     /**
      * Convert query data to JSON array.
      *

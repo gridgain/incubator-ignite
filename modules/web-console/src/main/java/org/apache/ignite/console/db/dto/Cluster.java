@@ -20,46 +20,42 @@ package org.apache.ignite.console.db.dto;
 import java.util.UUID;
 
 /**
- * Base class for DTO objects.
+ * DTO for cluster configuration.
  */
-public abstract class AbstractDto {
+public class Cluster extends DataObject {
     /** */
-    protected UUID id;
+    private String name;
 
-    /**
-     * Default constructor.
-     */
-    protected AbstractDto() {
-        // No-op.
-    }
+    /** */
+    private String discovery;
 
     /**
      * Full constructor.
      *
      * @param id ID.
+     * @param space Space ID.
+     * @param name Cluster name.
+     * @param name Cluster discovery.
+     * @param json JSON payload.
      */
-    protected AbstractDto(UUID id) {
-        this.id = id;
+    public Cluster(UUID id, UUID space, String name, String discovery, String json) {
+        super(id, space, json);
+
+        this.name = name;
+        this.discovery = discovery;
     }
 
     /**
-     * @return Object ID.
+     * @return name Cluster name.
      */
-    public UUID id() {
-        return id;
+    public String name() {
+        return name;
     }
 
     /**
-     * @param id Object ID.
+     * @return name Cluster discovery.
      */
-    public void id(UUID id) {
-        this.id = id;
-    }
-
-    /**
-     * @return String value of ID.
-     */
-    public String _id() {
-        return id.toString();
+    public String discovery() {
+        return discovery;
     }
 }

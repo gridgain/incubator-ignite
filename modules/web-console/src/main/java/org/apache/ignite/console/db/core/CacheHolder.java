@@ -31,7 +31,7 @@ import static org.apache.ignite.cache.CacheMode.REPLICATED;
  * @param <K>
  * @param <V>
  */
-public abstract class CacheHolder<K, V> {
+public class CacheHolder<K, V> {
     /** */
     protected final Ignite ignite;
 
@@ -67,7 +67,7 @@ public abstract class CacheHolder<K, V> {
     /**
      * @return Underlying cache.
      */
-    protected IgniteCache<K, V> cache() {
+    public IgniteCache<K, V> cache() {
         IgniteCache<K, V> cache = cacheHolder.get();
 
         if (cache == null) {
