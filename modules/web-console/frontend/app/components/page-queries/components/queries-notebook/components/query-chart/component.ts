@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-import angular from 'angular';
-import templateUrl from './template.tpl.pug';
-import { NotebookCtrl } from './controller';
-import NotebookData from '../../notebook.data';
-import {component as actions} from './components/query-actions-button/component';
-import {default as igniteInformation} from './components/ignite-information/information.directive';
-import queryChart from './components/query-chart/component';
-import './style.scss';
 
-export default angular.module('ignite-console.sql.notebook', [])
-    .directive('igniteInformation', igniteInformation)
-    .component('queryActionsButton', actions)
-    .component('queryChart', queryChart)
-    .component('queriesNotebook', {
-        controller: NotebookCtrl,
-        templateUrl
-    })
-    .service('IgniteNotebookData', NotebookData);
+import controller from './controller';
+import templateUrl from './template.tpl.pug';
+
+export default {
+    controller,
+    templateUrl,
+    bindings: {
+        paragraph: '<',
+        values: '<'
+    }
+} as ng.IComponentOptions;

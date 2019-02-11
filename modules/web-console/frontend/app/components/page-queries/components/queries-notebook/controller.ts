@@ -1287,6 +1287,7 @@ export class NotebookCtrl {
                 delete paragraph.subscription;
             }
 
+            // Work here;
             if (!_.eq(paragraph.meta, res.columns)) {
                 paragraph.meta = [];
 

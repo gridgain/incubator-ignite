@@ -423,6 +423,7 @@ mixin paragraph-query
                 +table-result-heading-query
                 +table-result-body
             .chart(ng-switch-when='chart')
+                query-chart(paragraph='paragraph' values='paragraph.rows')
                 +chart-result
             .footer.clearfix(ng-show='paragraph.resultType() !== "error"')
                 a.pull-left(ng-click='showResultQuery(paragraph)') Show query
