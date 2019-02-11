@@ -48,5 +48,5 @@ mixin discovery-jdbc(modelAt = '$ctrl.clonedCluster')
                 tip: 'Flag indicating whether DB schema should be initialized by Ignite or was explicitly created by user'
             })
         .pc-form-grid-col-30(ng-if=`$ctrl.Clusters.requiresProprietaryDrivers(${modelAt})`)
-            a.link-success(ng-href=`{{ $ctrl.Clusters.JDBCDriverURL(${modelAt}) }}` target='_blank')
+            a.link-success(ng-href=`{{ $ctrl.Clusters.jdbcDriverURL(${modelAt}) }}` target='_blank')
                 | Download JDBC drivers?

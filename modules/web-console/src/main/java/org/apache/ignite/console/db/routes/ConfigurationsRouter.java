@@ -32,6 +32,7 @@ import org.apache.ignite.console.db.core.CacheHolder;
 import org.apache.ignite.console.db.dto.Cache;
 import org.apache.ignite.console.db.dto.Cluster;
 import org.apache.ignite.console.db.dto.Igfs;
+import org.apache.ignite.console.db.dto.JsonBuilder;
 import org.apache.ignite.console.db.dto.Model;
 import org.apache.ignite.console.db.index.OneToManyIndex;
 import org.apache.ignite.console.db.index.UniqueIndex;
@@ -39,9 +40,9 @@ import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 
 /**
- * Router to handle REST API for clusters.
+ * Router to handle REST API for configurations.
  */
-public class ClustersRouter extends AbstractRouter {
+public class ConfigurationsRouter extends AbstractRouter {
     /** */
     private final CacheHolder<UUID, Cluster> clustersCache;
 
@@ -72,7 +73,7 @@ public class ClustersRouter extends AbstractRouter {
     /**
      * @param ignite Ignite.
      */
-    public ClustersRouter(Ignite ignite) {
+    public ConfigurationsRouter(Ignite ignite) {
         super(ignite);
 
         clustersCache = new CacheHolder<>(ignite, "wc_account_clusters");
@@ -286,7 +287,15 @@ public class ClustersRouter extends AbstractRouter {
                     if (cluster == null)
                         throw new IllegalStateException("Cluster not found for ID: " + clusterId);
 
-                    sendResult(ctx, Buffer.buffer(cluster.json()));
+                    JsonBuilder json = new JsonBuilder()
+                        .startObject()
+                        .addProperty("cluster", cluster.json())
+                        .addProperty("caches", "[]")
+                        .addProperty("models", "[]")
+                        .addProperty("igfss", "[]")
+                        .endObject();
+
+                    sendResult(ctx, json.buffer());
                 }
             }
             catch (Throwable e) {

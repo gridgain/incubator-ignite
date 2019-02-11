@@ -46,7 +46,7 @@ public class CacheHolder<K, V> {
      * @param ignite Ignite.
      * @param cacheName Cache name.
      */
-    protected CacheHolder(Ignite ignite, String cacheName) {
+    public CacheHolder(Ignite ignite, String cacheName) {
         this.ignite = ignite;
         this.cacheName = cacheName;
     }

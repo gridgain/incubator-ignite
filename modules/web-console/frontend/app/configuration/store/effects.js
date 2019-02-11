@@ -623,7 +623,7 @@ export default class ConfigEffects {
                 this.ConfigureState.actions$.pipe(ofType(shortClustersActionTypes.REMOVE)),
                 this.ConfigureState.actions$.pipe(ofType(clustersActionTypes.REMOVE))
             ),
-            switchMap(([, {clusterIDs}, ...backup]) => this.Clusters.removeCluster$(clusterIDs).pipe(
+            switchMap(([, {clusterIDs}, ...backup]) => from(this.Clusters.removeCluster(clusterIDs)).pipe(
                 mapTo({
                     type: 'REMOVE_CLUSTERS_OK'
                 }),

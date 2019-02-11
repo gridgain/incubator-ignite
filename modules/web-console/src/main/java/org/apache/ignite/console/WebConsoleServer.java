@@ -61,7 +61,7 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.db.routes.ClustersRouter;
+import org.apache.ignite.console.db.routes.ConfigurationsRouter;
 import org.apache.ignite.console.db.routes.NotebooksRouter;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteEx;
@@ -131,7 +131,7 @@ public class WebConsoleServer extends AbstractVerticle {
     private final IgniteAuth auth;
 
     /** */
-    private final ClustersRouter clustersRouter;
+    private final ConfigurationsRouter configurationsRouter;
 
     /** */
     private final NotebooksRouter notebooksRouter;
@@ -178,7 +178,7 @@ public class WebConsoleServer extends AbstractVerticle {
         this.auth = auth;
         this.embedded = embedded;
 
-        clustersRouter = new ClustersRouter(ignite);
+        configurationsRouter = new ConfigurationsRouter(ignite);
         notebooksRouter = new NotebooksRouter(ignite);
     }
 
@@ -266,7 +266,7 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.post("/api/v1/activities/page").handler(this::handleDummy);
 
-        clustersRouter.install(router);
+        configurationsRouter.install(router);
         notebooksRouter.install(router);
     }
 

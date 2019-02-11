@@ -17,7 +17,6 @@
 
 import get from 'lodash/get';
 import omit from 'lodash/fp/omit';
-import {from} from 'rxjs';
 import uuidv4 from 'uuid/v4';
 
 import {uniqueName} from 'app/utils/uniqueName';
@@ -83,10 +82,6 @@ export default class Clusters {
         return this.$http.get(`/api/v1/configuration/${clusterID}`);
     }
 
-    getAllConfigurations() {
-        return this.$http.get('/api/v1/configuration/list');
-    }
-
     getCluster(clusterID: string) {
         return this.$http.get(`/api/v1/configuration/clusters/${clusterID}`);
     }
@@ -107,24 +102,12 @@ export default class Clusters {
         return this.$http.get<{data: ShortCluster[]}>('/api/v1/configuration/clusters/');
     }
 
-    getClustersOverview$() {
-        return from(this.getClustersOverview());
-    }
-
     saveCluster(cluster) {
         return this.$http.post('/api/v1/configuration/clusters/save', cluster);
     }
 
-    saveCluster$(cluster) {
-        return from(this.saveCluster(cluster));
-    }
-
     removeCluster(cluster) {
         return this.$http.post('/api/v1/configuration/clusters/remove', {_id: cluster});
-    }
-
-    removeCluster$(cluster) {
-        return from(this.removeCluster(cluster));
     }
 
     saveBasic(changedItems) {
@@ -229,7 +212,7 @@ export default class Clusters {
         return get(cluster, 'discovery.kind') === 'Jdbc' && ['Oracle', 'DB2', 'SQLServer'].includes(get(cluster, 'discovery.Jdbc.dialect'));
     }
 
-    JDBCDriverURL(cluster) {
+    jdbcDriverURL(cluster) {
         return ({
             Oracle: 'http://www.oracle.com/technetwork/database/features/jdbc/default-2280470.html',
             DB2: 'http://www-01.ibm.com/support/docview.wss?uid=swg21363866',
@@ -490,7 +473,9 @@ export default class Clusters {
     }
 
     addServiceConfiguration(cluster) {
-        if (!cluster.serviceConfigurations) cluster.serviceConfigurations = [];
+        if (!cluster.serviceConfigurations)
+            cluster.serviceConfigurations = [];
+
         cluster.serviceConfigurations.push(Object.assign(this.makeBlankServiceConfiguration(), {
             name: uniqueName('New service configuration', cluster.serviceConfigurations)
         }));
@@ -520,9 +505,13 @@ export default class Clusters {
     };
 
     addExecutorConfiguration(cluster) {
-        if (!cluster.executorConfiguration) cluster.executorConfiguration = [];
+        if (!cluster.executorConfiguration)
+            cluster.executorConfiguration = [];
+
         const item = {_id: uuidv4(), name: ''};
+
         cluster.executorConfiguration.push(item);
+
         return item;
     }
 
@@ -574,14 +563,20 @@ export default class Clusters {
     normalize = omit(['__v', 'space']);
 
     addPeerClassLoadingLocalClassPathExclude(cluster) {
-        if (!cluster.peerClassLoadingLocalClassPathExclude) cluster.peerClassLoadingLocalClassPathExclude = [];
+        if (!cluster.peerClassLoadingLocalClassPathExclude)
+            cluster.peerClassLoadingLocalClassPathExclude = [];
+
         return cluster.peerClassLoadingLocalClassPathExclude.push('');
     }
 
     addBinaryTypeConfiguration(cluster) {
-        if (!cluster.binaryConfiguration.typeConfigurations) cluster.binaryConfiguration.typeConfigurations = [];
+        if (!cluster.binaryConfiguration.typeConfigurations)
+            cluster.binaryConfiguration.typeConfigurations = [];
+
         const item = {_id: uuidv4()};
+
         cluster.binaryConfiguration.typeConfigurations.push(item);
+
         return item;
     }
 }
