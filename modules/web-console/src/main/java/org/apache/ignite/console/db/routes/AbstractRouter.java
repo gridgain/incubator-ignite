@@ -207,6 +207,14 @@ public abstract class AbstractRouter {
     }
 
     /**
+     * @param ctx Context.
+     * @param data Data to send.
+     */
+    protected void sendResult(RoutingContext ctx, String data) {
+        sendResult(ctx, Buffer.buffer(data));
+    }
+
+    /**
      * Get the authenticated user (if any).
      * If user not found, send {@link HttpURLConnection#HTTP_UNAUTHORIZED}.
      *

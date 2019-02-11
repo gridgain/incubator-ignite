@@ -17,6 +17,8 @@
 
 package org.apache.ignite.console.db.dto;
 
+import java.util.Collection;
+import java.util.stream.Collectors;
 import io.vertx.core.buffer.Buffer;
 
 /**
@@ -36,34 +38,75 @@ public class JsonBuilder {
         this.buf = Buffer.buffer();
     }
 
+    /**
+     *
+     * @return
+     */
     public JsonBuilder startObject() {
         buf.appendString("{");
 
         return this;
     }
 
+    /**
+     *
+     * @return
+     */
     public JsonBuilder endObject() {
         buf.appendString("}");
 
         return this;
     }
 
+    /**
+     *
+     * @param name
+     */
+    private void addName(String name) {
+        buf
+            .appendString("\"")
+            .appendString(name)
+            .appendString("\"")
+            .appendString(":");
+    }
+
+    /**
+     *
+     * @param name
+     * @param val
+     * @return
+     */
     public JsonBuilder addProperty(String name, String val) {
         if (hasProps)
             buf.appendString(",");
         else
             hasProps = true;
 
-        buf
-            .appendString("\"")
-            .appendString(name)
-            .appendString("\"")
-            .appendString(":")
-            .appendString(val);
+        addName(name);
+
+        buf.appendString(val);
 
         return this;
     }
 
+    /**
+     *
+     * @param name
+     * @param data
+     * @return
+     */
+    public JsonBuilder addArray(String name, Collection<? extends DataObject> data) {
+        addName(name);
+
+        buf.appendString(data.stream().map(DataObject::json).collect(Collectors.joining(",", "[", "]")));
+
+        return this;
+    }
+
+    /**
+     *
+     * @return
+     */
     public Buffer buffer() {
         return buf;
     }

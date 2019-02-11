@@ -18,9 +18,11 @@
 package org.apache.ignite.console.db.routes;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.function.Function;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -44,16 +46,16 @@ import org.apache.ignite.transactions.Transaction;
  */
 public class ConfigurationsRouter extends AbstractRouter {
     /** */
-    private final CacheHolder<UUID, Cluster> clustersCache;
+    private final CacheHolder<UUID, Cluster> accountClusters;
 
     /** */
-    private final CacheHolder<UUID, Cache> cachesCache;
+    private final CacheHolder<UUID, Cache> clusterCaches;
 
     /** */
-    private final CacheHolder<UUID, Model> modelsCache;
+    private final CacheHolder<UUID, Model> clusterModels;
 
     /** */
-    private final CacheHolder<UUID, Igfs> igfssCache;
+    private final CacheHolder<UUID, Igfs> clusterIgfss;
 
     /** */
     private final OneToManyIndex accountClustersIdx;
@@ -76,10 +78,10 @@ public class ConfigurationsRouter extends AbstractRouter {
     public ConfigurationsRouter(Ignite ignite) {
         super(ignite);
 
-        clustersCache = new CacheHolder<>(ignite, "wc_account_clusters");
-        cachesCache = new CacheHolder<>(ignite, "wc_cluster_caches");
-        modelsCache = new CacheHolder<>(ignite, "wc_cluster_models");
-        igfssCache = new CacheHolder<>(ignite, "wc_cluster_igfss");
+        accountClusters = new CacheHolder<>(ignite, "wc_account_clusters");
+        clusterCaches = new CacheHolder<>(ignite, "wc_cluster_caches");
+        clusterModels = new CacheHolder<>(ignite, "wc_cluster_models");
+        clusterIgfss = new CacheHolder<>(ignite, "wc_cluster_igfss");
         accountClustersIdx = new OneToManyIndex(ignite, "wc_account_clusters_idx");
         uniqueClusterNameIdx = new UniqueIndex(ignite, "wc_unique_cluster_name_idx");
         clusterCachesIdx = new OneToManyIndex(ignite, "wc_cluster_caches_idx");
@@ -89,7 +91,7 @@ public class ConfigurationsRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override protected void initializeCaches() {
-        clustersCache.prepare();
+        accountClusters.prepare();
         accountClustersIdx.prepare();
         uniqueClusterNameIdx.prepare();
         clusterCachesIdx.prepare();
@@ -120,7 +122,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      *
      * @param ctx Context.
      */
-    public void loadShortList(RoutingContext ctx) {
+    private void loadShortList(RoutingContext ctx) {
         User user = checkUser(ctx);
 
         if (user != null) {
@@ -130,7 +132,7 @@ public class ConfigurationsRouter extends AbstractRouter {
                 try(Transaction tx = txStart()) {
                     TreeSet<UUID> clusterIds = accountClustersIdx.getIds(userId);
 
-                    Collection<Cluster> clusters = clustersCache.getAll(clusterIds).values();
+                    Collection<Cluster> clusters = accountClusters.getAll(clusterIds).values();
 
                     tx.commit();
 
@@ -161,52 +163,56 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
-     * Save cluster.
      *
-     * @param ctx Context.
+     * @param ctx
+     * @param merge
      */
-    public void saveAdvanced(RoutingContext ctx) {
+    private void saveCluster(RoutingContext ctx, Function<Cluster, Cluster> merge) {
         User user = checkUser(ctx);
 
         if (user != null) {
             try {
                 UUID userId = getUserId(user.principal());
 
-                JsonObject rawData = ctx.getBodyAsJson().getJsonObject("cluster");
-                
+                JsonObject rawData = ctx.getBodyAsJson();
+
+                JsonObject rawCluster = rawData.getJsonObject("cluster");
+
                 // rawData = Schemas.sanitize(Cluster.class, rawData);
 
-                UUID clusterId = getId(rawData);
-                
+                UUID clusterId = getId(rawCluster);
+
                 if (clusterId == null)
                     throw new IllegalStateException("Cluster ID not found");
 
-                String name = rawData.getString("name");
+                String name = rawCluster.getString("name");
 
                 if (F.isEmpty(name))
                     throw new IllegalStateException("Cluster name is empty");
 
-                String discovery = rawData.getJsonObject("discovery").getString("kind");
+                String discovery = rawCluster.getJsonObject("discovery").getString("kind");
 
-                if (F.isEmpty(name))
+                if (F.isEmpty(discovery))
                     throw new IllegalStateException("Cluster discovery not found");
 
-                Cluster cluster = new Cluster(clusterId, null, name, discovery, rawData.encode());
+                Cluster cluster = new Cluster(clusterId, null, name, discovery, rawCluster.encode());
+
+                merge.apply(cluster);
 
                 try(Transaction tx = txStart()) {
-                    UUID prevId = uniqueClusterNameIdx.getAndPutIfAbsent(userId, name, clusterId);
+                    UUID prevId = uniqueClusterNameIdx.getAndPutIfAbsent(userId, cluster.name(), cluster.id());
 
-                    if (prevId != null && !clusterId.equals(prevId))
-                        throw new IllegalStateException("Cluster with name '" + name + "' already exits");
+                    if (prevId != null && !cluster.id().equals(prevId))
+                        throw new IllegalStateException("Cluster with name '" + cluster.name() + "' already exits");
 
-                    accountClustersIdx.putChild(userId, clusterId);
+                    accountClustersIdx.putChild(userId, cluster.id());
 
-                    clustersCache.put(clusterId, cluster);
+                    accountClusters.put(clusterId, cluster);
 
                     tx.commit();
                 }
 
-                sendResult(ctx, rawData);
+                sendResult(ctx, cluster.json());
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to save cluster", e);
@@ -215,58 +221,25 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
+     * Save cluster.
+     *
+     * @param ctx Context.
+     */
+    private void saveAdvanced(RoutingContext ctx) {
+        saveCluster(ctx, cluster -> cluster);
+    }
+
+    /**
      * Save basic cluster.
      *
      * @param ctx Context.
      */
-    public void saveBasic(RoutingContext ctx) {
-        User user = checkUser(ctx);
+    private void saveBasic(RoutingContext ctx) {
+        saveCluster(ctx, cluster -> {
+            // TODO IGNITE-5617 UPSERT basic with full !!!
 
-        if (user != null) {
-            try {
-                UUID userId = getUserId(user.principal());
-
-                JsonObject rawData = ctx.getBodyAsJson().getJsonObject("cluster");
-
-                // rawData = Schemas.sanitize(Cluster.class, rawData);
-                // TODO IGNITE-5617 UPSERT basic with full !!!
-
-                UUID clusterId = getId(rawData);
-
-                if (clusterId == null)
-                    throw new IllegalStateException("Cluster ID not found");
-
-                String name = rawData.getString("name");
-
-                if (F.isEmpty(name))
-                    throw new IllegalStateException("Cluster name is empty");
-
-                String discovery = rawData.getJsonObject("discovery").getString("kind");
-
-                if (F.isEmpty(name))
-                    throw new IllegalStateException("Cluster discovery not found");
-
-                Cluster cluster = new Cluster(clusterId, null, name, discovery, rawData.encode());
-
-                try(Transaction tx = txStart()) {
-                    UUID prevId = uniqueClusterNameIdx.getAndPutIfAbsent(userId, name, clusterId);
-
-                    if (prevId != null && !clusterId.equals(prevId))
-                        throw new IllegalStateException("Cluster with name '" + name + "' already exits");
-
-                    accountClustersIdx.putChild(userId, clusterId);
-
-                    clustersCache.put(clusterId, cluster);
-
-                    tx.commit();
-                }
-
-                sendResult(ctx, rawData);
-            }
-            catch (Throwable e) {
-                sendError(ctx, "Failed to save basic cluster", e);
-            }
-        }
+            return cluster;
+        });
     }
 
     /**
@@ -280,26 +253,32 @@ public class ConfigurationsRouter extends AbstractRouter {
                 UUID clusterId = UUID.fromString(getParam(ctx, "id"));
 
                 try(Transaction tx = txStart()) {
-                    Cluster cluster = clustersCache.get(clusterId);
+                    Cluster cluster = accountClusters.get(clusterId);
 
                     tx.commit();
 
                     if (cluster == null)
                         throw new IllegalStateException("Cluster not found for ID: " + clusterId);
 
+                    TreeSet<UUID> cacheIds = clusterCachesIdx.get(clusterId);
+                    Collection<Cache> caches = clusterCaches.getAll(cacheIds).values();
+
+                    Collection<Model> models = Collections.emptyList();
+                    Collection<Igfs> igfss = Collections.emptyList();
+
                     JsonBuilder json = new JsonBuilder()
                         .startObject()
                         .addProperty("cluster", cluster.json())
-                        .addProperty("caches", "[]")
-                        .addProperty("models", "[]")
-                        .addProperty("igfss", "[]")
+                        .addArray("caches", caches)
+                        .addArray("models", models)
+                        .addArray("igfss", igfss)
                         .endObject();
 
                     sendResult(ctx, json.buffer());
                 }
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to load cluster", e);
+                sendError(ctx, "Failed to load configuration", e);
             }
         }
     }
@@ -316,7 +295,7 @@ public class ConfigurationsRouter extends AbstractRouter {
                 UUID clusterId = UUID.fromString(getParam(ctx, "id"));
 
                 try(Transaction tx = txStart()) {
-                    Cluster cluster = clustersCache.get(clusterId);
+                    Cluster cluster = accountClusters.get(clusterId);
 
                     tx.commit();
 
@@ -377,7 +356,7 @@ public class ConfigurationsRouter extends AbstractRouter {
                     throw new IllegalStateException("Cluster IDs not found");
 
                 try (Transaction tx = txStart()) {
-                    Map<UUID, Cluster> clusters = clustersCache.getAll(clusterIds);
+                    Map<UUID, Cluster> clusters = accountClusters.getAll(clusterIds);
 
                     clusters.forEach((clusterId, cluster) -> {
                         accountClustersIdx.removeChild(userId, clusterId);
@@ -387,7 +366,7 @@ public class ConfigurationsRouter extends AbstractRouter {
                         clusterIgfsIdx.remove(clusterId);
                     });
 
-                    clustersCache.removeAll(clusterIds);
+                    accountClusters.removeAll(clusterIds);
 
                     tx.commit();
                 }
