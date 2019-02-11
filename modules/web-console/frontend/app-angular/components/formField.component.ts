@@ -21,8 +21,8 @@ import './formField.component.scss';
 import {PopperContent} from 'ngx-popper';
 
 export enum FormFieldRequiredMarkerStyles {
-    OPTIONAL,
-    REQUIRED
+    OPTIONAL = 'optional',
+    REQUIRED = 'required'
 }
 
 export enum FormFieldErrorStyles {
@@ -122,7 +122,7 @@ export class FormFieldErrors<T extends {[errorType: string]: string}> {
         <ng-template #errors>
             <form-field-errors
                 *ngIf='(control?.dirty || control?.touched) && control?.invalid'
-                [errorStyle]='options.errorStyle'
+                [errorStyle]='errorStyle'
                 [errorType]='_getErrorType(control?.control)'
                 [extraErrorMessages]='extraMessages'
             ></form-field-errors>
@@ -135,12 +135,12 @@ export class FormFieldErrors<T extends {[errorType: string]: string}> {
             <ng-content></ng-content>
         </div>
         <div class="input-overlay" #overlayEl>
-            <ng-container *ngIf='options.errorStyle === "icon"'>
+            <ng-container *ngIf='errorStyle === "icon"'>
                 <ng-container *ngTemplateOutlet='errors'></ng-container>
             </ng-container>
             <ng-content select='[formFieldOverlay]'></ng-content>
         </div>
-        <ng-container *ngIf='options.errorStyle === "inline"'>
+        <ng-container *ngIf='errorStyle === "inline"'>
             <ng-container *ngTemplateOutlet='errors'></ng-container>
         </ng-container>
     `,
@@ -155,7 +155,16 @@ export class FormFieldErrors<T extends {[errorType: string]: string}> {
 })
 export class FormField implements AfterViewInit {
     static parameters = [[new Inject(FORM_FIELD_OPTIONS)]]
-    constructor(private options: FORM_FIELD_OPTIONS) {}
+    constructor(options: FORM_FIELD_OPTIONS) {
+        this.errorStyle = options.errorStyle;
+        this.requiredMarkerStyle = options.requiredMarkerStyle;
+    }
+
+    @Input()
+    errorStyle: FormFieldErrorStyles
+
+    @Input()
+    requiredMarkerStyle: FormFieldRequiredMarkerStyles
 
     extraMessages = {}
 
@@ -171,19 +180,19 @@ export class FormField implements AfterViewInit {
     isOptional: boolean
     @HostBinding('class.form-field__icon-error')
     get isIconError() {
-        return this.options.errorStyle === FormFieldErrorStyles.ICON;
+        return this.errorStyle === FormFieldErrorStyles.ICON;
     }
     @HostBinding('class.form-field__inline-error')
     get isInlineError() {
-        return this.options.errorStyle === FormFieldErrorStyles.INLINE;
+        return this.errorStyle === FormFieldErrorStyles.INLINE;
     }
 
     ngAfterViewInit() {
         // setTimeout fixes ExpressionChangedAfterItHasBeenCheckedError
         setTimeout(() => {
             const hasRequired: boolean = this.control && this.control.control && this.control.control.validator && this.control.control.validator({}).required;
-            this.isOptional = this.options.requiredMarkerStyle === FormFieldRequiredMarkerStyles.OPTIONAL && !hasRequired;
-            this.isRequired = this.options.requiredMarkerStyle === FormFieldRequiredMarkerStyles.REQUIRED && hasRequired;
+            this.isOptional = this.requiredMarkerStyle === FormFieldRequiredMarkerStyles.OPTIONAL && !hasRequired;
+            this.isRequired = this.requiredMarkerStyle === FormFieldRequiredMarkerStyles.REQUIRED && hasRequired;
         }, 0);
     }
 
