@@ -21,7 +21,7 @@ import {NG_VALUE_ACCESSOR, ControlValueAccessor} from '@angular/forms';
 @Component({
     selector: 'panel-collapsible-angular',
     template: `
-        <div class="heading" (click)='toggle()'>
+        <div class="heading" (click)='toggle()' (keyup.enter)='toggle()' (keyup.space)='toggle()' tabindex='0'>
             <ignite-icon class='status' [name]='opened ? "collapse" : "expand"'></ignite-icon>
             <div class="title">
                 <ng-content select='[panelTitle]'></ng-content>
