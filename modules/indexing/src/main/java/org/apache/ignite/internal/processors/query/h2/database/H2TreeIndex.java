@@ -19,11 +19,15 @@ package org.apache.ignite.internal.processors.query.h2.database;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
@@ -46,6 +50,7 @@ import org.apache.ignite.internal.processors.query.h2.H2Utils;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Cursor;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2RowDescriptor;
 import org.apache.ignite.internal.processors.query.h2.opt.H2CacheRow;
+import org.apache.ignite.internal.processors.query.h2.opt.H2PlainRow;
 import org.apache.ignite.internal.processors.query.h2.opt.H2Row;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
 import org.apache.ignite.internal.processors.query.h2.opt.QueryContext;
@@ -65,6 +70,7 @@ import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2ValueMes
 import org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2ValueMessageFactory;
 import org.apache.ignite.internal.stat.IoStatisticsHolder;
 import org.apache.ignite.internal.stat.IoStatisticsType;
+import org.apache.ignite.internal.util.GridCursorIteratorWrapper;
 import org.apache.ignite.internal.util.GridSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteTree;
 import org.apache.ignite.internal.util.lang.GridCursor;
@@ -361,13 +367,89 @@ public class H2TreeIndex extends H2TreeIndexBase {
         return segments.length;
     }
 
+    public static volatile boolean USE_HASH = true;
+    private volatile int hash = 0;
+    private static final int COL_IDX = 2;
+
+    private final AtomicReference<HashMap<Object, List<H2Row>>> hashMap = new AtomicReference<>();
+
+    @SuppressWarnings("Java8MapApi")
+    private void hashBuild() {
+        try {
+            int seg = threadLocalSegment();
+
+            H2Tree tree = treeForRead(seg);
+
+            GridCursor<H2Row> res = tree.find(null, null, filter(qryCtxRegistry.getThreadLocal()), null);
+
+            HashMap<Object, List<H2Row>> hashMap0 = new HashMap<>();
+
+            while (res.next()) {
+                H2Row row = res.get();
+
+                Object key = row.getValue(COL_IDX);
+
+                List<H2Row> keyRows = hashMap0.get(key);
+
+                if (keyRows == null) {
+                    keyRows = new ArrayList<>();
+
+                    hashMap0.put(key, keyRows);
+                }
+
+                keyRows.add(row);
+            }
+
+            hashMap.set(hashMap0);
+        }
+        catch (IgniteCheckedException e) {
+            throw new IgniteException(e);
+        }
+    }
+
+    private Cursor hashCursor(Object val)  {
+        HashMap<Object, List<H2Row>> keyRows = hashMap.get();
+
+        if (keyRows == null) {
+            hashBuild();
+
+            keyRows = hashMap.get();
+
+            assert keyRows != null;
+        }
+
+        List<H2Row> res = keyRows.get(val);
+
+        if (res == null)
+            res = Collections.emptyList();
+
+        GridCursorIteratorWrapper<H2Row> cur = new GridCursorIteratorWrapper<>(res.iterator());
+
+        return new H2Cursor(cur);
+    }
+
     /** {@inheritDoc} */
     @Override public Cursor find(Session ses, SearchRow lower, SearchRow upper) {
-        // TODO: DEBUG
-        String cacheName = getTable().cacheName();
+        if (USE_HASH) {
+            if (hash == 0) {
+                String cacheName = getTable().cacheName();
 
-        if (F.eq(cacheName, "BATCH_CACHE"))
-            System.out.println(">>> FIND: " + getName());
+                hash = F.eq(cacheName, "BATCH_CACHE") ? 1 : -1;
+            }
+
+            if (hash == 1) {
+                if (lower instanceof H2PlainRow && upper instanceof H2PlainRow) {
+                    H2PlainRow lower0 = (H2PlainRow)lower;
+                    H2PlainRow upper0 = (H2PlainRow)upper;
+
+                    Object lowerVal = lower0.getValue(COL_IDX);
+                    Object upperVal = upper0.getValue(COL_IDX);
+
+                    if (F.eq(lowerVal, upperVal))
+                        return hashCursor(lowerVal);
+                }
+            }
+        }
 
         assert lower == null || lower instanceof H2Row : lower;
         assert upper == null || upper instanceof H2Row : upper;

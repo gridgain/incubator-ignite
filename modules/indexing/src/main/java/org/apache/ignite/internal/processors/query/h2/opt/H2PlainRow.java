@@ -21,6 +21,9 @@ import org.apache.ignite.internal.util.tostring.GridToStringInclude;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.h2.value.Value;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 /**
  * Simple array based row.
  */
@@ -67,5 +70,21 @@ public class H2PlainRow extends H2Row {
     /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(H2PlainRow.class, this);
+    }
+
+    /** {@inheritDoc} */
+    @Override public int hashCode() {
+        return Arrays.hashCode(vals);
+    }
+
+    /** {@inheritDoc} */
+    @Override public boolean equals(Object obj) {
+        if (obj instanceof H2PlainRow) {
+            H2PlainRow other = (H2PlainRow)obj;
+
+            return Arrays.equals(vals, other.vals);
+        }
+
+        return false;
     }
 }

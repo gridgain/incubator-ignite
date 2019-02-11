@@ -25,14 +25,14 @@ public class Loader {
     private static final String SQL_PUBLIC_BATCH_ONHEAP = "BATCH_ONHEAP_CACHE";
     private static final String SQL_PUBLIC_TRADE = "TRADE_CACHE";
     private static final String SQL_PUBLIC_RISK = "RISK_CACHE";
-    public static final int RISKS = 25_000_000 / 100; // TODO: /100
-    public static final int TRADES = 50_000 / 100; // TODO: /100
+    public static final int RISKS = 25_000_000 / 20;
+    public static final int TRADES = 50_000;
     public static final int BOOKS = 5;
     public static final int BATCHES = 100;
 
-    public static void main(String[] args) {
+    public static void main(String... args) {
         Ignition.setClientMode(true);
-        Ignite ignite = Ignition.start(Server.getConfiguration());
+        Ignite ignite = Ignition.start(Server.getConfiguration().setIgniteInstanceName("loader"));
 
         ignite.addCacheConfiguration(
             new CacheConfiguration<>("ONHEAP")

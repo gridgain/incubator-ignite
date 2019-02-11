@@ -11,8 +11,8 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import java.util.Collections;
 
 public class Server {
-    public static void main(String[] args) {
-        Ignition.start(getConfiguration());
+    public static void main(String... args) {
+        Ignition.start(getConfiguration().setIgniteInstanceName("server"));
     }
 
     public static IgniteConfiguration getConfiguration() {
