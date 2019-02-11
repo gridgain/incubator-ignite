@@ -363,6 +363,12 @@ public class H2TreeIndex extends H2TreeIndexBase {
 
     /** {@inheritDoc} */
     @Override public Cursor find(Session ses, SearchRow lower, SearchRow upper) {
+        // TODO: DEBUG
+        String cacheName = getTable().cacheName();
+
+        if (F.eq(cacheName, "BATCH_CACHE"))
+            System.out.println(">>> FIND: " + getName());
+
         assert lower == null || lower instanceof H2Row : lower;
         assert upper == null || upper instanceof H2Row : upper;
 
