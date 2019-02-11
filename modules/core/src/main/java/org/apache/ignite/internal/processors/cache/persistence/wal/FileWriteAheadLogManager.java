@@ -304,7 +304,7 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
     private volatile FileWriteHandle currHnd;
 
     /** File handle manager. */
-    private volatile FileHandleManager fileHandleManager;
+    private FileHandleManager fileHandleManager;
 
     /** */
     private volatile WALDisableContext walDisableContext;
