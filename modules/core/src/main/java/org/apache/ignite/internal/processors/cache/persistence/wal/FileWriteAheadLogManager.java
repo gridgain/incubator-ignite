@@ -461,18 +461,14 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
         segmentRouter = new SegmentRouter(walWorkDir, walArchiveDir, segmentAware, dsCfg);
 
-        walDisableContext = cctx.walState().walDisableContext();
-
         fileHandleManager = fileHandleManagerFactory.build(
-            cctx, metrics, mmap, lastWALPtr::get, serializer, this::currentHandle
+                cctx, metrics, mmap, lastWALPtr::get, serializer, this::currentHandle
         );
 
-        fileHandleManager.start();
-
         lockedSegmentFileInputFactory = new LockedSegmentFileInputFactory(
-            segmentAware,
-            segmentRouter,
-            ioFactory
+                segmentAware,
+                segmentRouter,
+                ioFactory
         );
     }
 
@@ -487,8 +483,6 @@ public class FileWriteAheadLogManager extends GridCacheSharedManagerAdapter impl
 
             archiver.restart();
         }
-
-        fileHandleManager.onActivate();
 
         if (dsCfg.isWalCompactionEnabled()) {
             assert compressor != null : "Compressor should be initialized.";
