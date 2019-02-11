@@ -127,4 +127,46 @@ form-field {
             margin-left: var(--required-label-gap);
         }
     }
+
+    &[type='checkbox'] {
+        grid-template-areas: 'control title overlay' 'error-inline error-inline error-inline';
+        grid-template-columns: 12px 1fr auto;
+
+        .angular-form-field__label {
+            margin: 0 0 0 10px;
+        }
+
+        .angular-form-field__input {
+            grid-area: control;
+
+            &> input[type='checkbox'] {
+                border-radius: 2px;
+
+                background-image: url(/images/checkbox.svg);
+                width: 12px !important;
+                height: 12px !important;
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
+                background-repeat: no-repeat;
+                background-size: 100%;
+                padding: 0;
+                margin: 0;
+                border: none;
+
+                &:checked {
+                    background-image: url(/images/checkbox-active.svg);
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                }
+
+                &:focus {
+                    outline: none;
+                    box-shadow: 0 0 0 2px rgba(0, 103, 185, .3);
+                }
+            }
+        }
+    }
 }
