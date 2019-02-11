@@ -23,7 +23,6 @@ import io.vertx.core.json.JsonObject;
 /**
  * DTO for Account.
  */
-@SuppressWarnings("JavaAbbreviationUsage")
 public class Account extends AbstractDto {
     /** */
     private String email;
@@ -47,10 +46,10 @@ public class Account extends AbstractDto {
     private boolean admin;
 
     /** */
-    private String token;
+    private String tok;
 
     /** */
-    private String resetPasswordToken;
+    private String resetPwdTok;
 
     /** */
     private String registered;
@@ -62,7 +61,7 @@ public class Account extends AbstractDto {
     private String lastActivity;
 
     /** */
-    private String lastEvent;
+    private String lastEvt;
 
     /** */
     private boolean demoCreated;
@@ -91,12 +90,12 @@ public class Account extends AbstractDto {
      * @param country Country name.
      * @param industry Industry name.
      * @param admin Admin flag.
-     * @param token Web agent token.
-     * @param resetPasswordToken Reset password token.
+     * @param tok Web agent token.
+     * @param resetPwdTok Reset password token.
      * @param registered Registered flag.
      * @param lastLogin Last login date.
      * @param lastActivity  Last activity date.
-     * @param lastEvent  Last event date.
+     * @param lastEvt  Last event date.
      * @param demoCreated Demo created flag.
      * @param salt Password salt.
      * @param hash Password hash.
@@ -110,12 +109,12 @@ public class Account extends AbstractDto {
         String country,
         String industry,
         boolean admin,
-        String token,
-        String resetPasswordToken,
+        String tok,
+        String resetPwdTok,
         String registered,
         String lastLogin,
         String lastActivity,
-        String lastEvent,
+        String lastEvt,
         boolean demoCreated,
         String salt,
         String hash
@@ -129,12 +128,12 @@ public class Account extends AbstractDto {
         this.country = country;
         this.industry = industry;
         this.admin = admin;
-        this.token = token;
-        this.resetPasswordToken = resetPasswordToken;
+        this.tok = tok;
+        this.resetPwdTok = resetPwdTok;
         this.registered = registered;
         this.lastLogin = lastLogin;
         this.lastActivity = lastActivity;
-        this.lastEvent = lastEvent;
+        this.lastEvt = lastEvt;
         this.demoCreated = demoCreated;
         this.salt = salt;
         this.hash = hash;
@@ -165,7 +164,7 @@ public class Account extends AbstractDto {
      * @return Reset password token.
      */
     public String getResetPasswordToken() {
-        return resetPasswordToken;
+        return resetPwdTok;
     }
 
     /** {@inheritDoc} */
@@ -180,11 +179,11 @@ public class Account extends AbstractDto {
             .put("country", country)
             .put("industry", industry)
             .put("admin", admin)
-            .put("token", token)
+            .put("token", tok)
             .put("registered", registered)
             .put("lastLogin", lastLogin)
             .put("lastActivity", lastActivity)
-            .put("lastEvent", lastEvent)
+            .put("lastEvent", lastEvt)
             .put("demoCreated", demoCreated);
     }
 }

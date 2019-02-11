@@ -22,8 +22,10 @@ import java.util.TreeSet;
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
+import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.db.core.CacheHolder;
 import org.apache.ignite.console.db.dto.Notebook;
 import org.apache.ignite.console.db.index.OneToManyIndex;
 import org.apache.ignite.console.db.index.UniqueIndex;
@@ -36,10 +38,9 @@ import static org.apache.ignite.console.common.Utils.toJsonArray;
 /**
  * Router to handle REST API for notebooks.
  */
-@SuppressWarnings("JavaAbbreviationUsage")
-public class NotebooksRouter extends AbstractRouter<UUID, Notebook> {
+public class NotebooksRouter extends AbstractRouter {
     /** */
-    public static final String NOTEBOOKS_CACHE = "wc_notebooks";
+    private final CacheHolder<UUID, Notebook> notebooksCache;
 
     /** */
     private final OneToManyIndex accountNotebooksIdx;
@@ -51,18 +52,25 @@ public class NotebooksRouter extends AbstractRouter<UUID, Notebook> {
      * @param ignite Ignite.
      */
     public NotebooksRouter(Ignite ignite) {
-        super(ignite, NOTEBOOKS_CACHE);
+        super(ignite);
 
-        accountNotebooksIdx = new OneToManyIndex(ignite, "account", "notebooks");
-        uniqueNotebookNameIdx = new UniqueIndex(ignite, "uniqueNotebookNameIdx");
+        notebooksCache = new CacheHolder<>(ignite, "wc_notebooks");
+        accountNotebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
+        uniqueNotebookNameIdx = new UniqueIndex(ignite, "wc_unique_notebook_name_idx");
     }
 
     /** {@inheritDoc} */
-    @Override public void prepare() {
-        super.prepare();
-
+    @Override protected void initializeCaches() {
+        notebooksCache.prepare();
         accountNotebooksIdx.prepare();
         uniqueNotebookNameIdx.prepare();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void install(Router router) {
+        router.get("/api/v1/notebooks").handler(this::load);
+        router.post("/api/v1/notebooks/save").handler(this::save);
+        router.post("/api/v1/notebooks/remove").handler(this::remove);
     }
 
     /**
@@ -70,7 +78,7 @@ public class NotebooksRouter extends AbstractRouter<UUID, Notebook> {
      *
      * @param ctx Context.
      */
-    public void load(RoutingContext ctx) {
+    private void load(RoutingContext ctx) {
         User user = checkUser(ctx);
 
         if (user != null) {
@@ -80,7 +88,7 @@ public class NotebooksRouter extends AbstractRouter<UUID, Notebook> {
                 try(Transaction tx = txStart()) {
                     TreeSet<UUID> notebookIds = accountNotebooksIdx.getIds(userId);
 
-                    Collection<Notebook> notebooks = cache().getAll(notebookIds).values();
+                    Collection<Notebook> notebooks = notebooksCache.getAll(notebookIds).values();
 
                     tx.commit();
 
@@ -98,7 +106,7 @@ public class NotebooksRouter extends AbstractRouter<UUID, Notebook> {
      *
      * @param ctx Context.
      */
-    public void save(RoutingContext ctx) {
+    private void save(RoutingContext ctx) {
         User user = checkUser(ctx);
 
         if (user != null) {
@@ -122,9 +130,9 @@ public class NotebooksRouter extends AbstractRouter<UUID, Notebook> {
                     if (prevId != null && !notebookId.equals(prevId))
                         throw new IllegalStateException("Notebook with name '" + name + "' already exits");
 
-                    accountNotebooksIdx.put(userId, notebookId);
+                    accountNotebooksIdx.putChild(userId, notebookId);
 
-                    cache().put(notebookId, notebook);
+                    notebooksCache.put(notebookId, notebook);
 
                     tx.commit();
                 }
@@ -142,7 +150,7 @@ public class NotebooksRouter extends AbstractRouter<UUID, Notebook> {
      *
      * @param ctx Context.
      */
-    public void remove(RoutingContext ctx) {
+    private void remove(RoutingContext ctx) {
         User user = checkUser(ctx);
 
         if (user != null) {
@@ -154,22 +162,22 @@ public class NotebooksRouter extends AbstractRouter<UUID, Notebook> {
                 if (notebookId == null)
                     throw new IllegalStateException("Notebook ID not found");
 
-                int removedCnt = 0;
+                int rmvCnt = 0;
 
                 try(Transaction tx = txStart()) {
-                    Notebook notebook = cache().getAndRemove(notebookId);
+                    Notebook notebook = notebooksCache.getAndRemove(notebookId);
 
                     if (notebook != null) {
                         accountNotebooksIdx.removeChild(userId, notebookId);
                         uniqueNotebookNameIdx.remove(userId, notebook.name());
 
-                        removedCnt = 1;
+                        rmvCnt = 1;
                     }
 
                     tx.commit();
                 }
 
-                sendResult(ctx, rowsAffected(removedCnt));
+                sendResult(ctx, rowsAffected(rmvCnt));
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to delete notebook", e);

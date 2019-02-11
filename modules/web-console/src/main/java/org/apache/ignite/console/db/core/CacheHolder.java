@@ -17,7 +17,8 @@
 
 package org.apache.ignite.console.db.core;
 
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Map;
+import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -39,7 +40,7 @@ public class CacheHolder<K, V> {
     protected final String cacheName;
 
     /** */
-    protected final AtomicReference<IgniteCache<K, V>> cacheHolder = new AtomicReference<>();
+    protected IgniteCache<K, V> cache;
 
     /**
      * @param ignite Ignite.
@@ -51,35 +52,74 @@ public class CacheHolder<K, V> {
     }
 
     /**
-     * @return {@code true} if cache ready.
-     */
-    protected boolean ready() {
-        return cacheHolder.get() != null;
-    }
-
-    /**
-     * Prepare holder.
+     * Prepare cache.
      */
     public void prepare() {
-        cache();
-    }
-
-    /**
-     * @return Underlying cache.
-     */
-    public IgniteCache<K, V> cache() {
-        IgniteCache<K, V> cache = cacheHolder.get();
-
         if (cache == null) {
             CacheConfiguration<K, V> ccfg = new CacheConfiguration<>(cacheName);
             ccfg.setAtomicityMode(TRANSACTIONAL);
             ccfg.setCacheMode(REPLICATED);
 
             cache = ignite.getOrCreateCache(ccfg);
-
-            cacheHolder.set(cache);
         }
+    }
 
-        return cache;
+    /**
+     * Get values for specified keys.
+     *
+     * @param keys Keys to get.
+     * @return Map with entries.
+     */
+    public Map<K, V> getAll(Set<? extends K> keys) {
+        return cache.getAll(keys);
+    }
+
+    /**
+     * Removes entries for the specified keys.
+     *
+     * @param keys Keys to remove.
+     */
+    public void removeAll(Set<? extends K> keys) {
+        cache.removeAll(keys);
+    }
+
+    /**
+     * Put value to cache.
+     *
+     * @param key Key.
+     * @param val Value.
+     */
+    public void put(K key, V val) {
+        cache.put(key, val);
+    }
+
+    /**
+     * Get value from cache.
+     *
+     * @param key key.
+     * @return Value.
+     */
+    public V get(K key) {
+        return cache.get(key);
+    }
+
+    /**
+     * Remove value from cache.
+     *
+     * @param key key.
+     * @return {@code false} if there was no matching key.
+     */
+    public boolean remove(K key) {
+        return cache.remove(key);
+    }
+
+    /**
+     * Remove value from cache.
+     *
+     * @param key Key.
+     * @return Previous value.
+     */
+    public V getAndRemove(K key) {
+        return cache.getAndRemove(key);
     }
 }

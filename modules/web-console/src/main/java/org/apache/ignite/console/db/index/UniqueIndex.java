@@ -51,7 +51,7 @@ public class UniqueIndex extends CacheHolder<String, UUID> {
      * @param payload Unique payload.
      */
     public void remove(UUID key, Object payload) {
-        cache().remove(makeKey(key, payload));
+        cache.remove(makeKey(key, payload));
     }
 
     /**
@@ -63,6 +63,6 @@ public class UniqueIndex extends CacheHolder<String, UUID> {
      * @return Previous value from index.
      */
     public UUID getAndPutIfAbsent(UUID key, Object payload, UUID owner) {
-        return cache().getAndPutIfAbsent(makeKey(key, payload), owner);
+        return cache.getAndPutIfAbsent(makeKey(key, payload), owner);
     }
 }

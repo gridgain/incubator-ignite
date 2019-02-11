@@ -27,8 +27,6 @@ import {switchMap, take, map} from 'rxjs/operators';
 
 export type ClusterParams = ({clusterID: string} | {clusterID: 'new'}) & StateParams;
 
-const idRegex = `new|[a-z0-9]+`;
-
 const shortCachesResolve = ['ConfigSelectors', 'ConfigureState', 'ConfigEffects', '$transition$', function(ConfigSelectors, ConfigureState, {etp}, $transition$) {
     if ($transition$.params().clusterID === 'new')
         return Promise.resolve();
@@ -67,7 +65,7 @@ function registerStates($stateProvider) {
         }
     })
     .state('base.configuration.edit', {
-        url: `/{clusterID:${idRegex}}`,
+        url: `/{clusterID}`,
         permission: 'configuration',
         component: 'pageConfigure',
         resolve: {
@@ -167,7 +165,7 @@ function registerStates($stateProvider) {
         }
     })
     .state('base.configuration.edit.advanced.caches.cache', {
-        url: `/{cacheID:${idRegex}}`,
+        url: `/{cacheID}`,
         permission: 'configuration',
         resolve: {
             _cache: ['ConfigEffects', '$transition$', ({etp}, $transition$) => {
@@ -217,7 +215,7 @@ function registerStates($stateProvider) {
         }
     })
     .state('base.configuration.edit.advanced.models.model', {
-        url: `/{modelID:${idRegex}}`,
+        url: `/{modelID}`,
         resolve: {
             _cache: ['ConfigEffects', '$transition$', ({etp}, $transition$) => {
                 const {clusterID, modelID} = $transition$.params();
@@ -263,7 +261,7 @@ function registerStates($stateProvider) {
         }
     })
     .state('base.configuration.edit.advanced.igfs.igfs', {
-        url: `/{igfsID:${idRegex}}`,
+        url: `/{igfsID}`,
         permission: 'configuration',
         resolve: {
             _igfs: ['ConfigEffects', '$transition$', ({etp}, $transition$) => {

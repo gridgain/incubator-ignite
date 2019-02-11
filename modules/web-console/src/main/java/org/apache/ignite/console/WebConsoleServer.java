@@ -105,7 +105,6 @@ import static org.apache.ignite.internal.processors.rest.protocols.http.jetty.Gr
 /**
  * Web Console server.
  */
-@SuppressWarnings({"JavaAbbreviationUsage", "unused", "NonFinalStaticVariableUsedInClassInitialization", "Duplicates"})
 public class WebConsoleServer extends AbstractVerticle {
     /** */
     private static final String VISOR_IGNITE = "org.apache.ignite.internal.visor.";
@@ -230,16 +229,16 @@ public class WebConsoleServer extends AbstractVerticle {
      * Register event bus consumers.
      */
     private void registerEventBusConsumers() {
-        EventBus eventBus = vertx.eventBus();
+        EventBus evtBus = vertx.eventBus();
 
         if (embedded) {
-            eventBus.consumer(Addresses.NODE_REST, this::handleEmbeddedNodeRest);
-            eventBus.consumer(Addresses.NODE_VISOR, this::handleEmbeddedNodeVisor);
+            evtBus.consumer(Addresses.NODE_REST, this::handleEmbeddedNodeRest);
+            evtBus.consumer(Addresses.NODE_VISOR, this::handleEmbeddedNodeVisor);
 
             vertx.setPeriodic(3000, this::handleEmbeddedClusterTopology);
         }
         else
-            eventBus.consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
+            evtBus.consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
     }
 
     /**
@@ -264,23 +263,11 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/profile").handler(this::handleDummy);
         router.route("/api/v1/demo").handler(this::handleDummy);
 
-        router.get("/api/v1/configuration/clusters").handler(clustersRouter::loadShortList);
-        router.get("/api/v1/configuration/clusters/:id").handler(clustersRouter::getCluster);
-        router.get("/api/v1/configuration/clusters/:id/caches").handler(clustersRouter::getClusterCaches);
-        router.put("/api/v1/configuration/clusters").handler(clustersRouter::saveAdvanced);
-        router.put("/api/v1/configuration/clusters/basic").handler(clustersRouter::saveBasic);
-        router.post("/api/v1/configuration/clusters/remove").handler(clustersRouter::remove);
-
-        // router.route("/api/v1/configuration/domains").handler(this::handleDummy);
-        // router.route("/api/v1/configuration/caches").handler(this::handleDummy);
-        //  router.route("/api/v1/configuration/igfs").handler(this::handleDummy);
-
-        router.get("/api/v1/notebooks").handler(notebooksRouter::load);
-        router.post("/api/v1/notebooks/save").handler(notebooksRouter::save);
-        router.post("/api/v1/notebooks/remove").handler(notebooksRouter::remove);
-
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.post("/api/v1/activities/page").handler(this::handleDummy);
+
+        clustersRouter.install(router);
+        notebooksRouter.install(router);
     }
 
     /**
@@ -445,16 +432,11 @@ public class WebConsoleServer extends AbstractVerticle {
     }
 
     /**
-     * @param ctx Context.
-     */
-    private void handleClustersLoad(RoutingContext ctx) {
-        // loadDataObjects(ctx, clustersRouter);
-    }
-
-    /**
      * @param ctx Context
      */
     private void handleDummy(RoutingContext ctx) {
+        logInfo("Dummy: " + ctx.request().path());
+
         sendStatus(ctx, HTTP_OK, "[]");
     }
 
@@ -553,14 +535,14 @@ public class WebConsoleServer extends AbstractVerticle {
 
             GridRestResponse res = new GridRestResponse(top);
 
-            JsonObject restResult = new JsonObject()
+            JsonObject restRes = new JsonObject()
                 .put("status", 0)
                 .putNull("error")
                 .put("data", Json.encode(res.getResponse()))
                 .put("sessionToken", 1)
                 .put("zipped", false);
 
-            msg.reply(restResult);
+            msg.reply(restRes);
         }
         else
             msg.fail(HTTP_BAD_REQUEST, "Unsupported REST command: " + params);
@@ -764,14 +746,14 @@ public class WebConsoleServer extends AbstractVerticle {
 
             Object res = compute.execute(VisorGatewayTask.class, args.toArray());
 
-            JsonObject restResult = new JsonObject()
+            JsonObject restRes = new JsonObject()
                 .put("status", 0)
                 .putNull("error")
                 .put("data", Json.encode(res))
                 .put("sessionToken", 1)
                 .put("zipped", false);
 
-            msg.reply(restResult);
+            msg.reply(restRes);
         }
         catch (Throwable e) {
             msg.fail(HTTP_INTERNAL_ERROR, errorMessage(e));
@@ -809,9 +791,9 @@ public class WebConsoleServer extends AbstractVerticle {
             JsonObject msg = be.getRawMessage();
 
             if (msg != null) {
-                String address = msg.getString("address");
+                String addr = msg.getString("address");
 
-                if ("node:visor".equals(address)) {
+                if ("node:visor".equals(addr)) {
                     JsonObject body = msg.getJsonObject("body");
 
                     if (body != null) {
@@ -839,7 +821,6 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * Visor task descriptor.
      */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     private static class VisorTaskDescriptor {
         /** */
         private static final String[] EMPTY = new String[0];

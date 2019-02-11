@@ -30,11 +30,10 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
      * Constructor.
      *
      * @param ignite Ignite.
-     * @param parent Parent entity name.
-     * @param child Child entity name.
+     * @param idxName Index name.
      */
-    public OneToManyIndex(Ignite ignite, String parent, String child) {
-        super(ignite, "wc_" + parent + "_to_" + child + "_idx");
+    public OneToManyIndex(Ignite ignite, String idxName) {
+        super(ignite, idxName);
     }
 
     /**
@@ -42,7 +41,7 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
      * @return Set of children IDs.
      */
     public TreeSet<UUID> getIds(UUID parentId) {
-        TreeSet<UUID> childrenIds = cache().get(parentId);
+        TreeSet<UUID> childrenIds = get(parentId);
 
         if (childrenIds == null)
             childrenIds = new TreeSet<>();
@@ -56,21 +55,12 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
      * @param parentId Parent ID.
      * @param childId Child ID.
      */
-    public void put(UUID parentId, UUID childId) {
+    public void putChild(UUID parentId, UUID childId) {
         TreeSet<UUID> childrenIds = getIds(parentId);
 
         childrenIds.add(childId);
 
-        cache().put(parentId, childrenIds);
-    }
-
-    /**
-     * Remove parent ID from index.
-     *
-     * @param parentId Parent ID.
-     */
-    public void remove(UUID parentId) {
-        cache().remove(parentId);
+        put(parentId, childrenIds);
     }
 
     /**
@@ -84,6 +74,6 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
 
         childrenIds.remove(childId);
 
-        cache().put(parentId, childrenIds);
+        put(parentId, childrenIds);
     }
 }

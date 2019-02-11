@@ -28,9 +28,9 @@ import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
+import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.core.CacheHolder;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -40,12 +40,18 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.common.Utils.errorMessage;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
-import static org.apache.ignite.transactions.TransactionIsolation.SERIALIZABLE;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Base class for routers.
  */
-public abstract class AbstractRouter<K, V> extends CacheHolder<K, V> {
+public abstract class AbstractRouter {
+    /** */
+    protected final Ignite ignite;
+
+    /** */
+    volatile private boolean ready;
+
     /** */
     private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
         HttpHeaderValues.NO_CACHE,
@@ -54,20 +60,29 @@ public abstract class AbstractRouter<K, V> extends CacheHolder<K, V> {
 
     /**
      * @param ignite Ignite.
-     * @param cacheName Cache name.
      */
-    protected AbstractRouter(Ignite ignite, String cacheName) {
-        super(ignite, cacheName);
+    protected AbstractRouter(Ignite ignite) {
+        this.ignite = ignite;
     }
 
     /**
+     * Initialize caches.
+     */
+    protected abstract void initializeCaches();
+
+    /**
+     * Start transaction.
+     *
      * @return Transaction.
      */
     protected Transaction txStart() {
-        if (!ready())
-            prepare();
+        if (!ready) {
+            initializeCaches();
 
-        return ignite.transactions().txStart(PESSIMISTIC, SERIALIZABLE);
+            ready = true;
+        }
+
+        return ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ);
     }
 
     /**
@@ -215,4 +230,11 @@ public abstract class AbstractRouter<K, V> extends CacheHolder<K, V> {
         return new JsonObject()
             .put("rowsAffected", rows);
     }
+
+    /**
+     * Install handlers on router.
+     *
+     * @param router Router.
+     */
+    public abstract void install(Router router);
 }
