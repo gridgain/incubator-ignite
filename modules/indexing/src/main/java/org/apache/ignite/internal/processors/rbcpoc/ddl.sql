@@ -8,6 +8,7 @@ CREATE TABLE RISK
   PRIMARY KEY (RISK_ID)
 ) with "KEY_TYPE=RISK_KEY,CACHE_NAME=RISK_CACHE,VALUE_TYPE=RISK_VALUE";
 CREATE INDEX RISK_TR_IDX ON RISK (TRADEIDENTIFIER, TRADEVERSION, BATCHKEY) INLINE_SIZE 82;
+CREATE INDEX RISK_TR_IDX_2 ON RISK (BATCHKEY) INLINE_SIZE 82;
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
@@ -20,6 +21,7 @@ CREATE TABLE TRADE
   PRIMARY KEY (TRADEIDENTIFIER, TRADEVERSION)
 ) with "KEY_TYPE=TRADE_KEY,CACHE_NAME=TRADE_CACHE,VALUE_TYPE=TRADE_VALUE";
 CREATE INDEX TRADE_BOOK_PK_IDX ON TRADE (BOOK, TRADEIDENTIFIER, TRADEVERSION) INLINE_SIZE 100;
+CREATE INDEX TRADE_BOOK_PK_IDX_2 ON TRADE (TRADEIDENTIFIER, TRADEVERSION) INLINE_SIZE 100;
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------*/

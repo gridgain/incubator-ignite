@@ -18,9 +18,9 @@ public class Client {
         Ignition.setClientMode(true);
         Ignite ignite = Ignition.start(Server.getConfiguration());
 
-        System.out.println(">>>> Benchmarking original query...");
+        System.out.println(">>>> Benchmarking original query ...");
         benchmark(() -> {
-            String sql = "SELECT  *\n" +
+            String sql = "SELECT  COUNT(*)\n" +
                 "FROM    RISK R, TRADE T, BATCH B\n" +
                 "WHERE    R.BATCHKEY = B.BATCHKEY\n" +
                 "AND R.TRADEIDENTIFIER = T.TRADEIDENTIFIER\n" +
@@ -31,67 +31,85 @@ public class Client {
             runSql(ignite, sql, false);
         });
 
-        System.out.println(">>>> Benchmarking query without BATCH...");
-        benchmark(() -> {
-            String sql = "SELECT    *\n" +
-                "FROM    RISK R, TRADE T\n" +
-                "WHERE    R.TRADEIDENTIFIER = T.TRADEIDENTIFIER\n" +
-                "AND    R.TRADEVERSION = T.TRADEVERSION\n" +
-                "AND    T.BOOK = 'RBCEUR0';";
-            runSql(ignite, sql, false);
-        });
+        // TODO: No batch, ignore
+//        System.out.println(">>>> Benchmarking query without BATCH ...");
+//        benchmark(() -> {
+//            String sql = "SELECT    COUNT(*)\n" +
+//                "FROM    RISK R, TRADE T\n" +
+//                "WHERE    R.TRADEIDENTIFIER = T.TRADEIDENTIFIER\n" +
+//                "AND    R.TRADEVERSION = T.TRADEVERSION\n" +
+//                "AND    T.BOOK = 'RBCEUR0';";
+//            runSql(ignite, sql, false);
+//        });
 
-        System.out.println(">>>> Benchmarking query T -> B -> R...");
-        benchmark(() -> {
-            String sql = "SELECT  *\n" +
-                "FROM TRADE T, BATCH B, RISK R\n" +
-                "WHERE T.BOOK = 'RBCEUR0'\n" +
-                "    AND B.ISLATEST = TRUE\n" +
-                "    AND R.TRADEIDENTIFIER = T.TRADEIDENTIFIER\n" +
-                "    AND R.TRADEVERSION = T.TRADEVERSION\n" +
-                "    AND R.BATCHKEY = B.BATCHKEY";
-            runSql(ignite, sql, true);
-        });
+        // TODO: Bad, ignore
+//        System.out.println(">>>> Benchmarking R -> T -> B ...");
+//        benchmark(() -> {
+//            String sql =
+//                "SELECT  COUNT(*)\n" +
+//                "FROM           RISK R " +
+//                "    INNER JOIN TRADE T ON (R.TRADEIDENTIFIER = T.TRADEIDENTIFIER AND R.TRADEVERSION = T.TRADEVERSION) " +
+//                "    INNER JOIN BATCH B ON (R.BATCHKEY = B.BATCHKEY) " +
+//                "WHERE" +
+//                "    T.BOOK = 'RBCEUR0' AND B.ISLATEST = TRUE";
+//
+//            runSql(ignite, sql, true);
+//        });
 
-        System.out.println(">>>> Benchmarking query B -> T -> R...");
-        benchmark(() -> {
-            String sql = "SELECT  *\n" +
-                "FROM TRADE T, BATCH B, RISK R\n" +
-                "WHERE T.BOOK = 'RBCEUR0'\n" +
-                "    AND B.ISLATEST = TRUE\n" +
-                "    AND R.TRADEIDENTIFIER = T.TRADEIDENTIFIER\n" +
-                "    AND R.TRADEVERSION = T.TRADEVERSION\n" +
-                "    AND R.BATCHKEY = B.BATCHKEY";
-            runSql(ignite, sql, true);
-        });
+        // TODO: Bad, ignore
+//        System.out.println(">>>> Benchmarking R -> B -> T ...");
+//        benchmark(() -> {
+//            String sql =
+//                "SELECT  COUNT(*)\n" +
+//                    "FROM           RISK R " +
+//                    "    INNER JOIN BATCH B ON (R.BATCHKEY = B.BATCHKEY) " +
+//                    "    INNER JOIN TRADE T ON (R.TRADEIDENTIFIER = T.TRADEIDENTIFIER AND R.TRADEVERSION = T.TRADEVERSION) " +
+//                    "WHERE" +
+//                    "    T.BOOK = 'RBCEUR0' AND B.ISLATEST = TRUE";
+//
+//            runSql(ignite, sql, true);
+//        });
 
-        System.out.println(">>>> Benchmarking query B -> (T -> R)...");
-        benchmark(() -> {
-            String sql = "SELECT *\n" +
-                "FROM BATCH B, \n" +
-                "    (SELECT T.VALUE1, T.BOOK, R.* \n" +
-                "        FROM TRADE T, RISK R\n" +
-                "        WHERE R.TRADEIDENTIFIER = T.TRADEIDENTIFIER\n" +
-                "            AND R.TRADEVERSION = T.TRADEVERSION\n" +
-                "            AND T.BOOK = 'RBCEUR0') TR\n" +
-                "    WHERE TR.BATCHKEY = B.BATCHKEY\n" +
-                "        AND B.ISLATEST = TRUE;";
-            runSql(ignite, sql, true);
-        });
+//        // TODO: Same as "original", ignore
+//        System.out.println(">>>> Benchmarking T -> R -> B ...");
+//        benchmark(() -> {
+//            String sql =
+//                "SELECT  COUNT(*)\n" +
+//                    "FROM           TRADE T " +
+//                    "    INNER JOIN RISK R ON (R.TRADEIDENTIFIER = T.TRADEIDENTIFIER AND R.TRADEVERSION = T.TRADEVERSION) " +
+//                    "    INNER JOIN BATCH B ON (R.BATCHKEY = B.BATCHKEY) " +
+//                    "WHERE" +
+//                    "    T.BOOK = 'RBCEUR0' AND B.ISLATEST = TRUE";
+//
+//            runSql(ignite, sql, true);
+//        });
 
-        System.out.println(">>>> Benchmarking query T -> (B -> R)...");
-        benchmark(() -> {
-            String sql = "SELECT *\n" +
-                "FROM TRADE T, \n" +
-                "    (SELECT R.*\n" +
-                "        FROM BATCH B, RISK R\n" +
-                "        WHERE R.BATCHKEY = B.BATCHKEY\n" +
-                "            AND B.ISLATEST = TRUE) BR\n" +
-                "    WHERE BR.TRADEIDENTIFIER = T.TRADEIDENTIFIER\n" +
-                "            AND BR.TRADEVERSION = T.TRADEVERSION\n" +
-                "            AND T.BOOK = 'RBCEUR0'";
-            runSql(ignite, sql, true);
-        });
+        // TODO: Bad, ignore
+//        System.out.println(">>>> Benchmarking B -> R -> T ...");
+//        benchmark(() -> {
+//            String sql =
+//                "SELECT  COUNT(*)\n" +
+//                    "FROM           BATCH B " +
+//                    "    INNER JOIN RISK R ON (R.BATCHKEY = B.BATCHKEY) " +
+//                    "    INNER JOIN TRADE T ON (R.TRADEIDENTIFIER = T.TRADEIDENTIFIER AND R.TRADEVERSION = T.TRADEVERSION) " +
+//                    "WHERE" +
+//                    "    T.BOOK = 'RBCEUR0' AND B.ISLATEST = TRUE";
+//
+//            runSql(ignite, sql, true);
+//        });
+
+        // TODO: Good, but depends on B.ISLATEST selectivity
+//        System.out.println(">>>> Benchmarking B -> T -> R ...");
+//        benchmark(() -> {
+//            String sql =
+//                "SELECT COUNT(*) FROM " +
+//                    "BATCH B INNER JOIN " +
+//                    "(SELECT R.BATCHKEY, T.BOOK FROM TRADE T INNER JOIN RISK R ON R.TRADEIDENTIFIER = T.TRADEIDENTIFIER AND R.TRADEVERSION = T.TRADEVERSION) TR " +
+//                    "ON B.BATCHKEY = TR.BATCHKEY " +
+//                    "WHERE TR.BOOK = 'RBCEUR0' AND B.ISLATEST = TRUE";
+//
+//            runSql(ignite, sql, true);
+//        });
 
         ignite.close();
     }
@@ -129,8 +147,7 @@ public class Client {
             for (Object planPart : planParts)
                 System.out.println(planPart);
 
-            for (int i = 0; i < 5; i++)
-                System.out.println();
+            System.out.println();
         }
 
         cache.query(new SqlFieldsQuery(sql).setSchema("PUBLIC").setEnforceJoinOrder(enforceJoinOrder)).getAll();
