@@ -590,8 +590,8 @@ public class GridNearAtomicFullUpdateRequest extends GridNearAtomicAbstractUpdat
         invokeArgs = null;
         invokeArgsBytes = null;
 
-        if (clearKeys)
-            keys = null;
+//        if (clearKeys)
+//            keys = null;
     }
 
     /** {@inheritDoc} */

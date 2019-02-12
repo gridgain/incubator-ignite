@@ -300,8 +300,8 @@ public class GridNearAtomicSingleUpdateRequest extends GridNearAtomicAbstractSin
     @Override public void cleanup(boolean clearKey) {
         val = null;
 
-        if (clearKey)
-            key = null;
+//        if (clearKey)
+//            key = null;
     }
 
     /** {@inheritDoc} */

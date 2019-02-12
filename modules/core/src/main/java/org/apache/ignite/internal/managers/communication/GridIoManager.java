@@ -55,9 +55,11 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.DiscoveryEvent;
@@ -79,7 +81,15 @@ import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.KeyCacheObjectImpl;
+import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicFullUpdateRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicSingleUpdateFilterRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicSingleUpdateInvokeRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicSingleUpdateRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearGetRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
 import org.apache.ignite.internal.processors.platform.message.PlatformMessageFilter;
 import org.apache.ignite.internal.processors.pool.PoolProcessor;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
@@ -112,6 +122,7 @@ import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.CommunicationListener;
 import org.apache.ignite.spi.communication.CommunicationSpi;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.transactions.TransactionConcurrency;
 import org.jetbrains.annotations.Nullable;
 
 import static java.time.Instant.ofEpochMilli;
@@ -143,7 +154,12 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     /** */
     private static final long IGNITE_STAT_HOT_KEYS_MAX_SIZE =
         IgniteSystemProperties.getInteger(
-            IgniteSystemProperties.IGNITE_STRIPE_HOT_KEYS_MAX_SIZE, 10_000);
+            IgniteSystemProperties.IGNITE_STAT_HOT_KEYS_MAX_SIZE, 50_000);
+
+    /** */
+    private static final long IGNITE_STAT_HOT_PARTITIONS_MAX_SIZE =
+        IgniteSystemProperties.getInteger(
+            IgniteSystemProperties.IGNITE_STAT_HOT_PARTITIONS_MAX_SIZE, 100_000);
 
     /** */
     private static final long IGNITE_STAT_JOBS_MAX_SIZE =
@@ -914,13 +930,43 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         }
 
         // Set common stat handlers.
+        addStatHandler(GridNearAtomicSingleUpdateRequest.class, (stat, msg, duration) -> {
+            for (KeyCacheObject key : msg.keys())
+                stat.addKey(key, msg.cacheId(), log);
+        });
+        addStatHandler(GridNearAtomicFullUpdateRequest.class, (stat, msg, duration) -> {
+            for (KeyCacheObject key : msg.keys())
+                stat.addKey(key, msg.cacheId(), log);
+        });
+        addStatHandler(GridNearAtomicSingleUpdateInvokeRequest.class, (stat, msg, duration) -> {
+            for (KeyCacheObject key : msg.keys())
+                stat.addKey(key, msg.cacheId(), log);
+        });
+        addStatHandler(GridNearAtomicSingleUpdateFilterRequest.class, (stat, msg, duration) -> {
+            for (KeyCacheObject key : msg.keys())
+                stat.addKey(key, msg.cacheId(), log);
+        });
+        addStatHandler(GridNearLockRequest.class, (stat, msg, duration) -> {
+            for (KeyCacheObject key : msg.keys())
+                stat.addKey(key, msg.cacheId(), log);
+        });
+        addStatHandler(GridNearTxPrepareRequest.class, (stat, msg, duration) -> {
+            if (msg.concurrency() == TransactionConcurrency.OPTIMISTIC) {
+                for (IgniteTxEntry e : msg.writes())
+                    stat.addKey(e.key(), e.cacheId(), log);
+
+                if (msg.reads() != null) {
+                    for (IgniteTxEntry e : msg.reads())
+                        stat.addKey(e.key(), e.cacheId(), log);
+                }
+            }
+        });
+        addStatHandler(GridNearGetRequest.class, (stat, msg, duration) -> {
+            for (KeyCacheObject key : msg.keys().keySet())
+                stat.addKey(key, msg.cacheId(), log);
+        });
         addStatHandler(GridNearSingleGetRequest.class, (stat, msg, duration) -> {
-            try {
-                stat.addKey(msg.key(), msg.cacheId());
-            }
-            catch (IgniteCheckedException e) {
-                log.error("Failed to add key", e);
-            }
+            stat.addKey(msg.key(), msg.cacheId(), log);
         });
         addStatHandler(GridJobExecuteRequest.class, (stat, msg, duration) -> {
             String qry = null;
@@ -1399,28 +1445,9 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                     sb.a(", ");
             }
 
-            sb.a(']');
+            sb.a("], stats=[");
 
-            if (entry.getKey().getSimpleName().equals("GridNearSingleGetRequest")) {
-                sb.a(", hotKeys=").a(entry.getValue().hotKeys.entrySet().stream().sorted((o1,
-                    o2) -> o2.getValue().compareTo(o1.getValue())).limit(20).collect(Collectors.toList()));
-            }
-            else if (entry.getKey().getSimpleName().equals("GridJobExecuteRequest")) {
-                sb.a(", longestJobs=").a(entry.getValue().jobs.entrySet().stream().sorted((o1,
-                    o2) -> o2.getValue().compareTo(o1.getValue())).limit(20).map(entry1 -> "[cls=" + entry1.getKey() +
-                    ", dur=" + entry1.getValue() / 1000 / 1000. + ']').collect(Collectors.toList()));
-                // TODO remove copypaste.
-                sb.a(", longestJdbcQrys=").a(entry.getValue().jdbcQryExecs.entrySet().stream().sorted((o1,
-                    o2) -> o2.getValue().compareTo(o1.getValue())).limit(20).map(entry1 -> "[qry=" + entry1.getKey().
-                    substring(0, Math.min(100_000, entry1.getKey().length())).replace("\n", " ") +
-                    ", dur=" + entry1.getValue() / 1000 / 1000. + ']').collect(Collectors.toList()));
-            }
-            else if (entry.getKey().getSimpleName().equals("GridH2QueryRequest")) {
-                sb.a(", longestQrys=").a(entry.getValue().qryExecs.entrySet().stream().sorted((o1,
-                    o2) -> o2.getValue().compareTo(o1.getValue())).limit(20).map(entry1 -> "[qry=" + entry1.getKey().
-                    substring(0, Math.min(100_000, entry1.getKey().length())).replace("\n", " ") +
-                    ", dur=" + entry1.getValue() / 1000 / 1000. + ']').collect(Collectors.toList()));
-            }
+            entry.getValue().dump(sb);
 
             sb.a(']');
 
@@ -3634,6 +3661,9 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         final Map<T2<KeyCacheObject, Integer>, Long> hotKeys = new HashMap<>();
 
         /** */
+        final Map<T2<Integer, Integer>, Long> hotPartitions = new HashMap<>();
+
+        /** */
         final Map<String, Long> jobs = new HashMap<>();
 
         /** */
@@ -3710,8 +3740,17 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                 hotKeys.entrySet().stream().sorted((o1, o2) -> o2.getValue().compareTo(o1.getValue())).forEach(entry -> {
                     Long cnt = dst.hotKeys.get(entry.getKey());
 
-                    if (cnt != null || dst.hotKeys.size() < IGNITE_STAT_HOT_KEYS_MAX_SIZE * 5)
+                    if (cnt != null || dst.hotKeys.size() < IGNITE_STAT_HOT_KEYS_MAX_SIZE)
                         dst.hotKeys.put(entry.getKey(), cnt == null ? entry.getValue() : cnt + entry.getValue());
+                });
+            }
+
+            if (!hotPartitions.isEmpty()) {
+                hotPartitions.entrySet().stream().sorted((o1, o2) -> o2.getValue().compareTo(o1.getValue())).forEach(entry -> {
+                    Long cnt = dst.hotPartitions.get(entry.getKey());
+
+                    if (cnt != null || dst.hotPartitions.size() < IGNITE_STAT_HOT_PARTITIONS_MAX_SIZE)
+                        dst.hotPartitions.put(entry.getKey(), cnt == null ? entry.getValue() : cnt + entry.getValue());
                 });
             }
 
@@ -3746,21 +3785,33 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         /**
          * @param key Key.
          */
-        public void addKey(KeyCacheObject key, int cacheId) throws IgniteCheckedException{
-            if (hotKeys.size() >= IGNITE_STAT_HOT_KEYS_MAX_SIZE)
-                return;
+        public void addKey(KeyCacheObject key, int cacheId, @Nullable IgniteLogger log) {
+            try {
+                if (hotKeys.size() >= IGNITE_STAT_HOT_KEYS_MAX_SIZE)
+                    return;
 
-            if (ctx != null) {
-                GridCacheContext cctx = ctx.cache().context().cacheContext(cacheId);
+                if (ctx != null) {
+                    GridCacheContext cctx = ctx.cache().context().cacheContext(cacheId);
 
-                key.finishUnmarshal(cctx.cacheObjectContext(), null);
+                    key.finishUnmarshal(cctx.cacheObjectContext(), null);
+                }
+
+                T2<KeyCacheObject, Integer> k0 = new T2<>(key, cacheId);
+
+                Long cnt = hotKeys.get(k0);
+
+                hotKeys.put(k0, cnt == null ? 1 : cnt + 1);
+
+                T2<Integer, Integer> p0 = new T2<>(key.partition(), cacheId);
+
+                cnt = hotPartitions.get(p0);
+
+                hotPartitions.put(p0, cnt == null ? 1 : cnt + 1);
             }
-
-            T2<KeyCacheObject, Integer> k0 = new T2<>(key, cacheId);
-
-            Long cnt = hotKeys.get(k0);
-
-            hotKeys.put(k0, cnt == null ? 1 : cnt + 1);
+            catch (Throwable e) {
+                if (log != null)
+                    log.error("Failed to add key", e);
+            }
         }
 
         /**
@@ -3792,7 +3843,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
          * @param duration Duration.
          */
         public void addQuery(String qry, long duration, Map<String, Long> qryExecs) {
-            if (qryExecs.size() >= IGNITE_STAT_JOBS_MAX_SIZE)
+            if (qryExecs.size() >= IGNITE_STAT_QUERY_MAX_SIZE)
                 return;
 
             Long totalDuration = qryExecs.get(qry);
@@ -3803,8 +3854,11 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         public static void main(String[] args) throws IgniteCheckedException {
             MessageStat stat1 = new MessageStat(null);
 
-            for (int i = 0; i < 10; i++)
-                stat1.addKey(new KeyCacheObjectImpl("k" + i, new byte[0], 0), -100000);
+            for (int i = 0; i < 10; i++) {
+                KeyCacheObjectImpl key = new KeyCacheObjectImpl("k" + i, new byte[0], 0);
+                key.partition(i);
+                stat1.addKey(key, -100000, null);
+            }
 
             stat1.increment(50, 0);
             stat1.increment(100, 0);
@@ -3815,6 +3869,13 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
             stat2.increment(100, 0);
             stat2.increment(100, 0);
             stat2.increment(200, 0);
+
+            KeyCacheObjectImpl key = new KeyCacheObjectImpl("x0", new byte[0], 0);
+            key.partition(100);
+            stat2.addKey(key, -200000, null);
+            key = new KeyCacheObjectImpl("x1", new byte[0], 0);
+            key.partition(100);
+            stat2.addKey(key, -200000, null);
 
             System.out.println(stat1.rollingAvg);
             System.out.println(stat1.total);
@@ -3830,6 +3891,58 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
             System.out.println(merge.rollingAvg);
             System.out.println(merge.total);
+
+            GridStringBuilder sb = new GridStringBuilder();
+            merge.dump(sb);
+            System.out.println(sb.toString());
+        }
+
+        /**
+         * @param sb Builder.
+         */
+        public void dump(GridStringBuilder sb) {
+            if (hotKeys != null) {
+                sb.a("hotKeys=").a(hotKeys.entrySet().stream().sorted((o1,
+                    o2) -> o2.getValue().compareTo(o1.getValue())).map(new Function<Entry<T2<KeyCacheObject,Integer>,Long>, Object>() {
+                    @Override public Object apply(Entry<T2<KeyCacheObject, Integer>, Long> entry) {
+                        return "[parId=" + entry.getKey().get1().partition() + ", cacheId=" + entry.getKey().get2() +
+                            ", val=" + entry.getKey().get1().value(null, false) + ", cnt=" + entry.getValue() + "]";
+                    }
+                }).limit(500).collect(Collectors.toList()));
+            }
+            if (hotPartitions != null) {
+                if (hotKeys != null)
+                    sb.a(", ");
+                sb.a("hotParts=").a(hotPartitions.entrySet().stream().sorted((o1,
+                    o2) -> o2.getValue().compareTo(o1.getValue())).map(new Function<Entry<T2<Integer,Integer>,Long>, Object>() {
+                    @Override public Object apply(Entry<T2<Integer, Integer>, Long> entry) {
+                        return "[parId=" + entry.getKey().get1() + ", cacheId=" + entry.getKey().get2() + ", cnt=" + entry.getValue() + "]";
+                    }
+                }).limit(1000).collect(Collectors.toList()));
+            }
+            if (jobs != null && !jobs.isEmpty()) {
+                if (hotPartitions != null)
+                    sb.a(", ");
+                sb.a("longestJobs=").a(jobs.entrySet().stream().sorted((o1,
+                    o2) -> o2.getValue().compareTo(o1.getValue())).limit(20).map(entry1 -> "[cls=" + entry1.getKey() +
+                    ", dur=" + entry1.getValue() / 1000 / 1000. + ']').collect(Collectors.toList()));
+            }
+            if (jdbcQryExecs != null && !jdbcQryExecs.isEmpty()) {
+                if (jobs != null && !jobs.isEmpty())
+                    sb.a(", ");
+                sb.a("longestJdbcQrys=").a(jdbcQryExecs.entrySet().stream().sorted((o1,
+                    o2) -> o2.getValue().compareTo(o1.getValue())).limit(20).map(entry1 -> "[qry=" + entry1.getKey().
+                    substring(0, Math.min(100_000, entry1.getKey().length())).replace("\n", " ") +
+                    ", dur=" + entry1.getValue() / 1000 / 1000. + ']').collect(Collectors.toList()));
+            }
+            if (qryExecs != null && !qryExecs.isEmpty()) {
+                if (jdbcQryExecs != null && !jdbcQryExecs.isEmpty())
+                    sb.a(", ");
+                sb.a("longestQrys=").a(qryExecs.entrySet().stream().sorted((o1,
+                    o2) -> o2.getValue().compareTo(o1.getValue())).limit(20).map(entry1 -> "[qry=" + entry1.getKey().
+                    substring(0, Math.min(100_000, entry1.getKey().length())).replace("\n", " ") +
+                    ", dur=" + entry1.getValue() / 1000 / 1000. + ']').collect(Collectors.toList()));
+            }
         }
     }
 

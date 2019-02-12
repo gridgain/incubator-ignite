@@ -764,8 +764,12 @@ public final class IgniteSystemProperties {
         "IGNITE_ENABLE_MESSAGE_STATS";
 
     /** Max hottest keys history to store. */
-    public static final String IGNITE_STRIPE_HOT_KEYS_MAX_SIZE =
-        "IGNITE_STRIPE_HOT_KEYS_MAX_SIZE";
+    public static final String IGNITE_STAT_HOT_KEYS_MAX_SIZE =
+        "IGNITE_STAT_HOT_KEYS_MAX_SIZE";
+
+    /** Max hottest keys history to store. */
+    public static final String IGNITE_STAT_HOT_PARTITIONS_MAX_SIZE =
+        "IGNITE_STAT_HOT_PARTITIONS_MAX_SIZE";
 
     /** Max longest jobs to store. */
     public static final String IGNITE_STAT_JOBS_MAX_SIZE =
