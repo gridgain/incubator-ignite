@@ -21,11 +21,6 @@ ConfigurationResourceService.$inject = ['$http'];
 
 export default function ConfigurationResourceService($http: ng.IHttpService) {
     return {
-        read() {
-            return $http.get('/api/v1/configuration/list')
-                .then(({data}) => data)
-                .catch(({data}) => Promise.reject(data));
-        },
         populate(data) {
             const {spaces, clusters, caches, igfss, domains} = _.cloneDeep(data);
 

@@ -108,13 +108,13 @@ public class ConfigurationsRouter extends AbstractRouter {
         router.get("/api/v1/configuration/clusters/:id/models").handler(this::getClusterModels);
         router.get("/api/v1/configuration/clusters/:id/igfss").handler(this::getClusterIgfss);
 
-        router.put("/api/v1/configuration/clusters").handler(this::saveAdvanced);
-        router.put("/api/v1/configuration/clusters/basic").handler(this::saveBasic);
-        router.post("/api/v1/configuration/clusters/remove").handler(this::remove);
+        router.put("/api/v1/configuration/clusters").handler(this::saveAdvancedCluster);
+        router.put("/api/v1/configuration/clusters/basic").handler(this::saveBasicCluster);
+        router.post("/api/v1/configuration/clusters/remove").handler(this::removeCluster);
 
-        // router.route("/api/v1/configuration/domains").handler(this::handleDummy);
-        // router.route("/api/v1/configuration/caches").handler(this::handleDummy);
-        //  router.route("/api/v1/configuration/igfs").handler(this::handleDummy);
+        router.get("/api/v1/configuration/caches/:id").handler(this::getCache);
+        router.get("/api/v1/configuration/domains/:id").handler(this::getModel);
+        router.get("/api/v1/configuration/igfs/:id").handler(this::getIgfs);
     }
 
     /**
@@ -129,7 +129,7 @@ public class ConfigurationsRouter extends AbstractRouter {
             try {
                 UUID userId = getUserId(user.principal());
 
-                try(Transaction tx = txStart()) {
+                try (Transaction tx = txStart()) {
                     TreeSet<UUID> clusterIds = accountClustersIdx.getIds(userId);
 
                     Collection<Cluster> clusters = accountClusters.getAll(clusterIds).values();
@@ -163,9 +163,8 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
-     *
-     * @param ctx
-     * @param merge
+     * @param ctx Context.
+     * @param merge Merge function.
      */
     private void saveCluster(RoutingContext ctx, Function<Cluster, Cluster> merge) {
         User user = checkUser(ctx);
@@ -199,7 +198,7 @@ public class ConfigurationsRouter extends AbstractRouter {
 
                 merge.apply(cluster);
 
-                try(Transaction tx = txStart()) {
+                try (Transaction tx = txStart()) {
                     UUID prevId = uniqueClusterNameIdx.getAndPutIfAbsent(userId, cluster.name(), cluster.id());
 
                     if (prevId != null && !cluster.id().equals(prevId))
@@ -225,7 +224,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      *
      * @param ctx Context.
      */
-    private void saveAdvanced(RoutingContext ctx) {
+    private void saveAdvancedCluster(RoutingContext ctx) {
         saveCluster(ctx, cluster -> cluster);
     }
 
@@ -234,7 +233,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      *
      * @param ctx Context.
      */
-    private void saveBasic(RoutingContext ctx) {
+    private void saveBasicCluster(RoutingContext ctx) {
         saveCluster(ctx, cluster -> {
             // TODO IGNITE-5617 UPSERT basic with full !!!
 
@@ -252,7 +251,7 @@ public class ConfigurationsRouter extends AbstractRouter {
             try {
                 UUID clusterId = UUID.fromString(getParam(ctx, "id"));
 
-                try(Transaction tx = txStart()) {
+                try (Transaction tx = txStart()) {
                     Cluster cluster = accountClusters.get(clusterId);
 
                     tx.commit();
@@ -284,7 +283,6 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
-     *
      * @param ctx Cluster.
      */
     private void getCluster(RoutingContext ctx) {
@@ -294,7 +292,7 @@ public class ConfigurationsRouter extends AbstractRouter {
             try {
                 UUID clusterId = UUID.fromString(getParam(ctx, "id"));
 
-                try(Transaction tx = txStart()) {
+                try (Transaction tx = txStart()) {
                     Cluster cluster = accountClusters.get(clusterId);
 
                     tx.commit();
@@ -317,7 +315,12 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void getClusterCaches(RoutingContext ctx) {
-        sendResult(ctx, Buffer.buffer("[]"));
+        try {
+            sendResult(ctx, Buffer.buffer("[]"));
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to get cluster caches", e);
+        }
     }
 
     /**
@@ -326,7 +329,12 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void getClusterModels(RoutingContext ctx) {
-        sendResult(ctx, Buffer.buffer("[]"));
+        try {
+            sendResult(ctx, Buffer.buffer("[]"));
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to get cluster models", e);
+        }
     }
 
     /**
@@ -335,7 +343,12 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void getClusterIgfss(RoutingContext ctx) {
-        sendResult(ctx, Buffer.buffer("[]"));
+        try {
+            sendResult(ctx, Buffer.buffer("[]"));
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to get cluster IGFSs", e);
+        }
     }
 
     /**
@@ -343,7 +356,7 @@ public class ConfigurationsRouter extends AbstractRouter {
      *
      * @param ctx Context.
      */
-    private void remove(RoutingContext ctx) {
+    private void removeCluster(RoutingContext ctx) {
         User user = checkUser(ctx);
 
         if (user != null) {
@@ -378,4 +391,41 @@ public class ConfigurationsRouter extends AbstractRouter {
             }
         }
     }
+
+    /**
+     * @param ctx Context.
+     */
+    private void getCache(RoutingContext ctx) {
+        try {
+            throw new IllegalStateException("Not implemented yet");
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to get cache", e);
+        }
+    }
+
+    /**
+     * @param ctx Context.
+     */
+    private void getModel(RoutingContext ctx) {
+        try {
+            throw new IllegalStateException("Not implemented yet");
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to get model", e);
+        }
+    }
+
+    /**
+     * @param ctx Context.
+     */
+    private void getIgfs(RoutingContext ctx) {
+        try {
+            throw new IllegalStateException("Not implemented yet");
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to get IGFS", e);
+        }
+    }
 }
+

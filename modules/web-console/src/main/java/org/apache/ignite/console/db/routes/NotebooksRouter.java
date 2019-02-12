@@ -85,7 +85,7 @@ public class NotebooksRouter extends AbstractRouter {
             try {
                 UUID userId = getUserId(user.principal());
 
-                try(Transaction tx = txStart()) {
+                try (Transaction tx = txStart()) {
                     TreeSet<UUID> notebookIds = accountNotebooksIdx.getIds(userId);
 
                     Collection<Notebook> notebooks = notebooksCache.getAll(notebookIds).values();
@@ -124,7 +124,7 @@ public class NotebooksRouter extends AbstractRouter {
 
                 Notebook notebook = new Notebook(notebookId, null, name, rawData.encode());
 
-                try(Transaction tx = txStart()) {
+                try (Transaction tx = txStart()) {
                     UUID prevId = uniqueNotebookNameIdx.getAndPutIfAbsent(userId, name, notebookId);
 
                     if (prevId != null && !notebookId.equals(prevId))
@@ -164,7 +164,7 @@ public class NotebooksRouter extends AbstractRouter {
 
                 int rmvCnt = 0;
 
-                try(Transaction tx = txStart()) {
+                try (Transaction tx = txStart()) {
                     Notebook notebook = notebooksCache.getAndRemove(notebookId);
 
                     if (notebook != null) {

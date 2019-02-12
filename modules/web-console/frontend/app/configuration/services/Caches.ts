@@ -38,16 +38,8 @@ export default class Caches {
 
     constructor(private $http: ng.IHttpService) {}
 
-    saveCache(cache) {
-        return this.$http.post('/api/v1/configuration/caches/save', cache);
-    }
-
     getCache(cacheID: string) {
         return this.$http.get(`/api/v1/configuration/caches/${cacheID}`);
-    }
-
-    removeCache(cacheID: string) {
-        return this.$http.post(`/api/v1/configuration/caches/remove/${cacheID}`);
     }
 
     getBlankCache() {
