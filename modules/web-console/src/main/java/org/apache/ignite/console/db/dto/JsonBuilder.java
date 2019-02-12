@@ -18,7 +18,6 @@
 package org.apache.ignite.console.db.dto;
 
 import java.util.Collection;
-import java.util.stream.Collectors;
 import io.vertx.core.buffer.Buffer;
 
 /**
@@ -35,12 +34,11 @@ public class JsonBuilder {
      * Constructor.
      */
     public JsonBuilder() {
-        this.buf = Buffer.buffer();
+        buf = Buffer.buffer();
     }
 
     /**
-     *
-     * @return
+     * @return {@code this} for chaining.
      */
     public JsonBuilder startObject() {
         buf.appendString("{");
@@ -49,8 +47,7 @@ public class JsonBuilder {
     }
 
     /**
-     *
-     * @return
+     * @return {@code this} for chaining.
      */
     public JsonBuilder endObject() {
         buf.appendString("}");
@@ -59,22 +56,24 @@ public class JsonBuilder {
     }
 
     /**
-     *
-     * @param name
+     * @param name Property name.
+     * @return {@code this} for chaining.
      */
-    private void addName(String name) {
+    private JsonBuilder addName(String name) {
         buf
             .appendString("\"")
             .appendString(name)
             .appendString("\"")
             .appendString(":");
+
+        return this;
     }
 
     /**
      *
-     * @param name
-     * @param val
-     * @return
+     * @param name Property name.
+     * @param val Property value.
+     * @return {@code this} for chaining.
      */
     public JsonBuilder addProperty(String name, String val) {
         if (hasProps)
@@ -90,22 +89,38 @@ public class JsonBuilder {
     }
 
     /**
-     *
-     * @param name
-     * @param data
-     * @return
+     * @param data Collection to add as array.
+     * @return {@code this} for chaining.
      */
-    public JsonBuilder addArray(String name, Collection<? extends DataObject> data) {
-        addName(name);
+    public JsonBuilder addArray(Collection<? extends DataObject> data) {
+        buf.appendString("[");
 
-        buf.appendString(data.stream().map(DataObject::json).collect(Collectors.joining(",", "[", "]")));
+        int len = buf.length();
+
+        data.forEach(item -> {
+            if (buf.length() > len)
+                buf.appendString(",");
+
+            buf.appendString(item.json());
+        });
+
+        buf.appendString("]");
 
         return this;
     }
 
     /**
      *
-     * @return
+     * @param name Property name.
+     * @param data Collection to add as array.
+     * @return {@code this} for chaining.
+     */
+    public JsonBuilder addArray(String name, Collection<? extends DataObject> data) {
+        return addName(name).addArray(data);
+    }
+
+    /**
+     * @return Buffer with JSON content.
      */
     public Buffer buffer() {
         return buf;

@@ -26,6 +26,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.core.CacheHolder;
+import org.apache.ignite.console.db.dto.JsonBuilder;
 import org.apache.ignite.console.db.dto.Notebook;
 import org.apache.ignite.console.db.index.OneToManyIndex;
 import org.apache.ignite.console.db.index.UniqueIndex;
@@ -33,14 +34,12 @@ import org.apache.ignite.console.db.meta.Schemas;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 
-import static org.apache.ignite.console.common.Utils.toJsonArray;
-
 /**
  * Router to handle REST API for notebooks.
  */
 public class NotebooksRouter extends AbstractRouter {
     /** */
-    private final CacheHolder<UUID, Notebook> notebooksCache;
+    private final CacheHolder<UUID, Notebook> notebooksTbl;
 
     /** */
     private final OneToManyIndex accountNotebooksIdx;
@@ -54,14 +53,14 @@ public class NotebooksRouter extends AbstractRouter {
     public NotebooksRouter(Ignite ignite) {
         super(ignite);
 
-        notebooksCache = new CacheHolder<>(ignite, "wc_notebooks");
+        notebooksTbl = new CacheHolder<>(ignite, "wc_notebooks");
         accountNotebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
-        uniqueNotebookNameIdx = new UniqueIndex(ignite, "wc_unique_notebook_name_idx");
+        uniqueNotebookNameIdx = new UniqueIndex(ignite, "wc_unique_notebook_name_idx", "Notebook '%s' already exits");
     }
 
     /** {@inheritDoc} */
     @Override protected void initializeCaches() {
-        notebooksCache.prepare();
+        notebooksTbl.prepare();
         accountNotebooksIdx.prepare();
         uniqueNotebookNameIdx.prepare();
     }
@@ -88,11 +87,11 @@ public class NotebooksRouter extends AbstractRouter {
                 try (Transaction tx = txStart()) {
                     TreeSet<UUID> notebookIds = accountNotebooksIdx.getIds(userId);
 
-                    Collection<Notebook> notebooks = notebooksCache.getAll(notebookIds).values();
+                    Collection<Notebook> notebooks = notebooksTbl.getAll(notebookIds).values();
 
                     tx.commit();
 
-                    sendResult(ctx, toJsonArray(notebooks));
+                    sendResult(ctx, new JsonBuilder().addArray(notebooks).buffer());
                 }
             }
             catch (Throwable e) {
@@ -125,14 +124,11 @@ public class NotebooksRouter extends AbstractRouter {
                 Notebook notebook = new Notebook(notebookId, null, name, rawData.encode());
 
                 try (Transaction tx = txStart()) {
-                    UUID prevId = uniqueNotebookNameIdx.getAndPutIfAbsent(userId, name, notebookId);
-
-                    if (prevId != null && !notebookId.equals(prevId))
-                        throw new IllegalStateException("Notebook with name '" + name + "' already exits");
+                    uniqueNotebookNameIdx.checkUnique(userId, name, notebook, notebook.name());
 
                     accountNotebooksIdx.putChild(userId, notebookId);
 
-                    notebooksCache.put(notebookId, notebook);
+                    notebooksTbl.put(notebookId, notebook);
 
                     tx.commit();
                 }
@@ -165,11 +161,11 @@ public class NotebooksRouter extends AbstractRouter {
                 int rmvCnt = 0;
 
                 try (Transaction tx = txStart()) {
-                    Notebook notebook = notebooksCache.getAndRemove(notebookId);
+                    Notebook notebook = notebooksTbl.getAndRemove(notebookId);
 
                     if (notebook != null) {
                         accountNotebooksIdx.removeChild(userId, notebookId);
-                        uniqueNotebookNameIdx.remove(userId, notebook.name());
+                        uniqueNotebookNameIdx.removeUniqueKey(userId, notebook.name());
 
                         rmvCnt = 1;
                     }

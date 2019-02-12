@@ -106,16 +106,6 @@ public class CacheHolder<K, V> {
     /**
      * Remove value from cache.
      *
-     * @param key key.
-     * @return {@code false} if there was no matching key.
-     */
-    public boolean remove(K key) {
-        return cache.remove(key);
-    }
-
-    /**
-     * Remove value from cache.
-     *
      * @param key Key.
      * @return Previous value.
      */

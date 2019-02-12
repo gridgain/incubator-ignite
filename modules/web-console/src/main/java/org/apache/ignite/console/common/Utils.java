@@ -17,7 +17,10 @@
 package org.apache.ignite.console.common;
 
 import java.util.Collection;
-import io.vertx.core.buffer.Buffer;
+import java.util.TreeSet;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import io.vertx.core.json.JsonObject;
 import org.apache.ignite.console.db.dto.DataObject;
 import org.apache.ignite.internal.util.typedef.F;
 
@@ -25,10 +28,6 @@ import org.apache.ignite.internal.util.typedef.F;
  * Utilities.
  */
 public class Utils {
-    /** */
-    private static final Buffer EMPTY_ARRAY = Buffer.buffer("[]");
-
-
     /**
      * @param cause Error.
      * @return Error message or exception class name.
@@ -40,28 +39,39 @@ public class Utils {
     }
 
     /**
-     * Convert query data to JSON array.
-     *
-     * @param data Query data.
-     * @return Buffer with JSON array.
+     * @param a First set.
+     * @param b Second set.
+     * @return Elements exists in a and not in b.
      */
-    public static Buffer toJsonArray(Collection<? extends DataObject> data) {
-        if (F.isEmpty(data))
-            return EMPTY_ARRAY;
+    public static TreeSet<UUID> diff(TreeSet<UUID> a, TreeSet<UUID> b) {
+        return a.stream().filter(item -> !b.contains(item)).collect(Collectors.toCollection(TreeSet::new));
+    }
 
-        Buffer buf = Buffer.buffer(4096);
+    /**
+     * @param items Data objects.
+     * @return Set of IDs
+     */
+    public static TreeSet<UUID> getIds(Collection<? extends DataObject> items) {
+        return items.stream().map(DataObject::id).collect(Collectors.toCollection(TreeSet::new));
+    }
 
-        buf.appendString("[");
+    /**
+     * @param rawData Data object.
+     * @param key Key with IDs.
+     * @return Set of IDs.
+     */
+    public static TreeSet<UUID> getIds(JsonObject rawData, String key) {
+        TreeSet<UUID> ids = new TreeSet<>();
 
-        data.forEach(item -> {
-            if (buf.length() > 1)
-                buf.appendString(",");
+        if (rawData.containsKey(key)) {
+            rawData
+                .getJsonArray(key)
+                .stream()
+                .map(item -> UUID.fromString(item.toString()))
+                .sequential()
+                .collect(Collectors.toCollection(() -> ids));
+        }
 
-            buf.appendString(item.json());
-        });
-
-        buf.appendString("]");
-
-        return buf;
+        return ids;
     }
 }

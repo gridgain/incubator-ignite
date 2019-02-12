@@ -20,9 +20,7 @@ package org.apache.ignite.console.db.routes;
 import java.net.HttpURLConnection;
 import java.util.Arrays;
 import java.util.List;
-import java.util.TreeSet;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.buffer.Buffer;
@@ -50,7 +48,7 @@ public abstract class AbstractRouter {
     protected final Ignite ignite;
 
     /** */
-    volatile private boolean ready;
+    private volatile boolean ready;
 
     /** */
     private static final List<CharSequence> HTTP_CACHE_CONTROL = Arrays.asList(
@@ -93,26 +91,6 @@ public abstract class AbstractRouter {
         boolean hasId = rawData.containsKey("_id");
 
         return hasId ? UUID.fromString(rawData.getString("_id")) : null;
-    }
-
-    /**
-     * @param rawData Data object.
-     * @param key Key with IDs.
-     * @return Set of IDs
-     */
-    protected TreeSet<UUID> getIds(JsonObject rawData, String key) {
-        TreeSet<UUID> ids = new TreeSet<>();
-
-        if (rawData.containsKey(key)) {
-            rawData
-                .getJsonArray(key)
-                .stream()
-                .map(item -> UUID.fromString(item.toString()))
-                .sequential()
-                .collect(Collectors.toCollection(() -> ids));
-        }
-
-        return ids;
     }
 
     /**

@@ -20,19 +20,26 @@ package org.apache.ignite.console.db.index;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.core.CacheHolder;
+import org.apache.ignite.console.db.dto.DataObject;
 
 /**
  * Index for unique constraint.
  */
 public class UniqueIndex extends CacheHolder<String, UUID> {
+    /** */
+    private final String errTemplate;
+
     /**
      * Constructor.
      *
      * @param ignite Ignite.
      * @param idxName Index name.
+     * @param errTemplate Error template.
      */
-    public UniqueIndex(Ignite ignite, String idxName) {
+    public UniqueIndex(Ignite ignite, String idxName, String errTemplate) {
         super(ignite, idxName);
+
+        this.errTemplate = errTemplate;
     }
 
     /**
@@ -50,19 +57,22 @@ public class UniqueIndex extends CacheHolder<String, UUID> {
      * @param key Key.
      * @param payload Unique payload.
      */
-    public void remove(UUID key, Object payload) {
+    public void removeUniqueKey(UUID key, Object payload) {
         cache.remove(makeKey(key, payload));
     }
 
     /**
-     * Put key in index if it is not already there.
+     * Check that value is unique.
      *
      * @param key Key.
      * @param payload Unique payload.
-     * @param owner Current owner of unique value.
-     * @return Previous value from index.
+     * @param owner Owner object.
+     * @param errArg Argument for substitution to error template.
      */
-    public UUID getAndPutIfAbsent(UUID key, Object payload, UUID owner) {
-        return cache.getAndPutIfAbsent(makeKey(key, payload), owner);
+    public void checkUnique(UUID key, Object payload, DataObject owner, String errArg) {
+        UUID prevId = cache.getAndPutIfAbsent(makeKey(key, payload), owner.id());
+
+        if (prevId != null && !owner.id().equals(prevId))
+            throw new IllegalStateException(String.format(errTemplate, errArg));
     }
 }
