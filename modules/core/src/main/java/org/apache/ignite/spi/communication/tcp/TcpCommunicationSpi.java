@@ -3258,7 +3258,6 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
 
                     ch.socket().setTcpNoDelay(tcpNoDelay);
                     ch.socket().setKeepAlive(true);
-                    ch.socket().setSoLinger(true, 5);
 
                     if (sockRcvBuf > 0)
                         ch.socket().setReceiveBufferSize(sockRcvBuf);

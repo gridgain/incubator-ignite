@@ -3009,6 +3009,8 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                                 sock = spi.openSocket(addr, timeoutHelper);
 
+                                log.error("voropava Open Socket soTimeout " + sock.getSoTimeout());
+
                                 out = spi.socketStream(sock);
 
                                 openSock = true;
