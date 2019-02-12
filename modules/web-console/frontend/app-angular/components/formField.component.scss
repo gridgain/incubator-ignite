@@ -134,6 +134,10 @@ form-field {
 
         .angular-form-field__label {
             margin: 0 0 0 10px;
+
+            &:before {
+                display: none !important;
+            }
         }
 
         .angular-form-field__input {
