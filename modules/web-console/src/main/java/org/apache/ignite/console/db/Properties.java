@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.meta;
+package org.apache.ignite.console.db;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.console.db.meta.PropertyType.ARRAY;
-import static org.apache.ignite.console.db.meta.PropertyType.BOOLEAN;
-import static org.apache.ignite.console.db.meta.PropertyType.NUMBER;
-import static org.apache.ignite.console.db.meta.PropertyType.STRING;
-import static org.apache.ignite.console.db.meta.PropertyType.UUID;
+import static org.apache.ignite.console.db.PropertyType.ARRAY;
+import static org.apache.ignite.console.db.PropertyType.BOOLEAN;
+import static org.apache.ignite.console.db.PropertyType.NUMBER;
+import static org.apache.ignite.console.db.PropertyType.STRING;
+import static org.apache.ignite.console.db.PropertyType.UUID;
 
 /**
  * Class that holds metadata about DTO types.

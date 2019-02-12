@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.dto;
+package org.apache.ignite.console.dto;
 
 import java.util.UUID;
 
 /**
- * DTO for cluster model.
+ * DTO for queries notebook.
  */
-public class Model extends DataObject {
+public class Notebook extends DataObject {
     /** */
     private String name;
 
@@ -31,17 +31,17 @@ public class Model extends DataObject {
      *
      * @param id ID.
      * @param space Space ID.
-     * @param name Model name.
+     * @param name Notebook name.
      * @param json JSON payload.
      */
-    public Model(UUID id, UUID space, String name, String json) {
+    public Notebook(UUID id, UUID space, String name, String json) {
         super(id, space, json);
 
         this.name = name;
     }
 
     /**
-     * @return name Model name.
+     * @return name Notebook name.
      */
     public String name() {
         return name;

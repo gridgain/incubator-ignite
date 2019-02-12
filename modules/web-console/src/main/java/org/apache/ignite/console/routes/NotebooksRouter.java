@@ -25,12 +25,12 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.core.CacheHolder;
-import org.apache.ignite.console.db.dto.JsonBuilder;
-import org.apache.ignite.console.db.dto.Notebook;
-import org.apache.ignite.console.db.index.OneToManyIndex;
-import org.apache.ignite.console.db.index.UniqueIndex;
-import org.apache.ignite.console.db.meta.Schemas;
+import org.apache.ignite.console.db.CacheHolder;
+import org.apache.ignite.console.dto.JsonBuilder;
+import org.apache.ignite.console.dto.Notebook;
+import org.apache.ignite.console.db.OneToManyIndex;
+import org.apache.ignite.console.db.UniqueIndex;
+import org.apache.ignite.console.db.Schemas;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 

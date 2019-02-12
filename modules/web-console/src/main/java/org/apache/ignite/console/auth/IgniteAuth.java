@@ -37,8 +37,8 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.console.common.Consts;
-import org.apache.ignite.console.db.dto.Account;
-import org.apache.ignite.console.db.dto.Space;
+import org.apache.ignite.console.dto.Account;
+import org.apache.ignite.console.dto.Space;
 import org.apache.ignite.internal.util.typedef.F;
 
 /**

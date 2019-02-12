@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.dto;
+package org.apache.ignite.console.dto;
 
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;

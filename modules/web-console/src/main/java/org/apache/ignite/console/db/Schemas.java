@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.meta;
+package org.apache.ignite.console.db;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import org.apache.ignite.console.db.dto.Notebook;
+import org.apache.ignite.console.dto.Notebook;
 
 /**
  * Registry with DTO objects metadata.

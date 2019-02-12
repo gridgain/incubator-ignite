@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.core;
+package org.apache.ignite.console.db;
 
 import java.util.Map;
 import java.util.Set;

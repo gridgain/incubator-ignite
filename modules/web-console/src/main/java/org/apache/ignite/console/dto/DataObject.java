@@ -15,21 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.dto;
+package org.apache.ignite.console.dto;
 
 import java.util.UUID;
 
 /**
- * Base class for DTO objects.
+ * Abstract data object.
  */
-public abstract class AbstractDto {
+public abstract class DataObject extends AbstractDto {
     /** */
-    protected UUID id;
+    private UUID space;
+
+    /** */
+    private String json;
 
     /**
      * Default constructor.
      */
-    protected AbstractDto() {
+    protected DataObject() {
         // No-op.
     }
 
@@ -37,29 +40,34 @@ public abstract class AbstractDto {
      * Full constructor.
      *
      * @param id ID.
+     * @param space User space.
+     * @param json JSON encoded payload.
      */
-    protected AbstractDto(UUID id) {
-        this.id = id;
+    protected DataObject(UUID id, UUID space, String json) {
+        super(id);
+
+        this.space = space;
+        this.json = json;
     }
 
     /**
-     * @return Object ID.
+     * @return User space.
      */
-    public UUID id() {
-        return id;
+    public UUID space() {
+        return space;
     }
 
     /**
-     * @param id Object ID.
+     * @return JSON encoded payload.
      */
-    public void id(UUID id) {
-        this.id = id;
+    public String json() {
+        return json;
     }
 
     /**
-     * @return String value of ID.
+     * @param json JSON encoded payload.
      */
-    public String _id() {
-        return id.toString();
+    public void json(String json) {
+        this.json = json;
     }
 }

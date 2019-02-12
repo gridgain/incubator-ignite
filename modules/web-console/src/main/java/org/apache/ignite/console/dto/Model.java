@@ -15,47 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.dto;
+package org.apache.ignite.console.dto;
 
 import java.util.UUID;
 
 /**
- * DTO for cluster configuration.
+ * DTO for cluster model.
  */
-public class Cluster extends DataObject {
+public class Model extends DataObject {
     /** */
     private String name;
-
-    /** */
-    private String discovery;
 
     /**
      * Full constructor.
      *
      * @param id ID.
      * @param space Space ID.
-     * @param name Cluster name.
-     * @param name Cluster discovery.
+     * @param name Model name.
      * @param json JSON payload.
      */
-    public Cluster(UUID id, UUID space, String name, String discovery, String json) {
+    public Model(UUID id, UUID space, String name, String json) {
         super(id, space, json);
 
         this.name = name;
-        this.discovery = discovery;
     }
 
     /**
-     * @return name Cluster name.
+     * @return name Model name.
      */
     public String name() {
         return name;
-    }
-
-    /**
-     * @return name Cluster discovery.
-     */
-    public String discovery() {
-        return discovery;
     }
 }

@@ -15,35 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.dto;
-
-import java.util.UUID;
+package org.apache.ignite.console.db;
 
 /**
- * DTO for cluster IGFS.
+ * Supported data types.
  */
-public class Igfs extends DataObject {
+public enum PropertyType {
     /** */
-    private String name;
+    ARRAY,
 
-    /**
-     * Full constructor.
-     *
-     * @param id ID.
-     * @param space Space ID.
-     * @param name IGFS name.
-     * @param json JSON payload.
-     */
-    public Igfs(UUID id, UUID space, String name, String json) {
-        super(id, space, json);
+    /** */
+    BOOLEAN,
 
-        this.name = name;
-    }
+    /** */
+    NUMBER,
 
-    /**
-     * @return name IGFS name.
-     */
-    public String name() {
-        return name;
-    }
+    /** */
+    STRING,
+
+    /** */
+    UUID
 }

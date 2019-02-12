@@ -15,57 +15,51 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.dto;
+package org.apache.ignite.console.dto;
 
 import java.util.UUID;
-import io.vertx.core.json.JsonObject;
 
 /**
- * DTO for User space.
+ * Base class for DTO objects.
  */
-public class Space extends AbstractDto {
+public abstract class AbstractDto {
     /** */
-    private String name;
-
-    /** */
-    private UUID owner;
-
-    /** */
-    private boolean demo;
+    protected UUID id;
 
     /**
      * Default constructor.
      */
-    public Space() {
+    protected AbstractDto() {
         // No-op.
     }
 
     /**
      * Full constructor.
      *
-     * @param id Space ID.
-     * @param name Space name.
-     * @param owner Reference to owner account.
-     * @param demo Flag of demo space.
+     * @param id ID.
      */
-    public Space(
-        UUID id,
-        String name,
-        UUID owner,
-        boolean demo
-    ) {
+    protected AbstractDto(UUID id) {
         this.id = id;
-        this.name = name;
-        this.owner = owner;
-        this.demo = demo;
     }
 
-    /** {@inheritDoc} */
-    public JsonObject toJson() {
-        return new JsonObject()
-            .put("_id", id.toString())
-            .put("name", name)
-            .put("owner", owner.toString())
-            .put("demo", demo);
+    /**
+     * @return Object ID.
+     */
+    public UUID id() {
+        return id;
+    }
+
+    /**
+     * @param id Object ID.
+     */
+    public void id(UUID id) {
+        this.id = id;
+    }
+
+    /**
+     * @return String value of ID.
+     */
+    public String _id() {
+        return id.toString();
     }
 }

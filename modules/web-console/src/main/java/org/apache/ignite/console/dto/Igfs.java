@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.dto;
+package org.apache.ignite.console.dto;
 
 import java.util.UUID;
 
 /**
- * DTO for cluster cache.
+ * DTO for cluster IGFS.
  */
-public class Cache extends DataObject {
+public class Igfs extends DataObject {
     /** */
     private String name;
 
@@ -31,17 +31,17 @@ public class Cache extends DataObject {
      *
      * @param id ID.
      * @param space Space ID.
-     * @param name Cache name.
+     * @param name IGFS name.
      * @param json JSON payload.
      */
-    public Cache(UUID id, UUID space, String name, String json) {
+    public Igfs(UUID id, UUID space, String name, String json) {
         super(id, space, json);
 
         this.name = name;
     }
 
     /**
-     * @return name Cache name.
+     * @return name IGFS name.
      */
     public String name() {
         return name;

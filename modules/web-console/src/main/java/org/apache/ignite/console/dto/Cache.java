@@ -15,24 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.meta;
+package org.apache.ignite.console.dto;
+
+import java.util.UUID;
 
 /**
- * Supported data types.
+ * DTO for cluster cache.
  */
-public enum PropertyType {
+public class Cache extends DataObject {
     /** */
-    ARRAY,
+    private String name;
 
-    /** */
-    BOOLEAN,
+    /**
+     * Full constructor.
+     *
+     * @param id ID.
+     * @param space Space ID.
+     * @param name Cache name.
+     * @param json JSON payload.
+     */
+    public Cache(UUID id, UUID space, String name, String json) {
+        super(id, space, json);
 
-    /** */
-    NUMBER,
+        this.name = name;
+    }
 
-    /** */
-    STRING,
-
-    /** */
-    UUID
+    /**
+     * @return name Cache name.
+     */
+    public String name() {
+        return name;
+    }
 }

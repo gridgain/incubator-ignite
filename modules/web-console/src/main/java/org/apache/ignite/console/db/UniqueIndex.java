@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.index;
+package org.apache.ignite.console.db;
 
 import java.util.UUID;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.core.CacheHolder;
-import org.apache.ignite.console.db.dto.DataObject;
+import org.apache.ignite.console.db.CacheHolder;
+import org.apache.ignite.console.dto.DataObject;
 
 /**
  * Index for unique constraint.

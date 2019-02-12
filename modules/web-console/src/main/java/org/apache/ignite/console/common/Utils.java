@@ -21,7 +21,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import io.vertx.core.json.JsonObject;
-import org.apache.ignite.console.db.dto.DataObject;
+import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.internal.util.typedef.F;
 
 /**

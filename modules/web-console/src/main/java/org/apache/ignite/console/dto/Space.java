@@ -15,35 +15,57 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.dto;
+package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import io.vertx.core.json.JsonObject;
 
 /**
- * DTO for queries notebook.
+ * DTO for User space.
  */
-public class Notebook extends DataObject {
+public class Space extends AbstractDto {
     /** */
     private String name;
+
+    /** */
+    private UUID owner;
+
+    /** */
+    private boolean demo;
+
+    /**
+     * Default constructor.
+     */
+    public Space() {
+        // No-op.
+    }
 
     /**
      * Full constructor.
      *
-     * @param id ID.
-     * @param space Space ID.
-     * @param name Notebook name.
-     * @param json JSON payload.
+     * @param id Space ID.
+     * @param name Space name.
+     * @param owner Reference to owner account.
+     * @param demo Flag of demo space.
      */
-    public Notebook(UUID id, UUID space, String name, String json) {
-        super(id, space, json);
-
+    public Space(
+        UUID id,
+        String name,
+        UUID owner,
+        boolean demo
+    ) {
+        this.id = id;
         this.name = name;
+        this.owner = owner;
+        this.demo = demo;
     }
 
-    /**
-     * @return name Notebook name.
-     */
-    public String name() {
-        return name;
+    /** {@inheritDoc} */
+    public JsonObject toJson() {
+        return new JsonObject()
+            .put("_id", id.toString())
+            .put("name", name)
+            .put("owner", owner.toString())
+            .put("demo", demo);
     }
 }
