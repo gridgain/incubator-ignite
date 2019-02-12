@@ -25,6 +25,10 @@
 :root {
     --page-side-padding: 30px;
     --form-gap: 10px;
+    --error-red-R: 238;
+    --error-red-G: 43;
+    --error-red-B: 39;
+    --error-red: rgb(var(--error-red-R), var(--error-red-G), var(--error-red-B));
 }
 
 body {

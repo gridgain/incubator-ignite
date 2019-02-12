@@ -61,7 +61,7 @@
 }
 
 .ignite-popper__error {
-    --ignite-popper-background-color: #f34718;
-    --ignite-popper-border-color: #f34718;
+    --ignite-popper-background-color: var(--error-red);
+    --ignite-popper-border-color: var(--error-red);
     --ignite-popper-font-color: white;
 }
