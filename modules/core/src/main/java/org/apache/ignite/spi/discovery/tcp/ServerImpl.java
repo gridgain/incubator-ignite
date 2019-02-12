@@ -3009,7 +3009,7 @@ class ServerImpl extends TcpDiscoveryImpl {
 
                                 sock = spi.openSocket(addr, timeoutHelper);
 
-                                log.error("voropava Open Socket soTimeout " + sock.getSoTimeout());
+                                log.error("voropava Open Socket soTimeout " + sock.getSoTimeout() + " soLinger " + sock.getSoLinger());
 
                                 out = spi.socketStream(sock);
 

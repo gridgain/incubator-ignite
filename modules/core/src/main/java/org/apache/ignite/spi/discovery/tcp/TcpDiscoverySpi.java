@@ -420,6 +420,8 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
     /** For test purposes. */
     private boolean skipAddrsRandomization = false;
 
+    private int soLinger = 5;
+
     /**
      * Gets current SPI state.
      *
@@ -1480,6 +1482,7 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
         sock.bind(new InetSocketAddress(locHost, 0));
 
         sock.setTcpNoDelay(true);
+        sock.setSoLinger(soLinger >= 0, soLinger);
 
         return sock;
     }
