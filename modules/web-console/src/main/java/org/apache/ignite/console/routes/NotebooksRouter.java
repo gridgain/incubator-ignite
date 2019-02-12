@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.console.db.routes;
+package org.apache.ignite.console.routes;
 
 import java.util.Collection;
 import java.util.TreeSet;
