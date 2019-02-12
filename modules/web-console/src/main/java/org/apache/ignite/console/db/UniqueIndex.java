@@ -19,7 +19,6 @@ package org.apache.ignite.console.db;
 
 import java.util.UUID;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.CacheHolder;
 import org.apache.ignite.console.dto.DataObject;
 
 /**

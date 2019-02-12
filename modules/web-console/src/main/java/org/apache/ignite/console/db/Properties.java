@@ -115,7 +115,7 @@ public class Properties {
      * @param key Key to check.
      * @return {@code true} if schema has property.
      */
-    public boolean hasPropery(String key) {
+    public boolean hasProperty(String key) {
         return props.containsKey(key);
     }
 

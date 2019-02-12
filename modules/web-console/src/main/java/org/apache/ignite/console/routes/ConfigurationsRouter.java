@@ -269,8 +269,8 @@ public class ConfigurationsRouter extends AbstractRouter {
 
         clusterCachesIdx.put(clusterId, newCacheIds);
 
-        for (Cache cach : clusterCaches)
-            cachesTbl.put(cach.id(), cach);
+        for (Cache cache : clusterCaches)
+            cachesTbl.put(cache.id(), cache);
     }
 
     /**

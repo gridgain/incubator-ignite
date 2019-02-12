@@ -62,7 +62,7 @@ public class IgniteAuth implements AuthProvider {
 
     /**
      * @param ignite Ignite.
-     * @param vertx Vertex.
+     * @param vertx Vertx.
      */
     public IgniteAuth(Ignite ignite, Vertx vertx) {
         this.ignite = ignite;
@@ -139,7 +139,7 @@ public class IgniteAuth implements AuthProvider {
      * Sign up.
      *
      * @param authInfo JSON with authentication info.
-     * @return Accout
+     * @return Account.
      * @throws GeneralSecurityException If failed to authenticate.
      */
     private Account signUp(JsonObject authInfo) throws GeneralSecurityException {
@@ -191,7 +191,7 @@ public class IgniteAuth implements AuthProvider {
 
     /**
      * @param authInfo JSON with authentication info.
-     * @return Accout
+     * @return Account.
      * @throws GeneralSecurityException If failed to authenticate.
      */
     private Account signIn(JsonObject authInfo) throws GeneralSecurityException {

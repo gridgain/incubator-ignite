@@ -89,7 +89,7 @@ public class Schemas {
         Set<String> rawFlds = new HashSet<>(rawData.fieldNames());
 
         for (String fld : rawFlds) {
-            if (schema.hasPropery(fld)) {
+            if (schema.hasProperty(fld)) {
                 Properties childSchema = schema.childSchema(fld);
 
                 if (childSchema != null) {

@@ -35,7 +35,7 @@ public class Cluster extends DataObject {
      * @param id ID.
      * @param space Space ID.
      * @param name Cluster name.
-     * @param name Cluster discovery.
+     * @param discovery Cluster discovery.
      * @param json JSON payload.
      */
     public Cluster(UUID id, UUID space, String name, String discovery, String json) {
