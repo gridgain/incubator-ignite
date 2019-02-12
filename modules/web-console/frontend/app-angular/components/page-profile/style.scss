@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-page-profile-angular {
+page-profile {
     display: block;
     max-width: 800px;
 
     .form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        grid-gap: 10px;
+        grid-gap: var(--form-gap);
 
         .span-1 {
             grid-column: span 1;
@@ -43,6 +43,6 @@ page-profile-angular {
         grid-auto-flow: column;
         grid-auto-columns: max-content;
         justify-content: flex-end;
-        grid-gap: 10px;
+        grid-gap: var(--form-gap);
     }
 }

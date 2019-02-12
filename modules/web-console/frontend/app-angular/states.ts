@@ -20,8 +20,8 @@ import {PageProfile} from '.';
 
 export const states: NgHybridStateDeclaration[] = [
     {
-        name: 'base.settings.profile-angular',
-        url: '/profile-angular',
+        name: 'base.settings.profile',
+        url: '/profile',
         component: PageProfile,
         permission: 'profile',
         tfMetaTags: {

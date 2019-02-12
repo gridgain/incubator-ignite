@@ -136,7 +136,6 @@ import igniteChartSelector from './components/ignite-chart-series-selector';
 import statusOutput from './components/status-output';
 import timedRedirection from './components/timed-redirection';
 
-import pageProfile from './components/page-profile';
 import pagePasswordChanged from './components/page-password-changed';
 import pagePasswordReset from './components/page-password-reset';
 import pageSignup from './components/page-signup';
@@ -238,7 +237,6 @@ export default angular
         connectedClustersDialog.name,
         igniteListOfRegisteredUsers.name,
         dialogAdminCreateUser.name,
-        pageProfile.name,
         pageLanding.name,
         pagePasswordChanged.name,
         pagePasswordReset.name,

@@ -22,6 +22,11 @@
 @import "./blocks/error";
 @import "./form-field";
 
+:root {
+    --page-side-padding: 30px;
+    --form-gap: 10px;
+}
+
 body {
     overflow-y: scroll !important;
 }
@@ -252,10 +257,6 @@ body {
     overflow-x: hidden;
     display: flex;
     flex-direction: column;
-}
-
-:root {
-    --page-side-padding: 30px;
 }
 
 .wrapper {

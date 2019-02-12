@@ -36,7 +36,7 @@ const passwordMatch = (newPassword: string) => (confirmPassword: FormControl) =>
 const disableFormGroup = (fg: FormGroup) => {fg.disable(); return fg;};
 
 @Component({
-    selector: 'page-profile-angular',
+    selector: 'page-profile',
     templateUrl,
     viewProviders: [
         {

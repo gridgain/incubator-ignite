@@ -91,7 +91,10 @@ import {states} from './states';
     providers,
     declarations,
     entryComponents,
-    exports: declarations
+    exports: [
+        ...declarations,
+        NgxPopperModule
+    ]
 })
 export class IgniteWebConsoleModule {
     static parameters = [[new Inject(UIRouter)]]
