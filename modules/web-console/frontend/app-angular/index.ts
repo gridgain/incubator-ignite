@@ -59,6 +59,12 @@ export const entryComponents = [
     PageProfile
 ];
 
+export const upgradeService = (token: string) => ({
+    provide: token,
+    useFactory: (i) => i.get(token),
+    deps: ['$injector']
+});
+
 export const providers = [
     'IgniteLegacyUtils',
     'Confirm',
@@ -66,11 +72,7 @@ export const providers = [
     'User',
     'IgniteIcons',
     'IgniteCopyToClipboard'
-].map((token) => ({
-    provide: token,
-    useFactory: (i) => i.get(token),
-    deps: ['$injector']
-}));
+].map(upgradeService);
 
 import {states} from './states';
 
