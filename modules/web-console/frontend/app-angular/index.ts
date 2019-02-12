@@ -41,6 +41,8 @@ import {Autofocus} from './components/autofocus.directive';
 
 import {ReactiveFormsModule} from '@angular/forms';
 
+import {upgradedComponents} from './upgrade';
+
 export const declarations = [
     ServiceBootstrapComponent,
     PageProfile,
@@ -51,7 +53,8 @@ export const declarations = [
     CopyToClipboardButton,
     PasswordVisibilityToggleButton,
     Autofocus,
-    ...FormFieldComponents
+    ...FormFieldComponents,
+    ...upgradedComponents
 ];
 
 export const entryComponents = [

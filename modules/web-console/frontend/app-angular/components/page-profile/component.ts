@@ -68,6 +68,7 @@ export class PageProfile implements OnInit, OnDestroy {
 
     countries: Country[]
     user: User
+    isLoading: boolean = false
 
     async ngOnInit() {
         this.user = await this.User.read();
@@ -78,8 +79,13 @@ export class PageProfile implements OnInit, OnDestroy {
     }
     async saveUser(): Promise<void> {
         if (this.form.invalid) return;
-        await this.User.save(this.prepareFormValue(this.form));
-        this.form.get('passwordPanelOpened').setValue(false);
+        this.isLoading = true;
+        try {
+            await this.User.save(this.prepareFormValue(this.form));
+            this.form.get('passwordPanelOpened').setValue(false);
+        } finally {
+            this.isLoading = false;
+        }
     }
     prepareFormValue(form: PageProfile['form']): Partial<User> {
         return {

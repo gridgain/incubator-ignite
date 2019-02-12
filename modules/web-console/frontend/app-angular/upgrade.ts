@@ -15,28 +15,22 @@
  * limitations under the License.
  */
 
-export default class GlobalProgressLine {
-    /** @type {boolean} */
-    isLoading;
+import {UpgradeComponent} from '@angular/upgrade/static';
+import {Directive, ElementRef, Injector, Inject, Input} from '@angular/core';
 
-    static $inject = ['$element', '$document'];
-
-    _child: Element;
-
-    constructor(private $element: JQLite, private $document: ng.IDocumentService) {}
-
-    $onChanges() {
-        if (this.isLoading === true) {
-            this._child = this.$element[0].querySelector('.global-progress-line__progress-line');
-            if (this._child) this.$document[0].querySelector('web-console-header').appendChild(this._child);
-        } else
-            this.$element.hide();
+@Directive({
+    selector: 'global-progress-line'
+})
+export class GlobalProgressLine extends UpgradeComponent {
+    static parameters = [[new Inject(ElementRef)], [new Inject(Injector)]]
+    constructor(elRef: ElementRef, injector: Injector) {
+        super('globalProgressLine', elRef, injector);
     }
 
-    $onDestroy() {
-        if (this._child) {
-            this._child.parentElement.removeChild(this._child);
-            this._child = null;
-        }
-    }
+    @Input()
+    isLoading: boolean
 }
+
+export const upgradedComponents = [
+    GlobalProgressLine
+];

@@ -15,6 +15,7 @@
  limitations under the License.
 -->
 
+<global-progress-line [isLoading]='isLoading'></global-progress-line>
 <header class="header-with-selector">
     <div><h1>User profile</h1></div>        
 </header>
@@ -86,7 +87,7 @@
 <hr>
 <footer>
     <a class="btn-ignite btn-ignite--link-success" uiSref="default-state">Cancel</a>
-    <button type='submit' class="btn-ignite btn-ignite--success" form='user'>
+    <button type='submit' class="btn-ignite btn-ignite--success" form='user' [disabled]='isLoading'>
         <ignite-icon name="checkmark" class='icon-left'></ignite-icon>
         Save Changes
     </button>
