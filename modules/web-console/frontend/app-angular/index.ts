@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+import {enableProdMode} from '@angular/core';
+if (process.env.NODE_ENV === 'production') enableProdMode();
+
 import 'core-js/es7/reflect';
 import 'zone.js/dist/zone';
 import './style.scss';
