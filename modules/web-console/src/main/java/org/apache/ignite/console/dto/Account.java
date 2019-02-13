@@ -168,7 +168,7 @@ public class Account extends AbstractDto {
     }
 
     /** {@inheritDoc} */
-    public JsonObject toJson() {
+    public JsonObject principal() {
         return new JsonObject()
             .put("_id", id.toString())
             .put("_id", id.toString())

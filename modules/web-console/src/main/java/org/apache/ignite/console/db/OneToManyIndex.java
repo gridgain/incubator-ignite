@@ -39,7 +39,7 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
      * @param parentId Parent ID.
      * @return Set of children IDs.
      */
-    public TreeSet<UUID> getIds(UUID parentId) {
+    public TreeSet<UUID> getChildren(UUID parentId) {
         TreeSet<UUID> childrenIds = get(parentId);
 
         if (childrenIds == null)
@@ -55,7 +55,7 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
      * @param childId Child ID.
      */
     public void putChild(UUID parentId, UUID childId) {
-        TreeSet<UUID> childrenIds = getIds(parentId);
+        TreeSet<UUID> childrenIds = getChildren(parentId);
 
         childrenIds.add(childId);
 
@@ -69,7 +69,7 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
      * @param childId Child ID.
      */
     public void removeChild(UUID parentId, UUID childId) {
-        TreeSet<UUID> childrenIds = getIds(parentId);
+        TreeSet<UUID> childrenIds = getChildren(parentId);
 
         childrenIds.remove(childId);
 

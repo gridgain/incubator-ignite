@@ -31,6 +31,8 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.console.common.Utils;
 import org.apache.ignite.console.db.CacheHolder;
 import org.apache.ignite.console.dto.Cache;
@@ -124,6 +126,18 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
+     *
+     * @param parentId Parent ID.
+     * @param children Map with children.
+     * @return Number of children
+     */
+    private int countChildren(UUID parentId, Map<UUID, TreeSet<UUID>> children) {
+        TreeSet<UUID> res = children.get(parentId);
+
+        return F.isEmpty(res) ? 0 : res.size();
+    }
+
+    /**
      * Load clusters short list.
      *
      * @param ctx Context.
@@ -136,7 +150,7 @@ public class ConfigurationsRouter extends AbstractRouter {
                 UUID userId = getUserId(user.principal());
 
                 try (Transaction tx = txStart()) {
-                    TreeSet<UUID> clusterIds = accountClustersIdx.getIds(userId);
+                    TreeSet<UUID> clusterIds = accountClustersIdx.getChildren(userId);
 
                     Collection<Cluster> clusters = clustersTbl.getAll(clusterIds).values();
                     Map<UUID, TreeSet<UUID>>caches = clusterCachesIdx.getAll(clusterIds);
@@ -150,9 +164,9 @@ public class ConfigurationsRouter extends AbstractRouter {
                     clusters.forEach(cluster -> {
                         UUID clusterId = cluster.id();
 
-                        int cachesCnt = caches.get(clusterId).size();
-                        int modelsCnt = models.get(clusterId).size();
-                        int igfsCnt = igfss.get(clusterId).size();
+                        int cachesCnt = countChildren(clusterId, caches);
+                        int modelsCnt = countChildren(clusterId, models);
+                        int igfsCnt = countChildren(clusterId, igfss);
 
                         shortList.add(new JsonObject()
                             .put("_id", cluster._id())
@@ -213,7 +227,14 @@ public class ConfigurationsRouter extends AbstractRouter {
         for (int i = 0; i < sz; i++) {
             JsonObject json = rawCaches.getJsonObject(i);
 
-            res.add(new Cache(getId(json), null, json.getString("name"), json.encode()));
+            res.add(new Cache(
+                getId(json),
+                null,
+                json.getString("name"),
+                CacheMode.valueOf(json.getString("cacheMode", "PARTITIONED")),
+                CacheAtomicityMode.valueOf(json.getString("atomicyMode", "ATOMIC")),
+                json.getInteger("backups", 0),
+                json.encode()));
         }
 
         return res;
@@ -261,11 +282,9 @@ public class ConfigurationsRouter extends AbstractRouter {
         UUID clusterId = cluster.id();
 
         TreeSet<UUID> newCacheIds = Utils.getIds(clusterCaches);
-        TreeSet<UUID> oldCacheIds = clusterCachesIdx.getIds(clusterId);
+        TreeSet<UUID> oldCacheIds = clusterCachesIdx.getChildren(clusterId);
 
-        TreeSet<UUID> deletedCaches = Utils.diff(oldCacheIds, newCacheIds);
-        if (!F.isEmpty(deletedCaches))
-            cachesTbl.removeAll(deletedCaches);
+        cachesTbl.removeAll(Utils.diff(oldCacheIds, newCacheIds));
 
         clusterCachesIdx.put(clusterId, newCacheIds);
 
@@ -425,7 +444,17 @@ public class ConfigurationsRouter extends AbstractRouter {
      */
     private void getClusterCaches(RoutingContext ctx) {
         try {
-            sendResult(ctx, Buffer.buffer("[]"));
+            UUID clusterId = UUID.fromString(getParam(ctx, "id"));
+
+            try (Transaction tx = txStart()) {
+                TreeSet<UUID> cacheIds = clusterCachesIdx.getChildren(clusterId);
+
+                Map<UUID, Cache> caches = cachesTbl.getAll(cacheIds);
+
+                tx.commit();
+
+                sendResult(ctx, new JsonBuilder().addArray(caches).buffer());
+            }
         }
         catch (Throwable e) {
             sendError(ctx, "Failed to get cluster caches", e);
@@ -534,7 +563,15 @@ public class ConfigurationsRouter extends AbstractRouter {
      */
     private void getCache(RoutingContext ctx) {
         try {
-            throw new IllegalStateException("Not implemented yet");
+            UUID cacheId = UUID.fromString(getParam(ctx, "id"));
+
+            try (Transaction tx = txStart()) {
+                Cache cache = cachesTbl.get(cacheId);
+
+                tx.commit();
+
+                sendResult(ctx, cache.json());
+            }
         }
         catch (Throwable e) {
             sendError(ctx, "Failed to get cache", e);

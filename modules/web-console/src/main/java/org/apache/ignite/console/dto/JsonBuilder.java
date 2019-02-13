@@ -18,7 +18,10 @@
 package org.apache.ignite.console.dto;
 
 import java.util.Collection;
+import java.util.Map;
+import java.util.UUID;
 import io.vertx.core.buffer.Buffer;
+import org.apache.ignite.internal.util.typedef.F;
 
 /**
  * Build JSON object.
@@ -89,6 +92,19 @@ public class JsonBuilder {
     }
 
     /**
+     * @param data Map to add as array.
+     * @return {@code this} for chaining.
+     */
+    public JsonBuilder addArray(Map<UUID, ? extends DataObject> data) {
+        if (F.isEmpty(data))
+            buf.appendString("[]");
+        else
+            addArray(data.values());
+
+        return this;
+    }
+
+    /**
      * @param data Collection to add as array.
      * @return {@code this} for chaining.
      */
@@ -97,12 +113,14 @@ public class JsonBuilder {
 
         int len = buf.length();
 
-        data.forEach(item -> {
-            if (buf.length() > len)
-                buf.appendString(",");
+        if (!F.isEmpty(data)) {
+            data.forEach(item -> {
+                if (buf.length() > len)
+                    buf.appendString(",");
 
-            buf.appendString(item.json());
-        });
+                buf.appendString(item.json());
+            });
+        }
 
         buf.appendString("]");
 

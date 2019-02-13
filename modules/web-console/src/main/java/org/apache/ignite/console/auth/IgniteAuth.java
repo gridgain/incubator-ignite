@@ -114,7 +114,7 @@ public class IgniteAuth implements AuthProvider {
                 ? signUp(authInfo)
                 : signIn(authInfo);
 
-            asyncResHnd.handle(Future.succeededFuture(new IgniteUser(account.toJson())));
+            asyncResHnd.handle(Future.succeededFuture(new IgniteUser(account.principal())));
 
         }
         catch (Throwable e) {

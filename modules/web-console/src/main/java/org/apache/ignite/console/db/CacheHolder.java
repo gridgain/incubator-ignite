@@ -17,11 +17,13 @@
 
 package org.apache.ignite.console.db;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.configuration.CacheConfiguration;
+import org.apache.ignite.internal.util.typedef.F;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
@@ -71,7 +73,9 @@ public class CacheHolder<K, V> {
      * @return Map with entries.
      */
     public Map<K, V> getAll(Set<? extends K> keys) {
-        return cache.getAll(keys);
+        Map<K, V> res = cache.getAll(keys);
+
+        return F.isEmpty(res) ? Collections.emptyMap() : res;
     }
 
     /**
@@ -80,7 +84,8 @@ public class CacheHolder<K, V> {
      * @param keys Keys to remove.
      */
     public void removeAll(Set<? extends K> keys) {
-        cache.removeAll(keys);
+        if (!F.isEmpty(keys))
+            cache.removeAll(keys);
     }
 
     /**

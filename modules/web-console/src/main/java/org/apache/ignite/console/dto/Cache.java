@@ -18,6 +18,8 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import org.apache.ignite.cache.CacheAtomicityMode;
+import org.apache.ignite.cache.CacheMode;
 
 /**
  * DTO for cluster cache.
@@ -25,6 +27,15 @@ import java.util.UUID;
 public class Cache extends DataObject {
     /** */
     private String name;
+
+    /** */
+    private CacheMode cacheMode;
+
+    /** */
+    private CacheAtomicityMode atomicityMode;
+
+    /** */
+    private int backups;
 
     /**
      * Full constructor.
@@ -34,16 +45,48 @@ public class Cache extends DataObject {
      * @param name Cache name.
      * @param json JSON payload.
      */
-    public Cache(UUID id, UUID space, String name, String json) {
+    public Cache(
+        UUID id,
+        UUID space,
+        String name,
+        CacheMode cacheMode,
+        CacheAtomicityMode atomicityMode,
+        int backups,
+        String json
+    ) {
         super(id, space, json);
 
         this.name = name;
+        this.cacheMode = cacheMode;
+        this.atomicityMode = atomicityMode;
+        this.backups = backups;
     }
 
     /**
-     * @return name Cache name.
+     * @return Cache name.
      */
     public String name() {
         return name;
+    }
+
+    /**
+     * @return Cache mode.
+     */
+    public CacheMode cacheMode() {
+        return cacheMode;
+    }
+
+    /**
+     * @return Cache atomicy mode.
+     */
+    public CacheAtomicityMode atomicityMode() {
+        return atomicityMode;
+    }
+
+    /**
+     * @return Cache backups.
+     */
+    public int backups() {
+        return backups;
     }
 }

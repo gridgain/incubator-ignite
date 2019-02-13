@@ -85,7 +85,7 @@ public class NotebooksRouter extends AbstractRouter {
                 UUID userId = getUserId(user.principal());
 
                 try (Transaction tx = txStart()) {
-                    TreeSet<UUID> notebookIds = accountNotebooksIdx.getIds(userId);
+                    TreeSet<UUID> notebookIds = accountNotebooksIdx.getChildren(userId);
 
                     Collection<Notebook> notebooks = notebooksTbl.getAll(notebookIds).values();
 
