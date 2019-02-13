@@ -58,6 +58,8 @@ import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.managers.discovery.IgniteDiscoverySpi;
 import org.apache.ignite.internal.managers.discovery.IgniteDiscoverySpiInternalListener;
 import org.apache.ignite.internal.IgniteKernal;
+import org.apache.ignite.internal.util.io.CountingOutputStream;
+import org.apache.ignite.internal.util.io.FileUtils;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.X;
@@ -1582,6 +1584,8 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
         OutputStream out,
         TcpDiscoveryAbstractMessage msg,
         long timeout) throws IOException, IgniteCheckedException {
+        CountingOutputStream cos = new CountingOutputStream(out);
+
         if (internalLsnr != null) {
             if (msg instanceof TcpDiscoveryJoinRequestMessage)
                 internalLsnr.beforeJoin(locNode, log);
@@ -1618,6 +1622,11 @@ public class TcpDiscoverySpi extends IgniteSpiAdapter implements IgniteDiscovery
 
             if (!cancelled)
                 throw new SocketTimeoutException("Write timed out (socket was concurrently closed).");
+        }
+
+        if (msg instanceof TcpDiscoveryJoinRequestMessage || msg instanceof TcpDiscoveryClientReconnectMessage) {
+            log.info("Send join request to " + sock.getInetAddress()
+                + " msg=" + msg + " size=" + FileUtils.byteCountToDisplaySize(cos.getCount()));
         }
     }
 
