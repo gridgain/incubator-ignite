@@ -15,11 +15,16 @@
  * limitations under the License.
  */
 
+/**
+ * This component ensures that Angular starts before AngularJS
+ * https://github.com/ui-router/angular-hybrid/issues/98
+ */
+
 import {Component} from '@angular/core';
 
 @Component({
     selector: 'service-bootstrap',
-    template: '<p>foo bar</p>'
+    template: ''
 })
 export class ServiceBootstrapComponent {
     constructor() {
