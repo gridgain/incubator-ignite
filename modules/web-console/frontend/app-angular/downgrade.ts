@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import {ServiceBootstrapComponent } from './components/serviceBootstrap';
+import {ServiceBootstrapComponent} from './components/serviceBootstrap';
 import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
 import {downgradeModule, downgradeComponent } from '@angular/upgrade/static';
 import {StaticProvider} from '@angular/core';

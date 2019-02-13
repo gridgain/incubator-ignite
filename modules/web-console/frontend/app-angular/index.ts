@@ -18,15 +18,13 @@
 import {enableProdMode} from '@angular/core';
 if (process.env.NODE_ENV === 'production') enableProdMode();
 
-import 'core-js/es7/reflect';
-import 'zone.js/dist/zone';
 import './style.scss';
 
 import {NgModule, Inject} from '@angular/core';
 import {BrowserModule} from '@angular/platform-browser';
 import {UIRouterUpgradeModule} from '@uirouter/angular-hybrid';
-import { UIRouter } from '@uirouter/angular';
-import { UpgradeModule } from '@angular/upgrade/static';
+import {UIRouter} from '@uirouter/angular';
+import {UpgradeModule} from '@angular/upgrade/static';
 import {NgxPopperModule} from 'ngx-popper';
 
 import {ServiceBootstrapComponent} from './components/serviceBootstrap';
