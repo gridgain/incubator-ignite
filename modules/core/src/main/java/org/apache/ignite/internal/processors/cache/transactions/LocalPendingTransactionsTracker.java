@@ -271,6 +271,16 @@ public class LocalPendingTransactionsTracker {
     }
 
     /**
+     * Returns currently prepared transactions (count of prepared records without corresponding commit/rollback record
+     * for each transaction)
+     */
+    public Map<GridCacheVersion, Integer> preparedTxCounters() {
+        assert stateLock.writeLock().isHeldByCurrentThread();
+
+        return U.sealMap(preparedCommittedTxsCounters);
+    }
+
+    /**
      * Starts tracking transactions that will form a set of transactions {@code P23}
      * that were prepared since phase {@code Cut2} to phase {@code Cut3}.
      */
