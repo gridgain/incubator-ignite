@@ -21,20 +21,32 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.failure.FailureContext;
+import org.apache.ignite.failure.FailureHandler;
+import org.apache.ignite.failure.StopNodeFailureHandler;
+import org.apache.ignite.failure.StopNodeOrHaltFailureHandler;
+import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
+import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.AbstractDataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusMetaIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.PagePartitionCountersIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
 import org.apache.ignite.internal.processors.failure.FailureProcessor;
 import org.apache.ignite.internal.processors.query.h2.H2RowCache;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasInnerIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2ExtrasLeafIO;
+import org.apache.ignite.internal.processors.query.h2.database.io.H2LeafIO;
 import org.apache.ignite.internal.processors.query.h2.database.io.H2RowLinkIO;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2KeyValueRowOnheap;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Row;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.indexing.IndexingQueryCacheFilter;
 import org.h2.result.SearchRow;
@@ -208,8 +220,59 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
     @SuppressWarnings("ForLoopReplaceableByForEach")
     @Override protected int compare(BPlusIO<SearchRow> io, long pageAddr, int idx,
         SearchRow row) throws IgniteCheckedException {
+
+        assert inlineSize() == 0 : inlineSize();
+
         if (inlineSize() == 0)
-            return compareRows(getRow(io, pageAddr, idx), row);
+            try {
+                return compareRows(getRow(io, pageAddr, idx), row);
+            } catch (AssertionError e) {
+                Ignition.localIgnite().log().warning(PageIO.printPage(pageAddr, pageMem.pageSize()));
+
+                Ignition.localIgnite().log().warning(e.toString());
+
+                Ignition.localIgnite().log().warning(this.toString());
+
+                if (io instanceof H2LeafIO) {
+                    H2LeafIO io0 = (H2LeafIO) io;
+
+                    Ignition.localIgnite().log().warning("Links:");
+
+                    for (int i = 0; i < io0.getCount(pageAddr) - 1; ++i) {
+                        long link = io0.getLink(pageAddr, i);
+
+                        long pageId = PageIdUtils.pageId(link);
+
+                        long page = acquirePage(pageId);
+
+/*                        int partId = PageIdUtils.partId(pageId);
+
+                        final long curAddr = pageMem.readLock(grpId, curId, curPage);
+
+                        assert curAddr != 0;
+
+                        try {
+                            PagePartitionCountersIO cntrsIO = PageIO.getPageIO(curAddr);
+
+                            if (cntrsIO.readCacheSizes(curAddr, cacheSizes))
+                                break;
+
+                            nextId = cntrsIO.getNextCountersPageId(curAddr);
+
+                            assert nextId != 0;
+                        }
+                        finally {
+                            pageMem.readUnlock(grpId, curId, curPage);
+                        }*/
+
+                        releasePage(pageId, page);
+                    }
+                }
+
+                //Runtime.getRuntime().halt(Ignition.KILL_EXIT_CODE);
+
+                throw new IgniteCheckedException(e);
+            }
         else {
             int off = io.offset(idx);
 
@@ -244,7 +307,57 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
             if (lastIdxUsed == cols.length)
                 return 0;
 
-            SearchRow rowData = getRow(io, pageAddr, idx);
+            SearchRow rowData = null;
+
+            try {
+                rowData = getRow(io, pageAddr, idx);
+            } catch (AssertionError e) {
+                Ignition.localIgnite().log().warning(PageIO.printPage(pageAddr, pageMem.pageSize()));
+
+                Ignition.localIgnite().log().warning(e.toString());
+
+                Ignition.localIgnite().log().warning(this.toString());
+
+                if (io instanceof H2LeafIO) {
+                    H2LeafIO io0 = (H2LeafIO) io;
+
+                    Ignition.localIgnite().log().warning("Links:");
+
+                    for (int i = 0; i < io0.getCount(pageAddr) - 1; ++i) {
+                        long link = io0.getLink(pageAddr, i);
+
+                        long pageId = PageIdUtils.pageId(link);
+
+                        long page = acquirePage(pageId);
+
+/*                        int partId = PageIdUtils.partId(pageId);
+
+                        final long curAddr = pageMem.readLock(grpId, curId, curPage);
+
+                        assert curAddr != 0;
+
+                        try {
+                            PagePartitionCountersIO cntrsIO = PageIO.getPageIO(curAddr);
+
+                            if (cntrsIO.readCacheSizes(curAddr, cacheSizes))
+                                break;
+
+                            nextId = cntrsIO.getNextCountersPageId(curAddr);
+
+                            assert nextId != 0;
+                        }
+                        finally {
+                            pageMem.readUnlock(grpId, curId, curPage);
+                        }*/
+
+                        releasePage(pageId, page);
+                    }
+                }
+
+                //Runtime.getRuntime().halt(Ignition.KILL_EXIT_CODE);
+
+                throw new IgniteCheckedException(e);
+            }
 
             for (int i = lastIdxUsed, len = cols.length; i < len; i++) {
                 IndexColumn col = cols[i];

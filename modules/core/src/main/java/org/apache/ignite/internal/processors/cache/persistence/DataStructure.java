@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.persistence;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.internal.pagemem.PageIdAllocator;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
@@ -359,6 +360,8 @@ public abstract class DataStructure implements PageLockListener {
         long recycled = 0;
 
         boolean needWalDeltaRecord = needWalDeltaRecord(pageId, page, walPlc);
+
+        System.err.println("recyclePage:" + pageId);
 
         if (PageIdUtils.tag(pageId) == FLAG_DATA) {
             int rotatedIdPart = PageIO.getRotatedIdPart(pageAddr);

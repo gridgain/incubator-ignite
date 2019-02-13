@@ -31,6 +31,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteInterruptedException;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.query.QueryTable;
@@ -511,6 +512,8 @@ public class GridH2Table extends TableBase {
 
         try {
             ensureNotDestroyed();
+
+            cctx.kernalContext().log(this.getClass()).warning("r2del: " + row0.key() + " " + row0.cacheId());
 
             boolean rmv = pk().removex(row0);
 

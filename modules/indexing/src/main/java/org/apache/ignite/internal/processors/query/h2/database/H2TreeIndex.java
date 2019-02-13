@@ -25,6 +25,7 @@ import java.util.NoSuchElementException;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
@@ -244,6 +245,8 @@ public class H2TreeIndex extends GridH2IndexBase {
             H2Tree tree = treeForRead(seg);
 
             assert cctx.shared().database().checkpointLockIsHeldByThread();
+
+            cctx.kernalContext().log(this.getClass()).warning("r2add: " + row.key() + " " + row.cacheId());
 
             return tree.putx(row);
         }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.processors.cache.persistence.freelist;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.internal.pagemem.PageIdAllocator;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageUtils;
@@ -62,6 +63,8 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
 
     /** */
     private static final int MIN_PAGE_FREE_SPACE = 8;
+
+    private IgniteLogger _log;
 
     /**
      * Step between buckets in free list, measured in powers of two.
@@ -394,7 +397,9 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     @Override public void dumpStatistics(IgniteLogger log) {
         long dataPages = 0;
 
-        final boolean dumpBucketsInfo = false;
+        final boolean dumpBucketsInfo = true;
+
+        _log = log;
 
         for (int b = 0; b < BUCKETS; b++) {
             long size = bucketsSize[b].longValue();
@@ -557,6 +562,9 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         long nextLink = write(pageId, rmvRow, bag, itemId, FAIL_L);
 
         assert nextLink != FAIL_L; // Can't fail here.
+
+        if (_log != null)
+            _log.warning(PageIO.printPage(pageId, pageSize()));
 
         while (nextLink != 0L) {
             memMetrics.decrementLargeEntriesPages();

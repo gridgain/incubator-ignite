@@ -253,6 +253,54 @@ public class TcpDiscoverySelfTest extends GridCommonAbstractTest {
         }
     }
 
+    private static class TestReceiptFailedDiscoverySpi extends TcpDiscoverySpi {
+            public volatile boolean receiptFailed;
+
+            /** {@inheritDoc} */
+            @Override protected int readReceipt(Socket sock, long timeout) throws IOException {
+                        if (receiptFailed)
+                                throw new IOException("Simulate receipt failed");
+
+                            return super.readReceipt(sock, timeout);
+                    }
+    }
+
+    /**
+    * @throws Exception If any error occurs.
+    */
+    public void testFailureDetectionOnReceiptError() throws Exception {
+        TestReceiptFailedDiscoverySpi spi = new TestReceiptFailedDiscoverySpi();
+
+        nodeSpi.set(spi);
+
+        Ignite g0 = startGrid(0);
+
+        final CountDownLatch cnt = new CountDownLatch(1);
+
+        g0.events().localListen(
+            new IgnitePredicate<Event>() {
+        @Override public boolean apply(Event evt) {
+                            cnt.countDown();
+
+                            return true;
+                        }
+                    },
+                    EventType.EVT_NODE_FAILED
+                );
+
+        Ignite g1 = startGrid(1);
+
+        assertEquals(g0.cluster().nodes().size(), 2);
+
+        assertEquals(g1.cluster().nodes().size(), 2);
+
+        spi.receiptFailed = true;
+
+        assertTrue("Next node have to be failed within failureDetectionTimeout",
+
+        cnt.await(spi.failureDetectionTimeout() + 3000, TimeUnit.MILLISECONDS));
+     }
+
     /**
      * @throws Exception If any error occurs.
      */
