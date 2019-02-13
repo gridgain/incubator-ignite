@@ -32,13 +32,17 @@ export {ServiceBootstrapComponent};
 import {PageProfile} from './components/page-profile/component';
 export {PageProfile};
 import {IgniteIcon} from './components/igniteIcon.component';
-import {FormFieldTooltip} from './components/formFieldTooltip.component';
-import {FormFieldComponents} from './components/formField.component';
-import {ScrollToFirstInvalid} from './components/scrollToFirstInvalid.directive';
 import {PanelCollapsible} from './components/panelCollapsible.component';
 import {CopyToClipboardButton} from './components/copyToClipboardButton.component';
-import {PasswordVisibilityToggleButton} from './components/passwordVisibilityToggleButton.component';
-import {Autofocus} from './components/autofocus.directive';
+
+import {FormFieldHint} from './components/form-field/hint.component';
+import {FormFieldErrors} from './components/form-field/errors.component';
+import {FormFieldError} from './components/form-field/error.component';
+import {FormField} from './components/form-field/formField.component';
+import {Autofocus} from './components/form-field/autofocus.directive';
+import {FormFieldTooltip} from './components/form-field/tooltip.component';
+import {PasswordVisibilityToggleButton} from './components/form-field/passwordVisibilityToggleButton.component';
+import {ScrollToFirstInvalid} from './components/form-field/scrollToFirstInvalid.directive';
 
 import {ReactiveFormsModule} from '@angular/forms';
 
@@ -48,13 +52,16 @@ export const declarations = [
     ServiceBootstrapComponent,
     PageProfile,
     IgniteIcon,
-    FormFieldTooltip,
-    ScrollToFirstInvalid,
     PanelCollapsible,
     CopyToClipboardButton,
-    PasswordVisibilityToggleButton,
+    FormFieldHint,
+    FormFieldErrors,
+    FormFieldError,
+    FormField,
     Autofocus,
-    ...FormFieldComponents,
+    FormFieldTooltip,
+    PasswordVisibilityToggleButton,
+    ScrollToFirstInvalid,
     ...upgradedComponents
 ];
 

@@ -27,7 +27,7 @@ import {Confirm} from 'app/services/Confirm.service';
 import {default as LegacyUtilsFactory} from 'app/services/LegacyUtils.service';
 import {
     FORM_FIELD_OPTIONS, FormFieldRequiredMarkerStyles, FormFieldErrorStyles
-} from '../formField.component';
+} from '../form-field';
 
 const passwordMatch = (newPassword: string) => (confirmPassword: FormControl) => newPassword === confirmPassword.value
     ? null
