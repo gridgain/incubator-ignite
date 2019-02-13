@@ -16,12 +16,11 @@
  */
 package org.apache.ignite.console.common;
 
-import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.internal.util.typedef.F;
 
 /**
@@ -48,30 +47,20 @@ public class Utils {
     }
 
     /**
-     * @param items Data objects.
-     * @return Set of IDs
-     */
-    public static TreeSet<UUID> getIds(Collection<? extends DataObject> items) {
-        return items.stream().map(DataObject::id).collect(Collectors.toCollection(TreeSet::new));
-    }
-
-    /**
-     * @param rawData Data object.
+     * @param json JSON object.
      * @param key Key with IDs.
      * @return Set of IDs.
      */
-    public static TreeSet<UUID> getIds(JsonObject rawData, String key) {
-        TreeSet<UUID> ids = new TreeSet<>();
+    public static TreeSet<UUID> idsFromJson(JsonObject json, String key) {
+        TreeSet<UUID> res = new TreeSet<>();
 
-        if (rawData.containsKey(key)) {
-            rawData
-                .getJsonArray(key)
-                .stream()
-                .map(item -> UUID.fromString(item.toString()))
-                .sequential()
-                .collect(Collectors.toCollection(() -> ids));
+        JsonArray ids = json.getJsonArray(key);
+
+        if (ids != null) {
+            for (int i = 0; i < ids.size(); i++)
+                res.add(UUID.fromString(ids.getString(i)));
         }
 
-        return ids;
+        return res;
     }
 }

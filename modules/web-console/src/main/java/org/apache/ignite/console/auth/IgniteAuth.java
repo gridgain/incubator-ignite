@@ -115,7 +115,6 @@ public class IgniteAuth implements AuthProvider {
                 : signIn(authInfo);
 
             asyncResHnd.handle(Future.succeededFuture(new IgniteUser(account.principal())));
-
         }
         catch (Throwable e) {
             asyncResHnd.handle(Future.failedFuture(e));

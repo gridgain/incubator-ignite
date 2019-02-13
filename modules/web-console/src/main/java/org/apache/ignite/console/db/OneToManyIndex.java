@@ -17,6 +17,8 @@
 
 package org.apache.ignite.console.db;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.ignite.Ignite;
@@ -36,43 +38,92 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
     }
 
     /**
+     * @param set Set to check.
+     * @return Specified set if it is not {@code null} or new empty {@link TreeSet}.
+     */
+    private TreeSet<UUID> ensure(TreeSet<UUID> set) {
+        return (set == null) ? new TreeSet<>() : set;
+    }
+
+    /**
      * @param parentId Parent ID.
      * @return Set of children IDs.
      */
-    public TreeSet<UUID> getChildren(UUID parentId) {
-        TreeSet<UUID> childrenIds = get(parentId);
+    public TreeSet<UUID> load(UUID parentId) {
+        return ensure(cache.get(parentId));
+    }
 
-        if (childrenIds == null)
-            childrenIds = new TreeSet<>();
-
-        return childrenIds;
+    /**
+     * @param parentIds Parent IDs.
+     * @return Map of parrents with its children.
+     */
+    public Map<UUID, TreeSet<UUID>> loadAll(TreeSet<UUID> parentIds) {
+        return cache.getAll(parentIds);
     }
 
     /**
      * Put child ID to index.
      *
      * @param parentId Parent ID.
-     * @param childId Child ID.
+     * @param child Child ID to add.
      */
-    public void putChild(UUID parentId, UUID childId) {
-        TreeSet<UUID> childrenIds = getChildren(parentId);
+    public void add(UUID parentId, UUID child) {
+        TreeSet<UUID> childrenIds = load(parentId);
 
-        childrenIds.add(childId);
+        childrenIds.add(child);
 
-        put(parentId, childrenIds);
+        cache.put(parentId, childrenIds);
+    }
+
+    /**
+     * Put children IDs to index.
+     *
+     * @param parent Parent ID.
+     * @param childrenToAdd Children IDs to add.
+     */
+    public void addAll(UUID parent, Set<UUID> childrenToAdd) {
+        TreeSet<UUID> children = load(parent);
+
+        children.addAll(childrenToAdd);
+
+        cache.put(parent, children);
     }
 
     /**
      * Remove child ID from index.
      *
-     * @param parentId Parent ID.
-     * @param childId Child ID.
+     * @param parent Parent ID.
+     * @param child Child ID to remove.
      */
-    public void removeChild(UUID parentId, UUID childId) {
-        TreeSet<UUID> childrenIds = getChildren(parentId);
+    public void remove(UUID parent, UUID child) {
+        TreeSet<UUID> children = load(parent);
 
-        childrenIds.remove(childId);
+        children.remove(child);
 
-        put(parentId, childrenIds);
+        cache.put(parent, children);
+    }
+
+    /**
+     * Remove children IDs from index.
+     *
+     * @param parent Parent ID.
+     * @param childrenToRmv Childrent IDs to remove.
+     */
+    public void removeAll(UUID parent, TreeSet<UUID> childrenToRmv) {
+        TreeSet<UUID> children = load(parent);
+
+        children.removeAll(childrenToRmv);
+
+        cache.put(parent, children);
+    }
+
+    /**
+     * Delete entry from index.
+     *
+     * @param parent Parent ID to delete.
+     * @return Children IDs assosiated with parent ID.
+     */
+    public TreeSet<UUID> delete(UUID parent) {
+        return ensure(cache.getAndRemove(parent));
     }
 }

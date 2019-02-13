@@ -82,50 +82,50 @@ public class Schemas {
      * Sanitize raw data.
      *
      * @param schema Schema.
-     * @param rawData Data object.
+     * @param json Data object.
      * @return Sanitized object.
      */
-    private static JsonObject sanitize0(Properties schema, JsonObject rawData) {
-        Set<String> rawFlds = new HashSet<>(rawData.fieldNames());
+    private static JsonObject sanitize0(Properties schema, JsonObject json) {
+        Set<String> flds = new HashSet<>(json.fieldNames());
 
-        for (String fld : rawFlds) {
+        for (String fld : flds) {
             if (schema.hasProperty(fld)) {
                 Properties childSchema = schema.childSchema(fld);
 
                 if (childSchema != null) {
-                    Object child = rawData.getValue(fld);
+                    Object child = json.getValue(fld);
 
                     if (child instanceof JsonArray) {
                         JsonArray rawItems = (JsonArray)child;
                         JsonArray sanitizedItems = new JsonArray();
 
                         rawItems.forEach(item -> sanitizedItems.add(sanitize0(childSchema, (JsonObject)item)));
-                        rawData.put(fld, sanitizedItems);
+                        json.put(fld, sanitizedItems);
                     }
                     else if (child instanceof JsonObject)
-                        rawData.put(fld, sanitize0(childSchema, (JsonObject)child));
+                        json.put(fld, sanitize0(childSchema, (JsonObject)child));
                     else
                         throw new IllegalStateException("Expected array or object, but found: " +
                             (child != null ? child.getClass().getName() : "null"));
                 }
             }
             else
-                rawData.remove(fld);
+                json.remove(fld);
         }
 
-        return rawData;
+        return json;
     }
 
     /**
-     * Sanitize raw data.
+     * Sanitize JSON object.
      *
      * @param cls Class of data object.
-     * @param rawData Data object.
+     * @param json JSON object to check.
      * @return Sanitized object.
      */
-    public static JsonObject sanitize(Class cls, JsonObject rawData) {
-        Properties schema = INSTANCE.schema(Notebook.class);
+    public static JsonObject sanitize(Class cls, JsonObject json) {
+        Properties schema = INSTANCE.schema(cls);
 
-        return sanitize0(schema, rawData);
+        return sanitize0(schema, json);
     }
 }

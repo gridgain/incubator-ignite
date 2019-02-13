@@ -18,8 +18,6 @@
 package org.apache.ignite.console.dto;
 
 import java.util.Collection;
-import java.util.Map;
-import java.util.UUID;
 import io.vertx.core.buffer.Buffer;
 import org.apache.ignite.internal.util.typedef.F;
 
@@ -87,19 +85,6 @@ public class JsonBuilder {
         addName(name);
 
         buf.appendString(val);
-
-        return this;
-    }
-
-    /**
-     * @param data Map to add as array.
-     * @return {@code this} for chaining.
-     */
-    public JsonBuilder addArray(Map<UUID, ? extends DataObject> data) {
-        if (F.isEmpty(data))
-            buf.appendString("[]");
-        else
-            addArray(data.values());
 
         return this;
     }

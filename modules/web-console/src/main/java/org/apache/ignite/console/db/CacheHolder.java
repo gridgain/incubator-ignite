@@ -17,13 +17,9 @@
 
 package org.apache.ignite.console.db;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.internal.util.typedef.F;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheMode.REPLICATED;
@@ -34,7 +30,7 @@ import static org.apache.ignite.cache.CacheMode.REPLICATED;
  * @param <K>
  * @param <V>
  */
-public class CacheHolder<K, V> {
+public abstract class CacheHolder<K, V> {
     /** */
     protected final Ignite ignite;
 
@@ -48,7 +44,7 @@ public class CacheHolder<K, V> {
      * @param ignite Ignite.
      * @param cacheName Cache name.
      */
-    public CacheHolder(Ignite ignite, String cacheName) {
+    protected CacheHolder(Ignite ignite, String cacheName) {
         this.ignite = ignite;
         this.cacheName = cacheName;
     }
@@ -64,57 +60,5 @@ public class CacheHolder<K, V> {
 
             cache = ignite.getOrCreateCache(ccfg);
         }
-    }
-
-    /**
-     * Get values for specified keys.
-     *
-     * @param keys Keys to get.
-     * @return Map with entries.
-     */
-    public Map<K, V> getAll(Set<? extends K> keys) {
-        Map<K, V> res = cache.getAll(keys);
-
-        return F.isEmpty(res) ? Collections.emptyMap() : res;
-    }
-
-    /**
-     * Removes entries for the specified keys.
-     *
-     * @param keys Keys to remove.
-     */
-    public void removeAll(Set<? extends K> keys) {
-        if (!F.isEmpty(keys))
-            cache.removeAll(keys);
-    }
-
-    /**
-     * Put value to cache.
-     *
-     * @param key Key.
-     * @param val Value.
-     */
-    public void put(K key, V val) {
-        cache.put(key, val);
-    }
-
-    /**
-     * Get value from cache.
-     *
-     * @param key key.
-     * @return Value.
-     */
-    public V get(K key) {
-        return cache.get(key);
-    }
-
-    /**
-     * Remove value from cache.
-     *
-     * @param key Key.
-     * @return Previous value.
-     */
-    public V getAndRemove(K key) {
-        return cache.getAndRemove(key);
     }
 }

@@ -84,29 +84,29 @@ public abstract class AbstractRouter {
     }
 
     /**
-     * @param rawData Data object.
+     * @param json JSON object.
      * @return ID or {@code null} if object has no ID.
      */
-    @Nullable protected UUID getId(JsonObject rawData) {
-        boolean hasId = rawData.containsKey("_id");
+    @Nullable protected UUID getId(JsonObject json) {
+        String s = json.getString("_id");
 
-        return hasId ? UUID.fromString(rawData.getString("_id")) : null;
+        return F.isEmpty(s) ? null : UUID.fromString(s);
     }
 
     /**
      * Ensure that object has ID.
      * If not, ID will be generated and added to object.
      *
-     * @param rawData Data object.
+     * @param json JSON object.
      * @return Object ID.
      */
-    protected UUID ensureId(JsonObject rawData) {
-        UUID id = getId(rawData);
+    protected UUID ensureId(JsonObject json) {
+        UUID id = getId(json);
 
         if (id == null) {
             id = UUID.randomUUID();
 
-            rawData.put("_id", id.toString());
+            json.put("_id", id.toString());
         }
 
         return id;
@@ -130,7 +130,7 @@ public abstract class AbstractRouter {
      * @param paramName Parameter name.
      * @return Parameter value
      */
-    protected String getParam(RoutingContext ctx, String paramName) {
+    protected String requestParam(RoutingContext ctx, String paramName) {
         String param = ctx.request().getParam(paramName);
 
         if (F.isEmpty(param))
@@ -215,6 +215,14 @@ public abstract class AbstractRouter {
     protected JsonObject rowsAffected(int rows) {
         return new JsonObject()
             .put("rowsAffected", rows);
+    }
+
+    /**
+     * Ensure that transaction was started explicitly.
+     */
+    protected void ensureTx() {
+        if (ignite.transactions().tx() == null)
+            throw new IllegalStateException("Transaction was not started explicitly");
     }
 
     /**

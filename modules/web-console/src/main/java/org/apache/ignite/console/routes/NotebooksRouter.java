@@ -25,7 +25,7 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.db.CacheHolder;
+import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.JsonBuilder;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.console.db.OneToManyIndex;
@@ -39,7 +39,7 @@ import org.apache.ignite.transactions.Transaction;
  */
 public class NotebooksRouter extends AbstractRouter {
     /** */
-    private final CacheHolder<UUID, Notebook> notebooksTbl;
+    private final Table<Notebook> notebooksTbl;
 
     /** */
     private final OneToManyIndex accountNotebooksIdx;
@@ -53,7 +53,7 @@ public class NotebooksRouter extends AbstractRouter {
     public NotebooksRouter(Ignite ignite) {
         super(ignite);
 
-        notebooksTbl = new CacheHolder<>(ignite, "wc_notebooks");
+        notebooksTbl = new Table<>(ignite, "wc_notebooks");
         accountNotebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
         uniqueNotebookNameIdx = new UniqueIndex(ignite, "wc_unique_notebook_name_idx", "Notebook '%s' already exits");
     }
@@ -85,9 +85,9 @@ public class NotebooksRouter extends AbstractRouter {
                 UUID userId = getUserId(user.principal());
 
                 try (Transaction tx = txStart()) {
-                    TreeSet<UUID> notebookIds = accountNotebooksIdx.getChildren(userId);
+                    TreeSet<UUID> notebookIds = accountNotebooksIdx.load(userId);
 
-                    Collection<Notebook> notebooks = notebooksTbl.getAll(notebookIds).values();
+                    Collection<Notebook> notebooks = notebooksTbl.loadAll(notebookIds);
 
                     tx.commit();
 
@@ -112,28 +112,28 @@ public class NotebooksRouter extends AbstractRouter {
             try {
                 UUID userId = getUserId(user.principal());
 
-                JsonObject rawData = Schemas.sanitize(Notebook.class, ctx.getBodyAsJson());
+                JsonObject json = Schemas.sanitize(Notebook.class, ctx.getBodyAsJson());
 
-                UUID notebookId = ensureId(rawData);
+                UUID notebookId = ensureId(json);
 
-                String name = rawData.getString("name");
+                String name = json.getString("name");
 
                 if (F.isEmpty(name))
                     throw new IllegalStateException("Notebook name is empty");
 
-                Notebook notebook = new Notebook(notebookId, null, name, rawData.encode());
+                Notebook notebook = new Notebook(notebookId, null, name, json.encode());
 
                 try (Transaction tx = txStart()) {
                     uniqueNotebookNameIdx.checkUnique(userId, name, notebook, notebook.name());
 
-                    accountNotebooksIdx.putChild(userId, notebookId);
+                    accountNotebooksIdx.add(userId, notebookId);
 
-                    notebooksTbl.put(notebookId, notebook);
+                    notebooksTbl.save(notebook);
 
                     tx.commit();
                 }
 
-                sendResult(ctx, rawData);
+                sendResult(ctx, json);
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to save notebook", e);
@@ -161,10 +161,10 @@ public class NotebooksRouter extends AbstractRouter {
                 int rmvCnt = 0;
 
                 try (Transaction tx = txStart()) {
-                    Notebook notebook = notebooksTbl.getAndRemove(notebookId);
+                    Notebook notebook = notebooksTbl.delete(notebookId);
 
                     if (notebook != null) {
-                        accountNotebooksIdx.removeChild(userId, notebookId);
+                        accountNotebooksIdx.remove(userId, notebookId);
                         uniqueNotebookNameIdx.removeUniqueKey(userId, notebook.name());
 
                         rmvCnt = 1;

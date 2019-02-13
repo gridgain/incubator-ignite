@@ -17,13 +17,12 @@
 
 package org.apache.ignite.console.routes;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
-import java.util.function.Function;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -33,8 +32,7 @@ import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
-import org.apache.ignite.console.common.Utils;
-import org.apache.ignite.console.db.CacheHolder;
+import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Cache;
 import org.apache.ignite.console.dto.Cluster;
 import org.apache.ignite.console.dto.Igfs;
@@ -45,21 +43,24 @@ import org.apache.ignite.console.db.UniqueIndex;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 
+import static org.apache.ignite.console.common.Utils.diff;
+import static org.apache.ignite.console.common.Utils.idsFromJson;
+
 /**
  * Router to handle REST API for configurations.
  */
 public class ConfigurationsRouter extends AbstractRouter {
     /** */
-    private final CacheHolder<UUID, Cluster> clustersTbl;
+    private final Table<Cluster> clustersTbl;
 
     /** */
-    private final CacheHolder<UUID, Cache> cachesTbl;
+    private final Table<Cache> cachesTbl;
 
     /** */
-    private final CacheHolder<UUID, Model> modelsTbl;
+    private final Table<Model> modelsTbl;
 
     /** */
-    private final CacheHolder<UUID, Igfs> igfssTbl;
+    private final Table<Igfs> igfssTbl;
 
     /** */
     private final OneToManyIndex accountClustersIdx;
@@ -82,10 +83,10 @@ public class ConfigurationsRouter extends AbstractRouter {
     public ConfigurationsRouter(Ignite ignite) {
         super(ignite);
 
-        clustersTbl = new CacheHolder<>(ignite, "wc_account_clusters");
-        cachesTbl = new CacheHolder<>(ignite, "wc_cluster_caches");
-        modelsTbl = new CacheHolder<>(ignite, "wc_cluster_models");
-        igfssTbl = new CacheHolder<>(ignite, "wc_cluster_igfss");
+        clustersTbl = new Table<>(ignite, "wc_account_clusters");
+        cachesTbl = new Table<>(ignite, "wc_cluster_caches");
+        modelsTbl = new Table<>(ignite, "wc_cluster_models");
+        igfssTbl = new Table<>(ignite, "wc_cluster_igfss");
         accountClustersIdx = new OneToManyIndex(ignite, "wc_account_clusters_idx");
         uniqueClusterNameIdx = new UniqueIndex(ignite, "wc_unique_cluster_name_idx", "Cluster '%s' already exits");
         clusterCachesIdx = new OneToManyIndex(ignite, "wc_cluster_caches_idx");
@@ -150,12 +151,12 @@ public class ConfigurationsRouter extends AbstractRouter {
                 UUID userId = getUserId(user.principal());
 
                 try (Transaction tx = txStart()) {
-                    TreeSet<UUID> clusterIds = accountClustersIdx.getChildren(userId);
+                    TreeSet<UUID> clusterIds = accountClustersIdx.load(userId);
 
-                    Collection<Cluster> clusters = clustersTbl.getAll(clusterIds).values();
-                    Map<UUID, TreeSet<UUID>>caches = clusterCachesIdx.getAll(clusterIds);
-                    Map<UUID, TreeSet<UUID>>models = clusterModelsIdx.getAll(clusterIds);
-                    Map<UUID, TreeSet<UUID>>igfss = clusterIgfsIdx.getAll(clusterIds);
+                    Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
+                    Map<UUID, TreeSet<UUID>>caches = clusterCachesIdx.loadAll(clusterIds);
+                    Map<UUID, TreeSet<UUID>>models = clusterModelsIdx.loadAll(clusterIds);
+                    Map<UUID, TreeSet<UUID>>igfss = clusterIgfsIdx.loadAll(clusterIds);
 
                     tx.commit();
 
@@ -187,159 +188,204 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
-     * @param rawData JSON data.
-     * @return Cluster DTO.
+     * TODO
+     * @param oldCluster TODO
+     * @param newCluster TODO
+     * @param key TODO
      */
-    private Cluster jsonToCluster(JsonObject rawData) {
-        JsonObject rawCluster = rawData.getJsonObject("cluster");
+    private void removedInCluster(UUID clusterId, JsonObject oldCluster, JsonObject newCluster, String key) {
+        TreeSet<UUID> oldIds = idsFromJson(oldCluster, key);
+        TreeSet<UUID> newIds = idsFromJson(newCluster, key);
 
-        UUID clusterId = getId(rawCluster);
-
-        if (clusterId == null)
-            throw new IllegalStateException("Cluster ID not found");
-
-        String name = rawCluster.getString("name");
-
-        if (F.isEmpty(name))
-            throw new IllegalStateException("Cluster name is empty");
-
-        String discovery = rawCluster.getJsonObject("discovery").getString("kind");
-
-        if (F.isEmpty(discovery))
-            throw new IllegalStateException("Cluster discovery not found");
-
-        return new Cluster(clusterId, null, name, discovery, rawCluster.encode());
-    }
-
-    /**
-     *
-     * @param rawData JSON data.
-     * @return Cache DTOs.
-     */
-    private Collection<Cache> jsonToCaches(JsonObject rawData) {
-        JsonArray rawCaches = rawData.getJsonArray("caches");
-
-        int sz = rawCaches.size();
-
-        Collection<Cache> res = new ArrayList<>(sz);
-
-
-        for (int i = 0; i < sz; i++) {
-            JsonObject json = rawCaches.getJsonObject(i);
-
-            res.add(new Cache(
-                getId(json),
-                null,
-                json.getString("name"),
-                CacheMode.valueOf(json.getString("cacheMode", "PARTITIONED")),
-                CacheAtomicityMode.valueOf(json.getString("atomicyMode", "ATOMIC")),
-                json.getInteger("backups", 0),
-                json.encode()));
-        }
-
-        return res;
-    }
-
-    /**
-     *
-     * @param rawData JSON data.
-     * @return Model DTOs.
-     */
-    private Collection<Model> jsonToModels(JsonObject rawData) {
-        JsonArray rawModels = rawData.getJsonArray("models");
-
-        return Collections.emptyList();
-    }
-
-    /**
-     *
-     * @param rawData JSON data.
-     * @return IGFS DTOs.
-     */
-    private Collection<Igfs> jsonToIgfss(JsonObject rawData) {
-        JsonArray rawIgfss = rawData.getJsonArray("igfss");
-
-        return Collections.emptyList();
+        TreeSet<UUID> deletedIds = diff(oldIds, newIds);
+        cachesTbl.deleteAll(deletedIds);
+        clusterCachesIdx.removeAll(clusterId, deletedIds);
     }
 
     /**
      * @param userId User ID.
-     * @param cluster Cluster.
+     * @param json JSON data.
+     * @return Saved cluster.
      */
-    private void saveCluster(UUID userId, Cluster cluster) {
-        uniqueClusterNameIdx.checkUnique(userId, cluster.name(), cluster, cluster.name());
+    private Cluster saveCluster(UUID userId, JsonObject json) {
+        ensureTx();
 
-        accountClustersIdx.putChild(userId, cluster.id());
+        JsonObject jsonCluster = json.getJsonObject("cluster");
 
-        clustersTbl.put(cluster.id(), cluster);
+        UUID clusterId = getId(jsonCluster);
+
+        if (clusterId == null)
+            throw new IllegalStateException("Cluster ID not found");
+
+        String name = jsonCluster.getString("name");
+
+        if (F.isEmpty(name))
+            throw new IllegalStateException("Cluster name is empty");
+
+        String discovery = jsonCluster.getJsonObject("discovery").getString("kind");
+
+        if (F.isEmpty(discovery))
+            throw new IllegalStateException("Cluster discovery not found");
+
+        Cluster newCluster = new Cluster(clusterId, null, name, discovery, jsonCluster.encode());
+
+        uniqueClusterNameIdx.checkUnique(userId, name, newCluster, name);
+
+        Cluster oldCluster = clustersTbl.load(clusterId);
+
+        if (oldCluster != null) {
+            JsonObject oldClusterJson = new JsonObject(oldCluster.json());
+
+            removedInCluster(clusterId, oldClusterJson, jsonCluster, "caches");
+//            removedInCluster(clusterId, oldClusterJson, jsonCluster, "models");
+//            removedInCluster(clusterId, oldClusterJson, jsonCluster, "igfss");
+        }
+
+        accountClustersIdx.add(userId, clusterId);
+
+        clustersTbl.save(newCluster);
+
+        return newCluster;
     }
 
     /**
      * @param cluster Cluster.
-     * @param clusterCaches Caches.
+     * @param json JSON data.
      */
-    private void saveCaches(Cluster cluster, Collection<Cache> clusterCaches) {
-        UUID clusterId = cluster.id();
+    private void saveCaches(Cluster cluster, JsonObject json) {
+        JsonArray jsonCaches = json.getJsonArray("caches");
 
-        TreeSet<UUID> newCacheIds = Utils.getIds(clusterCaches);
-        TreeSet<UUID> oldCacheIds = clusterCachesIdx.getChildren(clusterId);
+        if (F.isEmpty(jsonCaches))
+            return;
 
-        cachesTbl.removeAll(Utils.diff(oldCacheIds, newCacheIds));
+        int sz = jsonCaches.size();
 
-        clusterCachesIdx.put(clusterId, newCacheIds);
+        Map<UUID, Cache> caches = new HashMap<>(sz);
 
-        for (Cache cache : clusterCaches)
-            cachesTbl.put(cache.id(), cache);
+        for (int i = 0; i < sz; i++) {
+            JsonObject jsonCache = jsonCaches.getJsonObject(i);
+            UUID cacheId = getId(jsonCache);
+
+            if (cacheId == null)
+                throw new IllegalStateException("Cache ID not found");
+
+            Cache cache = new Cache(
+                cacheId,
+                null,
+                jsonCache.getString("name"),
+                CacheMode.valueOf(jsonCache.getString("cacheMode", "PARTITIONED")),
+                CacheAtomicityMode.valueOf(jsonCache.getString("atomicyMode", "ATOMIC")),
+                json.getInteger("backups", 0),
+                json.encode()
+            );
+
+            caches.put(cacheId, cache);
+        }
+
+        clusterCachesIdx.addAll(cluster.id(), caches.keySet());
+
+        cachesTbl.saveAll(caches);
     }
 
-    /**
-     * @param cluster Cluster.
-     * @param clusterModels Models.
-     */
-    private void saveModels(Cluster cluster, Collection<Model> clusterModels) {
-        // TODO IGNITE-5617 implements.
-    }
+//    /**
+//     * @param cluster Cluster.
+//     * @param json JSON data.
+//     */
+//    private void saveModels(Cluster cluster, JsonObject json) {
+//        JsonArray rawModels = jsonData.getJsonArray("models");
+//
+//        int sz = rawModels.size();
+//
+//        Collection<Model> res = new ArrayList<>(sz);
+//
+//        for (int i = 0; i < sz; i++) {
+//            JsonObject json = rawModels.getJsonObject(i);
+//
+//            res.add(new Model(
+//                getId(json),
+//                null,
+//                json.getString("name"),
+//                json.encode()));
+//        }
+//
+//        return res;
+
+//        Collection<Model> clusterModels = jsonToModels(jsonData);
+//        UUID clusterId = cluster.id();
+
+//        TreeSet<UUID> newIds = Utils.getIds(models);
+//        TreeSet<UUID> oldIds = clusterModelsIdx.getChildren(clusterId);
+//
+//        modelsTbl.removeAll(Utils.diff(oldIds, newIds));
+//
+//        clusterModelsIdx.put(clusterId, newIds);
+
+//        for (Model mdl : models)
+//            modelsTbl.put(mdl.id(), mdl);
+//    }
+//
+//    /**
+//     * @param cluster Cluster.
+//     * @param json JSON data.
+//     */
+//    private void saveIgfss(Cluster cluster, JsonObject json) {
+//        JsonArray rawIgfss = jsonData.getJsonArray("igfss");
+//
+//        int sz = rawIgfss.size();
+//
+//        Collection<Igfs> res = new ArrayList<>(sz);
+//
+//        for (int i = 0; i < sz; i++) {
+//            JsonObject json = rawIgfss.getJsonObject(i);
+//
+//            res.add(new Igfs(
+//                getId(json),
+//                null,
+//                json.getString("name"),
+//                json.encode()));
+//        }
+//
+//        return res;
+
+
+        //        Collection<Igfs> clusterIgfss = jsonToIgfss(jsonData);
+//        UUID clusterId = cluster.id();
+
+//        TreeSet<UUID> newIds = Utils.getIds(models);
+//        TreeSet<UUID> oldIds = clusterModelsIdx.getChildren(clusterId);
+//
+//        modelsTbl.removeAll(Utils.diff(oldIds, newIds));
+//
+//        clusterModelsIdx.put(clusterId, newIds);
+
+//        for (Igfs igfs : igfss)
+//            igfssTbl.put(igfs.id(), igfs);
+//    }
 
     /**
-     * @param cluster Cluster.
-     * @param clusterIgfss IGFSs.
-     */
-    private void saveIgfss(Cluster cluster, Collection<Igfs> clusterIgfss) {
-        // TODO IGNITE-5617 implements.
-    }
-
-    /**
+     * Save cluster.
+     *
      * @param ctx Context.
-     * @param merge Merge function.
      */
-    private void saveCluster(RoutingContext ctx, Function<Cluster, Cluster> merge) {
+    private void saveAdvancedCluster(RoutingContext ctx) {
         User user = checkUser(ctx);
 
         if (user != null) {
             try {
                 UUID userId = getUserId(user.principal());
 
-                JsonObject rawData = ctx.getBodyAsJson();
-
-                // TODO IGNITE-5617 rawData = Schemas.sanitize(Cluster.class, rawData); ?
-
-                Cluster cluster = jsonToCluster(rawData);
-                Collection<Cache> clusterCaches = jsonToCaches(rawData);
-                Collection<Model> clusterModels = jsonToModels(rawData);
-                Collection<Igfs> clusterIgfss = jsonToIgfss(rawData);
-
-                merge.apply(cluster);
+                JsonObject json = ctx.getBodyAsJson();
 
                 try (Transaction tx = txStart()) {
-                    saveCluster(userId, cluster);
-                    saveCaches(cluster, clusterCaches);
-                    saveModels(cluster, clusterModels);
-                    saveIgfss(cluster, clusterIgfss);
+                    Cluster cluster = saveCluster(userId, json);
+                    saveCaches(cluster, json);
+//                    saveModels(cluster, json);
+//                    saveIgfss(cluster, json);
 
                     tx.commit();
                 }
 
-                sendResult(ctx, cluster.json());
+                sendResult(ctx, rowsAffected(1));
             }
             catch (Throwable e) {
                 sendError(ctx, "Failed to save cluster", e);
@@ -348,25 +394,17 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
-     * Save cluster.
-     *
-     * @param ctx Context.
-     */
-    private void saveAdvancedCluster(RoutingContext ctx) {
-        saveCluster(ctx, cluster -> cluster);
-    }
-
-    /**
      * Save basic cluster.
      *
      * @param ctx Context.
      */
     private void saveBasicCluster(RoutingContext ctx) {
-        saveCluster(ctx, cluster -> {
-            // TODO IGNITE-5617 UPSERT basic with full !!!
-
-            return cluster;
-        });
+        try {
+            throw new IllegalStateException("TODO IGNITE-5617 saveBasicCluster() not implemented yet!");
+        }
+        catch (Throwable e) {
+            sendError(ctx, "Failed to save cluster", e);
+        }
     }
 
     /**
@@ -377,18 +415,18 @@ public class ConfigurationsRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID clusterId = UUID.fromString(getParam(ctx, "id"));
+                UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
 
                 try (Transaction tx = txStart()) {
-                    Cluster cluster = clustersTbl.get(clusterId);
+                    Cluster cluster = clustersTbl.load(clusterId);
 
                     tx.commit();
 
                     if (cluster == null)
                         throw new IllegalStateException("Cluster not found for ID: " + clusterId);
 
-                    TreeSet<UUID> cacheIds = clusterCachesIdx.get(clusterId);
-                    Collection<Cache> caches = cachesTbl.getAll(cacheIds).values();
+                    TreeSet<UUID> cacheIds = clusterCachesIdx.load(clusterId);
+                    Collection<Cache> caches = cachesTbl.loadAll(cacheIds);
 
                     Collection<Model> models = Collections.emptyList();
                     Collection<Igfs> igfss = Collections.emptyList();
@@ -418,10 +456,10 @@ public class ConfigurationsRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                UUID clusterId = UUID.fromString(getParam(ctx, "id"));
+                UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
 
                 try (Transaction tx = txStart()) {
-                    Cluster cluster = clustersTbl.get(clusterId);
+                    Cluster cluster = clustersTbl.load(clusterId);
 
                     tx.commit();
 
@@ -444,12 +482,12 @@ public class ConfigurationsRouter extends AbstractRouter {
      */
     private void getClusterCaches(RoutingContext ctx) {
         try {
-            UUID clusterId = UUID.fromString(getParam(ctx, "id"));
+            UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
 
             try (Transaction tx = txStart()) {
-                TreeSet<UUID> cacheIds = clusterCachesIdx.getChildren(clusterId);
+                TreeSet<UUID> cacheIds = clusterCachesIdx.load(clusterId);
 
-                Map<UUID, Cache> caches = cachesTbl.getAll(cacheIds);
+                Collection<Cache> caches = cachesTbl.loadAll(cacheIds);
 
                 tx.commit();
 
@@ -493,28 +531,28 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param clusterId Cluster ID.
      */
     private void removeClusterCaches(UUID clusterId) {
-        TreeSet<UUID> cacheIds = clusterCachesIdx.getAndRemove(clusterId);
+        TreeSet<UUID> cacheIds = clusterCachesIdx.delete(clusterId);
 
-        cachesTbl.removeAll(cacheIds);
+        cachesTbl.deleteAll(cacheIds);
     }
 
-    /**
-     * @param clusterId Cluster ID.
-     */
-    private void removeClusterModels(UUID clusterId) {
-        TreeSet<UUID> cacheIds = clusterModelsIdx.getAndRemove(clusterId);
+//    /**
+//     * @param clusterId Cluster ID.
+//     */
+//    private void removeClusterModels(UUID clusterId) {
+//        TreeSet<UUID> cacheIds = clusterModelsIdx.getAndRemove(clusterId);
+//
+//        modelsTbl.removeAll(cacheIds);
+//    }
 
-        modelsTbl.removeAll(cacheIds);
-    }
-
-    /**
-     * @param clusterId Cluster ID.
-     */
-    private void removeClusterIgfss(UUID clusterId) {
-        TreeSet<UUID> cacheIds = clusterIgfsIdx.getAndRemove(clusterId);
-
-        igfssTbl.removeAll(cacheIds);
-    }
+//    /**
+//     * @param clusterId Cluster ID.
+//     */
+//    private void removeClusterIgfss(UUID clusterId) {
+//        TreeSet<UUID> cacheIds = clusterIgfsIdx.getAndRemove(clusterId);
+//
+//        igfssTbl.removeAll(cacheIds);
+//    }
 
     /**
      * Remove cluster.
@@ -528,24 +566,26 @@ public class ConfigurationsRouter extends AbstractRouter {
             try {
                 UUID userId = getUserId(user.principal());
 
-                TreeSet<UUID> clusterIds = Utils.getIds(ctx.getBodyAsJson(), "_id");
+                TreeSet<UUID> clusterIds = idsFromJson(ctx.getBodyAsJson(), "_id");
 
                 if (F.isEmpty(clusterIds))
                     throw new IllegalStateException("Cluster IDs not found");
 
                 try (Transaction tx = txStart()) {
-                    Map<UUID, Cluster> clusters = clustersTbl.getAll(clusterIds);
+                    Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
 
-                    clusters.forEach((clusterId, cluster) -> {
-                        accountClustersIdx.removeChild(userId, clusterId);
+                    clusters.forEach(cluster -> {
+                        UUID clusterId = cluster.id();
+
+                        accountClustersIdx.remove(userId, clusterId);
                         uniqueClusterNameIdx.removeUniqueKey(userId, cluster.name());
 
                         removeClusterCaches(clusterId);
-                        removeClusterModels(clusterId);
-                        removeClusterIgfss(clusterId);
+//                        removeClusterModels(clusterId);
+//                        removeClusterIgfss(clusterId);
                     });
 
-                    clustersTbl.removeAll(clusterIds);
+                    clustersTbl.deleteAll(clusterIds);
 
                     tx.commit();
                 }
@@ -563,10 +603,10 @@ public class ConfigurationsRouter extends AbstractRouter {
      */
     private void getCache(RoutingContext ctx) {
         try {
-            UUID cacheId = UUID.fromString(getParam(ctx, "id"));
+            UUID cacheId = UUID.fromString(requestParam(ctx, "id"));
 
             try (Transaction tx = txStart()) {
-                Cache cache = cachesTbl.get(cacheId);
+                Cache cache = cachesTbl.load(cacheId);
 
                 tx.commit();
 
@@ -583,7 +623,15 @@ public class ConfigurationsRouter extends AbstractRouter {
      */
     private void getModel(RoutingContext ctx) {
         try {
-            throw new IllegalStateException("Not implemented yet");
+            UUID mdlId = UUID.fromString(requestParam(ctx, "id"));
+
+            try (Transaction tx = txStart()) {
+                Model mdl = modelsTbl.load(mdlId);
+
+                tx.commit();
+
+                sendResult(ctx, mdl.json());
+            }
         }
         catch (Throwable e) {
             sendError(ctx, "Failed to get model", e);
@@ -595,7 +643,15 @@ public class ConfigurationsRouter extends AbstractRouter {
      */
     private void getIgfs(RoutingContext ctx) {
         try {
-            throw new IllegalStateException("Not implemented yet");
+            UUID igfsId = UUID.fromString(requestParam(ctx, "id"));
+
+            try (Transaction tx = txStart()) {
+                Igfs igfs = igfssTbl.load(igfsId);
+
+                tx.commit();
+
+                sendResult(ctx, igfs.json());
+            }
         }
         catch (Throwable e) {
             sendError(ctx, "Failed to get IGFS", e);

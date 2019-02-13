@@ -400,8 +400,11 @@ public class WebConsoleServer extends AbstractVerticle {
         authInfo.put("signup", true);
 
         auth.authenticate(authInfo, asyncRes -> {
-            if (asyncRes.succeeded())
-                sendResult(ctx, asyncRes.result().principal());
+            if (asyncRes.succeeded()) {
+                ctx.setUser(asyncRes.result());
+
+                sendStatus(ctx, HTTP_OK);
+            }
             else
                 sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
         });
