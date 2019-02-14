@@ -34,7 +34,7 @@ export default class DemoModeButton {
     }
 
     startDemo() {
-        const demoEnabled = _.get(this.agentMgr.connectionSbj.getValue(), 'cluster.demoEnabled');
+        const demoEnabled = _.get(this.agentMgr.connectionSbj.getValue(), 'hasDemo');
 
         if (demoEnabled || _.isNil(demoEnabled)) {
             if (!this.$root.user.demoCreated)
