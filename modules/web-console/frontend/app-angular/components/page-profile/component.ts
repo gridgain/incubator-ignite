@@ -28,6 +28,7 @@ import {default as LegacyUtilsFactory} from 'app/services/LegacyUtils.service';
 import {
     FORM_FIELD_OPTIONS, FormFieldRequiredMarkerStyles, FormFieldErrorStyles
 } from '../form-field';
+import omit from 'lodash/fp/omit';
 
 const passwordMatch = (newPassword: string) => (confirmPassword: FormControl) => newPassword === confirmPassword.value
     ? null
@@ -89,12 +90,7 @@ export class PageProfile implements OnInit, OnDestroy {
     }
     prepareFormValue(form: PageProfile['form']): Partial<User> {
         return {
-            firstName: form.value.firstName,
-            lastName: form.value.lastName,
-            email: form.value.email,
-            phone: form.value.phone,
-            country: form.value.country,
-            company: form.value.company,
+            ...omit(['password', 'passwordPanelOpened'])(form.value),
             token: form.controls.token.value,
             ...form.value.passwordPanelOpened ? {password: form.value.password.new} : {}
         };
