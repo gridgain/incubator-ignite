@@ -18,6 +18,10 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import io.vertx.core.json.JsonObject;
+import org.apache.ignite.igfs.IgfsMode;
+
+import static org.apache.ignite.igfs.IgfsMode.PRIMARY;
 
 /**
  * DTO for cluster IGFS.
@@ -26,24 +30,67 @@ public class Igfs extends DataObject {
     /** */
     private String name;
 
+    /** */
+    private IgfsMode dfltMode;
+
+    /** */
+    private int affGrpSz;
+
+    /**
+     * @param json JSON data.
+     * @return New instance of IGFS DTO.
+     */
+    public static Igfs fromJson(JsonObject json) {
+        String id = json.getString("_id");
+
+        if (id == null)
+            throw new IllegalStateException("IGFS ID not found");
+
+        return new Igfs(
+            UUID.fromString(id),
+            null,
+            json.getString("name"),
+            IgfsMode.valueOf(json.getString("defaultMode", PRIMARY.name())),
+            json.getInteger("affinityGroupSize", 512),
+            json.encode());
+    }
+
     /**
      * Full constructor.
      *
      * @param id ID.
      * @param space Space ID.
      * @param name IGFS name.
+     * @param dfltMode IGFS default mode.
+     * @param affGrpSz IGFS size of the group in blocks.
      * @param json JSON payload.
      */
-    public Igfs(UUID id, UUID space, String name, String json) {
+    protected Igfs(UUID id, UUID space, String name, IgfsMode dfltMode, int affGrpSz, String json) {
         super(id, space, json);
 
         this.name = name;
+        this.dfltMode = dfltMode;
+        this.affGrpSz = affGrpSz;
     }
 
     /**
-     * @return name IGFS name.
+     * @return IGFS name.
      */
     public String name() {
         return name;
+    }
+
+    /**
+     * @return IGFS default mode.
+     */
+    public IgfsMode defaultMode() {
+        return dfltMode;
+    }
+
+    /**
+     * @return IGFS size of the group in blocks.
+     */
+    public int affinityGroupSize() {
+        return affGrpSz;
     }
 }

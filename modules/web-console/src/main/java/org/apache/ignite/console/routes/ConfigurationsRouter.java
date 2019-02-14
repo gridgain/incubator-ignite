@@ -30,11 +30,10 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.cache.CacheAtomicityMode;
-import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Cache;
 import org.apache.ignite.console.dto.Cluster;
+import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Igfs;
 import org.apache.ignite.console.dto.JsonBuilder;
 import org.apache.ignite.console.dto.Model;
@@ -75,7 +74,7 @@ public class ConfigurationsRouter extends AbstractRouter {
     private final OneToManyIndex clusterModelsIdx;
 
     /** */
-    private final OneToManyIndex clusterIgfsIdx;
+    private final OneToManyIndex clusterIgfssIdx;
 
     /**
      * @param ignite Ignite.
@@ -91,7 +90,7 @@ public class ConfigurationsRouter extends AbstractRouter {
         uniqueClusterNameIdx = new UniqueIndex(ignite, "wc_unique_cluster_name_idx", "Cluster '%s' already exits");
         clusterCachesIdx = new OneToManyIndex(ignite, "wc_cluster_caches_idx");
         clusterModelsIdx = new OneToManyIndex(ignite, "wc_cluster_models_idx");
-        clusterIgfsIdx = new OneToManyIndex(ignite, "wc_cluster_igfss_idx");
+        clusterIgfssIdx = new OneToManyIndex(ignite, "wc_cluster_igfss_idx");
     }
 
     /** {@inheritDoc} */
@@ -105,7 +104,7 @@ public class ConfigurationsRouter extends AbstractRouter {
         uniqueClusterNameIdx.prepare();
         clusterCachesIdx.prepare();
         clusterModelsIdx.prepare();
-        clusterIgfsIdx.prepare();
+        clusterIgfssIdx.prepare();
     }
 
     /** {@inheritDoc} */
@@ -113,9 +112,9 @@ public class ConfigurationsRouter extends AbstractRouter {
         router.get("/api/v1/configuration/:id").handler(this::getConfiguration);
         router.get("/api/v1/configuration/clusters").handler(this::loadShortList);
         router.get("/api/v1/configuration/clusters/:id").handler(this::getCluster);
-        router.get("/api/v1/configuration/clusters/:id/caches").handler(this::getClusterCaches);
-        router.get("/api/v1/configuration/clusters/:id/models").handler(this::getClusterModels);
-        router.get("/api/v1/configuration/clusters/:id/igfss").handler(this::getClusterIgfss);
+        router.get("/api/v1/configuration/clusters/:id/caches").handler(this::loadClusterCachesShortList);
+        router.get("/api/v1/configuration/clusters/:id/models").handler(this::loadClusterModelsShortList);
+        router.get("/api/v1/configuration/clusters/:id/igfss").handler(this::loadClusterIgfssShortList);
 
         router.put("/api/v1/configuration/clusters").handler(this::saveAdvancedCluster);
         router.put("/api/v1/configuration/clusters/basic").handler(this::saveBasicCluster);
@@ -156,7 +155,7 @@ public class ConfigurationsRouter extends AbstractRouter {
                     Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
                     Map<UUID, TreeSet<UUID>>caches = clusterCachesIdx.loadAll(clusterIds);
                     Map<UUID, TreeSet<UUID>>models = clusterModelsIdx.loadAll(clusterIds);
-                    Map<UUID, TreeSet<UUID>>igfss = clusterIgfsIdx.loadAll(clusterIds);
+                    Map<UUID, TreeSet<UUID>>igfss = clusterIgfssIdx.loadAll(clusterIds);
 
                     tx.commit();
 
@@ -263,23 +262,9 @@ public class ConfigurationsRouter extends AbstractRouter {
         Map<UUID, Cache> caches = new HashMap<>(sz);
 
         for (int i = 0; i < sz; i++) {
-            JsonObject jsonCache = jsonCaches.getJsonObject(i);
-            UUID cacheId = getId(jsonCache);
+            Cache cache = Cache.fromJson(jsonCaches.getJsonObject(i));
 
-            if (cacheId == null)
-                throw new IllegalStateException("Cache ID not found");
-
-            Cache cache = new Cache(
-                cacheId,
-                null,
-                jsonCache.getString("name"),
-                CacheMode.valueOf(jsonCache.getString("cacheMode", "PARTITIONED")),
-                CacheAtomicityMode.valueOf(jsonCache.getString("atomicyMode", "ATOMIC")),
-                json.getInteger("backups", 0),
-                json.encode()
-            );
-
-            caches.put(cacheId, cache);
+            caches.put(cache.id(), cache);
         }
 
         clusterCachesIdx.addAll(cluster.id(), caches.keySet());
@@ -287,80 +272,55 @@ public class ConfigurationsRouter extends AbstractRouter {
         cachesTbl.saveAll(caches);
     }
 
-//    /**
-//     * @param cluster Cluster.
-//     * @param json JSON data.
-//     */
-//    private void saveModels(Cluster cluster, JsonObject json) {
-//        JsonArray rawModels = jsonData.getJsonArray("models");
-//
-//        int sz = rawModels.size();
-//
-//        Collection<Model> res = new ArrayList<>(sz);
-//
-//        for (int i = 0; i < sz; i++) {
-//            JsonObject json = rawModels.getJsonObject(i);
-//
-//            res.add(new Model(
-//                getId(json),
-//                null,
-//                json.getString("name"),
-//                json.encode()));
-//        }
-//
-//        return res;
+    /**
+     * @param cluster Cluster.
+     * @param json JSON data.
+     */
+    private void saveModels(Cluster cluster, JsonObject json) {
+        JsonArray jsonModels = json.getJsonArray("models");
 
-//        Collection<Model> clusterModels = jsonToModels(jsonData);
-//        UUID clusterId = cluster.id();
+        if (F.isEmpty(jsonModels))
+            return;
 
-//        TreeSet<UUID> newIds = Utils.getIds(models);
-//        TreeSet<UUID> oldIds = clusterModelsIdx.getChildren(clusterId);
-//
-//        modelsTbl.removeAll(Utils.diff(oldIds, newIds));
-//
-//        clusterModelsIdx.put(clusterId, newIds);
+        int sz = jsonModels.size();
 
-//        for (Model mdl : models)
-//            modelsTbl.put(mdl.id(), mdl);
-//    }
-//
-//    /**
-//     * @param cluster Cluster.
-//     * @param json JSON data.
-//     */
-//    private void saveIgfss(Cluster cluster, JsonObject json) {
-//        JsonArray rawIgfss = jsonData.getJsonArray("igfss");
-//
-//        int sz = rawIgfss.size();
-//
-//        Collection<Igfs> res = new ArrayList<>(sz);
-//
-//        for (int i = 0; i < sz; i++) {
-//            JsonObject json = rawIgfss.getJsonObject(i);
-//
-//            res.add(new Igfs(
-//                getId(json),
-//                null,
-//                json.getString("name"),
-//                json.encode()));
-//        }
-//
-//        return res;
+        Map<UUID, Model> mdls = new HashMap<>(sz);
 
+        for (int i = 0; i < sz; i++) {
+            Model mdl = Model.fromJson(jsonModels.getJsonObject(i));
 
-        //        Collection<Igfs> clusterIgfss = jsonToIgfss(jsonData);
-//        UUID clusterId = cluster.id();
+            mdls.put(mdl.id(), mdl);
+        }
 
-//        TreeSet<UUID> newIds = Utils.getIds(models);
-//        TreeSet<UUID> oldIds = clusterModelsIdx.getChildren(clusterId);
-//
-//        modelsTbl.removeAll(Utils.diff(oldIds, newIds));
-//
-//        clusterModelsIdx.put(clusterId, newIds);
+        clusterModelsIdx.addAll(cluster.id(), mdls.keySet());
 
-//        for (Igfs igfs : igfss)
-//            igfssTbl.put(igfs.id(), igfs);
-//    }
+        modelsTbl.saveAll(mdls);
+    }
+
+    /**
+     * @param cluster Cluster.
+     * @param json JSON data.
+     */
+    private void saveIgfss(Cluster cluster, JsonObject json) {
+        JsonArray jsonIgfss = json.getJsonArray("igfss");
+
+        if (F.isEmpty(jsonIgfss))
+            return;
+
+        int sz = jsonIgfss.size();
+
+        Map<UUID, Igfs> igfss = new HashMap<>(sz);
+
+        for (int i = 0; i < sz; i++) {
+            Igfs igfs = Igfs.fromJson(jsonIgfss.getJsonObject(i));
+
+            igfss.put(igfs.id(), igfs);
+        }
+
+        clusterIgfssIdx.addAll(cluster.id(), igfss.keySet());
+
+        igfssTbl.saveAll(igfss);
+    }
 
     /**
      * Save cluster.
@@ -379,8 +339,8 @@ public class ConfigurationsRouter extends AbstractRouter {
                 try (Transaction tx = txStart()) {
                     Cluster cluster = saveCluster(userId, json);
                     saveCaches(cluster, json);
-//                    saveModels(cluster, json);
-//                    saveIgfss(cluster, json);
+                    saveModels(cluster, json);
+                    saveIgfss(cluster, json);
 
                     tx.commit();
                 }
@@ -476,41 +436,48 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
-     * Get cluster caches short list.
+     * TODO
      *
-     * @param ctx Context.
+     * @param ctx TODO
+     * @param tbl TODO
+     * @param idx TODO
+     * @param errMsg TODO
      */
-    private void getClusterCaches(RoutingContext ctx) {
+    private void loadShortList(RoutingContext ctx, Table<? extends DataObject>tbl, OneToManyIndex idx, String errMsg) {
         try {
             UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
 
             try (Transaction tx = txStart()) {
-                TreeSet<UUID> cacheIds = clusterCachesIdx.load(clusterId);
+                TreeSet<UUID> ids = idx.load(clusterId);
 
-                Collection<Cache> caches = cachesTbl.loadAll(cacheIds);
+                Collection<? extends DataObject> items = tbl.loadAll(ids);
 
                 tx.commit();
 
-                sendResult(ctx, new JsonBuilder().addArray(caches).buffer());
+                sendResult(ctx, new JsonBuilder().addArray(items).buffer());
             }
         }
         catch (Throwable e) {
-            sendError(ctx, "Failed to get cluster caches", e);
+            sendError(ctx, errMsg, e);
         }
     }
 
     /**
-     * Get cluster models short list.
+     * Load cluster caches short list.
      *
      * @param ctx Context.
      */
-    private void getClusterModels(RoutingContext ctx) {
-        try {
-            sendResult(ctx, Buffer.buffer("[]"));
-        }
-        catch (Throwable e) {
-            sendError(ctx, "Failed to get cluster models", e);
-        }
+    private void loadClusterCachesShortList(RoutingContext ctx) {
+        loadShortList(ctx, cachesTbl, clusterCachesIdx, "Failed to load cluster caches");
+    }
+
+    /**
+     * Load cluster models short list.
+     *
+     * @param ctx Context.
+     */
+    private void loadClusterModelsShortList(RoutingContext ctx) {
+        loadShortList(ctx, modelsTbl, clusterModelsIdx, "Failed to load cluster models");
     }
 
     /**
@@ -518,13 +485,8 @@ public class ConfigurationsRouter extends AbstractRouter {
      *
      * @param ctx Context.
      */
-    private void getClusterIgfss(RoutingContext ctx) {
-        try {
-            sendResult(ctx, Buffer.buffer("[]"));
-        }
-        catch (Throwable e) {
-            sendError(ctx, "Failed to get cluster IGFSs", e);
-        }
+    private void loadClusterIgfssShortList(RoutingContext ctx) {
+        loadShortList(ctx, igfssTbl, clusterIgfssIdx, "Failed to load cluster IGFSs");
     }
 
     /**

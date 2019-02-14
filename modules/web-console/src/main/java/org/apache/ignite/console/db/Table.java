@@ -42,16 +42,16 @@ public class Table<V extends DataObject> extends CacheHolder<UUID, V> {
     }
 
     /**
-     * @param id
-     * @return
+     * @param id ID.
+     * @return DTO.
      */
     @Nullable public V load(UUID id) {
         return cache.get(id);
     }
 
     /**
-     * @param ids
-     * @return
+     * @param ids IDs.
+     * @return Collection of DTOs.
      */
     public Collection<V> loadAll(TreeSet<UUID> ids) {
         Map<UUID, V> res = cache.getAll(ids);
@@ -60,8 +60,8 @@ public class Table<V extends DataObject> extends CacheHolder<UUID, V> {
     }
 
     /**
-     * @param data
-     * @return
+     * @param data DTO.
+     * @return Saved DTO.
      */
     public V save(V data) {
         cache.put(data.id(), data);
@@ -70,27 +70,24 @@ public class Table<V extends DataObject> extends CacheHolder<UUID, V> {
     }
 
     /**
-     *
-     * @param items
+     * @param items Map of DTOs.
      */
     public void saveAll(Map<UUID, V> items) {
         cache.putAll(items);
     }
 
     /**
-     *
-     * @param id
-     * @return
+     * @param id ID.
+     * @return Previous value.
      */
     @Nullable public V delete(UUID id) {
         return cache.getAndRemove(id);
     }
 
     /**
-     *
-     * @param keys
+     * @param ids IDs.
      */
-    public void deleteAll(TreeSet<UUID> keys) {
-        cache.removeAll(keys);
+    public void deleteAll(TreeSet<UUID> ids) {
+        cache.removeAll(ids);
     }
 }

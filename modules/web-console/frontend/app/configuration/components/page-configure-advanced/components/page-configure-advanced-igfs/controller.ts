@@ -75,9 +75,9 @@ export default class PageConfigureAdvancedIGFS {
                 width: 160
             },
             {
-                name: 'affinnityGroupSize',
+                name: 'affinityGroupSize',
                 displayName: 'Group size',
-                field: 'affinnityGroupSize',
+                field: 'affinityGroupSize',
                 enableFiltering: false,
                 width: 130
             }
@@ -90,7 +90,7 @@ export default class PageConfigureAdvancedIGFS {
             map((items = []) => items.map((i) => ({
                 _id: i._id,
                 name: i.name,
-                affinnityGroupSize: i.affinnityGroupSize || this.IGFSs.affinnityGroupSize.default,
+                affinityGroupSize: i.affinityGroupSize || this.IGFSs.affinityGroupSize.default,
                 defaultMode: i.defaultMode || this.IGFSs.defaultMode.default
             })))
         );

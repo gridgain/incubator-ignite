@@ -18,32 +18,77 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import io.vertx.core.json.JsonObject;
 
 /**
  * DTO for cluster model.
  */
 public class Model extends DataObject {
     /** */
-    private String name;
+    private boolean hasIdx;
+
+    /** */
+    private String keyType;
+
+    /** */
+    private String valType;
+
+    /**
+     * @param json JSON data.
+     * @return New instance of model DTO.
+     */
+    public static Model fromJson(JsonObject json) {
+        String id = json.getString("_id");
+
+        if (id == null)
+            throw new IllegalStateException("Model ID not found");
+
+        return new Model(
+            UUID.fromString(id),
+            null,
+            false, // TODO IGNITE-5617 DETECT INDEXES !!!
+            json.getString("keyType"),
+            json.getString("valueType"),
+            json.encode()
+        );
+    }
 
     /**
      * Full constructor.
      *
      * @param id ID.
      * @param space Space ID.
-     * @param name Model name.
+     * @param hasIdx Model has at least one index.
+     * @param keyType Key type name.
+     * @param valType Value type name.
      * @param json JSON payload.
      */
-    public Model(UUID id, UUID space, String name, String json) {
+    protected Model(UUID id, UUID space, boolean hasIdx, String keyType, String valType, String json) {
         super(id, space, json);
 
-        this.name = name;
+        this.hasIdx = hasIdx;
+        this.keyType = keyType;
+        this.valType = valType;
     }
 
     /**
-     * @return name Model name.
+     * @return {@code true} if model has at least one index.
      */
-    public String name() {
-        return name;
+    public boolean hasIndex() {
+        return hasIdx;
+    }
+
+    /**
+     * @return Key type name.
+     */
+    public String keyType() {
+        return keyType;
+    }
+
+    /**
+     * @return Value type name.
+     */
+    public String valueType() {
+        return valType;
     }
 }

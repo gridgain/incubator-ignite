@@ -18,8 +18,12 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import io.vertx.core.json.JsonObject;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
+
+import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
+import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 
 /**
  * DTO for cluster cache.
@@ -38,6 +42,27 @@ public class Cache extends DataObject {
     private int backups;
 
     /**
+     * @param json JSON data.
+     * @return New instance of cache DTO.
+     */
+    public static Cache fromJson(JsonObject json) {
+        String id = json.getString("_id");
+
+        if (id == null)
+            throw new IllegalStateException("Cache ID not found");
+
+        return new Cache(
+            UUID.fromString(id),
+            null,
+            json.getString("name"),
+            CacheMode.valueOf(json.getString("cacheMode", PARTITIONED.name())),
+            CacheAtomicityMode.valueOf(json.getString("atomicityMode", ATOMIC.name())),
+            json.getInteger("backups", 0),
+            json.encode()
+        );
+    }
+
+    /**
      * Full constructor.
      *
      * @param id ID.
@@ -45,7 +70,7 @@ public class Cache extends DataObject {
      * @param name Cache name.
      * @param json JSON payload.
      */
-    public Cache(
+    protected Cache(
         UUID id,
         UUID space,
         String name,
@@ -77,7 +102,7 @@ public class Cache extends DataObject {
     }
 
     /**
-     * @return Cache atomicy mode.
+     * @return Cache atomicity mode.
      */
     public CacheAtomicityMode atomicityMode() {
         return atomicityMode;

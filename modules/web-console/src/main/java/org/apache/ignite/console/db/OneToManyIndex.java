@@ -55,7 +55,7 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
 
     /**
      * @param parentIds Parent IDs.
-     * @return Map of parrents with its children.
+     * @return Map of parents with its children.
      */
     public Map<UUID, TreeSet<UUID>> loadAll(TreeSet<UUID> parentIds) {
         return cache.getAll(parentIds);
@@ -107,7 +107,7 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
      * Remove children IDs from index.
      *
      * @param parent Parent ID.
-     * @param childrenToRmv Childrent IDs to remove.
+     * @param childrenToRmv Children IDs to remove.
      */
     public void removeAll(UUID parent, TreeSet<UUID> childrenToRmv) {
         TreeSet<UUID> children = load(parent);
@@ -121,7 +121,7 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
      * Delete entry from index.
      *
      * @param parent Parent ID to delete.
-     * @return Children IDs assosiated with parent ID.
+     * @return Children IDs associated with parent ID.
      */
     public TreeSet<UUID> delete(UUID parent) {
         return ensure(cache.getAndRemove(parent));

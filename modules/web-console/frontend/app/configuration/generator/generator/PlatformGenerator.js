@@ -472,9 +472,9 @@ export default function service(JavaTypes, clusterDflts, cacheDflts) {
                     .intProperty('rebalanceThrottle');
             }
 
-            if (ccfg.includes('igfsAffinnityGroupSize')) {
+            if (ccfg.includes('igfsAffinityGroupSize')) {
                 const bean = new Bean('org.apache.ignite.igfs.IgfsGroupDataBlocksKeyMapper', 'affinityMapper', cache)
-                    .intConstructorArgument('igfsAffinnityGroupSize');
+                    .intConstructorArgument('igfsAffinityGroupSize');
 
                 ccfg.beanProperty('affinityMapper', bean);
             }

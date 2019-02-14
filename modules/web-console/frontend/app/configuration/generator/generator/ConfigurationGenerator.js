@@ -400,7 +400,7 @@ export default class IgniteConfigurationGenerator {
             atomicityMode: 'TRANSACTIONAL',
             writeSynchronizationMode: 'FULL_SYNC',
             backups: 0,
-            igfsAffinnityGroupSize: igfs.affinnityGroupSize || 512
+            igfsAffinityGroupSize: igfs.affinityGroupSize || 512
         }, available);
     }
 
@@ -2335,9 +2335,9 @@ export default class IgniteConfigurationGenerator {
                 .longProperty('rebalanceThrottle');
         }
 
-        if (ccfg.includes('igfsAffinnityGroupSize')) {
+        if (ccfg.includes('igfsAffinityGroupSize')) {
             const bean = new Bean('org.apache.ignite.igfs.IgfsGroupDataBlocksKeyMapper', 'affinityMapper', cache)
-                .intConstructorArgument('igfsAffinnityGroupSize');
+                .intConstructorArgument('igfsAffinityGroupSize');
 
             ccfg.beanProperty('affinityMapper', bean);
         }

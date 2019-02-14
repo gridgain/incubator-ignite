@@ -34,7 +34,7 @@ export interface ShortIGFS {
     _id: string,
     name: string,
     defaultMode: DefaultModes,
-    affinnityGroupSize: number
+    affinityGroupSize: number
 }
 
 // Models

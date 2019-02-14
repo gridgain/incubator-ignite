@@ -45,7 +45,7 @@ export default class IGFSs {
         };
     }
 
-    affinnityGroupSize = {
+    affinityGroupSize = {
         default: 512,
         min: 1
     };
