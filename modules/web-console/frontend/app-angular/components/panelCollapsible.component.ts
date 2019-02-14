@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import {Component, Input, EventEmitter, forwardRef} from '@angular/core';
+import {Component, Input, EventEmitter, forwardRef, HostBinding} from '@angular/core';
 import {NG_VALUE_ACCESSOR, ControlValueAccessor} from '@angular/forms';
 
 @Component({
@@ -109,6 +109,11 @@ import {NG_VALUE_ACCESSOR, ControlValueAccessor} from '@angular/forms';
 export class PanelCollapsible implements ControlValueAccessor {
     @Input()
     opened: boolean = false
+
+    @HostBinding('attr.open')
+    private get openAttr() {
+        return this.opened ? '' : void 0;
+    }
 
     @Input()
     disabled: string
