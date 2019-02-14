@@ -17,8 +17,6 @@
 
 package org.apache.ignite.console.routes;
 
-import java.util.Collection;
-import java.util.TreeSet;
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
@@ -26,7 +24,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.Table;
-import org.apache.ignite.console.dto.JsonBuilder;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.UniqueIndex;
@@ -42,10 +39,10 @@ public class NotebooksRouter extends AbstractRouter {
     private final Table<Notebook> notebooksTbl;
 
     /** */
-    private final OneToManyIndex accountNotebooksIdx;
+    private final OneToManyIndex notebooksIdx;
 
     /** */
-    private final UniqueIndex uniqueNotebookNameIdx;
+    private final UniqueIndex notebookNameIdx;
 
     /**
      * @param ignite Ignite.
@@ -54,22 +51,22 @@ public class NotebooksRouter extends AbstractRouter {
         super(ignite);
 
         notebooksTbl = new Table<>(ignite, "wc_notebooks");
-        accountNotebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
-        uniqueNotebookNameIdx = new UniqueIndex(ignite, "wc_unique_notebook_name_idx", "Notebook '%s' already exits");
+        notebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
+        notebookNameIdx = new UniqueIndex(ignite, "wc_unique_notebook_name_idx", "Notebook '%s' already exits");
     }
 
     /** {@inheritDoc} */
     @Override protected void initializeCaches() {
         notebooksTbl.prepare();
-        accountNotebooksIdx.prepare();
-        uniqueNotebookNameIdx.prepare();
+        notebooksIdx.prepare();
+        notebookNameIdx.prepare();
     }
 
     /** {@inheritDoc} */
     @Override public void install(Router router) {
         router.get("/api/v1/notebooks").handler(this::load);
         router.post("/api/v1/notebooks/save").handler(this::save);
-        router.post("/api/v1/notebooks/remove").handler(this::remove);
+        router.post("/api/v1/notebooks/remove").handler(this::delete);
     }
 
     /**
@@ -78,26 +75,7 @@ public class NotebooksRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
-        User user = checkUser(ctx);
-
-        if (user != null) {
-            try {
-                UUID userId = getUserId(user.principal());
-
-                try (Transaction tx = txStart()) {
-                    TreeSet<UUID> notebookIds = accountNotebooksIdx.load(userId);
-
-                    Collection<Notebook> notebooks = notebooksTbl.loadAll(notebookIds);
-
-                    tx.commit();
-
-                    sendResult(ctx, new JsonBuilder().addArray(notebooks).buffer());
-                }
-            }
-            catch (Throwable e) {
-                sendError(ctx, "Failed to load notebooks", e);
-            }
-        }
+        loadList(ctx, notebooksTbl, notebooksIdx, "Failed to load notebooks");
     }
 
     /**
@@ -124,9 +102,9 @@ public class NotebooksRouter extends AbstractRouter {
                 Notebook notebook = new Notebook(notebookId, null, name, json.encode());
 
                 try (Transaction tx = txStart()) {
-                    uniqueNotebookNameIdx.checkUnique(userId, name, notebook, notebook.name());
+                    notebookNameIdx.checkUnique(userId, name, notebook, notebook.name());
 
-                    accountNotebooksIdx.add(userId, notebookId);
+                    notebooksIdx.add(userId, notebookId);
 
                     notebooksTbl.save(notebook);
 
@@ -146,7 +124,7 @@ public class NotebooksRouter extends AbstractRouter {
      *
      * @param ctx Context.
      */
-    private void remove(RoutingContext ctx) {
+    private void delete(RoutingContext ctx) {
         User user = checkUser(ctx);
 
         if (user != null) {
@@ -164,8 +142,8 @@ public class NotebooksRouter extends AbstractRouter {
                     Notebook notebook = notebooksTbl.delete(notebookId);
 
                     if (notebook != null) {
-                        accountNotebooksIdx.remove(userId, notebookId);
-                        uniqueNotebookNameIdx.removeUniqueKey(userId, notebook.name());
+                        notebooksIdx.remove(userId, notebookId);
+                        notebookNameIdx.removeUniqueKey(userId, notebook.name());
 
                         rmvCnt = 1;
                     }

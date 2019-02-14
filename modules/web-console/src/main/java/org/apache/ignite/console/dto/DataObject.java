@@ -18,6 +18,7 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import io.vertx.core.json.JsonObject;
 
 /**
  * Abstract data object.
@@ -70,4 +71,9 @@ public abstract class DataObject extends AbstractDto {
     public void json(String json) {
         this.json = json;
     }
+
+    /**
+     * @return JSON value suitable for short lists.
+     */
+    public abstract JsonObject shortView();
 }

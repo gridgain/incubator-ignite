@@ -18,6 +18,7 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import io.vertx.core.json.JsonObject;
 
 /**
  * DTO for queries notebook.
@@ -45,5 +46,12 @@ public class Notebook extends DataObject {
      */
     public String name() {
         return name;
+    }
+
+    /** {@inheritDoc} */
+    @Override public JsonObject shortView() {
+        return new JsonObject()
+            .put("_id", _id())
+            .put("name", name);
     }
 }

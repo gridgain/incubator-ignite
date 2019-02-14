@@ -91,4 +91,13 @@ public class Model extends DataObject {
     public String valueType() {
         return valType;
     }
+
+    /** {@inheritDoc} */
+    @Override public JsonObject shortView() {
+        return new JsonObject()
+            .put("_id", _id())
+            .put("hasIndex", hasIdx)
+            .put("keyType", keyType)
+            .put("valueType", valType);
+    }
 }

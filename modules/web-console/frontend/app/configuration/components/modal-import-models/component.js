@@ -22,8 +22,8 @@ import _ from 'lodash';
 import find from 'lodash/fp/find';
 import get from 'lodash/fp/get';
 import naturalCompare from 'natural-compare-lite';
-import {race, timer, merge, of, from, combineLatest, EMPTY} from 'rxjs';
-import {tap, filter, take, pluck, switchMap, map} from 'rxjs/operators';
+import {combineLatest, EMPTY, from, merge, of, race, timer} from 'rxjs';
+import {exhaustMap, filter, map, pluck, switchMap, take, tap} from 'rxjs/operators';
 import {uniqueName} from 'app/utils/uniqueName';
 import {defaultNames} from '../../defaultNames';
 import uuidv4 from 'uuid/v4';
@@ -277,13 +277,6 @@ export class ModalImportModels {
             return name ? name.replace(/[^A-Za-z_0-9/.]+/g, '_') : 'org';
         };
 
-        const importDomainModal = {
-            hide: () => {
-                agentMgr.stopWatch();
-                this.onHide();
-            }
-        };
-
         const _makeDefaultPackageName = (user) => user
             ? _toJavaPackage(`${user.email.replace('@', '.').split('.').reverse().join('.')}.model`)
             : void 0;
@@ -297,7 +290,8 @@ export class ModalImportModels {
             generateFieldAliases: true,
             packageNameUserInput: _makeDefaultPackageName($root.user)
         };
-        this.$scope.$hide = importDomainModal.hide;
+
+        this.$scope.$hide = this.onHide;
 
         this.$scope.importCommon = {};
 
@@ -903,7 +897,7 @@ export class ModalImportModels {
             const act = $scope.importDomain.action;
 
             if (act === 'drivers' && $scope.importDomain.jdbcDriversNotFound)
-                importDomainModal.hide();
+                this.onHide();
             else if (act === 'connect')
                 _loadSchemas();
             else if (act === 'schemas')
@@ -1071,12 +1065,13 @@ export class ModalImportModels {
         );
 
         this.domainData$ = this.agentIsAvailable$.pipe(
-            switchMap((agentIsAvailable) => {
+            exhaustMap((agentIsAvailable) => {
                 if (!agentIsAvailable)
                     return of(EMPTY);
 
                 return from(fetchDomainData());
-            })
+            }),
+            take(1)
         );
 
         this.subscribers$ = merge(

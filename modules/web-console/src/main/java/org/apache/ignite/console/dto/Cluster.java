@@ -18,6 +18,7 @@
 package org.apache.ignite.console.dto;
 
 import java.util.UUID;
+import io.vertx.core.json.JsonObject;
 
 /**
  * DTO for cluster configuration.
@@ -57,5 +58,13 @@ public class Cluster extends DataObject {
      */
     public String discovery() {
         return discovery;
+    }
+
+    /** {@inheritDoc} */
+    @Override public JsonObject shortView() {
+        return new JsonObject()
+            .put("_id", _id())
+            .put("name", name)
+            .put("discovery", discovery);
     }
 }

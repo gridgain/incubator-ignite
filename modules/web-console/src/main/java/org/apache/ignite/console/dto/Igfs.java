@@ -93,4 +93,14 @@ public class Igfs extends DataObject {
     public int affinityGroupSize() {
         return affGrpSz;
     }
+
+
+    /** {@inheritDoc} */
+    @Override public JsonObject shortView() {
+        return new JsonObject()
+            .put("_id", _id())
+            .put("name", name)
+            .put("defaultMode", dfltMode)
+            .put("affinityGroupSize", affGrpSz);
+    }
 }

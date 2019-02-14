@@ -19,16 +19,24 @@ package org.apache.ignite.console.routes;
 
 import java.net.HttpURLConnection;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.db.OneToManyIndex;
+import org.apache.ignite.console.db.Table;
+import org.apache.ignite.console.dto.DataObject;
+import org.apache.ignite.console.dto.JsonBuilder;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -188,6 +196,14 @@ public abstract class AbstractRouter {
      * @param ctx Context.
      * @param data Data to send.
      */
+    protected void sendResult(RoutingContext ctx, JsonArray data) {
+        sendResult(ctx, data.toBuffer());
+    }
+
+    /**
+     * @param ctx Context.
+     * @param data Data to send.
+     */
     protected void sendResult(RoutingContext ctx, String data) {
         sendResult(ctx, Buffer.buffer(data));
     }
@@ -223,6 +239,62 @@ public abstract class AbstractRouter {
     protected void ensureTx() {
         if (ignite.transactions().tx() == null)
             throw new IllegalStateException("Transaction was not started explicitly");
+    }
+
+    /**
+     * Load short list of DTOs.
+     *
+     * @param ctx Context.
+     * @param tbl Table with DTOs.
+     * @param idx Index with DTOs IDs.
+     * @param errMsg Message to show in case of error.
+     */
+    protected void loadList(RoutingContext ctx, Table<? extends DataObject> tbl, OneToManyIndex idx, String errMsg) {
+        try {
+            UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
+
+            try (Transaction tx = txStart()) {
+                TreeSet<UUID> ids = idx.load(clusterId);
+
+                Collection<? extends DataObject> items = tbl.loadAll(ids);
+
+                tx.commit();
+
+                sendResult(ctx, new JsonBuilder().addArray(items).buffer());
+            }
+        }
+        catch (Throwable e) {
+            sendError(ctx, errMsg, e);
+        }
+    }
+
+    /**
+     * Load short list of DTOs.
+     *
+     * @param ctx Context.
+     * @param tbl Table with DTOs.
+     * @param idx Index with DTOs IDs.
+     * @param errMsg Message to show in case of error.
+     */
+    protected void loadShortList(RoutingContext ctx, Table<? extends DataObject> tbl, OneToManyIndex idx, String errMsg) {
+        try {
+            UUID clusterId = UUID.fromString(requestParam(ctx, "id"));
+
+            try (Transaction tx = txStart()) {
+                TreeSet<UUID> ids = idx.load(clusterId);
+
+                Collection<? extends DataObject> items = tbl.loadAll(ids);
+
+                tx.commit();
+
+                JsonArray res = new JsonArray(items.stream().map(DataObject::shortView).collect(Collectors.toList()));
+
+                sendResult(ctx, res);
+            }
+        }
+        catch (Throwable e) {
+            sendError(ctx, errMsg, e);
+        }
     }
 
     /**

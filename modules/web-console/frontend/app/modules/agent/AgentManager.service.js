@@ -325,52 +325,6 @@ export default class AgentManager {
     }
 
     /**
-     * @param {String} backText
-     * @param {String} [backState]
-     * @returns {ng.IPromise}
-     */
-    startAgentWatch(backText, backState) {
-        this.backText = backText;
-        this.backState = backState;
-
-        const conn = this.connectionSbj.getValue();
-
-        conn.useConnectedCluster();
-
-        this.connectionSbj.next(conn);
-
-        this.modalSubscription && this.modalSubscription.unsubscribe();
-
-        this.modalSubscription = this.connectionSbj.subscribe({
-            next: ({state}) => {
-                switch (state) {
-                    case State.CONNECTED:
-                    case State.CLUSTER_DISCONNECTED:
-                        this.agentModal.hide();
-
-                        break;
-
-                    case State.AGENT_DISCONNECTED:
-                        this.agentModal.agentDisconnected(this.backText, this.backState);
-
-                        break;
-
-                    default:
-                        // Connection to backend is not established yet.
-                }
-            }
-        });
-
-        return this.awaitAgent();
-    }
-
-    stopWatch() {
-        this.modalSubscription && this.modalSubscription.unsubscribe();
-
-        this.promises.forEach((promise) => promise.reject('Agent watch stopped.'));
-    }
-
-    /**
      * Send message.
      *
      * @param {String} address

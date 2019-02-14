@@ -237,8 +237,30 @@ public class WebConsoleServer extends AbstractVerticle {
 
             vertx.setPeriodic(3000, this::handleEmbeddedClusterTopology);
         }
-        else
+        else {
             evtBus.consumer(Addresses.CLUSTER_TOPOLOGY, this::handleClusterTopology);
+
+            vertx.setPeriodic(3000, this::refreshTop);
+        }
+    }
+
+    /**
+     * @param tid Timer ID.
+     */
+    private void refreshTop(long tid) {
+        JsonObject json = new JsonObject()
+            .put("count", 1)
+            .put("hasDemo", false);
+
+        JsonArray zz = new JsonArray(); // TODO IGNITE-5617 temporary hack
+
+        clusters.forEach((k, v) -> {
+            zz.add(v);
+        });
+
+        json.put("clusters", zz);
+
+        vertx.eventBus().send(Addresses.AGENTS_STATUS, json);
     }
 
     /**
@@ -496,7 +518,7 @@ public class WebConsoleServer extends AbstractVerticle {
                 );
 
                 return new JsonObject()
-                    .put("count", 1)
+                    .put("count", 1) // TODO IGNITE-5617 temporary hack
                     .put("hasDemo", false)
                     .put("clusters", top);
             });

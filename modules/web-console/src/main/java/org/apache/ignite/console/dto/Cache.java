@@ -114,4 +114,14 @@ public class Cache extends DataObject {
     public int backups() {
         return backups;
     }
+
+    /** {@inheritDoc} */
+    @Override public JsonObject shortView() {
+        return new JsonObject()
+            .put("_id", _id())
+            .put("name", name)
+            .put("cacheMode", cacheMode)
+            .put("atomicityMode", atomicityMode)
+            .put("backups", backups);
+    }
 }

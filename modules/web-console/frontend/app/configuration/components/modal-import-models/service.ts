@@ -48,7 +48,6 @@ export default class ModalImportModels {
                 this._open();
             },
             onExit: () => {
-                this.AgentManager.stopWatch();
                 this._modal && this._modal.hide();
             }
         });
