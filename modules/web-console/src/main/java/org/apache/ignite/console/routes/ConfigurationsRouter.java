@@ -260,10 +260,6 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param basic {@code true} in case of saving basic cluster.
      */
     private void saveCaches(Cluster cluster, JsonObject json, boolean basic) {
-        if (basic)
-            return; // TODO IGNITE-5617 IMPLEMENT!!!!
-
-
         JsonArray jsonCaches = json.getJsonArray("caches");
 
         if (F.isEmpty(jsonCaches))
@@ -277,6 +273,14 @@ public class ConfigurationsRouter extends AbstractRouter {
             Cache cache = Cache.fromJson(jsonCaches.getJsonObject(i));
 
             caches.put(cache.id(), cache);
+        }
+
+        if (basic) {
+            Collection<Cache> oldCaches = cachesTbl.loadAll(new TreeSet<>(caches.keySet()));
+
+            if (!F.isEmpty(oldCaches)) {
+                // TODO IGNITE-5617 Merge with new one!!!
+            }
         }
 
         cachesIdx.addAll(cluster.id(), caches.keySet());
