@@ -30,15 +30,15 @@ import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
+import org.apache.ignite.console.db.UniqueIndex;
 import org.apache.ignite.console.dto.Cache;
 import org.apache.ignite.console.dto.Cluster;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Igfs;
 import org.apache.ignite.console.dto.JsonBuilder;
 import org.apache.ignite.console.dto.Model;
-import org.apache.ignite.console.db.OneToManyIndex;
-import org.apache.ignite.console.db.UniqueIndex;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 
@@ -187,10 +187,11 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
-     * TODO
-     * @param oldCluster TODO
-     * @param newCluster TODO
-     * @param key TODO
+     * Handle objects that was deleted from cluster.
+     *
+     * @param oldCluster Old cluster JSON.
+     * @param newCluster New cluster JSON.
+     * @param fld Field name that holds IDs to check for deletion.
      */
     private void removedInCluster(
         Table<? extends DataObject> tbl,
@@ -198,45 +199,35 @@ public class ConfigurationsRouter extends AbstractRouter {
         UUID clusterId,
         JsonObject oldCluster,
         JsonObject newCluster,
-        String key
+        String fld
     ) {
-        TreeSet<UUID> oldIds = idsFromJson(oldCluster, key);
-        TreeSet<UUID> newIds = idsFromJson(newCluster, key);
+        TreeSet<UUID> oldIds = idsFromJson(oldCluster, fld);
+        TreeSet<UUID> newIds = idsFromJson(newCluster, fld);
 
         TreeSet<UUID> deletedIds = diff(oldIds, newIds);
 
-        tbl.deleteAll(deletedIds);
-        idx.removeAll(clusterId, deletedIds);
+        if (!F.isEmpty(deletedIds)) {
+            tbl.deleteAll(deletedIds);
+            idx.removeAll(clusterId, deletedIds);
+        }
     }
 
     /**
      * @param userId User ID.
      * @param json JSON data.
+     * @param basic {@code true} in case of saving basic cluster.
      * @return Saved cluster.
      */
-    private Cluster saveCluster(UUID userId, JsonObject json) {
+    private Cluster saveCluster(UUID userId, JsonObject json, boolean basic) {
         ensureTx();
 
         JsonObject jsonCluster = json.getJsonObject("cluster");
 
-        UUID clusterId = getId(jsonCluster);
+        Cluster newCluster = Cluster.fromJson(jsonCluster);
 
-        if (clusterId == null)
-            throw new IllegalStateException("Cluster ID not found");
+        clusterNameIdx.checkUnique(userId, newCluster.name(), newCluster, newCluster.name());
 
-        String name = jsonCluster.getString("name");
-
-        if (F.isEmpty(name))
-            throw new IllegalStateException("Cluster name is empty");
-
-        String discovery = jsonCluster.getJsonObject("discovery").getString("kind");
-
-        if (F.isEmpty(discovery))
-            throw new IllegalStateException("Cluster discovery not found");
-
-        Cluster newCluster = new Cluster(clusterId, null, name, discovery, jsonCluster.encode());
-
-        clusterNameIdx.checkUnique(userId, name, newCluster, name);
+        UUID clusterId = newCluster.id();
 
         Cluster oldCluster = clustersTbl.load(clusterId);
 
@@ -244,8 +235,16 @@ public class ConfigurationsRouter extends AbstractRouter {
             JsonObject oldClusterJson = new JsonObject(oldCluster.json());
 
             removedInCluster(cachesTbl, cachesIdx, clusterId, oldClusterJson, jsonCluster, "caches");
-            removedInCluster(modelsTbl, modelsIdx, clusterId, oldClusterJson, jsonCluster, "models");
-            removedInCluster(igfssTbl, igfssIdx, clusterId, oldClusterJson, jsonCluster, "igfss");
+
+            if (basic) {
+                oldClusterJson.mergeIn(jsonCluster);
+
+                newCluster.json(oldClusterJson.encode());
+            }
+            else {
+                removedInCluster(modelsTbl, modelsIdx, clusterId, oldClusterJson, jsonCluster, "models");
+                removedInCluster(igfssTbl, igfssIdx, clusterId, oldClusterJson, jsonCluster, "igfss");
+            }
         }
 
         clustersIdx.add(userId, clusterId);
@@ -258,8 +257,13 @@ public class ConfigurationsRouter extends AbstractRouter {
     /**
      * @param cluster Cluster.
      * @param json JSON data.
+     * @param basic {@code true} in case of saving basic cluster.
      */
-    private void saveCaches(Cluster cluster, JsonObject json) {
+    private void saveCaches(Cluster cluster, JsonObject json, boolean basic) {
+        if (basic)
+            return; // TODO IGNITE-5617 IMPLEMENT!!!!
+
+
         JsonArray jsonCaches = json.getJsonArray("caches");
 
         if (F.isEmpty(jsonCaches))
@@ -345,9 +349,9 @@ public class ConfigurationsRouter extends AbstractRouter {
                 JsonObject json = ctx.getBodyAsJson();
 
                 try (Transaction tx = txStart()) {
-                    Cluster cluster = saveCluster(userId, json);
+                    Cluster cluster = saveCluster(userId, json, false);
 
-                    saveCaches(cluster, json);
+                    saveCaches(cluster, json, false);
                     saveModels(cluster, json);
                     saveIgfss(cluster, json);
 
@@ -368,11 +372,27 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void saveBasicCluster(RoutingContext ctx) {
-        try {
-            throw new IllegalStateException("TODO IGNITE-5617 saveBasicCluster() not implemented yet!");
-        }
-        catch (Throwable e) {
-            sendError(ctx, "Failed to save cluster", e);
+        User user = checkUser(ctx);
+
+        if (user != null) {
+            try {
+                UUID userId = getUserId(user.principal());
+
+                JsonObject json = ctx.getBodyAsJson();
+
+                try (Transaction tx = txStart()) {
+                    Cluster cluster = saveCluster(userId, json, true);
+
+                    saveCaches(cluster, json, true);
+
+                    tx.commit();
+                }
+
+                sendResult(ctx, rowsAffected(1));
+            }
+            catch (Throwable e) {
+                sendError(ctx, "Failed to save cluster", e);
+            }
         }
     }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.console.dto;
 
 import java.util.UUID;
 import io.vertx.core.json.JsonObject;
+import org.apache.ignite.internal.util.typedef.F;
 
 /**
  * DTO for cluster configuration.
@@ -31,6 +32,35 @@ public class Cluster extends DataObject {
     private String discovery;
 
     /**
+     * @param json JSON data.
+     * @return New instance of cluster DTO.
+     */
+    public static Cluster fromJson(JsonObject json) {
+        String clusterId = json.getString("_id");
+
+        if (clusterId == null)
+            throw new IllegalStateException("Cluster ID not found");
+
+        String name = json.getString("name");
+
+        if (F.isEmpty(name))
+            throw new IllegalStateException("Cluster name is empty");
+
+        String discovery = json.getJsonObject("discovery").getString("kind");
+
+        if (F.isEmpty(discovery))
+            throw new IllegalStateException("Cluster discovery not found");
+
+        return new Cluster(
+            UUID.fromString(clusterId),
+            null,
+            name,
+            discovery,
+            json.encode()
+        );
+    }
+
+    /**
      * Full constructor.
      *
      * @param id ID.
@@ -39,7 +69,7 @@ public class Cluster extends DataObject {
      * @param discovery Cluster discovery.
      * @param json JSON payload.
      */
-    public Cluster(UUID id, UUID space, String name, String discovery, String json) {
+    protected Cluster(UUID id, UUID space, String name, String discovery, String json) {
         super(id, space, json);
 
         this.name = name;
