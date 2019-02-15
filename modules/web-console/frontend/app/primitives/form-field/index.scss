@@ -211,6 +211,7 @@
         }
 
         & > input,
+        & > select:not([multiple]),
         & > button:not(.btn-ignite) {
             outline: none;
             overflow: visible;
@@ -265,6 +266,10 @@
             &:after {
                 right: 36px;
             }
+        }
+        & > select.ng-invalid.ng-touched:not([multiple]) {
+            background-position: calc(100% - 36px) 50%;
+            padding-right: calc(28px + 26px);
         }
     }
 
@@ -366,6 +371,10 @@
             &:after {
                 right: 10px;
             }
+        }
+        & > select.ng-invalid.ng-touched:not([multiple]) {
+            background-position: calc(100% - 10px) 50%;
+            padding-right: calc(28px + 26px);
         }
     }
 
@@ -639,6 +648,15 @@
     .form-field__control {
         > button:not(.btn-ignite) {
             padding-top: 10px;
+        }
+        select:not([multiple]) {
+            -webkit-appearance: unset;
+            appearance: unset;
+            background-image: url(data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCA4IDQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0ibTAgMGg4bC00IDR6IiBmaWxsPSIjMzkzOTM5Ii8+PC9zdmc+);
+            background-size: 8px 4px;
+            background-repeat: no-repeat;
+            background-position: calc(100% - 10px) 50%;
+            padding-right: 28px;
         }
     }
 }

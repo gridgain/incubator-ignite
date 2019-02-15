@@ -14,30 +14,55 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 
-mixin form-field__dropdown({ label, model, name, disabled, required, multiple, placeholder, placeholderEmpty, options, optionLabel = 'label', tip, tipOpts })
+mixin form-field__dropdown({ label, model, name, disabled, required, multiple, placeholder, placeholderEmpty, options, optionLabel = 'label', tip, tipOpts, inline = false })
     -var errLbl = label ? label.substring(0, label.length - 1) : 'Field';
 
     mixin __form-field__input()
-        button.select-toggle(
-            type='button'
-            id=`{{ ${name} }}Input`
-            name=`{{ ${name} }}`
+        if !inline && !multiple
 
-            data-placeholder=placeholderEmpty ? `{{ ${options}.length > 0 ? '${placeholder}' : '${placeholderEmpty}' }}` : placeholder
-            
-            ng-model=model
-            ng-disabled=disabled && `${disabled}`
-            ng-required=required && `${required}`
-            ng-ref='$input'
-            ng-ref-read='ngModel'
+            select(
+                id=`{{ ${name} }}Input`
+                name=`{{ ${name} }}`
 
-            bs-select
-            bs-options=`item.value as item.${optionLabel} for item in ${options}`
+                data-placeholder=placeholderEmpty ? `{{ ${options}.length > 0 ? '${placeholder}' : '${placeholderEmpty}' }}` : placeholder
+                
+                ng-model=model
+                ng-disabled=disabled && `${disabled}`
+                ng-required=required && `${required}`
+                ng-ref='$input'
+                ng-ref-read='ngModel'
 
-            data-multiple=multiple ? '1' : false
+                multiple=multiple ? '' : false
+            )&attributes(attributes.attributes)
+                if !multiple && placeholder
+                    option(
+                        value=''
+                        ng-disabled=required && `${required}`
+                    ) #{placeholder}
+                option(ng-repeat=`item in ${options} track by item.value` ng-value='item.value' ng-bind=`item.${optionLabel}`)
 
-            tabindex='0'
-        )&attributes(attributes.attributes)
+        else
+
+            button.select-toggle(
+                type='button'
+                id=`{{ ${name} }}Input`
+                name=`{{ ${name} }}`
+
+                data-placeholder=placeholderEmpty ? `{{ ${options}.length > 0 ? '${placeholder}' : '${placeholderEmpty}' }}` : placeholder
+                
+                ng-model=model
+                ng-disabled=disabled && `${disabled}`
+                ng-required=required && `${required}`
+                ng-ref='$input'
+                ng-ref-read='ngModel'
+
+                bs-select
+                bs-options=`item.value as item.${optionLabel} for item in ${options}`
+
+                data-multiple=multiple ? '1' : false
+
+                tabindex='0'
+            )&attributes(attributes.attributes)
 
     .form-field.form-field__dropdown.ignite-form-field(id=`{{ ${name} }}Field`)
         +form-field__label({ label, name, required, disabled })
