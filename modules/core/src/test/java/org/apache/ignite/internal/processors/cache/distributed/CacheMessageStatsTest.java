@@ -17,18 +17,16 @@
 
 package org.apache.ignite.internal.processors.cache.distributed;
 
-import java.sql.SQLException;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.MutableEntry;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cache.CacheEntryProcessor;
+import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.ConnectorConfiguration;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -36,8 +34,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.configuration.WALMode;
 import org.apache.ignite.internal.IgniteEx;
-import org.apache.ignite.internal.IgniteInternalFuture;
-import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.internal.processors.cache.transactions.TransactionProxyImpl;
 import org.apache.ignite.lang.IgniteCallable;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
@@ -45,6 +42,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionConcurrency;
 import org.apache.ignite.transactions.TransactionIsolation;
+import org.junit.Test;
 
 import static org.apache.ignite.cache.CacheAtomicityMode.ATOMIC;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
@@ -108,6 +106,7 @@ public class CacheMessageStatsTest extends GridCommonAbstractTest {
         ccfg.setWriteSynchronizationMode(FULL_SYNC);
         ccfg.setOnheapCacheEnabled(false);
         ccfg.setReadFromBackup(false);
+        ccfg.setCacheMode(idx % 2 == 0 ? CacheMode.PARTITIONED : CacheMode.REPLICATED);
 
         return ccfg;
     }
@@ -115,7 +114,6 @@ public class CacheMessageStatsTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected void beforeTestsStarted() throws Exception {
         System.setProperty(IgniteSystemProperties.IGNITE_ENABLE_MESSAGE_STATS, "false");
-        System.setProperty(IgniteSystemProperties.IGNITE_STAT_TOO_LONG_PROCESSING, "0");
 
         cleanPersistenceDir();
 
@@ -146,14 +144,143 @@ public class CacheMessageStatsTest extends GridCommonAbstractTest {
      *
      */
     public void testGetAfterTxPut() throws Exception {
+        System.setProperty(IgniteSystemProperties.IGNITE_STAT_TOO_LONG_PROCESSING, "0");
+
+        try {
+            CacheConfiguration[] caches = cacheConfigurations();
+
+            IgniteEx client = grid("client");
+
+            List<Integer> keys = primaryKeys(grid(0).cache(caches[0].getName()), 4);
+
+            List<Ignite> backups = backupNodes(keys.get(0), caches[0].getName());
+
+            try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.READ_COMMITTED)) {
+                client.cache(caches[0].getName()).getAll(new HashSet<>(keys.subList(0, 2)));
+
+                client.cache(caches[0].getName()).put(keys.get(0), keys.get(0));
+                client.cache(caches[0].getName()).put(keys.get(1), keys.get(1));
+
+                tx.commit();
+            }
+            catch (Exception e) {
+                // No-op.
+            }
+
+            grid(0).context().io().dumpProcessedMessagesStats();
+            ((IgniteEx)backups.get(0)).context().io().dumpProcessedMessagesStats();
+            ((IgniteEx)backups.get(1)).context().io().dumpProcessedMessagesStats();
+
+//        try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
+//            client.cache(caches[1].getName()).getAll(new HashSet<>(keys.subList(2, 4)));
+//
+//            tx.commit();
+//        }
+//        catch (Exception e) {
+//            // No-op.
+//        }
+//
+//        try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.READ_COMMITTED)) {
+//            client.cache(caches[0].getName()).getAll(new HashSet<>(keys.subList(0, 2)));
+//
+//            tx.rollback();
+//        }
+//        catch (Exception e) {
+//            // No-op.
+//        }
+//
+//        try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
+//            client.cache(caches[1].getName()).getAll(new HashSet<>(keys.subList(2, 4)));
+//
+//            tx.rollback();
+//        }
+//        catch (Exception e) {
+//            // No-op.
+//        }
+//
+//        client.cache(caches[0].getName()).put(keys.get(0), 1);
+//
+//        client.cache(caches[0].getName()).get(keys.get(0));
+//
+//        grid(0).context().io().dumpProcessedMessagesStats();
+//
+//        client.cache(caches[0].getName()).get(keys.get(0));
+//        client.cache(caches[0].getName()).get(keys.get(1));
+//
+//        grid(0).context().io().dumpProcessedMessagesStats();
+//
+//        client.cache(caches[0].getName()).get(keys.get(0));
+//        client.cache(caches[1].getName()).get(keys.get(1));
+//
+//        grid(0).context().io().dumpProcessedMessagesStats();
+//
+//        AtomicInteger cnt = new AtomicInteger();
+//
+//        int getCnt = 105;
+//
+//        IgniteInternalFuture<?> fut = multithreadedAsync(new Runnable() {
+//            @Override public void run() {
+//                while (cnt.getAndIncrement() < getCnt)
+//                    client.cache(caches[0].getName()).get(keys.get(0));
+//            }
+//        }, Runtime.getRuntime().availableProcessors(), "get-thread");
+//
+//        fut.get();
+//
+//        // TODO FIXME Updates are logged after message is processed, so actual stats may lag behind cache API return.
+//        grid(0).context().io().dumpProcessedMessagesStats();
+//
+//        Collection<Object> res = client.compute().broadcast(() -> null);
+//
+//        Collection<Void> res2 = client.compute().broadcast(new Callable());
+//
+//        grid(0).context().io().dumpProcessedMessagesStats();
+//
+//        // atomics
+//        client.cache(caches[DEFAULT_ATOMIC_CACHE_INDEX].getName()).putAll(keys.stream().collect(Collectors.toMap(k -> k, k -> 0)));
+//        client.cache(caches[DEFAULT_ATOMIC_CACHE_INDEX].getName()).put(keys.get(0), 0);
+//        char[] res0 = client.cache(caches[DEFAULT_ATOMIC_CACHE_INDEX].getName()).invoke(keys.get(1), new MyInvoke());
+//        char[] res1 = client.cache(caches[DEFAULT_ATOMIC_CACHE_INDEX].getName()).invoke(keys.get(1), new MyInvoke());
+//        grid(0).context().io().dumpProcessedMessagesStats();
+//
+//        moreOperations();
+        }
+        finally {
+            System.clearProperty(IgniteSystemProperties.IGNITE_STAT_TOO_LONG_PROCESSING);
+        }
+    }
+
+    /**
+     *
+     */
+    public void testTransactionsPartitioned() {
+        doTestTransactionsPartitioned(0);
+    }
+
+    /**
+     *
+     */
+    public void testTransactionsReplicated() {
+        doTestTransactionsPartitioned(1);
+    }
+
+    /**
+     * @param cache Cache.
+     */
+    private void doTestTransactionsPartitioned(int cache) {
         CacheConfiguration[] caches = cacheConfigurations();
 
         IgniteEx client = grid("client");
 
-        List<Integer> keys = primaryKeys(grid(0).cache(caches[0].getName()), 4);
+        List<Integer> keys = primaryKeys(grid(0).cache(caches[cache].getName()), 2);
+
+        List<Ignite> backups = backupNodes(keys.get(0), caches[cache].getName());
 
         try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.READ_COMMITTED)) {
-            client.cache(caches[0].getName()).getAll(new HashSet<>(keys.subList(0, 2)));
+            client.cache(caches[cache].getName()).getAll(new HashSet<>(keys));
+
+            client.cache(caches[cache].getName()).put(keys.get(0), keys.get(0));
+            client.cache(caches[cache].getName()).put(keys.get(1), keys.get(1));
 
             tx.commit();
         }
@@ -162,60 +289,22 @@ public class CacheMessageStatsTest extends GridCommonAbstractTest {
         }
 
         try (Transaction tx = client.transactions().txStart(TransactionConcurrency.PESSIMISTIC, TransactionIsolation.REPEATABLE_READ)) {
-            client.cache(caches[0].getName()).getAll(new HashSet<>(keys.subList(2, 4)));
+            client.cache(caches[cache].getName()).get(keys.get(0));
+            client.cache(caches[cache].getName()).put(keys.get(1), 0);
 
-            tx.commit();
+            TransactionProxyImpl p = (TransactionProxyImpl)tx;
+
+            p.tx().prepare(true);
+
+            tx.rollback();
         }
         catch (Exception e) {
             // No-op.
         }
 
-        client.cache(caches[0].getName()).put(keys.get(0), 1);
-
-        client.cache(caches[0].getName()).get(keys.get(0));
-
         grid(0).context().io().dumpProcessedMessagesStats();
-
-        client.cache(caches[0].getName()).get(keys.get(0));
-        client.cache(caches[0].getName()).get(keys.get(1));
-
-        grid(0).context().io().dumpProcessedMessagesStats();
-
-        client.cache(caches[0].getName()).get(keys.get(0));
-        client.cache(caches[1].getName()).get(keys.get(1));
-
-        grid(0).context().io().dumpProcessedMessagesStats();
-
-        AtomicInteger cnt = new AtomicInteger();
-
-        int getCnt = 105;
-
-        IgniteInternalFuture<?> fut = multithreadedAsync(new Runnable() {
-            @Override public void run() {
-                while (cnt.getAndIncrement() < getCnt)
-                    client.cache(caches[0].getName()).get(keys.get(0));
-            }
-        }, Runtime.getRuntime().availableProcessors(), "get-thread");
-
-        fut.get();
-
-        // TODO FIXME Updates are logged after message is processed, so actual stats may lag behind cache API return.
-        grid(0).context().io().dumpProcessedMessagesStats();
-
-        Collection<Object> res = client.compute().broadcast(() -> null);
-
-        Collection<Void> res2 = client.compute().broadcast(new Callable());
-
-        grid(0).context().io().dumpProcessedMessagesStats();
-
-        // atomics
-        client.cache(caches[DEFAULT_ATOMIC_CACHE_INDEX].getName()).putAll(keys.stream().collect(Collectors.toMap(k -> k, k -> 0)));
-        client.cache(caches[DEFAULT_ATOMIC_CACHE_INDEX].getName()).put(keys.get(0), 0);
-        char[] res0 = client.cache(caches[DEFAULT_ATOMIC_CACHE_INDEX].getName()).invoke(keys.get(1), new MyInvoke());
-        char[] res1 = client.cache(caches[DEFAULT_ATOMIC_CACHE_INDEX].getName()).invoke(keys.get(1), new MyInvoke());
-        grid(0).context().io().dumpProcessedMessagesStats();
-
-        moreOperations();
+        ((IgniteEx)backups.get(0)).context().io().dumpProcessedMessagesStats();
+        ((IgniteEx)backups.get(1)).context().io().dumpProcessedMessagesStats();
     }
 
     /** */

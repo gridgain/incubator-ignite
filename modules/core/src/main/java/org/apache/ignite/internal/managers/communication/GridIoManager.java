@@ -61,6 +61,7 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.events.Event;
@@ -81,15 +82,12 @@ import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.KeyCacheObjectImpl;
-import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicFullUpdateRequest;
-import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicSingleUpdateFilterRequest;
-import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicSingleUpdateInvokeRequest;
-import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicSingleUpdateRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearGetRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishRequest;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetRequest;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
-import org.apache.ignite.internal.processors.cache.transactions.IgniteTxEntry;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxFinishRequest;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
+import org.apache.ignite.internal.processors.cache.transactions.IgniteTxKey;
+import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.platform.message.PlatformMessageFilter;
 import org.apache.ignite.internal.processors.pool.PoolProcessor;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
@@ -122,7 +120,6 @@ import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.CommunicationListener;
 import org.apache.ignite.spi.communication.CommunicationSpi;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
-import org.apache.ignite.transactions.TransactionConcurrency;
 import org.jetbrains.annotations.Nullable;
 
 import static java.time.Instant.ofEpochMilli;
@@ -154,12 +151,12 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     /** */
     private static final long IGNITE_STAT_HOT_KEYS_MAX_SIZE =
         IgniteSystemProperties.getInteger(
-            IgniteSystemProperties.IGNITE_STAT_HOT_KEYS_MAX_SIZE, 50_000);
+            IgniteSystemProperties.IGNITE_STAT_HOT_KEYS_MAX_SIZE, 1000);
 
     /** */
     private static final long IGNITE_STAT_HOT_PARTITIONS_MAX_SIZE =
         IgniteSystemProperties.getInteger(
-            IgniteSystemProperties.IGNITE_STAT_HOT_PARTITIONS_MAX_SIZE, 100_000);
+            IgniteSystemProperties.IGNITE_STAT_HOT_PARTITIONS_MAX_SIZE, 1000);
 
     /** */
     private static final long IGNITE_STAT_JOBS_MAX_SIZE =
@@ -930,44 +927,96 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         }
 
         // Set common stat handlers.
-        addStatHandler(GridNearAtomicSingleUpdateRequest.class, (stat, msg, duration) -> {
-            for (KeyCacheObject key : msg.keys())
-                stat.addKey(key, msg.cacheId(), log);
-        });
-        addStatHandler(GridNearAtomicFullUpdateRequest.class, (stat, msg, duration) -> {
-            for (KeyCacheObject key : msg.keys())
-                stat.addKey(key, msg.cacheId(), log);
-        });
-        addStatHandler(GridNearAtomicSingleUpdateInvokeRequest.class, (stat, msg, duration) -> {
-            for (KeyCacheObject key : msg.keys())
-                stat.addKey(key, msg.cacheId(), log);
-        });
-        addStatHandler(GridNearAtomicSingleUpdateFilterRequest.class, (stat, msg, duration) -> {
-            for (KeyCacheObject key : msg.keys())
-                stat.addKey(key, msg.cacheId(), log);
-        });
-        addStatHandler(GridNearLockRequest.class, (stat, msg, duration) -> {
-            for (KeyCacheObject key : msg.keys())
-                stat.addKey(key, msg.cacheId(), log);
-        });
-        addStatHandler(GridNearTxPrepareRequest.class, (stat, msg, duration) -> {
-            if (msg.concurrency() == TransactionConcurrency.OPTIMISTIC) {
-                for (IgniteTxEntry e : msg.writes())
-                    stat.addKey(e.key(), e.cacheId(), log);
+//        addStatHandler(GridNearAtomicSingleUpdateRequest.class, (stat, msg, duration) -> {
+//            for (KeyCacheObject key : msg.keys())
+//                stat.addKey(key, msg.cacheId(), log);
+//        });
+//        addStatHandler(GridNearAtomicFullUpdateRequest.class, (stat, msg, duration) -> {
+//            for (KeyCacheObject key : msg.keys())
+//                stat.addKey(key, msg.cacheId(), log);
+//        });
+//        addStatHandler(GridNearAtomicSingleUpdateInvokeRequest.class, (stat, msg, duration) -> {
+//            for (KeyCacheObject key : msg.keys())
+//                stat.addKey(key, msg.cacheId(), log);
+//        });
+//        addStatHandler(GridNearAtomicSingleUpdateFilterRequest.class, (stat, msg, duration) -> {
+//            for (KeyCacheObject key : msg.keys())
+//                stat.addKey(key, msg.cacheId(), log);
+//        });
+//        addStatHandler(GridNearLockRequest.class, (stat, msg, duration) -> {
+//            for (KeyCacheObject key : msg.keys())
+//                stat.addKey(key, msg.cacheId(), log);
+//        });
+        addStatHandler(GridDhtTxFinishRequest.class, new ProcessMessageStatsClosure<GridDhtTxFinishRequest>() {
+            @Override public void apply(MessageStat stat, GridDhtTxFinishRequest msg, long duration) {
+                // No-op.
+            }
 
-                if (msg.reads() != null) {
-                    for (IgniteTxEntry e : msg.reads())
-                        stat.addKey(e.key(), e.cacheId(), log);
+            @Override public String key(GridDhtTxFinishRequest msg, Object ctx) {
+                Boolean repl = (Boolean)ctx;
+
+                return "GridDhtTxFinishRequest" + ((msg.commit() ? "Commit" : "Rollback") + (repl ? "R" : ""));
+            }
+
+            @Override public Object context(GridDhtTxFinishRequest msg) {
+                IgniteInternalTx tx = ctx.cache().context().tm().tx(msg.version());
+
+                if (tx != null) {
+                    for (IgniteTxKey key : tx.writeSet()) {
+                        if (ctx.cache().cacheDescriptor(key.cacheId()).cacheConfiguration().getCacheMode() == CacheMode.REPLICATED)
+                            return true;
+                    }
                 }
+
+                return false;
             }
         });
-        addStatHandler(GridNearGetRequest.class, (stat, msg, duration) -> {
-            for (KeyCacheObject key : msg.keys().keySet())
-                stat.addKey(key, msg.cacheId(), log);
+        addStatHandler(GridNearTxFinishRequest.class, new ProcessMessageStatsClosure<GridNearTxFinishRequest>() {
+            @Override public void apply(MessageStat stat, GridNearTxFinishRequest msg, long duration) {
+                // No-op.
+            }
+
+            @Override public String key(GridNearTxFinishRequest msg, Object ctx) {
+                Boolean repl = (Boolean)ctx;
+
+                return "GridNearTxFinishRequest" + (msg.commit() ? "Commit" : "Rollback") + (repl ? "R" : "");
+            }
+
+            @Override public Object context(GridNearTxFinishRequest msg) {
+                GridCacheVersion ver = ctx.cache().context().tm().mappedVersion(msg.version());
+
+                if (ver != null) {
+                    IgniteInternalTx tx = ctx.cache().context().tm().tx(ver);
+
+                    if (tx != null) {
+                        for (IgniteTxKey key : tx.writeSet()) {
+                            if (ctx.cache().cacheDescriptor(key.cacheId()).cacheConfiguration().getCacheMode() == CacheMode.REPLICATED)
+                                return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
         });
-        addStatHandler(GridNearSingleGetRequest.class, (stat, msg, duration) -> {
-            stat.addKey(msg.key(), msg.cacheId(), log);
-        });
+//        addStatHandler(GridNearTxPrepareRequest.class, (stat, msg, duration) -> {
+//            if (msg.concurrency() == TransactionConcurrency.OPTIMISTIC) {
+//                for (IgniteTxEntry e : msg.writes())
+//                    stat.addKey(e.key(), e.cacheId(), log);
+//
+//                if (msg.reads() != null) {
+//                    for (IgniteTxEntry e : msg.reads())
+//                        stat.addKey(e.key(), e.cacheId(), log);
+//                }
+//            }
+//        });
+//        addStatHandler(GridNearGetRequest.class, (stat, msg, duration) -> {
+//            for (KeyCacheObject key : msg.keys().keySet())
+//                stat.addKey(key, msg.cacheId(), log);
+//        });
+//        addStatHandler(GridNearSingleGetRequest.class, (stat, msg, duration) -> {
+//            stat.addKey(msg.key(), msg.cacheId(), log);
+//        });
         addStatHandler(GridJobExecuteRequest.class, (stat, msg, duration) -> {
             String qry = null;
 
@@ -1244,6 +1293,8 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
                     long startProc = System.nanoTime();
 
+                    Object ctx = msgBeforeProcContext(msg);
+
                     processRegularMessage0(msg, nodeId);
 
                     logMessageProcessingTime(msg,
@@ -1254,7 +1305,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                         beforeQueueSize,
                         head,
                         stripe == null ? -1 : stripe.queueSize(),
-                        null); // TODO additional profiling could be implemented for specific message type.
+                        ctx); // TODO additional profiling could be implemented for specific message type.
                 }
                 finally {
                     threadProcessingMessage(false, null);
@@ -1334,22 +1385,22 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     }
 
     /** */
-    private ThreadLocal<Map<Class<? extends Message>, MessageStat>> locStatHolder = new ThreadLocal<>();
+    private ThreadLocal<Map<String, MessageStat>> locStatHolder = new ThreadLocal<>();
 
     /** */
     private ThreadLocal<List<ProcStat>> locSlowMsgHolder = new ThreadLocal<>();
 
     /** */
-    private final Map<Thread, Map<Class<? extends Message>, MessageStat>> sharedStats = new ConcurrentHashMap<>();
+    private final Map<Thread, Map<String, MessageStat>> sharedStats = new ConcurrentHashMap<>();
 
     /** */
     private final Map<Thread, List<ProcStat>> sharedSlowMsgs = new ConcurrentHashMap<>();
 
     /** Average counters. Accessed from single collector thread. */
-    private Map<Class<? extends Message>, Integer> avgCntMap = new HashMap<>();
+    private Map<String, Integer> avgCntMap = new HashMap<>();
 
     /** Merge map. Accessed from single collector thread. */
-    private Map<Class<? extends Message>, MessageStat> mergeMap = new HashMap<>();
+    private Map<String, MessageStat> mergeMap = new HashMap<>();
 
     /** Initialized from single thread, accessed from many. */
     private volatile Map<String, ProcessMessageStatsClosure<Message>> handlers = new HashMap<>();
@@ -1367,22 +1418,32 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     public interface ProcessMessageStatsClosure<T extends Message> {
         /** */
         void apply(MessageStat stat, T msg, long duration);
+
+        /** */
+        default String key(T msg, Object ctx) {
+            return null;
+        };
+
+        /** */
+        default Object context(T msg)  {
+            return null;
+        };
     }
 
     /** Should be called always from same thread. */
-    public Map<Class<? extends Message>, MessageStat> dumpProcessedMessagesStats() {
+    public Map<String, MessageStat> dumpProcessedMessagesStats() {
         if (ctx.clientNode())
             return null;
 
         GridStringBuilder sb = new GridStringBuilder();
 
-        Set<Entry<Thread, Map<Class<? extends Message>, MessageStat>>> entries1 = sharedStats.entrySet();
+        Set<Entry<Thread, Map<String, MessageStat>>> entries1 = sharedStats.entrySet();
 
-        for (Entry<Thread, Map<Class<? extends Message>, MessageStat>> entry0 : entries1) {
-            final Map<Class<? extends Message>, MessageStat> statMap0 = entry0.getValue();
+        for (Entry<Thread, Map<String, MessageStat>> entry0 : entries1) {
+            final Map<String, MessageStat> statMap0 = entry0.getValue();
 
             synchronized (statMap0) {
-                for (Map.Entry<Class<? extends Message>, MessageStat> entry : statMap0.entrySet()) {
+                for (Map.Entry<String, MessageStat> entry : statMap0.entrySet()) {
                     MessageStat res = mergeMap.get(entry.getKey());
 
                     if (res == null) {
@@ -1409,17 +1470,17 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
         sb.a(">>><DBG> Processed messages statistics: ").a(U.nl());
 
-        List<Map.Entry<Class<? extends Message>, MessageStat>> top = mergeMap.entrySet().stream().sorted((o1,
+        List<Map.Entry<String, MessageStat>> top = mergeMap.entrySet().stream().sorted((o1,
             o2) -> Long.compare(o2.getValue().total, o1.getValue().total)).collect(Collectors.toList());
 
         long total = 0;
 
-        Iterator<Map.Entry<Class<? extends Message>, MessageStat>> it = top.iterator();
+        Iterator<Map.Entry<String, MessageStat>> it = top.iterator();
 
         while (it.hasNext()) {
-            Map.Entry<Class<? extends Message>, MessageStat> entry = it.next();
+            Map.Entry<String, MessageStat> entry = it.next();
 
-            sb.a(">>><DBG> ").a(entry.getKey().getSimpleName())
+            sb.a(">>><DBG> ").a(entry.getKey())
                 .a(" [total=").a(entry.getValue().total)
                 .a(", average=").a(entry.getValue().rollingAvg / 1000/ 1000.);
 
@@ -1507,6 +1568,19 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
     /**
      * @param msg Message.
+     */
+    private Object msgBeforeProcContext(GridIoMessage msg) {
+        Message msg0 = msg.message();
+
+        String clsName = msg0.getClass().getSimpleName();
+
+        ProcessMessageStatsClosure<Message> clo = handlers.get(clsName);
+
+        return clo != null ? clo.context(msg0) : null;
+    }
+
+    /**
+     * @param msg Message.
      * @param startWait Start waiting in queue timestamp.
      * @param startProc Start processing timestamp.
      * @param finishProc Finish processing timestamp.
@@ -1529,7 +1603,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         if (this.ctx.clientNode())
             return;
 
-        Map<Class<? extends Message>, MessageStat> statMap = locStatHolder.get();
+        Map<String, MessageStat> statMap = locStatHolder.get();
 
         if (statMap == null) {
             locStatHolder.set(statMap = new HashMap<>());
@@ -1547,18 +1621,20 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
         Message msg0 = msg.message();
 
-        Class<? extends Message> msgCls = msg0.getClass();
+        String clsName = msg0.getClass().getSimpleName();
 
-        ProcessMessageStatsClosure<Message> clo = handlers.get(msg0.getClass().getSimpleName());
+        ProcessMessageStatsClosure<Message> clo = handlers.get(clsName);
+
+        String key = clo == null ? clsName : clo.key(msg0, ctx);
 
         long procTime = finishProc - startProc;
         long waitTime = startProc - startWait;
 
         synchronized (statMap) {
-            MessageStat stat = statMap.get(msgCls);
+            MessageStat stat = statMap.get(key);
 
             if (stat == null)
-                statMap.put(msgCls, (stat = new MessageStat(this.ctx)));
+                statMap.put(key, (stat = new MessageStat(this.ctx)));
 
             stat.increment(procTime, waitTime);
 
@@ -1567,7 +1643,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                     clo.apply(stat, msg0, procTime + waitTime);
                 }
                 catch (Throwable e) {
-                    log.error("Failed to apply stat closure: msgCls=" + msgCls.getSimpleName(), e);
+                    log.error("Failed to apply stat closure: msgCls=" + clsName, e);
                 }
         }
 
@@ -1577,7 +1653,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                     messages.add(new ProcStat(enqueueTs, waitTime, procTime, msg0, qSizeBefore, head, qSizeAfter, ctx));
                 }
                 catch (Throwable e) {
-                    log.error("Failed to add slow message: msgCls=" + msgCls.getSimpleName(), e);
+                    log.error("Failed to add slow message: msgCls=" + key, e);
                 }
             }
         }
@@ -3787,26 +3863,27 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
          */
         public void addKey(KeyCacheObject key, int cacheId, @Nullable IgniteLogger log) {
             try {
-                if (hotKeys.size() >= IGNITE_STAT_HOT_KEYS_MAX_SIZE)
-                    return;
+                if (hotKeys.size() < IGNITE_STAT_HOT_KEYS_MAX_SIZE) {
+                    if (ctx != null) {
+                        GridCacheContext cctx = ctx.cache().context().cacheContext(cacheId);
 
-                if (ctx != null) {
-                    GridCacheContext cctx = ctx.cache().context().cacheContext(cacheId);
+                        key.finishUnmarshal(cctx.cacheObjectContext(), null);
+                    }
 
-                    key.finishUnmarshal(cctx.cacheObjectContext(), null);
+                    T2<KeyCacheObject, Integer> k0 = new T2<>(key, cacheId);
+
+                    Long cnt = hotKeys.get(k0);
+
+                    hotKeys.put(k0, cnt == null ? 1 : cnt + 1);
                 }
 
-                T2<KeyCacheObject, Integer> k0 = new T2<>(key, cacheId);
+                if (hotPartitions.size() < IGNITE_STAT_HOT_PARTITIONS_MAX_SIZE) {
+                    T2<Integer, Integer> p0 = new T2<>(key.partition(), cacheId);
 
-                Long cnt = hotKeys.get(k0);
+                    Long cnt = hotPartitions.get(p0);
 
-                hotKeys.put(k0, cnt == null ? 1 : cnt + 1);
-
-                T2<Integer, Integer> p0 = new T2<>(key.partition(), cacheId);
-
-                cnt = hotPartitions.get(p0);
-
-                hotPartitions.put(p0, cnt == null ? 1 : cnt + 1);
+                    hotPartitions.put(p0, cnt == null ? 1 : cnt + 1);
+                }
             }
             catch (Throwable e) {
                 if (log != null)
