@@ -215,10 +215,9 @@ public class ConfigurationsRouter extends AbstractRouter {
     /**
      * @param userId User ID.
      * @param json JSON data.
-     * @param basic {@code true} in case of saving basic cluster.
      * @return Saved cluster.
      */
-    private Cluster saveCluster(UUID userId, JsonObject json, boolean basic) {
+    private Cluster saveCluster(UUID userId, JsonObject json) {
         ensureTx();
 
         JsonObject jsonCluster = json.getJsonObject("cluster");
@@ -235,16 +234,8 @@ public class ConfigurationsRouter extends AbstractRouter {
             JsonObject oldClusterJson = new JsonObject(oldCluster.json());
 
             removedInCluster(cachesTbl, cachesIdx, clusterId, oldClusterJson, jsonCluster, "caches");
-
-            if (basic) {
-                oldClusterJson.mergeIn(jsonCluster);
-
-                newCluster.json(oldClusterJson.encode());
-            }
-            else {
-                removedInCluster(modelsTbl, modelsIdx, clusterId, oldClusterJson, jsonCluster, "models");
-                removedInCluster(igfssTbl, igfssIdx, clusterId, oldClusterJson, jsonCluster, "igfss");
-            }
+            removedInCluster(modelsTbl, modelsIdx, clusterId, oldClusterJson, jsonCluster, "models");
+            removedInCluster(igfssTbl, igfssIdx, clusterId, oldClusterJson, jsonCluster, "igfss");
         }
 
         clustersIdx.add(userId, clusterId);
@@ -278,9 +269,16 @@ public class ConfigurationsRouter extends AbstractRouter {
         if (basic) {
             Collection<Cache> oldCaches = cachesTbl.loadAll(new TreeSet<>(caches.keySet()));
 
-            if (!F.isEmpty(oldCaches)) {
-                // TODO IGNITE-5617 Merge with new one!!!
-            }
+            oldCaches.forEach(oldCache -> {
+                Cache newCache = caches.get(oldCache.id());
+
+                if (newCache != null) {
+                    JsonObject oldJson = new JsonObject(oldCache.json());
+                    JsonObject newJson = new JsonObject(newCache.json());
+
+                    newCache.json(oldJson.mergeIn(newJson).encode());
+                }
+            });
         }
 
         cachesIdx.addAll(cluster.id(), caches.keySet());
@@ -353,7 +351,7 @@ public class ConfigurationsRouter extends AbstractRouter {
                 JsonObject json = ctx.getBodyAsJson();
 
                 try (Transaction tx = txStart()) {
-                    Cluster cluster = saveCluster(userId, json, false);
+                    Cluster cluster = saveCluster(userId, json);
 
                     saveCaches(cluster, json, false);
                     saveModels(cluster, json);
@@ -385,7 +383,7 @@ public class ConfigurationsRouter extends AbstractRouter {
                 JsonObject json = ctx.getBodyAsJson();
 
                 try (Transaction tx = txStart()) {
-                    Cluster cluster = saveCluster(userId, json, true);
+                    Cluster cluster = saveCluster(userId, json);
 
                     saveCaches(cluster, json, true);
 
