@@ -29,6 +29,9 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
 import org.apache.ignite.console.auth.IgniteAuth;
+import org.apache.ignite.console.routes.ConfigurationsRouter;
+import org.apache.ignite.console.routes.NotebooksRouter;
+import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
@@ -50,7 +53,10 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
         IgniteAuth auth = new IgniteAuth(ignite, vertx);
 
-        vertx.deployVerticle(new WebConsoleServer(ignite, auth, false));
+        RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
+        RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
+
+        vertx.deployVerticle(new WebConsoleServer(ignite, auth, cfgsRouter, notebooksRouter, false));
     }
 
     /**

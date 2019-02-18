@@ -30,7 +30,6 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
-import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.OneToManyIndex;
@@ -51,7 +50,7 @@ import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_REA
 /**
  * Base class for routers.
  */
-public abstract class AbstractRouter {
+public abstract class AbstractRouter implements RestApiRouter {
     /** */
     protected final Ignite ignite;
 
@@ -296,11 +295,4 @@ public abstract class AbstractRouter {
             sendError(ctx, errMsg, e);
         }
     }
-
-    /**
-     * Install handlers on router.
-     *
-     * @param router Router.
-     */
-    public abstract void install(Router router);
 }

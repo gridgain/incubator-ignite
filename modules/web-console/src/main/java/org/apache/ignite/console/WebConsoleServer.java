@@ -61,8 +61,7 @@ import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.routes.ConfigurationsRouter;
-import org.apache.ignite.console.routes.NotebooksRouter;
+import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.binary.BinaryObjectImpl;
@@ -131,10 +130,10 @@ public class WebConsoleServer extends AbstractVerticle {
     private final IgniteAuth auth;
 
     /** */
-    private final ConfigurationsRouter configurationsRouter;
+    private final RestApiRouter cfgsRouter;
 
     /** */
-    private final NotebooksRouter notebooksRouter;
+    private final RestApiRouter notebooksRouter;
 
     /** */
     private boolean embedded;
@@ -171,15 +170,22 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param ignite Ignite.
      * @param auth Auth provider.
+     * @param cfgsRouter Configurations REST API router.
+     * @param notebooksRouter Notebooks REST API router.
      * @param embedded Whether Web Console run in embedded mode.
      */
-    public WebConsoleServer(Ignite ignite, IgniteAuth auth, boolean embedded) {
+    public WebConsoleServer(
+        Ignite ignite,
+        IgniteAuth auth,
+        RestApiRouter cfgsRouter,
+        RestApiRouter notebooksRouter,
+        boolean embedded
+    ) {
         this.ignite = ignite;
         this.auth = auth;
+        this.cfgsRouter = cfgsRouter;
+        this.notebooksRouter = notebooksRouter;
         this.embedded = embedded;
-
-        configurationsRouter = new ConfigurationsRouter(ignite);
-        notebooksRouter = new NotebooksRouter(ignite);
     }
 
     /** {@inheritDoc} */
@@ -254,9 +260,7 @@ public class WebConsoleServer extends AbstractVerticle {
 
         JsonArray zz = new JsonArray(); // TODO IGNITE-5617 temporary hack
 
-        clusters.forEach((k, v) -> {
-            zz.add(v);
-        });
+        clusters.forEach((k, v) -> zz.add(v));
 
         json.put("clusters", zz);
 
@@ -288,7 +292,7 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.post("/api/v1/activities/page").handler(this::handleDummy);
 
-        configurationsRouter.install(router);
+        cfgsRouter.install(router);
         notebooksRouter.install(router);
     }
 

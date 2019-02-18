@@ -126,15 +126,23 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
-     *
-     * @param parentId Parent ID.
-     * @param children Map with children.
-     * @return Number of children
+     * @param cluster Cluster DTO.
+     * @return Short view of cluster DTO as JSON object.
      */
-    private int countChildren(UUID parentId, Map<UUID, TreeSet<UUID>> children) {
-        TreeSet<UUID> res = children.get(parentId);
+    protected JsonObject shortCluster(Cluster cluster) {
+            UUID clusterId = cluster.id();
 
-        return F.isEmpty(res) ? 0 : res.size();
+            int cachesCnt = cachesIdx.load(clusterId).size();
+            int modelsCnt = modelsIdx.load(clusterId).size();
+            int igfsCnt = igfssIdx.load(clusterId).size();
+
+            return new JsonObject()
+                .put("_id", cluster._id())
+                .put("name", cluster.name())
+                .put("discovery", cluster.discovery())
+                .put("cachesCount", cachesCnt)
+                .put("modelsCount", modelsCnt)
+                .put("igfsCount", igfsCnt);
     }
 
     /**
@@ -153,29 +161,12 @@ public class ConfigurationsRouter extends AbstractRouter {
                     TreeSet<UUID> clusterIds = clustersIdx.load(userId);
 
                     Collection<Cluster> clusters = clustersTbl.loadAll(clusterIds);
-                    Map<UUID, TreeSet<UUID>>caches = cachesIdx.loadAll(clusterIds);
-                    Map<UUID, TreeSet<UUID>>models = modelsIdx.loadAll(clusterIds);
-                    Map<UUID, TreeSet<UUID>>igfss = igfssIdx.loadAll(clusterIds);
-
-                    tx.commit();
 
                     JsonArray shortList = new JsonArray();
 
-                    clusters.forEach(cluster -> {
-                        UUID clusterId = cluster.id();
+                    clusters.forEach(cluster -> shortList.add(shortCluster(cluster)));
 
-                        int cachesCnt = countChildren(clusterId, caches);
-                        int modelsCnt = countChildren(clusterId, models);
-                        int igfsCnt = countChildren(clusterId, igfss);
-
-                        shortList.add(new JsonObject()
-                            .put("_id", cluster._id())
-                            .put("name", cluster.name())
-                            .put("discovery", cluster.discovery())
-                            .put("cachesCount", cachesCnt)
-                            .put("modelsCount", modelsCnt)
-                            .put("igfsCount", igfsCnt));
-                    });
+                    tx.commit();
 
                     sendResult(ctx, shortList.toBuffer());
                 }
@@ -550,6 +541,8 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadCache(RoutingContext ctx) {
+        checkUser(ctx);
+
         try {
             UUID cacheId = UUID.fromString(requestParam(ctx, "id"));
 
@@ -570,6 +563,8 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadModel(RoutingContext ctx) {
+        checkUser(ctx);
+
         try {
             UUID mdlId = UUID.fromString(requestParam(ctx, "id"));
 
@@ -590,6 +585,8 @@ public class ConfigurationsRouter extends AbstractRouter {
      * @param ctx Context.
      */
     private void loadIgfs(RoutingContext ctx) {
+        checkUser(ctx);
+
         try {
             UUID igfsId = UUID.fromString(requestParam(ctx, "id"));
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.console.db;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -51,14 +50,6 @@ public class OneToManyIndex extends CacheHolder<UUID, TreeSet<UUID>> {
      */
     public TreeSet<UUID> load(UUID parentId) {
         return ensure(cache.get(parentId));
-    }
-
-    /**
-     * @param parentIds Parent IDs.
-     * @return Map of parents with its children.
-     */
-    public Map<UUID, TreeSet<UUID>> loadAll(TreeSet<UUID> parentIds) {
-        return cache.getAll(parentIds);
     }
 
     /**
