@@ -34,9 +34,11 @@ export default class DemoModeButton {
     }
 
     startDemo() {
-        const demoEnabled = _.get(this.agentMgr.connectionSbj.getValue(), 'hasDemo');
+        const connectionState = this.agentMgr.connectionSbj.getValue();
+        const disconnected = _.get(connectionState, 'state') === 'AGENT_DISCONNECTED';
+        const demoEnabled = _.get(connectionState, 'hasDemo');
 
-        if (demoEnabled || _.isNil(demoEnabled)) {
+        if (disconnected || demoEnabled || _.isNil(demoEnabled)) {
             if (!this.$root.user.demoCreated)
                 return this._openTab('demo.reset');
 
@@ -49,6 +51,6 @@ export default class DemoModeButton {
                 });
         }
         else
-            this.Messages.showError('Demo is disabled for current cluster agent manager.');
+            this.Messages.showError('Demo is disabled by administrator for that instance of Web agent');
     }
 }
