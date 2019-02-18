@@ -156,9 +156,6 @@ import {igniteWebConsoleAngular} from '../app-angular/downgrade';
 
 import uiRouter from '@uirouter/angularjs';
 import {upgradeModule} from '@uirouter/angular-hybrid';
-// import {downgradeComponent} from '@angular/upgrade/static';
-// import {ServiceBootstrapComponent} from '../app-angular';
-
 
 export default angular
     .module('ignite-console', [
@@ -183,7 +180,6 @@ export default angular
         'ui.grid.selection',
         uiRouter,
         upgradeModule.name,
-        // 'ui.router.state.events',
         'ui.carousel',
         // Base modules.
         'ignite-console.core',
@@ -259,12 +255,8 @@ export default angular
         noDataCmp.name,
         globalProgressBar.name
     ])
-// Restore routing after Angular loads
-.config(['$urlServiceProvider', ($urlService) => $urlService.deferIntercept()])
-// .directive('serviceBootstrap', downgradeComponent({component: ServiceBootstrapComponent}))
-// .run(['$compile', '$rootScope', ($compile: ng.ICompileService, $root: ng.IRootScopeService) => {
-//     $compile('<service-bootstrap></service-bootstrap>')($root);
-// }])
+    // Routing should wait until Angular loads. Angular app part will start it back using serviceBootstrap component.
+    .config(['$urlServiceProvider', ($urlService) => $urlService.deferIntercept()])
     .service('$exceptionHandler', $exceptionHandler)
     // Directives.
     .directive('igniteAutoFocus', igniteAutoFocus)
