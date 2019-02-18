@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-@import "./../primitives/btn/index.scss";
+package org.apache.ignite.internal.transactions;
 
-#buorg.buorg {
-    background-color: $brand-warning;
-    line-height: 16px;
-    font-family: inherit;
+/**
+ * Exception thrown whenever Mvcc transaction has been finished before operation finished.
+ * E.g. rollback due to some reason.
+ */
+public class IgniteTxAlreadyCompletedCheckedException extends TransactionCheckedException {
+    /** */
+    private static final long serialVersionUID = 0L;
 
-    a {
-        @extend .btn-ignite;
-
-        &#buorgul {
-            @extend .btn-ignite--success;
-        }
-
-        &#buorgig {
-            @extend .btn-ignite--primary;
-        }
+    /**
+     * Creates new exception with given error message.
+     *
+     * @param msg Error message.
+     */
+    public IgniteTxAlreadyCompletedCheckedException(String msg) {
+        super(msg);
     }
 }

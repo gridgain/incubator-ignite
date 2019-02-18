@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-@import "./../primitives/btn/index.scss";
+package org.apache.ignite.transactions;
 
-#buorg.buorg {
-    background-color: $brand-warning;
-    line-height: 16px;
-    font-family: inherit;
+/**
+ * Exception thrown whenever Mvcc transaction has been finished before operation finished.
+ * E.g. rollback due to some reason.
+ */
+public class TransactionAlreadyCompletedException extends TransactionException {
+    /** */
+    private static final long serialVersionUID = 0L;
 
-    a {
-        @extend .btn-ignite;
-
-        &#buorgul {
-            @extend .btn-ignite--success;
-        }
-
-        &#buorgig {
-            @extend .btn-ignite--primary;
-        }
+    /**
+     * Creates new exception with given error message and optional nested exception.
+     *
+     * @param msg Error message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public TransactionAlreadyCompletedException(String msg, Throwable cause) {
+        super(cause);
     }
 }

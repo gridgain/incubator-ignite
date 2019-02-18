@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.processors.query;
 
-import java.sql.Time;
+import java.lang.reflect.Field;
 import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import javax.cache.Cache;
 import javax.cache.configuration.Factory;
 import org.apache.ignite.Ignite;
@@ -47,6 +49,7 @@ import org.apache.ignite.configuration.TopologyValidator;
 import org.apache.ignite.internal.ClusterMetricsSnapshot;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteNodeAttributes;
+import org.apache.ignite.internal.managers.discovery.ClusterMetricsImpl;
 import org.apache.ignite.internal.processors.cache.query.IgniteQueryErrorCode;
 import org.apache.ignite.internal.util.lang.GridNodePredicate;
 import org.apache.ignite.internal.util.typedef.F;
@@ -54,6 +57,7 @@ import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.spi.discovery.tcp.internal.TcpDiscoveryNode;
 import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
@@ -338,14 +342,14 @@ public class SqlSystemViewsSelfTest extends GridCommonAbstractTest {
             Integer.class, Integer.class, Float.class, // Waiting jobs.
             Integer.class, Integer.class, Float.class, Integer.class, // Rejected jobs.
             Integer.class, Integer.class, Float.class, Integer.class, // Canceled jobs.
-            Time.class, Time.class, Time.class, // Jobs wait time.
-            Time.class, Time.class, Time.class, Time.class, // Jobs execute time.
+            Long.class, Long.class, Long.class, // Jobs wait time.
+            Long.class, Long.class, Long.class, Long.class, // Jobs execute time.
             Integer.class, Integer.class, // Executed jobs/task.
-            Time.class, Time.class, Time.class, Float.class, Float.class, // Busy/idle time.
+            Long.class, Long.class, Long.class, Float.class, Float.class, // Busy/idle time.
             Integer.class, Double.class, Double.class, Double.class, // CPU.
             Long.class, Long.class, Long.class, Long.class, Long.class, // Heap memory.
             Long.class, Long.class, Long.class, Long.class, Long.class, // Nonheap memory.
-            Time.class, Timestamp.class, Timestamp.class, Long.class, // Uptime.
+            Long.class, Timestamp.class, Timestamp.class, Long.class, // Uptime.
             Integer.class, Integer.class, Long.class, Integer.class, // Threads.
             Integer.class, Long.class, Integer.class, Long.class, // Sent/received messages.
             Integer.class); // Outbound message queue.
@@ -422,18 +426,18 @@ public class SqlSystemViewsSelfTest extends GridCommonAbstractTest {
                     assertEquals(metrics.getCurrentCancelledJobs(), resMetrics.get(0).get(13));
                     assertEquals(metrics.getAverageCancelledJobs(), resMetrics.get(0).get(14));
                     assertEquals(metrics.getTotalCancelledJobs(), resMetrics.get(0).get(15));
-                    assertEquals(metrics.getMaximumJobWaitTime(), convertToMilliseconds(resMetrics.get(0).get(16)));
-                    assertEquals(metrics.getCurrentJobWaitTime(), convertToMilliseconds(resMetrics.get(0).get(17)));
-                    assertEquals((long)metrics.getAverageJobWaitTime(), convertToMilliseconds(resMetrics.get(0).get(18)));
-                    assertEquals(metrics.getMaximumJobExecuteTime(), convertToMilliseconds(resMetrics.get(0).get(19)));
-                    assertEquals(metrics.getCurrentJobExecuteTime(), convertToMilliseconds(resMetrics.get(0).get(20)));
-                    assertEquals((long)metrics.getAverageJobExecuteTime(), convertToMilliseconds(resMetrics.get(0).get(21)));
-                    assertEquals(metrics.getTotalJobsExecutionTime(), convertToMilliseconds(resMetrics.get(0).get(22)));
+                    assertEquals(metrics.getMaximumJobWaitTime(), resMetrics.get(0).get(16));
+                    assertEquals(metrics.getCurrentJobWaitTime(), resMetrics.get(0).get(17));
+                    assertEquals((long)metrics.getAverageJobWaitTime(), resMetrics.get(0).get(18));
+                    assertEquals(metrics.getMaximumJobExecuteTime(), resMetrics.get(0).get(19));
+                    assertEquals(metrics.getCurrentJobExecuteTime(), resMetrics.get(0).get(20));
+                    assertEquals((long)metrics.getAverageJobExecuteTime(), resMetrics.get(0).get(21));
+                    assertEquals(metrics.getTotalJobsExecutionTime(), resMetrics.get(0).get(22));
                     assertEquals(metrics.getTotalExecutedJobs(), resMetrics.get(0).get(23));
                     assertEquals(metrics.getTotalExecutedTasks(), resMetrics.get(0).get(24));
-                    assertEquals(metrics.getTotalBusyTime(), convertToMilliseconds(resMetrics.get(0).get(25)));
-                    assertEquals(metrics.getTotalIdleTime(), convertToMilliseconds(resMetrics.get(0).get(26)));
-                    assertEquals(metrics.getCurrentIdleTime(), convertToMilliseconds(resMetrics.get(0).get(27)));
+                    assertEquals(metrics.getTotalBusyTime(), resMetrics.get(0).get(25));
+                    assertEquals(metrics.getTotalIdleTime(), resMetrics.get(0).get(26));
+                    assertEquals(metrics.getCurrentIdleTime(), resMetrics.get(0).get(27));
                     assertEquals(metrics.getBusyTimePercentage(), resMetrics.get(0).get(28));
                     assertEquals(metrics.getIdleTimePercentage(), resMetrics.get(0).get(29));
                     assertEquals(metrics.getTotalCpus(), resMetrics.get(0).get(30));
@@ -450,7 +454,7 @@ public class SqlSystemViewsSelfTest extends GridCommonAbstractTest {
                     assertEquals(metrics.getNonHeapMemoryCommitted(), resMetrics.get(0).get(41));
                     assertEquals(metrics.getNonHeapMemoryMaximum(), resMetrics.get(0).get(42));
                     assertEquals(metrics.getNonHeapMemoryTotal(), resMetrics.get(0).get(43));
-                    assertEquals(metrics.getUpTime(), convertToMilliseconds(resMetrics.get(0).get(44)));
+                    assertEquals(metrics.getUpTime(), resMetrics.get(0).get(44));
                     assertEquals(metrics.getStartTime(), ((Timestamp)resMetrics.get(0).get(45)).getTime());
                     assertEquals(metrics.getNodeStartTime(), ((Timestamp)resMetrics.get(0).get(46)).getTime());
                     assertEquals(metrics.getLastDataVersion(), resMetrics.get(0).get(47));
@@ -677,71 +681,161 @@ public class SqlSystemViewsSelfTest extends GridCommonAbstractTest {
 
         assertEquals(5L, execSql(ignite3, "SELECT COUNT(*) FROM IGNITE.CACHES WHERE NAME like 'cache%'")
             .get(0).get(0));
+    }
 
-        // Check cache groups.
-        resAll = execSql("SELECT ID, GROUP_NAME, IS_SHARED, CACHE_COUNT, " +
-            "CACHE_MODE, ATOMICITY_MODE, AFFINITY, PARTITIONS_COUNT, " +
-            "NODE_FILTER, DATA_REGION_NAME, TOPOLOGY_VALIDATOR, PARTITION_LOSS_POLICY, " +
-            "REBALANCE_MODE, REBALANCE_DELAY, REBALANCE_ORDER, BACKUPS " +
-            "FROM IGNITE.CACHE_GROUPS");
+    /**
+     * Regression test. Verifies that duration metrics is able to be longer than 24 hours.
+     */
+    @Test
+    public void testDurationMetricsCanBeLonger24Hours() throws Exception {
+        Ignite ign = startGrid("MockedMetrics", getConfiguration().setMetricsUpdateFrequency(500));
 
-        assertColumnTypes(resAll.get(0),
-            Integer.class, String.class, Boolean.class, Integer.class,
-            String.class, String.class, String.class, Integer.class,
-            String.class, String.class, String.class, String.class,
-            String.class, Long.class, Integer.class, Integer.class);
+        ClusterNode node = ign.cluster().localNode();
 
-        assertEquals(2, execSql("SELECT CACHE_COUNT FROM IGNITE.CACHE_GROUPS " +
-            "WHERE GROUP_NAME = 'cache_grp'").get(0).get(0));
+        assert node instanceof TcpDiscoveryNode : "Setup failed, test is incorrect.";
 
-        assertEquals("cache_grp", execSql("SELECT GROUP_NAME FROM IGNITE.CACHE_GROUPS " +
-            "WHERE IS_SHARED = true AND GROUP_NAME like 'cache%'").get(0).get(0));
+        // Get rid of metrics provider: current logic ignores metrics field if provider != null.
+        setField(node, "metricsProvider", null);
 
-        // Check index on ID column.
-        assertEquals("cache_tx_repl", execSql("SELECT GROUP_NAME FROM IGNITE.CACHE_GROUPS " +
-            "WHERE ID = ?", ignite0.cachex("cache_tx_repl").context().groupId()).get(0).get(0));
+        ClusterMetricsImpl original = getField(node, "metrics");
 
-        assertEquals(0, execSql("SELECT ID FROM IGNITE.CACHE_GROUPS WHERE ID = 0").size());
+        setField(node, "metrics", new MockedClusterMetrics(original));;
 
-        // Check join by indexed column.
-        assertEquals("cache_tx_repl", execSql("SELECT CG.GROUP_NAME FROM IGNITE.CACHES C JOIN " +
-            "IGNITE.CACHE_GROUPS CG ON C.GROUP_ID = CG.ID WHERE C.NAME = 'cache_tx_repl'").get(0).get(0));
+        List<?> durationMetrics = execSql(ign,
+            "SELECT " +
+                "MAX_JOBS_WAIT_TIME, " +
+                "CUR_JOBS_WAIT_TIME, " +
+                "AVG_JOBS_WAIT_TIME, " +
 
-        // Check join by non-indexed column.
-        assertEquals("cache_grp", execSql("SELECT CG.GROUP_NAME FROM IGNITE.CACHES C JOIN " +
-            "IGNITE.CACHE_GROUPS CG ON C.GROUP_NAME = CG.GROUP_NAME WHERE C.NAME = 'cache_tx_part'").get(0).get(0));
+                "MAX_JOBS_EXECUTE_TIME, " +
+                "CUR_JOBS_EXECUTE_TIME, " +
+                "AVG_JOBS_EXECUTE_TIME, " +
+                "TOTAL_JOBS_EXECUTE_TIME, " +
 
-        // Check configuration equality for cache and cache group views.
-        assertEquals(3L, execSql("SELECT COUNT(*) FROM IGNITE.CACHES C JOIN IGNITE.CACHE_GROUPS CG " +
-            "ON C.NAME = CG.GROUP_NAME WHERE C.NAME like 'cache%' " +
-            "AND C.CACHE_MODE = CG.CACHE_MODE " +
-            "AND C.ATOMICITY_MODE = CG.ATOMICITY_MODE " +
-            "AND COALESCE(C.AFFINITY, '-') = COALESCE(CG.AFFINITY, '-') " +
-            "AND COALESCE(C.NODE_FILTER, '-') = COALESCE(CG.NODE_FILTER, '-') " +
-            "AND COALESCE(C.DATA_REGION_NAME, '-') = COALESCE(CG.DATA_REGION_NAME, '-') " +
-            "AND COALESCE(C.TOPOLOGY_VALIDATOR, '-') = COALESCE(CG.TOPOLOGY_VALIDATOR, '-') " +
-            "AND C.PARTITION_LOSS_POLICY = CG.PARTITION_LOSS_POLICY " +
-            "AND C.REBALANCE_MODE = CG.REBALANCE_MODE " +
-            "AND C.REBALANCE_DELAY = CG.REBALANCE_DELAY " +
-            "AND C.REBALANCE_ORDER = CG.REBALANCE_ORDER " +
-            "AND C.BACKUPS = CG.BACKUPS").get(0).get(0));
+                "TOTAL_BUSY_TIME, " +
 
-        // Check quick count.
-        assertEquals(execSql("SELECT COUNT(*) FROM IGNITE.CACHE_GROUPS").get(0).get(0),
-            execSql("SELECT COUNT(*) FROM IGNITE.CACHE_GROUPS WHERE ID <> ID + 1").get(0).get(0));
+                "TOTAL_IDLE_TIME, " +
+                "CUR_IDLE_TIME, " +
+                "UPTIME " +
 
-        // Check that cache groups are the same on different nodes.
-        assertEquals(4L, execSql("SELECT COUNT(*) FROM IGNITE.CACHE_GROUPS " +
-            "WHERE GROUP_NAME like 'cache%'").get(0).get(0));
+                "FROM IGNITE.NODE_METRICS").get(0);
 
-        assertEquals(4L, execSql(ignite1, "SELECT COUNT(*) FROM IGNITE.CACHE_GROUPS " +
-            "WHERE GROUP_NAME like 'cache%'").get(0).get(0));
+        List<Long> elevenExpVals = LongStream
+            .generate(() -> MockedClusterMetrics.LONG_DURATION_MS)
+            .limit(11)
+            .boxed()
+            .collect(Collectors.toList());
 
-        assertEquals(4L, execSql(ignite2, "SELECT COUNT(*) FROM IGNITE.CACHE_GROUPS " +
-            "WHERE GROUP_NAME like 'cache%'").get(0).get(0));
+        assertEqualsCollections(elevenExpVals, durationMetrics);
+    }
 
-        assertEquals(4L, execSql(ignite3, "SELECT COUNT(*) FROM IGNITE.CACHE_GROUPS " +
-            "WHERE GROUP_NAME like 'cache%'").get(0).get(0));
+    /**
+     * Mock for {@link ClusterMetricsImpl} that always returns big (more than 24h) duration for all duration metrics.
+     */
+    public static class MockedClusterMetrics extends ClusterMetricsImpl {
+        /** Some long (> 24h) duration. */
+        public static final long LONG_DURATION_MS = TimeUnit.DAYS.toMillis(365);
+
+        /**
+         * Constructor.
+         *
+         * @param original - original cluster metrics object. Required to leave the original behaviour for not overriden
+         * methods.
+         */
+        public MockedClusterMetrics(ClusterMetricsImpl original) throws Exception {
+            super(
+                getField(original, "ctx"),
+                getField(original, "vmMetrics"),
+                getField(original, "nodeStartTime"));
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getMaximumJobWaitTime() {
+            return LONG_DURATION_MS;
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getCurrentJobWaitTime() {
+            return LONG_DURATION_MS;
+        }
+
+        /** {@inheritDoc} */
+        @Override public double getAverageJobWaitTime() {
+            return LONG_DURATION_MS;
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getMaximumJobExecuteTime() {
+            return LONG_DURATION_MS;
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getCurrentJobExecuteTime() {
+            return LONG_DURATION_MS;
+        }
+
+        /** {@inheritDoc} */
+        @Override public double getAverageJobExecuteTime() {
+            return LONG_DURATION_MS;
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getTotalJobsExecutionTime() {
+            return LONG_DURATION_MS;
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getTotalBusyTime() {
+            return LONG_DURATION_MS;
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getTotalIdleTime() {
+            return LONG_DURATION_MS;
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getCurrentIdleTime() {
+            return LONG_DURATION_MS;
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getUpTime() {
+            return LONG_DURATION_MS;
+        }
+    }
+
+    /**
+     * Get field value using reflection.
+     *
+     * @param target object containing the field.
+     * @param fieldName name of the field.
+     */
+    private static <T> T getField(Object target, String fieldName) throws Exception {
+        Class clazz = target.getClass();
+
+        Field fld = clazz.getDeclaredField(fieldName);
+
+        fld.setAccessible(true);
+
+        return (T) fld.get(target);
+    }
+
+    /**
+     * Set field using reflection.
+     *
+     * @param target object containing the field.
+     * @param fieldName name of the field.
+     * @param val new field value.
+     */
+    private static void setField(Object target, String fieldName, Object val) throws Exception {
+        Class clazz = target.getClass();
+
+        Field fld = clazz.getDeclaredField(fieldName);
+
+        fld.setAccessible(true);
+
+        fld.set(target, val);
     }
 
     /**
@@ -758,20 +852,6 @@ public class SqlSystemViewsSelfTest extends GridCommonAbstractTest {
         cfg.setConsistentId(consistentId);
 
         return cfg;
-    }
-
-    /**
-     * Convert Time to milliseconds.
-     *
-     * Note: Returned Time values from SQL it's milliseconds since January 1, 1970, 00:00:00 GMT. To get right interval
-     * in milliseconds this value must be adjusted to current time zone.
-     *
-     * @param sqlTime Time value returned from SQL.
-     */
-    private long convertToMilliseconds(Object sqlTime) {
-        Time time0 = (Time)sqlTime;
-
-        return time0.getTime() + TimeZone.getDefault().getOffset(time0.getTime());
     }
 
     /**
