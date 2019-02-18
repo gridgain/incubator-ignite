@@ -30,7 +30,7 @@ import static org.apache.ignite.cache.CacheMode.REPLICATED;
  * @param <K>
  * @param <V>
  */
-public abstract class CacheHolder<K, V> {
+public class CacheHolder<K, V> {
     /** */
     protected final Ignite ignite;
 
@@ -44,15 +44,17 @@ public abstract class CacheHolder<K, V> {
      * @param ignite Ignite.
      * @param cacheName Cache name.
      */
-    protected CacheHolder(Ignite ignite, String cacheName) {
+    public CacheHolder(Ignite ignite, String cacheName) {
         this.ignite = ignite;
         this.cacheName = cacheName;
     }
 
     /**
      * Prepare cache.
+     *
+     * @return Underlying cache.
      */
-    public void prepare() {
+    public IgniteCache<K, V> prepare() {
         if (cache == null) {
             CacheConfiguration<K, V> ccfg = new CacheConfiguration<>(cacheName);
             ccfg.setAtomicityMode(TRANSACTIONAL);
@@ -60,5 +62,7 @@ public abstract class CacheHolder<K, V> {
 
             cache = ignite.getOrCreateCache(ccfg);
         }
+
+        return cache;
     }
 }

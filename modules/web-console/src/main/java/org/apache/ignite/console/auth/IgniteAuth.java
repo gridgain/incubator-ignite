@@ -36,9 +36,8 @@ import io.vertx.ext.auth.User;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.console.common.Consts;
+import org.apache.ignite.console.db.CacheHolder;
 import org.apache.ignite.console.dto.Account;
-import org.apache.ignite.console.dto.Space;
 import org.apache.ignite.internal.util.typedef.F;
 
 /**
@@ -55,18 +54,17 @@ public class IgniteAuth implements AuthProvider {
     private static final String E_INVALID_CREDENTIALS = "Invalid email or password";
 
     /** */
-    private final Ignite ignite;
+    private final CacheHolder<String, Account> accounts;
 
     /** */
-    private PRNG rnd;
+    private final PRNG rnd;
 
     /**
      * @param ignite Ignite.
      * @param vertx Vertx.
      */
     public IgniteAuth(Ignite ignite, Vertx vertx) {
-        this.ignite = ignite;
-
+        accounts = new CacheHolder<>(ignite, "wc_accounts");
         rnd = new PRNG(vertx);
     }
 
@@ -142,7 +140,7 @@ public class IgniteAuth implements AuthProvider {
      * @throws GeneralSecurityException If failed to authenticate.
      */
     private Account signUp(JsonObject authInfo) throws GeneralSecurityException {
-        IgniteCache<String, Account> cache = ignite.cache(Consts.ACCOUNTS_CACHE);
+        IgniteCache<String, Account> cache = accounts.prepare();
 
         String email = authInfo.getString("email");
 
@@ -176,14 +174,14 @@ public class IgniteAuth implements AuthProvider {
 
         cache.put(email, account);
 
-        Space space = new Space(
-            UUID.randomUUID(),
-            "Personal space",
-            account.id(),
-            false
-        );
-
-        ignite.cache(Consts.SPACES_CACHE).put(space.id(), space);
+//        Space space = new Space(
+//            UUID.randomUUID(),
+//            "Personal space",
+//            account.id(),
+//            false
+//        );
+//
+//        ignite.cache("wc_spaces").put(space.id(), space);
 
         return account;
     }
@@ -194,9 +192,9 @@ public class IgniteAuth implements AuthProvider {
      * @throws GeneralSecurityException If failed to authenticate.
      */
     private Account signIn(JsonObject authInfo) throws GeneralSecurityException {
-        String email = authInfo.getString("email");
+        IgniteCache<String, Account> cache = accounts.prepare();
 
-        IgniteCache<String, Account> cache = ignite.cache(Consts.ACCOUNTS_CACHE);
+        String email = authInfo.getString("email");
 
         Account account = cache.get(email);
 
