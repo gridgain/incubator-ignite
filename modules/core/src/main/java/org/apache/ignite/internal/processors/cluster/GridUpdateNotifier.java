@@ -66,6 +66,9 @@ class GridUpdateNotifier {
     /** Grid version. */
     private final String ver;
 
+    /** Error during obtaining data. */
+    private volatile Exception err;
+
     /** Latest version. */
     private volatile String latestVer;
 
@@ -214,6 +217,13 @@ class GridUpdateNotifier {
     }
 
     /**
+     * @return Error.
+     */
+    Exception error() {
+        return err;
+    }
+
+    /**
      * Starts asynchronous process for retrieving latest version data.
      *
      * @param log Logger.
@@ -335,14 +345,20 @@ class GridUpdateNotifier {
                             else if (line.contains("downloadUrl"))
                                 downloadUrl = obtainDownloadUrlFrom(line);
                         }
+
+                        err = null;
                     }
                     catch (IOException e) {
+                        err = e;
+
                         if (log.isDebugEnabled())
                             log.debug("Failed to connect to Ignite update server. " + e.getMessage());
                     }
                 }
             }
             catch (Exception e) {
+                err = e;
+
                 if (log.isDebugEnabled())
                     log.debug("Unexpected exception in update checker. " + e.getMessage());
             }
