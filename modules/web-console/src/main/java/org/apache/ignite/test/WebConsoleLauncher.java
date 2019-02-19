@@ -56,7 +56,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
         RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
         RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
 
-        vertx.deployVerticle(new WebConsoleServer(ignite, auth, cfgsRouter, notebooksRouter, false));
+        vertx.deployVerticle(new WebConsoleServer(ignite, auth, cfgsRouter, notebooksRouter));
     }
 
     /**

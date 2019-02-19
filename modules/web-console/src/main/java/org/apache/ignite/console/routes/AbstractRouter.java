@@ -35,7 +35,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.OneToManyIndex;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.DataObject;
-import org.apache.ignite.console.dto.JsonBuilder;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -44,6 +43,7 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.common.Utils.errorMessage;
+import static org.apache.ignite.console.common.Utils.toJsonArray;
 import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
 import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
@@ -259,7 +259,7 @@ public abstract class AbstractRouter implements RestApiRouter {
 
                 tx.commit();
 
-                sendResult(ctx, new JsonBuilder().addArray(items).buffer());
+                sendResult(ctx, toJsonArray(items));
             }
         }
         catch (Throwable e) {

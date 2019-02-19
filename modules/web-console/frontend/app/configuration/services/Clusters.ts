@@ -79,7 +79,10 @@ export default class Clusters {
     constructor(private $http: ng.IHttpService) {}
 
     getConfiguration(clusterID: string) {
-        return this.$http.get(`/api/v1/configuration/${clusterID}`);
+        return this.$http.get(`/api/v1/configuration/${clusterID}`)
+            .then((data) => {
+                return data;
+            });
     }
 
     getCluster(clusterID: string) {
