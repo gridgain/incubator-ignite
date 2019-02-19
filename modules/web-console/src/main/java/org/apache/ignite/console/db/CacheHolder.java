@@ -54,7 +54,7 @@ public class CacheHolder<K, V> {
      *
      * @return Underlying cache.
      */
-    public IgniteCache<K, V> prepare() {
+    public IgniteCache<K, V> cache() {
         if (cache == null) {
             CacheConfiguration<K, V> ccfg = new CacheConfiguration<>(cacheName);
             ccfg.setAtomicityMode(TRANSACTIONAL);

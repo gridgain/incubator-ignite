@@ -26,7 +26,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Notebook;
 import org.apache.ignite.console.db.OneToManyIndex;
-import org.apache.ignite.console.db.UniqueIndex;
 import org.apache.ignite.console.db.Schemas;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
@@ -41,25 +40,22 @@ public class NotebooksRouter extends AbstractRouter {
     /** */
     private final OneToManyIndex notebooksIdx;
 
-    /** */
-    private final UniqueIndex notebookNameIdx;
-
     /**
      * @param ignite Ignite.
      */
     public NotebooksRouter(Ignite ignite) {
         super(ignite);
 
-        notebooksTbl = new Table<>(ignite, "wc_notebooks");
+        notebooksTbl = new Table<Notebook>(ignite, "wc_notebooks")
+            .addUniqueIndex(Notebook::name, (notebook) -> "Notebook '" + notebook.name() + "' already exits");
+
         notebooksIdx = new OneToManyIndex(ignite, "wc_account_notebooks_idx");
-        notebookNameIdx = new UniqueIndex(ignite, "wc_unique_notebook_name_idx", "Notebook '%s' already exits");
     }
 
     /** {@inheritDoc} */
     @Override protected void initializeCaches() {
-        notebooksTbl.prepare();
-        notebooksIdx.prepare();
-        notebookNameIdx.prepare();
+        notebooksTbl.cache();
+        notebooksIdx.cache();
     }
 
     /** {@inheritDoc} */
@@ -102,11 +98,9 @@ public class NotebooksRouter extends AbstractRouter {
                 Notebook notebook = new Notebook(notebookId, null, name, json.encode());
 
                 try (Transaction tx = txStart()) {
-                    notebookNameIdx.checkUnique(userId, name, notebook, notebook.name());
+                    notebooksTbl.save(notebook);
 
                     notebooksIdx.add(userId, notebookId);
-
-                    notebooksTbl.save(notebook);
 
                     tx.commit();
                 }
@@ -143,7 +137,6 @@ public class NotebooksRouter extends AbstractRouter {
 
                     if (notebook != null) {
                         notebooksIdx.remove(userId, notebookId);
-                        notebookNameIdx.removeUniqueKey(userId, notebook.name());
 
                         rmvCnt = 1;
                     }

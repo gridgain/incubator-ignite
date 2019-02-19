@@ -17,7 +17,6 @@
 
 package org.apache.ignite.console;
 
-import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,9 +52,10 @@ import io.vertx.ext.web.handler.UserSessionHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
-import io.vertx.ext.web.sstore.LocalSessionStore;
+import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCompute;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterMetrics;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -77,7 +77,6 @@ import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.visor.compute.VisorGatewayTask;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
-import org.jetbrains.annotations.Nullable;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
@@ -153,21 +152,6 @@ public class WebConsoleServer extends AbstractVerticle {
     }
 
     /**
-     * @param s Message to log.
-     */
-    protected void logInfo(Object s) {
-        ignite.log().info(String.valueOf(s));
-    }
-
-    /**
-     * @param msg Message to log.
-     * @param e Error to log.
-     */
-    protected void logError(String msg, Throwable e) {
-        ignite.log().error(msg, e);
-    }
-
-    /**
      * @param ignite Ignite.
      * @param auth Auth provider.
      * @param cfgsRouter Configurations REST API router.
@@ -192,7 +176,7 @@ public class WebConsoleServer extends AbstractVerticle {
     @Override public void start() {
         long start = System.currentTimeMillis();
 
-        logInfo("Embedded mode: " + embedded);
+        ignite.log().info("Embedded mode: " + embedded);
 
         SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
 
@@ -209,7 +193,7 @@ public class WebConsoleServer extends AbstractVerticle {
 
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
-        router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
+        router.route().handler(SessionHandler.create(ClusteredSessionStore.create(vertx)));
         router.route().handler(UserSessionHandler.create(auth));
 
         router.route("/eventbus/*").handler(sockJsHnd);
@@ -228,7 +212,7 @@ public class WebConsoleServer extends AbstractVerticle {
             .requestHandler(router)
             .listen(3000);
 
-        logInfo("Web Console started: " + (System.currentTimeMillis() - start));
+        ignite.log().info("Web Console started: " + (System.currentTimeMillis() - start));
     }
 
     /**
@@ -386,54 +370,54 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param e Error to send.
      */
     private void sendError(RoutingContext ctx, String msg, Throwable e) {
-        logError(msg, e);
+        ignite.log().error(msg, e);
 
         sendStatus(ctx, HTTP_INTERNAL_ERROR, msg + ": " + errorMessage(e));
-    }
-
-    /**
-     * Get the authenticated user (if any).
-     * If user not found, send {@link HttpURLConnection#HTTP_UNAUTHORIZED}.
-     *
-     * @param ctx Context
-     * @return User or {@code null} if the current user is not authenticated.
-     */
-    @Nullable private User checkUser(RoutingContext ctx) {
-        User user = ctx.user();
-
-        if (user == null)
-            sendStatus(ctx, HTTP_UNAUTHORIZED);
-
-        return user;
     }
 
     /**
      * @param ctx Context
      */
     private void handleUser(RoutingContext ctx) {
-        User user = checkUser(ctx);
+        try {
+            User user = ctx.user();
 
-        if (user != null)
+            if (user == null) {
+                sendStatus(ctx, HTTP_UNAUTHORIZED);
+                
+                return;
+            }
+
             sendResult(ctx, user.principal());
+        }
+        catch (Throwable e) {
+            sendStatus(ctx, HTTP_UNAUTHORIZED);
+        }
     }
 
     /**
      * @param ctx Context
      */
     private void handleSignUp(RoutingContext ctx) {
-        JsonObject authInfo = ctx.getBodyAsJson();
+        try {
+            JsonObject entries = ctx.getBodyAsJson();
 
-        authInfo.put("signup", true);
-
-        auth.authenticate(authInfo, asyncRes -> {
-            if (asyncRes.succeeded()) {
-                ctx.setUser(asyncRes.result());
-
-                sendStatus(ctx, HTTP_OK);
+            if (entries.getBoolean("user.admin", false)) {
+                sendResult(ctx, auth.registerAccount(entries).principal());
+                
+                return;
             }
-            else
-                sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
-        });
+
+            auth.registerAccount(entries);
+
+            handleSignIn(ctx);
+        }
+        catch (IgniteException e) {
+            sendStatus(ctx, HTTP_INTERNAL_ERROR, e.getMessage());
+        }
+        catch (Throwable ignored) {
+            sendStatus(ctx, HTTP_INTERNAL_ERROR);
+        }
     }
 
     /**
@@ -464,7 +448,7 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param ctx Context
      */
     private void handleDummy(RoutingContext ctx) {
-        logInfo("Dummy: " + ctx.request().path());
+        ignite.log().info("Dummy: " + ctx.request().path());
 
         sendStatus(ctx, HTTP_OK, "[]");
     }

@@ -22,6 +22,7 @@ import java.util.Collections;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.configuration.DataRegionConfiguration;
@@ -48,15 +49,26 @@ public class WebConsoleLauncher extends AbstractVerticle {
     public static void main(String... args) {
         Ignite ignite = startIgnite();
 
-        Vertx vertx = Vertx.vertx(new VertxOptions()
-            .setBlockedThreadCheckInterval(1000 * 60 * 60));
+        VertxOptions options = new VertxOptions()
+            .setBlockedThreadCheckInterval(1000 * 60 * 60)
+            .setClusterManager(new IgniteClusterManager(ignite));
 
-        IgniteAuth auth = new IgniteAuth(ignite, vertx);
+        Vertx.clusteredVertx(options, res -> {
+            if (res.failed()) {
+                System.out.println("Failed to start clustered Vertx!");
+                
+                return;
+            }
 
-        RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
-        RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
+            Vertx vertx = res.result();
 
-        vertx.deployVerticle(new WebConsoleServer(ignite, auth, cfgsRouter, notebooksRouter, false));
+            IgniteAuth auth = new IgniteAuth(ignite, vertx);
+
+            RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
+            RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
+
+            vertx.deployVerticle(new WebConsoleServer(ignite, auth, cfgsRouter, notebooksRouter, false));
+        });
     }
 
     /**
