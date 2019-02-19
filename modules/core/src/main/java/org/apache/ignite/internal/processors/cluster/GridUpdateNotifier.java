@@ -49,7 +49,7 @@ import static java.net.URLEncoder.encode;
  */
 class GridUpdateNotifier {
     /** Default encoding. */
-    private static final String CHARSET = "UTF-8";
+    static final String CHARSET = "UTF-8";
 
     /** Access URL to be used to access latest version data. */
     private final String updStatusParams = IgniteProperties.get("ignite.update.status.params");
@@ -61,7 +61,7 @@ class GridUpdateNotifier {
     private static final int WORKER_THREAD_SLEEP_TIME = 5000;
 
     /** Default url for request GridGain updates. */
-    private static final String DEFAULT_GRIDGAIN_UPDATES_URL = "https://ignite.run/update_status_ignite-plain-text.php";
+    static final String DEFAULT_GRIDGAIN_UPDATES_URL = "https://ignite.run/update_status_ignite-plain-text.php";
 
     /** Grid version. */
     private final String ver;
@@ -171,7 +171,8 @@ class GridUpdateNotifier {
      * @return Regularized version.
      */
     private String regularize(String ver) {
-        return ver.substring('-');
+        int pos = ver.indexOf('-');
+        return ver.substring(0, pos >= 0 ? pos : ver.length());
     }
 
     /**
@@ -342,6 +343,8 @@ class GridUpdateNotifier {
                         (!F.isEmpty(stackTrace) ? "&stackTrace=" + encode(stackTrace, CHARSET) : "") +
                         (!F.isEmpty(vmProps) ? "&vmProps=" + encode(vmProps, CHARSET) : "") +
                         pluginsVers;
+
+                System.out.println(postParams);
 
                 if (!isCancelled()) {
                     try {
