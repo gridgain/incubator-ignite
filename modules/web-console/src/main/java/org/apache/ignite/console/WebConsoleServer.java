@@ -17,6 +17,7 @@
 
 package org.apache.ignite.console;
 
+import java.io.File;
 import java.net.HttpURLConnection;
 import java.util.Arrays;
 import java.util.List;
@@ -30,9 +31,11 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.http.ClientAuth;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.net.JksOptions;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
@@ -41,6 +44,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.SessionHandler;
+import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.handler.UserSessionHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
@@ -49,8 +53,10 @@ import io.vertx.ext.web.sstore.LocalSessionStore;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.Nullable;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
@@ -76,6 +82,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /** */
     protected final Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
+
+    /** */
+    protected final WebConsoleConfiguration cfg;
 
     /** */
     protected final Ignite ignite;
@@ -105,21 +114,41 @@ public class WebConsoleServer extends AbstractVerticle {
     }
 
     /**
+     * @param cfg Configuration.
      * @param ignite Ignite.
      * @param auth Auth provider.
      * @param cfgsRouter Configurations REST API router.
      * @param notebooksRouter Notebooks REST API router.
      */
     public WebConsoleServer(
+        WebConsoleConfiguration cfg,
         Ignite ignite,
         IgniteAuth auth,
         RestApiRouter cfgsRouter,
         RestApiRouter notebooksRouter
     ) {
+        this.cfg = cfg;
         this.ignite = ignite;
         this.auth = auth;
         this.cfgsRouter = cfgsRouter;
         this.notebooksRouter = notebooksRouter;
+    }
+
+    /**
+     * @param path Path to JKS file.
+     * @param pwd Optional password.
+     * @return Java key store options or {@code null}.
+     */
+    @Nullable private JksOptions jksOptions(String path, String pwd) {
+        if (F.isEmpty(path))
+            return null;
+
+        JksOptions jks = new JksOptions().setPath(path);
+
+        if (!F.isEmpty(pwd))
+            jks.setPassword(pwd);
+
+        return jks;
     }
 
     /** {@inheritDoc} */
@@ -142,21 +171,55 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
         router.route().handler(UserSessionHandler.create(auth));
 
+        if (!F.isEmpty(cfg.getWebRoot())) {
+            File webRoot = U.resolveIgnitePath(cfg.getWebRoot());
+
+            if (webRoot == null)
+                throw new IllegalStateException("Invalid path to static resources: " + cfg.getWebRoot());
+
+            router.route().handler(StaticHandler.create(webRoot.getPath()));
+        }
+
         router.route("/eventbus/*").handler(sockJsHnd);
 
         registerRestRoutes(router);
 
         registerVisorTasks();
 
-        // Start HTTP server for browsers and web agents.
         HttpServerOptions httpOpts = new HttpServerOptions()
             .setCompressionSupported(true)
             .setPerMessageWebsocketCompressionSupported(true);
 
+        if (!F.isEmpty(cfg.getKeyStore()) || !F.isEmpty(cfg.getTrustStore())) {
+            httpOpts.setSsl(true);
+
+            JksOptions jks = jksOptions(cfg.getKeyStore(), cfg.getKeyStorePassword());
+
+            if (jks != null)
+                httpOpts.setKeyStoreOptions(jks);
+
+            jks = jksOptions(cfg.getTrustStore(), cfg.getTrustStorePassword());
+
+            if (jks != null)
+                httpOpts.setTrustStoreOptions(jks);
+
+            String ciphers = cfg.getCipherSuites();
+
+            if (!F.isEmpty(ciphers)) {
+                Arrays
+                    .stream(ciphers.split(","))
+                    .map(String::trim)
+                    .forEach(httpOpts::addEnabledCipherSuite);
+            }
+
+            httpOpts
+                .setClientAuth(cfg.isClientAuth() ? ClientAuth.REQUIRED : ClientAuth.NONE);
+        }
+
         vertx
             .createHttpServer(httpOpts)
             .requestHandler(router)
-            .listen(3000);
+            .listen(cfg.getPort());
 
         logInfo("Web Console server started.");
     }

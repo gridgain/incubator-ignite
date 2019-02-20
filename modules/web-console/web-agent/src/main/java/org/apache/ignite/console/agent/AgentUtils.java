@@ -21,7 +21,10 @@ import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
+import io.vertx.core.net.JksOptions;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.log4j.Logger;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility methods.
@@ -107,5 +110,22 @@ public class AgentUtils {
             return file;
 
         return null;
+    }
+
+    /**
+     * @param path Path to JKS file.
+     * @param pwd Optional password.
+     * @return Java key store options or {@code null}.
+     */
+    @Nullable public static JksOptions jksOptions(String path, String pwd) {
+        if (F.isEmpty(path))
+            return null;
+
+        JksOptions jks = new JksOptions().setPath(path);
+
+        if (!F.isEmpty(pwd))
+            jks.setPassword(pwd);
+
+        return jks;
     }
 }

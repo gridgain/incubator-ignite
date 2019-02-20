@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
 import org.apache.ignite.console.auth.IgniteAuth;
+import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.console.routes.RestApiRouter;
@@ -46,6 +47,8 @@ public class WebConsoleLauncher extends AbstractVerticle {
      * @param args Arguments.
      */
     public static void main(String... args) {
+        System.out.println("Starting Ignite Web Console Server...");
+
         Ignite ignite = startIgnite();
 
         Vertx vertx = Vertx.vertx(new VertxOptions()
@@ -56,7 +59,19 @@ public class WebConsoleLauncher extends AbstractVerticle {
         RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
         RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
 
-        vertx.deployVerticle(new WebConsoleServer(ignite, auth, cfgsRouter, notebooksRouter));
+        WebConsoleConfiguration cfg = new WebConsoleConfiguration();
+
+        cfg.setWebRoot("modules/web-console/frontend/build");
+
+//        cfg
+//            .setKeyStore("modules/web-console/web-agent/src/test/resources/server.jks")
+//            .setKeyStorePassword("123456")
+//            .setTrustStore("modules/web-console/web-agent/src/test/resources/ca.jks")
+//            .setTrustStorePassword("123456");
+
+        vertx.deployVerticle(new WebConsoleServer(cfg, ignite, auth, cfgsRouter, notebooksRouter));
+
+        System.out.println("Ignite Web Console Server started");
     }
 
     /**
