@@ -16,11 +16,13 @@
  */
 package org.apache.ignite.console.common;
 
+import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.internal.util.typedef.F;
 
 /**
@@ -62,5 +64,13 @@ public class Utils {
         }
 
         return res;
+    }
+
+    /**
+     * @param data Collection of DTO objects.
+     * @return JSON array.
+     */
+    public static JsonArray toJsonArray(Collection<? extends DataObject> data) {
+        return data.stream().reduce(new JsonArray(), (a, b) -> a.add(new JsonObject(b.json())), JsonArray::addAll);
     }
 }

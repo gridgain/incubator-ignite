@@ -18,7 +18,6 @@
 package org.apache.ignite.console.routes;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeSet;
@@ -36,13 +35,13 @@ import org.apache.ignite.console.dto.Cache;
 import org.apache.ignite.console.dto.Cluster;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.console.dto.Igfs;
-import org.apache.ignite.console.dto.JsonBuilder;
 import org.apache.ignite.console.dto.Model;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.transactions.Transaction;
 
 import static org.apache.ignite.console.common.Utils.diff;
 import static org.apache.ignite.console.common.Utils.idsFromJson;
+import static org.apache.ignite.console.common.Utils.toJsonArray;
 
 /**
  * Router to handle REST API for configurations.
@@ -380,6 +379,17 @@ public class ConfigurationsRouter extends AbstractRouter {
     }
 
     /**
+     * TODO IGNITE-5617 REWORK TO BETTER LOGIC!!!!
+     * Add some custom data to configuration.
+     *
+     * @param clusterId Cluster ID.
+     * @param json JSON builder.
+     */
+    protected void loadConfigurationEx(UUID clusterId, JsonObject json) {
+        // No-op.
+    }
+
+    /**
      * @param ctx Context.
      */
     private void loadConfiguration(RoutingContext ctx) {
@@ -392,26 +402,24 @@ public class ConfigurationsRouter extends AbstractRouter {
                 try (Transaction tx = txStart()) {
                     Cluster cluster = clustersTbl.load(clusterId);
 
-                    tx.commit();
-
                     if (cluster == null)
                         throw new IllegalStateException("Cluster not found for ID: " + clusterId);
 
-                    TreeSet<UUID> cacheIds = cachesIdx.load(clusterId);
-                    Collection<Cache> caches = cachesTbl.loadAll(cacheIds);
+                    Collection<Cache> caches = cachesTbl.loadAll(cachesIdx.load(clusterId));
+                    Collection<Model> models = modelsTbl.loadAll(modelsIdx.load(clusterId));
+                    Collection<Igfs> igfss = igfssTbl.loadAll(igfssIdx.load(clusterId));
 
-                    Collection<Model> models = Collections.emptyList();
-                    Collection<Igfs> igfss = Collections.emptyList();
+                    JsonObject json = new JsonObject()
+                        .put("cluster", new JsonObject(cluster.json()))
+                        .put("caches", toJsonArray(caches))
+                        .put("models", toJsonArray(models))
+                        .put("igfss", toJsonArray(igfss));
 
-                    JsonBuilder json = new JsonBuilder()
-                        .startObject()
-                        .addProperty("cluster", cluster.json())
-                        .addArray("caches", caches)
-                        .addArray("models", models)
-                        .addArray("igfss", igfss)
-                        .endObject();
+                        loadConfigurationEx(clusterId, json);
 
-                    sendResult(ctx, json.buffer());
+                    tx.commit();
+
+                    sendResult(ctx, json);
                 }
             }
             catch (Throwable e) {

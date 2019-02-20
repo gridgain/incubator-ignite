@@ -56,7 +56,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
         Vertx.clusteredVertx(options, res -> {
             if (res.failed()) {
                 System.out.println("Failed to start clustered Vertx!");
-                
+
                 return;
             }
 
@@ -67,7 +67,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
             RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
             RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
 
-            vertx.deployVerticle(new WebConsoleServer(ignite, auth, cfgsRouter, notebooksRouter, false));
+            vertx.deployVerticle(new WebConsoleServer(ignite, auth, cfgsRouter, notebooksRouter));
         });
     }
 
