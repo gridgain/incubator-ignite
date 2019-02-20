@@ -3306,11 +3306,6 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             else
                 onDone(e);
         }
-        catch (IgniteException e) {
-            onDone(e);
-
-            throw e;
-        }
     }
 
     /**
