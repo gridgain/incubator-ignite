@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.failure.FailureContext;
 import org.apache.ignite.failure.FailureType;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.pagemem.wal.record.delta.NewRootInitRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.RemoveRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.ReplaceRecord;
 import org.apache.ignite.internal.pagemem.wal.record.delta.SplitExistingPageRecord;
+import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.DataStructure;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
@@ -1073,6 +1075,44 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         finally {
             checkDestroyed();
         }
+    }
+
+    /**
+     * @param row Lookup row for exact match.
+     * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
+     * @return Found result or {@code null}
+     * @throws IgniteCheckedException If failed.
+     */
+    public final IgniteOffHeapIterator findOneIterator(L row, Object x) throws IgniteCheckedException {
+        checkDestroyed();
+
+        try {
+            GetOne g = new GetOne(row, null, x, false);
+
+            doFind(g);
+
+            return ((CacheDataRowAdapter)g.row).iterator();
+        }
+        catch (IgniteCheckedException e) {
+            throw new IgniteCheckedException("Runtime failure on lookup row: " + row, e);
+        }
+        catch (RuntimeException | AssertionError e) {
+            throw new CorruptedTreeException("Runtime failure on lookup row: " + row, e);
+        }
+        finally {
+            checkDestroyed();
+        }
+    }
+
+
+    /**
+     * @param row Lookup row for exact match.
+     * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
+     * @return Found result or {@code null}
+     * @throws IgniteCheckedException If failed.
+     */
+    public final <R> R findOne(L row, Object x) throws IgniteCheckedException {
+        return findOne(row, null, x);
     }
 
     /**

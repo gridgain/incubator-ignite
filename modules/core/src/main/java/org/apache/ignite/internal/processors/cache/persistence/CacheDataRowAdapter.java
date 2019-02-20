@@ -19,6 +19,7 @@ package org.apache.ignite.internal.processors.cache.persistence;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.PageUtils;
@@ -58,6 +59,10 @@ public class CacheDataRowAdapter implements CacheDataRow {
     /** */
     @GridToStringInclude
     protected CacheObject val;
+
+    /** */
+    @GridToStringInclude
+    protected IgniteOffHeapIterator it;
 
     /** */
     protected long expireTime = -1;
@@ -289,7 +294,7 @@ public class CacheDataRowAdapter implements CacheDataRow {
         int len = PageUtils.getInt(addr, off);
         off += 4;
 
-        if (rowData != RowData.NO_KEY) {
+        if (rowData != RowData.NO_KEY && rowData != RowData.ITERATOR) {
             byte type = PageUtils.getByte(addr, off);
             off++;
 
@@ -310,10 +315,14 @@ public class CacheDataRowAdapter implements CacheDataRow {
         byte type = PageUtils.getByte(addr, off);
         off++;
 
-        byte[] bytes = PageUtils.getBytes(addr, off, len);
-        off += len;
+        if (rowData != RowData.ITERATOR) {
+            byte[] bytes = PageUtils.getBytes(addr, off, len);
 
-        val = coctx.kernalContext().cacheObjects().toCacheObject(coctx, type, bytes);
+            val = coctx.kernalContext().cacheObjects().toCacheObject(coctx, type, bytes);
+        } else
+            it = new IgniteOffHeapIterator(addr, off, len);
+
+        off += len;
 
         ver = CacheVersionIO.read(addr + off, false);
 
@@ -541,6 +550,12 @@ public class CacheDataRowAdapter implements CacheDataRow {
         return val;
     }
 
+    public IgniteOffHeapIterator iterator() {
+        assert it != null : "Iterator is not ready: " + this;
+
+        return it;
+    }
+
     /** {@inheritDoc} */
     @Override public GridCacheVersion version() {
         assert ver != null : "Version is not ready: " + this;
@@ -584,7 +599,15 @@ public class CacheDataRowAdapter implements CacheDataRow {
         KEY_ONLY,
 
         /** */
-        NO_KEY
+        NO_KEY,
+
+        /** */
+        LINK_ONLY,
+
+        /** */
+        LINK_WITH_HEADER,
+
+        ITERATOR
     }
 
     /** {@inheritDoc} */

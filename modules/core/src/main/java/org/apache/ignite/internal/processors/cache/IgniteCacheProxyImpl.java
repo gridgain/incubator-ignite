@@ -2168,7 +2168,7 @@ public class IgniteCacheProxyImpl<K, V> extends AsyncSupportAdapter<IgniteCache<
         IgniteInternalCache<K, V> delegate = getDelegateSafe();
 
         try {
-            return delegate.getByteIterator(key);
+            return delegate.offHeapIterator(key);
         }
         catch (IgniteCheckedException e) {
             throw cacheException(e);

@@ -257,7 +257,7 @@ public class GridLocalCache<K, V> extends GridCacheAdapter<K, V> {
         return true;
     }
 
-    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+    @Override public IgniteOffHeapIterator offHeapIterator(K key) throws IgniteCheckedException {
         throw new UnsupportedOperationException();
     }
 }

@@ -1852,5 +1852,5 @@ public interface IgniteInternalCache<K, V> extends Iterable<Cache.Entry<K, V>> {
      */
     public boolean localPreloadPartition(int part) throws IgniteCheckedException;
 
-    IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException;
+    IgniteOffHeapIterator offHeapIterator(K key) throws IgniteCheckedException;
 }

@@ -964,15 +964,14 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
             true);
     }
 
-    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+    @Override public IgniteOffHeapIterator offHeapIterator(K key) throws IgniteCheckedException {
         A.notNull(key, "key");
 
         KeyCacheObject keyCacheObject = ctx.toCacheKeyObject(key);
 
         ctx.checkSecurity(SecurityPermission.CACHE_READ);
 
-        ctx.offheap().read(ctx, keyCacheObject);
-
+        return ctx.offheap().iterator(ctx, keyCacheObject);
     }
 
     /**

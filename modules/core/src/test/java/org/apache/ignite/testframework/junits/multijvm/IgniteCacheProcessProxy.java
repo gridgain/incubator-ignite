@@ -35,6 +35,7 @@ import javax.cache.processor.EntryProcessorResult;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCompute;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.cache.CacheEntry;
 import org.apache.ignite.cache.CacheEntryProcessor;
 import org.apache.ignite.cache.CacheMetrics;
@@ -700,6 +701,15 @@ public class IgniteCacheProcessProxy<K, V> implements IgniteCache<K, V> {
     /** {@inheritDoc} */
     @Override public boolean localPreloadPartition(int partition) {
         throw new UnsupportedOperationException("Method should be supported.");
+    }
+
+    @Override public IgniteOffHeapIterator getByteIterator(K i) {
+        throw new UnsupportedOperationException("TODO");
+    }
+
+    /** {@inheritDoc} */
+    @Override public IgniteCache<K, V> withAllowAtomicOpsInTx() {
+        return this;
     }
 
     /**

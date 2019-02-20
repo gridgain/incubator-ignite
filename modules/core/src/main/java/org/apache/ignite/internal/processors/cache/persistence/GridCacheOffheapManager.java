@@ -28,6 +28,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.failure.FailureContext;
 import org.apache.ignite.failure.FailureType;
 import org.apache.ignite.internal.pagemem.FullPageId;
@@ -2008,6 +2009,19 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
             catch (IgniteCheckedException e) {
                 throw new IgniteException(e);
             }
+        }
+
+        /** {@inheritDoc} */
+        @Override public void preload() throws IgniteCheckedException {
+            CacheDataStore delegate0 = init0(true);
+
+            if (delegate0 != null)
+                delegate0.preload();
+        }
+
+        @Override public <K, V> IgniteOffHeapIterator iterator(GridCacheContext<K, V> cctx,
+            KeyCacheObject key) throws IgniteCheckedException {
+            throw new UnsupportedOperationException();
         }
     }
 

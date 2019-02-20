@@ -628,7 +628,7 @@ public class GridNearTransactionalCache<K, V> extends GridNearCacheAdapter<K, V>
         }
     }
 
-    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+    @Override public IgniteOffHeapIterator offHeapIterator(K key) throws IgniteCheckedException {
         throw new UnsupportedOperationException();
     }
 

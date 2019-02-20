@@ -25,8 +25,9 @@ public class InMemoryGetTest extends GridCommonAbstractTest {
         cache.put(1,1);
 
         IgniteOffHeapIterator it = cache.getByteIterator(1);
+        System.out.println(it.nextByte());
 
-        if(it.remaining() >= 4)
+//        if(it.remaining() >= 4)
             System.out.println(it.nextInt());
 
     }

@@ -273,7 +273,7 @@ public class GridCacheProxyImpl<K, V> implements IgniteInternalCache<K, V>, Exte
         }
     }
 
-    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+    @Override public IgniteOffHeapIterator offHeapIterator(K key) throws IgniteCheckedException {
         throw new UnsupportedOperationException();
     }
 
