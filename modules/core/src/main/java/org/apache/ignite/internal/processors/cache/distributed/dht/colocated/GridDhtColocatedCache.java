@@ -176,7 +176,7 @@ public class GridDhtColocatedCache<K, V> extends GridDhtTransactionalCacheAdapte
         return ctx.mvcc().isLockedByThread(ctx.txKey(cacheKey), Thread.currentThread().getId());
     }
 
-    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+    @Override public IgniteOffHeapIterator offHeapIterator(K key) throws IgniteCheckedException {
         throw new UnsupportedOperationException();
     }
 

@@ -500,7 +500,7 @@ public class GridNearAtomicCache<K, V> extends GridNearCacheAdapter<K, V> {
         return dht.invokeAllAsync(map, args);
     }
 
-    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+    @Override public IgniteOffHeapIterator offHeapIterator(K key) throws IgniteCheckedException {
         throw new UnsupportedOperationException();
     }
 

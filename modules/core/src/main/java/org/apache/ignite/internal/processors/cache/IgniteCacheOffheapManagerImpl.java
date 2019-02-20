@@ -36,6 +36,7 @@ import javax.cache.processor.EntryProcessor;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.IgniteOffHeapIterator;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.pagemem.FullPageId;
@@ -348,6 +349,14 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
     /** {@inheritDoc} */
     @Override public void preloadPartition(int p) throws IgniteCheckedException {
         throw new IgniteCheckedException("Operation only applicable to caches with enabled persistence");
+    }
+
+    @Override public <V, K> IgniteOffHeapIterator iterator(GridCacheContext<K, V> cctx, KeyCacheObject key) throws IgniteCheckedException {
+        CacheDataStore dataStore = dataStore(cctx, key);
+
+        IgniteOffHeapIterator it = dataStore != null ? dataStore.iterator(cctx, key) : null;
+
+        return it;
     }
 
     /**
@@ -3053,6 +3062,17 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
         /** {@inheritDoc} */
         @Override public void preload() throws IgniteCheckedException {
             // No-op.
+        }
+
+        @Override public <K, V> IgniteOffHeapIterator iterator(GridCacheContext<K, V> cctx, KeyCacheObject key) throws IgniteCheckedException {
+            key.valueBytes(cctx.cacheObjectContext());
+
+            int cacheId = grp.sharedGroup() ? cctx.cacheId() : CU.UNDEFINED_CACHE_ID;
+
+            if (grp.mvccEnabled())
+                throw new IgniteException("off heap iterator doesn't support MVCC");
+
+            return dataTree.findOneIterator(new SearchRow(cacheId, key), CacheDataRowAdapter.RowData.ITERATOR);
         }
 
         /**

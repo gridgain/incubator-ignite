@@ -71,7 +71,7 @@ public class GridDhtCache<K, V> extends GridDhtTransactionalCacheAdapter<K, V> {
         return name == null ? "defaultDhtCache" : name + "Dht";
     }
 
-    @Override public IgniteOffHeapIterator getByteIterator(K key) throws IgniteCheckedException {
+    @Override public IgniteOffHeapIterator offHeapIterator(K key) throws IgniteCheckedException {
         throw new UnsupportedOperationException();
     }
 
