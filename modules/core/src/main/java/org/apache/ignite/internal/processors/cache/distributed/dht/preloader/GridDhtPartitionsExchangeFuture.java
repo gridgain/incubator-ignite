@@ -3300,11 +3300,16 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
             finishExchangeOnCoordinator(sndResNodes);
         }
-        catch (IgniteCheckedException | IgniteException e) {
+        catch (IgniteCheckedException e) {
             if (reconnectOnError(e))
                 onDone(new IgniteNeedReconnectException(cctx.localNode(), e));
             else
                 onDone(e);
+        }
+        catch (IgniteException e) {
+            onDone(e);
+
+            throw e;
         }
     }
 
