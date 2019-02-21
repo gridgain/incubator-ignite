@@ -16,34 +16,35 @@
  */
 
 import {ReplaySubject} from 'rxjs';
+import {StateService} from '@uirouter/angularjs';
+import {default as MessagesFactory} from 'app/services/Messages.service';
 
-/**
- * @typedef User
- * @prop {string} _id
- * @prop {boolean} admin
- * @prop {string} country
- * @prop {string} email
- * @prop {string?} phone
- * @prop {string?} company
- * @prop {string} firstName
- * @prop {string} lastName
- * @prop {string} lastActivity
- * @prop {string} lastLogin
- * @prop {string} registered
- * @prop {string} token
- */
+export type User = {
+    _id: string,
+    admin: boolean,
+    country: string,
+    email: string,
+    phone?: string,
+    company?: string,
+    firstName: string,
+    lastName: string,
+    lastActivity: string,
+    lastLogin: string,
+    registered: string,
+    token: string
+}
 
-/**
- * @param {ng.IQService} $q
- * @param {ng.auto.IInjectorService} $injector
- * @param {ng.IRootScopeService} $root
- * @param {import('@uirouter/angularjs').StateService} $state
- * @param {ng.IHttpService} $http
- * @param {ReturnType<typeof import('app/services/Messages.service').default>} IgniteMessages
- */
-export default function User($q, $injector, $root, $state, $http, IgniteMessages) {
-    /** @type {ng.IPromise<User>} */
-    let user;
+User.$inject = ['$q', '$injector', '$rootScope', '$state', '$http', 'IgniteMessages'];
+
+export default function User(
+    $q: ng.IQService,
+    $injector: ng.auto.IInjectorService,
+    $root: ng.IRootScopeService,
+    $state: StateService,
+    $http: ng.IHttpService,
+    IgniteMessages: ReturnType<typeof MessagesFactory>
+) {
+    let user: ng.IPromise<User>;
 
     const current$ = new ReplaySubject(1);
 
@@ -82,21 +83,17 @@ export default function User($q, $injector, $root, $state, $http, IgniteMessages
 
             sessionStorage.removeItem('IgniteDemoMode');
         },
-        /**
-         * @param {Partial<User>} user
-         * @returns {Promise<void>}
-         */
-        async save(user) {
+
+        async save(user: Partial<User>): Promise<User> {
             try {
-                await $http.post('/api/v1/profile/save', user);
+                const {data: updatedUser} = await $http.post<User>('/api/v1/profile/save', user);
                 await this.load();
                 IgniteMessages.showInfo('Profile saved.');
-                $root.$broadcast('user', user);
+                $root.$broadcast('user', updatedUser);
+                return updatedUser;
             } catch (e) {
                 IgniteMessages.showError('Failed to save profile: ', e);
             }
         }
     };
 }
-
-User.$inject = ['$q', '$injector', '$rootScope', '$state', '$http', 'IgniteMessages'];
