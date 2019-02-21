@@ -361,6 +361,7 @@ public class ClusterProcessor extends GridProcessorAdapter {
                 verChecker = new GridUpdateNotifier(ctx.igniteInstanceName(),
                     VER_STR,
                     new GridKernalGatewayImpl(ctx.igniteInstanceName()),
+                    ctx.discovery(),
                     U.allPluginProviders(),
                     false,
                     new HttpIgniteUpdatesChecker(updateNotifierUrl.get(), GridUpdateNotifier.CHARSET));
