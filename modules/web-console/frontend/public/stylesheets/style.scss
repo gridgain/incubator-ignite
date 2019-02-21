@@ -23,6 +23,8 @@
 @import "./form-field";
 
 :root {
+    --sans-serif-font: Roboto;
+    --serif-font: Roboto_slab;
     --page-side-padding: 30px;
     --form-gap: 10px;
     --error-red-R: 238;
@@ -1162,7 +1164,6 @@ button.form-control {
 }
 
 .popover.validation-error {
-    font-family: Roboto;
     white-space: pre-wrap;
     width: auto !important;
     max-width: 400px !important;
@@ -2068,7 +2069,6 @@ header.header-with-selector {
         margin: 0;
         margin-right: 8px;
 
-        font-family: Roboto, sans-serif;
         font-size: 24px;
         line-height: 36px;
     }
@@ -2098,7 +2098,6 @@ header.header-with-selector {
 
                 ul.dropdown-menu {
                     min-width: 100%;
-                    font-family: Roboto;
                 }
             }
         }
