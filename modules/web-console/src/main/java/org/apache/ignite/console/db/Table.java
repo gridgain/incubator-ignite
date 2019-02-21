@@ -38,7 +38,7 @@ import static java.util.stream.Collectors.toSet;
 /**
  * Table for data objects.
  *
- * @param <T>
+ * @param <T> Type of DTO.
  */
 public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
     /** Unique indexes. */
