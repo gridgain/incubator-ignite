@@ -46,7 +46,7 @@
         <label for='company'>Company</label>
         <input type="text" formControlName='company' id='company'>
     </form-field>
-    <panel-collapsible-angular class='span-2' #securityTokenPanel>
+    <panel-collapsible-angular class='span-2' #securityTokenPanel formControlName='tokenPanelOpened'>
         <span panelTitle>{{ securityTokenPanel.opened ? 'Cancel security token changing...' : 'Show security token...' }}</span>
         <div class='form-grid'>
             <form-field class="span-1">

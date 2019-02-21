@@ -16,7 +16,7 @@
  */
 
 import {merge} from 'rxjs';
-import {tap} from 'rxjs/operators';
+import {tap, filter} from 'rxjs/operators';
 import {Component, Inject, OnInit, OnDestroy} from '@angular/core';
 import {FormGroup, FormControl, Validators, FormBuilder} from '@angular/forms';
 import templateUrl from 'file-loader!./template.html';
@@ -82,7 +82,8 @@ export class PageProfile implements OnInit, OnDestroy {
         if (this.form.invalid) return;
         this.isLoading = true;
         try {
-            await this.User.save(this.prepareFormValue(this.form));
+            const user = await this.User.save(this.prepareFormValue(this.form));
+            this.form.patchValue(user);
             this.form.get('passwordPanelOpened').setValue(false);
         } finally {
             this.isLoading = false;
@@ -114,6 +115,7 @@ export class PageProfile implements OnInit, OnDestroy {
             new: ['', Validators.required],
             confirm: ''
         })),
+        tokenPanelOpened: false,
         passwordPanelOpened: false,
         token: this.fb.control({value: '', disabled: true}, [Validators.required])
     })
@@ -129,6 +131,12 @@ export class PageProfile implements OnInit, OnDestroy {
             tap((newPassword: string) => {
                 this.form.get('password.confirm').setValidators([Validators.required, passwordMatch(newPassword)]);
                 this.form.get('password.confirm').updateValueAndValidity();
+            })
+        ),
+        this.form.get('tokenPanelOpened').valueChanges.pipe(
+            filter((opened) => opened === false),
+            tap(async() => {
+                this.form.get('token').reset((await this.User.read()).token);
             })
         )
     ).subscribe();
