@@ -23,6 +23,7 @@ import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
 import io.vertx.core.net.JksOptions;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 
@@ -121,7 +122,12 @@ public class AgentUtils {
         if (F.isEmpty(path))
             return null;
 
-        JksOptions jks = new JksOptions().setPath(path);
+        File file = U.resolveIgnitePath(path);
+
+        if (file == null)
+            throw new IllegalStateException("Failed to resolve path: " + path);
+
+        JksOptions jks = new JksOptions().setPath(file.getPath());
 
         if (!F.isEmpty(pwd))
             jks.setPassword(pwd);

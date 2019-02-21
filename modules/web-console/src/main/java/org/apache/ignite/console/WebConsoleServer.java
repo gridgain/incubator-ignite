@@ -143,7 +143,12 @@ public class WebConsoleServer extends AbstractVerticle {
         if (F.isEmpty(path))
             return null;
 
-        JksOptions jks = new JksOptions().setPath(path);
+        File file = U.resolveIgnitePath(path);
+
+        if (file == null)
+            throw new IllegalStateException("Failed to resolve path: " + path);
+
+        JksOptions jks = new JksOptions().setPath(file.getPath());
 
         if (!F.isEmpty(pwd))
             jks.setPassword(pwd);
@@ -171,14 +176,8 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route().handler(SessionHandler.create(LocalSessionStore.create(vertx)));
         router.route().handler(UserSessionHandler.create(auth));
 
-        if (!F.isEmpty(cfg.getWebRoot())) {
-            File webRoot = U.resolveIgnitePath(cfg.getWebRoot());
-
-            if (webRoot == null)
-                throw new IllegalStateException("Invalid path to static resources: " + cfg.getWebRoot());
-
-            router.route().handler(StaticHandler.create(webRoot.getPath()));
-        }
+        if (!F.isEmpty(cfg.getWebRoot()))
+            router.route().handler(StaticHandler.create(cfg.getWebRoot()));
 
         router.route("/eventbus/*").handler(sockJsHnd);
 
