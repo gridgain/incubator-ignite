@@ -1087,7 +1087,7 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         checkDestroyed();
 
         try {
-            GetOne g = new GetOne(row, null, x, false);
+            GetOne g = new GetOne(row, x, false);
 
             doFind(g);
 
@@ -1104,16 +1104,6 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         }
     }
 
-
-    /**
-     * @param row Lookup row for exact match.
-     * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
-     * @return Found result or {@code null}
-     * @throws IgniteCheckedException If failed.
-     */
-    public final <R> R findOne(L row, Object x) throws IgniteCheckedException {
-        return findOne(row, null, x);
-    }
 
     /**
      * @param row Lookup row for exact match.

@@ -8,16 +8,19 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
 public class InMemoryGetTest extends GridCommonAbstractTest {
 
-    @Override public void setUp() throws Exception {
-        super.setUp();
+    @Override protected void beforeTest() throws Exception {
+        super.beforeTest();
+
         startGrids(1);
     }
 
-    @Test
-    public void readByOffHeapIterator() {
+    @Override public void setUp() throws Exception {
+        super.setUp();
+    }
+
+    public void testReadByOffHeapIterator() {
         Ignite ignite = grid(0);
 
         IgniteCache<Object, Object> cache = ignite.getOrCreateCache(DEFAULT_CACHE_NAME);

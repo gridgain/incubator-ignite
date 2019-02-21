@@ -2011,14 +2011,6 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
             }
         }
 
-        /** {@inheritDoc} */
-        @Override public void preload() throws IgniteCheckedException {
-            CacheDataStore delegate0 = init0(true);
-
-            if (delegate0 != null)
-                delegate0.preload();
-        }
-
         @Override public <K, V> IgniteOffHeapIterator iterator(GridCacheContext<K, V> cctx,
             KeyCacheObject key) throws IgniteCheckedException {
             throw new UnsupportedOperationException();

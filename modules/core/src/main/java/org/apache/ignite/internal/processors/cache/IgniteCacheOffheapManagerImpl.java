@@ -303,7 +303,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
     }
 
     @Override public <V, K> IgniteOffHeapIterator iterator(GridCacheContext<K, V> cctx, KeyCacheObject key) throws IgniteCheckedException {
-        CacheDataStore dataStore = dataStore(cctx, key);
+        GridDhtLocalPartition part = cctx.topology().localPartition(cctx.affinity().partition(key), null, false);
+
+        CacheDataStore dataStore = dataStore(part);
 
         IgniteOffHeapIterator it = dataStore != null ? dataStore.iterator(cctx, key) : null;
 
@@ -1760,9 +1762,6 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             key.valueBytes(cctx.cacheObjectContext());
 
             int cacheId = grp.sharedGroup() ? cctx.cacheId() : CU.UNDEFINED_CACHE_ID;
-
-            if (grp.mvccEnabled())
-                throw new IgniteException("off heap iterator doesn't support MVCC");
 
             return dataTree.findOneIterator(new SearchRow(cacheId, key), CacheDataRowAdapter.RowData.ITERATOR);
         }
