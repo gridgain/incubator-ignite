@@ -32,6 +32,7 @@ import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.pagemem.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.processors.cache.persistence.DataRegionMetricsImpl;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
+import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTreeVisitor;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
@@ -197,6 +198,11 @@ public class BPlusTreeBenchmark extends JmhAbstractBenchmark {
             assert io.canGetRow() : io;
 
             return io.getLookupRow(this, pageAddr, idx);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected boolean visitRow(BPlusIO<Long> io, long pageAddr, int idx, BPlusTreeVisitor visitor, Object x) throws IgniteCheckedException {
+            throw new UnsupportedOperationException();
         }
     }
 

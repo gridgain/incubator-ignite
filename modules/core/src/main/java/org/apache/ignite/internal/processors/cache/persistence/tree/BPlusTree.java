@@ -1004,6 +1004,26 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         }
     }
 
+    public void visit(L lower, Object x, BPlusTreeVisitor visitor) throws IgniteCheckedException {
+        checkDestroyed();
+
+        try {
+            ForwardCursor cursor = new ForwardCursor(lower, null, visitor, x);
+
+            cursor.visitAll();
+        }
+        catch (IgniteCheckedException e) {
+            throw new IgniteCheckedException("Runtime failure on bounds: [lower=" + lower + "]", e);
+        }
+        catch (RuntimeException | AssertionError e) {
+            throw new CorruptedTreeException("Runtime failure on bounds: [lower=" + lower + "]", e);
+        }
+        finally {
+            checkDestroyed();
+        }
+
+    }
+
     /** {@inheritDoc} */
     @Override public T findFirst() throws IgniteCheckedException {
         checkDestroyed();
@@ -4537,12 +4557,31 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
     protected abstract T getRow(BPlusIO<L> io, long pageAddr, int idx, Object x) throws IgniteCheckedException;
 
     /**
+     * Get data row. Can be called on inner page only if {@link #canGetRowFromInner} is {@code true}.
+     *
+     * @param io IO.
+     * @param pageAddr Page address.
+     * @param idx Index.
+     * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
+     * @return Data row.
+     * @throws IgniteCheckedException If failed.
+     */
+    protected abstract boolean visitRow(BPlusIO<L> io, long pageAddr, int idx, BPlusTreeVisitor visitor, Object x)
+        throws IgniteCheckedException;
+
+    /**
      * Forward cursor.
      */
     @SuppressWarnings("unchecked")
     private final class ForwardCursor implements GridCursor<T> {
         /** */
         private T[] rows = (T[])EMPTY;
+
+        /** */
+        private boolean stop;
+
+        /** */
+        private BPlusTreeVisitor visitor;
 
         /** */
         private int row = -1;
@@ -4580,6 +4619,18 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
         ForwardCursor(L lowerBound, L upperBound, Object x) {
             this.lowerBound = lowerBound;
             this.upperBound = upperBound;
+            this.x = x;
+        }
+
+        /**
+         * @param lowerBound Lower bound.
+         * @param upperBound Upper bound.
+         * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
+         */
+        ForwardCursor(L lowerBound, L upperBound, BPlusTreeVisitor visitor, Object x) {
+            this.lowerBound = lowerBound;
+            this.upperBound = upperBound;
+            this.visitor = visitor;
             this.x = x;
         }
 
@@ -4693,25 +4744,57 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
             if (cnt == 0)
                 return false;
 
-            if (rows == EMPTY)
-                rows = (T[])new Object[cnt];
+            if (visitor == null) {
+                if (rows == EMPTY)
+                    rows = (T[])new Object[cnt];
 
-            int foundCnt = 0;
+                int foundCnt = 0;
 
-            for (int i = 0; i < cnt; i++) {
-                T r = getRow(io, pageAddr, startIdx + i, x);
+                for (int i = 0; i < cnt; i++) {
+                    T r = getRow(io, pageAddr, startIdx + i, x);
 
-                if (r != null)
-                    rows = GridArrays.set(rows, foundCnt++, r);
+                    if (r != null)
+                        rows = GridArrays.set(rows, foundCnt++, r);
+                }
+
+                if (foundCnt == 0) {
+                    rows = (T[])EMPTY;
+
+                    return false;
+                }
+
+                GridArrays.clearTail(rows, foundCnt);
             }
+            else {
+                int lastVisited = -1;
 
-            if (foundCnt == 0) {
-                rows = (T[])EMPTY;
+                for (int i = 0; i < cnt; i++) {
+                    if (!visitRow(io, pageAddr, startIdx + i, visitor, x)) {
+                        stop = true;
 
-                return false;
+                        if (rows == EMPTY)
+                            rows = (T[])new Object[1];
+
+                        // TODO heap instantiation, most likely this can be avoided.
+                        rows[0] = getRow(io, pageAddr, startIdx + i, x);
+                        row = 1;
+
+                        return false; // Stop.
+                    }
+
+                    lastVisited = i;
+                }
+
+                if (lastVisited == -1)
+                    return false;
+
+                if (rows == EMPTY)
+                    rows = (T[])new Object[1];
+
+                // TODO heap instantiation, most likely this can be avoided.
+                rows[0] = getRow(io, pageAddr, startIdx + lastVisited, x);
+                row = 1;
             }
-
-            GridArrays.clearTail(rows, foundCnt);
 
             return true;
         }
@@ -4758,6 +4841,16 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
             doFind(new GetCursor(lowerBound, lowerShift, this));
         }
 
+        private void visitAll() throws IgniteCheckedException {
+            assert visitor != null;
+            assert lowerBound != null;
+
+            doFind(new GetCursor(lowerBound, lowerShift, this));
+
+            while (!stop)
+                stop |= !nextPage();
+        }
+
         /**
          * @throws IgniteCheckedException If failed.
          * @return {@code True} If we have rows to return after reading the next page.
@@ -4786,6 +4879,9 @@ public abstract class BPlusTree<L, T extends L> extends DataStructure implements
 
                     return false; // Done.
                 }
+
+                if (stop)
+                    return false; // Done.
 
                 long pageId = nextPageId;
                 long page = acquirePage(pageId);

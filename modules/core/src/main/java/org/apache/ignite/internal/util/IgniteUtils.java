@@ -675,6 +675,7 @@ public abstract class IgniteUtils {
         jvm32Bit = "32".equals(jvmArchDataModel);
 
         primitiveMap.put("byte", byte.class);
+        primitiveMap.put("byte[]", byte[].class);
         primitiveMap.put("short", short.class);
         primitiveMap.put("int", int.class);
         primitiveMap.put("long", long.class);

@@ -230,6 +230,41 @@ public class InlineIndexHelper {
             return PageUtils.getShort(pageAddr, off + 1) + 3;
     }
 
+    public long getValueLong(long pageAddr, int off, int maxSize) {
+        if (size > 0 && size + 1 > maxSize)
+            throw new IllegalStateException();
+
+        if (maxSize < 1)
+            throw new IllegalStateException();
+
+        int type = PageUtils.getByte(pageAddr, off);
+
+        if (type != Value.LONG)
+            throw new IllegalStateException("Type: " + type);
+
+        return PageUtils.getLong(pageAddr, off + 1);
+    }
+
+    public long getValueBytesAddress(long pageAddr, int off, int maxSize) {
+        if (size > 0 && size + 1 > maxSize)
+            throw new IllegalStateException();
+
+        if (maxSize < 1)
+            throw new IllegalStateException();
+
+        int type = PageUtils.getByte(pageAddr, off);
+
+        if (type != Value.BYTES && type != Value.JAVA_OBJECT)
+            throw new IllegalStateException("Type: " + type);
+
+        return pageAddr + off + 3;
+    }
+
+    public int getValueBytesSize(long pageAddr, int off, int maxSize) {
+        // TODO No check, assumed that getValueBytesSize called after getValueBytesAddress.
+        return PageUtils.getShort(pageAddr, off + 1) & 0x7FFF;
+    }
+
     /**
      * @param pageAddr Page address.
      * @param off Offset.

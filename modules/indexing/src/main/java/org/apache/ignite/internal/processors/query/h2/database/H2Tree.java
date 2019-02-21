@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.query.h2.database;
 
+import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -25,6 +26,7 @@ import org.apache.ignite.internal.pagemem.PageIdUtils;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
+import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTreeVisitor;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusMetaIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
@@ -173,6 +175,65 @@ public abstract class H2Tree extends BPlusTree<SearchRow, GridH2Row> {
         }
 
         return (GridH2Row)io.getLookupRow(this, pageAddr, idx);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected boolean visitRow(BPlusIO<SearchRow> io, long pageAddr, int idx, BPlusTreeVisitor visitor, Object filter) throws IgniteCheckedException {
+        assert inlineIdxs != null;
+
+        if (filter != null) {
+            // Filter out not interesting partitions without deserializing the row.
+            IndexingQueryCacheFilter filter0 = (IndexingQueryCacheFilter)filter;
+
+            long link = ((H2RowLinkIO)io).getLink(pageAddr, idx);
+
+            int part = PageIdUtils.partId(PageIdUtils.pageId(link));
+
+            if (!filter0.applyPartition(part))
+                return true;
+        }
+
+        int off = io.offset(idx);
+
+        int fieldOff = 0;
+
+        long userId = 0;
+        long txId = 0;
+        long valBytesAddr = 0;
+        int valBytesSize = 0;
+
+        // TODO this is obviously hard-coded values.
+        for (int i = 0; i < 3; i++) {
+            InlineIndexHelper inlineIdx = inlineIdxs.get(i);
+
+            switch (i) {
+                case 0:
+                    userId = inlineIdx.getValueLong(pageAddr, off + fieldOff, inlineSize() - fieldOff);
+
+                    break;
+
+                case 1:
+                    txId = inlineIdx.getValueLong(pageAddr, off + fieldOff, inlineSize() - fieldOff);
+
+                    break;
+
+                case 2:
+                    valBytesAddr = inlineIdx.getValueBytesAddress(pageAddr, off + fieldOff, inlineSize() - fieldOff);
+                    valBytesSize = inlineIdx.getValueBytesSize(pageAddr, off + fieldOff, inlineSize() - fieldOff);
+
+                    break;
+
+                default:
+                    throw new IllegalStateException();
+            }
+
+            fieldOff += inlineIdx.fullSize(pageAddr, off + fieldOff);
+
+            if (fieldOff > inlineSize())
+                break;
+        }
+
+        return visitor.visit(userId, txId, valBytesAddr, valBytesSize);
     }
 
     /**
