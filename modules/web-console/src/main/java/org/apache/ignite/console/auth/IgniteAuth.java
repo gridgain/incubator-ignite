@@ -31,10 +31,8 @@ import io.vertx.ext.auth.PRNG;
 import io.vertx.ext.auth.User;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
-import javax.security.auth.login.CredentialException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.internal.util.typedef.F;
@@ -116,28 +114,29 @@ public class IgniteAuth implements AuthProvider {
     /**
      * @param accId Account id.
      */
-    Account account(UUID accId) throws IllegalStateException {
+    Account account(UUID accId) throws IgniteAuthenticationException {
         if (accId == null)
-            throw new IllegalStateException("Missing account identity");
+            throw new IgniteAuthenticationException("Missing account identity");
 
         IgniteCache<UUID, Account> cache = accountsTbl.cache();
 
         Account account = cache.get(accId);
 
         if (account == null)
-            throw new IllegalStateException("Failed to find account with identity: " + accId);
+            throw new IgniteAuthenticationException("Failed to find account with identity: " + accId);
 
         return account;
     }
 
     /** {@inheritDoc} */
-    @Override public void authenticate(JsonObject authInfo, Handler<AsyncResult<User>> asyncResHnd) {
+    @Override public void authenticate(JsonObject authInfo, Handler<AsyncResult<User>> asyncResHnd)
+        throws IgniteAuthenticationException {
         try {
             String email = authInfo.getString("email");
             String pwd = authInfo.getString("password");
 
             if (F.isEmpty(email) || F.isEmpty(pwd))
-                throw new CredentialException(E_INVALID_CREDENTIALS);
+                throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
 
             Account account;
 
@@ -146,12 +145,12 @@ public class IgniteAuth implements AuthProvider {
             }
 
             if (account == null)
-                throw new IgniteException();
+                throw new IgniteAuthenticationException("Failed to find registered account");
 
             String hash = computeHash(authInfo.getString("password"), account.salt());
 
             if (!account.hash().equals(hash))
-                throw new CredentialException(E_INVALID_CREDENTIALS);
+                throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
 
             asyncResHnd.handle(Future.succeededFuture(new ContextAccount(account)));
         }
