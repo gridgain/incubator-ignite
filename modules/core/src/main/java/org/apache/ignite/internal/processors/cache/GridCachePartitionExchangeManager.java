@@ -1096,7 +1096,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
      * @param comp Component to be registered.
      */
     public void registerExchangeAwareComponent(PartitionsExchangeAware comp) {
-        exchangeAwareComps.add(new PartitionsExchangeAwareWrapper(comp));
+        exchangeAwareComps.add(comp);
     }
 
     /**
@@ -1105,7 +1105,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
      * @param comp Component to be registered.
      */
     public void unregisterExchangeAwareComponent(PartitionsExchangeAware comp) {
-        exchangeAwareComps.remove(new PartitionsExchangeAwareWrapper(comp));
+        exchangeAwareComps.remove(comp);
     }
 
     /**
@@ -3401,73 +3401,6 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         /** {@inheritDoc} */
         @Override public String toString() {
             return S.toString(AffinityReadyFuture.class, this, super.toString());
-        }
-    }
-
-    /**
-     * That wrapper class allows avoiding the propagation of the user's exceptions into the Exchange thread.
-     */
-    private class PartitionsExchangeAwareWrapper implements PartitionsExchangeAware {
-        /** */
-        private final PartitionsExchangeAware delegate;
-
-        /**
-         * Creates a new wrapper.
-         * @param delegate Delegate.
-         */
-        public PartitionsExchangeAwareWrapper(PartitionsExchangeAware delegate) {
-            this.delegate = delegate;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void onInitBeforeTopologyLock(GridDhtPartitionsExchangeFuture fut) {
-            try {
-                delegate.onInitBeforeTopologyLock(fut);
-            }
-            catch (Exception e) {
-                U.warn(log, "Failed to execute exchange callback.", e);
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override public void onInitAfterTopologyLock(GridDhtPartitionsExchangeFuture fut) {
-            try {
-                delegate.onInitAfterTopologyLock(fut);
-            }
-            catch (Exception e) {
-                U.warn(log, "Failed to execute exchange callback.", e);
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override public void onDoneBeforeTopologyUnlock(GridDhtPartitionsExchangeFuture fut) {
-            try {
-                delegate.onDoneBeforeTopologyUnlock(fut);
-            }
-            catch (Exception e) {
-                U.warn(log, "Failed to execute exchange callback.", e);
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override public void onDoneAfterTopologyUnlock(GridDhtPartitionsExchangeFuture fut) {
-            try {
-                delegate.onDoneAfterTopologyUnlock(fut);
-            }
-            catch (Exception e) {
-                U.warn(log, "Failed to execute exchange callback.", e);
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override public int hashCode() {
-            return delegate.hashCode();
-        }
-
-        /** {@inheritDoc} */
-        @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-        @Override public boolean equals(Object obj) {
-            return delegate.equals(obj);
         }
     }
 }
