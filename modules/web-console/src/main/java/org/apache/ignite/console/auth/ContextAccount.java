@@ -61,7 +61,7 @@ public class ContextAccount extends AbstractUser {
     /**
      * @return User account.
      */
-    public Account account() throws IllegalStateException {
+    public Account account() throws IgniteAuthenticationException {
         if (cachedAccount != null)
             return cachedAccount;
 
@@ -74,7 +74,7 @@ public class ContextAccount extends AbstractUser {
     }
 
     /** {@inheritDoc} */
-    @Override public JsonObject principal() throws IllegalStateException {
+    @Override public JsonObject principal() throws IgniteAuthenticationException {
         return account().principal();
     }
 
@@ -86,11 +86,11 @@ public class ContextAccount extends AbstractUser {
     }
 
     /** {@inheritDoc} */
-    @Override public void setAuthProvider(AuthProvider authProvider) throws IllegalStateException {
+    @Override public void setAuthProvider(AuthProvider authProvider) throws IgniteAuthenticationException {
         if (authProvider instanceof IgniteAuth)
             this.authProvider = (IgniteAuth)authProvider;
         else
-            throw new IllegalStateException("Not a " + IgniteAuth.class);
+            throw new IgniteAuthenticationException("Not a " + IgniteAuth.class);
     }
 
     /** {@inheritDoc} */

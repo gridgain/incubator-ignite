@@ -54,7 +54,6 @@ public class NotebooksRouter extends AbstractRouter {
 
     /** {@inheritDoc} */
     @Override protected void initializeCaches() {
-        notebooksTbl.cache();
         notebooksIdx.cache();
     }
 

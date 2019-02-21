@@ -99,31 +99,37 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
     }
 
     /**
-     * @param data DTO.
-     * @return Saved DTO.
+     * @param val Value.
      */
-    public T save(T data) throws IgniteException {
+    private void putUniqueIndexes(T val) {
         for (UniqueIndexEx<T> idx : uniqueIndexes) {
-            UUID prevId = indexCache().getAndPutIfAbsent(idx.key(data), data.id());
+            UUID prevId = indexCache().getAndPutIfAbsent(idx.key(val), val.id());
 
-            if (prevId != null && !data.id().equals(prevId))
-                throw new IgniteException(idx.message(data));
+            if (prevId != null && !val.id().equals(prevId))
+                throw new IgniteException(idx.message(val));
         }
-
-        cache().put(data.id(), data);
-
-        return data;
     }
 
     /**
-     * @param items Map of DTOs.
+     * @param val DTO.
+     * @return Saved DTO.
      */
-    public void saveAll(Map<UUID, T> items) throws IgniteException {
-        if (uniqueIndexes.isEmpty())
-            cache().putAll(items);
+    public T save(T val) throws IgniteException {
+        putUniqueIndexes(val);
 
-        for (T item : items.values())
-            save(item);
+        cache().put(val.id(), val);
+
+        return val;
+    }
+
+    /**
+     * @param values Map of DTOs.
+     */
+    public void saveAll(Map<UUID, T> values) throws IgniteException {
+        for (T item : values.values())
+            putUniqueIndexes(item);
+
+        cache().putAll(values);
     }
 
     /**
@@ -131,22 +137,23 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      * @return Previous value.
      */
     @Nullable public T delete(UUID id) {
-        T payload = cache().getAndRemove(id);
+        T val = cache().getAndRemove(id);
 
-        indexCache().removeAll(uniqueIndexes.stream().map(idx -> idx.key(payload)).collect(toSet()));
+        indexCache().removeAll(uniqueIndexes.stream().map(idx -> idx.key(val)).collect(toSet()));
 
-        return payload;
+        return val;
     }
 
     /**
      * @param ids IDs.
      */
     public void deleteAll(Set<UUID> ids) {
-        if (uniqueIndexes.isEmpty())
-            cache().removeAll(ids);
+        Set<Object> idxIds = ids.stream()
+            .map(cache()::getAndRemove)
+            .flatMap((payload) -> uniqueIndexes.stream().map(idx -> idx.key(payload)))
+            .collect(toSet());
 
-        for (UUID item : ids)
-            delete(item);
+        indexCache().removeAll(idxIds);
     }
 
     /**
@@ -168,18 +175,18 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
         }
 
         /**
-         * @param data Payload.
+         * @param val Value.
          * @return Unique key.
          */
-        public Object key(T data) {
-            return keyGenerator.apply(data);
+        public Object key(T val) {
+            return keyGenerator.apply(val);
         }
 
         /**
-         * @param data Data.
+         * @param val Value.
          */
-        public String message(T data) {
-            return msgGenerator.apply(data);
+        public String message(T val) {
+            return msgGenerator.apply(val);
         }
     }
 }

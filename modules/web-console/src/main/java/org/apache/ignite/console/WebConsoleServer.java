@@ -80,7 +80,7 @@ public class WebConsoleServer extends AbstractVerticle {
     protected final Ignite ignite;
 
     /** */
-    private final IgniteAuth auth;
+    private final IgniteAuth authProvider;
 
     /** */
     private final RestApiRouter cfgsRouter;
@@ -90,18 +90,18 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /**
      * @param ignite Ignite.
-     * @param auth Auth provider.
+     * @param authProvider Auth provider.
      * @param cfgsRouter Configurations REST API router.
      * @param notebooksRouter Notebooks REST API router.
      */
     public WebConsoleServer(
         Ignite ignite,
-        IgniteAuth auth,
+        IgniteAuth authProvider,
         RestApiRouter cfgsRouter,
         RestApiRouter notebooksRouter
     ) {
         this.ignite = ignite;
-        this.auth = auth;
+        this.authProvider = authProvider;
         this.cfgsRouter = cfgsRouter;
         this.notebooksRouter = notebooksRouter;
     }
@@ -124,7 +124,7 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
         router.route().handler(SessionHandler.create(ClusteredSessionStore.create(vertx)));
-        router.route().handler(UserSessionHandler.create(auth));
+        router.route().handler(UserSessionHandler.create(authProvider));
 
         router.route("/eventbus/*").handler(sockJsHnd);
 
@@ -180,10 +180,10 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param router Router.
      */
     private void registerRestRoutes(Router router) {
-        router.route("/api/v1/user").handler(this::handleUser);
-        router.route("/api/v1/signup").handler(this::handleSignUp);
-        router.route("/api/v1/signin").handler(this::handleSignIn);
-        router.route("/api/v1/logout").handler(this::handleLogout);
+        router.route("/api/v1/user").handler(this::getAccount);
+        router.route("/api/v1/signup").handler(this::registerAccount);
+        router.route("/api/v1/signin").handler(this::signIn);
+        router.route("/api/v1/logout").handler(this::logout);
 
         router.route("/api/v1/password/forgot").handler(this::handleDummy);
         router.route("/api/v1/password/reset").handler(this::handleDummy);
@@ -301,7 +301,7 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param ctx Context
      */
-    private void handleUser(RoutingContext ctx) {
+    private void getAccount(RoutingContext ctx) {
         try {
             User user = ctx.user();
 
@@ -321,19 +321,19 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param ctx Context
      */
-    private void handleSignUp(RoutingContext ctx) {
+    private void registerAccount(RoutingContext ctx) {
         try {
             JsonObject entries = ctx.getBodyAsJson();
 
             if (entries.getBoolean("user.admin", false)) {
-                sendResult(ctx, auth.registerAccount(entries).principal());
+                sendResult(ctx, authProvider.registerAccount(entries).principal());
 
                 return;
             }
 
-            auth.registerAccount(entries);
+            authProvider.registerAccount(entries);
 
-            handleSignIn(ctx);
+            signIn(ctx);
         }
         catch (IgniteException e) {
             sendStatus(ctx, HTTP_INTERNAL_ERROR, e.getMessage());
@@ -346,8 +346,8 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param ctx Context
      */
-    private void handleSignIn(RoutingContext ctx) {
-        auth.authenticate(ctx.getBody().toJsonObject(), asyncRes -> {
+    private void signIn(RoutingContext ctx) {
+        authProvider.authenticate(ctx.getBody().toJsonObject(), asyncRes -> {
             if (asyncRes.succeeded()) {
                 ctx.setUser(asyncRes.result());
 
@@ -361,7 +361,7 @@ public class WebConsoleServer extends AbstractVerticle {
     /**
      * @param ctx Context
      */
-    private void handleLogout(RoutingContext ctx) {
+    private void logout(RoutingContext ctx) {
         ctx.clearUser();
 
         sendStatus(ctx, HTTP_OK);
