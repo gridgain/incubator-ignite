@@ -127,6 +127,7 @@ class GridUpdateNotifier {
         PROPS_TO_EXCLUDE.add("user.home");
         PROPS_TO_EXCLUDE.add("user.name");
         PROPS_TO_EXCLUDE.add("IGNITE_HOME");
+        PROPS_TO_EXCLUDE.add("IGNITE_CONFIG_URL");
     }
 
     /**
@@ -362,6 +363,8 @@ class GridUpdateNotifier {
                         (!F.isEmpty(stackTrace) ? "&stackTrace=" + encode(stackTrace, CHARSET) : "") +
                         (!F.isEmpty(vmProps) ? "&vmProps=" + encode(vmProps, CHARSET) : "") +
                         pluginsVers;
+
+                System.out.println(postParams);
 
                 if (!isCancelled()) {
                     try {
