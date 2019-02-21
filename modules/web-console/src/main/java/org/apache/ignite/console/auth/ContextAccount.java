@@ -30,10 +30,10 @@ import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.internal.util.IgniteUuidCache;
 
 /**
- * User object.
+ * Account saved in session.
  */
 public class ContextAccount extends AbstractUser {
-    /** User cachedAccount. */
+    /** Account id. */
     private UUID accId;
 
     /** Cached account. */
@@ -50,7 +50,7 @@ public class ContextAccount extends AbstractUser {
     }
 
     /**
-     * @param account User account.
+     * @param account Account.
      */
     ContextAccount(Account account) {
         this.accId = account.id();
@@ -59,7 +59,7 @@ public class ContextAccount extends AbstractUser {
     }
 
     /**
-     * @return User account.
+     * @return Account.
      */
     public Account account() throws IgniteAuthenticationException {
         if (cachedAccount != null)
