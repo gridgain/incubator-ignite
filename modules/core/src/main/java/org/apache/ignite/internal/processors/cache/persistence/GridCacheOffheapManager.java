@@ -79,6 +79,7 @@ import org.apache.ignite.internal.processors.cache.tree.CacheDataRowStore;
 import org.apache.ignite.internal.processors.cache.tree.CacheDataTree;
 import org.apache.ignite.internal.processors.cache.tree.PendingEntriesTree;
 import org.apache.ignite.internal.processors.cache.tree.PendingRow;
+import org.apache.ignite.internal.processors.cache.tree.SearchRow;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.query.GridQueryRowCacheCleaner;
 import org.apache.ignite.internal.util.lang.GridCursor;
@@ -2013,7 +2014,12 @@ public class GridCacheOffheapManager extends IgniteCacheOffheapManagerImpl imple
 
         @Override public <K, V> IgniteOffHeapIterator iterator(GridCacheContext<K, V> cctx,
             KeyCacheObject key) throws IgniteCheckedException {
-            throw new UnsupportedOperationException();
+            CacheDataStore delegate = init0(true);
+
+            if (delegate != null)
+                return delegate.iterator(cctx, key);
+
+            return null;
         }
     }
 
