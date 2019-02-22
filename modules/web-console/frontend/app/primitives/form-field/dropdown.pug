@@ -24,8 +24,6 @@ mixin form-field__dropdown({ label, model, name, disabled, required, multiple, p
                 id=`{{ ${name} }}Input`
                 name=`{{ ${name} }}`
 
-                data-placeholder=placeholderEmpty ? `{{ ${options}.length > 0 ? '${placeholder}' : '${placeholderEmpty}' }}` : placeholder
-                
                 ng-model=model
                 ng-disabled=disabled && `${disabled}`
                 ng-required=required && `${required}`
@@ -35,11 +33,12 @@ mixin form-field__dropdown({ label, model, name, disabled, required, multiple, p
                 multiple=multiple ? '' : false
             )&attributes(attributes.attributes)
                 if !multiple && placeholder
-                    option(
-                        value=''
-                        ng-disabled=required && `${required}`
-                    ) #{placeholder}
-                option(ng-repeat=`item in ${options} track by item.value` ng-value='item.value' ng-bind=`item.${optionLabel}`)
+                    option(value='' hidden) #{placeholder}
+                option(
+                    ng-repeat=`item in ${options} track by item.value`
+                    ng-value='item.value'
+                    ng-bind=`item.${optionLabel}`
+                )
 
         else
 
