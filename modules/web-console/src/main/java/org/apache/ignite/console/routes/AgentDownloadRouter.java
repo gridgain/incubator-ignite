@@ -18,20 +18,23 @@
 package org.apache.ignite.console.routes;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Enumeration;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
-import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
+import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.util.typedef.F;
 
 /**
  * Router to handle REST API to download Web Agent.
@@ -41,19 +44,21 @@ public class AgentDownloadRouter extends AbstractRouter {
     private static final int BUFFER_SZ = 30 * 1024 * 1024;
 
     /** */
-    private File pathToWebAgentZip;
+    private Path pathToAgentZip;
 
     /** */
-    private final String file;
+    private final String agentFileName;
 
     /**
      * @param ignite Ignite.
+     * @param agentFolderName Folder where agent ZIP stored.
+     * @param agentFileName Agent file name.
      */
-    public AgentDownloadRouter(Ignite ignite, String folder, String file) {
+    public AgentDownloadRouter(Ignite ignite, String agentFolderName, String agentFileName) {
         super(ignite);
 
-        this.file = file;
-        this.pathToWebAgentZip = Paths.get(folder, file + ".zip").toFile();
+        this.agentFileName = agentFileName;
+        this.pathToAgentZip = Paths.get(agentFolderName, agentFileName + ".zip");
     }
 
     /** {@inheritDoc} */
@@ -67,6 +72,25 @@ public class AgentDownloadRouter extends AbstractRouter {
     }
 
     /**
+     *
+     * @param req Request.
+     * @return Site origin.
+     */
+    private String origin(HttpServerRequest req) {
+       String proto = req.getHeader("x-forwarded-proto");
+
+       if (F.isEmpty(proto))
+           proto = req.isSSL() ? "https" : "http";
+
+       String host = req.getHeader("x-forwarded-host");
+
+        if (F.isEmpty(proto))
+            host = req.host();
+
+        return proto + "://" + host;
+    }
+
+    /**
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
@@ -74,20 +98,23 @@ public class AgentDownloadRouter extends AbstractRouter {
 
         if (user != null) {
             try {
-                ZipFile zip = new ZipFile(pathToWebAgentZip);
+                if (!Files.exists(pathToAgentZip))
+                    throw new FileNotFoundException("Missing agent zip on server");
+
+                ZipFile zip = new ZipFile(pathToAgentZip.toFile());
 
                 ByteArrayOutputStream baos = new ByteArrayOutputStream(BUFFER_SZ);
 
-                ZipOutputStream zos = new ZipOutputStream(baos);
+                ZipArchiveOutputStream zos = new ZipArchiveOutputStream(baos);
 
-                Enumeration<? extends ZipEntry> entries = zip.entries();
+                Enumeration<ZipArchiveEntry> entries = zip.getEntries();
 
                 byte[] buf = new byte[BUFFER_SZ];
 
                 while (entries.hasMoreElements()) {
-                    ZipEntry e = entries.nextElement();
+                    ZipArchiveEntry e = entries.nextElement();
 
-                    zos.putNextEntry(e);
+                    zos.putArchiveEntry(e);
 
                     if (!e.isDirectory()) {
                         int bytesRead;
@@ -98,16 +125,16 @@ public class AgentDownloadRouter extends AbstractRouter {
                             zos.write(buf, 0, bytesRead);
                     }
 
-                    zos.closeEntry();
+                    zos.closeArchiveEntry();
                 }
 
                 // Append default.properties to ZIP.
-                ZipEntry e = new ZipEntry(file + "/default.properties");
-                zos.putNextEntry(e);
+                ZipArchiveEntry e = new ZipArchiveEntry(agentFileName + "/default.properties");
+                zos.putArchiveEntry(e);
 
                 String content = String.join("\n",
-                    "tokens=" + user.principal().getString("token", "MY_TOKEN"),
-                    "server-uri=" + ctx.request().host(),
+                    "tokens=" + user.principal().getString("token", "MY_TOKEN"), // TODO WC-938 Take token from Account after WC-949 will be merged.
+                    "server-uri=" + origin(ctx.request()),
                     "#Uncomment following options if needed:",
                     "#node-uri=http://localhost:8080",
                     "#node-login=ignite",
@@ -126,23 +153,22 @@ public class AgentDownloadRouter extends AbstractRouter {
                 );
 
                 zos.write(content.getBytes());
-                zos.closeEntry();
+                zos.closeArchiveEntry();
                 zos.close();
 
                 byte[] data = baos.toByteArray();
 
-                HttpServerResponse res = ctx.response()
+                ctx.response()
                     .setChunked(true)
                     .putHeader(HttpHeaders.CONTENT_TYPE, "application/zip")
-                    .putHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file + ".zip\"")
+                    .putHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + agentFileName + ".zip\"")
                     .putHeader(HttpHeaders.TRANSFER_ENCODING, HttpHeaders.CHUNKED)
-                    .putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(data.length));
-
-                res.write(Buffer.buffer(data));
-                res.end();
+                    .putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(data.length))
+                    .write(Buffer.buffer(data))
+                    .end();
             }
             catch (Throwable e) {
-                sendError(ctx, "Failed to prepare Web Agent archive", e);
+                sendError(ctx, "Failed to prepare Web Agent archive for download", e);
             }
         }
     }

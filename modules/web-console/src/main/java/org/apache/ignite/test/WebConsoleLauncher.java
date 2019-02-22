@@ -56,7 +56,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
         RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
         RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
-        RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-2.8.3");
+        RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
 
         vertx.deployVerticle(new WebConsoleServer(ignite, auth, cfgsRouter, notebooksRouter, downloadRouter));
     }
