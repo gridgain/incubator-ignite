@@ -19,11 +19,9 @@ package org.apache.ignite.console.routes;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Enumeration;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerRequest;
@@ -84,7 +82,7 @@ public class AgentDownloadRouter extends AbstractRouter {
 
        String host = req.getHeader("x-forwarded-host");
 
-        if (F.isEmpty(proto))
+        if (F.isEmpty(host))
             host = req.host();
 
         return proto + "://" + host;
@@ -107,30 +105,11 @@ public class AgentDownloadRouter extends AbstractRouter {
 
                 ZipArchiveOutputStream zos = new ZipArchiveOutputStream(baos);
 
-                Enumeration<ZipArchiveEntry> entries = zip.getEntries();
+                // Make a copy of agent ZIP.
+                zip.copyRawEntries(zos, rawEntry -> true);
 
-                byte[] buf = new byte[BUFFER_SZ];
-
-                while (entries.hasMoreElements()) {
-                    ZipArchiveEntry e = entries.nextElement();
-
-                    zos.putArchiveEntry(e);
-
-                    if (!e.isDirectory()) {
-                        int bytesRead;
-
-                        InputStream is = zip.getInputStream(e);
-
-                        while ((bytesRead = is.read(buf)) != -1)
-                            zos.write(buf, 0, bytesRead);
-                    }
-
-                    zos.closeArchiveEntry();
-                }
-
-                // Append default.properties to ZIP.
-                ZipArchiveEntry e = new ZipArchiveEntry(agentFileName + "/default.properties");
-                zos.putArchiveEntry(e);
+                // Append "default.properties" to agent ZIP.
+                zos.putArchiveEntry(new ZipArchiveEntry(agentFileName + "/default.properties"));
 
                 String content = String.join("\n",
                     "tokens=" + user.principal().getString("token", "MY_TOKEN"), // TODO WC-938 Take token from Account after WC-949 will be merged.
