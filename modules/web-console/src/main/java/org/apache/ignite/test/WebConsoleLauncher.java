@@ -61,15 +61,17 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
         WebConsoleConfiguration cfg = new WebConsoleConfiguration();
 
+        // TODO Remove this code after WC-950 will be implemented.
         // Uncomment if you need Vertx to handle static resources.
-        // cfg.setWebRoot("modules/web-console/frontend/build");
+        cfg.setWebRoot("modules/web-console/frontend/build");
 
+        // TODO Remove this code after WC-950 will be implemented.
         // Uncomment if you need SSL.
-        // cfg
-        //    .setKeyStore("modules/web-console/web-agent/src/test/resources/server.jks")
-        //    .setKeyStorePassword("123456")
-        //    .setTrustStore("modules/web-console/web-agent/src/test/resources/ca.jks")
-        //    .setTrustStorePassword("123456");
+         cfg
+            .setKeyStore("modules/web-console/web-agent/src/test/resources/server.jks")
+            .setKeyStorePassword("123456")
+            .setTrustStore("modules/web-console/web-agent/src/test/resources/ca.jks")
+            .setTrustStorePassword("123456");
 
         vertx.deployVerticle(new WebConsoleServer(cfg, ignite, auth, cfgsRouter, notebooksRouter));
 

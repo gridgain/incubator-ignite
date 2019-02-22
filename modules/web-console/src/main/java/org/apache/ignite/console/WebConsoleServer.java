@@ -17,7 +17,6 @@
 
 package org.apache.ignite.console;
 
-import java.io.File;
 import java.net.HttpURLConnection;
 import java.util.Arrays;
 import java.util.List;
@@ -32,7 +31,9 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.ClientAuth;
+import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
@@ -56,13 +57,14 @@ import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.Nullable;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.common.Utils.errorMessage;
+import static org.apache.ignite.console.common.Utils.jksOptions;
 
 /**
  * Web Console server.
@@ -134,30 +136,8 @@ public class WebConsoleServer extends AbstractVerticle {
         this.notebooksRouter = notebooksRouter;
     }
 
-    /**
-     * @param path Path to JKS file.
-     * @param pwd Optional password.
-     * @return Java key store options or {@code null}.
-     */
-    @Nullable private JksOptions jksOptions(String path, String pwd) {
-        if (F.isEmpty(path))
-            return null;
-
-        File file = U.resolveIgnitePath(path);
-
-        if (file == null)
-            throw new IllegalStateException("Failed to resolve path: " + path);
-
-        JksOptions jks = new JksOptions().setPath(file.getPath());
-
-        if (!F.isEmpty(pwd))
-            jks.setPassword(pwd);
-
-        return jks;
-    }
-
     /** {@inheritDoc} */
-    @Override public void start() {
+    @Override public void start() throws Exception {
         SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
 
         BridgeOptions allAccessOptions =
@@ -170,6 +150,11 @@ public class WebConsoleServer extends AbstractVerticle {
         registerEventBusConsumers();
 
         Router router = Router.router(vertx);
+
+        boolean ssl = !F.isEmpty(cfg.getKeyStore()) || !F.isEmpty(cfg.getTrustStore());
+
+        if (ssl)
+            router.route().handler(this::redirectToHttps);
 
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
@@ -189,7 +174,7 @@ public class WebConsoleServer extends AbstractVerticle {
             .setCompressionSupported(true)
             .setPerMessageWebsocketCompressionSupported(true);
 
-        if (!F.isEmpty(cfg.getKeyStore()) || !F.isEmpty(cfg.getTrustStore())) {
+        if (ssl) {
             httpOpts.setSsl(true);
 
             JksOptions jks = jksOptions(cfg.getKeyStore(), cfg.getKeyStorePassword());
@@ -221,6 +206,21 @@ public class WebConsoleServer extends AbstractVerticle {
             .listen(cfg.getPort());
 
         logInfo("Web Console server started.");
+    }
+
+    /**
+     * @param ctx Context.
+     */
+    private void redirectToHttps(RoutingContext ctx) {
+        if (!ctx.request().isSSL()) {
+            HttpServerResponse res = ctx.response();
+
+            res
+                .setStatusCode(HTTP_MOVED_PERM)
+                .setStatusMessage("Server requires HTTPS")
+                .putHeader(HttpHeaders.LOCATION, "https://" + ctx.request().host())
+                .end();
+        }
     }
 
     /**

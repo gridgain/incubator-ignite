@@ -18,6 +18,7 @@
 package org.apache.ignite.console.agent;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.ProtectionDomain;
@@ -117,15 +118,16 @@ public class AgentUtils {
      * @param path Path to JKS file.
      * @param pwd Optional password.
      * @return Java key store options or {@code null}.
+     * @throws FileNotFoundException if failed to resolve path to JKS.
      */
-    @Nullable public static JksOptions jksOptions(String path, String pwd) {
+    @Nullable public static JksOptions jksOptions(String path, String pwd) throws FileNotFoundException {
         if (F.isEmpty(path))
             return null;
 
         File file = U.resolveIgnitePath(path);
 
         if (file == null)
-            throw new IllegalStateException("Failed to resolve path: " + path);
+            throw new FileNotFoundException("Failed to resolve path: " + path);
 
         JksOptions jks = new JksOptions().setPath(file.getPath());
 

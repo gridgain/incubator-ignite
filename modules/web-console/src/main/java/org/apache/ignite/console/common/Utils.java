@@ -16,14 +16,19 @@
  */
 package org.apache.ignite.console.common;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.net.JksOptions;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utilities.
@@ -72,5 +77,28 @@ public class Utils {
      */
     public static JsonArray toJsonArray(Collection<? extends DataObject> data) {
         return data.stream().reduce(new JsonArray(), (a, b) -> a.add(new JsonObject(b.json())), JsonArray::addAll);
+    }
+
+    /**
+     * @param path Path to JKS file.
+     * @param pwd Optional password.
+     * @return Java key store options or {@code null}.
+     * @throws FileNotFoundException if failed to resolve path to JKS.
+     */
+    @Nullable public static JksOptions jksOptions(String path, String pwd) throws FileNotFoundException {
+        if (F.isEmpty(path))
+            return null;
+
+        File file = U.resolveIgnitePath(path);
+
+        if (file == null)
+            throw new FileNotFoundException("Failed to resolve path: " + path);
+
+        JksOptions jks = new JksOptions().setPath(file.getPath());
+
+        if (!F.isEmpty(pwd))
+            jks.setPassword(pwd);
+
+        return jks;
     }
 }
