@@ -51,6 +51,7 @@ form-field {
     .input-overlay {
         grid-area: overlay;
         display: grid;
+        justify-content: flex-end;
         grid-auto-columns: var(--overlay-item-width);
         grid-auto-flow: column;
         padding-right: var(--overlay-item-gap);
