@@ -26,8 +26,11 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AbstractUser;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.User;
+import org.apache.ignite.IgniteAuthenticationException;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.internal.util.IgniteUuidCache;
+import org.apache.ignite.internal.util.typedef.internal.U;
 
 /**
  * Account saved in session.
@@ -74,8 +77,13 @@ public class ContextAccount extends AbstractUser {
     }
 
     /** {@inheritDoc} */
-    @Override public JsonObject principal() throws IgniteAuthenticationException {
-        return account().principal();
+    @Override public JsonObject principal() throws IgniteException {
+        try {
+            return account().principal();
+        }
+        catch (IgniteAuthenticationException e) {
+            throw U.convertException(e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -86,11 +94,11 @@ public class ContextAccount extends AbstractUser {
     }
 
     /** {@inheritDoc} */
-    @Override public void setAuthProvider(AuthProvider authProvider) throws IgniteAuthenticationException {
+    @Override public void setAuthProvider(AuthProvider authProvider) throws IgniteException {
         if (authProvider instanceof IgniteAuth)
             this.authProvider = (IgniteAuth)authProvider;
         else
-            throw new IgniteAuthenticationException("Not a " + IgniteAuth.class);
+            throw new IgniteException("Not a " + IgniteAuth.class);
     }
 
     /** {@inheritDoc} */

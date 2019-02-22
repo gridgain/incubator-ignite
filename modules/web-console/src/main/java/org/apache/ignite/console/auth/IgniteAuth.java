@@ -32,7 +32,9 @@ import io.vertx.ext.auth.User;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteAuthenticationException;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.internal.util.typedef.F;
@@ -129,11 +131,10 @@ public class IgniteAuth implements AuthProvider {
     }
 
     /** {@inheritDoc} */
-    @Override public void authenticate(JsonObject authInfo, Handler<AsyncResult<User>> asyncResHnd)
-        throws IgniteAuthenticationException {
+    @Override public void authenticate(JsonObject data, Handler<AsyncResult<User>> asyncResHnd) throws IgniteException {
         try {
-            String email = authInfo.getString("email");
-            String pwd = authInfo.getString("password");
+            String email = data.getString("email");
+            String pwd = data.getString("password");
 
             if (F.isEmpty(email) || F.isEmpty(pwd))
                 throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
@@ -147,7 +148,7 @@ public class IgniteAuth implements AuthProvider {
             if (account == null)
                 throw new IgniteAuthenticationException("Failed to find registered account");
 
-            String hash = computeHash(authInfo.getString("password"), account.salt());
+            String hash = computeHash(data.getString("password"), account.salt());
 
             if (!account.hash().equals(hash))
                 throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
@@ -155,28 +156,28 @@ public class IgniteAuth implements AuthProvider {
             asyncResHnd.handle(Future.succeededFuture(new ContextAccount(account)));
         }
         catch (Throwable e) {
-            // TODO IGNITE-5617 Add logging?
+            ignite.log().error("Failed to authenticate account", e);
 
             asyncResHnd.handle(Future.failedFuture(e));
         }
     }
 
     /**
-     * @param entries Sign up info.
+     * @param body Sign up info.
      */
-    public Account registerAccount(JsonObject entries) throws Exception {
+    public Account registerAccount(JsonObject body) throws Exception {
         String salt = generateSalt();
-        String hash = computeHash(entries.getString("password"), salt);
+        String hash = computeHash(body.getString("password"), salt);
 
         Account account = new Account(
             UUID.randomUUID(),
-            entries.getString("email"),
-            entries.getString("firstName"),
-            entries.getString("lastName"),
-            entries.getString("company"),
-            entries.getString("country"),
-            entries.getString("industry"),
-            entries.getBoolean("admin", false),
+            body.getString("email"),
+            body.getString("firstName"),
+            body.getString("lastName"),
+            body.getString("company"),
+            body.getString("country"),
+            body.getString("industry"),
+            body.getBoolean("admin", false),
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
             ZonedDateTime.now().toString(),

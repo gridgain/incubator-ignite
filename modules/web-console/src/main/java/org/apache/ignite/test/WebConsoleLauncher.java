@@ -50,12 +50,12 @@ public class WebConsoleLauncher extends AbstractVerticle {
         Ignite ignite = startIgnite();
 
         VertxOptions options = new VertxOptions()
-            .setBlockedThreadCheckInterval(1000 * 60 * 60)
+            .setBlockedThreadCheckInterval(1000L * 60L * 60L)
             .setClusterManager(new IgniteClusterManager(ignite));
 
         Vertx.clusteredVertx(options, res -> {
             if (res.failed()) {
-                System.out.println("Failed to start clustered Vertx!");
+                ignite.log().error("Failed to start clustered Vertx!");
 
                 return;
             }

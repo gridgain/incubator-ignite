@@ -42,7 +42,7 @@ import static java.util.stream.Collectors.toSet;
  */
 public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
     /** Unique indexes. */
-    private List<UniqueIndexEx<T>> uniqueIndexes = new ArrayList<>();
+    private List<UniqueIndex<T>> uniqueIndexes = new ArrayList<>();
 
     /**
      * @param ignite Ignite.
@@ -57,7 +57,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      * @param msgGenerator Message generator.
      */
     public Table<T> addUniqueIndex(Function<T, Object> keyGenerator, Function<T, String> msgGenerator) {
-        uniqueIndexes.add(new UniqueIndexEx<>(keyGenerator, msgGenerator));
+        uniqueIndexes.add(new UniqueIndex<>(keyGenerator, msgGenerator));
 
         return this;
     }
@@ -101,8 +101,8 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
     /**
      * @param val Value.
      */
-    private void putUniqueIndexes(T val) {
-        for (UniqueIndexEx<T> idx : uniqueIndexes) {
+    private void putToUniqueIndexes(T val) {
+        for (UniqueIndex<T> idx : uniqueIndexes) {
             UUID prevId = indexCache().getAndPutIfAbsent(idx.key(val), val.id());
 
             if (prevId != null && !val.id().equals(prevId))
@@ -115,7 +115,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      * @return Saved DTO.
      */
     public T save(T val) throws IgniteException {
-        putUniqueIndexes(val);
+        putToUniqueIndexes(val);
 
         cache().put(val.id(), val);
 
@@ -127,7 +127,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      */
     public void saveAll(Map<UUID, T> values) throws IgniteException {
         for (T item : values.values())
-            putUniqueIndexes(item);
+            putToUniqueIndexes(item);
 
         cache().putAll(values);
     }
@@ -159,7 +159,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
     /**
      * Index for unique constraint.
      */
-    private static class UniqueIndexEx<T> {
+    private static class UniqueIndex<T> {
         /** */
         private final Function<T, Object> keyGenerator;
 
@@ -169,7 +169,7 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
         /**
          * Constructor.
          */
-        UniqueIndexEx(Function<T, Object> keyGenerator, Function<T, String> msgGenerator) {
+        UniqueIndex(Function<T, Object> keyGenerator, Function<T, String> msgGenerator) {
             this.keyGenerator = keyGenerator;
             this.msgGenerator = msgGenerator;
         }

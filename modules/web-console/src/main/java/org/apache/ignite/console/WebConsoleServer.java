@@ -56,6 +56,7 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.common.Utils.errorMessage;
+import static org.apache.ignite.console.common.Utils.getBoolean;
 
 /**
  * Web Console server.
@@ -323,15 +324,15 @@ public class WebConsoleServer extends AbstractVerticle {
      */
     private void registerAccount(RoutingContext ctx) {
         try {
-            JsonObject entries = ctx.getBodyAsJson();
+            JsonObject body = ctx.getBodyAsJson();
 
-            if (entries.getBoolean("user.admin", false)) {
-                sendResult(ctx, authProvider.registerAccount(entries).principal());
+            if (getBoolean(body, "user.admin", false)) {
+                sendResult(ctx, authProvider.registerAccount(body).principal());
 
                 return;
             }
 
-            authProvider.registerAccount(entries);
+            authProvider.registerAccount(body);
 
             signIn(ctx);
         }
