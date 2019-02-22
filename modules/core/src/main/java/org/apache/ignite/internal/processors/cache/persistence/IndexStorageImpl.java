@@ -26,7 +26,6 @@ import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
-import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTreeVisitor;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
@@ -257,11 +256,6 @@ public class IndexStorageImpl implements IndexStorage {
         @Override protected IndexItem getRow(final BPlusIO<IndexItem> io, final long pageAddr,
             final int idx, Object ignore) throws IgniteCheckedException {
             return readRow(pageAddr, ((IndexIO)io).getOffset(pageAddr, idx));
-        }
-
-        /** {@inheritDoc} */
-        @Override protected boolean visitRow(BPlusIO<IndexItem> io, long pageAddr, int idx, BPlusTreeVisitor visitor, Object x) throws IgniteCheckedException {
-            throw new UnsupportedOperationException();
         }
     }
 

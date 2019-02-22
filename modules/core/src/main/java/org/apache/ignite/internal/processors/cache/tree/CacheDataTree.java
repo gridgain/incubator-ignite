@@ -25,7 +25,6 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRowAdapter;
 import org.apache.ignite.internal.processors.cache.persistence.CacheSearchRow;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
-import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTreeVisitor;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPageIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.DataPagePayload;
@@ -146,11 +145,6 @@ public class CacheDataTree extends BPlusTree<CacheSearchRow, CacheDataRow> {
             CacheDataRowAdapter.RowData.FULL;
 
         return rowStore.dataRow(cacheId, hash, link, x);
-    }
-
-    /** {@inheritDoc} */
-    @Override protected boolean visitRow(BPlusIO<CacheSearchRow> io, long pageAddr, int idx, BPlusTreeVisitor visitor, Object x) throws IgniteCheckedException {
-        throw new UnsupportedOperationException();
     }
 
     /**

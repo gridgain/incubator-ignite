@@ -20,8 +20,10 @@ package org.apache.ignite.internal.processors.query;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.IgniteCache;
+import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.cache.QueryEntity;
 import org.apache.ignite.cache.QueryIndex;
 import org.apache.ignite.cache.QueryIndexType;
@@ -30,13 +32,19 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
-import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTreeVisitor;
+import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
+import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
+import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
+import org.apache.ignite.internal.processors.query.h2.database.H2Tree;
 import org.apache.ignite.internal.processors.query.h2.database.H2TreeIndex;
+import org.apache.ignite.internal.processors.query.h2.database.InlineIndexHelper;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2PlainRowFactory;
+import org.apache.ignite.internal.processors.query.h2.opt.GridH2Row;
 import org.apache.ignite.internal.processors.query.h2.opt.GridH2Table;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.h2.result.Row;
+import org.h2.result.SearchRow;
 import org.h2.value.ValueLong;
 
 /**
@@ -131,7 +139,7 @@ public class IgniteIndexFastScanTest extends GridCommonAbstractTest {
         }
     }
 
-    private static class TestVisitor implements BPlusTreeVisitor {
+    private static class TestVisitor implements BPlusTree.TreeVisitorClosure<SearchRow, GridH2Row> {
         private final long usrId;
         private int visited;
 
@@ -139,14 +147,69 @@ public class IgniteIndexFastScanTest extends GridCommonAbstractTest {
             this.usrId = usrId;
         }
 
-        @Override public boolean visit(long userId, long txId, long addr, int size) {
-            if (userId == usrId) {
+        @Override
+        public int visit(BPlusTree<SearchRow, GridH2Row> tree, BPlusIO<SearchRow> io, long pageAddr, int idx, IgniteWriteAheadLogManager wal) throws IgniteCheckedException {
+            H2Tree h2Tree = (H2Tree)tree;
+
+            List<InlineIndexHelper> inlineIdxs = h2Tree.inlineIndexes();
+
+            int inlineSize = h2Tree.inlineSize();
+
+            int off = io.offset(idx);
+
+            int fieldOff = 0;
+
+            long userId = 0;
+            long txId = 0;
+            long valBytesAddr = 0;
+            int valBytesSize = 0;
+
+            // TODO this is obviously hard-coded values.
+            for (int i = 0; i < 3; i++) {
+                InlineIndexHelper inlineIdx = inlineIdxs.get(i);
+
+                switch (i) {
+                    case 0:
+                        userId = inlineIdx.getValueLong(pageAddr, off + fieldOff, inlineSize - fieldOff);
+
+                        break;
+
+                    case 1:
+                        txId = inlineIdx.getValueLong(pageAddr, off + fieldOff, inlineSize - fieldOff);
+
+                        break;
+
+                    case 2:
+                        valBytesAddr = inlineIdx.getValueBytesAddress(pageAddr, off + fieldOff, inlineSize - fieldOff);
+                        valBytesSize = inlineIdx.getValueBytesSize(pageAddr, off + fieldOff, inlineSize - fieldOff);
+
+                        break;
+
+                    default:
+                        throw new IllegalStateException();
+                }
+
+                fieldOff += inlineIdx.fullSize(pageAddr, off + fieldOff);
+
+                if (fieldOff > inlineSize)
+                    break;
+            }
+
+            if (userId == usrId && txId >= 0 && valBytesSize >= 0 && valBytesAddr >= 0) {
                 visited++;
 
-                return visited < 50_000;
+                if (visited >= 50_000)
+                    return BPlusTree.TreeVisitorClosure.STOP;
             }
             else
-                return false;
+                return BPlusTree.TreeVisitorClosure.STOP;
+
+            return 0;
+        }
+
+        @Override
+        public int state() {
+            return 0;
         }
     }
 }

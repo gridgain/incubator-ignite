@@ -23,7 +23,6 @@ import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.pagemem.PageUtils;
 import org.apache.ignite.internal.pagemem.wal.IgniteWriteAheadLogManager;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
-import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTreeVisitor;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusInnerIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusLeafIO;
@@ -33,7 +32,6 @@ import org.apache.ignite.internal.processors.failure.FailureProcessor;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_DATA;
-import static org.apache.ignite.internal.pagemem.PageIdAllocator.FLAG_IDX;
 
 /**
  *
@@ -95,11 +93,6 @@ public class MetastorageTree extends BPlusTree<MetastorageSearchRow, Metastorage
         String key = ((DataLinkIO)io).getKey(pageAddr, idx);
 
         return rowStore.dataRow(key, link);
-    }
-
-    /** {@inheritDoc} */
-    @Override protected boolean visitRow(BPlusIO<MetastorageSearchRow> io, long pageAddr, int idx, BPlusTreeVisitor visitor, Object x) throws IgniteCheckedException {
-        throw new UnsupportedOperationException();
     }
 
     /**

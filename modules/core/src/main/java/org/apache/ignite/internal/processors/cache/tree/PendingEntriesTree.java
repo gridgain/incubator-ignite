@@ -21,7 +21,6 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.pagemem.PageMemory;
 import org.apache.ignite.internal.processors.cache.CacheGroupContext;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
-import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTreeVisitor;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.reuse.ReuseList;
 import org.apache.ignite.internal.util.typedef.internal.CU;
@@ -117,10 +116,5 @@ public class PendingEntriesTree extends BPlusTree<PendingRow, PendingRow> {
         PendingRow row = io.getLookupRow(this, pageAddr, idx);
 
         return flag == WITHOUT_KEY ? row : row.initKey(grp);
-    }
-
-    /** {@inheritDoc} */
-    @Override protected boolean visitRow(BPlusIO<PendingRow> io, long pageAddr, int idx, BPlusTreeVisitor visitor, Object x) throws IgniteCheckedException {
-        throw new UnsupportedOperationException();
     }
 }

@@ -30,7 +30,6 @@ import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.persistence.IgniteCacheDatabaseSharedManager;
 import org.apache.ignite.internal.processors.cache.persistence.RootPage;
 import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTree;
-import org.apache.ignite.internal.processors.cache.persistence.tree.BPlusTreeVisitor;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.BPlusIO;
 import org.apache.ignite.internal.processors.cache.persistence.tree.io.PageIO;
 import org.apache.ignite.internal.processors.query.GridQueryTypeDescriptor;
@@ -239,7 +238,7 @@ public class H2TreeIndex extends GridH2IndexBase {
         }
     }
 
-    public void visitAll(Session ses, SearchRow lower, BPlusTreeVisitor visitor) {
+    public void visitAll(Session ses, SearchRow lower, BPlusTree.TreeVisitorClosure visitor) {
         try {
             IndexingQueryCacheFilter filter = partitionFilter(threadLocalFilter());
 
