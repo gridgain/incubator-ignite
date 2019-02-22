@@ -95,10 +95,7 @@ public class WebConsoleServer extends AbstractVerticle {
     private final IgniteAuth auth;
 
     /** */
-    private final RestApiRouter cfgsRouter;
-
-    /** */
-    private final RestApiRouter notebooksRouter;
+    private final RestApiRouter[] routers;
 
     /**
      * @param s Message to log.
@@ -119,21 +116,18 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param cfg Configuration.
      * @param ignite Ignite.
      * @param auth Auth provider.
-     * @param cfgsRouter Configurations REST API router.
-     * @param notebooksRouter Notebooks REST API router.
+     * @param routers REST API routers.
      */
     public WebConsoleServer(
         WebConsoleConfiguration cfg,
         Ignite ignite,
         IgniteAuth auth,
-        RestApiRouter cfgsRouter,
-        RestApiRouter notebooksRouter
+        RestApiRouter... routers
     ) {
         this.cfg = cfg;
         this.ignite = ignite;
         this.auth = auth;
-        this.cfgsRouter = cfgsRouter;
-        this.notebooksRouter = notebooksRouter;
+        this.routers = routers;
     }
 
     /** {@inheritDoc} */
@@ -277,8 +271,8 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.post("/api/v1/activities/page").handler(this::handleDummy);
 
-        cfgsRouter.install(router);
-        notebooksRouter.install(router);
+        for (RestApiRouter r : routers)
+            r.install(router);
     }
 
     /**

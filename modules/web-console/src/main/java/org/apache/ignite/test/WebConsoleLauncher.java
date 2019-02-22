@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
 import org.apache.ignite.console.auth.IgniteAuth;
+import org.apache.ignite.console.routes.AgentDownloadRouter;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
@@ -58,6 +59,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
 
         RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
         RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
+        RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
 
         WebConsoleConfiguration cfg = new WebConsoleConfiguration();
 
@@ -73,7 +75,7 @@ public class WebConsoleLauncher extends AbstractVerticle {
             .setTrustStore("modules/web-console/web-agent/src/test/resources/ca.jks")
             .setTrustStorePassword("123456");
 
-        vertx.deployVerticle(new WebConsoleServer(cfg, ignite, auth, cfgsRouter, notebooksRouter));
+        vertx.deployVerticle(new WebConsoleServer(cfg, ignite, auth, cfgsRouter, notebooksRouter, downloadRouter));
 
         System.out.println("Ignite Web Console Server started");
     }
