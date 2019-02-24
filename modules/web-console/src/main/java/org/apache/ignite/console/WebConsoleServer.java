@@ -143,12 +143,19 @@ public class WebConsoleServer extends AbstractVerticle {
 
         registerEventBusConsumers();
 
-        Router router = Router.router(vertx);
-
         boolean ssl = !F.isEmpty(cfg.getKeyStore()) || !F.isEmpty(cfg.getTrustStore());
 
-        if (ssl)
+        if (ssl) {
+            Router router = Router.router(vertx);
             router.route().handler(this::redirectToHttps);
+
+            vertx
+                .createHttpServer()
+                .requestHandler(router)
+                .listen(/*cfg.getPort()*/80);
+        }
+
+        Router router = Router.router(vertx);
 
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
@@ -197,7 +204,7 @@ public class WebConsoleServer extends AbstractVerticle {
         vertx
             .createHttpServer(httpOpts)
             .requestHandler(router)
-            .listen(cfg.getPort());
+            .listen(/*cfg.getPort() +*/ 443);
 
         logInfo("Web Console server started.");
     }
