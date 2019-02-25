@@ -32,7 +32,6 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.User;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
@@ -40,23 +39,18 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.SessionHandler;
-import io.vertx.ext.web.handler.UserSessionHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteException;
-import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.F;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
-import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static org.apache.ignite.console.common.Utils.errorMessage;
-import static org.apache.ignite.console.common.Utils.getBoolean;
 
 /**
  * Web Console server.
@@ -81,30 +75,18 @@ public class WebConsoleServer extends AbstractVerticle {
     protected final Ignite ignite;
 
     /** */
-    private final IgniteAuth authProvider;
-
-    /** */
-    private final RestApiRouter cfgsRouter;
-
-    /** */
-    private final RestApiRouter notebooksRouter;
+    private final RestApiRouter[] routers;
 
     /**
      * @param ignite Ignite.
-     * @param authProvider Auth provider.
-     * @param cfgsRouter Configurations REST API router.
-     * @param notebooksRouter Notebooks REST API router.
+     * @param routers REST API routers.
      */
     public WebConsoleServer(
         Ignite ignite,
-        IgniteAuth authProvider,
-        RestApiRouter cfgsRouter,
-        RestApiRouter notebooksRouter
+        RestApiRouter... routers
     ) {
         this.ignite = ignite;
-        this.authProvider = authProvider;
-        this.cfgsRouter = cfgsRouter;
-        this.notebooksRouter = notebooksRouter;
+        this.routers = routers;
     }
 
     /** {@inheritDoc} */
@@ -125,7 +107,6 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
         router.route().handler(SessionHandler.create(ClusteredSessionStore.create(vertx)));
-        router.route().handler(UserSessionHandler.create(authProvider));
 
         router.route("/eventbus/*").handler(sockJsHnd);
 
@@ -181,15 +162,6 @@ public class WebConsoleServer extends AbstractVerticle {
      * @param router Router.
      */
     private void registerRestRoutes(Router router) {
-        router.route("/api/v1/user").handler(this::getAccount);
-        router.route("/api/v1/signup").handler(this::registerAccount);
-        router.route("/api/v1/signin").handler(this::signIn);
-        router.route("/api/v1/logout").handler(this::logout);
-
-        router.route("/api/v1/password/forgot").handler(this::handleDummy);
-        router.route("/api/v1/password/reset").handler(this::handleDummy);
-        router.route("/api/v1/password/validate/token").handler(this::handleDummy);
-
         router.route("/api/v1/activation/resend").handler(this::handleDummy);
         router.route("/api/v1/activities/page").handler(this::handleDummy);
 
@@ -200,8 +172,8 @@ public class WebConsoleServer extends AbstractVerticle {
         router.route("/api/v1/downloads").handler(this::handleDummy);
         router.post("/api/v1/activities/page").handler(this::handleDummy);
 
-        cfgsRouter.install(router);
-        notebooksRouter.install(router);
+        for (RestApiRouter r : routers)
+            r.install(router);
     }
 
     /**
@@ -297,75 +269,6 @@ public class WebConsoleServer extends AbstractVerticle {
         ignite.log().error(msg, e);
 
         sendStatus(ctx, HTTP_INTERNAL_ERROR, msg + ": " + errorMessage(e));
-    }
-
-    /**
-     * @param ctx Context
-     */
-    private void getAccount(RoutingContext ctx) {
-        try {
-            User user = ctx.user();
-
-            if (user == null) {
-                sendStatus(ctx, HTTP_UNAUTHORIZED);
-
-                return;
-            }
-
-            sendResult(ctx, user.principal());
-        }
-        catch (Throwable e) {
-            sendStatus(ctx, HTTP_UNAUTHORIZED);
-        }
-    }
-
-    /**
-     * @param ctx Context
-     */
-    private void registerAccount(RoutingContext ctx) {
-        try {
-            JsonObject body = ctx.getBodyAsJson();
-
-            if (getBoolean(body, "user.admin", false)) {
-                sendResult(ctx, authProvider.registerAccount(body).principal());
-
-                return;
-            }
-
-            authProvider.registerAccount(body);
-
-            signIn(ctx);
-        }
-        catch (IgniteException e) {
-            sendStatus(ctx, HTTP_INTERNAL_ERROR, e.getMessage());
-        }
-        catch (Throwable ignored) {
-            sendStatus(ctx, HTTP_INTERNAL_ERROR);
-        }
-    }
-
-    /**
-     * @param ctx Context
-     */
-    private void signIn(RoutingContext ctx) {
-        authProvider.authenticate(ctx.getBody().toJsonObject(), asyncRes -> {
-            if (asyncRes.succeeded()) {
-                ctx.setUser(asyncRes.result());
-
-                sendStatus(ctx, HTTP_OK);
-            }
-            else
-                sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
-        });
-    }
-
-    /**
-     * @param ctx Context
-     */
-    private void logout(RoutingContext ctx) {
-        ctx.clearUser();
-
-        sendStatus(ctx, HTTP_OK);
     }
 
     /**
