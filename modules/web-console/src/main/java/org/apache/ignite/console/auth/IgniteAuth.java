@@ -21,10 +21,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.ZonedDateTime;
 import java.util.UUID;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
-import javax.security.auth.login.AccountException;
-import javax.security.auth.login.CredentialException;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -33,12 +29,20 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.AuthProvider;
 import io.vertx.ext.auth.PRNG;
 import io.vertx.ext.auth.User;
-import org.apache.commons.codec.binary.Hex;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteAuthenticationException;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.console.db.CacheHolder;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.console.db.Table;
 import org.apache.ignite.console.dto.Account;
 import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.transactions.Transaction;
+
+import static org.apache.ignite.transactions.TransactionConcurrency.PESSIMISTIC;
+import static org.apache.ignite.transactions.TransactionIsolation.REPEATABLE_READ;
 
 /**
  * Authentication with storing user information in Ignite.
@@ -54,8 +58,11 @@ public class IgniteAuth implements AuthProvider {
     private static final String E_INVALID_CREDENTIALS = "Invalid email or password";
 
     /** */
-    private final CacheHolder<String, Account> accounts;
+    private final Table<Account> accountsTbl;
 
+    /** */
+    private Ignite ignite;
+    
     /** */
     private final PRNG rnd;
 
@@ -64,20 +71,25 @@ public class IgniteAuth implements AuthProvider {
      * @param vertx Vertx.
      */
     public IgniteAuth(Ignite ignite, Vertx vertx) {
-        accounts = new CacheHolder<>(ignite, "wc_accounts");
+        this.ignite = ignite;
+        
         rnd = new PRNG(vertx);
+
+        accountsTbl = new Table<Account>(ignite, "accounts")
+            .addUniqueIndex(Account::email, (acc) -> "Account with email: " + acc.email() + " already registered");
     }
 
     /**
      * @return Salt for hashing.
      */
-    private String salt() {
+    private String generateSalt() {
         byte[] salt = new byte[32];
 
         rnd.nextBytes(salt);
 
-        return Hex.encodeHexString(salt);
+        return U.byteArray2HexString(salt);
     }
+    
     /**
      * Compute password hash.
      *
@@ -86,7 +98,7 @@ public class IgniteAuth implements AuthProvider {
      * @return Computed hash.
      * @throws GeneralSecurityException If failed to compute hash.
      */
-    private String computeHash(String pwd, String salt) throws GeneralSecurityException {
+    private String computeHash(String pwd, String salt) throws Exception {
         // TODO IGNITE-5617: How about re-hash on first successful compare.
         PBEKeySpec spec = new PBEKeySpec(
             pwd.toCharArray(),
@@ -98,69 +110,74 @@ public class IgniteAuth implements AuthProvider {
 
         byte[] hash = skf.generateSecret(spec).getEncoded();
 
-        return Hex.encodeHexString(hash);
+        return U.byteArray2HexString(hash);
+    }
+
+    /**
+     * @param accId Account id.
+     */
+    Account account(UUID accId) throws IgniteAuthenticationException {
+        if (accId == null)
+            throw new IgniteAuthenticationException("Missing account identity");
+
+        IgniteCache<UUID, Account> cache = accountsTbl.cache();
+
+        Account account = cache.get(accId);
+
+        if (account == null)
+            throw new IgniteAuthenticationException("Failed to find account with identity: " + accId);
+
+        return account;
     }
 
     /** {@inheritDoc} */
-    @Override public void authenticate(JsonObject authInfo, Handler<AsyncResult<User>> asyncResHnd) {
+    @Override public void authenticate(JsonObject data, Handler<AsyncResult<User>> asyncResHnd) throws IgniteException {
         try {
-            checkCredentials(authInfo);
+            String email = data.getString("email");
+            String pwd = data.getString("password");
 
-            // TODO IGNITE-5617 vertx.executeBlocking(); Auth is a possibly long operation
+            if (F.isEmpty(email) || F.isEmpty(pwd))
+                throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
 
-            Account account = authInfo.getBoolean("signup", false)
-                ? signUp(authInfo)
-                : signIn(authInfo);
+            Account account;
 
-            asyncResHnd.handle(Future.succeededFuture(new IgniteUser(account.principal())));
+            try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+                account = accountsTbl.getByIndex(email);
+            }
+
+            if (account == null)
+                throw new IgniteAuthenticationException("Failed to find registered account");
+
+            String hash = computeHash(data.getString("password"), account.salt());
+
+            if (!account.hash().equals(hash))
+                throw new IgniteAuthenticationException(E_INVALID_CREDENTIALS);
+
+            asyncResHnd.handle(Future.succeededFuture(new ContextAccount(account)));
         }
         catch (Throwable e) {
+            ignite.log().error("Failed to authenticate account", e);
+
             asyncResHnd.handle(Future.failedFuture(e));
         }
     }
 
     /**
-     * @param authInfo JSON object with authentication info.
-     * @throws CredentialException If email or password not found.
+     * @param body Sign up info.
      */
-    private void checkCredentials(JsonObject authInfo) throws CredentialException {
-        String email = authInfo.getString("email");
-        String pwd = authInfo.getString("password");
+    public Account registerAccount(JsonObject body) throws Exception {
+        String salt = generateSalt();
+        String hash = computeHash(body.getString("password"), salt);
 
-        if (F.isEmpty(email) || F.isEmpty(pwd))
-            throw new CredentialException(E_INVALID_CREDENTIALS);
-    }
-
-    /**
-     * TODO IGNITE-5617 Do this method in transaction?
-     * Sign up.
-     *
-     * @param authInfo JSON with authentication info.
-     * @return Account.
-     * @throws GeneralSecurityException If failed to authenticate.
-     */
-    private Account signUp(JsonObject authInfo) throws GeneralSecurityException {
-        IgniteCache<String, Account> cache = accounts.prepare();
-
-        String email = authInfo.getString("email");
-
-        Account account = cache.get(email);
-
-        if (account != null)
-            throw new AccountException("Account already exists");
-
-        String salt = salt();
-        String hash = computeHash(authInfo.getString("password"), salt);
-
-        account = new Account(
+        Account account = new Account(
             UUID.randomUUID(),
-            authInfo.getString("email"),
-            authInfo.getString("firstName"),
-            authInfo.getString("lastName"),
-            authInfo.getString("company"),
-            authInfo.getString("country"),
-            authInfo.getString("industry"),
-            authInfo.getBoolean("admin", false),
+            body.getString("email"),
+            body.getString("firstName"),
+            body.getString("lastName"),
+            body.getString("company"),
+            body.getString("country"),
+            body.getString("industry"),
+            body.getBoolean("admin", false),
             UUID.randomUUID().toString(),
             UUID.randomUUID().toString(),
             ZonedDateTime.now().toString(),
@@ -172,40 +189,12 @@ public class IgniteAuth implements AuthProvider {
             hash
         );
 
-        cache.put(email, account);
+        try (Transaction tx = ignite.transactions().txStart(PESSIMISTIC, REPEATABLE_READ)) {
+            accountsTbl.save(account);
 
-//        Space space = new Space(
-//            UUID.randomUUID(),
-//            "Personal space",
-//            account.id(),
-//            false
-//        );
-//
-//        ignite.cache("wc_spaces").put(space.id(), space);
+            tx.commit();
 
-        return account;
-    }
-
-    /**
-     * @param authInfo JSON with authentication info.
-     * @return Account.
-     * @throws GeneralSecurityException If failed to authenticate.
-     */
-    private Account signIn(JsonObject authInfo) throws GeneralSecurityException {
-        IgniteCache<String, Account> cache = accounts.prepare();
-
-        String email = authInfo.getString("email");
-
-        Account account = cache.get(email);
-
-        if (account == null)
-            throw new CredentialException(E_INVALID_CREDENTIALS);
-
-        String hash = computeHash(authInfo.getString("password"), account.salt());
-
-        if (!hash.equals(account.hash()))
-            throw new CredentialException(E_INVALID_CREDENTIALS);
-
-        return account;
+            return account;
+        }
     }
 }

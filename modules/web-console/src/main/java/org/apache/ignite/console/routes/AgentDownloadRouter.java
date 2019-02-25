@@ -31,7 +31,8 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.console.common.Utils;
+
+import static org.apache.ignite.console.common.Utils.origin;
 
 /**
  * Router to handle REST API to download Web Agent.
@@ -41,7 +42,7 @@ public class AgentDownloadRouter extends AbstractRouter {
     private static final int BUFFER_SZ = 30 * 1024 * 1024;
 
     /** */
-    private Path pathToAgentZip;
+    private final Path pathToAgentZip;
 
     /** */
     private final String agentFileName;
@@ -55,7 +56,8 @@ public class AgentDownloadRouter extends AbstractRouter {
         super(ignite);
 
         this.agentFileName = agentFileName;
-        this.pathToAgentZip = Paths.get(agentFolderName, agentFileName + ".zip");
+
+        pathToAgentZip = Paths.get(agentFolderName, agentFileName + ".zip");
     }
 
     /** {@inheritDoc} */
@@ -93,7 +95,7 @@ public class AgentDownloadRouter extends AbstractRouter {
 
                 String content = String.join("\n",
                     "tokens=" + user.principal().getString("token", "MY_TOKEN"), // TODO WC-938 Take token from Account after WC-949 will be merged.
-                    "server-uri=" + Utils.origin(ctx.request()),
+                    "server-uri=" + origin(ctx.request()),
                     "#Uncomment following options if needed:",
                     "#node-uri=http://localhost:8080",
                     "#node-login=ignite",

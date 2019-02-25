@@ -35,6 +35,9 @@ import org.jetbrains.annotations.Nullable;
  * Utilities.
  */
 public class Utils {
+    /** */
+    private static final JsonObject EMPTY_OBJ = new JsonObject();
+
     /**
      * @param cause Error.
      * @return Error message or exception class name.
@@ -70,6 +73,21 @@ public class Utils {
         }
 
         return res;
+    }
+
+    /**
+     * @param json JSON object.
+     * @param path Path.
+     * @param def the default value to use if the entry is not present.
+     * @return the value or {@code def} if no entry present.
+     */
+    public static boolean getBoolean(JsonObject json, String path, boolean def) {
+        String[] keys = path.split("\\.");
+
+        for (int i = 0; i < keys.length - 1; i++)
+            json = json.getJsonObject(keys[i], EMPTY_OBJ);
+
+        return json.getBoolean(keys[keys.length - 1], def);
     }
 
     /**
