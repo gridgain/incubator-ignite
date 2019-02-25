@@ -24,8 +24,6 @@ export default class NoDataCmpCtrl {
 
     connectionState$ = this.AgentManager.connectionSbj.pipe(
         switchMap((sbj) => {
-            console.log(sbj);
-
             const clusterIsInactive = !_.isNil(sbj.cluster) && sbj.cluster.active === false;
 
             const demoIsDisabled = sbj.state && sbj.state === 'CONNECTED' && this.AgentManager.isDemoMode() && !this.AgentManager.hasDemo;
