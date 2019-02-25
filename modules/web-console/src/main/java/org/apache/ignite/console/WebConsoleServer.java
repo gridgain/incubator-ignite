@@ -29,9 +29,12 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.http.ClientAuth;
+import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.net.JksOptions;
 import io.vertx.ext.bridge.BridgeEventType;
 import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
@@ -39,18 +42,23 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CookieHandler;
 import io.vertx.ext.web.handler.SessionHandler;
+import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.handler.sockjs.BridgeEvent;
 import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.F;
 
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.apache.ignite.console.common.Utils.errorMessage;
+import static org.apache.ignite.console.common.Utils.jksOptions;
+import static org.apache.ignite.console.common.Utils.origin;
 
 /**
  * Web Console server.
@@ -72,25 +80,31 @@ public class WebConsoleServer extends AbstractVerticle {
     protected final Map<String, JsonObject> clusters = new ConcurrentHashMap<>();
 
     /** */
+    protected final WebConsoleConfiguration cfg;
+
+    /** */
     protected final Ignite ignite;
 
     /** */
     private final RestApiRouter[] routers;
 
     /**
+     * @param cfg Configuration.
      * @param ignite Ignite.
      * @param routers REST API routers.
      */
     public WebConsoleServer(
+        WebConsoleConfiguration cfg,
         Ignite ignite,
         RestApiRouter... routers
     ) {
+        this.cfg = cfg;
         this.ignite = ignite;
         this.routers = routers;
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
+    @Override public void start() throws Exception {
         SockJSHandler sockJsHnd = SockJSHandler.create(vertx);
 
         BridgeOptions allAccessOptions =
@@ -102,11 +116,37 @@ public class WebConsoleServer extends AbstractVerticle {
 
         registerEventBusConsumers();
 
+        boolean ssl = !F.isEmpty(cfg.getKeyStore()) || !F.isEmpty(cfg.getTrustStore());
+
+        int port = cfg.getPort();
+
+        // Add redirect to HTTPS.
+        if (ssl & port != 80) {
+            vertx
+                .createHttpServer()
+                .requestHandler(req -> {
+                    String origin = origin(req).replace("http:", "https:");
+
+                    if (port != 443)
+                        origin += ":" + port;
+
+                    req.response()
+                        .setStatusCode(HTTP_MOVED_PERM)
+                        .setStatusMessage("Server requires HTTPS")
+                        .putHeader(HttpHeaders.LOCATION, origin)
+                        .end();
+                })
+                .listen(80);
+        }
+
         Router router = Router.router(vertx);
 
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
         router.route().handler(SessionHandler.create(ClusteredSessionStore.create(vertx)));
+
+        if (!F.isEmpty(cfg.getWebRoot()))
+            router.route().handler(StaticHandler.create(cfg.getWebRoot()));
 
         router.route("/eventbus/*").handler(sockJsHnd);
 
@@ -114,15 +154,40 @@ public class WebConsoleServer extends AbstractVerticle {
 
         registerVisorTasks();
 
-        // Start HTTP server for browsers and web agents.
         HttpServerOptions httpOpts = new HttpServerOptions()
             .setCompressionSupported(true)
             .setPerMessageWebsocketCompressionSupported(true);
 
+        if (ssl) {
+            httpOpts.setSsl(true);
+
+            JksOptions jks = jksOptions(cfg.getKeyStore(), cfg.getKeyStorePassword());
+
+            if (jks != null)
+                httpOpts.setKeyStoreOptions(jks);
+
+            jks = jksOptions(cfg.getTrustStore(), cfg.getTrustStorePassword());
+
+            if (jks != null)
+                httpOpts.setTrustStoreOptions(jks);
+
+            String ciphers = cfg.getCipherSuites();
+
+            if (!F.isEmpty(ciphers)) {
+                Arrays
+                    .stream(ciphers.split(","))
+                    .map(String::trim)
+                    .forEach(httpOpts::addEnabledCipherSuite);
+            }
+
+            httpOpts
+                .setClientAuth(cfg.isClientAuth() ? ClientAuth.REQUIRED : ClientAuth.REQUEST);
+        }
+
         vertx
             .createHttpServer(httpOpts)
             .requestHandler(router)
-            .listen(3000);
+            .listen(port);
 
         ignite.log().info("Web Console server started.");
     }
@@ -374,6 +439,8 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /**
      * Visor task descriptor.
+     *
+     * TODO IGNITE-5617 Move to separate class?
      */
     public static class VisorTaskDescriptor {
         /** */

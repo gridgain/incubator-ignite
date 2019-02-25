@@ -24,7 +24,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
-import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -32,7 +31,8 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.util.typedef.F;
+
+import static org.apache.ignite.console.common.Utils.origin;
 
 /**
  * Router to handle REST API to download Web Agent.
@@ -42,7 +42,7 @@ public class AgentDownloadRouter extends AbstractRouter {
     private static final int BUFFER_SZ = 30 * 1024 * 1024;
 
     /** */
-    private Path pathToAgentZip;
+    private final Path pathToAgentZip;
 
     /** */
     private final String agentFileName;
@@ -56,7 +56,8 @@ public class AgentDownloadRouter extends AbstractRouter {
         super(ignite);
 
         this.agentFileName = agentFileName;
-        this.pathToAgentZip = Paths.get(agentFolderName, agentFileName + ".zip");
+
+        pathToAgentZip = Paths.get(agentFolderName, agentFileName + ".zip");
     }
 
     /** {@inheritDoc} */
@@ -67,25 +68,6 @@ public class AgentDownloadRouter extends AbstractRouter {
     /** {@inheritDoc} */
     @Override public void install(Router router) {
         router.get("/api/v1/downloads/agent").handler(this::load);
-    }
-
-    /**
-     *
-     * @param req Request.
-     * @return Site origin.
-     */
-    private String origin(HttpServerRequest req) {
-       String proto = req.getHeader("x-forwarded-proto");
-
-       if (F.isEmpty(proto))
-           proto = req.isSSL() ? "https" : "http";
-
-       String host = req.getHeader("x-forwarded-host");
-
-        if (F.isEmpty(host))
-            host = req.host();
-
-        return proto + "://" + host;
     }
 
     /**

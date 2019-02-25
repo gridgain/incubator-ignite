@@ -36,6 +36,7 @@ import org.apache.ignite.logger.slf4j.Slf4jLogger;
 import org.slf4j.LoggerFactory;
 
 import static io.vertx.core.buffer.Buffer.buffer;
+import static org.apache.ignite.console.agent.AgentUtils.jksOptions;
 
 /**
  * Router that listen for web socket and redirect messages to event bus.
@@ -81,9 +82,8 @@ public class WebSocketRouter extends AbstractVerticle {
         log.info("Connecting to: " + cfg.serverUri());
 
         boolean serverTrustAll = Boolean.getBoolean("trust.all");
-        boolean hasServerTrustStore = cfg.serverTrustStore() != null;
 
-        if (serverTrustAll && hasServerTrustStore) {
+        if (serverTrustAll && !F.isEmpty(cfg.serverTrustStore())) {
             log.warning("Options contains both '--server-trust-store' and '-Dtrust.all=true'. " +
                 "Option '-Dtrust.all=true' will be ignored on connect to Web server.");
 
@@ -94,24 +94,30 @@ public class WebSocketRouter extends AbstractVerticle {
             .setTryUseCompression(true)
             .setTryUsePerMessageWebsocketCompression(true);
 
-        boolean ssl = serverTrustAll || hasServerTrustStore || cfg.serverKeyStore() != null;
+        boolean ssl = serverTrustAll || !F.isEmpty(cfg.serverKeyStore()) || !F.isEmpty(cfg.serverTrustStore());
 
         if (ssl) {
-            httpOptions
-                .setSsl(true)
-                .setTrustAll(serverTrustAll)
-                .setKeyStoreOptions(new JksOptions()
-                    .setPath(cfg.serverKeyStore())
-                    .setPassword(cfg.serverKeyStorePassword()))
-                .setTrustStoreOptions(new JksOptions()
-                    .setPath(cfg.serverTrustStore())
-                    .setPassword(cfg.serverTrustStorePassword()));
+            httpOptions.setSsl(true);
+
+            JksOptions jks = jksOptions(cfg.serverKeyStore(), cfg.serverKeyStorePassword());
+
+            if (jks != null)
+                httpOptions.setKeyStoreOptions(jks);
+
+            if (serverTrustAll) {
+                httpOptions
+                    .setTrustAll(true)
+                    .setVerifyHost(false);
+            }
+            else {
+                jks = jksOptions(cfg.serverTrustStore(), cfg.serverTrustStorePassword());
+
+                if (jks != null)
+                    httpOptions.setTrustStoreOptions(jks);
+            }
 
             if (!F.isEmpty(cfg.cipherSuites()))
                 cfg.cipherSuites().forEach(httpOptions::addEnabledCipherSuite);
-
-            if (serverTrustAll)
-                httpOptions.setVerifyHost(false);
         }
 
         client = vertx.createHttpClient(httpOptions);

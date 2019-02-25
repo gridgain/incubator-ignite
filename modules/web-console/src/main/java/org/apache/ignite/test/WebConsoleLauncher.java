@@ -31,6 +31,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
 import org.apache.ignite.console.routes.AccountRouter;
 import org.apache.ignite.console.routes.AgentDownloadRouter;
+import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.console.routes.RestApiRouter;
@@ -48,6 +49,8 @@ public class WebConsoleLauncher extends AbstractVerticle {
      * @param args Arguments.
      */
     public static void main(String... args) {
+        System.out.println("Starting Ignite Web Console Server...");
+
         Ignite ignite = startIgnite();
 
         VertxOptions options = new VertxOptions()
@@ -68,7 +71,30 @@ public class WebConsoleLauncher extends AbstractVerticle {
             RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
             RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
 
-            vertx.deployVerticle(new WebConsoleServer(ignite, accRouter, cfgsRouter, notebooksRouter, downloadRouter));
+            WebConsoleConfiguration cfg = new WebConsoleConfiguration();
+
+            // TODO Remove this code after WC-950 will be implemented.
+            // Uncomment if you need Vertx to handle static resources.
+            // cfg.setWebRoot("modules/web-console/frontend/build");
+
+            // TODO Remove this code after WC-950 will be implemented.
+            // Uncomment if you need SSL.
+            // cfg
+            //    .setKeyStore("modules/web-console/web-agent/src/test/resources/server.jks")
+            //    .setKeyStorePassword("123456")
+            //    .setTrustStore("modules/web-console/web-agent/src/test/resources/ca.jks")
+            //    .setTrustStorePassword("123456");
+
+            vertx.deployVerticle(new WebConsoleServer(
+                cfg,
+                ignite,
+                accRouter,
+                cfgsRouter,
+                notebooksRouter,
+                downloadRouter
+            ));
+
+            System.out.println("Ignite Web Console Server started");
         });
     }
 
