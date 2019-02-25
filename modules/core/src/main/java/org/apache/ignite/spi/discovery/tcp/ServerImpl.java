@@ -719,7 +719,7 @@ class ServerImpl extends TcpDiscoveryImpl {
             return F.t(getLocalNodeId(), clientPingRes);
         }
 
-        GridPingFutureAdapter<IgniteBiTuple<UUID, Boolean>> fut = new GridPingFutureAdapter<>();
+        GridPingFutureAdapter<IgniteBiTuple<UUID, Boolean>> fut = new GridPingFutureAdapter<>(nodeId);
 
         GridPingFutureAdapter<IgniteBiTuple<UUID, Boolean>> oldFut = pingMap.putIfAbsent(addr, fut);
 
@@ -841,9 +841,11 @@ class ServerImpl extends TcpDiscoveryImpl {
         for (InetSocketAddress addr : spi.getNodeAddresses(node)) {
             GridPingFutureAdapter fut = pingMap.get(addr);
 
-            if (fut != null && fut.sock != null)
-                // Reference to the socket is not set to null. No need to assign it to a local variable.
-                U.closeQuiet(fut.sock);
+            if (fut != null && fut.sock != null) {
+                if (fut.nodeId == null || fut.nodeId.equals(node.id()))
+                    // Reference to the socket is not set to null. No need to assign it to a local variable.
+                    U.closeQuiet(fut.sock);
+            }
         }
     }
 
@@ -2242,6 +2244,8 @@ class ServerImpl extends TcpDiscoveryImpl {
         void add(TcpDiscoveryAbstractMessage msg) {
             assert spi.ensured(msg) && msg.verified() : msg;
 
+            assert U.hasDeclaredAnnotation(msg, TcpDiscoveryRedirectToClient.class) : msg;
+
             if (msg instanceof TcpDiscoveryNodeAddedMessage) {
                 TcpDiscoveryNodeAddedMessage addedMsg =
                     new TcpDiscoveryNodeAddedMessage((TcpDiscoveryNodeAddedMessage)msg);
@@ -2303,6 +2307,14 @@ class ServerImpl extends TcpDiscoveryImpl {
                 clearClientAddFinished(msg.creatorNodeId());
             else if (msg instanceof TcpDiscoveryNodeFailedMessage)
                 clearClientAddFinished(((TcpDiscoveryNodeFailedMessage)msg).failedNodeId());
+            else if (msg instanceof TcpDiscoveryCustomEventMessage) {
+                TcpDiscoveryCustomEventMessage msg0 = (TcpDiscoveryCustomEventMessage)msg;
+
+                msg = new TcpDiscoveryCustomEventMessage(msg0);
+
+                // We shoulgn't store deserialized message in the queue because of msg is transient.
+                ((TcpDiscoveryCustomEventMessage)msg).clearMessage();
+            }
 
             synchronized (msgs) {
                 msgs.add(msg);
@@ -7506,8 +7518,18 @@ class ServerImpl extends TcpDiscoveryImpl {
      *
      */
     private static class GridPingFutureAdapter<R> extends GridFutureAdapter<R> {
+        /** ID of node ping request is sent to. */
+        private final UUID nodeId;
+
         /** Socket. */
         private volatile Socket sock;
+
+        /**
+         * @param nodeId ID of node ping request is sent to.
+         */
+        GridPingFutureAdapter(@Nullable UUID nodeId) {
+            this.nodeId = nodeId;
+        }
 
         /**
          * Returns socket associated with this ping future.
