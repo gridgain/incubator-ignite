@@ -49,6 +49,7 @@ import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.console.config.SslConfiguration;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.F;
@@ -116,7 +117,9 @@ public class WebConsoleServer extends AbstractVerticle {
 
         registerEventBusConsumers();
 
-        boolean ssl = !F.isEmpty(cfg.getKeyStore()) || !F.isEmpty(cfg.getTrustStore());
+        SslConfiguration sslCfg = cfg.getSslConfiguration();
+
+        boolean ssl = sslCfg != null && sslCfg.isEnabled();
 
         int port = cfg.getPort();
 
@@ -161,17 +164,17 @@ public class WebConsoleServer extends AbstractVerticle {
         if (ssl) {
             httpOpts.setSsl(true);
 
-            JksOptions jks = jksOptions(cfg.getKeyStore(), cfg.getKeyStorePassword());
+            JksOptions jks = jksOptions(sslCfg.getKeyStore(), sslCfg.getKeyStorePassword());
 
             if (jks != null)
                 httpOpts.setKeyStoreOptions(jks);
 
-            jks = jksOptions(cfg.getTrustStore(), cfg.getTrustStorePassword());
+            jks = jksOptions(sslCfg.getTrustStore(), sslCfg.getTrustStorePassword());
 
             if (jks != null)
                 httpOpts.setTrustStoreOptions(jks);
 
-            String ciphers = cfg.getCipherSuites();
+            String ciphers = sslCfg.getCipherSuites();
 
             if (!F.isEmpty(ciphers)) {
                 Arrays
@@ -181,7 +184,7 @@ public class WebConsoleServer extends AbstractVerticle {
             }
 
             httpOpts
-                .setClientAuth(cfg.isClientAuth() ? ClientAuth.REQUIRED : ClientAuth.REQUEST);
+                .setClientAuth(sslCfg.isClientAuth() ? ClientAuth.REQUIRED : ClientAuth.REQUEST);
         }
 
         vertx

@@ -28,7 +28,7 @@ public class SslConfiguration implements Serializable {
     private static final long serialVersionUID = 0L;
 
     /** SSL enabled flag. */
-    private boolean ssl;
+    private boolean enabled;
 
     /** Path to key store. */
     private String keyStore;
@@ -61,7 +61,7 @@ public class SslConfiguration implements Serializable {
      * @param cc Configuration to copy.
      */
     public SslConfiguration(SslConfiguration cc) {
-        ssl = cc.isSsl();
+        enabled = cc.isEnabled();
         keyStore = cc.getKeyStore();
         keyStorePwd = cc.getKeyStorePassword();
         trustStore = cc.getTrustStore();
@@ -73,16 +73,16 @@ public class SslConfiguration implements Serializable {
     /**
      * @return {@code true} if SSL enabled.
      */
-    private boolean isSsl() {
-        return ssl;
+    public boolean isEnabled() {
+        return enabled;
     }
 
     /**
-     * @param ssl SSL enabled flag.
+     * @param enabled SSL enabled flag.
      * @return {@code this} for chaining.
      */
-    public SslConfiguration setSsl(boolean ssl) {
-        this.ssl = ssl;
+    public SslConfiguration setEnabled(boolean enabled) {
+        this.enabled = enabled;
 
         return this;
     }

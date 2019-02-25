@@ -39,6 +39,8 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 
+import static org.apache.ignite.console.common.Utils.loadConfiguration;
+
 /**
  * Web Console Launcher.
  */
@@ -58,43 +60,37 @@ public class WebConsoleLauncher extends AbstractVerticle {
             .setClusterManager(new IgniteClusterManager(ignite));
 
         Vertx.clusteredVertx(options, res -> {
-            if (res.failed()) {
-                ignite.log().error("Failed to start clustered Vertx!");
+            if (res.succeeded()) {
+                Vertx vertx = res.result();
 
-                return;
+                try {
+                    WebConsoleConfiguration cfg = loadConfiguration(
+                        "modules/web-console/src/main/resources/web-console.xml",
+                        "web-console-config"
+                    );
+
+                    RestApiRouter accRouter = new AccountRouter(ignite, vertx);
+                    RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
+                    RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
+                    RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, cfg);
+
+                    vertx.deployVerticle(new WebConsoleServer(
+                        cfg,
+                        ignite,
+                        accRouter,
+                        cfgsRouter,
+                        notebooksRouter,
+                        downloadRouter
+                    ));
+
+                    System.out.println("Ignite Web Console Server started");
+                }
+                catch (Throwable e) {
+                    ignite.log().error("Failed to start Web Console", e);
+                }
             }
-
-            Vertx vertx = res.result();
-
-            RestApiRouter accRouter = new AccountRouter(ignite, vertx);
-            RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
-            RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
-            RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
-
-            WebConsoleConfiguration cfg = new WebConsoleConfiguration();
-
-            // TODO Remove this code after WC-950 will be implemented.
-            // Uncomment if you need Vertx to handle static resources.
-            // cfg.setWebRoot("modules/web-console/frontend/build");
-
-            // TODO Remove this code after WC-950 will be implemented.
-            // Uncomment if you need SSL.
-            // cfg
-            //    .setKeyStore("modules/web-console/web-agent/src/test/resources/server.jks")
-            //    .setKeyStorePassword("123456")
-            //    .setTrustStore("modules/web-console/web-agent/src/test/resources/ca.jks")
-            //    .setTrustStorePassword("123456");
-
-            vertx.deployVerticle(new WebConsoleServer(
-                cfg,
-                ignite,
-                accRouter,
-                cfgsRouter,
-                notebooksRouter,
-                downloadRouter
-            ));
-
-            System.out.println("Ignite Web Console Server started");
+            else
+               ignite.log().error("Failed to start clustered Vertx!", res.cause());
         });
     }
 

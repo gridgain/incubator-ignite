@@ -21,9 +21,9 @@ import java.io.Serializable;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- * ACtivation configuration.
+ * Account configuration.
  */
-public class ActivationConfiguration implements Serializable {
+public class AccountConfiguration implements Serializable {
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -34,7 +34,7 @@ public class ActivationConfiguration implements Serializable {
     private static final long DFLT_SEND_TIMEOUT = 3 * 60 * 1000;
 
     /** Whether account should be activated by e-mail confirmation. */
-    private boolean enabled;
+    private boolean confirmationRequired;
 
     /** Activation link life time. */
     private long timeout = DFLT_TIMEOUT;
@@ -42,10 +42,13 @@ public class ActivationConfiguration implements Serializable {
     /** Activation send email throttle. */
     private long sndTimeout = DFLT_SEND_TIMEOUT;
 
+    /** */
+    private boolean disableSignup;
+
     /**
      * Empty constructor.
      */
-    public ActivationConfiguration() {
+    public AccountConfiguration() {
         // No-op.
     }
 
@@ -54,25 +57,26 @@ public class ActivationConfiguration implements Serializable {
      *
      * @param cc Configuration to copy.
      */
-    public ActivationConfiguration(ActivationConfiguration cc) {
-        enabled = cc.isEnabled();
+    public AccountConfiguration(AccountConfiguration cc) {
+        confirmationRequired = cc.isConfirmationRequired();
         timeout = cc.getTimeout();
         sndTimeout = cc.getSendTimeout();
+        disableSignup = cc.isDisableSignup();
     }
 
     /**
      * @return {@code true} if new accounts should be activated via e-mail confirmation.
      */
-    public boolean isEnabled() {
-        return enabled;
+    public boolean isConfirmationRequired() {
+        return confirmationRequired;
     }
 
     /**
-     * @param enabled Accounts activation required flag.
+     * @param confirmationRequired Accounts activation required flag.
      * @return {@code this} for chaining.
      */
-    public ActivationConfiguration setEnabled(boolean enabled) {
-        this.enabled = enabled;
+    public AccountConfiguration setConfirmationRequired(boolean confirmationRequired) {
+        this.confirmationRequired = confirmationRequired;
 
         return this;
     }
@@ -89,7 +93,7 @@ public class ActivationConfiguration implements Serializable {
      * @param timeout Activation link life time.
      * @return {@code this} for chaining.
      */
-    public ActivationConfiguration setTimeout(long timeout) {
+    public AccountConfiguration setTimeout(long timeout) {
         this.timeout = timeout;
 
         return this;
@@ -106,14 +110,31 @@ public class ActivationConfiguration implements Serializable {
      * @param sndTimeout Activation send email throttle.
      * @return {@code this} for chaining.
      */
-    public ActivationConfiguration setSendTimeout(long sndTimeout) {
+    public AccountConfiguration setSendTimeout(long sndTimeout) {
         this.sndTimeout = sndTimeout;
+
+        return this;
+    }
+
+    /**
+     * @return {@code true} if sign up disabled and new accounts can be created only by administrator.
+     */
+    public boolean isDisableSignup() {
+        return disableSignup;
+    }
+
+    /**
+     * @param disableSignup {@code true} if signup disabled and new accounts can be created only by administrator.
+     * @return {@code this} for chaining.
+     */
+    public AccountConfiguration setDisableSignup(boolean disableSignup) {
+        this.disableSignup = disableSignup;
 
         return this;
     }
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(ActivationConfiguration.class, this);
+        return S.toString(AccountConfiguration.class, this);
     }
 }

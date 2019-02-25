@@ -27,17 +27,23 @@ public class WebConsoleConfiguration implements Serializable {
     /** */
     private static final long serialVersionUID = 0L;
 
+    /** */
+    private static final int DFLT_PORT = 3000;
+
     /** Path to static content. */
     private String webRoot;
 
-    /** Default port. */
-    private int port = 3000;
+    /** Web Console port. */
+    private int port = DFLT_PORT;
+
+    /** Folder with Web Agent binaries. */
+    private String agentFolderName;
+
+    /** Web Agent file name. */
+    private String agentFileName;
 
     /** */
-    private boolean disableSignup;
-
-    /** */
-    private ActivationConfiguration activationCfg;
+    private AccountConfiguration accountCfg;
 
     /** */
     private MailConfiguration mailCfg;
@@ -60,8 +66,9 @@ public class WebConsoleConfiguration implements Serializable {
     public WebConsoleConfiguration(WebConsoleConfiguration cc) {
        webRoot = cc.getWebRoot();
        port = cc.getPort();
-       disableSignup = cc.isDisableSignup();
-       activationCfg = cc.getActivationConfiguration();
+       agentFolderName = cc.getAgentFolderName();
+       agentFileName = cc.getAgentFileName();
+       accountCfg = cc.getAccountConfiguration();
        mailCfg = cc.getMailConfiguration();
        sslCfg = cc.getSslConfiguration();
     }
@@ -100,54 +107,67 @@ public class WebConsoleConfiguration implements Serializable {
         return this;
     }
 
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return S.toString(WebConsoleConfiguration.class, this);
-    }
-
     /**
-     * @return
+     * @return Folder with Web Agent binaries.
      */
-    public boolean isDisableSignup() {
-        return disableSignup;
+    public String getAgentFolderName() {
+        return agentFolderName;
     }
 
     /**
-     * @param disableSignup
-     * @return
-     */
-    public WebConsoleConfiguration  setDisableSignup(boolean disableSignup) {
-        this.disableSignup = disableSignup;
-
-        return this;
-    }
-
-    /**
-     * @return
-     */
-    public ActivationConfiguration getActivationConfiguration() {
-        return activationCfg;
-    }
-
-    /**
-     * @param activationCfg
+     *
+     * @param agentFolderName Folder with Web Agent binaries.
      * @return {@code this} for chaining.
      */
-    public WebConsoleConfiguration setActivationConfiguration(ActivationConfiguration activationCfg) {
-        this.activationCfg = activationCfg;
+    public WebConsoleConfiguration setAgentFolderName(String agentFolderName) {
+        this.agentFolderName = agentFolderName;
 
         return this;
     }
 
     /**
-     * @return
+     * @return Web Agent file name.
+     */
+    public String getAgentFileName() {
+        return agentFileName;
+    }
+
+    /**
+     * @param agentFileName Web Agent file name.
+     * @return {@code this} for chaining.
+     */
+    public WebConsoleConfiguration setAgentFileName(String agentFileName) {
+        this.agentFileName = agentFileName;
+
+        return this;
+    }
+
+    /**
+     * @return Account configuration.
+     */
+    public AccountConfiguration getAccountConfiguration() {
+        return accountCfg;
+    }
+
+    /**
+     * @param activationCfg Account configuration.
+     * @return {@code this} for chaining.
+     */
+    public WebConsoleConfiguration setActivationConfiguration(AccountConfiguration activationCfg) {
+        this.accountCfg = activationCfg;
+
+        return this;
+    }
+
+    /**
+     * @return Mail configuration.
      */
     public MailConfiguration getMailConfiguration() {
         return mailCfg;
     }
 
     /**
-     * @param mailCfg
+     * @param mailCfg Mail configuration.
      * @return {@code this} for chaining.
      */
     public WebConsoleConfiguration setMailConfiguration(MailConfiguration mailCfg) {
@@ -157,19 +177,24 @@ public class WebConsoleConfiguration implements Serializable {
     }
 
     /**
-     * @return
+     * @return SSL configuration.
      */
     public SslConfiguration getSslConfiguration() {
         return sslCfg;
     }
 
     /**
-     * @param sslCfg
+     * @param sslCfg SSL configuration.
      * @return {@code this} for chaining.
      */
     public WebConsoleConfiguration setSslConfiguration(SslConfiguration sslCfg) {
         this.sslCfg = sslCfg;
 
         return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(WebConsoleConfiguration.class, this);
     }
 }

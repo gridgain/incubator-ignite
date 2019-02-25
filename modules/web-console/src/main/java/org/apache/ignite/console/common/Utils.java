@@ -18,6 +18,8 @@ package org.apache.ignite.console.common;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -26,6 +28,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.console.dto.DataObject;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -137,5 +140,19 @@ public class Utils {
             host = req.host();
 
         return proto + "://" + host;
+    }
+
+    /**
+     * Load Web Console configuration from Spring XML.
+     *
+     * @param path Path to configuration file.
+     * @param beanName Bean name to load.
+     * @return Web Console configuration.
+     * @throws MalformedURLException If failed to load configuration.
+     */
+    public static <T> T loadConfiguration(String path, String beanName) throws MalformedURLException {
+        URL url = new File(path).toURI().toURL();
+
+        return Ignition.loadSpringBean(url, beanName);
     }
 }

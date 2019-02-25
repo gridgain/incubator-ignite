@@ -31,6 +31,8 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.console.config.WebConsoleConfiguration;
+import org.apache.ignite.internal.util.typedef.F;
 
 import static org.apache.ignite.console.common.Utils.origin;
 
@@ -49,15 +51,14 @@ public class AgentDownloadRouter extends AbstractRouter {
 
     /**
      * @param ignite Ignite.
-     * @param agentFolderName Folder where agent ZIP stored.
-     * @param agentFileName Agent file name.
+     * @param cfg Web Console configuration.
      */
-    public AgentDownloadRouter(Ignite ignite, String agentFolderName, String agentFileName) {
+    public AgentDownloadRouter(Ignite ignite, WebConsoleConfiguration cfg) {
         super(ignite);
 
-        this.agentFileName = agentFileName;
+        this.agentFileName = cfg.getAgentFileName();
 
-        pathToAgentZip = Paths.get(agentFolderName, agentFileName + ".zip");
+        pathToAgentZip = Paths.get(cfg.getAgentFolderName(), agentFileName + ".zip");
     }
 
     /** {@inheritDoc} */
