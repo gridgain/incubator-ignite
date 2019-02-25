@@ -150,19 +150,16 @@ public class WebConsoleServer extends AbstractVerticle {
             vertx
                 .createHttpServer()
                 .requestHandler(req -> {
-                    if (!req.isSSL()) {
-                        String origin = Utils.origin(req).replace("http:", "https:");
+                    String origin = Utils.origin(req).replace("http:", "https:");
 
-                        if (port != 443)
-                            origin += ":" + port;
+                    if (port != 443)
+                        origin += ":" + port;
 
-                        req.response()
-                            .setStatusCode(HTTP_MOVED_PERM)
-                            .setStatusMessage("Server requires HTTPS")
-                            .putHeader(HttpHeaders.LOCATION, origin)
-                            .end();
-                    }
-
+                    req.response()
+                        .setStatusCode(HTTP_MOVED_PERM)
+                        .setStatusMessage("Server requires HTTPS")
+                        .putHeader(HttpHeaders.LOCATION, origin)
+                        .end();
                 })
                 .listen(80);
         }
