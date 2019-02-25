@@ -53,7 +53,6 @@ import io.vertx.ext.web.sstore.LocalSessionStore;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
-import org.apache.ignite.console.common.Utils;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.F;
@@ -63,6 +62,9 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+import static org.apache.ignite.console.common.Utils.errorMessage;
+import static org.apache.ignite.console.common.Utils.jksOptions;
+import static org.apache.ignite.console.common.Utils.origin;
 
 /**
  * Web Console server.
@@ -150,7 +152,7 @@ public class WebConsoleServer extends AbstractVerticle {
             vertx
                 .createHttpServer()
                 .requestHandler(req -> {
-                    String origin = Utils.origin(req).replace("http:", "https:");
+                    String origin = origin(req).replace("http:", "https:");
 
                     if (port != 443)
                         origin += ":" + port;
@@ -187,12 +189,12 @@ public class WebConsoleServer extends AbstractVerticle {
         if (ssl) {
             httpOpts.setSsl(true);
 
-            JksOptions jks = Utils.jksOptions(cfg.getKeyStore(), cfg.getKeyStorePassword());
+            JksOptions jks = jksOptions(cfg.getKeyStore(), cfg.getKeyStorePassword());
 
             if (jks != null)
                 httpOpts.setKeyStoreOptions(jks);
 
-            jks = Utils.jksOptions(cfg.getTrustStore(), cfg.getTrustStorePassword());
+            jks = jksOptions(cfg.getTrustStore(), cfg.getTrustStorePassword());
 
             if (jks != null)
                 httpOpts.setTrustStoreOptions(jks);
@@ -207,7 +209,7 @@ public class WebConsoleServer extends AbstractVerticle {
             }
 
             httpOpts
-                .setClientAuth(cfg.isClientAuth() ? ClientAuth.REQUIRED : ClientAuth.NONE);
+                .setClientAuth(cfg.isClientAuth() ? ClientAuth.REQUIRED : ClientAuth.REQUEST);
         }
 
         vertx
@@ -368,7 +370,7 @@ public class WebConsoleServer extends AbstractVerticle {
     private void sendError(RoutingContext ctx, String msg, Throwable e) {
         logError(msg, e);
 
-        sendStatus(ctx, HTTP_INTERNAL_ERROR, msg + ": " + Utils.errorMessage(e));
+        sendStatus(ctx, HTTP_INTERNAL_ERROR, msg + ": " + errorMessage(e));
     }
 
     /**
@@ -412,7 +414,7 @@ public class WebConsoleServer extends AbstractVerticle {
                 sendStatus(ctx, HTTP_OK);
             }
             else
-                sendStatus(ctx, HTTP_UNAUTHORIZED, Utils.errorMessage(asyncRes.cause()));
+                sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
         });
     }
 
@@ -427,7 +429,7 @@ public class WebConsoleServer extends AbstractVerticle {
                 sendStatus(ctx, HTTP_OK);
             }
             else
-                sendStatus(ctx, HTTP_UNAUTHORIZED, Utils.errorMessage(asyncRes.cause()));
+                sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
         });
     }
 
