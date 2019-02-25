@@ -24,7 +24,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
-import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -32,7 +31,7 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.util.typedef.F;
+import org.apache.ignite.console.common.Utils;
 
 /**
  * Router to handle REST API to download Web Agent.
@@ -70,25 +69,6 @@ public class AgentDownloadRouter extends AbstractRouter {
     }
 
     /**
-     *
-     * @param req Request.
-     * @return Site origin.
-     */
-    private String origin(HttpServerRequest req) {
-       String proto = req.getHeader("x-forwarded-proto");
-
-       if (F.isEmpty(proto))
-           proto = req.isSSL() ? "https" : "http";
-
-       String host = req.getHeader("x-forwarded-host");
-
-        if (F.isEmpty(host))
-            host = req.host();
-
-        return proto + "://" + host;
-    }
-
-    /**
      * @param ctx Context.
      */
     private void load(RoutingContext ctx) {
@@ -113,7 +93,7 @@ public class AgentDownloadRouter extends AbstractRouter {
 
                 String content = String.join("\n",
                     "tokens=" + user.principal().getString("token", "MY_TOKEN"), // TODO WC-938 Take token from Account after WC-949 will be merged.
-                    "server-uri=" + origin(ctx.request()),
+                    "server-uri=" + Utils.origin(ctx.request()),
                     "#Uncomment following options if needed:",
                     "#node-uri=http://localhost:8080",
                     "#node-login=ignite",

@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
@@ -100,5 +101,23 @@ public class Utils {
             jks.setPassword(pwd);
 
         return jks;
+    }
+
+    /**
+     * @param req Request.
+     * @return Request origin.
+     */
+    public  static String origin(HttpServerRequest req) {
+        String proto = req.getHeader("x-forwarded-proto");
+
+        if (F.isEmpty(proto))
+            proto = req.isSSL() ? "https" : "http";
+
+        String host = req.getHeader("x-forwarded-host");
+
+        if (F.isEmpty(host))
+            host = req.host();
+
+        return proto + "://" + host;
     }
 }

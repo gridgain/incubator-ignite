@@ -33,7 +33,6 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.ClientAuth;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerOptions;
-import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.JksOptions;
@@ -54,6 +53,7 @@ import io.vertx.ext.web.sstore.LocalSessionStore;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.console.auth.IgniteAuth;
 import org.apache.ignite.console.common.Addresses;
+import org.apache.ignite.console.common.Utils;
 import org.apache.ignite.console.config.WebConsoleConfiguration;
 import org.apache.ignite.console.routes.RestApiRouter;
 import org.apache.ignite.internal.util.typedef.F;
@@ -63,8 +63,6 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static org.apache.ignite.console.common.Utils.errorMessage;
-import static org.apache.ignite.console.common.Utils.jksOptions;
 
 /**
  * Web Console server.
@@ -145,14 +143,28 @@ public class WebConsoleServer extends AbstractVerticle {
 
         boolean ssl = !F.isEmpty(cfg.getKeyStore()) || !F.isEmpty(cfg.getTrustStore());
 
-        if (ssl) {
-            Router router = Router.router(vertx);
-            router.route().handler(this::redirectToHttps);
+        int port = cfg.getPort();
 
+        // Add redirect to HTTPS.
+        if (ssl & port != 80) {
             vertx
                 .createHttpServer()
-                .requestHandler(router)
-                .listen(/*cfg.getPort()*/80);
+                .requestHandler(req -> {
+                    if (!req.isSSL()) {
+                        String origin = Utils.origin(req).replace("http:", "https:");
+
+                        if (port != 443)
+                            origin += ":" + port;
+
+                        req.response()
+                            .setStatusCode(HTTP_MOVED_PERM)
+                            .setStatusMessage("Server requires HTTPS")
+                            .putHeader(HttpHeaders.LOCATION, origin)
+                            .end();
+                    }
+
+                })
+                .listen(80);
         }
 
         Router router = Router.router(vertx);
@@ -178,12 +190,12 @@ public class WebConsoleServer extends AbstractVerticle {
         if (ssl) {
             httpOpts.setSsl(true);
 
-            JksOptions jks = jksOptions(cfg.getKeyStore(), cfg.getKeyStorePassword());
+            JksOptions jks = Utils.jksOptions(cfg.getKeyStore(), cfg.getKeyStorePassword());
 
             if (jks != null)
                 httpOpts.setKeyStoreOptions(jks);
 
-            jks = jksOptions(cfg.getTrustStore(), cfg.getTrustStorePassword());
+            jks = Utils.jksOptions(cfg.getTrustStore(), cfg.getTrustStorePassword());
 
             if (jks != null)
                 httpOpts.setTrustStoreOptions(jks);
@@ -204,24 +216,9 @@ public class WebConsoleServer extends AbstractVerticle {
         vertx
             .createHttpServer(httpOpts)
             .requestHandler(router)
-            .listen(/*cfg.getPort() +*/ 443);
+            .listen(port);
 
         logInfo("Web Console server started.");
-    }
-
-    /**
-     * @param ctx Context.
-     */
-    private void redirectToHttps(RoutingContext ctx) {
-        if (!ctx.request().isSSL()) {
-            HttpServerResponse res = ctx.response();
-
-            res
-                .setStatusCode(HTTP_MOVED_PERM)
-                .setStatusMessage("Server requires HTTPS")
-                .putHeader(HttpHeaders.LOCATION, "https://" + ctx.request().host())
-                .end();
-        }
     }
 
     /**
@@ -374,7 +371,7 @@ public class WebConsoleServer extends AbstractVerticle {
     private void sendError(RoutingContext ctx, String msg, Throwable e) {
         logError(msg, e);
 
-        sendStatus(ctx, HTTP_INTERNAL_ERROR, msg + ": " + errorMessage(e));
+        sendStatus(ctx, HTTP_INTERNAL_ERROR, msg + ": " + Utils.errorMessage(e));
     }
 
     /**
@@ -418,7 +415,7 @@ public class WebConsoleServer extends AbstractVerticle {
                 sendStatus(ctx, HTTP_OK);
             }
             else
-                sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
+                sendStatus(ctx, HTTP_UNAUTHORIZED, Utils.errorMessage(asyncRes.cause()));
         });
     }
 
@@ -433,7 +430,7 @@ public class WebConsoleServer extends AbstractVerticle {
                 sendStatus(ctx, HTTP_OK);
             }
             else
-                sendStatus(ctx, HTTP_UNAUTHORIZED, errorMessage(asyncRes.cause()));
+                sendStatus(ctx, HTTP_UNAUTHORIZED, Utils.errorMessage(asyncRes.cause()));
         });
     }
 
@@ -549,6 +546,8 @@ public class WebConsoleServer extends AbstractVerticle {
 
     /**
      * Visor task descriptor.
+     *
+     * TODO IGNITE-5617 Move to separate class?
      */
     public static class VisorTaskDescriptor {
         /** */
