@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.console.WebConsoleServer;
 import org.apache.ignite.console.routes.AccountRouter;
+import org.apache.ignite.console.routes.AgentDownloadRouter;
 import org.apache.ignite.console.routes.ConfigurationsRouter;
 import org.apache.ignite.console.routes.NotebooksRouter;
 import org.apache.ignite.console.routes.RestApiRouter;
@@ -65,8 +66,9 @@ public class WebConsoleLauncher extends AbstractVerticle {
             RestApiRouter accRouter = new AccountRouter(ignite, vertx);
             RestApiRouter cfgsRouter = new ConfigurationsRouter(ignite);
             RestApiRouter notebooksRouter = new NotebooksRouter(ignite);
+            RestApiRouter downloadRouter = new AgentDownloadRouter(ignite, "/your/path", "ignite-web-agent-x.y.z");
 
-            vertx.deployVerticle(new WebConsoleServer(ignite, accRouter, cfgsRouter, notebooksRouter));
+            vertx.deployVerticle(new WebConsoleServer(ignite, accRouter, cfgsRouter, notebooksRouter, downloadRouter));
         });
     }
 

@@ -76,7 +76,7 @@ public class Utils {
      * @return the value or {@code def} if no entry present.
      */
     public static boolean getBoolean(JsonObject json, String path, boolean def) {
-        String[] keys = path.split(".");
+        String[] keys = path.split("\\.");
 
         for (int i = 0; i < keys.length - 1; i++)
             json = json.getJsonObject(keys[i], EMPTY_OBJ);

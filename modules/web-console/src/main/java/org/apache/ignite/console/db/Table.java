@@ -50,6 +50,8 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      */
     public Table(Ignite ignite, String cacheName) {
         super(ignite, cacheName);
+
+        cache();
     }
 
     /**
@@ -84,6 +86,9 @@ public class Table<T extends AbstractDto> extends CacheHolder<UUID, T> {
      */
     @Nullable public T getByIndex(Object key) {
         UUID id = indexCache().get(key);
+
+        if (id == null)
+            return null;
 
         return cache().get(id);
     }

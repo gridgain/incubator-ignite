@@ -36,6 +36,7 @@
 
     <properties>
         <vertx.version>3.6.3</vertx.version>
+        <commons.compress>1.18</commons.compress>
         <node.version>v10.15.1</node.version>
         <docker.registry.host>docker.io</docker.registry.host>
         <docker.repository>apacheignite</docker.repository>
@@ -53,6 +54,18 @@
         </dependency>
 
         <!-- Third-party dependencies -->
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>${commons.codec.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>${commons.compress}</version>
+        </dependency>
+
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-core</artifactId>
